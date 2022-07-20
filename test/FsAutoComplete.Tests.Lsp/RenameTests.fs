@@ -9,6 +9,8 @@ open Expecto
 open FsAutoComplete.Utils
 open Utils.ServerTests
 open Utils.Server
+open Utils.Utils
+open Utils.TextEdit
 
 let private normalizePathCasing =
   Path.FilePathToUri
@@ -121,111 +123,97 @@ let tests state =
         ])
 
   let sameScriptTests =
-    let server =
-      async {
-        let testDir =
-          Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "SameScript")
+    serverTestList "Within same script file" state defaultConfigDto None (fun server -> [
+      let checkRename textWithCursor newName expectedText = async {
+        let (cursor, text) =
+          textWithCursor
+          |> Text.trimTripleQuotation
+          |> Cursor.assertExtractPosition
 
-        let! (server, event) = serverInitialize testDir defaultConfigDto state
-        do! waitForWorkspaceFinishedParsing event
+        let! (doc, diags) = server |> Server.createUntitledDocument text
+        use doc = doc
+        Expect.isEmpty diags "There should be no diags"
 
-        return (server, testDir, event)
+        let p: RenameParams =
+          {
+            TextDocument = doc.TextDocumentIdentifier
+            Position = cursor
+            NewName = newName
+          }
+        let! res = doc.Server.Server.TextDocumentRename p
+        let edits = 
+          match res with
+          | Result.Error e -> failtestf "Request failed: %A" e
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some { DocumentChanges = Some edits }) -> edits
+          | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
+
+        Expect.hasLength edits 1 "should have just one file worth of edits"
+        let edit = edits.[0]
+        Expect.equal edit.TextDocument.Uri doc.Uri "should be for this file"
+        let edits = edit.Edits |> List.ofArray |> TextEdits.sortByRange
+        let actual =
+          text
+          |> TextEdits.applyWithErrorCheck edits
+          |> Flip.Expect.wantOk "TextEdits should be valid"
+
+        let expected = expectedText |> Text.trimTripleQuotation
+
+        Expect.equal actual expected "Text after TextEdits should be correct"
       }
+      testCaseAsync "Rename from definition within script file" <|
+        checkRename
+          """
+          let $0initial () = printfn "hi"
 
-    testSequenced
-    <| testList
-         "Within same script file"
-         [ testCaseAsync
-             "Rename from definition within script file"
-             (async {
-               let! server, testDir, events = server
-               let path = Path.Combine(testDir, "Script.fsx")
-               let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-               do! server.TextDocumentDidOpen tdop
+          initial ()
+          """
+          "afterwards"
+          """
+          let afterwards () = printfn "hi"
 
-               do!
-                 waitForParseResultsForFile "Script.fsx" events
-                 |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
+          afterwards ()
+          """
+      testCaseAsync "Rename from usage within script file" <|
+        checkRename
+          """
+          let initial () = printfn "hi"
 
-               let newName = "afterwards"
-               let sourceFile: TextDocumentIdentifier = { Uri = normalizePathCasing path }
+          $0initial ()
+          """
+          "afterwards"
+          """
+          let afterwards () = printfn "hi"
 
-               let p: RenameParams =
-                 { TextDocument = sourceFile
-                   Position = { Line = 0; Character = 4 } // beginning of the 'initial' identifier
-                   NewName = newName }
+          afterwards ()
+          """
+      testCaseAsync "can add backticks to new name with space" <|
+        checkRename
+          """
+          let initial () = printfn "hi"
 
-               let! res = server.TextDocumentRename p
+          $0initial ()
+          """
+          "hello world"
+          """
+          let ``hello world`` () = printfn "hi"
 
-               match res with
-               | Result.Error e -> failtestf "Request failed: %A" e
-               | Result.Ok None -> failtest "Request none"
-               | Result.Ok (Some { DocumentChanges = Some edits }) ->
-                 Expect.hasLength edits 1 "should have just one file worth of edits"
-                 let edit = edits.[0]
+          ``hello world`` ()
+          """
+      testCaseAsync "doesn't add additional backticks to new name with backticks" <|
+        checkRename
+          """
+          let initial () = printfn "hi"
 
-                 Expect.equal edit.TextDocument.Uri sourceFile.Uri "should be for this file"
-                 let edits = edit.Edits
+          $0initial ()
+          """
+          "``hello world``"
+          """
+          let ``hello world`` () = printfn "hi"
 
-                 let expected: TextEdit[] =
-                   [| { NewText = newName
-                        Range =
-                          { Start = { Line = 0; Character = 4 }
-                            End = { Line = 0; Character = 11 } } }
-                      { NewText = newName
-                        Range =
-                          { Start = { Line = 2; Character = 0 }
-                            End = { Line = 2; Character = 7 } } } |]
-
-                 Expect.equal edits expected "Should change the two usages"
-               | Result.Ok edits -> failtestf "got some enexpected edits: %A" edits
-             })
-
-           testCaseAsync
-             "Rename from usage within script file"
-             (async {
-               let! server, testDir, events = server
-               let path = Path.Combine(testDir, "Script.fsx")
-               let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-               do! server.TextDocumentDidOpen tdop
-
-               do!
-                 waitForParseResultsForFile "Script.fsx" events
-                 |> AsyncResult.foldResult id (fun e -> failtestf "%A" e)
-
-               let newName = "afterwards"
-               let sourceFile: TextDocumentIdentifier = { Uri = normalizePathCasing path }
-
-               let p: RenameParams =
-                 { TextDocument = sourceFile
-                   Position = { Line = 2; Character = 0 } // beginning of the 'initial' identifier usage
-                   NewName = newName }
-
-               let! res = server.TextDocumentRename p
-
-               match res with
-               | Result.Error e -> failtestf "Request failed: %A" e
-               | Result.Ok None -> failtest "Request none"
-               | Result.Ok (Some { DocumentChanges = Some edits }) ->
-                 Expect.hasLength edits 1 "should have just one file worth of edits"
-                 let edit = edits.[0]
-
-                 Expect.equal edit.TextDocument.Uri sourceFile.Uri "should be for this file"
-                 let edits = edit.Edits
-
-                 let expected: TextEdit[] =
-                   [| { NewText = newName
-                        Range =
-                          { Start = { Line = 0; Character = 4 }
-                            End = { Line = 0; Character = 11 } } }
-                      { NewText = newName
-                        Range =
-                          { Start = { Line = 2; Character = 0 }
-                            End = { Line = 2; Character = 7 } } } |]
-
-                 Expect.equal edits expected "Should change the two usages"
-               | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
-             }) ]
+          ``hello world`` ()
+          """
+    ])
 
   let crossProjectTests =
     let server =
