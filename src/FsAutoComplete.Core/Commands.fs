@@ -787,13 +787,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           |> Async.Sequential
           |> Async.map ignore<unit[]>
 
-        // then parse all files in dependent projects
-        // TODO: Disabled due to performance issues - investigate.
-        // do!
-        //   state.ProjectController.GetDependentProjectsOfProjects([ opts ])
-        //   |> List.map x.CheckProject
-        //   |> Async.Sequential
-        //   |> Async.map ignore<unit[]>
+    // then parse all files in dependent projects
+    // TODO: Disabled due to performance issues - investigate.
+    // do!
+    //   state.ProjectController.GetDependentProjectsOfProjects([ opts ])
+    //   |> List.map x.CheckProject
+    //   |> Async.Sequential
+    //   |> Async.map ignore<unit[]>
 
     }
 
