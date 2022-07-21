@@ -590,7 +590,8 @@ type CodeLensConfigDto =
 
 type InlayHintDto =
   { typeAnnotations: bool option
-    parameterNames: bool option }
+    parameterNames: bool option
+    disableLongTooltip: bool option }
 
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
@@ -641,11 +642,13 @@ type CodeLensConfig =
 
 type InlayHintsConfig =
   { typeAnnotations: bool
-    parameterNames: bool }
+    parameterNames: bool
+    disableLongTooltip: bool }
 
   static member Default =
     { typeAnnotations = true
-      parameterNames = true }
+      parameterNames = true
+      disableLongTooltip = false }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -774,7 +777,8 @@ type FSharpConfig =
         | None -> InlayHintsConfig.Default
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations true
-            parameterNames = defaultArg ihDto.parameterNames true } }
+            parameterNames = defaultArg ihDto.parameterNames true
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip false } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -842,7 +846,8 @@ type FSharpConfig =
         | None -> InlayHintsConfig.Default
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
-            parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames } }
+            parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
