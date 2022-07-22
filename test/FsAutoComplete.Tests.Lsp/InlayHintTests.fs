@@ -177,15 +177,15 @@ module private LspInlayHints =
       let ignoreData (hint: InlayHint) = { hint with Data = None }
 
       // we remove edits and tooltips because they are too hard atm.
-      let actualWithoutEditsAndTooltip =
-        { actual with TextEdits = mkDummyEdits actual.TextEdits; Tooltip = None }
+      let actualWithoutEdits =
+        { actual with TextEdits = mkDummyEdits actual.TextEdits; }
         |> ignoreData
 
       let expectedWithoutExpected =
         { expectedBase with TextEdits = mkDummyEdits textAfterEdits }
 
       Expect.equal
-        actualWithoutEditsAndTooltip
+        actualWithoutEdits
         expectedWithoutExpected
         "Hint doesn't match expectations (Note: `TextEdits` are handled separately. Here just `None` or `Some`)"
 
