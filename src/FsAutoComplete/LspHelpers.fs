@@ -648,7 +648,7 @@ type InlayHintsConfig =
   static member Default =
     { typeAnnotations = true
       parameterNames = true
-      disableLongTooltip = false }
+      disableLongTooltip = true }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -778,7 +778,7 @@ type FSharpConfig =
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations true
             parameterNames = defaultArg ihDto.parameterNames true
-            disableLongTooltip = defaultArg ihDto.disableLongTooltip false } }
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip true } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
