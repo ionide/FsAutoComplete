@@ -2579,7 +2579,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let disableLongTooltip = "fsharp.inlayHints.disableLongTooltip"
 
           if config.InlayHints.disableLongTooltip then
-            h.Tooltip
+            h.Tooltip |> Option.map (InlayHintTooltip.String)
           else
             let lines = ResizeArray()
 
@@ -2598,7 +2598,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
             lines.Add $"Finally, to dismiss this long tooltip forever, [click here](command:{disableLongTooltip})."
 
-            String.concat "\n" lines |> Some
+            String.concat "\n" lines |> markdown |> InlayHintTooltip.Markup |> Some
 
         let hints: InlayHint[] =
           hints
@@ -2619,7 +2619,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     { Range = fcsPosToProtocolRange insertion.Pos
                       NewText = insertion.Text })
                   |> Some
-              Tooltip = getTooltip h |> Option.map (markdown >> InlayHintTooltip.Markup)
+              Tooltip = getTooltip h
               PaddingLeft =
                 match h.Kind with
                 | InlayHints.HintKind.Type -> Some true
