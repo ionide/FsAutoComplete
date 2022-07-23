@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.56.0] - 2022-07-23
+
+### Added
+
+* [Format range provider](https://github.com/fsharp/FsAutoComplete/pull/969)
+* [Info toolip for inlay hints](https://github.com/fsharp/FsAutoComplete/pull/972)
+* [Rename: Add backticks to name if necessary](https://github.com/fsharp/FsAutoComplete/pull/970) (thanks @Booksbaum!)
+
+### Fixed
+
+* [Disable cross-project typechecking on every edit](https://github.com/fsharp/FsAutoComplete/pull/971)
+
+
 ## [0.55.0] - 2022-07-12
 
 ### Added
