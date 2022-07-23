@@ -2598,9 +2598,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
             lines.Add $"Finally, to dismiss this long tooltip forever, [click here](command:{disableLongTooltip})."
 
-            h.Tooltip |> Option.iter (fun t ->
+            h.Tooltip
+            |> Option.iter (fun t ->
               lines.Add ""
-              lines.Add (t))
+              lines.Add(t))
 
             String.concat "\n" lines |> markdown |> InlayHintTooltip.Markup |> Some
 
