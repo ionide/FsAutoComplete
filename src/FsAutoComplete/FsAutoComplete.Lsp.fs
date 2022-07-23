@@ -2571,6 +2571,40 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             showParameterHints = config.InlayHints.parameterNames
           )
 
+        let getTooltip (h: InlayHints.Hint) =
+          let hideTypeAnnotations = "fsharp.inlayHints.hideTypeAnnotations"
+          let hideParameterNames = "fsharp.inlayHints.hideParameterNames"
+          let hideAll = "fsharp.inlayHints.hideAll"
+          let setToToggle = "fsharp.inlayHints.setToToggle"
+          let disableLongTooltip = "fsharp.inlayHints.disableLongTooltip"
+
+          if config.InlayHints.disableLongTooltip then
+            h.Tooltip |> Option.map (InlayHintTooltip.String)
+          else
+            let lines = ResizeArray()
+
+            let hideCommand =
+              match h.Kind with
+              | InlayHints.HintKind.Type -> hideTypeAnnotations
+              | InlayHints.HintKind.Parameter -> hideParameterNames
+
+            lines.Add $"To hide these hints, [click here](command:{hideCommand})."
+            lines.Add $"To hide *ALL* hints, [click here](command:{hideAll})."
+
+            // We don't have access to generic VSCode config so we don't know what inlay hints mode is used
+            // if not isSetToToggle && toggleSupported then
+            lines.Add
+              $"Hints can also be hidden by default, and shown when Ctrl/Cmd+Alt is pressed. To do this, [click here](command:{setToToggle})."
+
+            lines.Add $"Finally, to dismiss this long tooltip forever, [click here](command:{disableLongTooltip})."
+
+            h.Tooltip
+            |> Option.iter (fun t ->
+              lines.Add ""
+              lines.Add(t))
+
+            String.concat "\n" lines |> markdown |> InlayHintTooltip.Markup |> Some
+
         let hints: InlayHint[] =
           hints
           |> Array.map (fun h ->
@@ -2590,7 +2624,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     { Range = fcsPosToProtocolRange insertion.Pos
                       NewText = insertion.Text })
                   |> Some
-              Tooltip = h.Tooltip |> Option.map (InlayHintTooltip.String)
+              Tooltip = getTooltip h
               PaddingLeft =
                 match h.Kind with
                 | InlayHints.HintKind.Type -> Some true

@@ -176,8 +176,9 @@ module private LspInlayHints =
       let mkDummyEdits o = o |> Option.bind (fun _ -> Some [||])
       let ignoreData (hint: InlayHint) = { hint with Data = None }
 
+      // we remove edits and tooltips because they are too hard atm.
       let actualWithoutEdits =
-        { actual with TextEdits = mkDummyEdits actual.TextEdits }
+        { actual with TextEdits = mkDummyEdits actual.TextEdits; }
         |> ignoreData
 
       let expectedWithoutExpected =

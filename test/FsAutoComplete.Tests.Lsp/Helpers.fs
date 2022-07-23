@@ -210,7 +210,8 @@ let defaultConfigDto: FSharpConfigDto =
     InlayHints =
       Some
         { typeAnnotations = Some true
-          parameterNames = Some true } }
+          parameterNames = Some true
+          disableLongTooltip = Some true } }
 
 let clientCaps: ClientCapabilities =
   let dynCaps: DynamicCapabilities = { DynamicRegistration = Some true }
