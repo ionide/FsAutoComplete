@@ -86,7 +86,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       | StartsWith "--load:" file -> args, Array.append files [| file |]
       | arg -> Array.append args [| arg |], files)
 
-  let clearProjectReferences (opts: FSharpProjectOptions) = opts
+  let clearProjectReferences (opts: FSharpProjectOptions) =
+    if disableInMemoryProjectReferences then
+      { opts with ReferencedProjects = [||] }
+    else
+      opts
 
   let filterBadRuntimeRefs =
     let badRefs =
