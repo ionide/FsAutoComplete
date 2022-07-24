@@ -190,7 +190,9 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     | [||] -> mailbox.Post(Clear kind)
     | values -> mailbox.Post(Add(kind, values))
 
-  member x.ClearFor(fileUri: DocumentUri) = removeAgent fileUri
+  member x.ClearFor(fileUri: DocumentUri) =
+    removeAgent fileUri
+    sendDiagnostics fileUri [||] |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
     let mailbox = getOrAddAgent fileUri
