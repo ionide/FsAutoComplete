@@ -20,6 +20,7 @@
     },
     {
       "name": "LSP tests",
+      "preLaunchTask": "Build Test",
       "type": "coreclr",
       "request": "launch",
       "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net6.0/FsAutoComplete.Tests.Lsp.dll",
@@ -29,8 +30,8 @@
       "justMyCode": false,
       "symbolOptions": {
         "searchPaths": [],
-        "searchMicrosoftSymbolServer": true,
-        "searchNuGetOrgSymbolServer": true
+        "searchMicrosoftSymbolServer": false,
+        "searchNuGetOrgSymbolServer": false
       },
       "sourceLinkOptions": {
         "*": {
@@ -41,7 +42,7 @@
       "args": [
         "--debug",
         "--filter",
-        "FSAC.lsp.Ionide WorkspaceLoader.ScriptProjectOptionsCache.tests.reopening the script file should return same project options for file"
+        "FSAC.lsp.Ionide WorkspaceLoader.Autocomplete Tests.Autocomplete within project files.Autocomplete anon record members, wrapped in array edge case"
       ]
     },
     {

@@ -31,3 +31,7 @@ type Stub() =
     member val Baz = "" with get, set
 
 let s = Stub(Foo = "foo", )
+
+let x = [ {| Name = "foo" |} ]
+
+x.[0].

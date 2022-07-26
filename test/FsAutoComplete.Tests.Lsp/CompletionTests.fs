@@ -349,7 +349,32 @@ let autocompleteTest state =
               ((res.Items
                 |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2)
               "Autocomplete contains given symbol"
-        }) ]
+        })
+
+      testCaseAsync
+        "Autocomplete anon record members, wrapped in array edge case"
+        (async {
+          let! server, path = serverConfig
+
+          let c: CompletionContext =
+            { triggerKind = CompletionTriggerKind.Invoked
+              triggerCharacter = None }
+
+          let p: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 36; Character = 6 }
+              Context = Some c }
+
+          let! res = server.TextDocumentCompletion p
+
+          match res with
+          | Result.Error e -> failtestf "Request failed: %A" e
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok (Some res) ->
+            Expect.exists res.Items (fun n -> n.Label = "Name") "Autocomplete contains given symbol"
+            // Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
+        })
+        ]
 
   testList
     "Autocomplete Tests"
