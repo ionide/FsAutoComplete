@@ -23,9 +23,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true
     )
 
-  // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
-  let safeFileCheckedEvent = checker.FileChecked
-
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
   // let ensureAbsolutePath path =
@@ -39,7 +36,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   let entityCache = EntityCache()
 
-  let sdkRefsLogger = LogProvider.getLoggerByName "SdkRefs"
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
 
@@ -238,21 +234,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       return projOptions
     }
 
-  member __.GetBackgroundCheckResultsForFileInProject(fn: string<LocalPath>, opt) =
-    checkerLogger.info (
-      Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}"
-      >> Log.addContextDestructured "file" fn
-    )
-
-    let opt = clearProjectReferences opt
-
-    checker.GetBackgroundCheckResultsForFileInProject(UMX.untag fn, opt)
-    |> Async.map (fun (pr, cr) -> ParseAndCheckResults(pr, cr, entityCache))
-
-  member __.FileChecked: IEvent<string<LocalPath> * FSharpProjectOptions> =
-    safeFileCheckedEvent
-    |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
-
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
 
@@ -295,8 +276,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       with ex ->
         return ResultOrString.Error(ex.ToString())
     }
-
-  member _.CheckProject(opts) = checker.ParseAndCheckProject(opts)
 
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
@@ -360,8 +339,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
       return parseResult.GetNavigationItems().Declarations
     }
-
-  member __.Compile = checker.Compile
 
   member __.SetDotnetRoot(dotnetBinary: FileInfo, cwd: DirectoryInfo) =
     match Ionide.ProjInfo.SdkDiscovery.versionAt cwd dotnetBinary with
