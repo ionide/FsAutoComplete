@@ -688,6 +688,10 @@ type ParseAndCheckResults
   //     })
   //   | None -> None
 
+  member __.PublicHash() =
+    checkResults.GenerateSignature()
+    |> Option.map(fun s -> s.GetHashCode())
+
 
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults: FSharpCheckFileResults = checkResults

@@ -759,10 +759,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             opts.SourceFilesThatThisFileDependsOn(file)
             |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
             |> Async.Sequential
-            |> Async.map ignore<unit[]>
+            |> Async.map ignore<int[]>
 
         // parse this file
-        do! x.CheckFile(file, content, version, opts)
+        let! hash = x.CheckFile(file, content, version, opts)
 
         // then parse all files that depend on it in this project,
 
@@ -770,7 +770,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           opts.SourceFilesThatDependOnFile(file)
           |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
           |> Async.Sequential
-          |> Async.map ignore<unit[]>
+          |> Async.map ignore<int[]>
 
     // then parse all files in dependent projects
     // TODO: Disabled due to performance issues - investigate.
@@ -784,7 +784,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   /// easy helper that looks up a file and all required checking information then checks it.
   /// intended use is from the other, more complex Parse members, because the filePath is untagged
-  member private x.SimpleCheckFile(filePath: string<LocalPath>, tfmIfScript) : Async<unit> =
+  member private x.SimpleCheckFile(filePath: string<LocalPath>, tfmIfScript) : Async<int> =
     async {
       match state.TryGetFileSource filePath with
       | Ok text ->
@@ -794,12 +794,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         let! options = x.EnsureProjectOptionsForFile(filePath, text, version, tfmIfScript)
 
         match options with
-        | Some options -> do! x.CheckFile(filePath, text, version, options)
-        | None -> ()
-      | Error err -> ()
+        | Some options -> return! x.CheckFile(filePath, text, version, options)
+        | None -> return -1
+      | Error err -> return -1
     }
 
-  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<unit> =
+  member private _.CheckCore(fileName: string<LocalPath>, version, text, options) : Async<int> =
     async {
       match! checker.ParseAndCheckFileInProject(fileName, version, text, options) with
       | Ok parseAndCheck ->
@@ -807,16 +807,28 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         do state.SetLastCheckedVersion fileName version
         do fileParsed.Trigger parseAndCheck.GetParseResults
         do fileChecked.Trigger(parseAndCheck, fileName, version)
-      | Error e -> ()
+        let startT = DateTime.Now
+        let res = parseAndCheck.PublicHash()
+        let endT = DateTime.Now
+        let duration = endT - startT
+        let durationMs = duration.TotalMilliseconds
+        commandsLogger.info (
+            Log.setMessage "Public Hash '{hash} in {durationMs}ms"
+            >> Log.addContextDestructured "hash" res
+            >> Log.addContextDestructured "durationMs" durationMs
+          )
+        return res |> Option.defaultValue 0
+      | Error e ->
+        return -1
     }
 
   member x.CheckProject(p: FSharpProjectOptions) : Async<unit> =
     p.SourceFiles
     |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, FSIRefs.TFM.NetCore)))
     |> Async.Sequential
-    |> Async.map ignore<unit[]>
+    |> Async.map ignore<int[]>
 
-  member private x.CheckFile(file, text: NamedText, version: int, projectOptions: FSharpProjectOptions) : Async<unit> =
+  member private x.CheckFile(file, text: NamedText, version: int, projectOptions: FSharpProjectOptions) : Async<int> =
     async {
       do x.CancelQueue file
       return! x.CheckCore(file, version, text, projectOptions)
