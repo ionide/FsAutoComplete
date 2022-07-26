@@ -363,8 +363,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   member __.Compile = checker.Compile
 
-  member internal __.GetFSharpChecker() = checker
-
   member __.SetDotnetRoot(dotnetBinary: FileInfo, cwd: DirectoryInfo) =
     match Ionide.ProjInfo.SdkDiscovery.versionAt cwd dotnetBinary with
     | Ok sdkVersion ->

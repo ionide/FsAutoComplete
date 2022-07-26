@@ -243,24 +243,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         >> Log.addContextDestructured "optionCount" count
       ))
 
-  do
-    disposables.Add
-    <| checker.FileChecked.Subscribe(fun (n, _) ->
-      checkerLogger.info (Log.setMessage "{file} checked" >> Log.addContextDestructured "file" n)
-
-      async {
-        try
-          match state.GetProjectOptions n with
-          | Some opts ->
-            let! res = checker.GetBackgroundCheckResultsForFileInProject(n, opts)
-            fileChecked.Trigger(res, res.FileName, -1) // filename comes from compiler, safe to just tag here
-          | _ -> ()
-        with _ ->
-          ()
-      }
-      |> Async.Start)
-
-  //Triggered by `FSharpChecker.FileChecked` if background service is disabled
+  //Diagnostics handler - Triggered by `CheckCore`
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
@@ -283,6 +266,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       }
       |> Async.Start)
 
+  //Analyzers handler - Triggered by `CheckCore`
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
@@ -339,6 +323,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       }
       |> Async.Start)
 
+    //Test detection handler
     do
       disposables.Add
       <| fileParsed.Publish.Subscribe(fun parseResults ->
@@ -818,10 +803,9 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async {
       match! checker.ParseAndCheckFileInProject(fileName, version, text, options) with
       | Ok parseAndCheck ->
-        let parseResult = parseAndCheck.GetParseResults
-        do fileParsed.Trigger parseResult
         do lastCheckResult <- Some parseAndCheck
         do state.SetLastCheckedVersion fileName version
+        do fileParsed.Trigger parseAndCheck.GetParseResults
         do fileChecked.Trigger(parseAndCheck, fileName, version)
       | Error e -> ()
     }
