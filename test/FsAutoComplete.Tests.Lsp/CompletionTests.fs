@@ -6,6 +6,8 @@ open Helpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
+open FsToolkit.ErrorHandling
+open Utils.Server
 
 let tests state =
   let server =
@@ -186,7 +188,25 @@ let tests state =
           failtest "Should have gotten some completion items"
         | Error e ->
           failtestf "Got an error while retrieving completions: %A" e
-      }) ]
+      })
+
+      testCaseAsync "no backticks in completionitem signatures" (asyncResult {
+        let! server, path = server
+        let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+        let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
+        let ctokMember = response.Items[0]
+        let! resolved = server.CompletionItemResolve(ctokMember)
+        Expect.equal resolved.Label "CancellationToken" "Just making sure we're on the right member, one that should have backticks"
+        Expect.equal resolved.Detail (Some "property Async.CancellationToken: Async<System.Threading.CancellationToken> with get") "Signature shouldn't have backticks"
+
+      } |> AsyncResult.bimap id (fun e -> failwithf "%O" e))]
 
 ///Tests for getting autocomplete
 let autocompleteTest state =

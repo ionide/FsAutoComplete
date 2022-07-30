@@ -109,6 +109,7 @@ module Parser =
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
 
+
     rootCommand.SetHandler(
       Func<_, _, Task>(fun projectGraphEnabled stateDirectory ->
         let workspaceLoaderFactory =
