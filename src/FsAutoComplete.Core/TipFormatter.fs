@@ -1017,23 +1017,22 @@ let formatGenericParameters (typeMappings: TaggedText[] list) =
   |> List.map (fun typeMap -> $"* {formatTaggedTexts typeMap}")
   |> String.concat nl
 
-let formatTip (ToolTipText tips) : (string * string) list list =
+/// CompletionItems are formatted with an unmodified signature since the signature portion of the
+/// item isn't markdown-compatible. The documentation shown however is markdown.
+let formatCompletionItemTip (ToolTipText tips) : (string * string) =
   tips
-  |> List.choose (function
+  |> List.pick (function
     | ToolTipElement.Group items ->
-      let getRemarks (it: ToolTipElementData) =
-        it.Remarks |> Option.map formatTaggedTexts |> Option.defaultValue ""
-
       let makeTooltip (tipElement: ToolTipElementData) =
-        let header = formatTaggedTexts tipElement.MainDescription + getRemarks tipElement
+        let header = formatUntaggedTexts tipElement.MainDescription
 
         let body = buildFormatComment tipElement.XmlDoc FormatCommentStyle.Legacy None
         header, body
 
-      items |> List.map makeTooltip |> Some
+      items |> List.tryHead |> Option.map makeTooltip
 
-    | ToolTipElement.CompositionError (error) -> Some [ ("<Note>", error) ]
-    | _ -> None)
+    | ToolTipElement.CompositionError (error) -> Some("<Note>", error)
+    | _ -> Some("<Note>", "No signature data"))
 
 /// Formats a tooltip signature for output as a signatureHelp,
 /// which means no markdown formatting.
@@ -1118,13 +1117,9 @@ let formatDocumentationFromXmlSig
   let comment = buildFormatComment xmlDoc FormatCommentStyle.Documentation None
   [ [ (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn) ] ]
 
-/// use this when you want the raw text strings, for example in fsharp/signature calls
-let unformattedTexts (t: TaggedText[]) =
-  t |> Array.map (fun t -> t.Text) |> String.concat ""
-
 let extractSignature (ToolTipText tips) =
   let getSignature (t: TaggedText[]) =
-    let str = unformattedTexts t
+    let str = formatUntaggedTexts t
     let nlpos = str.IndexOfAny([| '\r'; '\n' |])
 
     let firstLine = if nlpos > 0 then str.[0 .. nlpos - 1] else str
@@ -1170,4 +1165,4 @@ let extractGenericParameters (ToolTipText tips) =
   tips
   |> Seq.tryPick firstResult
   |> Option.defaultValue []
-  |> List.map unformattedTexts
+  |> List.map formatUntaggedTexts

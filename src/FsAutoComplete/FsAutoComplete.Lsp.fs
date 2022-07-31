@@ -1094,49 +1094,50 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     }
 
   override __.CompletionItemResolve(ci: CompletionItem) =
+    let mapHelpText (ci: CompletionItem) (text: HelpText) =
+      match text with
+      | HelpText.Simple (symbolName, text) ->
+        let d = Documentation.Markup(markdown text)
+
+        { ci with
+            Detail = Some symbolName
+            Documentation = Some d }
+      | HelpText.Full (name, tip, additionalEdit) ->
+        let (si, comment) = TipFormatter.formatCompletionItemTip tip
+
+        let edits, label =
+          match additionalEdit with
+          | None -> None, ci.Label
+          | Some { Namespace = ns; Position = fcsPos } ->
+            let text =
+              let indentation = String(' ', fcsPos.Column)
+              $"{indentation}open {ns}\n"
+
+            let insertPos = { (fcsPos |> fcsPosToLsp) with Character = 0 }
+
+            Some
+              [| { TextEdit.NewText = text
+                   TextEdit.Range = { Start = insertPos; End = insertPos } } |],
+            $"{ci.Label} (open {ns})"
+
+        let d = Documentation.Markup(markdown comment)
+
+        { ci with
+            Detail = Some si
+            Documentation = Some d
+            AdditionalTextEdits = edits
+            Label = label }
+
     async {
       logger.info (
         Log.setMessage "CompletionItemResolve Request: {parms}"
         >> Log.addContextDestructured "parms" ci
       )
 
-      let! res = commands.Helptext ci.InsertText.Value
-
-      let res =
-        match res with
-        | CoreResponse.InfoRes msg
-        | CoreResponse.ErrorRes msg -> ci
-        | CoreResponse.Res (HelpText.Simple (name, str)) ->
-          let d = Documentation.Markup(markdown str)
-
-          { ci with
-              Detail = Some name
-              Documentation = Some d }
-        | CoreResponse.Res (HelpText.Full (name, tip, additionalEdit)) ->
-          let (si, comment) = (TipFormatter.formatTip tip) |> List.collect id |> List.head
-
-          let edits, label =
-            match additionalEdit with
-            | None -> None, ci.Label
-            | Some { Namespace = ns; Position = fcsPos } ->
-              let text =
-                let indentation = String(' ', fcsPos.Column)
-                $"{indentation}open {ns}\n"
-
-              let insertPos = { (fcsPos |> fcsPosToLsp) with Character = 0 }
-
-              Some
-                [| { TextEdit.NewText = text
-                     TextEdit.Range = { Start = insertPos; End = insertPos } } |],
-              $"{ci.Label} (open {ns})"
-
-          let d = Documentation.Markup(markdown comment)
-
-          { ci with
-              Detail = Some si
-              Documentation = Some d
-              AdditionalTextEdits = edits
-              Label = label }
+      let! res =
+        commands.Helptext ci.InsertText.Value
+        |> AsyncResult.ofCoreResponse
+        |> AsyncResult.foldResult (mapHelpText ci) (fun _ -> ci)
 
       return success res
     }
