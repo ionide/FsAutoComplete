@@ -214,55 +214,78 @@ module TypedAstExtensionHelpers =
       with _ ->
         Seq.empty
 
+  /// Helper active pattern that prevents us from using catch-all match patterns if new types of FSharpSymbol
+  /// are defined.
+  let inline private (|MFV|Entity|GenericParameter|UnionCase|Field|Parameter|ActivePattern|) (s: FSharpSymbol) =
+    match s with
+    | :? FSharpParameter as p -> Parameter p
+    | :? FSharpMemberOrFunctionOrValue as m -> MFV m
+    | :? FSharpEntity as m -> Entity m
+    | :? FSharpGenericParameter as p -> GenericParameter p
+    | :? FSharpUnionCase as m -> UnionCase m
+    | :? FSharpField as m -> Field m
+    | :? FSharpActivePatternCase as m -> ActivePattern m
+    | _ -> failwith $"unknown Symbol subclass {s.GetType().FullName}"
+
   type FSharpSymbol with
 
+    /// <summary>
+    /// If this member is a type abbeviation (<c>type Foo = Bar&lt;string&gt;</c> for example),
+    /// resolves the underlying type. Otherwise returns this type.
+    /// </summary>
     member this.GetAbbreviatedParent() =
       match this with
-      | :? FSharpEntity as m ->
-        if m.IsFSharpAbbreviation then
-          m.AbbreviatedType.TypeDefinition.GetAbbreviatedParent()
+      | Entity e ->
+        if e.IsFSharpAbbreviation then
+          e.AbbreviatedType.TypeDefinition.GetAbbreviatedParent()
         else
           this
-      | _ -> this
+      | MFV _
+      | GenericParameter _
+      | UnionCase _
+      | Field _
+      | ActivePattern _
+      | Parameter _ -> this
 
     member this.IsPrivateToFile =
       match this with
-      | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember
-      | :? FSharpEntity as m -> m.Accessibility.IsPrivate
-      | :? FSharpGenericParameter -> true
-      | :? FSharpUnionCase as m -> m.Accessibility.IsPrivate
-      | :? FSharpField as m -> m.Accessibility.IsPrivate
-      | _ -> false
+      | Entity e -> e.Accessibility.IsPrivate
+      | MFV m -> m.Accessibility.IsPrivate
+      | GenericParameter _ -> true
+      | UnionCase u -> u.Accessibility.IsPrivate
+      | Field f -> f.Accessibility.IsPrivate
+      | Parameter p -> p.Accessibility.IsPrivate
+      | ActivePattern a -> a.Accessibility.IsPrivate
 
     member this.IsInternalToProject =
       match this with
-      | :? FSharpParameter -> true
-      | :? FSharpMemberOrFunctionOrValue as m -> not m.IsModuleValueOrMember || not m.Accessibility.IsPublic
-      | :? FSharpEntity as m -> not m.Accessibility.IsPublic
-      | :? FSharpGenericParameter -> true
-      | :? FSharpUnionCase as m -> not m.Accessibility.IsPublic
-      | :? FSharpField as m -> not m.Accessibility.IsPublic
-      | _ -> false
+      | Parameter p -> not p.Accessibility.IsPublic
+      | MFV m -> not m.IsModuleValueOrMember || not m.Accessibility.IsPublic
+      | Entity m -> not m.Accessibility.IsPublic
+      | GenericParameter g -> not g.Accessibility.IsPublic
+      | UnionCase m -> not m.Accessibility.IsPublic
+      | Field m -> not m.Accessibility.IsPublic
+      | ActivePattern a -> not a.Accessibility.IsPublic
 
     member x.XmlDocSig =
       match x with
-      | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDocSig
-      | :? FSharpEntity as fse -> fse.XmlDocSig
-      | :? FSharpField as fsf -> fsf.XmlDocSig
-      | :? FSharpUnionCase as fsu -> fsu.XmlDocSig
-      | :? FSharpActivePatternCase as apc -> apc.XmlDocSig
-      | :? FSharpGenericParameter -> ""
-      | _ -> ""
+      | MFV func -> func.XmlDocSig
+      | Entity fse -> fse.XmlDocSig
+      | Field fsf -> fsf.XmlDocSig
+      | UnionCase fsu -> fsu.XmlDocSig
+      | ActivePattern apc -> apc.XmlDocSig
+      | GenericParameter _
+      | Parameter _ -> ""
 
     member x.XmlDoc =
       match x with
-      | :? FSharpMemberOrFunctionOrValue as func -> func.XmlDoc
-      | :? FSharpEntity as fse -> fse.XmlDoc
-      | :? FSharpField as fsf -> fsf.XmlDoc
-      | :? FSharpUnionCase as fsu -> fsu.XmlDoc
-      | :? FSharpActivePatternCase as apc -> apc.XmlDoc
-      | :? FSharpGenericParameter as gp -> gp.XmlDoc
-      | _ -> FSharpXmlDoc.None
+      | MFV func -> func.XmlDoc
+      | Entity fse -> fse.XmlDoc
+      | Field fsf -> fsf.XmlDoc
+      | UnionCase fsu -> fsu.XmlDoc
+      | ActivePattern apc -> apc.XmlDoc
+      | GenericParameter gp -> gp.XmlDoc
+      | Parameter p -> FSharpXmlDoc.None
 
   type FSharpGenericParameterMemberConstraint with
 
