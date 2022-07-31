@@ -1218,12 +1218,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+
     let filterSymbols symbols =
       symbols
       |> Array.where (fun (su: FSharpSymbolUse) ->
         su.IsFromDispatchSlotImplementation
         || (su.IsFromType
-            && not (UntypedAstUtils.isTypedBindingAtPosition tyRes.GetAST su.Range)))
+            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
 
     async {
       match tyRes.TryGetSymbolUseAndUsages pos lineStr with

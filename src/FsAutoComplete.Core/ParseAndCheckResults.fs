@@ -679,16 +679,6 @@ type ParseAndCheckResults
     checkResults.GetAllUsesOfAllSymbolsInFile()
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
-
-  // member this.GetExpandedType (pos: Position) =
-  //   match parseResults.ParseTree with
-  //   | Some input ->
-  //     SyntaxTraversal.Traverse(pos, input, {
-  //       new SyntaxVisitorBase<_>() with
-  //     })
-  //   | None -> None
-
-
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults: FSharpCheckFileResults = checkResults
   member __.GetParseResults: FSharpParseFileResults = parseResults
