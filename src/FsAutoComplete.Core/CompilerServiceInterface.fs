@@ -20,7 +20,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       keepAssemblyContents = hasAnalyzers,
       suggestNamesForErrors = true,
       enablePartialTypeChecking = not hasAnalyzers,
-      enableBackgroundItemKeyStoreAndSemanticClassification = true
+      enableBackgroundItemKeyStoreAndSemanticClassification = true,
+      keepAllBackgroundSymbolUses = true
     )
 
   // /// FCS only accepts absolute file paths, so this ensures that by
@@ -299,25 +300,24 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" file
       )
 
-      let projects = x.GetDependingProjects file options
+      match x.GetDependingProjects file options with
+      | None -> return [||]
+      | Some (opts, []) ->
+        let opts = clearProjectReferences opts
+        let! res = checker.ParseAndCheckProject opts
+        return res.GetUsesOfSymbol symbol
+      | Some (opts, dependentProjects) ->
+        let! res =
+          opts :: dependentProjects
+          |> List.map (fun (opts) ->
+            async {
+              let opts = clearProjectReferences opts
+              let! res = checker.ParseAndCheckProject opts
+              return res.GetUsesOfSymbol symbol
+            })
+          |> Async.Parallel
 
-      return!
-        match projects with
-        | None -> async { return [||] }
-        | Some (p, projects) ->
-          async {
-            let! res =
-              p :: projects
-              |> Seq.map (fun (opts) ->
-                async {
-                  let opts = clearProjectReferences opts
-                  let! res = checker.ParseAndCheckProject opts
-                  return res.GetUsesOfSymbol symbol
-                })
-              |> Async.Parallel
-
-            return res |> Array.concat
-          }
+        return res |> Array.concat
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
