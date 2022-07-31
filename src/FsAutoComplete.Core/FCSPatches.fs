@@ -1196,10 +1196,10 @@ module ParsedInputExtensions =
             |> Array.singleton
           | _ -> defaultTraverse synExpr }
 
-  type FSharp.Compiler.Syntax.ParsedInput with
+  type FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
 
-    member parseTree.GetSemanticClassification(_: range option) : SemanticClassificationItem[] =
-      SyntaxTraversal.Walk(parseTree, semanticClassificationWalker)
+    member parseResults.GetSemanticClassification(_: range option) : SemanticClassificationItem[] =
+      SyntaxTraversal.Walk(parseResults.ParseTree, semanticClassificationWalker)
 
   let walk (c: FSharpImplementationFileContents) : SemanticClassificationItem[] =
     let rec walkDeclaration (d: FSharpImplementationFileDeclaration) =

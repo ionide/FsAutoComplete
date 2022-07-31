@@ -680,7 +680,7 @@ type ParseAndCheckResults
     checkResults.GetAllUsesOfAllSymbolsInFile()
 
   member __.GetSemanticClassification range =
-    [| yield! parseResults.ParseTree.GetSemanticClassification(range)
+    [| yield! parseResults.GetSemanticClassification(range)
        yield! checkResults.GetSemanticClassification range |]
 
   // member this.GetExpandedType (pos: Position) =
