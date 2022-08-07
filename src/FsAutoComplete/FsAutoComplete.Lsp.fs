@@ -937,7 +937,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     Some
                       { TextDocumentSyncOptions.Default with
                           OpenClose = Some true
-                          Change = Some TextDocumentSyncKind.Full
+                          Change = Some TextDocumentSyncKind.Incremental
                           Save = Some { IncludeText = Some true } }
                   FoldingRangeProvider = Some true
                   SelectionRangeProvider = Some true
@@ -980,26 +980,47 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           ))
     }
 
-  override __.TextDocumentDidChange(p) =
+  override __.TextDocumentDidChange(p: DidChangeTextDocumentParams) =
     async {
 
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      let contentChange = p.ContentChanges |> Seq.tryLast
+      // types are incorrect for this endpoint - version is always supplied by the client
+      let endVersion = doc.Version.Value
+
 
       logger.info (
         Log.setMessage "TextDocumentDidChange Request: {parms}"
         >> Log.addContextDestructured "parms" filePath
       )
 
-      match contentChange, doc.Version with
-      | Some contentChange, Some version ->
-        if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-          let content = NamedText(filePath, contentChange.Text)
-          commands.SetFileContent(filePath, content, Some version)
-        else
-          ()
-      | _ -> ()
+      let initialText =
+        state.TryGetFileSource(filePath)
+        |> Result.fold id (fun _ -> NamedText(filePath, ""))
+
+      let evolvedFileContent =
+        (initialText, p.ContentChanges)
+        ||> Array.fold (fun text change ->
+          match change.Range with
+          | None -> // replace entire content
+            NamedText(filePath, change.Text)
+          | Some rangeToReplace ->
+            // replace just this slice
+            let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+
+            match text.ModifyText(fcsRangeToReplace, change.Text) with
+            | Ok text -> text
+            | Error message ->
+              logger.error (
+                Log.setMessage "Error applying change to document {file} for version {version}: {message}"
+                >> Log.addContextDestructured "file" filePath
+                >> Log.addContextDestructured "version" endVersion
+                >> Log.addContextDestructured "message" message
+              )
+
+              text)
+
+      commands.SetFileContent(filePath, evolvedFileContent, Some endVersion)
 
       checkFileDebouncer.Bounce p
     }
