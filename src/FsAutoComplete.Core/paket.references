@@ -6,8 +6,6 @@ FSharp.Analyzers.SDK
 Newtonsoft.Json
 ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
-Dapper
-Microsoft.Data.Sqlite
 System.Configuration.ConfigurationManager
 FSharp.UMX
 FsToolkit.ErrorHandling

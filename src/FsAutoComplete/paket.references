@@ -1,6 +1,5 @@
 #FSharpLint.Core
 CliWrap
-Dapper
 Destructurama.FSharp
 Fantomas.Client
 FSharp.Analyzers.SDK
@@ -13,7 +12,6 @@ Ionide.KeepAChangelog.Tasks
 Ionide.LanguageServerProtocol
 Ionide.ProjInfo
 Ionide.ProjInfo.ProjectSystem
-Microsoft.Data.Sqlite
 Microsoft.NETFramework.ReferenceAssemblies
 Microsoft.SourceLink.GitHub
 Newtonsoft.Json
