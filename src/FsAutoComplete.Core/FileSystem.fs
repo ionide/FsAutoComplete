@@ -140,18 +140,19 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     else
       // multiline, use a builder
       let builder = new System.Text.StringBuilder()
-      // slice of the first line
+      // potential slice of the first line, including newline
+      // because we know there are lines after the first line
       let firstLine = (x :> ISourceText).GetLineString(m.StartLine - 1)
-
-      builder.Append(firstLine.Substring(m.StartColumn))
+      builder.AppendLine(firstLine.Substring(m.StartColumn))
       |> ignore<System.Text.StringBuilder>
-      // whole intermediate lines
+
+      // whole intermediate lines, including newlines
       for line in (m.StartLine + 1) .. (m.EndLine - 1) do
         builder.AppendLine((x :> ISourceText).GetLineString(line - 1))
         |> ignore<System.Text.StringBuilder>
-      // final part, potential slice
-      let lastLine = (x :> ISourceText).GetLineString(m.EndLine - 1)
 
+      // final part, potential slice, so we do not include the trailing newline
+      let lastLine = (x :> ISourceText).GetLineString(m.EndLine - 1)
       builder.Append(lastLine.Substring(0, m.EndColumn))
       |> ignore<System.Text.StringBuilder>
 
