@@ -315,10 +315,10 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         ResolveSupport = None }
 
-    let renameCaps: RenameClientCapabilities =
-      { DynamicRegistration = Some true
-        HonorsChangeAnnotations = Some false
-        PrepareSupport = Some false }
+    // let renameCaps: RenameClientCapabilities =
+    //   { DynamicRegistration = Some true
+    //     HonorsChangeAnnotations = Some false
+    //     PrepareSupport = Some false }
 
     { Synchronization = Some syncCaps
       PublishDiagnostics = diagCaps
@@ -335,7 +335,7 @@ let clientCaps: ClientCapabilities =
       CodeAction = Some codeActionCaps
       CodeLens = Some dynCaps
       DocumentLink = Some dynCaps
-      Rename = Some renameCaps
+      Rename = Some dynCaps//renameCaps
       FoldingRange = Some foldingRangeCaps
       SelectionRange = Some dynCaps
       SemanticTokens = Some semanticTokensCaps

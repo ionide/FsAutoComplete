@@ -913,7 +913,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             Capabilities =
               { ServerCapabilities.Default with
                   HoverProvider = Some true
-                  RenameProvider = Some(U2.First true)
+                  RenameProvider = Some true //Some(U2.First true)
                   DefinitionProvider = Some true
                   TypeDefinitionProvider = Some true
                   ImplementationProvider = Some true

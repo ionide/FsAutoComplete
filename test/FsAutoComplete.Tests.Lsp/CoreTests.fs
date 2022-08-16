@@ -74,7 +74,7 @@ let initTests state =
         Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
         Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
         Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
-        Expect.equal res.Capabilities.RenameProvider (Some (U2.First true)) "Rename Provider"
+        Expect.equal res.Capabilities.RenameProvider (Some true (*(U2.First true)*)) "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
