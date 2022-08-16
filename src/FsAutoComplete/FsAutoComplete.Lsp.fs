@@ -2444,6 +2444,24 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       return res
     }
 
+  member _.FsProjRemoveFile(p: DotnetFileRequest) =
+    async {
+      logger.info (
+        Log.setMessage "FsProjRemoveFile Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      let! res = commands.FsProjRemoveFile p.FsProj p.FileVirtualPath
+
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg
+        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+        | CoreResponse.Res (_) -> { Content = "" } |> success
+
+      return res
+    }
+
   member x.FSharpHelp(p: TextDocumentPositionParams) =
     logger.info (
       Log.setMessage "FSharpHelp Request: {parms}"
@@ -2726,6 +2744,7 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     |> Map.add "fsproj/addFileAbove" (serverRequestHandling (fun s p -> s.FsProjAddFileAbove(p)))
     |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
     |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
+    |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
   let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
 
