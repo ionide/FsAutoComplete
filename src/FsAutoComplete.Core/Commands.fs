@@ -628,6 +628,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       try
         let dir = Path.GetDirectoryName fsprojPath
         let newFilePath = Path.Combine(dir, fileVirtPath)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
 
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
