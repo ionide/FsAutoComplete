@@ -1805,6 +1805,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
                     >> Log.addContextDestructured "file" file
                   )
+
                   let typ = data.[1]
                   let! r = Async.Catch(f arg pos tyRes lines lineStr typ file)
 
@@ -1819,8 +1820,17 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                       >> Log.addContextDestructured "file" file
                       >> Log.addExn e
                     )
+
                     let title = if typ = "signature" then "" else "0 References"
-                    return { p with Command = Some { Title = title; Command = ""; Arguments = None } } |> success
+
+                    return
+                      { p with
+                          Command =
+                            Some
+                              { Title = title
+                                Command = ""
+                                Arguments = None } }
+                      |> success
               }
             with e ->
               logger.error (
