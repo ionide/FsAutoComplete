@@ -20,7 +20,6 @@ nuget Microsoft.Build  copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
 nuget Microsoft.Build.Tasks.Core copy_local: false
-nuget NuGet.Frameworks
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.10.0-beta7
