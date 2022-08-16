@@ -140,16 +140,19 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     else
       // multiline, use a builder
       let builder = new System.Text.StringBuilder()
-      // slice of the first line
+      // potential slice of the first line, including newline
+      // because we know there are lines after the first line
       let firstLine = (x :> ISourceText).GetLineString(m.StartLine - 1)
 
-      builder.Append(firstLine.Substring(m.StartColumn))
+      builder.AppendLine(firstLine.Substring(m.StartColumn))
       |> ignore<System.Text.StringBuilder>
-      // whole intermediate lines
+
+      // whole intermediate lines, including newlines
       for line in (m.StartLine + 1) .. (m.EndLine - 1) do
         builder.AppendLine((x :> ISourceText).GetLineString(line - 1))
         |> ignore<System.Text.StringBuilder>
-      // final part, potential slice
+
+      // final part, potential slice, so we do not include the trailing newline
       let lastLine = (x :> ISourceText).GetLineString(m.EndLine - 1)
 
       builder.Append(lastLine.Substring(0, m.EndColumn))
@@ -245,12 +248,30 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       return np, x.GetCharUnsafe np
     }
 
+  /// split the TotalRange of this document at the range specified.
+  /// for cases of new content, the start and end of the provided range will be equal.
+  /// for text replacements, the start and end may be different.
+  member inline x.SplitAt(m: FSharp.Compiler.Text.Range) : Range * Range =
+    let startRange = Range.mkRange x.RawFileName x.TotalRange.Start m.Start
+    let endRange = Range.mkRange x.RawFileName m.End x.TotalRange.End
+    startRange, endRange
+
+  /// create a new NamedText for this file with the given text inserted at the given range.
+  member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<NamedText, string> =
+    result {
+      let startRange, endRange = x.SplitAt(m)
+      let! startText = x[startRange]
+      let! endText = x[endRange]
+      let totalText = startText + text + endText
+      return NamedText(x.FileName, totalText)
+    }
+
   /// Safe access to the contents of a file by Range
-  member inline x.Item
+  member x.Item
     with get (m: FSharp.Compiler.Text.Range) = x.GetText(m)
 
   /// Safe access to the char in a file by Position
-  member inline x.Item
+  member x.Item
     with get (pos: FSharp.Compiler.Text.Position) = x.TryGetChar(pos)
 
   member private x.Walk
