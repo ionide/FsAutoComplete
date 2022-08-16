@@ -118,6 +118,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyTestDetected(p: TestDetectedNotification) =
     sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
+  member __.CodeLensRefresh() =
+    sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
+
 type DiagnosticMessage =
   | Add of source: string * diags: Diagnostic[]
   | Clear of source: string
@@ -312,6 +315,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       match n with
       | NotificationEvent.FileParsed fn ->
         let uri = Path.LocalPathToUri fn
+
+        lspClient.CodeLensRefresh() |> Async.Start
 
         ({ Content = UMX.untag uri }: PlainNotification)
         |> lspClient.NotifyFileParsed
