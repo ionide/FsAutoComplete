@@ -86,7 +86,7 @@ module FsProjEditor =
 
     xdoc.Save fsprojPath
 
-  let removeFile (fsprojPath : string) (fileNameToRemove : string) =
+  let removeFile (fsprojPath: string) (fileNameToRemove: string) =
     let xdoc = System.Xml.XmlDocument()
     xdoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']/.." fileNameToRemove

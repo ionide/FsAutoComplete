@@ -637,7 +637,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         return CoreResponse.ErrorRes ex.Message
     }
 
-  member _.FsProjRemoveFile (fsprojPath : string) (fileVirtPath : string) =
+  member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.removeFile fsprojPath fileVirtPath
       return CoreResponse.Res()
