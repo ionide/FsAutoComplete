@@ -20,11 +20,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       keepAssemblyContents = hasAnalyzers,
       suggestNamesForErrors = true,
       enablePartialTypeChecking = not hasAnalyzers,
-      enableBackgroundItemKeyStoreAndSemanticClassification = true
+      enableBackgroundItemKeyStoreAndSemanticClassification = true,
+      keepAllBackgroundSymbolUses = true
     )
-
-  // we only want to let people hook onto the underlying checker event if there's not a background service actually compiling things for us
-  let safeFileCheckedEvent = checker.FileChecked
 
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
@@ -39,7 +37,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   let entityCache = EntityCache()
 
-  let sdkRefsLogger = LogProvider.getLoggerByName "SdkRefs"
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
 
@@ -238,21 +235,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       return projOptions
     }
 
-  member __.GetBackgroundCheckResultsForFileInProject(fn: string<LocalPath>, opt) =
-    checkerLogger.info (
-      Log.setMessage "GetBackgroundCheckResultsForFileInProject - {file}"
-      >> Log.addContextDestructured "file" fn
-    )
-
-    let opt = clearProjectReferences opt
-
-    checker.GetBackgroundCheckResultsForFileInProject(UMX.untag fn, opt)
-    |> Async.map (fun (pr, cr) -> ParseAndCheckResults(pr, cr, entityCache))
-
-  member __.FileChecked: IEvent<string<LocalPath> * FSharpProjectOptions> =
-    safeFileCheckedEvent
-    |> Event.map (fun (fileName, blob) -> UMX.tag fileName, blob) //path comes from the compiler, so it's safe to assume the tag in this case
-
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
 
@@ -296,8 +278,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         return ResultOrString.Error(ex.ToString())
     }
 
-  member _.CheckProject(opts) = checker.ParseAndCheckProject(opts)
-
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
@@ -320,25 +300,24 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" file
       )
 
-      let projects = x.GetDependingProjects file options
+      match x.GetDependingProjects file options with
+      | None -> return [||]
+      | Some (opts, []) ->
+        let opts = clearProjectReferences opts
+        let! res = checker.ParseAndCheckProject opts
+        return res.GetUsesOfSymbol symbol
+      | Some (opts, dependentProjects) ->
+        let! res =
+          opts :: dependentProjects
+          |> List.map (fun (opts) ->
+            async {
+              let opts = clearProjectReferences opts
+              let! res = checker.ParseAndCheckProject opts
+              return res.GetUsesOfSymbol symbol
+            })
+          |> Async.Parallel
 
-      return!
-        match projects with
-        | None -> async { return [||] }
-        | Some (p, projects) ->
-          async {
-            let! res =
-              p :: projects
-              |> Seq.map (fun (opts) ->
-                async {
-                  let opts = clearProjectReferences opts
-                  let! res = checker.ParseAndCheckProject opts
-                  return res.GetUsesOfSymbol symbol
-                })
-              |> Async.Parallel
-
-            return res |> Array.concat
-          }
+        return res |> Array.concat
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
@@ -360,10 +339,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
       return parseResult.GetNavigationItems().Declarations
     }
-
-  member __.Compile = checker.Compile
-
-  member internal __.GetFSharpChecker() = checker
 
   member __.SetDotnetRoot(dotnetBinary: FileInfo, cwd: DirectoryInfo) =
     match Ionide.ProjInfo.SdkDiscovery.versionAt cwd dotnetBinary with

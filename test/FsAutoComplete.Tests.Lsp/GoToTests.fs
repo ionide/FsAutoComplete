@@ -152,7 +152,7 @@ let private gotoTest state =
                    "Result should have correct range"
            })
 
-         testCaseAsync
+         ptestCaseAsync
            "Go-to-implementation-on-interface-definition"
            (async {
              let! server, path, externalPath, definitionPath = server
