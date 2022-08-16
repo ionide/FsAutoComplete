@@ -327,6 +327,12 @@ type ParseAndCheckResults
       | _ -> Ok(tip)
 
   member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) =
+    let (|EmptyTooltip|_|) (ToolTipText elems) =
+      match elems with
+      | [] -> Some()
+      | elems when elems |> List.forall ((=) ToolTipElement.None) -> Some()
+      | _ -> None
+
     match Completion.atPos (pos, x.GetParseResults.ParseTree) with
     | Completion.Context.StringLiteral -> Ok None
     | Completion.Context.SynType
@@ -343,7 +349,7 @@ type ParseAndCheckResults
           checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
         match tip with
-        | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
+        | EmptyTooltip when symbol.IsNone ->
           match identIsland with
           | [ ident ] ->
             match KeywordList.keywordTooltips.TryGetValue ident with
