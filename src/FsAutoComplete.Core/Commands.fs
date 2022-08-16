@@ -637,6 +637,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         return CoreResponse.ErrorRes ex.Message
     }
 
+  member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) =
+    async {
+      FsProjEditor.removeFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
   member inline private x.AsCancellable (filename: string<LocalPath>) (action: Async<'t>) =
     let cts = new CancellationTokenSource()
     state.AddCancellationToken(filename, cts)

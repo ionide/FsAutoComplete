@@ -85,3 +85,18 @@ module FsProjEditor =
       projectNode.AppendChild(itemGroup) |> ignore
 
     xdoc.Save fsprojPath
+
+  let removeFile (fsprojPath: string) (fileNameToRemove: string) =
+    let xdoc = System.Xml.XmlDocument()
+    xdoc.Load fsprojPath
+    let xpath = sprintf "//Compile[@Include='%s']/.." fileNameToRemove
+    let itemGroup = xdoc.SelectSingleNode(xpath)
+    let childXPath = sprintf "//Compile[@Include='%s']" fileNameToRemove
+    let node = itemGroup.SelectSingleNode(childXPath)
+
+    // If the node is not found do nothing
+    if isNull node then
+      ()
+    else
+      itemGroup.RemoveChild node |> ignore
+      xdoc.Save fsprojPath
