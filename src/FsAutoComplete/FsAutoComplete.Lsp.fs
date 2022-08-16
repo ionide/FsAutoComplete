@@ -316,8 +316,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       | NotificationEvent.FileParsed fn ->
         let uri = Path.LocalPathToUri fn
 
-        lspClient.CodeLensRefresh ()
-        |> Async.Start
+        lspClient.CodeLensRefresh() |> Async.Start
 
         ({ Content = UMX.untag uri }: PlainNotification)
         |> lspClient.NotifyFileParsed
