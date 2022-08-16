@@ -49,7 +49,7 @@ nuget Expecto.Diff
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
-nuget Ionide.LanguageServerProtocol
+nuget Ionide.LanguageServerProtocol 0.4.4
 
 group Build
   source https://api.nuget.org/v3/index.json
