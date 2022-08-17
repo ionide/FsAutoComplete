@@ -101,7 +101,7 @@ let tests state =
                   (args[1] :?> JObject).ToObject<Ionide.LanguageServerProtocol.Types.Position>(),
                   (args[2] :?> JArray) |> Seq.map (fun t -> (t:?>JObject).ToObject<Ionide.LanguageServerProtocol.Types.Location>()) |> Array.ofSeq
                 Expect.equal filePath doc.Uri "File path should be the doc we're checking"
-                Expect.equal triggerPos { Line = 1; Character = 8 } "Position should be 1:8"
+                Expect.equal triggerPos { Line = 1; Character = 6 } "Position should be 1:6"
                 Expect.hasLength referenceRanges 1 "There should be 1 reference range for the `func` function"
                 Expect.equal referenceRanges[0] { Uri = doc.Uri; Range = { Start = { Line = 3; Character = 19 }; End = { Line = 3; Character = 23 } } } "Reference range should be 0:0"
             )

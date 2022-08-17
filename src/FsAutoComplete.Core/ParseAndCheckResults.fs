@@ -481,7 +481,7 @@ type ParseAndCheckResults
       Ok(symboluse, symboluses)
 
   member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column - 1, lineStr) with
+    match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some (colu, identIsland) ->
 
