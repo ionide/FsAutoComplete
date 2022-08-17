@@ -153,9 +153,8 @@ module Conversions =
         Data = Some(Newtonsoft.Json.Linq.JToken.FromObject [| uri; typ |])
         Range = fcsRangeToLsp decl.Range }
 
-    topLevel.Nested
-    |> Array.filter (fun n ->
-      not (
+    let shouldKeep (n: NavigationItem) =
+      let keep =
         n.Glyph <> FSharpGlyph.Method
         && n.Glyph <> FSharpGlyph.OverridenMethod
         && n.Glyph <> FSharpGlyph.ExtensionMethod
@@ -168,8 +167,11 @@ module Conversions =
         || n.EnclosingEntityKind = NavigationEntityKind.Union
         || n.EnclosingEntityKind = NavigationEntityKind.Enum
         || n.EnclosingEntityKind = NavigationEntityKind.Exception
-      ))
-    |> Array.map map
+
+      not keep
+
+    topLevel.Nested
+    |> Array.choose (fun n -> if shouldKeep n then Some(map n) else None)
 
   let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
 

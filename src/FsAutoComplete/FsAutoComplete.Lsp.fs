@@ -1776,70 +1776,68 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     let handler f (arg: CodeLens) =
       async {
-        let pos = FcsPos.mkPos (arg.Range.Start.Line + 1) (arg.Range.Start.Character + 2)
+        let pos = protocolPosToPos arg.Range.Start
 
         let data = arg.Data.Value.ToObject<string[]>()
 
         let file = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
 
-        return!
-          match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
-          | ResultOrString.Error s ->
-            logger.error (
-              Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}"
-              >> Log.addContextDestructured "file" file
-              >> Log.addContextDestructured "error" s
-            )
+        match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
+        | ResultOrString.Error s ->
+          logger.error (
+            Log.setMessage "CodeLensResolve - Getting file checker options failed for {file}"
+            >> Log.addContextDestructured "file" file
+            >> Log.addContextDestructured "error" s
+          )
 
-            { p with Command = None } |> success |> async.Return
-          | ResultOrString.Ok (options, lines, lineStr) ->
-            try
-              async {
-                let! tyRes = commands.TryGetRecentTypeCheckResultsForFile(file)
+          return { p with Command = None } |> success
+        | ResultOrString.Ok (options, lines, lineStr) ->
+          try
+            let! tyRes = commands.TryGetRecentTypeCheckResultsForFile(file)
 
-                match tyRes with
-                | None -> return { p with Command = None } |> success
-                | Some tyRes ->
+            match tyRes with
+            | None -> return success { p with Command = None }
+            | Some tyRes ->
 
-                  logger.info (
-                    Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
-                    >> Log.addContextDestructured "file" file
-                  )
-
-                  let typ = data.[1]
-                  let! r = Async.Catch(f arg pos tyRes lines lineStr typ file)
-
-                  match r with
-                  | Choice1Of2 (r: LspResult<CodeLens option>) ->
-                    match r with
-                    | Ok (Some r) -> return Ok r
-                    | _ -> return Ok Unchecked.defaultof<_>
-                  | Choice2Of2 e ->
-                    logger.error (
-                      Log.setMessage "CodeLensResolve - Child operation failed for {file}"
-                      >> Log.addContextDestructured "file" file
-                      >> Log.addExn e
-                    )
-
-                    let title = if typ = "signature" then "" else "0 References"
-
-                    return
-                      { p with
-                          Command =
-                            Some
-                              { Title = title
-                                Command = ""
-                                Arguments = None } }
-                      |> success
-              }
-            with e ->
-              logger.error (
-                Log.setMessage "CodeLensResolve - Operation failed on {file}"
+              logger.info (
+                Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
                 >> Log.addContextDestructured "file" file
-                >> Log.addExn e
               )
 
-              { p with Command = None } |> success |> async.Return
+              let typ = data.[1]
+              let! r = Async.Catch(f arg pos tyRes lines lineStr typ file)
+
+              match r with
+              | Choice1Of2 (r: LspResult<CodeLens option>) ->
+                match r with
+                | Ok (Some r) -> return Ok r
+                | _ -> return Ok Unchecked.defaultof<_>
+              | Choice2Of2 e ->
+                logger.error (
+                  Log.setMessage "CodeLensResolve - Child operation failed for {file}"
+                  >> Log.addContextDestructured "file" file
+                  >> Log.addExn e
+                )
+
+                let title = if typ = "signature" then "" else "0 References"
+
+                let codeLens =
+                  { p with
+                      Command =
+                        Some
+                          { Title = title
+                            Command = ""
+                            Arguments = None } }
+
+                return success codeLens
+          with e ->
+            logger.error (
+              Log.setMessage "CodeLensResolve - Operation failed on {file}"
+              >> Log.addContextDestructured "file" file
+              >> Log.addExn e
+            )
+
+            return { p with Command = None } |> success
       }
 
     let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
