@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.56.1] - 2022-08-19
+
+### Changed
+
+* [Use incremental text sync instead of full text sync](https://github.com/fsharp/FsAutoComplete/pull/981)
+* [Nicer errors when CodeLenses cannot be resolved](https://github.com/fsharp/FsAutoComplete/pull/989)
+* [Removed compiler-generated and hidden types from the documentation endpoints](https://github.com/fsharp/FsAutoComplete/pull/992) (thanks @MangelMaxime!)
+
+### Added
+
+* [Keywords should work in tooltips consistently now](https://github.com/fsharp/FsAutoComplete/pull/982)
+* [Prevent codelenses from getting out of sync with document source](https://github.com/fsharp/FsAutoComplete/pull/987)
+* [Added a new command fsharp/removeFile for removing a file from a project](https://github.com/fsharp/FsAutoComplete/pull/990)
+
+### Fixed
+
+* [Clear stale errors when renaming a file](https://github.com/fsharp/FsAutoComplete/pull/973)
+* [Respect disabling in-memory project references](https://github.com/fsharp/FsAutoComplete/pull/974)
+* [Remove unused formatting from completion and signature items](https://github.com/fsharp/FsAutoComplete/pull/979)
+* [Performance regresssions in typechecking files](https://github.com/fsharp/FsAutoComplete/pull/977)
+* [Better precondition checking for adding new files to projects](https://github.com/fsharp/FsAutoComplete/pull/991) (thanks @MangelMaxime!)
+* [support CodeLenses for single-character identifiers](https://github.com/fsharp/FsAutoComplete/pull/994)
+
 ## [0.56.0] - 2022-07-23
 
 ### Added
