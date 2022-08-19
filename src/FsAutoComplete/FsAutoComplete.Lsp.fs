@@ -266,32 +266,26 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     async {
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      let contentChange = p.ContentChanges |> Seq.tryLast
+      let version = doc.Version.Value // this always has a value, despite the Option type
+      match state.TryGetFileSource(filePath) with
+      | Ok content ->
 
-      match contentChange, doc.Version with
-      | Some contentChange, Some version ->
-        if contentChange.Range.IsNone && contentChange.RangeLength.IsNone then
-          let content = NamedText(filePath, contentChange.Text)
-
-          logger.info (
-            Log.setMessage "ParseFile - Parsing {file}"
-            >> Log.addContextDestructured "file" filePath
-          )
-
-          do!
-            checkFile (filePath, version, content, false)
-            |> AsyncResult.foldResult id (fun e ->
-              logger.info (
-                Log.setMessage "Error while parsing {file} - {message}"
-                >> Log.addContextDestructured "message" e
-                >> Log.addContextDestructured "file" filePath
-              ))
-
-        else
-          logger.warn (Log.setMessage "ParseFile - Parse not started, received partial change")
-      | _ ->
         logger.info (
-          Log.setMessage "ParseFile - Found no change for {file}"
+          Log.setMessage "ParseFile - Parsing {file}"
+          >> Log.addContextDestructured "file" filePath
+        )
+
+        do!
+          checkFile (filePath, version, content, false)
+          |> AsyncResult.foldResult id (fun e ->
+            logger.info (
+              Log.setMessage "Error while parsing {file} - {message}"
+              >> Log.addContextDestructured "message" e
+              >> Log.addContextDestructured "file" filePath
+            ))
+      | Error _notFound ->
+        logger.info (
+          Log.setMessage "ParseFile - Unknown file {file}"
           >> Log.addContextDestructured "file" filePath
         )
     }
