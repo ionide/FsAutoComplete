@@ -80,7 +80,7 @@ type NotificationEvent =
   | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath>
   | UnusedOpens of file: string<LocalPath> * opens: Range[]
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
-  | UnusedDeclarations of file: string<LocalPath> * decls: (range * bool)[]
+  | UnusedDeclarations of file: string<LocalPath> * decls: range[]
   | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[]
   | Canceled of errorMessage: string
   | FileParsed of string<LocalPath>
@@ -1513,11 +1513,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       match tyResOpt with
       | None -> ()
       | Some tyRes ->
-        let allUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
-
-        let unused =
-          UnusedDeclarationsAnalyzer.getUnusedDeclarationRanges allUses isScript
-          |> Seq.toArray
+        let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
+        let unused = unused |> Seq.toArray
 
         notify.Trigger(NotificationEvent.UnusedDeclarations(file, unused))
     }

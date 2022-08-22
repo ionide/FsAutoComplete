@@ -1263,11 +1263,106 @@ let private renameUnusedValue state =
         """
         let add one two $0three = one + two
         """
-        (Diagnostics.log >> Diagnostics.acceptAll)
-        (CodeFix.log >> selectPrefix)
+        (Diagnostics.acceptAll)
+        selectPrefix
         """
         let add one two _three = one + two
         """
+
+    testCaseAsync "doesn't replace function with _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f _ = ()
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+    testCaseAsync "doesn't prefix function with _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f _ = ()
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+
+    ptestCaseAsync "replacing private variable with _ replaces private too" <|
+      CodeFix.check server
+        """
+        let private $0value = 42
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let _ = 42
+        """
+    //TODO: remove this test and enable prev test once FCS includes range for `SynAccess`
+    testCaseAsync "private variable cannot be replaces with _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let private $0value = 42
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+
+    testCaseAsync "prefixing private variable with _ keeps private" <|
+      CodeFix.check server
+        """
+        let private $0value = 42
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+        """
+        let private _value = 42
+        """
+
+    testCaseAsync "can replace backticks with _" <|
+      CodeFix.check server
+        """
+        let $0``hello world`` = 42
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+        """
+        let _ = 42
+        """
+    testCaseAsync "cannot prefix backticks with _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0``hello world`` = 42
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+  
+    testCaseAsync "replace doesn't trigger for function" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f _ = ()
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+    testCaseAsync "prefix doesn't trigger for function" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0f _ = ()
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+
+    testCaseAsync "replace doesn't trigger for member" <|
+      CodeFix.checkNotApplicable server
+        """
+        type T() =
+          member _.$0F () = ()
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
+    testCaseAsync "prefix doesn't trigger for member" <|
+      CodeFix.checkNotApplicable server
+        """
+        type T() =
+          member _.$0F () = ()
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
   ])
 
 let private replaceWithSuggestionTests state =

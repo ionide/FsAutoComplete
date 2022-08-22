@@ -267,6 +267,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
       let version = doc.Version.Value // this always has a value, despite the Option type
+
       match state.TryGetFileSource(filePath) with
       | Ok content ->
 
@@ -360,9 +361,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let diags =
           decls
-          |> Array.map (fun (n, t) ->
+          |> Array.map (fun n ->
             { Range = fcsRangeToLsp n
-              Code = (if t then Some "FSAC0003" else None)
+              Code = Some "FSAC0003"
               Severity = Some DiagnosticSeverity.Hint
               Source = "FSAC"
               Message = "This value is unused"
@@ -801,7 +802,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              (ResolveNamespace.fix tryGetParseResultsForFile commands.GetNamespaceSuggestions)
            ReplaceWithSuggestion.fix
            RemoveRedundantQualifier.fix
-           Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix getRangeText)
+           Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
            AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
            Run.ifEnabled
              (fun _ -> config.UnionCaseStubGeneration)
