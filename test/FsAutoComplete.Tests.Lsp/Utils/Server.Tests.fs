@@ -397,7 +397,7 @@ let tests state = testList (nameof(Server)) [
             // note: requires at least 4 UnusedOpens (to `open ...` required for Simplify Name)
             for j in 1..nSimplifyNamesPerRepeat do
               let ty = Array.get tys ((j-1) % tys.Length )
-              $"let {identifier}Rep{i}F{j} (v: {ty}) = v"
+              $"let _{identifier}Rep{i}F{j} (v: {ty}) = v"
 
             // `let _identifier = value`:
             // * value not defined
@@ -513,7 +513,7 @@ open System
 open System.Diagnostics
 open System.Text
 
-let f (v: System.String) = v
+let _f (v: System.String) = v
         """
         let! diags = doc |> Document.changeTextTo source
         checkDiags (true, false, true) diags

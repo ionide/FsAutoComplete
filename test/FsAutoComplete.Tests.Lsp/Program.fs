@@ -86,6 +86,7 @@ let lspTests =
             XmlDocumentationGeneration.tests state
             InlayHintTests.tests state
             DependentFileChecking.tests state
+            UnusedDeclarationsTests.tests state
           ]
     ]
 
