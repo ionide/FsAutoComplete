@@ -234,13 +234,17 @@ let clientCaps: ClientCapabilities =
     let inlayHintCaps: InlayHintWorkspaceClientCapabilities =
       { RefreshSupport = Some false }
 
+    let codeLensCaps:  CodeLensWorkspaceClientCapabilities =
+      { RefreshSupport = Some true }
+
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some dynCaps
       DidChangeWatchedFiles = Some dynCaps
       Symbol = Some symbolCaps
       SemanticTokens = Some semanticTokenCaps
-      InlayHint = Some inlayHintCaps }
+      InlayHint = Some inlayHintCaps
+      CodeLens = Some codeLensCaps }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: SynchronizationCapabilities =

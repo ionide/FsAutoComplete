@@ -63,7 +63,10 @@ module AsyncResult =
 
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
+
   inherit LspClient()
+
+  member val ClientCapabilities: ClientCapabilities option = None with get, set
 
   override __.WindowShowMessage(p) =
     sendServerNotification "window/showMessage" (box p) |> Async.Ignore
@@ -118,8 +121,11 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyTestDetected(p: TestDetectedNotification) =
     sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
-  member __.CodeLensRefresh() =
-    sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
+  member x.CodeLensRefresh() =
+    match x.ClientCapabilities with
+    | Some { Workspace = Some { CodeLens = Some { RefreshSupport = Some true } } } ->
+      sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
+    | _ -> async { return () }
 
 type DiagnosticMessage =
   | Add of source: string * diags: Diagnostic[]
@@ -722,7 +728,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       (diagnosticCollections :> IDisposable).Dispose()
     }
 
-  override __.Initialize(p: InitializeParams) =
+  override _.Initialize(p: InitializeParams) =
     async {
       logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p)
 
@@ -745,6 +751,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
 
       clientCapabilities <- p.Capabilities
+      lspClient.ClientCapabilities <- clientCapabilities
       glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
       glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
