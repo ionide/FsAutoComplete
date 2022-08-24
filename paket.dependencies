@@ -1,6 +1,6 @@
-version 6.2.1
+version 7.2.0-alpha001
 
-framework: netstandard2.0, net6.0
+framework: netstandard2.0, net6.0, net7.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
