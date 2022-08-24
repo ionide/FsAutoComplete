@@ -225,7 +225,6 @@ Target.create "Promote" ignore
 
 "PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
 
-
 "Restore" ==> "ReplaceFsLibLogNamespaces" ==> "Build"
 
 "CheckFormat" ==> "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
