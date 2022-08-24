@@ -68,6 +68,8 @@ jobs:
 
     - name: Run Build
       run: dotnet run --project build -t Build
+      env:
+        BuildNet7: ${{ matrix.build_net7 }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager"
