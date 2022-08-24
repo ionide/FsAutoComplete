@@ -9,19 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1BE8AF
 		paket.lock = paket.lock
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{E1A34828-1EA8-44F8-8377-10DCC312EB8B}"
-	ProjectSection(SolutionItems) = preProject
-		.gitignore = .gitignore
-		.travis.yml = .travis.yml
-		appveyor.yml = appveyor.yml
-		build.cmd = build.cmd
-		build.fsx = build.fsx
-		build.sh = build.sh
-		LICENSE.md = LICENSE.md
-		README.md = README.md
-		RELEASE_NOTES.md = RELEASE_NOTES.md
-	EndProjectSection
-EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete", "src\FsAutoComplete\FsAutoComplete.fsproj", "{B6AB4EF3-8F60-41A1-AB0C-851A6DEB169E}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsAutoComplete.Core", "src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj", "{4E4786F3-4566-44E1-8787-91790007F0F6}"
@@ -37,6 +24,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "OptionAnalyzer", "test\OptionAnalyzer\OptionAnalyzer.fsproj", "{14C55B44-2063-4891-98BE-8184CAB1BE87}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.DependencyManager.Dummy", "test\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj", "{C58701B0-D8E3-4B68-A7DE-8524C95F86C0}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "build", "build\build.fsproj", "{400D56D0-28C9-4210-AA30-BD688122E298}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,6 +61,10 @@ Global
 		{C58701B0-D8E3-4B68-A7DE-8524C95F86C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C58701B0-D8E3-4B68-A7DE-8524C95F86C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C58701B0-D8E3-4B68-A7DE-8524C95F86C0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{400D56D0-28C9-4210-AA30-BD688122E298}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{400D56D0-28C9-4210-AA30-BD688122E298}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{400D56D0-28C9-4210-AA30-BD688122E298}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{400D56D0-28C9-4210-AA30-BD688122E298}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

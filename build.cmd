@@ -1,2 +1,2 @@
 dotnet tool restore
-dotnet fake build -t ReleaseArchive
+dotnet run --project build -t ReleaseArchive
