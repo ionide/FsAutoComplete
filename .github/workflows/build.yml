@@ -64,7 +64,7 @@ jobs:
       run: dotnet tool restore
 
     - name: Run Build
-      run: dotnet fake build -t Build
+      run: dotnet run --project build -t Build
 
     - name: Run and report tests
       run: dotnet test -c Release --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager
