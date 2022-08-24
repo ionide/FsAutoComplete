@@ -86,7 +86,7 @@ let initTests state =
         let td =
           { TextDocumentSyncOptions.Default with
               OpenClose = Some true
-              Change = Some TextDocumentSyncKind.Incremental
+              Change = Some TextDocumentSyncKind.Full
               Save = Some { IncludeText = Some true } }
 
         Expect.equal res.Capabilities.TextDocumentSync (Some td) "Text Document Provider"

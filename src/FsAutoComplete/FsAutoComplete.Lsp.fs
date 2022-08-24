@@ -937,7 +937,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                     Some
                       { TextDocumentSyncOptions.Default with
                           OpenClose = Some true
-                          Change = Some TextDocumentSyncKind.Incremental
+                          Change = Some TextDocumentSyncKind.Full
                           Save = Some { IncludeText = Some true } }
                   FoldingRangeProvider = Some true
                   SelectionRangeProvider = Some true
