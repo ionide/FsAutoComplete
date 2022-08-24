@@ -1,6 +1,6 @@
-name: Build
+name: Build and test
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   build:
@@ -9,30 +9,65 @@ jobs:
     timeout-minutes: 30 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
-        os: [windows-2022, macos-12, ubuntu-20.04]
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        dotnet-version: ["", "6.0.x", "7.0.x"]
+        # these entries will mesh with the above combinations
+        include:
+          # just use what's in the repo
+          - global-json-file: "global.json"
+            dotnet-version: ""
+            include-prerelease: false
+            label: "repo global.json"
+            build_net7: false
+          # latest 6.0 stable
+          - global-json-file: "global.json"
+            dotnet-version: "6.0.x"
+            include-prerelease: false
+            label: "6.0 stable"
+            build_net7: false
+          # latest 7.0 preview
+          - global-json-file: "global.json"
+            dotnet-version: "7.0.x"
+            include-prerelease: true
+            label: "7.0 preview"
+            build_net7: true
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
 
+    name: Build on ${{matrix.os}} for ${{ matrix.label }}
+
     steps:
-    - uses: actions/checkout@v1
-    - name: Setup .NET Core
+    - uses: actions/checkout@v3
+
+    # setup .NET per the repo global.json
+    - name: Setup .NET
       uses: actions/setup-dotnet@v2
+
+    # setup .NET per test session
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        include-prerelease: ${{ matrix.include-prerelease }}
+        global-json-file: ${{ matrix.global-json-file }}
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    # remove global.json so that the env configuration takes precedence
+    - name: Purge global.json
+      run: rm global.json
+
+    # let's make sure we're on the version we think we are.
+    - name: Announce .NET version
+      run: dotnet --info
+
     - name: Restore tools
       run: dotnet tool restore
+
     - name: Run Build
       run: dotnet fake build -t Build
 
     - name: Run and report tests
-      uses: zyborg/dotnet-tests-report@v1
-      with:
-        project_path: test/FsAutoComplete.Tests.Lsp
-        no_restore: true # we just did the build/restore above
-        msbuild_configuration: Release # we do the tests against the release build
-        github_token: ${{ secrets.FSAC_CHECKS_TOKEN }}
-        set_check_status_from_test_outcome: true
-        fail_build_on_failed_tests: true
-        extra_test_parameters: "--no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager"
-        skip_check_run: true # something's wrong with the PAT used above, so github checks won't be added
+      run: dotnet test -c Release --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager
+      working-directory: test\FsAutoComplete.Tests.Lsp
       env:
-        TEST_TIMEOUT_MINUTES: 10
+        BuildNet7: ${{ matrix.build_net7 }}
