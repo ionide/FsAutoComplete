@@ -19,18 +19,21 @@ jobs:
             include-prerelease: false
             label: "repo global.json"
             build_net7: false
+            test_tfm: net6.0
           # latest 6.0 stable
           - global-json-file: "global.json"
             dotnet-version: "6.0.x"
             include-prerelease: false
             label: "6.0 stable"
             build_net7: false
+            test_tfm: net6.0
           # latest 7.0 preview
           - global-json-file: "global.json"
             dotnet-version: "7.0.x"
             include-prerelease: true
             label: "7.0 preview"
             build_net7: true
+            test_tfm: net7.0
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -67,7 +70,7 @@ jobs:
       run: dotnet run --project build -t Build
 
     - name: Run and report tests
-      run: dotnet test -c Release --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager
+      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter=System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}
