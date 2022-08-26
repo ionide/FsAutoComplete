@@ -90,10 +90,7 @@ module FsProjEditor =
 
   let addExistingFile (fsprojPath: string) (existingFile: string) =
     let relativePath =
-      Path.GetRelativePath(
-          Path.GetDirectoryName fsprojPath,
-          existingFile
-      )
+      Path.GetRelativePath(Path.GetDirectoryName fsprojPath, existingFile)
 
     addFile fsprojPath relativePath
 
