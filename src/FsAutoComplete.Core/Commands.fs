@@ -652,6 +652,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         return CoreResponse.ErrorRes ex.Message
     }
 
+  member _.FsProjAddExistingFile (fsprojPath: string) (fileVirtPath: string) =
+    async {
+      FsProjEditor.addExistingFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
   member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.removeFile fsprojPath fileVirtPath

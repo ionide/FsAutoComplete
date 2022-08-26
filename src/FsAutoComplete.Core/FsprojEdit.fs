@@ -1,5 +1,7 @@
 namespace FsAutoComplete
 
+open System.IO
+
 module FsProjEditor =
 
   let moveFileUp (fsprojPath: string) (file: string) =
@@ -85,6 +87,15 @@ module FsProjEditor =
       projectNode.AppendChild(itemGroup) |> ignore
 
     xdoc.Save fsprojPath
+
+  let addExistingFile (fsprojPath: string) (existingFile: string) =
+    let relativePath =
+      Path.GetRelativePath(
+          Path.GetDirectoryName fsprojPath,
+          existingFile
+      )
+
+    addFile fsprojPath relativePath
 
   let removeFile (fsprojPath: string) (fileNameToRemove: string) =
     let xdoc = System.Xml.XmlDocument()
