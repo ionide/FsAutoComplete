@@ -2636,7 +2636,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.FsProjRemoveFile p.FsProj p.FileVirtualPath
+        let fullPath = Path.Combine(Path.GetDirectoryName p.FsProj, p.FileVirtualPath)
+        let! res = commands.FsProjRemoveFile p.FsProj p.FileVirtualPath fullPath
+        // Compute the fileUri, as this is the key used by the diagnostics collection.
+        let fileUri = Path.FilePathToUri fullPath
+
+        diagnosticCollections.ClearFor fileUri
 
         let res =
           match res with
