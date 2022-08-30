@@ -1346,7 +1346,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) (fullPath: string) =
     async {
       FsProjEditor.removeFile fsprojPath fileVirtPath
-      state.RemoveProjectOptions(normalizePath fullPath)
+      state.RemoveProjectOptions (normalizePath fullPath)
       return CoreResponse.Res()
     }
 
