@@ -38,7 +38,9 @@ nuget FsToolkit.ErrorHandling
 nuget FSharpx.Async
 nuget CliWrap
 nuget System.CommandLine prerelease
-
+nuget FSharp.Data.Adaptive
+nuget Buildalyzer
+nuget Buildalyzer.Workspaces
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
 

@@ -207,6 +207,561 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     member x.Dispose() =
       for (_, cts) in agents.Values do
         cts.Cancel()
+        
+open FSharp.Data.Adaptive
+open Ionide.ProjInfo
+module Helpers =
+  let notImplemented<'t> = async.Return LspResult.notImplemented<'t>
+  let ignoreNotification = async.Return(())
+
+  let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
+type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
+  inherit LspServer()
+  
+  let logger = LogProvider.getLoggerByName "AdaptiveFSharpLspServer"
+  let adaptiveFile filePath =
+    AdaptiveFile.GetLastWriteTimeUtc filePath
+    |> AVal.map(fun writeTime -> filePath, writeTime)
+  let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
+  let rootpath = cval<string option> None
+  let clientCapabilities = cval<ClientCapabilities option> None
+  let glyphToCompletionKind =  clientCapabilities |> AVal.map(glyphToCompletionKindGenerator)
+  let glyphToSymbolKind = clientCapabilities |> AVal.map glyphToSymbolKindGenerator
+  let config = cval<FSharpConfig> FSharpConfig.Default
+  let entryPoints = 
+    (rootpath, config)
+    ||> AVal.map2(fun rootPath config ->
+      rootPath
+      |> Option.bind(fun rootPath ->
+        let peeks = 
+          WorkspacePeek.peek rootPath config.WorkspaceModePeekDeepLevel (config.ExcludeProjectDirectories |> List.ofArray)
+          |> List.map Workspace.mapInteresting
+          |> List.sortByDescending (fun x ->
+            match x with
+            | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
+            | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
+        logger.info (
+            Log.setMessage "Choosing from interesting items {items}"
+            >> Log.addContextDestructured "items" peeks
+          )
+        match peeks with
+        | [] -> None
+        | [ CommandResponse.WorkspacePeekFound.Directory projs ] ->
+          projs.Fsprojs
+          |> List.map adaptiveFile
+          |> Some
+        | CommandResponse.WorkspacePeekFound.Solution sln :: _ -> 
+          Some [
+            sln.Path |> adaptiveFile
+          ]
+        | _ -> None
+      )
+      |> Option.defaultValue []     
+    )
+    |> ASet.ofAVal
+    |> ASet.mapA id
+  let options =
+    let entrypointsBatched =
+      entryPoints
+      |> ASet.toAVal
+    (entrypointsBatched, loader)
+    ||> AVal.map2(fun items loader->
+        let (file,time) = items |> Seq.maxBy(fun (name, time) -> time)
+        logger.info (Log.setMessage "running load because of {file}" >> Log.addContextDestructured "file" file)
+        let projectOptions = 
+          loader.LoadSln(file) 
+          |> Seq.toList
+        let notifications =
+          projectOptions
+          |> List.map(fun o -> FCS.mapToFSharpProjectOptions o projectOptions, o)
+          |> List.map(fun (opts, extraInfo) ->
+            let projectFileName = opts.ProjectFileName
+            let projViewerItemsNormalized = Ionide.ProjInfo.ProjectViewer.render extraInfo
+            let responseFiles =
+              projViewerItemsNormalized.Items
+              |> List.map (function
+                  | ProjectViewerItem.Compile (p, c) -> ProjectViewerItem.Compile(Helpers.fullPathNormalized p, c))
+              |> List.choose (function
+                    | ProjectViewerItem.Compile (p, _) -> Some p)
+            let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
+            logger.info (Log.setMessage "ProjectLoaded {file}" >> Log.addContextDestructured "file" opts.ProjectFileName)
+            let ws =
+              { ProjectFileName = opts.ProjectFileName
+                ProjectFiles = responseFiles
+                OutFileOpt = Option.ofObj extraInfo.TargetPath
+                References = references
+                Extra = extraInfo
+                ProjectItems = projViewerItemsNormalized.Items
+                Additionals = Map.empty }
+                |> CommandResponse.project JsonSerializer.writeJson
+            ({ Content = ws }: PlainNotification)
+            |> lspClient.NotifyWorkspace
+
+          )
+          |> Async.Parallel
+          |> Async.Ignore
+        async {
+          // do! Async.Sleep (10000)
+          do! notifications
+        } |> Async.Start
+        projectOptions
+    )
+
+  override x.Shutdown() =
+    x.Dispose() |> async.Return
+
+  override _.Initialize(p : InitializeParams) = async {
+    logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p)
+    let c =
+      p.InitializationOptions
+      |> Option.bind (fun options -> if options.HasValues then Some options else None)
+      |> Option.map Server.deserialize<FSharpConfigDto>
+      |> Option.map FSharpConfig.FromDto
+      |> Option.defaultValue FSharpConfig.Default
+
+
+    transact(fun () -> 
+      rootpath.Value <- p.RootPath
+      clientCapabilities.Value <- p.Capabilities
+      config.Value <- c
+    )
+
+    
+    // logger.info (Log.setMessage "Initialize Request Options: {options}" >> Log.addContextDestructured "options" (options |> AVal.force))
+    
+    return
+        { InitializeResult.Default with
+            Capabilities =
+              { ServerCapabilities.Default with
+                  HoverProvider = Some true
+                  RenameProvider = Some true //Some(U2.First true)
+                  DefinitionProvider = Some true
+                  TypeDefinitionProvider = Some true
+                  ImplementationProvider = Some true
+                  ReferencesProvider = Some true
+                  DocumentHighlightProvider = Some true
+                  DocumentSymbolProvider = Some true
+                  WorkspaceSymbolProvider = Some true
+                  DocumentFormattingProvider = Some true
+                  DocumentRangeFormattingProvider = Some true
+                  SignatureHelpProvider =
+                    Some
+                      { TriggerCharacters = Some [| '('; ','; ' ' |]
+                        RetriggerCharacters = Some [| ','; ')'; ' ' |] }
+                  CompletionProvider =
+                    Some
+                      { ResolveProvider = Some true
+                        TriggerCharacters = Some([| '.'; ''' |])
+                        AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+                      }
+                  CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+                  CodeActionProvider =
+                    Some
+                      { CodeActionKinds = None
+                        ResolveProvider = None }
+                  TextDocumentSync =
+                    Some
+                      { TextDocumentSyncOptions.Default with
+                          OpenClose = Some true
+                          Change = Some TextDocumentSyncKind.Incremental
+                          Save = Some { IncludeText = Some true } }
+                  FoldingRangeProvider = Some true
+                  SelectionRangeProvider = Some true
+                  SemanticTokensProvider =
+                    Some
+                      { Legend =
+                          createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
+                        Range = Some true
+                        Full = Some(U2.First true) }
+                  InlayHintProvider = Some { ResolveProvider = Some false } } }
+        |> success
+  }
+
+  override __.Initialized(p: InitializedParams) =
+    async {
+      logger.info (Log.setMessage "Initialized request")
+
+      let options = options |> AVal.force
+      return ()
+    }
+
+  override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) =
+    logger.info (
+      Log.setMessage "TextDocumentDidOpen Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.ignoreNotification
+
+  override __.TextDocumentDidChange(p: DidChangeTextDocumentParams) =
+    logger.info (
+      Log.setMessage "TextDocumentDidChange Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.ignoreNotification
+
+  override __.TextDocumentDidSave(p) =
+    logger.info (
+      Log.setMessage "TextDocumentDidSave Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.ignoreNotification
+  override __.TextDocumentCompletion(p: CompletionParams) =
+    logger.info (
+      Log.setMessage "TextDocumentCompletion Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override __.CompletionItemResolve(ci: CompletionItem) =
+    logger.info (
+      Log.setMessage "CompletionItemResolve Request: {parms}"
+      >> Log.addContextDestructured "parms" ci
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
+    logger.info (
+      Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
+      >> Log.addContextDestructured "parms" sigHelpParams
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentHover(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "TextDocumentHover Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentRename(p: RenameParams) =
+    logger.info (
+      Log.setMessage "TextDocumentRename Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentDefinition(p) =
+    logger.info (
+      Log.setMessage "TextDocumentDefinition Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "TextDocumentTypeDefinition Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentReferences(p: ReferenceParams) =
+    logger.info (
+      Log.setMessage "TextDocumentReferences Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override x.TextDocumentDocumentHighlight(p) =
+    logger.info (
+      Log.setMessage "TextDocumentDocumentHighlight Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override x.TextDocumentImplementation(p) =
+    logger.info (
+      Log.setMessage "TextDocumentImplementation Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override __.TextDocumentDocumentSymbol(p) =
+    logger.info (
+      Log.setMessage "TextDocumentDocumentSymbol Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) =
+    logger.info (
+      Log.setMessage "WorkspaceSymbol Request: {parms}"
+      >> Log.addContextDestructured "parms" symbolRequest
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentFormatting(p: DocumentFormattingParams) =
+    logger.info (
+      Log.setMessage "TextDocumentFormatting Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
+    logger.info (
+      Log.setMessage "TextDocumentRangeFormatting Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
+    logger.info (
+      Log.setMessage "TextDocumentCodeAction Request: {parms}"
+      >> Log.addContextDestructured "parms" codeActionParams
+    )
+    Helpers.notImplemented
+  override __.TextDocumentCodeLens(p: CodeLensParams) =
+    logger.info (
+      Log.setMessage "TextDocumentCodeLens Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override __.CodeLensResolve(p) =
+    logger.info (
+      Log.setMessage "CodeLensResolve Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override __.WorkspaceDidChangeWatchedFiles(p) =
+
+    logger.info (
+      Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.ignoreNotification
+  override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) =
+   
+
+    logger.info (
+      Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.ignoreNotification
+  override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
+    logger.info (
+      Log.setMessage "TextDocumentFoldingRange Request: {parms}"
+      >> Log.addContextDestructured "parms" rangeP
+    )
+    Helpers.notImplemented
+
+  override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
+    logger.info (
+      Log.setMessage "TextDocumentSelectionRange Request: {parms}"
+      >> Log.addContextDestructured "parms" selectionRangeP
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> =
+    logger.info (
+      Log.setMessage "Semantic highlighing request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+
+  override x.TextDocumentSemanticTokensRange(p: SemanticTokensRangeParams) : AsyncLspResult<SemanticTokens option> =
+    logger.info (
+      Log.setMessage "Semantic highlighing range request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
+    logger.info (
+      Log.setMessage "TextDocumentInlayHint Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+// -----------------
+// FSharp Operations
+// -----------------
+
+  member x.FSharpSignature(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "FSharpSignature Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member x.FSharpSignatureData(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "FSharpSignatureData Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpLineLense(p) =
+    logger.info (
+      Log.setMessage "FSharpLineLense Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpCompilerLocation(p) =
+    logger.info (
+      Log.setMessage "FSharpCompilerLocation Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) =
+    logger.info (
+      Log.setMessage "FSharpWorkspaceLoad Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+
+  member __.FSharpWorkspacePeek(p: WorkspacePeekRequest) =
+    async {
+      logger.info (
+        Log.setMessage "FSharpWorkspacePeek Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+      let res = WorkspacePeek.peek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray) |> CoreResponse.Res
+      // let! res = commands.WorkspacePeek p.Directory p.Deep (p.ExcludedDirs |> List.ofArray)
+
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg
+        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+        | CoreResponse.Res found ->
+          { Content = CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found }
+          |> success
+
+      return res
+    }
+  member __.FSharpProject(p) =
+    logger.info (
+      Log.setMessage "FSharpProject Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+
+    Helpers.notImplemented
+
+  member __.FSharpFsdn(p: FsdnRequest) =
+    logger.info (
+      Log.setMessage "FSharpFsdn Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+
+    Helpers.notImplemented
+
+  member __.FSharpDotnetNewList(p: DotnetNewListRequest) =
+    logger.info (
+      Log.setMessage "FSharpDotnetNewList Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpDotnetNewRun(p: DotnetNewRunRequest) =
+    logger.info (
+      Log.setMessage "FSharpDotnetNewRun Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpDotnetAddProject(p: DotnetProjectRequest) =
+    logger.info (
+      Log.setMessage "FSharpDotnetAddProject Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FSharpDotnetRemoveProject(p: DotnetProjectRequest) =
+    logger.info (
+      Log.setMessage "FSharpDotnetRemoveProject Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  member __.FSharpDotnetSlnAdd(p: DotnetProjectRequest) =
+    logger.info (
+      Log.setMessage "FSharpDotnetSlnAdd Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member x.FSharpHelp(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "FSharpHelp Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member x.FSharpDocumentation(p: TextDocumentPositionParams) =
+    logger.info (
+      Log.setMessage "FSharpDocumentation Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
+    logger.info (
+      Log.setMessage "FSharpDocumentationSymbol Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.LoadAnalyzers(path) =
+    logger.info (
+      Log.setMessage "LoadAnalyzers Request: {parms}"
+      >> Log.addContextDestructured "parms" path
+    )
+    Helpers.notImplemented
+
+  member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
+    logger.info (
+      Log.setMessage "FSharpPipelineHints Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FsProjMoveFileUp(p: DotnetFileRequest) =
+    logger.info (
+      Log.setMessage "FsProjMoveFileUp Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+
+  member __.FsProjMoveFileDown(p: DotnetFileRequest) =
+    logger.info (
+      Log.setMessage "FsProjMoveFileDown Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FsProjAddFileAbove(p: DotnetFile2Request) =
+    logger.info (
+      Log.setMessage "FsProjAddFileAbove Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member __.FsProjAddFileBelow(p: DotnetFile2Request) =
+    logger.info (
+      Log.setMessage "FsProjAddFileBelow Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+
+  member __.FsProjAddFile(p: DotnetFileRequest) =
+    logger.info (
+      Log.setMessage "FsProjAddFile Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member _.FsProjRemoveFile(p: DotnetFileRequest) =
+    logger.info (
+      Log.setMessage "FsProjRemoveFile Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+  override x.Dispose() = ()
 
 type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   inherit LspServer()
@@ -1553,6 +2108,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         |> success
         |> async.Return)
 
+
   override x.TextDocumentImplementation(p) =
     logger.info (
       Log.setMessage "TextDocumentImplementation Request: {parms}"
@@ -2887,7 +3443,8 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use output = Console.OpenStandardOutput()
 
   let requestsHandlings =
-    (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
+    // (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
+    (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
     |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
     |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
     |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
@@ -2906,7 +3463,7 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     |> Map.add "fsharp/documentation" (serverRequestHandling (fun s p -> s.FSharpDocumentation(p)))
     |> Map.add "fsharp/documentationSymbol" (serverRequestHandling (fun s p -> s.FSharpDocumentationSymbol(p)))
     |> Map.add "fsharp/loadAnalyzers" (serverRequestHandling (fun s p -> s.LoadAnalyzers(p)))
-    // |> Map.add "fsharp/fsharpLiterate" (serverRequestHandling (fun s p -> s.FSharpLiterate(p) ))
+    // // |> Map.add "fsharp/fsharpLiterate" (serverRequestHandling (fun s p -> s.FSharpLiterate(p) ))
     |> Map.add "fsharp/pipelineHint" (serverRequestHandling (fun s p -> s.FSharpPipelineHints(p)))
     |> Map.add "fsproj/moveFileUp" (serverRequestHandling (fun s p -> s.FsProjMoveFileUp(p)))
     |> Map.add "fsproj/moveFileDown" (serverRequestHandling (fun s p -> s.FsProjMoveFileDown(p)))
@@ -2921,13 +3478,14 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
 
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-
+  let loader = workspaceLoaderFactory toolsPath
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new FSharpLspServer(state, lspClient))
+    new AdaptiveFSharpLspServer(loader, lspClient)
+    // new FSharpLspServer(state, lspClient)
+    )
 
 let start toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
-
   try
     let result = startCore toolsPath stateStorageDir workspaceLoaderFactory
 
@@ -2938,6 +3496,7 @@ let start toolsPath stateStorageDir workspaceLoaderFactory =
 
     int result
   with ex ->
+    printfn "%A" ex
     logger.error (Log.setMessage "Start - LSP mode crashed" >> Log.addExn ex)
 
     3

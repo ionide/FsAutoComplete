@@ -35,6 +35,7 @@
     <Compile Include="CodeFixTests/*.fs" Exclude="CodeFixTests/Utils.fs;CodeFixTests/Tests.fs" />
     <Compile Include="CodeFixTests/Tests.fs" />
     <Compile Include="DependentFileCheckingTests.fs" />
+    <Compile Include="AdaptiveTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
