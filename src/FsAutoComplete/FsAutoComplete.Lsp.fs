@@ -425,6 +425,11 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
         logger.info (Log.setMessage "Getting typecheck results for {file}" >> Log.addContextDestructured "file" file)
         let (parseResults, checkResults) = checker.ParseAndCheckFileInProject(UMX.untag file, fileVersion, sourceText, opts) |> Async.RunSynchronously
         logger.info (Log.setMessage "Got typecheck results for {file}" >> Log.addContextDestructured "file" file)
+        lspClient.CodeLensRefresh() |> Async.Start
+        let uri = Path.LocalPathToUri file
+        ({ Content = UMX.untag uri }: PlainNotification)
+        |> lspClient.NotifyFileParsed
+        |> Async.Start
         match checkResults with
         | FSharpCheckFileAnswer.Aborted ->
           let parseErrors = parseResults.Diagnostics |> Array.map (fun p -> p.Message)
@@ -1151,7 +1156,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
       return x.handleSemanticTokens fn (Some fcsRange)
-
     }
 
   override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
@@ -1177,7 +1181,38 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       Log.setMessage "FSharpSignatureData Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+
+    let handler f (arg: TextDocumentPositionParams) =
+      async {
+        let pos = FcsPos.mkPos (p.Position.Line) (p.Position.Character + 2)
+
+        let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
+
+        let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
+        let lines = updates.NamedText
+        let lineStr = lines.GetLine pos
+        let tyResOpt = getTypeCheckResults file |> AVal.force
+
+        match tyResOpt with
+        | None -> return LspResult.internalError "No typecheck results"
+        | Some tyRes ->
+          let! r = Async.Catch(f arg pos tyRes lineStr)
+          match r with
+          | Choice1Of2 r -> return r
+          | Choice2Of2 e -> return LspResult.internalError e.Message
+
+
+      }
+
+    p
+    |> handler (fun p pos tyRes lineStr ->
+
+      (match tyRes.TryGetSignatureData pos lineStr.Value with
+       | Error msg -> LspResult.internalError msg
+       | Ok (typ, parms, generics) ->
+         { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+         |> success)
+      |> async.Return)
 
   member x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
     logger.info (
@@ -1186,13 +1221,24 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
     Helpers.notImplemented
 
-  member __.FSharpLineLense(p) =
+  member __.FSharpLineLense(p) =async {
     logger.info (
       Log.setMessage "FSharpLineLense Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
 
+    let fn = p.Project.GetFilePath() |> Utils.normalizePath
+    match getDeclarations fn with
+    | None ->
+      //TODO Error handle
+      return! Helpers.notImplemented
+    | Some decls ->
+        let decls = decls |> Array.map(fun d -> d, fn)
+        return
+          { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
+          |> success
+
+  }
   member __.FSharpCompilerLocation(p) =
     logger.info (
       Log.setMessage "FSharpCompilerLocation Request: {parms}"
