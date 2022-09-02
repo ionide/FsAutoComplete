@@ -86,28 +86,7 @@ type NotificationEvent =
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
-type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
-  let fileParsed = Event<FSharpParseFileResults>()
-
-  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
-
-  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
-
-  let disposables = ResizeArray()
-
-  let mutable workspaceRoot: string option = rootPath
-  let mutable linterConfigFileRelativePath: string option = None
-  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
-  let mutable lastCheckResult: ParseAndCheckResults option = None
-
-  let notify = Event<NotificationEvent>()
-
-  let fileStateSet = Event<unit>()
-  let commandsLogger = LogProvider.getLoggerByName "Commands"
-
-  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
-
-  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+module Commands =
 
   // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
   // set of range segments that are non-overlapping with the children
@@ -171,6 +150,88 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       highlights |> Array.collect expandParents)
     |> Array.sortBy startToken
+
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
+  let fileParsed = Event<FSharpParseFileResults>()
+
+  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
+
+  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
+  let disposables = ResizeArray()
+
+  let mutable workspaceRoot: string option = rootPath
+  let mutable linterConfigFileRelativePath: string option = None
+  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
+  let mutable lastCheckResult: ParseAndCheckResults option = None
+
+  let notify = Event<NotificationEvent>()
+
+  let fileStateSet = Event<unit>()
+  let commandsLogger = LogProvider.getLoggerByName "Commands"
+
+  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+
+  let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
+    let getLine (p: Position) = getLine p |> Option.defaultValue ""
+
+    let idents = decl.FullName.Split '.'
+
+    decl.NamespaceToOpen
+    |> Option.bind (fun n ->
+      state.CurrentAST
+      |> Option.map (fun ast ->
+        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
+      |> Option.map (fun ic ->
+        //TODO: unite with `CodeFix/ResolveNamespace`
+        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
+
+        let detectIndentation (line: string) =
+          line |> Seq.takeWhile ((=) ' ') |> Seq.length
+
+        // adjust line
+        let pos =
+          match ic.ScopeKind with
+          | ScopeKind.Namespace ->
+            // for namespace `open` isn't created close at namespace,
+            // but instead on first member
+            // -> move `open` closer to namespace
+            // this only happens when there are no other `open`
+
+            // from insert position go up until first open OR namespace
+            ic.Pos.LinesToBeginning()
+            |> Seq.tryFind (fun l ->
+              let lineStr = getLine l
+              // namespace MUST be top level -> no indentation
+              lineStr.StartsWith "namespace ")
+            |> function
+              // move to the next line below "namespace"
+              | Some l -> l.IncLine()
+              | None -> ic.Pos
+          | _ -> ic.Pos
+
+        // adjust column
+        let pos =
+          match pos with
+          | Pos (1, c) -> pos
+          | Pos (l, 0) ->
+            let prev = getLine (pos.DecLine())
+            let indentation = detectIndentation prev
+
+            if indentation <> 0 then
+              // happens when there are already other `open`s
+              Position.mkPos l indentation
+            else
+              pos
+          | Pos (_, c) -> pos
+
+        { Namespace = n
+          Position = pos
+          Scope = ic.ScopeKind }))
+
 
   let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
     let ctx: SDK.Context =
@@ -413,62 +474,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
       GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
 
-  let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
-    let getLine (p: Position) = getLine p |> Option.defaultValue ""
-
-    let idents = decl.FullName.Split '.'
-
-    decl.NamespaceToOpen
-    |> Option.bind (fun n ->
-      state.CurrentAST
-      |> Option.map (fun ast ->
-        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
-      |> Option.map (fun ic ->
-        //TODO: unite with `CodeFix/ResolveNamespace`
-        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-
-        let detectIndentation (line: string) =
-          line |> Seq.takeWhile ((=) ' ') |> Seq.length
-
-        // adjust line
-        let pos =
-          match ic.ScopeKind with
-          | ScopeKind.Namespace ->
-            // for namespace `open` isn't created close at namespace,
-            // but instead on first member
-            // -> move `open` closer to namespace
-            // this only happens when there are no other `open`
-
-            // from insert position go up until first open OR namespace
-            ic.Pos.LinesToBeginning()
-            |> Seq.tryFind (fun l ->
-              let lineStr = getLine l
-              // namespace MUST be top level -> no indentation
-              lineStr.StartsWith "namespace ")
-            |> function
-              // move to the next line below "namespace"
-              | Some l -> l.IncLine()
-              | None -> ic.Pos
-          | _ -> ic.Pos
-
-        // adjust column
-        let pos =
-          match pos with
-          | Pos (1, c) -> pos
-          | Pos (l, 0) ->
-            let prev = getLine (pos.DecLine())
-            let indentation = detectIndentation prev
-
-            if indentation <> 0 then
-              // happens when there are already other `open`s
-              Position.mkPos l indentation
-            else
-              pos
-          | Pos (_, c) -> pos
-
-        { Namespace = n
-          Position = pos
-          Scope = ic.ScopeKind }))
 
   let fillHelpTextInTheBackground decls (pos: Position) fn getLine =
     let declName (d: DeclarationListItem) = d.Name
@@ -916,7 +921,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res decls
     }
 
-  member __.Helptext sym =
+  member _.Helptext sym =
     async {
       match KeywordList.keywordDescriptions.TryGetValue sym with
       | true, s -> return CoreResponse.Res(HelpText.Simple(sym, s))
@@ -961,7 +966,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member x.Colorization enabled = state.ColorizationOutput <- enabled
   member x.Error msg = [ CoreResponse.ErrorRes msg ]
 
-  member x.Completion
+  member _.Completion
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     lineStr
@@ -992,10 +997,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         // Send the first help text without being requested.
         // This allows it to be displayed immediately in the editor.
-        let firstMatchOpt =
-          decls
-          |> Array.sortBy declName
-          |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+        // let firstMatchOpt =
+        //   decls
+        //   |> Array.sortBy declName
+        //   |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
 
         let includeKeywords = includeKeywords && shouldKeywords
 
@@ -1741,7 +1746,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let r = res.GetCheckResults.GetSemanticClassification(range)
 
-      let filteredRanges = scrubRanges r
+      let filteredRanges = Commands.scrubRanges r
       return CoreResponse.Res filteredRanges
     }
 
