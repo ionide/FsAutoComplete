@@ -10,6 +10,8 @@ FsToolkit.ErrorHandling
 ICSharpCode.Decompiler
 Ionide.KeepAChangelog.Tasks
 Ionide.LanguageServerProtocol
+Ionide.ProjInfo
+Ionide.ProjInfo.ProjectSystem
 Microsoft.NETFramework.ReferenceAssemblies
 Microsoft.SourceLink.GitHub
 Newtonsoft.Json

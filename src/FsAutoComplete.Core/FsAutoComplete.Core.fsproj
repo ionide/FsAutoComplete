@@ -5,7 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
-    <ProjectReference Include="../../../dotnet-proj-info/src/Ionide.ProjInfo.ProjectSystem/Ionide.ProjInfo.ProjectSystem.fsproj"/>
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>

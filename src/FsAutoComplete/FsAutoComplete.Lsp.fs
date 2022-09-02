@@ -462,10 +462,10 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
   )
 
   let getTypeCheckResults filename =
-    transact(fun () -> knownFsFiles.Add filename) |> ignore
+    // transact(fun () -> knownFsFiles.Add filename) |> ignore
     knownFsFilesToCheckedFilesResults
     |> AMap.tryFind(filename)
-    |> AVal.force
+    // |> AVal.force
 
   let knownFsFilesToCheckedDeclarations =
     knownFsFilesToCheckedFilesResults
@@ -553,12 +553,18 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       return ()
     }
 
-  override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) =
+  override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) = async {
     logger.info (
       Log.setMessage "TextDocumentDidOpen Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.ignoreNotification
+
+    let doc = p.TextDocument
+    let filePath = doc.GetFilePath() |> Utils.normalizePath
+    transact(fun () -> knownFsFiles.Add filePath) |> ignore
+    return ()
+
+  }
 
   override __.TextDocumentDidChange(p: DidChangeTextDocumentParams) = async {
     logger.info (
@@ -567,6 +573,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
     let doc = p.TextDocument
     let filePath = doc.GetFilePath() |> Utils.normalizePath
+    // AddOrUpdate inmemory changes
     let adder key = clist p.ContentChanges
     let updater key (value : clist<_>) = value.AddRange p.ContentChanges; value
     transact(fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
@@ -593,7 +600,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       >> Log.addContextDestructured "parms" p
     )
     let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
-
     let pos = p.GetFcsPos()
     let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
     let lines = updates.NamedText
@@ -613,7 +619,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
 
         return! success (Some completionList)
       else
-        match getTypeCheckResults (file) with
+        match getTypeCheckResults (file) |> AVal.force  with
         | None ->
           return! success (Some completionList)
         | Some typeCheckResults ->
@@ -760,8 +766,8 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
     let namedText = updates.NamedText
     let lineStr = namedText.GetLine pos
-    let tyRes = (getTypeCheckResults (file)) .Value
-    let res = tyRes.TryGetToolTipEnhanced pos lineStr.Value
+    let tyRes = (getTypeCheckResults (file)) |> AVal.force
+    let res = tyRes.Value.TryGetToolTipEnhanced pos lineStr.Value
     match res with
     | Ok(Some (tip, signature, footer, typeDoc)) ->
         let formatCommentStyle =
@@ -928,7 +934,156 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       Log.setMessage "CodeLensResolve Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+
+    let handler f (arg: CodeLens) =
+      async {
+        let pos = protocolPosToPos arg.Range.Start
+
+        let data = arg.Data.Value.ToObject<string[]>()
+
+        let file = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
+
+        try
+          let tyRes = getTypeCheckResults file |> AVal.force
+
+          match tyRes with
+          | None -> return success { p with Command = None }
+          | Some tyRes ->
+
+            logger.info (
+              Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
+              >> Log.addContextDestructured "file" file
+            )
+
+            let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
+            let lines = updates.NamedText
+            let lineStr = lines.GetLine pos
+
+            let typ = data.[1]
+            let! r = Async.Catch(f arg pos tyRes lines lineStr typ file)
+
+            match r with
+            | Choice1Of2 (r: LspResult<CodeLens option>) ->
+              match r with
+              | Ok (Some r) -> return Ok r
+              | _ -> return Ok Unchecked.defaultof<_>
+            | Choice2Of2 e ->
+              logger.error (
+                Log.setMessage "CodeLensResolve - Child operation failed for {file}"
+                >> Log.addContextDestructured "file" file
+                >> Log.addExn e
+              )
+
+              let title = if typ = "signature" then "" else "0 References"
+
+              let codeLens =
+                { p with
+                    Command =
+                      Some
+                        { Title = title
+                          Command = ""
+                          Arguments = None } }
+
+              return success codeLens
+        with e ->
+          logger.error (
+            Log.setMessage "CodeLensResolve - Operation failed on {file}"
+            >> Log.addContextDestructured "file" file
+            >> Log.addExn e
+          )
+
+          return { p with Command = None } |> success
+      }
+
+    let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
+      Some
+        [| JToken.FromObject(Path.LocalPathToUri sourceFile)
+           JToken.FromObject(fcsPosToLsp triggerPos)
+           JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
+
+    handler
+      (fun p pos tyRes lines lineStr typ file ->
+        async {
+          if typ = "signature" then
+            match tyRes.TryGetSignatureData pos lineStr.Value |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes with
+            | CoreResponse.InfoRes msg
+            | CoreResponse.ErrorRes msg ->
+              logger.error (
+                Log.setMessage "CodeLensResolve - error on file {file}"
+                >> Log.addContextDestructured "file" file
+                >> Log.addContextDestructured "error" msg
+              )
+
+              return { p with Command = None } |> Some |> success
+            | CoreResponse.Res (typ, parms, _) ->
+              let formatted = SigantureData.formatSignature typ parms
+
+              let cmd =
+                { Title = formatted
+                  Command = ""
+                  Arguments = None }
+
+              return { p with Command = Some cmd } |> Some |> success
+          else
+            return { p with Command = None } |> Some |> success
+            // let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
+
+            // let res =
+            //   match res with
+            //   | Core.Result.Error msg ->
+            //     logger.error (
+            //       Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+            //       >> Log.addContextDestructured "file" file
+            //       >> Log.addContextDestructured "error" msg
+            //     )
+
+            //     success (
+            //       Some
+            //         { p with
+            //             Command =
+            //               Some
+            //                 { Title = ""
+            //                   Command = ""
+            //                   Arguments = None } }
+            //     )
+            //   | Ok res ->
+            //     match res with
+            //     | Choice1Of2 (_, uses) ->
+            //       let allUses = uses.Values |> Array.concat
+
+            //       let cmd =
+            //         if allUses.Length = 0 then
+            //           { Title = "0 References"
+            //             Command = ""
+            //             Arguments = None }
+            //         else
+            //           { Title = $"%d{allUses.Length} References"
+            //             Command = "fsharp.showReferences"
+            //             Arguments = writePayload (file, pos, allUses) }
+
+            //       { p with Command = Some cmd } |> Some |> success
+            //     | Choice2Of2 mixedUsages ->
+            //       // mixedUsages will contain the declaration, so we need to do a bit of work here
+            //       let allUses = mixedUsages.Values |> Array.concat
+
+            //       let cmd =
+            //         if allUses.Length <= 1 then
+            //           // 1 reference means that it's only the declaration, so it's actually 0 references
+            //           { Title = "0 References"
+            //             Command = ""
+            //             Arguments = None }
+            //         else
+            //           // multiple references means that the declaration _and_ the references are all present.
+            //           // this is kind of a pain, so for now at least, we just return all of them
+            //           { Title = $"%d{allUses.Length - 1} References"
+            //             Command = "fsharp.showReferences"
+            //             Arguments = writePayload (file, pos, allUses) }
+
+            //       { p with Command = Some cmd } |> Some |> success
+
+            // return res
+        })
+      p
   override __.WorkspaceDidChangeWatchedFiles(p) =
 
     logger.info (
@@ -961,7 +1116,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
   member private x.handleSemanticTokens (filePath : string<LocalPath>) range
     : LspResult<SemanticTokens option> =
 
-    let tyRes = getTypeCheckResults (filePath)
+    let tyRes = getTypeCheckResults (filePath) |> AVal.force
     let r = tyRes.Value.GetCheckResults.GetSemanticClassification(range)
     let filteredRanges = Commands.scrubRanges r
 

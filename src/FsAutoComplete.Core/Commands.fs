@@ -1088,7 +1088,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           InsertText = formattedXmlDoc }
     }
 
-  member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
+  member _.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
     asyncResult {
 
       let findReferencesInFile
