@@ -209,8 +209,8 @@ let main args =
       .CreateLogger() // make it so that every console log is logged to stderr
 
   // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests
-  // Serilog.Log.Logger <- serilogLogger
-  // LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
+  Serilog.Log.Logger <- serilogLogger
+  LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
 
   let fixedUpArgs = args |> Array.except argsToRemove
 
