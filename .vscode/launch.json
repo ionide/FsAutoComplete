@@ -19,7 +19,7 @@
       "internalConsoleOptions": "openOnSessionStart"
     },
     {
-      "name": "LSP tests",
+      "name": "Specific LSP tests",
       "type": "coreclr",
       "request": "launch",
       "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net6.0/FsAutoComplete.Tests.Lsp.dll",
@@ -41,7 +41,7 @@
       "args": [
         "--debug",
         "--filter",
-        "FSAC.lsp.Ionide WorkspaceLoader.ScriptProjectOptionsCache.tests.reopening the script file should return same project options for file"
+        "FSAC.lsp.Ionide WorkspaceLoader.Go to definition tests.Script GoTo Tests.Go-to-definition on first char of identifier works"
       ]
     },
     {
@@ -55,6 +55,58 @@
         }
       },
       "justMyCode": false
+    },
+    {
+      "name": "Pick LSP tests",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/${input:tfm}/FsAutoComplete.Tests.Lsp.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": false,
+      "symbolOptions": {
+        "searchMicrosoftSymbolServer": true,
+        "searchNuGetOrgSymbolServer": true
+      },
+      "sourceLinkOptions": {
+        "*": {
+          "enabled": true
+        }
+      },
+      "enableStepFiltering": false,
+      "args": [
+        "--debug",
+        "--filter",
+        "FSAC.lsp.${input:loader}.${input:testName}"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "tfm",
+      "description": "The TFM of the test to run",
+      "options": [
+        "net6.0",
+        "net7.0"
+      ],
+      "default": "net7.0",
+      "type": "pickString"
+    },
+    {
+      "id": "loader",
+      "description": "The loader to use for the test",
+      "options": [
+        "Ionide WorkspaceLoader",
+        "MSBuild Project Graph WorkspaceLoader"
+      ],
+      "default": "WorkspaceLoader",
+      "type": "pickString"
+    },
+    {
+      "id": "testName",
+      "description": "the name of the test as provided to `testCase`",
+      "type": "promptString"
     }
   ]
 }

@@ -5,6 +5,9 @@
     <TargetFrameworks Condition="'$(BuildNet7)' == 'true'">net6.0;net7.0</TargetFrameworks>
     <GenerateProgramFile>false</GenerateProgramFile>
     <RollForward>LatestMajor</RollForward>
+    <IsTestProject>true</IsTestProject>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete/FsAutoComplete.fsproj">
