@@ -211,7 +211,8 @@ let defaultConfigDto: FSharpConfigDto =
       Some
         { typeAnnotations = Some true
           parameterNames = Some true
-          disableLongTooltip = Some true } }
+          disableLongTooltip = Some true }
+    Debug = None }
 
 let clientCaps: ClientCapabilities =
   let dynCaps: DynamicCapabilities = { DynamicRegistration = Some true }

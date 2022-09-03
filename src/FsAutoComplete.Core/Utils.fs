@@ -728,28 +728,46 @@ module Version =
       GitSha = sha }
 
 //source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
-type Debounce<'a>(timeout, fn) =
-  let debounce fn timeout =
-    MailboxProcessor<'a>.Start
-      (fun agent ->
-        let rec loop ida idb arg =
-          async {
-            let! r = agent.TryReceive(timeout)
+type Debounce<'a>(timeout, fn) as x =
 
-            match r with
-            | Some arg -> return! loop ida (idb + 1) (Some arg)
-            | None when ida <> idb ->
-              fn arg.Value
-              return! loop idb idb None
-            | None -> return! loop ida idb arg
-          }
+  let mailbox =
+    MailboxProcessor<'a>.Start (fun agent ->
+      let rec loop ida idb arg = async {
+        let! r = agent.TryReceive(x.Timeout)
+        match r with
+        | Some arg -> return! loop ida (idb+1) (Some arg)
+        | None when ida <> idb ->
+            if x.WaitForFnToFinish then
+              do! fn arg.Value
+            else
+              fn arg.Value |> Async.Start
+            return! loop 0 0 None
+        | None -> return! loop 0 0 arg
+      }
 
-        loop 0 0 None)
-
-  let mailbox = debounce fn timeout
+      loop 0 0 None
+    )
 
   /// Calls the function, after debouncing has been applied.
-  member __.Bounce(arg) = mailbox.Post(arg)
+  member _.Bounce(arg) = mailbox.Post(arg)
+
+  /// Timeout in ms
+  member val Timeout = timeout with get,set
+  /// * `true`: waits for `fn` to finish before getting new messages
+  /// * `false`: starts and forgets `fn` (`Async.Start`). Immediately waits for new message.
+  /// 
+  /// Practical differences:
+  /// * parallel:
+  ///   * `true`: only one `fn` can run at the same time
+  ///   * `false`: multiple `fn` can run at same time
+  /// * timeout:
+  ///   * `true`: timeout only starts after `fn` is finished  
+  ///     -> practical debounce timeout: execution time of `fn` + timeout
+  ///   * `false`: execution of `fn` has no impact on timeout  
+  ///     -> practical debounce timeout: timeout
+  /// 
+  /// Default is `false`
+  member val WaitForFnToFinish = false with get,set
 
 module Indentation =
   let inline get (line: string) =
