@@ -115,6 +115,13 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 * `fsharp/f1Help` - accepts `TextDocumentPositionParams`, returns URL to MSDN documentation for symbol at given position
 * `fsharp/documentation` - accepts `TextDocumentPositionParams`, returns documentation data about symbol at given position, used for InfoPanel
 * `fsharp/documentationSymbol` - accepts `DocumentationForSymbolReuqest`, returns documentation data about given symbol from given assembly, used for InfoPanel
+* `fsproj/moveFileUp` - accepts `DotnetFileRequest`, move the file down of 1 line in the project file
+* `fsproj/moveFileDown` - accepts `DotnetFileRequest`, move the file up of 1 line in the project file
+* `fsproj/addFileAbove` - accepts `DotnetFile2Request`, create the file if needed and add it above the reference file in the project if not already present
+* `fsproj/addFileBelow` - accepts `DotnetFile2Request`, create the file if needed and add it below the reference file in the project if not already present
+* `fsproj/addFile` - accepts `DotnetFileRequest`, create the file if needed and add it to the project if not already present
+* `fsproj/addExistingFile` - accepts `DotnetFileRequest`, add existing file to a project if not already present
+* `fsproj/removeFile` - accepts `DotnetFileRequest`, remove the file from the project
 
 ### Supported LSP notifications
 
