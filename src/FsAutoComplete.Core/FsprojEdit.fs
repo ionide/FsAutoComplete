@@ -94,17 +94,27 @@ module FsProjEditor =
 
     addFile fsprojPath relativePath
 
-  let removeFile (fsprojPath: string) (fileNameToRemove: string) =
+  let removeFile (fsprojPath: string) (fileToRemove: string) =
     let xdoc = System.Xml.XmlDocument()
     xdoc.Load fsprojPath
-    let xpath = sprintf "//Compile[@Include='%s']/.." fileNameToRemove
-    let itemGroup = xdoc.SelectSingleNode(xpath)
-    let childXPath = sprintf "//Compile[@Include='%s']" fileNameToRemove
-    let node = itemGroup.SelectSingleNode(childXPath)
+    let sanitazedFileToRemove = fileToRemove.Replace("\\", "/")
 
-    // If the node is not found do nothing
-    if isNull node then
-      ()
-    else
-      itemGroup.RemoveChild node |> ignore
+    let nodeToRemoveOpt =
+      // Take all the <Compile Include="..." /> nodes
+      xdoc.SelectNodes("//Compile[@Include]")
+      |> Seq.cast<System.Xml.XmlNode>
+      // Find the node that match the file we want to remove
+      // Note: We sanitaze the file name path because it can changes depending on the OS
+      // and also on if the user used / or \ as the separator
+      |> Seq.tryFind (fun node ->
+        let sanitazedInclude = node.Attributes.["Include"].InnerText.Replace("\\", "/")
+        sanitazedInclude = sanitazedFileToRemove)
+
+    match nodeToRemoveOpt with
+    | Some nodeToRemove ->
+      nodeToRemove.ParentNode.RemoveChild(nodeToRemove) |> ignore
       xdoc.Save fsprojPath
+
+    | None ->
+      // Node not found, do nothing
+      ()
