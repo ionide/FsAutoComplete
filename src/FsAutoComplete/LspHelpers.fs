@@ -594,13 +594,13 @@ type InlayHintDto =
   { typeAnnotations: bool option
     parameterNames: bool option
     disableLongTooltip: bool option }
+
 type DebugDto =
   { DontCheckRelatedFiles: bool option
     CheckFileDebouncerTimeout: int option
     WaitTillFileChecked: bool option
     LogDurationBetweenCheckFiles: bool option
-    LogCheckFileFinished: bool option
-  }
+    LogCheckFileFinished: bool option }
 
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
@@ -660,23 +660,19 @@ type InlayHintsConfig =
       parameterNames = true
       disableLongTooltip = true }
 
-type DebugConfig = 
-  {
-    DontCheckRelatedFiles: bool
+type DebugConfig =
+  { DontCheckRelatedFiles: bool
     CheckFileDebouncerTimeout: int
     WaitTillFileChecked: bool
     LogDurationBetweenCheckFiles: bool
-    LogCheckFileFinished: bool
-  }
+    LogCheckFileFinished: bool }
 
   static member Default =
-    {
-      DontCheckRelatedFiles = false
+    { DontCheckRelatedFiles = false
       CheckFileDebouncerTimeout = 250
       WaitTillFileChecked = false
       LogDurationBetweenCheckFiles = false
-      LogCheckFileFinished = false
-    }
+      LogCheckFileFinished = false }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -813,14 +809,13 @@ type FSharpConfig =
         match dto.Debug with
         | None -> DebugConfig.Default
         | Some dDto ->
-            {
-              DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles DebugConfig.Default.DontCheckRelatedFiles
-              CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
-              WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked DebugConfig.Default.WaitTillFileChecked
-              LogDurationBetweenCheckFiles = defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
-              LogCheckFileFinished = defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogCheckFileFinished
-            }
-    }
+          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles DebugConfig.Default.DontCheckRelatedFiles
+            CheckFileDebouncerTimeout =
+              defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
+            WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked DebugConfig.Default.WaitTillFileChecked
+            LogDurationBetweenCheckFiles =
+              defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
+            LogCheckFileFinished = defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogCheckFileFinished } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -894,14 +889,12 @@ type FSharpConfig =
         match dto.Debug with
         | None -> DebugConfig.Default
         | Some dDto ->
-            {
-              DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles x.Debug.DontCheckRelatedFiles
-              CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
-              WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked x.Debug.WaitTillFileChecked
-              LogDurationBetweenCheckFiles = defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
-              LogCheckFileFinished = defaultArg dDto.LogCheckFileFinished x.Debug.LogCheckFileFinished
-            }
-    }
+          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles x.Debug.DontCheckRelatedFiles
+            CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
+            WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked x.Debug.WaitTillFileChecked
+            LogDurationBetweenCheckFiles =
+              defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
+            LogCheckFileFinished = defaultArg dDto.LogCheckFileFinished x.Debug.LogCheckFileFinished } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with

@@ -255,6 +255,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     }
 
   let mutable lastCheckFile = System.DateTime.UtcNow
+
   let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
     asyncResult {
       let tfmConfig =
@@ -269,22 +270,27 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let d = now - lastCheckFile
           lastCheckFile <- now
           d
+
         logger.warn (
-          Log.setMessage "checkFile({file}, {version}, dontCheckRelatedFiles={dontCheckRelatedFiles}, since last check={d})"
+          Log.setMessage
+            "checkFile({file}, {version}, dontCheckRelatedFiles={dontCheckRelatedFiles}, since last check={d})"
           >> Log.addContext "file" filePath
           >> Log.addContext "version" version
           >> Log.addContext "dontCheckRelatedFiles" config.Debug.DontCheckRelatedFiles
           >> Log.addContext "d" d
-      )
+        )
 
       if config.Debug.DontCheckRelatedFiles then
-        do! commands.CheckFile(
-          filePath, version, content, 
-          tfmConfig,
-          checkFilesThatThisFileDependsOn = false,
-          checkFilesThatDependsOnFile = false,
-          checkDependentProjects = false
-        )
+        do!
+          commands.CheckFile(
+            filePath,
+            version,
+            content,
+            tfmConfig,
+            checkFilesThatThisFileDependsOn = false,
+            checkFilesThatDependsOnFile = false,
+            checkDependentProjects = false
+          )
       else
         do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, version, content, tfmConfig, isFirstOpen)
 
@@ -327,7 +333,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "file" filePath
         )
     }
-    // |> Async.Start
+  // |> Async.Start
 
   let checkFileDebouncer = Debounce(250, checkChangedFile)
 
@@ -544,13 +550,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         logger.warn (Log.setMessage "Checking of related files disabled!")
       else
         logger.info (Log.setMessage "Checking of related files enabled")
-      
+
     if newConfig.CheckFileDebouncerTimeout <> oldConfig.CheckFileDebouncerTimeout then
       logger.warn (
         Log.setMessage "Changing checkFileDebouncer.Timeout to {newTimeout} (from {oldTimeout})"
         >> Log.addContext "newTimeout" newConfig.CheckFileDebouncerTimeout
         >> Log.addContext "oldTimeout" checkFileDebouncer.Timeout
       )
+
       checkFileDebouncer.Timeout <- newConfig.CheckFileDebouncerTimeout
 
     if newConfig.WaitTillFileChecked <> oldConfig.WaitTillFileChecked then
@@ -558,6 +565,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         logger.warn (Log.setMessage "From now on: checkFileDebouncer waits till file checked")
       else
         logger.info (Log.setMessage "From now on: checkFileDebouncer starts file checking and immediately continues")
+
       checkFileDebouncer.WaitForFnToFinish <- newConfig.WaitTillFileChecked
 
     if newConfig.LogDurationBetweenCheckFiles <> oldConfig.LogDurationBetweenCheckFiles then
@@ -575,7 +583,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   /// centralize any state changes when the config is updated here
   let updateConfig (newConfig: FSharpConfig) =
     updateDebugConfig (newConfig.Debug, config.Debug)
-    
+
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
     config <- newConfig
 

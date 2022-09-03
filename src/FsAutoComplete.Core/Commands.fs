@@ -767,18 +767,20 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   /// * check the file
   /// * check the other files in the project that depend on this file
   /// * check projects that are downstream of the project containing this file
-  member x.CheckFile(
-    file: string<LocalPath>,
-    version,
-    content,
-    tfmConfig,
-    checkFilesThatThisFileDependsOn,
-    checkFilesThatDependsOnFile,
-    checkDependentProjects
-  ) : Async<unit> = async {
-    match! x.EnsureProjectOptionsForFile(file, content, version, tfmConfig) with
-    | None -> ()
-    | Some opts ->
+  member x.CheckFile
+    (
+      file: string<LocalPath>,
+      version,
+      content,
+      tfmConfig,
+      checkFilesThatThisFileDependsOn,
+      checkFilesThatDependsOnFile,
+      checkDependentProjects
+    ) : Async<unit> =
+    async {
+      match! x.EnsureProjectOptionsForFile(file, content, version, tfmConfig) with
+      | None -> ()
+      | Some opts ->
         // parse dependent  files, if necessary
         if checkFilesThatThisFileDependsOn then
           do!
@@ -805,7 +807,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             |> List.map x.CheckProject
             |> Async.Sequential
             |> Async.map ignore<unit[]>
-  }
+    }
 
   /// Does everything required to check a file:
   /// * ensure we have project options for the file available
@@ -821,14 +823,16 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       tfmConfig: FSIRefs.TFM,
       isFirstOpen: bool
     ) : Async<unit> =
-      x.CheckFile(
-        file, version, content,
-        tfmConfig,
-        checkFilesThatThisFileDependsOn = isFirstOpen,
-        checkFilesThatDependsOnFile = true,
-        // TODO: Disabled due to performance issues - investigate.
-        checkDependentProjects = false
-      )
+    x.CheckFile(
+      file,
+      version,
+      content,
+      tfmConfig,
+      checkFilesThatThisFileDependsOn = isFirstOpen,
+      checkFilesThatDependsOnFile = true,
+      // TODO: Disabled due to performance issues - investigate.
+      checkDependentProjects = false
+    )
 
   /// easy helper that looks up a file and all required checking information then checks it.
   /// intended use is from the other, more complex Parse members, because the filePath is untagged
