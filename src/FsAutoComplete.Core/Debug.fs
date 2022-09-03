@@ -16,12 +16,34 @@ module Debug =
   open System
   open System.Collections.Concurrent
   open FsAutoComplete.Logging
-
+  let foo x y = x + y
+  let bar x = x
   let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
 
   let waitForDebugger () =
     while not (Diagnostics.Debugger.IsAttached) do
       System.Threading.Thread.Sleep(100)
+
+  let logger = LogProvider.getLoggerByName "Debugging"
+  let waitForDebuggerAttached (programName) =
+#if DEBUG
+    if not(System.Diagnostics.Debugger.IsAttached) then
+      logger.info(
+        Log.setMessage (sprintf "Please attach a debugger for %s, PID: %d" programName (System.Diagnostics.Process.GetCurrentProcess().Id))
+      )
+    while not(System.Diagnostics.Debugger.IsAttached) do
+      System.Threading.Thread.Sleep(100)
+#else
+    ()
+#endif
+  let waitForDebuggerAttachedAndBreak (programName) =
+#if DEBUG
+    waitForDebuggerAttached programName
+    System.Diagnostics.Debugger.Break()
+#else
+    ()
+#endif
+
 
   type LogCompilerFunctionId =
     | Service_ParseAndCheckFileInProject = 1

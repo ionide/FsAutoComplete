@@ -10,8 +10,6 @@ AltCover
 GitHubActionsTestLogger
 CliWrap
 FSharp.Data.Adaptive
-Buildalyzer
-Buildalyzer.Workspaces
 
 Microsoft.Build copy_local:false
 Microsoft.Build.Framework copy_local:false

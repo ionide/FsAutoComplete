@@ -208,6 +208,8 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
       for (_, cts) in agents.Values do
         cts.Cancel()
 
+
+
 open FSharp.Data.Adaptive
 open Ionide.ProjInfo
 open FSharp.Compiler.CodeAnalysis
@@ -234,13 +236,13 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
   let hasAnalyzers = false
   let checker =
       FSharpChecker.Create(
-        projectCacheSize = 200,
-        keepAllBackgroundResolutions = true,
-        keepAssemblyContents = hasAnalyzers,
-        suggestNamesForErrors = true,
-        enablePartialTypeChecking = not hasAnalyzers,
-        enableBackgroundItemKeyStoreAndSemanticClassification = true,
-        keepAllBackgroundSymbolUses = true
+        // projectCacheSize = 200,
+        // keepAllBackgroundResolutions = true,
+        // keepAssemblyContents = hasAnalyzers,
+        // suggestNamesForErrors = true,
+        // enablePartialTypeChecking = not hasAnalyzers,
+        // enableBackgroundItemKeyStoreAndSemanticClassification = true,
+        // keepAllBackgroundSymbolUses = true
       )
 
   let logger = LogProvider.getLoggerByName "AdaptiveFSharpLspServer"
@@ -312,7 +314,19 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
 
         let options =
           projectOptions
-          |> List.map(fun o -> FCS.mapToFSharpProjectOptions o projectOptions, o)
+          |> List.map(fun o ->
+            let fso = FCS.mapToFSharpProjectOptions o projectOptions
+            // let fso = { fso with OtherOptions = fso.OtherOptions |> Array.filter(fun x -> not <| x.Contains("-r:/Users/theangrybyrd/Repositories/public/FsAutoComplete/src/"))}
+            fso, o)
+        // options
+        // |> Seq.iter(fun (fso,extraInfo) ->
+        //   logger.info(
+        //     Log.setMessage "Project Options : {options}"
+        //     >> Log.addContextDestructured "options" fso
+        //   )
+        // )
+        // Debugging.waitForDebuggerAttachedAndBreak "ionide"
+
         let notifications =
           options
           |> List.map(fun (opts, extraInfo) ->
@@ -412,18 +426,27 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
           )
     ))
 
+  let getProjectOptionsForFile file =
+    knownFsFilesToProjectOptions
+    |> AMap.find file
+
   let knownFsFilesToCheckedFilesResults =
     knownFsFilesWithUpdates
     |> AMap.mapA(fun file info ->
       let fileVersion = info.LastWriteTime.Ticks |> int
       // printfn $"{nameof(fileVersion)} : {fileVersion}"
       let sourceText = info.NamedText
-      knownFsFilesToProjectOptions
-      |> AMap.find file
+      getProjectOptionsForFile file
       |> AVal.map(fun (opts, extraInfo) ->
 
-        logger.info (Log.setMessage "Getting typecheck results for {file}" >> Log.addContextDestructured "file" file)
+        logger.info (
+          Log.setMessage "Getting typecheck results for {file} - {hash}"
+          >> Log.addContextDestructured "file" file
+          >> Log.addContextDestructured "hash" (sourceText.GetHashCode())
+          )
+        // Debugging.waitForDebuggerAttached "ionide"
         let (parseResults, checkResults) = checker.ParseAndCheckFileInProject(UMX.untag file, fileVersion, sourceText, opts) |> Async.RunSynchronously
+
         logger.info (Log.setMessage "Got typecheck results for {file}" >> Log.addContextDestructured "file" file)
         lspClient.CodeLensRefresh() |> Async.Start
         let uri = Path.LocalPathToUri file
@@ -455,7 +478,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
             Array.append checkErrors parseErrors
             |> Array.distinctBy (fun e ->
               e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
-
 
           let uri = Path.LocalPathToUri (file)
           let diags = errors |> Array.map fcsErrorToDiagnostic
@@ -495,7 +517,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       |> Option.map Server.deserialize<FSharpConfigDto>
       |> Option.map FSharpConfig.FromDto
       |> Option.defaultValue FSharpConfig.Default
-
 
     transact(fun () ->
       rootpath.Value <- p.RootPath
@@ -628,6 +649,15 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
         | None ->
           return! success (Some completionList)
         | Some typeCheckResults ->
+          let (opts, _) = getProjectOptionsForFile file |> AVal.force
+          let text = File.ReadAllText (UMX.untag file)
+          checker.ParseAndCheckProject(opts) |> Async.Ignore |> Async.RunSynchronously
+          let! (r1, r2a) = checker.ParseAndCheckFileInProject((UMX.untag file), 0,  SourceText.ofString text, opts)
+          let r2 =
+            match r2a with
+            | FSharpCheckFileAnswer.Succeeded r2 -> r2
+            | _ -> failwith "???"
+          let typeCheckResults = ParseAndCheckResults(r1,r2, entityCache)
           let config = AVal.force config
           let getAllSymbols () =
             if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
@@ -1031,7 +1061,10 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
               return { p with Command = Some cmd } |> Some |> success
           else
             return { p with Command = None } |> Some |> success
-            // let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
+
+
+            // let lol = cmap<string, int>()
+
 
             // let res =
             //   match res with
@@ -1097,8 +1130,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
     Helpers.ignoreNotification
   override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) =
-
-
     logger.info (
       Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}"
       >> Log.addContextDestructured "parms" p
@@ -4083,8 +4114,8 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use output = Console.OpenStandardOutput()
 
   let requestsHandlings =
-    // (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
-    (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
+    (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
+    // (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
     |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
     |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
     |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
@@ -4120,8 +4151,8 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
   let loader = workspaceLoaderFactory toolsPath
   Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new AdaptiveFSharpLspServer(loader, lspClient)
-    // new FSharpLspServer(state, lspClient)
+    // new AdaptiveFSharpLspServer(loader, lspClient)
+    new FSharpLspServer(state, lspClient)
     )
 
 let start toolsPath stateStorageDir workspaceLoaderFactory =

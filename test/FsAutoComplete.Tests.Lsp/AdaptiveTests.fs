@@ -48,7 +48,7 @@ let measureTime name f =
 
 let measureTimeAsync name f = async {
     let sw = Stopwatch.StartNew()
-    let! r = f 
+    let! r = f
     printfn $"{name} : {sw.ElapsedMilliseconds}ms"
     return r
 }
@@ -56,22 +56,6 @@ let measureTimeAsync name f = async {
 let adaptiveFile filePath =
     AdaptiveFile.GetLastWriteTimeUtc filePath
     |> AVal.map(fun writeTime -> filePath, writeTime)
-
-open Buildalyzer
-open Buildalyzer.Workspaces
-open Buildalyzer.Environment
-open Microsoft.Build.Graph
-let getOpsWithBuildalyzer path =
-    // let projPath = GetProjectPath(path)
-    let manager = new AnalyzerManager(path, AnalyzerManagerOptions())
-    let foo = manager.Projects |> Seq.collect(fun (KeyValue(key,value)) -> value.Build().Results)
-
-    
-    // let analyzer = manager.GetWorkspace()
-
-    // let results = analyzer.Build()
-    // string[] sourceFiles = results.First().SourceFiles
-    foo |> Seq.toList
 
 let awaitManualInput (msg : string) =
     Console.WriteLine(msg)
@@ -85,7 +69,7 @@ let tests toolsPath =
             let observeASet msg = ASet.force >> printfn "%s : %A" msg
             let observeAVal msg = AVal.force >> printfn "%s : %A" msg
             // let results = measureTime "Buildalyzer" (fun () -> getOpsWithBuildalyzer slnPath)
-            // 
+            //
 
             let aSlnFile = adaptiveFile slnPath
             // AdaptiveFile.GetAttributes slnPath |> AVal.force |> printfn "Attributes"
@@ -94,8 +78,8 @@ let tests toolsPath =
             // printfn $"{name}, {ellapsed}"
             let graph = ProjectGraph slnPath
             let filesThatChange = cset<string> [slnPath]
-            // graph.ProjectNodesTopologicallySorted 
-            // |> Seq.iter(fun p -> 
+            // graph.ProjectNodesTopologicallySorted
+            // |> Seq.iter(fun p ->
             //     p.ProjectInstance.ProjectFileLocation.LocationString )
             let changedFiles =
                 filesThatChange
@@ -104,22 +88,22 @@ let tests toolsPath =
                     let entryPoint =
                         adaptiveFile filepath
                     let additionalProjs =
-                        (ProjectGraph filepath).ProjectNodesTopologicallySorted 
+                        (ProjectGraph filepath).ProjectNodesTopologicallySorted
                         |> Seq.map(fun p -> adaptiveFile p.ProjectInstance.ProjectFileLocation.LocationString)
                         |> Seq.toList
                     let fooby = ASet.ofAVal
-                    let filestoWatch = 
-                        (entryPoint :: additionalProjs) 
+                    let filestoWatch =
+                        (entryPoint :: additionalProjs)
                         |> ASet.ofList
                         |> ASet.mapA id
                     filestoWatch
                 )
 
-            let changedValuesSnap = 
+            let changedValuesSnap =
                 changedFiles
                 |> ASet.toAVal
-               
-            
+
+
             let aOptions =
                 changedValuesSnap
                 |> AVal.map(fun items ->
@@ -128,7 +112,7 @@ let tests toolsPath =
                     let opts = measureTime "loader.LoadSln(file)" (fun () -> loader.LoadSln(slnPath))
                     opts
                 )
-            
+
 
             // observeASet (nameof(filesThatChange)) filesThatChange
             // observeASet (nameof(changedFiles)) changedFiles
@@ -152,19 +136,19 @@ let tests toolsPath =
             // observeASet (nameof(changedFiles)) changedFiles
             // observeAVal (nameof(changedValuesSnap)) changedValuesSnap
             // printfn $"{foo2}"
-            // let aOptions = 
+            // let aOptions =
             //     aSlnFile
             //     |> AVal.map(fun (file, time) ->
             //         let opts = measureTime "loader.LoadSln(file)" (fun () -> loader.LoadSln(file))
             //         opts
             //     )
-            
+
             // let fsharpOptions = options |> Seq.map (fun o -> FCS.mapToFSharpProjectOptions o options) |> Seq.toList
             let aFSharpOptions =
                 aOptions
                 |> AVal.map(fun options ->
                     let op1 = options |> Seq.map (fun o -> FCS.mapToFSharpProjectOptions o options) |> Seq.toList
-   
+
                     // Debugging.waitForDebuggerAttached "adaptive tests"
                     op1
                 )
@@ -172,19 +156,19 @@ let tests toolsPath =
             let incomingFile = "/Users/theangrybyrd/Repositories/public/FsToolkit.ErrorHandling/tests/FsToolkit.ErrorHandling.JobResult.Tests/JobResultCE.fs"
 
 
-            let aFile = 
+            let aFile =
                 ((adaptiveFile incomingFile), aFSharpOptions)
                 ||> AVal.map2(fun (name, writeTime) fsharpOptions ->
                     let fileVersion = writeTime.Ticks |> int
                     printfn $"{nameof(fileVersion)} : {fileVersion}"
                     let sourceText = SourceText.ofString (System.IO.File.ReadAllText name)
-                    let projectOptions = 
+                    let projectOptions =
                         fsharpOptions |> List.find(fun x -> x.SourceFiles |> Array.contains(name))
-                    // let results = 
+                    // let results =
                     //     measureTime "typecheck total:" <| fun () ->
-                    //         fsharpOptions 
-                    //         |> List.map(fun o -> 
-                                
+                    //         fsharpOptions
+                    //         |> List.map(fun o ->
+
                     //             measureTimeAsync $"{o.ProjectFileName} typecheck" (checker.ParseAndCheckProject(o))
                     //         )
                     //         |> Async.Parallel
@@ -192,9 +176,9 @@ let tests toolsPath =
 
                     let result = measureTime "Single file parse" <| fun () -> checker.ParseAndCheckFileInProject(name,fileVersion, sourceText,projectOptions) |> Async.RunSynchronously
 
-                 
+
                     result
-            )   
+            )
 
 
             // let fileVersion = 0

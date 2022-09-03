@@ -5,6 +5,8 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Tokenization
+open FsAutoComplete.Logging
+
 
 type AbstractClassData =
   | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: Range

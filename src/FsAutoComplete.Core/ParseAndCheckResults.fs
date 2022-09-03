@@ -583,8 +583,11 @@ type ParseAndCheckResults
           | _ ->
 
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
-
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
+            // logger.info (
+            //   Log.setMessage "TryGetCompletions - decls: {decls}"
+            //   >> Log.addContextDestructured "decls" results
+            // )
             let getKindPriority =
               function
               | CompletionItemKind.CustomOperation -> -1
@@ -605,7 +608,6 @@ type ParseAndCheckResults
                 results.Items
                 |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
               | _ -> results.Items
-
             let sortedDecls =
               decls
               |> Array.sortWith (fun x y ->
@@ -646,7 +648,7 @@ type ParseAndCheckResults
               && not results.IsForType
               && not results.IsError
               && List.isEmpty longName.QualifyingIdents
-
+            // Debug.waitForDebuggerAttachedAndBreak "--> TryGetCompletions"
             return Some(sortedDecls, residue, shouldKeywords)
         with :? TimeoutException ->
           return None
