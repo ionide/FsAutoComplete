@@ -32,12 +32,19 @@ module DotnetNewTemplate =
     | String
     | Choice of string list
 
+  let private getListCommand () =
+    if System.Environment.Version.Major = 7 then
+      "new list"
+    else
+      "new --list"
+
   let installedTemplates () : Template list =
     let readTemplates () =
 
       let si = System.Diagnostics.ProcessStartInfo()
       si.FileName <- "dotnet"
-      si.Arguments <- "new --list -lang F#"
+
+      si.Arguments <- $"{getListCommand ()} -lang F#"
       si.UseShellExecute <- false
       si.RedirectStandardOutput <- true
       si.WorkingDirectory <- Environment.CurrentDirectory
@@ -53,19 +60,19 @@ module DotnetNewTemplate =
 
     let parseTemplateOutput (x: string) =
       let xs =
-        x.Split('\n')
+        x.Split(Environment.NewLine)
         |> Array.skipWhile (fun n -> not (n.StartsWith "Template"))
-        |> Array.filter (fun n -> not (String.IsNullOrWhiteSpace n))
+        |> Array.filter (fun n -> not (n.StartsWith ' ' || String.IsNullOrWhiteSpace n))
 
       let header = xs.[0]
       let body = xs.[2..]
-      let nameLegth = header.IndexOf("Short")
+      let nameLength = header.IndexOf("Short")
 
       let body =
         body
         |> Array.map (fun (n: string) ->
-          let name = n.[0 .. nameLegth - 1].Trim()
-          let shortName = n.[nameLegth..].Split(' ').[0].Trim()
+          let name = n.[0 .. nameLength - 1].Trim()
+          let shortName = n.[nameLength..].Split(' ').[0].Trim()
           name, shortName)
 
       body
