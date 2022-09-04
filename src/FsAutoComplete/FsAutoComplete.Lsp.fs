@@ -30,6 +30,11 @@ open FSharp.Compiler.Symbols
 open FSharp.UMX
 open StreamJsonRpc
 open Fantomas.Client.Contracts
+open System.Reactive.Linq
+open FSharp.Control.Reactive.Observable
+open FSharp.Control.Reactive
+open System.Threading.Tasks
+open System.Reactive.Subjects
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -336,6 +341,20 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   // |> Async.Start
 
   let checkFileDebouncer = Debounce(250, checkChangedFile)
+
+  let checkFileDebouncerSource =
+    let source = new Subject<DidChangeTextDocumentParams>()
+    commandDisposables.Add(source :> IDisposable)
+    source
+
+  let requestCheckFile ps = checkFileDebouncerSource.OnNext ps
+
+  let checkFileDebouncerSubscription =
+    checkFileDebouncerSource.AsObservable()
+    |> Observable.throttle (TimeSpan.FromMilliseconds 250)
+    |> Observable.map (checkChangedFile)
+    |> Observable.switchAsync
+    |> Observable.subscribe ignore
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -1070,7 +1089,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       // types are incorrect for this endpoint - version is always supplied by the client
       let endVersion = doc.Version.Value
 
-
       logger.info (
         Log.setMessage "TextDocumentDidChange Request: {parms}"
         >> Log.addContextDestructured "parms" filePath
@@ -1104,7 +1122,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       commands.SetFileContent(filePath, evolvedFileContent, Some endVersion)
 
-      checkFileDebouncer.Bounce p
+      // checkFileDebouncer.Bounce p
+      requestCheckFile p
     }
 
   //TODO: Investigate if this should be done at all
