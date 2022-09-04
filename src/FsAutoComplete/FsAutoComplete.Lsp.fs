@@ -944,12 +944,23 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
     Helpers.notImplemented
 
-  override x.TextDocumentDefinition(p) =
+  override x.TextDocumentDefinition(p : TextDocumentPositionParams) = async {
     logger.info (
       Log.setMessage "TextDocumentDefinition Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+    let pos = p.GetFcsPos()
+    let file = p.GetFilePath() |> Utils.normalizePath
+    let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
+    let namedText = updates.NamedText
+    let lineStr = namedText.GetLine pos
+    match (getTypeCheckResults (file)) |> AVal.force with
+    | None -> return!  Helpers.notImplemented
+    | Some tyRes ->
+      match! tyRes.TryFindDeclaration pos lineStr.Value with
+      | Error e -> return LspResult.internalError e
+      | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
+  }
 
   override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
     logger.info (
