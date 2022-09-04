@@ -230,6 +230,12 @@ module ASet =
       src
       |> ASet.mapToAMap mapper
       |> AMap.mapA (fun _ v -> v)
+
+type FileInfo = {
+  LastWriteTime : DateTime
+  NamedText : NamedText
+}
+
 type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
   inherit LspServer()
 
@@ -369,7 +375,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
     let! text = AdaptiveFile.ReadAllText untagged
     let namedText = NamedText(filepath, text)
-    return {|LastWriteTime = lastWriteTime; NamedText = namedText|}
+    return {LastWriteTime = lastWriteTime; NamedText = namedText}
   }
 
 
@@ -377,9 +383,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     knownFsFiles
     |> ASet.mapAtoAMap adaptiveFile
 
-
   let knownFsTextChanges = cmap<string<LocalPath>, clist<TextDocumentContentChangeEvent>>()
-
   let knownFsFilesWithUpdates =
     knownFsFilesWithFileSystemUpdates
     |> AMap.mapA(fun filePath updates ->
@@ -391,6 +395,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
             let namedText =
               (updates.NamedText, contentChanges)
               ||> Seq.fold (fun text change ->
+
                 match change.Range with
                 | None -> // replace entire content
                   NamedText(filePath, change.Text)
@@ -410,10 +415,13 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
                     text
               )
 
-            return {|LastWriteTime = DateTime.UtcNow; NamedText = namedText|}
+            return {LastWriteTime = DateTime.UtcNow; NamedText = namedText}
          }
 
     )
+  let getFileInfoForFile file =
+    knownFsFilesWithUpdates
+    |> AMap.find file
 
   let knownFsFilesToProjectOptions =
     knownFsFilesWithUpdates
@@ -430,69 +438,72 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     knownFsFilesToProjectOptions
     |> AMap.find file
 
+  let parseAndCheckFile (file : string<LocalPath>) fileVersion sourceText opts = async {
+    logger.info (
+      Log.setMessage "Getting typecheck results for {file} - {hash}"
+      >> Log.addContextDestructured "file" file
+      >> Log.addContextDestructured "hash" (sourceText.GetHashCode())
+      )
+    let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject((UMX.untag file), fileVersion, sourceText, opts)
+
+    logger.info (Log.setMessage "Got typecheck results for {file}" >> Log.addContextDestructured "file" file)
+
+    do! lspClient.CodeLensRefresh()
+    let uri = Path.LocalPathToUri file
+    do!
+      ({ Content = UMX.untag uri }: PlainNotification)
+      |> lspClient.NotifyFileParsed
+    match checkResults with
+    | FSharpCheckFileAnswer.Aborted ->
+      let parseErrors = parseResults.Diagnostics |> Array.map (fun p -> p.Message)
+      // logger.info (
+      //   Log.setMessage "{opName} completed with errors: {errors}"
+      //   >> Log.addContextDestructured "opName" opName
+      //   >> Log.addContextDestructured "errors" (List.ofArray p.Diagnostics)
+      // )
+
+      // return ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
+      return failwithf "Check aborted (%A). Errors: %A" checkResults parseErrors
+    | FSharpCheckFileAnswer.Succeeded (c) ->
+      // logger.info (
+      //   Log.setMessage "{opName} completed successfully"
+      //   >> Log.addContextDestructured "opName" opName
+      // )
+      let opts = opts
+      let text = sourceText
+      let parseAndCheck = ParseAndCheckResults(parseResults, c, entityCache)
+      let checkErrors = parseAndCheck.GetParseResults.Diagnostics
+
+      let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
+      // Debug.waitForDebuggerAttached "AdaptiveIonide"
+      let errors =
+        Array.append checkErrors parseErrors
+        |> Array.distinctBy (fun e ->
+          e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
+
+      let uri = Path.LocalPathToUri (file)
+      let diags = errors |> Array.map fcsErrorToDiagnostic
+      diagnosticCollections.SetFor(uri, "F# Compiler", diags)
+      return parseAndCheck
+  }
   let knownFsFilesToCheckedFilesResults =
     knownFsFilesWithUpdates
-    |> AMap.mapA(fun file info ->
+    |> AMap.mapA(fun file info ->aval {
       let fileVersion = info.LastWriteTime.Ticks |> int
-      // printfn $"{nameof(fileVersion)} : {fileVersion}"
       let sourceText = info.NamedText
-      getProjectOptionsForFile file
-      |> AVal.map(fun (opts, extraInfo) ->
+      let! (opts, extraInfo) = getProjectOptionsForFile file
 
-        logger.info (
-          Log.setMessage "Getting typecheck results for {file} - {hash}"
-          >> Log.addContextDestructured "file" file
-          >> Log.addContextDestructured "hash" (sourceText.GetHashCode())
-          )
-        // Debugging.waitForDebuggerAttached "ionide"
-        let (parseResults, checkResults) = checker.ParseAndCheckFileInProject(UMX.untag file, fileVersion, sourceText, opts) |> Async.RunSynchronously
+      let parseAndCheck = parseAndCheckFile file fileVersion sourceText opts |> Async.RunSynchronously
+      return parseAndCheck
 
-        logger.info (Log.setMessage "Got typecheck results for {file}" >> Log.addContextDestructured "file" file)
-        lspClient.CodeLensRefresh() |> Async.Start
-        let uri = Path.LocalPathToUri file
-        ({ Content = UMX.untag uri }: PlainNotification)
-        |> lspClient.NotifyFileParsed
-        |> Async.Start
-        match checkResults with
-        | FSharpCheckFileAnswer.Aborted ->
-          let parseErrors = parseResults.Diagnostics |> Array.map (fun p -> p.Message)
-          // logger.info (
-          //   Log.setMessage "{opName} completed with errors: {errors}"
-          //   >> Log.addContextDestructured "opName" opName
-          //   >> Log.addContextDestructured "errors" (List.ofArray p.Diagnostics)
-          // )
 
-          // return ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
-          failwithf "Check aborted (%A). Errors: %A" checkResults parseErrors
-        | FSharpCheckFileAnswer.Succeeded (c) ->
-          // logger.info (
-          //   Log.setMessage "{opName} completed successfully"
-          //   >> Log.addContextDestructured "opName" opName
-          // )
-          let parseAndCheck = ParseAndCheckResults(parseResults, c, entityCache)
-          let checkErrors = parseAndCheck.GetParseResults.Diagnostics
+      }
 
-          let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
-
-          let errors =
-            Array.append checkErrors parseErrors
-            |> Array.distinctBy (fun e ->
-              e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
-
-          let uri = Path.LocalPathToUri (file)
-          let diags = errors |> Array.map fcsErrorToDiagnostic
-          diagnosticCollections.SetFor(uri, "F# Compiler", diags)
-
-          parseAndCheck
-
-      )
   )
 
   let getTypeCheckResults filename =
-    // transact(fun () -> knownFsFiles.Add filename) |> ignore
     knownFsFilesToCheckedFilesResults
     |> AMap.tryFind(filename)
-    // |> AVal.force
 
   let knownFsFilesToCheckedDeclarations =
     knownFsFilesToCheckedFilesResults
@@ -501,10 +512,8 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
 
   let getDeclarations filename =
-    transact(fun () -> knownFsFiles.Add filename) |> ignore
     knownFsFilesToCheckedDeclarations
     |> AMap.tryFind(filename)
-    |> AVal.force
 
   override x.Shutdown() =
     x.Dispose() |> async.Return
@@ -517,7 +526,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       |> Option.map Server.deserialize<FSharpConfigDto>
       |> Option.map FSharpConfig.FromDto
       |> Option.defaultValue FSharpConfig.Default
-
     transact(fun () ->
       rootpath.Value <- p.RootPath
       clientCapabilities.Value <- p.Capabilities
@@ -591,7 +599,13 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     return ()
 
   }
+  override __.TextDocumentDidClose(p : DidCloseTextDocumentParams) = async {
 
+    let doc = p.TextDocument
+    let filePath = doc.GetFilePath() |> Utils.normalizePath
+    transact(fun () -> knownFsFiles.Remove(filePath) |> ignore)
+    return ()
+  }
   override __.TextDocumentDidChange(p: DidChangeTextDocumentParams) = async {
     logger.info (
       Log.setMessage "TextDocumentDidChange Request: {parms}"
@@ -612,11 +626,87 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       Log.setMessage "TextDocumentDidSave Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    let doc = p.TextDocument
 
+    let doc = p.TextDocument
     let filePath = doc.GetFilePath() |> Utils.normalizePath
+
     // This removes any in memory changes, it will re-read from the filesystem
-    transact(fun () -> knownFsTextChanges.Remove filePath |> ignore)
+    transact(fun () ->
+        knownFsTextChanges.Remove filePath |> ignore
+      )
+    // transact(fun () -> knownFsFiles.UpdateTo values |> ignore )
+    // let internalGetProjectOptions =
+    //   fun (r: FSharpReferencedProject) ->
+    //       let felds=r.GetType().GetFields(Reflection.BindingFlags.Instance ||| Reflection.BindingFlags.NonPublic)
+    //       try
+    //           let projOptions: FSharpProjectOptions = felds.[1].GetValue( r) :?> _
+    //           Some projOptions
+    //       with |e-> None
+    // let transitiveDeps (fsproj: string) = //TODO: this is terrible project checker is stupid solution to this problem
+    //     let touched = new System.Collections.Generic.HashSet<String>()
+    //     let result = new ResizeArray<FSharpProjectOptions>()
+    //     let rec walk(options: FSharpProjectOptions) =
+    //         if touched.Add(options.ProjectFileName) then
+    //             for parent in options.ReferencedProjects do
+    //                 match internalGetProjectOptions parent with //TODO:This uses reflection and is pure evil....
+    //                 |Some(parentOpts)->walk(parentOpts)
+    //                 |None -> ()
+
+    //             result.Add(options)
+    //     let (options, _) = getProjectOptionsForFile (UMX.tag fsproj) |> AVal.force
+    //     walk(options)
+    //     let deps=List.ofSeq(result)
+
+
+    //     deps
+    // let isVisible (targetSourceFile : string<LocalPath>) (fromSourceFile : string<LocalPath>) =
+    //   let fromProjectOptions = getProjectOptionsForFile fromSourceFile |> AVal.force |> fst
+    //   if Array.contains (UMX.untag targetSourceFile) fromProjectOptions.SourceFiles then
+    //       let iTarget = Array.IndexOf(fromProjectOptions.SourceFiles, targetSourceFile)
+    //       let iFrom = Array.IndexOf(fromProjectOptions.SourceFiles, fromSourceFile)
+    //       iFrom >= iTarget
+    //   // Otherwise, check if targetSourceFile is in the transitive dependencies of fromProjectOptions
+    //   else
+    //       let containsTarget(dependency: FSharpProjectOptions) = Array.contains (UMX.untag targetSourceFile) dependency.SourceFiles
+    //       let deps = transitiveDeps(fromProjectOptions.ProjectFileName)  //TODO: this might be terrible
+    //       List.exists containsTarget deps
+    // let todo = [ for fromFile in knownFsFiles |> ASet.force do
+    //                 if isVisible filePath fromFile then
+    //                     yield fromFile ]
+    // todo
+    // |> Seq.iter(fun x -> getTypeCheckResults x |> AVal.force |> ignore)
+    // let options = getProjectOptionsForFile filePath |> AVal.force |> fst
+    // let options = { options with SourceFiles = [|UMX.untag filePath|]}
+    // options
+    // |> checker.InvalidateConfiguration
+    // getTypeCheckResults filePath |> AVal.force |> ignore
+    // Async.Start(async {
+    //   do! Async.Sleep 100
+    let forceTypeCheck f = async {
+      logger.info(
+        Log.setMessage "TextDocumentDidSave Forced Check : {file}"
+        >> Log.addContextDestructured "file" f
+      )
+      let fileInfo = getFileInfoForFile f |> AVal.force
+      let (opts, _) = getProjectOptionsForFile f |> AVal.force
+      let fileversion = int fileInfo.LastWriteTime.Ticks
+      do! parseAndCheckFile f fileversion fileInfo.NamedText opts |> Async.Ignore
+    }
+    Debug.addder3 2 3 |> ignore
+
+    // do! forceTypeCheck filePath
+
+    // let foo = knownFsFilesToCheckedFilesResults |> AMap.force
+    let knownFiles =
+      knownFsFiles
+      |> ASet.force
+    do!
+      knownFiles
+      |> Seq.map forceTypeCheck
+      |> Async.Sequential
+      |> Async.Ignore
+
+
     return ()
   }
 
@@ -649,15 +739,6 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
         | None ->
           return! success (Some completionList)
         | Some typeCheckResults ->
-          let (opts, _) = getProjectOptionsForFile file |> AVal.force
-          let text = File.ReadAllText (UMX.untag file)
-          checker.ParseAndCheckProject(opts) |> Async.Ignore |> Async.RunSynchronously
-          let! (r1, r2a) = checker.ParseAndCheckFileInProject((UMX.untag file), 0,  SourceText.ofString text, opts)
-          let r2 =
-            match r2a with
-            | FSharpCheckFileAnswer.Succeeded r2 -> r2
-            | _ -> failwith "???"
-          let typeCheckResults = ParseAndCheckResults(r1,r2, entityCache)
           let config = AVal.force config
           let getAllSymbols () =
             if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
@@ -704,7 +785,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       match text with
       | HelpText.Simple (symbolName, text) ->
         let d = Documentation.Markup(markdown text)
-
+        let foo = Debug.subber4 5 6
         { ci with
             Detail = Some symbolName
             Documentation = Some d }
@@ -901,7 +982,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
       >> Log.addContextDestructured "parms" p
     )
     let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
-    let decls = getDeclarations fn
+    let decls = getDeclarations fn |> AVal.force
     return
       glyphToSymbolKind
       |> AVal.map(fun glyphToSymbolKind ->
@@ -939,18 +1020,18 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
     Helpers.notImplemented
   override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
-    logger.info (
-      Log.setMessage "TextDocumentCodeAction Request: {parms}"
-      >> Log.addContextDestructured "parms" codeActionParams
-    )
+    // logger.info (
+    //   Log.setMessage "TextDocumentCodeAction Request: {parms}"
+    //   >> Log.addContextDestructured "parms" codeActionParams
+    // )
     Helpers.notImplemented
   override __.TextDocumentCodeLens(p: CodeLensParams) = asyncResult {
-    logger.info (
-      Log.setMessage "TextDocumentCodeLens Request: {parms}"
-      >> Log.addContextDestructured "parms" p
-    )
+    // logger.info (
+    //   Log.setMessage "TextDocumentCodeLens Request: {parms}"
+    //   >> Log.addContextDestructured "parms" p
+    // )
     let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
-    let decls = getDeclarations (fn)
+    let decls = getDeclarations (fn) |> AVal.force
     let config = AVal.force config
     let res =
       [| if config.LineLens.Enabled <> "replaceCodeLens" then
@@ -965,10 +1046,10 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
   }
 
   override __.CodeLensResolve(p) =
-    logger.info (
-      Log.setMessage "CodeLensResolve Request: {parms}"
-      >> Log.addContextDestructured "parms" p
-    )
+    // logger.info (
+    //   Log.setMessage "CodeLensResolve Request: {parms}"
+    //   >> Log.addContextDestructured "parms" p
+    // )
 
     let handler f (arg: CodeLens) =
       async {
@@ -1259,7 +1340,7 @@ type AdaptiveFSharpLspServer (workspaceLoader, lspClient : FSharpLspClient) =
     )
 
     let fn = p.Project.GetFilePath() |> Utils.normalizePath
-    match getDeclarations fn with
+    match getDeclarations fn |> AVal.force with
     | None ->
       //TODO Error handle
       return! Helpers.notImplemented
@@ -2314,7 +2395,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                           OpenClose = Some true
                           Change = Some TextDocumentSyncKind.Full
                           Save = Some { IncludeText = Some true } }
-                  FoldingRangeProvider = Some true
+                  // FoldingRangeProvider = Some true
                   SelectionRangeProvider = Some true
                   SemanticTokensProvider =
                     Some
@@ -2365,7 +2446,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       logger.info (
         Log.setMessage "TextDocumentDidChange Request: {parms}"
-        >> Log.addContextDestructured "parms" filePath
+        >> Log.addContextDestructured "parms" p
       )
 
       let initialText =
@@ -4114,8 +4195,8 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use output = Console.OpenStandardOutput()
 
   let requestsHandlings =
-    (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
-    // (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
+    // (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
+    (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
     |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
     |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
     |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
@@ -4144,15 +4225,18 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
     |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
-  let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
-
-  let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
-
-  FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-  let loader = workspaceLoaderFactory toolsPath
-  Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    // new AdaptiveFSharpLspServer(loader, lspClient)
+  let regularServer lspClient =
+    let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
+    let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
+    FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
     new FSharpLspServer(state, lspClient)
+  let adaptiveServer lspClient =
+    let loader = workspaceLoaderFactory toolsPath
+    new AdaptiveFSharpLspServer(loader, lspClient)
+
+  Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
+    adaptiveServer lspClient
+    // regularServer lspClient
     )
 
 let start toolsPath stateStorageDir workspaceLoaderFactory =

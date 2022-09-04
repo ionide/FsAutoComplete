@@ -16,10 +16,17 @@ module Debug =
   open System
   open System.Collections.Concurrent
   open FsAutoComplete.Logging
-  let foo x y = x + y
-  let bar x = x
-  let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
 
+  let addder3 x y = x + y
+  // let addder2 x y = x + y
+  let addder1 x y = x + y
+  let subber x y = x - y
+
+  let subber2 x y = x - y
+  let subber3 x y = x - y
+  let subber4 x y = x - y
+
+  let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
   let waitForDebugger () =
     while not (Diagnostics.Debugger.IsAttached) do
       System.Threading.Thread.Sleep(100)
