@@ -77,33 +77,17 @@ let init args =
     Shell.cleanDirs [ "bin/pkgs" ]
     Directory.ensure "bin/pkgs"
 
-    !! "bin/release_netcore/**/*"
-    |> Zip.zip "bin/release_netcore" releaseArchiveNetCore
-
     !!(sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" currentRelease.AssemblyVersion)
     |> Shell.copy "bin/pkgs")
 
   Target.create "LocalRelease" (fun _ ->
-    Directory.ensure "bin/release_netcore"
-    Shell.cleanDirs [ "bin/release_netcore" ]
-
-    Shell.cleanDirs [ "bin/release_netcore" ]
-
-    DotNet.publish
-      (fun p ->
-        { p with
-            OutputPath = Some(__SOURCE_DIRECTORY__ </> "bin/release_netcore")
-            Framework = Some "net6.0"
-            Configuration = DotNet.BuildConfiguration.fromString configuration })
-      "src/FsAutoComplete"
-
     Directory.ensure "bin/release_as_tool"
     Shell.cleanDirs [ "bin/release_as_tool" ]
 
     DotNet.pack
       (fun p ->
         { p with
-            OutputPath = Some(__SOURCE_DIRECTORY__ </> "bin/release_as_tool")
+            OutputPath = Some(__SOURCE_DIRECTORY__ </> ".." </> "bin/release_as_tool")
             Configuration = DotNet.BuildConfiguration.fromString configuration
             MSBuildParams = { MSBuild.CliArguments.Create() with Properties = [ packAsToolProp ] } })
       "src/FsAutoComplete")
