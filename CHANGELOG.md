@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.57.0] - 2022-09-05
+
+### Added
+
+* [Add `fsharp/addExistingFile` LSP command](https://github.com/fsharp/FsAutoComplete/pull/1002) (Thanks @MangelMaxime!)
+* Support for .NET SDK 6.0.400 and 7.0.100
+  * Primary change was updating the Ionide.ProjInfo dependency
+
+### Changed
+
+* [Improvements/Fixes for unused declarations](https://github.com/fsharp/FsAutoComplete/pull/998) (thanks @Booksbaum!)
+  * Detect more cases when values are unused
+  * Fixes for associated codefix to remove or ignore the value
+* [Support removing files that are outside the fsproj directory](https://github.com/fsharp/FsAutoComplete/pull/1001) (thanks @MangelMaxime!)
+* Reverted back to full-text synchronization from incremental sync
+  * This didn't play well with the debounced checking that we do, so we need to rethink the interaction between the features
+
 ## [0.56.2] - 2022-08-19
 
 ### Changed
