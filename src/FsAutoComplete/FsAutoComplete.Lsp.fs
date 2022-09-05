@@ -597,7 +597,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         options
     )
 
-  let knownFsFiles = cset<string<LocalPath>> []
+  let openFiles = cset<string<LocalPath>> []
 
   let adaptiveFile (filepath : string<LocalPath>) = aval {
     let untagged = UMX.untag filepath
@@ -609,7 +609,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
 
   let knownFsFilesWithFileSystemUpdates =
-    knownFsFiles
+    openFiles
     |> ASet.mapAtoAMap adaptiveFile
 
   let knownFsTextChanges = cmap<string<LocalPath>, clist<TextDocumentContentChangeEvent>>()
@@ -765,8 +765,10 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         ps
         |> Seq.groupBy(fun p -> p.TextDocument.GetFilePath() |> Utils.normalizePath)
         |> Seq.iter(fun (filePath, items) ->
-          // AddOrUpdate inmemory changes
+        // AddOrUpdate inmemory changes
           let contentChanges = items |> Seq.collect(fun i -> i.ContentChanges)
+        // let filePath =  ps.TextDocument.GetFilePath() |> Utils.normalizePath
+        // let contentChanges = ps.ContentChanges
           let adder key = clist contentChanges
           let updater key (value : clist<_>) = value.AddRange contentChanges; value
           transact(fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
@@ -825,7 +827,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
                       Some
                         { TextDocumentSyncOptions.Default with
                             OpenClose = Some true
-                            Change = Some TextDocumentSyncKind.Full
+                            Change = Some TextDocumentSyncKind.Incremental
                             Save = Some { IncludeText = Some true } }
                     FoldingRangeProvider = Some false
                     SelectionRangeProvider = Some true
@@ -865,7 +867,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      transact(fun () -> knownFsFiles.Add filePath) |> ignore
+      transact(fun () -> openFiles.Add filePath) |> ignore
       return ()
     with e ->
       logger.error (Log.setMessage "TextDocumentDidOpen Request Errored {p}" >> Log.addContextDestructured "p" e)
@@ -879,7 +881,8 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       )
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      transact(fun () -> knownFsFiles.Remove(filePath) |> ignore)
+      transact(fun () -> openFiles.Remove(filePath) |> ignore)
+      diagnosticCollections.ClearFor(Path.LocalPathToUri filePath)
       return ()
     with e ->
       logger.error (Log.setMessage "TextDocumentDidClose Request Errored {p}" >> Log.addContextDestructured "p" e)
@@ -891,7 +894,13 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         Log.setMessage "TextDocumentDidChange Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
-      textDocumentDidChangeNotifications.Trigger p
+      let filePath =  p.TextDocument.GetFilePath() |> Utils.normalizePath
+      let contentChanges = p.ContentChanges
+      let adder key = clist contentChanges
+      let updater key (value : clist<_>) = value.AddRange contentChanges; value
+      transact(fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
+
+      // textDocumentDidChangeNotifications.Trigger p
       return ()
     with e ->
       logger.error (Log.setMessage "TextDocumentDidChange Request Errored {p}" >> Log.addContextDestructured "p" e)
@@ -927,7 +936,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       }
 
       let knownFiles =
-        knownFsFiles
+        openFiles
         |> ASet.force
       do!
         knownFiles
@@ -1089,6 +1098,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         Log.setMessage "CompletionItemResolve Request: {parms}"
         >> Log.addContextDestructured "parms" ci
       )
+
       // let res =
       //   helpText ci.InsertText.Value
       //   |> Result.ofCoreResponse
