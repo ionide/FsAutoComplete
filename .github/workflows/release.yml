@@ -36,9 +36,9 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: bin/pkgs/*
+          artifacts: build/bin/pkgs/*.nupkg
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.changelog_reader.outputs.log_entry }}
 
       - name: Push packages
-        run: dotnet nuget push bin/pkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
+        run: dotnet nuget push build/bin/pkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
