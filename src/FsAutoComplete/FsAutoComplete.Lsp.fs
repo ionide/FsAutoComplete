@@ -338,23 +338,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "file" filePath
         )
     }
-  // |> Async.Start
 
   let checkFileDebouncer = Debounce(250, checkChangedFile)
-
-  let checkFileDebouncerSource =
-    let source = new Subject<DidChangeTextDocumentParams>()
-    commandDisposables.Add(source :> IDisposable)
-    source
-
-  let requestCheckFile ps = checkFileDebouncerSource.OnNext ps
-
-  let checkFileDebouncerSubscription =
-    checkFileDebouncerSource.AsObservable()
-    |> Observable.throttle (TimeSpan.FromMilliseconds 250)
-    |> Observable.map (checkChangedFile)
-    |> Observable.switchAsync
-    |> Observable.subscribe ignore
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -578,14 +563,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       )
 
       checkFileDebouncer.Timeout <- newConfig.CheckFileDebouncerTimeout
-
-    if newConfig.WaitTillFileChecked <> oldConfig.WaitTillFileChecked then
-      if newConfig.WaitTillFileChecked then
-        logger.warn (Log.setMessage "From now on: checkFileDebouncer waits till file checked")
-      else
-        logger.info (Log.setMessage "From now on: checkFileDebouncer starts file checking and immediately continues")
-
-      checkFileDebouncer.WaitForFnToFinish <- newConfig.WaitTillFileChecked
 
     if newConfig.LogDurationBetweenCheckFiles <> oldConfig.LogDurationBetweenCheckFiles then
       if newConfig.LogDurationBetweenCheckFiles then
@@ -1122,8 +1099,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       commands.SetFileContent(filePath, evolvedFileContent, Some endVersion)
 
-      // checkFileDebouncer.Bounce p
-      requestCheckFile p
+      checkFileDebouncer.Bounce p
     }
 
   //TODO: Investigate if this should be done at all

@@ -598,7 +598,6 @@ type InlayHintDto =
 type DebugDto =
   { DontCheckRelatedFiles: bool option
     CheckFileDebouncerTimeout: int option
-    WaitTillFileChecked: bool option
     LogDurationBetweenCheckFiles: bool option
     LogCheckFileFinished: bool option }
 
@@ -663,14 +662,12 @@ type InlayHintsConfig =
 type DebugConfig =
   { DontCheckRelatedFiles: bool
     CheckFileDebouncerTimeout: int
-    WaitTillFileChecked: bool
     LogDurationBetweenCheckFiles: bool
     LogCheckFileFinished: bool }
 
   static member Default =
     { DontCheckRelatedFiles = false
       CheckFileDebouncerTimeout = 250
-      WaitTillFileChecked = false
       LogDurationBetweenCheckFiles = false
       LogCheckFileFinished = false }
 
@@ -812,7 +809,6 @@ type FSharpConfig =
           { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles DebugConfig.Default.DontCheckRelatedFiles
             CheckFileDebouncerTimeout =
               defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
-            WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked DebugConfig.Default.WaitTillFileChecked
             LogDurationBetweenCheckFiles =
               defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
             LogCheckFileFinished = defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogCheckFileFinished } }
@@ -891,7 +887,6 @@ type FSharpConfig =
         | Some dDto ->
           { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles x.Debug.DontCheckRelatedFiles
             CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
-            WaitTillFileChecked = defaultArg dDto.WaitTillFileChecked x.Debug.WaitTillFileChecked
             LogDurationBetweenCheckFiles =
               defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
             LogCheckFileFinished = defaultArg dDto.LogCheckFileFinished x.Debug.LogCheckFileFinished } }

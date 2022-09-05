@@ -740,11 +740,7 @@ type Debounce<'a>(timeout, fn) as x =
             match r with
             | Some arg -> return! loop ida (idb + 1) (Some arg)
             | None when ida <> idb ->
-              if x.WaitForFnToFinish then
-                do! fn arg.Value
-              else
-                fn arg.Value |> Async.Start
-
+              do! fn arg.Value
               return! loop 0 0 None
             | None -> return! loop 0 0 arg
           }
@@ -756,21 +752,6 @@ type Debounce<'a>(timeout, fn) as x =
 
   /// Timeout in ms
   member val Timeout = timeout with get, set
-  /// * `true`: waits for `fn` to finish before getting new messages
-  /// * `false`: starts and forgets `fn` (`Async.Start`). Immediately waits for new message.
-  ///
-  /// Practical differences:
-  /// * parallel:
-  ///   * `true`: only one `fn` can run at the same time
-  ///   * `false`: multiple `fn` can run at same time
-  /// * timeout:
-  ///   * `true`: timeout only starts after `fn` is finished
-  ///     -> practical debounce timeout: execution time of `fn` + timeout
-  ///   * `false`: execution of `fn` has no impact on timeout
-  ///     -> practical debounce timeout: timeout
-  ///
-  /// Default is `false`
-  member val WaitForFnToFinish = false with get, set
 
 module Indentation =
   let inline get (line: string) =
