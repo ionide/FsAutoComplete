@@ -14,17 +14,31 @@ module Loggers =
 [<RequireQualifiedAccess>]
 module Debug =
   open System
+  open System.Diagnostics
   open System.Collections.Concurrent
   open FsAutoComplete.Logging
-
-  let addder3 x y = x + y
-  // let addder2 x y = x + y
-  let addder1 x y = x + y
-  let subber x y = x - y
-
-  let subber2 x y = x - y
-  let subber3 x y = x - y
-  let subber4 x y = x - y
+  let measureLogger = LogProvider.getLoggerByName "Measurer"
+  let measure name f =
+    let sw = Stopwatch.StartNew()
+    let r = f ()
+    let ellapsed = sw.ElapsedMilliseconds
+    measureLogger.info(
+      Log.setMessage("{name} took {ellapsed} ms")
+      >> Log.addContextDestructured "name" name
+      >> Log.addContextDestructured "ellapsed" ellapsed
+    )
+    r
+  let measureAsync name f = async {
+    let sw = Stopwatch.StartNew()
+    let! r = f
+    let ellapsed = sw.ElapsedMilliseconds
+    measureLogger.info(
+      Log.setMessage("{name} took {ellapsed} ms")
+      >> Log.addContextDestructured "name" name
+      >> Log.addContextDestructured "ellapsed" ellapsed
+    )
+    return r
+  }
 
   let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
   let waitForDebugger () =
