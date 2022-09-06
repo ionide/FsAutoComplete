@@ -1226,13 +1226,59 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           |> success
     }
 
-  override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
+  override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
       >> Log.addContextDestructured "parms" sigHelpParams
     )
-    Helpers.notImplemented
 
+    let pos = sigHelpParams.GetFcsPos()
+    let file = sigHelpParams.GetFilePath() |> Utils.normalizePath
+    match getFileInfoForFile file |> AVal.force with
+    | None -> return! success None
+    | Some updates ->
+      let namedText = updates.NamedText
+      let lineStr = namedText.GetLine pos
+      let tyRes = (getTypeCheckResults (file)) |> AVal.force
+      match (getTypeCheckResults (file)) |> AVal.force with
+      | None -> return! LspResult.internalError $"No type check results for {file}"
+      | Some tyRes ->
+        let charAtCaret = sigHelpParams.Context |> Option.bind (fun c -> c.TriggerCharacter)
+
+        match!
+          SignatureHelp.getSignatureHelpFor (tyRes, pos, namedText, charAtCaret, None)
+          |> AsyncResult.ofStringErr
+        with
+        | None ->
+          ()
+          return! success None
+        | Some sigHelp ->
+          // sigHelpKind <- Some sigHelp.SigHelpKind
+
+          let sigs =
+            sigHelp.Methods
+            |> Array.map (fun m ->
+              let (signature, comment) = TipFormatter.formatPlainTip m.Description
+
+              let parameters =
+                m.Parameters
+                |> Array.map (fun p ->
+                  { ParameterInformation.Label = p.ParameterName
+                    Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
+
+              let d = Documentation.Markup(markdown comment)
+
+              { SignatureInformation.Label = signature
+                Documentation = Some d
+                Parameters = Some parameters })
+
+          let res =
+            { Signatures = sigs
+              ActiveSignature = sigHelp.ActiveOverload
+              ActiveParameter = sigHelp.ActiveParameter }
+
+          return! success (Some res)
+      }
   override x.TextDocumentHover(p: TextDocumentPositionParams) = async {
     logger.info (
       Log.setMessage "TextDocumentHover Request: {parms}"
