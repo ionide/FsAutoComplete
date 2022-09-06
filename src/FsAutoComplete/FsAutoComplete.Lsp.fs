@@ -944,7 +944,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         |> Async.Sequential
         |> Async.Ignore
 
-
       return ()
     with e ->
       logger.error (Log.setMessage "TextDocumentDidSave Request Errored {p}" >> Log.addContextDestructured "p" e)
@@ -959,66 +958,68 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       )
       let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
       let pos = p.GetFcsPos()
-      let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
-      let lines = updates.NamedText
-      let lineStr = lines.GetLine pos
+      match getFileInfoForFile file |> AVal.force with
+      | None -> return None |> success
+      | Some updates ->
+        let lines = updates.NamedText
+        let lineStr = lines.GetLine pos
 
-      match lines.GetLine pos with
-      | None -> return success None
-      | Some lineStr ->
-        let completionList =
-          { IsIncomplete = false
-            Items = KeywordList.hashSymbolCompletionItems }
-
-        if lineStr.StartsWith "#" then
+        match lines.GetLine pos with
+        | None -> return success None
+        | Some lineStr ->
           let completionList =
             { IsIncomplete = false
               Items = KeywordList.hashSymbolCompletionItems }
 
-          return success (Some completionList)
-        else
-          match getTypeCheckResults (file) |> AVal.force  with
-          | None ->
+          if lineStr.StartsWith "#" then
+            let completionList =
+              { IsIncomplete = false
+                Items = KeywordList.hashSymbolCompletionItems }
+
             return success (Some completionList)
-          | Some typeCheckResults ->
-            let config = AVal.force config
-            let getAllSymbols () =
-              if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
+          else
+            match getTypeCheckResults (file) |> AVal.force  with
+            | None ->
+              return success (Some completionList)
+            | Some typeCheckResults ->
+              let config = AVal.force config
+              let getAllSymbols () =
+                if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
 
-            match! typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols with
-            | None -> return success (Some { IsIncomplete = false; Items = [||] })
-            | Some (decls, residue, shouldKeywords) ->
-                let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
-                let items =
-                  decls
-                  |> Array.mapi (fun id d ->
-                    let code =
-                      if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                        d.Name
-                      elif d.NamespaceToOpen.IsSome then
-                        d.Name
-                      else
-                        FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
+              match! typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols with
+              | None -> return success (Some { IsIncomplete = false; Items = [||] })
+              | Some (decls, residue, shouldKeywords) ->
+                  let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
+                  let items =
+                    decls
+                    |> Array.mapi (fun id d ->
+                      let code =
+                        if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                          d.Name
+                        elif d.NamespaceToOpen.IsSome then
+                          d.Name
+                        else
+                          FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
 
-                    let label =
-                      match d.NamespaceToOpen with
-                      | Some no -> sprintf "%s (open %s)" d.Name no
-                      | None -> d.Name
+                      let label =
+                        match d.NamespaceToOpen with
+                        | Some no -> sprintf "%s (open %s)" d.Name no
+                        | None -> d.Name
 
-                    { CompletionItem.Create(d.Name) with
-                        Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                        InsertText = Some code
-                        SortText = Some(sprintf "%06d" id)
-                        FilterText = Some d.Name })
+                      { CompletionItem.Create(d.Name) with
+                          Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                          InsertText = Some code
+                          SortText = Some(sprintf "%06d" id)
+                          FilterText = Some d.Name })
 
-                let its =
-                  if not includeKeywords then
-                    items
-                  else
-                    Array.append items KeywordList.keywordCompletionItems
+                  let its =
+                    if not includeKeywords then
+                      items
+                    else
+                      Array.append items KeywordList.keywordCompletionItems
 
-                let completionList = { IsIncomplete = false; Items = its }
-                return success (Some completionList)
+                  let completionList = { IsIncomplete = false; Items = its }
+                  return success (Some completionList)
     with e ->
       logger.error (Log.setMessage "TextDocumentCompletion Request Errored {p}" >> Log.addContextDestructured "p" e)
       return LspResult.internalError (string e)
@@ -1124,69 +1125,71 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     // Debug.waitForDebuggerAttached "adaptive-ionide"
     let pos = p.GetFcsPos()
     let file = p.GetFilePath() |> Utils.normalizePath
-    let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
-    let namedText = updates.NamedText
-    let lineStr = namedText.GetLine pos
-    let tyRes = (getTypeCheckResults (file)) |> AVal.force
-    match (getTypeCheckResults (file)) |> AVal.force with
-    | None -> return LspResult.internalError $"No type check results for {file}"
-    | Some tyRes ->
-      match tyRes.TryGetToolTipEnhanced pos lineStr.Value with
-      | Ok(Some (tip, signature, footer, typeDoc)) ->
-          let formatCommentStyle =
-            let config = AVal.force config
-            if config.TooltipMode = "full" then
-              TipFormatter.FormatCommentStyle.FullEnhanced
-            else if config.TooltipMode = "summary" then
-              TipFormatter.FormatCommentStyle.SummaryOnly
-            else
-              TipFormatter.FormatCommentStyle.Legacy
+    match getFileInfoForFile file |> AVal.force with
+    | None -> return success None
+    | Some updates ->
+      let namedText = updates.NamedText
+      let lineStr = namedText.GetLine pos
+      let tyRes = (getTypeCheckResults (file)) |> AVal.force
+      match (getTypeCheckResults (file)) |> AVal.force with
+      | None -> return LspResult.internalError $"No type check results for {file}"
+      | Some tyRes ->
+        match tyRes.TryGetToolTipEnhanced pos lineStr.Value with
+        | Ok(Some (tip, signature, footer, typeDoc)) ->
+            let formatCommentStyle =
+              let config = AVal.force config
+              if config.TooltipMode = "full" then
+                TipFormatter.FormatCommentStyle.FullEnhanced
+              else if config.TooltipMode = "summary" then
+                TipFormatter.FormatCommentStyle.SummaryOnly
+              else
+                TipFormatter.FormatCommentStyle.Legacy
 
-          match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
-          | (sigCommentFooter :: _) :: _ ->
-            let signature, comment, footer = sigCommentFooter
+            match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
+            | (sigCommentFooter :: _) :: _ ->
+              let signature, comment, footer = sigCommentFooter
 
-            let markStr lang (value: string) =
-              MarkedString.WithLanguage { Language = lang; Value = value }
+              let markStr lang (value: string) =
+                MarkedString.WithLanguage { Language = lang; Value = value }
 
-            let fsharpBlock (lines: string[]) =
-              lines |> String.concat Environment.NewLine |> markStr "fsharp"
+              let fsharpBlock (lines: string[]) =
+                lines |> String.concat Environment.NewLine |> markStr "fsharp"
 
-            let sigContent =
-              let lines =
-                signature.Split Environment.NewLine
+              let sigContent =
+                let lines =
+                  signature.Split Environment.NewLine
+                  |> Array.filter (not << String.IsNullOrWhiteSpace)
+
+                match lines |> Array.splitAt (lines.Length - 1) with
+                | (h, [| StartsWith "Full name:" fullName |]) ->
+                  [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
+                | _ -> [| fsharpBlock lines |]
+
+
+              let commentContent = comment |> MarkedString.String
+
+              let footerContent =
+                footer.Split Environment.NewLine
                 |> Array.filter (not << String.IsNullOrWhiteSpace)
-
-              match lines |> Array.splitAt (lines.Length - 1) with
-              | (h, [| StartsWith "Full name:" fullName |]) ->
-                [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
-              | _ -> [| fsharpBlock lines |]
+                |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
 
 
-            let commentContent = comment |> MarkedString.String
+              let response =
+                { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
+                  Range = None }
 
-            let footerContent =
-              footer.Split Environment.NewLine
-              |> Array.filter (not << String.IsNullOrWhiteSpace)
-              |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
+              return success (Some response)
+            | _ ->
+              return success None
+        | Ok (None) ->
 
-
-            let response =
-              { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
-                Range = None }
-
-            return success (Some response)
-          | _ ->
-            return success None
-      | Ok (None) ->
-
-        return LspResult.internalError $"No TryGetToolTipEnhanced results for {file}"
-      | Error e ->
-        logger.error(
-          Log.setMessage "Failed with {error}"
-          >> Log.addContext "error" e
-        )
-        return LspResult.internalError e
+          return LspResult.internalError $"No TryGetToolTipEnhanced results for {file}"
+        | Error e ->
+          logger.error(
+            Log.setMessage "Failed with {error}"
+            >> Log.addContext "error" e
+          )
+          return LspResult.internalError e
   }
 
   override x.TextDocumentRename(p: RenameParams) =
@@ -1203,15 +1206,17 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     )
     let pos = p.GetFcsPos()
     let file = p.GetFilePath() |> Utils.normalizePath
-    let updates = knownFsFilesWithUpdates |> AMap.find file |> AVal.force
-    let namedText = updates.NamedText
-    let lineStr = namedText.GetLine pos
-    match (getTypeCheckResults (file)) |> AVal.force with
-    | None -> return!  Helpers.notImplemented
-    | Some tyRes ->
-      match! tyRes.TryFindDeclaration pos lineStr.Value with
-      | Error e -> return LspResult.internalError e
-      | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
+    match getFileInfoForFile file |> AVal.force with
+    | None -> return success None
+    | Some updates ->
+      let namedText = updates.NamedText
+      let lineStr = namedText.GetLine pos
+      match (getTypeCheckResults (file)) |> AVal.force with
+      | None -> return! Helpers.notImplemented
+      | Some tyRes ->
+        match! tyRes.TryFindDeclaration pos lineStr.Value with
+        | Error e -> return LspResult.internalError e
+        | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
   }
 
   override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
