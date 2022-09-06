@@ -599,7 +599,7 @@ type DebugDto =
   { DontCheckRelatedFiles: bool option
     CheckFileDebouncerTimeout: int option
     LogDurationBetweenCheckFiles: bool option
-    LogCheckFileFinished: bool option }
+    LogCheckFileDuration: bool option }
 
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
@@ -663,13 +663,13 @@ type DebugConfig =
   { DontCheckRelatedFiles: bool
     CheckFileDebouncerTimeout: int
     LogDurationBetweenCheckFiles: bool
-    LogCheckFileFinished: bool }
+    LogCheckFileDuration: bool }
 
   static member Default =
     { DontCheckRelatedFiles = false
       CheckFileDebouncerTimeout = 250
       LogDurationBetweenCheckFiles = false
-      LogCheckFileFinished = false }
+      LogCheckFileDuration = false }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -811,7 +811,7 @@ type FSharpConfig =
               defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
             LogDurationBetweenCheckFiles =
               defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
-            LogCheckFileFinished = defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogCheckFileFinished } }
+            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration DebugConfig.Default.LogCheckFileDuration } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -889,7 +889,7 @@ type FSharpConfig =
             CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
             LogDurationBetweenCheckFiles =
               defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
-            LogCheckFileFinished = defaultArg dDto.LogCheckFileFinished x.Debug.LogCheckFileFinished } }
+            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration x.Debug.LogCheckFileDuration } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
