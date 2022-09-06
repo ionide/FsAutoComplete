@@ -250,14 +250,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 Version = Some version } }
     }
 
-  /// UTC Time of start of last `checkFile` call 
-  /// -> `lastCheckFile - DateTime.UtcNow` is duration between two `checkFile` calls, 
+  /// UTC Time of start of last `checkFile` call
+  /// -> `lastCheckFile - DateTime.UtcNow` is duration between two `checkFile` calls,
   ///    but doesn't include execution time of previous `checkFile`!
-  /// 
+  ///
   /// `UtcNow` instead if `Utc`: faster, and we're only interested in elapsed duration
-  /// 
+  ///
   /// `DateTime` instead of `Stopwatch`: stopwatch doesn't work with multiple simultaneous consumers
   let mutable lastCheckFile = DateTime.UtcNow
+
   let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
     asyncResult {
 
@@ -266,12 +267,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let now = DateTime.UtcNow
           let d = now - lastCheckFile
           lastCheckFile <- now
+
           logger.warn (
             Log.setMessage "Start: checkFile({file}, version={version}), {duration} after last checkFile start"
             >> Log.addContext "file" filePath
             >> Log.addContext "version" version
             >> Log.addContext "duration" d
           )
+
           now
         elif config.Debug.LogCheckFileDuration then
           DateTime.UtcNow
@@ -302,6 +305,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       if config.Debug.LogCheckFileDuration then
         let d = DateTime.UtcNow - start
+
         logger.warn (
           Log.setMessage "Finished: checkFile({file}, version={version}) in {duration}"
           >> Log.addContext "file" filePath
@@ -340,7 +344,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         )
     }
 
-  let checkFileDebouncer = Debounce(DebugConfig.Default.CheckFileDebouncerTimeout, checkChangedFile)
+  let checkFileDebouncer =
+    Debounce(DebugConfig.Default.CheckFileDebouncerTimeout, checkChangedFile)
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -556,7 +561,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       else
         logger.warn (Log.setMessage "Checking of related files enabled (default)")
 
-    
+
     if newConfig.CheckFileDebouncerTimeout < 0 then
       logger.error (
         Log.setMessage "CheckFileDebouncerTimeout cannot be negative, but is {timeout}"
