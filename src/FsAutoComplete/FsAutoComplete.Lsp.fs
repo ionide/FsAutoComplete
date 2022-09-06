@@ -218,6 +218,55 @@ open System.Reactive
 open System.Reactive.Linq
 open Microsoft.Build.Graph
 
+
+type Microsoft.FSharp.Control.Async with
+
+ /// Creates an asynchronous workflow that will be resumed when the
+      /// specified observables produces a value. The workflow will return
+      /// the value produced by the observable.
+  static member AwaitObservable(observable : IObservable<'T1>) =
+
+          /// Helper that can be used for writing CPS-style code that resumes
+          /// on the same thread where the operation was started.
+          let synchronize f =
+            let ctx = System.Threading.SynchronizationContext.Current
+            f (fun g ->
+              let nctx = System.Threading.SynchronizationContext.Current
+              if ctx <> null && ctx <> nctx then ctx.Post((fun _ -> g()), null)
+              else g() )
+
+          let removeObj : IDisposable option ref = ref None
+          let removeLock = new obj()
+          let setRemover r =
+              lock removeLock (fun () -> removeObj := Some r)
+          let remove() =
+              lock removeLock (fun () ->
+                  match !removeObj with
+                  | Some d -> removeObj := None
+                              d.Dispose()
+                  | None   -> ())
+          synchronize (fun f ->
+          let workflow =
+              Async.FromContinuations((fun (cont,econt,ccont) ->
+                  let rec finish cont value =
+                      remove()
+                      f (fun () -> cont value)
+                  setRemover <|
+                      observable.Subscribe
+                          ({ new IObserver<_> with
+                              member x.OnNext(v) = finish cont v
+                              member x.OnError(e) = finish econt e
+                              member x.OnCompleted() =
+                                  let msg = "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
+                                  finish ccont (new System.OperationCanceledException(msg)) })
+                  () ))
+          async {
+              let! cToken = Async.CancellationToken
+              let token : CancellationToken = cToken
+              use registration = token.Register((fun _ -> remove()), null)
+              return! workflow
+          })
+
 type IObservable<'T> with
   /// Fires an event only after the specified interval has passed in which no other pending event has fired. Buffers all events leading up to that emit.
   member x.BufferedDebounce(ts : TimeSpan) =
@@ -597,6 +646,17 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         options
     )
 
+  let projectsThatContainFile (file : string<LocalPath>) =
+    let untagged = UMX.untag file
+    loadedProjectOptions
+    |> AVal.force
+    |> Seq.choose (fun (p, _) ->
+        if p.SourceFiles |> Array.contains untagged then
+          Some p
+        else
+          None)
+      |> Seq.distinct
+      |> Seq.toList
   let openFiles = cset<string<LocalPath>> []
 
   let adaptiveFile (filepath : string<LocalPath>) = aval {
@@ -740,8 +800,9 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       let sourceText = info.NamedText
       match! getProjectOptionsForFile file with
       | Some (opts, extraInfo) ->
-
-        let parseAndCheck = parseAndCheckFile file fileVersion sourceText opts |> Async.RunSynchronously
+        let parseAndCheck =
+          Debug.measure "parseAndCheckFile" <| fun () ->
+            parseAndCheckFile file fileVersion sourceText opts |> Async.RunSynchronously
         return Some parseAndCheck
       | None -> return None
 
@@ -767,10 +828,14 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
 
   let textDocumentDidChangeNotifications = new Event<DidChangeTextDocumentParams>()
-
-  do disposables.Add(
+  let textDocumentDidChangeDebounced =
     textDocumentDidChangeNotifications.Publish
       .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+      .Publish()
+      .RefCount()
+
+  do disposables.Add(
+    textDocumentDidChangeDebounced
       .Subscribe(fun ps ->
         logger.info (
           Log.setMessage "textDocumentDidChangeNotifications Request: {parms}"
@@ -779,6 +844,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         ps
         |> Seq.groupBy(fun p -> p.TextDocument.GetFilePath() |> Utils.normalizePath)
         |> Seq.iter(fun (filePath, items) ->
+          let items = items |> Seq.sortBy(fun p -> p.TextDocument.Version)
         // AddOrUpdate inmemory changes
           let contentChanges = items |> Seq.collect(fun i -> i.ContentChanges)
         // let filePath =  ps.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -862,7 +928,10 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   override __.Initialized(p: InitializedParams) =
     async {
       try
-        logger.info (Log.setMessage "Initialized request")
+        logger.info (
+          Log.setMessage "Initialized request {p}"
+          >> Log.addContextDestructured "p" p
+        )
 
         let options = loadedProjectOptions |> AVal.force
 
@@ -957,24 +1026,32 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         |> Seq.map forceTypeCheck
         |> Async.Sequential
         |> Async.Ignore
-
       return ()
     with e ->
       logger.error (Log.setMessage "TextDocumentDidSave Request Errored {p}" >> Log.addContextDestructured "p" e)
       return ()
   }
 
-  override __.TextDocumentCompletion(p: CompletionParams) = async {
+  override __.TextDocumentCompletion(p: CompletionParams) =     Debug.measureAsync "TextDocumentCompletion" <| async {
     try
       logger.info (
         Log.setMessage "TextDocumentCompletion Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
+
+
       let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
       let pos = p.GetFcsPos()
-      match getFileInfoForFile file |> AVal.force with
+      // if p.Context |> Option.exists(fun c -> c.triggerKind = CompletionTriggerKind.TriggerCharacter) then
+      //   do!
+      //     textDocumentDidChangeDebounced
+      //     |> Async.AwaitObservable
+      //     |> Async.Ignore
+
+      match Debug.measure "TextDocumentCompletion.getFileInfoForFile" (fun () -> getFileInfoForFile file |> AVal.force) with
       | None -> return None |> success
       | Some updates ->
+
         let lines = updates.NamedText
         let lineStr = lines.GetLine pos
         match lines.GetLine pos with
@@ -991,55 +1068,77 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
             return success (Some completionList)
           else
-            match getTypeCheckResults (file) |> AVal.force  with
+            let config = AVal.force config
+            let rec retryAsyncOption (delay : TimeSpan) timesLeft action = async {
+              match! action with
+              | Some x -> return Some x
+              | None when timesLeft >=0 ->
+                do! Async.Sleep (delay)
+                return! retryAsyncOption delay (timesLeft - 1) action
+              | None -> return None
+            }
+            let getCompletions = async {
+              match Debug.measure "TextDocumentCompletion.getTypeCheckResults" (fun ()  -> getTypeCheckResults (file) |> AVal.force)  with
+              | None -> return None
+              | Some typeCheckResults ->
+                let getAllSymbols () =
+                  if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
+
+                match! Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () -> typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols) with
+                | None -> return None
+                | Some (decls, residue, shouldKeywords) -> return Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols)
+            }
+
+            match! retryAsyncOption (TimeSpan.FromMilliseconds (100.)) 5 getCompletions with
             | None ->
               return success (Some completionList)
-            | Some typeCheckResults ->
-              let config = AVal.force config
-              let getAllSymbols () =
-                if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
+            | Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols) ->
+                  // Debug
+                  // logger.info(
+                  //   Log.setMessage "TextDocumentCompletion found decls: {decls}"
+                  //   >> Log.addContextDestructured "decls" decls
+                  // )
+                  return
+                    Debug.measure "TextDocumentCompletion.TryGetCompletions success" <| fun () ->
+                    transact( fun () ->
+                      HashMap.OfList ([
+                        for d in decls do
+                          d.Name, (d, pos, file, lines.GetLine, typeCheckResults.GetAST)
+                      ])
+                      |> autoCompleteItems.UpdateTo
+                    ) |> ignore
+                    let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
+                    let items =
+                      decls
+                      |> Array.mapi (fun id d ->
+                        let code =
+                          if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                            d.Name
+                          elif d.NamespaceToOpen.IsSome then
+                            d.Name
+                          else
+                            FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
 
-              match! typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols with
-              | None -> return success (Some { IsIncomplete = false; Items = [||] })
-              | Some (decls, residue, shouldKeywords) ->
-                  transact( fun () ->
-                    HashMap.OfList ([
-                      for d in decls do
-                        d.Name, (d, pos, file, lines.GetLine, typeCheckResults.GetAST)
-                    ])
-                    |> autoCompleteItems.UpdateTo
-                  ) |> ignore
-                  let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
-                  let items =
-                    decls
-                    |> Array.mapi (fun id d ->
-                      let code =
-                        if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                          d.Name
-                        elif d.NamespaceToOpen.IsSome then
-                          d.Name
-                        else
-                          FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
+                        let label =
+                          match d.NamespaceToOpen with
+                          | Some no -> sprintf "%s (open %s)" d.Name no
+                          | None -> d.Name
 
-                      let label =
-                        match d.NamespaceToOpen with
-                        | Some no -> sprintf "%s (open %s)" d.Name no
-                        | None -> d.Name
+                        { CompletionItem.Create(d.Name) with
+                            Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                            InsertText = Some code
+                            SortText = Some(sprintf "%06d" id)
+                            FilterText = Some d.Name })
 
-                      { CompletionItem.Create(d.Name) with
-                          Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                          InsertText = Some code
-                          SortText = Some(sprintf "%06d" id)
-                          FilterText = Some d.Name })
+                    let its =
+                      if not includeKeywords then
+                        items
+                      else
+                        Array.append items KeywordList.keywordCompletionItems
 
-                  let its =
-                    if not includeKeywords then
-                      items
-                    else
-                      Array.append items KeywordList.keywordCompletionItems
+                    let completionList = { IsIncomplete = false; Items = its }
+                    success (Some completionList)
 
-                  let completionList = { IsIncomplete = false; Items = its }
-                  return success (Some completionList)
     with e ->
       logger.error (Log.setMessage "TextDocumentCompletion Request Errored {p}" >> Log.addContextDestructured "p" e)
       return LspResult.internalError (string e)
@@ -1111,22 +1210,20 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
                 | Some s -> Some s
 
               CoreResponse.Res(HelpText.Full(sym, tip, n))
+    Debug.measureAsync "CompletionItemResolve" <|
     async {
       logger.info (
         Log.setMessage "CompletionItemResolve Request: {parms}"
         >> Log.addContextDestructured "parms" ci
       )
-
-      // let res =
-      //   helpText ci.InsertText.Value
-      //   |> Result.ofCoreResponse
-      //   |> Result.fold (mapHelpText ci) (fun _ -> ci)
-      //   // |> AsyncResult.foldResult (mapHelpText ci) (fun _ -> ci)
       return
-        helpText ci.InsertText.Value
-        |> Result.ofCoreResponse
-        |> Result.fold (mapHelpText ci) (fun _ -> ci)
-        |> success
+        match ci.InsertText with
+        | None -> LspResult.internalError "No InsertText"
+        | Some insertText ->
+          helpText insertText
+          |> Result.ofCoreResponse
+          |> Result.fold (mapHelpText ci) (fun _ -> ci)
+          |> success
     }
 
   override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
@@ -1238,19 +1335,120 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
   }
 
-  override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
+  override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) = async {
     logger.info (
       Log.setMessage "TextDocumentTypeDefinition Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
-
-  override x.TextDocumentReferences(p: ReferenceParams) =
+    let pos = p.GetFcsPos()
+    let file = p.GetFilePath() |> Utils.normalizePath
+    match getFileInfoForFile file |> AVal.force with
+    | None -> return success None
+    | Some updates ->
+      let namedText = updates.NamedText
+      let lineStr = namedText.GetLine pos
+      match (getTypeCheckResults (file)) |> AVal.force with
+      | None -> return! Helpers.notImplemented
+      | Some tyRes ->
+        match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
+        | Error e -> return LspResult.internalError e
+        | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
+  }
+  override x.TextDocumentReferences(p: ReferenceParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentReferences Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+    let pos = p.GetFcsPos()
+    let file = p.GetFilePath() |> Utils.normalizePath
+    match getFileInfoForFile file |> AVal.force with
+    | None -> return! success None
+    | Some updates ->
+      let namedText = updates.NamedText
+      let lineStr = namedText.GetLine pos
+      match (getTypeCheckResults (file)) |> AVal.force with
+      | None -> return! Helpers.notImplemented
+      | Some tyRes ->
+        let findReferencesForSymbolInFile (file,project, symbol) =
+          checker.FindBackgroundReferencesInFile(
+                file,
+                project,
+                symbol,
+                canInvalidateProject = false,
+                userOpName = "find references"
+              )
+        let tryGetFileSource file =
+          getFileInfoForFile file
+          |> AVal.force
+          |> Option.map (fun f -> f.NamedText)
+          |> Option.defaultWith(fun () ->
+            let change = File.ReadAllText(UMX.untag file)
+            NamedText(file, change)
+          )
+          |> Ok
+
+        let getProjectOptions file =
+          getProjectOptionsForFile file
+          |> AVal.force
+          |> Option.map fst
+        let projectsThatContainFile file =
+          projectsThatContainFile file
+        let getDependentProjectsOfProjects ps =
+          let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+          let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
+
+          let currentPass = ResizeArray()
+          currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+
+          let mutable continueAlong = true
+
+          while continueAlong do
+            let dependents =
+              projectSnapshot
+              |> Seq.filter (fun p ->
+                p.ReferencedProjects
+                |> Seq.exists (fun r ->
+                  match r.ProjectFilePath with
+                  | None -> false
+                  | Some p -> currentPass.Contains(p)))
+
+            if Seq.isEmpty dependents then
+              continueAlong <- false
+              currentPass.Clear()
+            else
+              for d in dependents do
+                allDependents.Add d |> ignore<bool>
+
+              currentPass.Clear()
+              currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+          Seq.toList allDependents
+        let getProjectOptionsForFsproj file =
+          loadedProjectOptions
+          |> AVal.force
+          |> Seq.map fst
+          |> Seq.tryFind(fun x -> x.ProjectFileName = file)
+        let! usages =
+          Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, namedText, tyRes)
+           |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+          // match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
+          // | Error e -> return LspResult.internalError e
+          // | Ok decl ->
+        match usages with
+        | Choice1Of2 (decls, usages) ->
+          return
+            Seq.append decls.Values usages.Values
+            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+            |> Seq.toArray
+            |> Some
+        | Choice2Of2 combinedRanges ->
+          return
+            combinedRanges.Values
+            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+            |> Seq.toArray
+            |> Some
+  }
+
   override x.TextDocumentDocumentHighlight(p) =
     logger.info (
       Log.setMessage "TextDocumentDocumentHighlight Request: {parms}"
@@ -1834,6 +2032,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     Helpers.notImplemented
   override x.Dispose() =
     disposables.Dispose()
+
 
 type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   inherit LspServer()
@@ -4571,7 +4770,6 @@ let start toolsPath stateStorageDir workspaceLoaderFactory =
 
     int result
   with ex ->
-    printfn "%A" ex
     logger.error (Log.setMessage "Start - LSP mode crashed" >> Log.addExn ex)
 
     3
