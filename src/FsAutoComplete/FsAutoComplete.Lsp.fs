@@ -3,11 +3,9 @@ module FsAutoComplete.Lsp
 open System
 open System.IO
 open System.Threading
-open System.Diagnostics
 open FsAutoComplete
 open FsAutoComplete.Core
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
@@ -15,7 +13,6 @@ open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
-open LspHelpers
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
@@ -27,14 +24,8 @@ open CliWrap.Buffered
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
-open FSharp.UMX
-open StreamJsonRpc
 open Fantomas.Client.Contracts
-open System.Reactive.Linq
 open FSharp.Control.Reactive.Observable
-open FSharp.Control.Reactive
-open System.Threading.Tasks
-open System.Reactive.Subjects
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
