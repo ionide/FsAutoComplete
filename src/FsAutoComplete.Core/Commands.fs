@@ -88,7 +88,63 @@ type NotificationEvent =
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
 module Commands =
-  let multiply x y = x+y
+
+  let calculateNamespaceInsert currentAst (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
+    let getLine (p: Position) = getLine p |> Option.defaultValue ""
+
+    let idents = decl.FullName.Split '.'
+
+    decl.NamespaceToOpen
+    |> Option.bind (fun n ->
+      (currentAst ())
+      |> Option.map (fun ast ->
+        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
+      |> Option.map (fun ic ->
+        //TODO: unite with `CodeFix/ResolveNamespace`
+        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
+
+        let detectIndentation (line: string) =
+          line |> Seq.takeWhile ((=) ' ') |> Seq.length
+
+        // adjust line
+        let pos =
+          match ic.ScopeKind with
+          | ScopeKind.Namespace ->
+            // for namespace `open` isn't created close at namespace,
+            // but instead on first member
+            // -> move `open` closer to namespace
+            // this only happens when there are no other `open`
+
+            // from insert position go up until first open OR namespace
+            ic.Pos.LinesToBeginning()
+            |> Seq.tryFind (fun l ->
+              let lineStr = getLine l
+              // namespace MUST be top level -> no indentation
+              lineStr.StartsWith "namespace ")
+            |> function
+              // move to the next line below "namespace"
+              | Some l -> l.IncLine()
+              | None -> ic.Pos
+          | _ -> ic.Pos
+
+        // adjust column
+        let pos =
+          match pos with
+          | Pos (1, c) -> pos
+          | Pos (l, 0) ->
+            let prev = getLine (pos.DecLine())
+            let indentation = detectIndentation prev
+
+            if indentation <> 0 then
+              // happens when there are already other `open`s
+              Position.mkPos l indentation
+            else
+              pos
+          | Pos (_, c) -> pos
+
+        { Namespace = n
+          Position = pos
+          Scope = ic.ScopeKind }))
   let symbolUseWorkspace (
     findReferencesForSymbolInFile : (string * FSharpProjectOptions * FSharpSymbol)-> Async<Range seq>,
     tryGetFileSource : string<LocalPath> -> ResultOrString<NamedText>,
@@ -369,62 +425,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
 
-  let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
-    let getLine (p: Position) = getLine p |> Option.defaultValue ""
-
-    let idents = decl.FullName.Split '.'
-
-    decl.NamespaceToOpen
-    |> Option.bind (fun n ->
-      state.CurrentAST
-      |> Option.map (fun ast ->
-        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
-      |> Option.map (fun ic ->
-        //TODO: unite with `CodeFix/ResolveNamespace`
-        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-
-        let detectIndentation (line: string) =
-          line |> Seq.takeWhile ((=) ' ') |> Seq.length
-
-        // adjust line
-        let pos =
-          match ic.ScopeKind with
-          | ScopeKind.Namespace ->
-            // for namespace `open` isn't created close at namespace,
-            // but instead on first member
-            // -> move `open` closer to namespace
-            // this only happens when there are no other `open`
-
-            // from insert position go up until first open OR namespace
-            ic.Pos.LinesToBeginning()
-            |> Seq.tryFind (fun l ->
-              let lineStr = getLine l
-              // namespace MUST be top level -> no indentation
-              lineStr.StartsWith "namespace ")
-            |> function
-              // move to the next line below "namespace"
-              | Some l -> l.IncLine()
-              | None -> ic.Pos
-          | _ -> ic.Pos
-
-        // adjust column
-        let pos =
-          match pos with
-          | Pos (1, c) -> pos
-          | Pos (l, 0) ->
-            let prev = getLine (pos.DecLine())
-            let indentation = detectIndentation prev
-
-            if indentation <> 0 then
-              // happens when there are already other `open`s
-              Position.mkPos l indentation
-            else
-              pos
-          | Pos (_, c) -> pos
-
-        { Namespace = n
-          Position = pos
-          Scope = ic.ScopeKind }))
 
 
   let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
@@ -681,7 +681,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       for decl in decls do
         let n = declName decl
 
-        match calculateNamespaceInsert decl pos getLine with
+        match Commands.calculateNamespaceInsert (fun () -> state.CurrentAST) decl pos getLine with
         | Some insert -> state.CompletionNamespaceInsert.[n] <- insert
         | None -> ()
     }
@@ -1148,7 +1148,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
               let n =
                 match state.CompletionNamespaceInsert.TryFind sym with
-                | None -> calculateNamespaceInsert decl pos source.GetLine
+                | None -> Commands.calculateNamespaceInsert (fun () -> state.CurrentAST) decl pos source.GetLine
                 | Some s -> Some s
 
               return CoreResponse.Res(HelpText.Full(sym, tip, n))

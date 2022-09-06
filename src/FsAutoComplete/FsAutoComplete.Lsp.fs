@@ -674,6 +674,20 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   let getProjectOptionsForFile file =
     knownFsFilesToProjectOptions
     |> AMap.tryFind file
+  let autoCompleteItems : cmap<DeclName,DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> = cmap ()
+  let getAutoCompleteByDeclName name =
+    autoCompleteItems
+    |> AMap.tryFind name
+
+  let autoCompleteNamespaces =
+    autoCompleteItems
+    |> AMap.choose(fun name (d, pos, fn, getline,  ast) ->
+
+      Commands.calculateNamespaceInsert (fun () -> Some ast) d pos getline
+    )
+  let getAutoCompleteNamespacesByDeclName name =
+    autoCompleteNamespaces
+    |> AMap.tryFind name
 
   let parseAndCheckFile (file : string<LocalPath>) fileVersion sourceText opts = async {
     logger.info (
@@ -963,7 +977,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       | Some updates ->
         let lines = updates.NamedText
         let lineStr = lines.GetLine pos
-
         match lines.GetLine pos with
         | None -> return success None
         | Some lineStr ->
@@ -989,6 +1002,13 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
               match! typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols with
               | None -> return success (Some { IsIncomplete = false; Items = [||] })
               | Some (decls, residue, shouldKeywords) ->
+                  transact( fun () ->
+                    HashMap.OfList ([
+                      for d in decls do
+                        d.Name, (d, pos, file, lines.GetLine, typeCheckResults.GetAST)
+                    ])
+                    |> autoCompleteItems.UpdateTo
+                  ) |> ignore
                   let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
                   let items =
                     decls
@@ -1058,42 +1078,39 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
             Documentation = Some d
             AdditionalTextEdits = edits
             Label = label }
-    // let helpText sym =
-    //   match KeywordList.keywordDescriptions.TryGetValue sym with
-    //   | true, s -> CoreResponse.Res(HelpText.Simple(sym, s))
-    //   | _ ->
-    //     match KeywordList.hashDirectives.TryGetValue sym with
-    //     | true, s -> CoreResponse.Res(HelpText.Simple(sym, s))
-    //     | _ ->
-    //       let sym =
-    //         if sym.StartsWith "``" && sym.EndsWith "``" then
-    //           sym.TrimStart([| '`' |]).TrimEnd([| '`' |])
-    //         else
-    //           sym
+    let helpText sym =
+      match KeywordList.keywordDescriptions.TryGetValue sym with
+      | true, s -> CoreResponse.Res(HelpText.Simple(sym, s))
+      | _ ->
+        match KeywordList.hashDirectives.TryGetValue sym with
+        | true, s -> CoreResponse.Res(HelpText.Simple(sym, s))
+        | _ ->
+          let sym =
+            if sym.StartsWith "``" && sym.EndsWith "``" then
+              sym.TrimStart([| '`' |]).TrimEnd([| '`' |])
+            else
+              sym
+          let decls =
+            knownFsFilesToCheckedDeclarations
+            |> AMap.force
+            |> Seq.collect(snd)
+          match getAutoCompleteByDeclName sym |> AVal.force with
+          | None -> //Isn't in sync filled cache, we don't have result
+            CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
+          | Some (decl, pos, fn, _ , _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
+            let source = getFileInfoForFile fn |> AVal.force
 
-    //       match state.Declarations.TryFind sym with
-    //       | None -> //Isn't in sync filled cache, we don't have result
-    //         CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-    //       | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
-    //         let source = state.Files.TryFind fn |> Option.map (fun n -> n.Lines)
+            match source with
+            | None -> CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
+            | Some source ->
+              let tip = decl.Description
 
-    //         match source with
-    //         | None -> CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-    //         | Some source ->
-    //           let tip =
-    //             match state.HelpText.TryFind sym with
-    //             | Some tip -> tip
-    //             | None ->
-    //               let tip = decl.Description
-    //               state.HelpText.[sym] <- tip
-    //               tip
+              let n =
+                match getAutoCompleteNamespacesByDeclName sym |> AVal.force with
+                | None -> None
+                | Some s -> Some s
 
-    //           let n =
-    //             match state.CompletionNamespaceInsert.TryFind sym with
-    //             | None -> calculateNamespaceInsert decl pos source.GetLine
-    //             | Some s -> Some s
-
-    //           return CoreResponse.Res(HelpText.Full(sym, tip, n))
+              CoreResponse.Res(HelpText.Full(sym, tip, n))
     async {
       logger.info (
         Log.setMessage "CompletionItemResolve Request: {parms}"
@@ -1105,9 +1122,11 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       //   |> Result.ofCoreResponse
       //   |> Result.fold (mapHelpText ci) (fun _ -> ci)
       //   // |> AsyncResult.foldResult (mapHelpText ci) (fun _ -> ci)
-      let value = Some 5
-      // return success res
-      return! Helpers.notImplemented
+      return
+        helpText ci.InsertText.Value
+        |> Result.ofCoreResponse
+        |> Result.fold (mapHelpText ci) (fun _ -> ci)
+        |> success
     }
 
   override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) =
