@@ -430,13 +430,13 @@ module Commands =
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
-        let symbolFileText =
+        let! symbolFileText =
           tryGetFileSource(symbolFile)
-          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+          // |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
 
-        let symbolText =
+        let! symbolText =
           symbolFileText.[symbolRange]
-          |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
+          // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
 
         let projects =
           if isInternalToProject then

@@ -1427,11 +1427,14 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           getFileInfoForFile file
           |> AVal.force
           |> Option.map (fun f -> f.NamedText)
-          |> Option.defaultWith(fun () ->
-            let change = File.ReadAllText(UMX.untag file)
-            NamedText(file, change)
+          |> Option.orElseWith(fun () ->
+            try
+              let change = File.ReadAllText(UMX.untag file)
+              NamedText(file, change) |> Some
+            with e -> None
           )
-          |> Ok
+          |> Result.ofOption(fun () -> $"Could not read file: {file}")
+
 
         let getProjectOptions file =
           getProjectOptionsForFile file
@@ -1582,10 +1585,10 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   }
 
   override __.CodeLensResolve(p) =
-    // logger.info (
-    //   Log.setMessage "CodeLensResolve Request: {parms}"
-    //   >> Log.addContextDestructured "parms" p
-    // )
+    logger.info (
+      Log.setMessage "CodeLensResolve Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
 
     let handler f (arg: CodeLens) =
       async {
@@ -1679,66 +1682,125 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
               return { p with Command = Some cmd } |> Some |> success
           else
-            return { p with Command = None } |> Some |> success
+            let findReferencesForSymbolInFile (file,project, symbol) =
+              checker.FindBackgroundReferencesInFile(
+                    file,
+                    project,
+                    symbol,
+                    canInvalidateProject = false,
+                    userOpName = "find references"
+                  )
+            let tryGetFileSource file =
+              getFileInfoForFile file
+              |> AVal.force
+              |> Option.map (fun f -> f.NamedText)
+              |> Option.orElseWith(fun () ->
+                try
+                  let change = File.ReadAllText(UMX.untag file)
+                  NamedText(file, change) |> Some
+                with e -> None
+              )
+              |> Result.ofOption(fun () -> $"Could not read file: {file}")
 
+            let getProjectOptions file =
+              getProjectOptionsForFile file
+              |> AVal.force
+              |> Option.map fst
+            let projectsThatContainFile file =
+              projectsThatContainFile file
+            let getDependentProjectsOfProjects ps =
+              let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+              let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
-            // let lol = cmap<string, int>()
+              let currentPass = ResizeArray()
+              currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
 
+              let mutable continueAlong = true
 
-            // let res =
-            //   match res with
-            //   | Core.Result.Error msg ->
-            //     logger.error (
-            //       Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
-            //       >> Log.addContextDestructured "file" file
-            //       >> Log.addContextDestructured "error" msg
-            //     )
+              while continueAlong do
+                let dependents =
+                  projectSnapshot
+                  |> Seq.filter (fun p ->
+                    p.ReferencedProjects
+                    |> Seq.exists (fun r ->
+                      match r.ProjectFilePath with
+                      | None -> false
+                      | Some p -> currentPass.Contains(p)))
 
-            //     success (
-            //       Some
-            //         { p with
-            //             Command =
-            //               Some
-            //                 { Title = ""
-            //                   Command = ""
-            //                   Arguments = None } }
-            //     )
-            //   | Ok res ->
-            //     match res with
-            //     | Choice1Of2 (_, uses) ->
-            //       let allUses = uses.Values |> Array.concat
+                if Seq.isEmpty dependents then
+                  continueAlong <- false
+                  currentPass.Clear()
+                else
+                  for d in dependents do
+                    allDependents.Add d |> ignore<bool>
 
-            //       let cmd =
-            //         if allUses.Length = 0 then
-            //           { Title = "0 References"
-            //             Command = ""
-            //             Arguments = None }
-            //         else
-            //           { Title = $"%d{allUses.Length} References"
-            //             Command = "fsharp.showReferences"
-            //             Arguments = writePayload (file, pos, allUses) }
+                  currentPass.Clear()
+                  currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
 
-            //       { p with Command = Some cmd } |> Some |> success
-            //     | Choice2Of2 mixedUsages ->
-            //       // mixedUsages will contain the declaration, so we need to do a bit of work here
-            //       let allUses = mixedUsages.Values |> Array.concat
+              Seq.toList allDependents
+            let getProjectOptionsForFsproj file =
+              loadedProjectOptions
+              |> AVal.force
+              |> Seq.map fst
+              |> Seq.tryFind(fun x -> x.ProjectFileName = file)
+            let! res =
+              Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, lines, tyRes)
+              |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-            //       let cmd =
-            //         if allUses.Length <= 1 then
-            //           // 1 reference means that it's only the declaration, so it's actually 0 references
-            //           { Title = "0 References"
-            //             Command = ""
-            //             Arguments = None }
-            //         else
-            //           // multiple references means that the declaration _and_ the references are all present.
-            //           // this is kind of a pain, so for now at least, we just return all of them
-            //           { Title = $"%d{allUses.Length - 1} References"
-            //             Command = "fsharp.showReferences"
-            //             Arguments = writePayload (file, pos, allUses) }
+            let res =
+              match res with
+              | Core.Result.Error msg ->
+                logger.error (
+                  Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+                  >> Log.addContextDestructured "file" file
+                  >> Log.addContextDestructured "error" msg
+                )
 
-            //       { p with Command = Some cmd } |> Some |> success
+                success (
+                  Some
+                    { p with
+                        Command =
+                          Some
+                            { Title = ""
+                              Command = ""
+                              Arguments = None } }
+                )
+              | Ok res ->
+                match res with
+                | Choice1Of2 (_, uses) ->
+                  let allUses = uses.Values |> Array.concat
 
-            // return res
+                  let cmd =
+                    if allUses.Length = 0 then
+                      { Title = "0 References"
+                        Command = ""
+                        Arguments = None }
+                    else
+                      { Title = $"%d{allUses.Length} References"
+                        Command = "fsharp.showReferences"
+                        Arguments = writePayload (file, pos, allUses) }
+
+                  { p with Command = Some cmd } |> Some |> success
+                | Choice2Of2 mixedUsages ->
+                  // mixedUsages will contain the declaration, so we need to do a bit of work here
+                  let allUses = mixedUsages.Values |> Array.concat
+
+                  let cmd =
+                    if allUses.Length <= 1 then
+                      // 1 reference means that it's only the declaration, so it's actually 0 references
+                      { Title = "0 References"
+                        Command = ""
+                        Arguments = None }
+                    else
+                      // multiple references means that the declaration _and_ the references are all present.
+                      // this is kind of a pain, so for now at least, we just return all of them
+                      { Title = $"%d{allUses.Length - 1} References"
+                        Command = "fsharp.showReferences"
+                        Arguments = writePayload (file, pos, allUses) }
+
+                  { p with Command = Some cmd } |> Some |> success
+
+            return res
         })
       p
   override __.WorkspaceDidChangeWatchedFiles(p) =
