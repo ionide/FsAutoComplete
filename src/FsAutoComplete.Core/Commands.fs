@@ -89,160 +89,71 @@ type NotificationEvent =
 
 module Commands =
 
-  // let symbolUseWorkspace
-  //   pos
-  //   lineStr
-  //   (text: NamedText)
-  //   (tyRes: ParseAndCheckResults)
-  //   (checker : FSharpChecker)
-  //   tryGetFileSource
-  //   getProjectOpttionsForFsFile
-  //   getProjectOptionsForFsproj
-  //   projectsThatContainFile
-  //   getDependentProjectsOfProjects
-  //    =
-  //   asyncResult {
+  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+    tyRes.TryGetToolTip pos lineStr
+    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  //     let findReferencesInFile
-  //       (
-  //         file,
-  //         symbol: FSharpSymbol,
-  //         project: FSharpProjectOptions,
-  //         onFound: range -> Async<unit>
-  //       ) =
+  let pipelineHints (tryGetFileSource : _ -> Result<NamedText,_>) (tyRes: ParseAndCheckResults) =
+    result {
+      // Debug.waitForDebuggerAttached "AdaptiveServer"
+      let! contents = tryGetFileSource tyRes.FileName
 
-  //       asyncResult {
-  //         let! (references: Range seq) =
-  //           checker.FindBackgroundReferencesInFile(
-  //             file,
-  //             project,
-  //             symbol,
-  //             canInvalidateProject = false,
-  //             userOpName = "find references"
-  //           )
+      let getSignatureAtPos pos =
+        option {
+          let! lineStr = contents.GetLine pos
 
-  //         for reference in references do
-  //           do! onFound reference
-  //       }
+          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
 
-  //     let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
-  //       projects
-  //       |> List.traverseAsyncResultM (fun p ->
-  //         asyncResult {
-  //           for file in p.SourceFiles do
-  //             do! findReferencesInFile (file, symbol, p, onFound)
-  //         })
+          return TipFormatter.extractGenericParameters tip
+        }
+        |> Option.defaultValue []
 
-  //     let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
+      let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
+        tokens
+        |> List.exists (fun token ->
+          token.CharClass <> FSharpTokenCharKind.Comment
+          && token.CharClass <> FSharpTokenCharKind.WhiteSpace
+          && token.CharClass <> FSharpTokenCharKind.LineComment)
+        |> not
 
-  //     let splitByDeclaration (uses: FSharpSymbolUse[]) =
-  //       uses |> Array.partition (fun u -> u.IsFromDefinition)
+      let getStartingPipe =
+        function
+        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | _ -> None
 
-  //     let toDict (symbolUseRanges: range[]) =
-  //       let dict = new System.Collections.Generic.Dictionary<string, range[]>()
+      let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
+        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
 
-  //       symbolUseRanges
-  //       |> Array.collect (fun symbolUse ->
-  //         let file = symbolUse.FileName
-  //         // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
-  //         // then we'd need to map the files to some kind of document identfier and dedupe by that
-  //         // before issueing the renames. We don't, so this becomes very simple
-  //         [| file, symbolUse |])
-  //       |> Array.groupBy fst
-  //       |> Array.iter (fun (key, items) ->
-  //         let itemsSeq = items |> Array.map snd
-  //         dict[key] <- itemsSeq
-  //         ())
+        let isPipe = getStartingPipe currentTokens
 
-  //       dict
+        match isCommentOrWhitespace, isPipe with
+        | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
+        | false, Some pipe ->
+          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
+        | false, None -> currentIndex, false, acc
 
-  //     let! symUse =
-  //       tyRes.TryGetSymbolUse pos lineStr
-  //       |> Result.ofOption (fun _ -> "No result found")
+      let hints =
+        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
+        |> Array.map (Lexer.tokenizeLine [||])
+        |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
+        |> Array.fold folder (0, false, [])
+        |> (fun (_, _, third) -> third |> Array.ofList)
+        |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
+          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
+          let gens = getSignatureAtPos pipePos
 
-  //     let symbol = symUse.Symbol
-  //     let getProjectOptions = getProjectOptionsForFsproj
-  //     let! declLoc =
-  //       SymbolLocation.getDeclarationLocation (symUse, text, getProjectOpttionsForFsFile, projectsThatContainFile, getDependentProjectsOfProjects)
-  //       |> Result.ofOption (fun _ -> "No declaration location found")
+          let previousNonPipeLine =
+            if lastExpressionLineWasPipe then
+              None
+            else
+              Some lastExpressionLine
 
-  //     match declLoc with
-  //     | SymbolDeclarationLocation.CurrentDocument ->
-  //       let! ct = Async.CancellationToken
-  //       let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-  //       let declarations, usages = splitByDeclaration symbolUses
+          currentIndex, previousNonPipeLine, gens)
 
-  //       let declarationRanges, usageRanges =
-  //         toDict (ranges declarations), toDict (ranges usages)
-
-  //       return Choice1Of2(declarationRanges, usageRanges)
-
-  //     | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-  //       let symbolUseRanges = ImmutableArray.CreateBuilder()
-  //       let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
-  //       let symbolFile = symbolRange.TaggedFileName
-
-  //       let symbolFileText : NamedText =
-  //         tryGetFileSource symbolFile
-  //         |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
-
-  //       let symbolText =
-  //         symbolFileText[symbolRange]
-  //         |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
-
-  //       let projects =
-  //         if isInternalToProject then
-  //           projects
-  //         else
-  //           [ for project in projects do
-  //               yield project
-
-  //               yield!
-  //                 project.ReferencedProjects
-  //                 |> Array.choose (fun p -> getProjectOptionsForFsproj p.OutputFile ) ]
-  //           |> List.distinctBy (fun x -> x.ProjectFileName)
-
-  //       let onFound (symbolUseRange: range) =
-  //         async {
-  //           let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
-  //           let symbolFile = symbolUseRange.TaggedFileName
-  //           let targetText = tryGetFileSource symbolFile
-
-  //           match targetText with
-  //           | Error e -> ()
-  //           | Ok sourceText ->
-  //             let sourceSpan =
-  //               sourceText[symbolUseRange]
-  //               |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
-
-  //             // There are two kinds of ranges we get back:
-  //             // * ranges that exactly match the short name of the symbol
-  //             // * ranges that are longer than the short name of the symbol,
-  //             //   typically because we're talking about some kind of fully-qualified usage
-  //             // For the latter, we need to adjust the reported range to just be the portion
-  //             // of the fully-qualfied text that is the symbol name.
-  //             if sourceSpan = symbolText then
-  //               symbolUseRanges.Add symbolUseRange
-  //             else
-  //               match sourceSpan.IndexOf(symbolText) with
-  //               | -1 -> ()
-  //               | n ->
-  //                 if sourceSpan.Length >= n + symbolText.Length then
-  //                   let startPos = symbolUseRange.Start.IncColumn n
-  //                   let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
-
-  //                   let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
-  //                   symbolUseRanges.Add actualUseRange
-  //         }
-
-  //       let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
-
-  //       // Distinct these down because each TFM will produce a new 'project'.
-  //       // Unless guarded by a #if define, symbols with the same range will be added N times
-  //       let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-
-  //       return Choice2Of2(toDict symbolUseRanges)
-  //   }
+      return CoreResponse.Res hints
+    }
+    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
   let calculateNamespaceInsert currentAst (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
     let getLine (p: Position) = getLine p |> Option.defaultValue ""
@@ -1371,8 +1282,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     |> Result.map CoreResponse.Res
 
   member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    tyRes.TryGetToolTip pos lineStr
-    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
+    Commands.typesig tyRes pos lineStr
 
   member x.SymbolUse (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetSymbolUseAndUsages pos lineStr
@@ -2131,66 +2041,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
-    result {
-      let! contents = state.TryGetFileSource tyRes.FileName
-
-      let getSignatureAtPos pos =
-        option {
-          let! lineStr = contents.GetLine pos
-
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
-
-          return TipFormatter.extractGenericParameters tip
-        }
-        |> Option.defaultValue []
-
-      let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
-        tokens
-        |> List.exists (fun token ->
-          token.CharClass <> FSharpTokenCharKind.Comment
-          && token.CharClass <> FSharpTokenCharKind.WhiteSpace
-          && token.CharClass <> FSharpTokenCharKind.LineComment)
-        |> not
-
-      let getStartingPipe =
-        function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | _ -> None
-
-      let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
-        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
-
-        let isPipe = getStartingPipe currentTokens
-
-        match isCommentOrWhitespace, isPipe with
-        | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
-        | false, Some pipe ->
-          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
-        | false, None -> currentIndex, false, acc
-
-      let hints =
-        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
-        |> Array.map (Lexer.tokenizeLine [||])
-        |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
-        |> Array.fold folder (0, false, [])
-        |> (fun (_, _, third) -> third |> Array.ofList)
-        |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
-          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
-          let gens = getSignatureAtPos pipePos
-
-          let previousNonPipeLine =
-            if lastExpressionLineWasPipe then
-              None
-            else
-              Some lastExpressionLine
-
-          currentIndex, previousNonPipeLine, gens)
-
-      return CoreResponse.Res hints
-    }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
-
+    Commands.pipelineHints state.TryGetFileSource tyRes
 
   interface IDisposable with
     member x.Dispose() =
