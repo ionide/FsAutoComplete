@@ -325,6 +325,8 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
     { Uri = uri; Diagnostics = diags } |> lspClient.TextDocumentPublishDiagnostics
 
+  let mutable typeCheckCancellation  = new CancellationTokenSource()
+
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
   let notifications = Event<NotificationEvent>()
@@ -818,17 +820,19 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   }
   let knownFsFilesToCheckedFilesResults =
     knownFsFilesWithUpdates
-    |> AMap.mapA(fun file info ->aval {
+    |> AMap.mapA(fun file info -> aval {
       let fileVersion = info.LastWriteTime.Ticks |> int
       let sourceText = info.NamedText
       match! getProjectOptionsForFile file with
       | Some (opts, extraInfo) ->
         let parseAndCheck =
           Debug.measure "parseAndCheckFile" <| fun () ->
-            parseAndCheckFile file fileVersion sourceText opts |> Async.RunSynchronously
-        return Some parseAndCheck
+            try
+              Async.RunSynchronously(parseAndCheckFile file fileVersion sourceText opts, cancellationToken=typeCheckCancellation.Token) |> Some
+            with :? OperationCanceledException as e ->
+              None
+        return parseAndCheck
       | None -> return None
-
       }
     )
     |> AMap.choose(fun _ v -> v)
@@ -930,7 +934,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
                       Some
                         { TextDocumentSyncOptions.Default with
                             OpenClose = Some true
-                            Change = Some TextDocumentSyncKind.Incremental
+                            Change = Some TextDocumentSyncKind.Full
                             Save = Some { IncludeText = Some true } }
                     FoldingRangeProvider = Some false
                     SelectionRangeProvider = Some true
@@ -1019,7 +1023,12 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       let contentChanges = p.ContentChanges
       let adder key = clist contentChanges
       let updater key (value : clist<_>) = value.AddRange contentChanges; value
-      transact(fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
+      transact(fun () ->
+        typeCheckCancellation.Cancel()
+        typeCheckCancellation.Dispose()
+        typeCheckCancellation <- new CancellationTokenSource()
+        knownFsTextChanges.AddOrUpdate(filePath, adder, updater)
+      )
 
       // textDocumentDidChangeNotifications.Trigger p
       return ()
@@ -2209,6 +2218,14 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   member _.FsProjRemoveFile(p: DotnetFileRequest) =
     logger.info (
       Log.setMessage "FsProjRemoveFile Request: {parms}"
+      >> Log.addContextDestructured "parms" p
+    )
+    Helpers.notImplemented
+
+  member _.FsProjAddExistingFile(p: DotnetFileRequest) =
+
+    logger.info (
+      Log.setMessage "FsProjAddExistingFile Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
     Helpers.notImplemented
