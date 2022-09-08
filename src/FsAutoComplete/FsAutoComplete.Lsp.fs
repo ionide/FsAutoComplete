@@ -45,6 +45,7 @@ type OptionallyVersionedTextDocumentPositionParams =
     member this.Position = this.Position
 
 module Result =
+  let ofStringErr r = r |> Result.mapError JsonRpc.Error.InternalErrorMessage
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
     | CoreResponse.Res a -> Ok a
@@ -717,6 +718,19 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     knownFsFilesWithUpdates
     |> AMap.tryFind file
 
+  let tryGetFileSource file =
+    getFileInfoForFile file
+    |> AVal.force
+    |> Option.map (fun f -> f.NamedText)
+    |> Option.orElseWith(fun () ->
+      try
+        let change = File.ReadAllText(UMX.untag file)
+        NamedText(file, change) |> Some
+      with e -> None
+    )
+    |> Result.ofOption(fun () -> $"Could not read file: {file}")
+
+
   let knownFsFilesToProjectOptions =
     knownFsFilesWithUpdates
     |> AMap.mapA(fun file _ ->
@@ -839,9 +853,18 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
 
 
-  let getTypeCheckResults filename =
+  let getTypeCheckResults filePath =
     knownFsFilesToCheckedFilesResults
-    |> AMap.tryFind(filename)
+    |> AMap.tryFind(filePath)
+
+  let tryGetLineStr pos (text : NamedText) =
+    text.GetLine(pos)
+    |> Result.ofOption(fun () -> $"No line in {text.FileName} at position {pos}")
+
+  let tryGetTypeCheckResults filePath =
+    getTypeCheckResults filePath
+    |> AVal.force
+    |> Result.ofOption(fun () -> $"No type check results for {filePath}")
 
   let knownFsFilesToCheckedDeclarations =
     knownFsFilesToCheckedFilesResults
@@ -882,6 +905,12 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         )
       )
     )
+
+  let getFilePathAndPosition (p : ITextDocumentPositionParams) =
+    let filePath = p.GetFilePath() |> Utils.normalizePath
+    let pos = p.GetFcsPos()
+    filePath, pos
+
 
   override x.Shutdown() =
     x.Dispose() |> async.Return
@@ -1042,164 +1071,157 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
   }
 
-  override __.TextDocumentDidSave(p) = async {
-    try
-      logger.info (
-        Log.setMessage "TextDocumentDidSave Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      let doc = p.TextDocument
-      let filePath = doc.GetFilePath() |> Utils.normalizePath
-
-      // This removes any in memory changes, it will re-read from the filesystem
-      transact(fun () ->
-          knownFsTextChanges.Remove filePath |> ignore
+  override __.TextDocumentDidSave(p) =
+    asyncResult {
+      try
+        logger.info (
+          Log.setMessage "TextDocumentDidSave Request: {parms}"
+          >> Log.addContextDestructured "parms" p
         )
 
-      let forceTypeCheck f = async {
-        logger.info(
-          Log.setMessage "TextDocumentDidSave Forced Check : {file}"
-          >> Log.addContextDestructured "file" f
+        let doc = p.TextDocument
+        let filePath = doc.GetFilePath() |> Utils.normalizePath
+
+        // This removes any in memory changes, it will re-read from the filesystem
+        transact(fun () ->
+            knownFsTextChanges.Remove filePath |> ignore
+          )
+
+        let forceTypeCheck f = async {
+          logger.info(
+            Log.setMessage "TextDocumentDidSave Forced Check : {file}"
+            >> Log.addContextDestructured "file" f
+          )
+          match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
+          | Some fileInfo, Some (opts, _) ->
+            let fileversion = int fileInfo.LastWriteTime.Ticks
+            return! parseAndCheckFile f fileversion fileInfo.NamedText opts |> Async.Ignore
+          | _, _ -> ()
+        }
+
+        let knownFiles =
+          openFiles
+          |> ASet.force
+        do!
+          knownFiles
+          |> Seq.map forceTypeCheck
+          |> Async.Sequential
+          |> Async.Ignore
+        return ()
+      with e ->
+        logger.error (
+          Log.setMessage "TextDocumentDidSave Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
         )
-        match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
-        | Some fileInfo, Some (opts, _) ->
-          let fileversion = int fileInfo.LastWriteTime.Ticks
-          return! parseAndCheckFile f fileversion fileInfo.NamedText opts |> Async.Ignore
-        | _, _ -> ()
-      }
+        return ()
+    }
+    |> Async.Ignore
 
-      let knownFiles =
-        openFiles
-        |> ASet.force
-      do!
-        knownFiles
-        |> Seq.map forceTypeCheck
-        |> Async.Sequential
-        |> Async.Ignore
-      return ()
-    with e ->
-      logger.error (
-        Log.setMessage "TextDocumentDidSave Request Errored {p}"
-        >> Log.addContextDestructured "p" p
-        >> Log.addExn e
-      )
-      return ()
-  }
-
-  override __.TextDocumentCompletion(p: CompletionParams) =     Debug.measureAsync "TextDocumentCompletion" <| async {
+  override __.TextDocumentCompletion(p: CompletionParams) =  Debug.measureAsync "TextDocumentCompletion" <| asyncResult {
     try
       logger.info (
         Log.setMessage "TextDocumentCompletion Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-
-      let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
-      let pos = p.GetFcsPos()
+      let (filePath, pos) = getFilePathAndPosition p
       // if p.Context |> Option.exists(fun c -> c.triggerKind = CompletionTriggerKind.TriggerCharacter) then
       //   do!
       //     textDocumentDidChangeDebounced
       //     |> Async.AwaitObservable
       //     |> Async.Ignore
+      let! namedText = tryGetFileSource filePath |> Result.ofStringErr
 
-      match Debug.measure "TextDocumentCompletion.getFileInfoForFile" (fun () -> getFileInfoForFile file |> AVal.force) with
-      | None -> return None |> success
-      | Some updates ->
+      let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
 
-        let lines = updates.NamedText
-        let lineStr = lines.GetLine pos
-        match lines.GetLine pos with
-        | None -> return success None
-        | Some lineStr ->
-          let completionList =
-            { IsIncomplete = false
-              Items = KeywordList.hashSymbolCompletionItems }
+      let completionList =
+        { IsIncomplete = false
+          Items = KeywordList.hashSymbolCompletionItems }
 
-          if lineStr.StartsWith "#" then
-            let completionList =
-              { IsIncomplete = false
-                Items = KeywordList.hashSymbolCompletionItems }
+      if lineStr.StartsWith "#" then
+        let completionList =
+          { IsIncomplete = false
+            Items = KeywordList.hashSymbolCompletionItems }
 
-            return success (Some completionList)
-          else
-            let config = AVal.force config
-            let rec retryAsyncOption (delay : TimeSpan) timesLeft action = async {
-              match! action with
-              | Some x -> return Some x
-              | None when timesLeft >=0 ->
-                do! Async.Sleep (delay)
-                return! retryAsyncOption delay (timesLeft - 1) action
-              | None -> return None
-            }
-            let getCompletions = async {
-              match Debug.measure "TextDocumentCompletion.getTypeCheckResults" (fun ()  -> getTypeCheckResults (file) |> AVal.force)  with
-              | None -> return None
-              | Some typeCheckResults ->
-                let getAllSymbols () =
-                  if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
+        return! success (Some completionList)
+      else
+        let config = AVal.force config
+        let rec retryAsyncOption (delay : TimeSpan) timesLeft action = async {
+          match! action with
+          | Ok x -> return Ok x
+          | Error _ when timesLeft >=0 ->
+            do! Async.Sleep (delay)
+            return! retryAsyncOption delay (timesLeft - 1) action
+          | Error e -> return Error e
+        }
+        let getCompletions = asyncResult {
+          let! typeCheckResults = tryGetTypeCheckResults filePath
 
-                match! Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () -> typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols) with
-                | None -> return None
-                | Some (decls, residue, shouldKeywords) -> return Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols)
-            }
+          let getAllSymbols () =
+            if config.ExternalAutocomplete then typeCheckResults.GetAllEntities true else []
 
-            match! retryAsyncOption (TimeSpan.FromMilliseconds (100.)) 5 getCompletions with
-            | None ->
-              return success (Some completionList)
-            | Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols) ->
-                  // Debug
-                  // logger.info(
-                  //   Log.setMessage "TextDocumentCompletion found decls: {decls}"
-                  //   >> Log.addContextDestructured "decls" decls
-                  // )
-                  return
-                    Debug.measure "TextDocumentCompletion.TryGetCompletions success" <| fun () ->
-                    transact( fun () ->
-                      HashMap.OfList ([
-                        for d in decls do
-                          d.Name, (d, pos, file, lines.GetLine, typeCheckResults.GetAST)
-                      ])
-                      |> autoCompleteItems.UpdateTo
-                    ) |> ignore
-                    let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
-                    let items =
-                      decls
-                      |> Array.mapi (fun id d ->
-                        let code =
-                          if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                            d.Name
-                          elif d.NamespaceToOpen.IsSome then
-                            d.Name
-                          else
-                            FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
+          match! Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () -> typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols) with
+          | None -> return None
+          | Some (decls, residue, shouldKeywords) -> return Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols)
+        }
 
-                        let label =
-                          match d.NamespaceToOpen with
-                          | Some no -> sprintf "%s (open %s)" d.Name no
-                          | None -> d.Name
-
-                        { CompletionItem.Create(d.Name) with
-                            Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                            InsertText = Some code
-                            SortText = Some(sprintf "%06d" id)
-                            FilterText = Some d.Name })
-
-                    let its =
-                      if not includeKeywords then
-                        items
+        match! retryAsyncOption (TimeSpan.FromMilliseconds (100.)) 5 getCompletions |> AsyncResult.ofStringErr with
+        | None ->
+          return! success (Some completionList)
+        | Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols) ->
+              // Debug
+              // logger.info(
+              //   Log.setMessage "TextDocumentCompletion found decls: {decls}"
+              //   >> Log.addContextDestructured "decls" decls
+              // )
+              return!
+                Debug.measure "TextDocumentCompletion.TryGetCompletions success" <| fun () ->
+                transact( fun () ->
+                  HashMap.OfList ([
+                    for d in decls do
+                      d.Name, (d, pos, filePath, namedText.GetLine, typeCheckResults.GetAST)
+                  ])
+                  |> autoCompleteItems.UpdateTo
+                ) |> ignore
+                let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
+                let items =
+                  decls
+                  |> Array.mapi (fun id d ->
+                    let code =
+                      if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
+                        d.Name
+                      elif d.NamespaceToOpen.IsSome then
+                        d.Name
                       else
-                        Array.append items KeywordList.keywordCompletionItems
+                        FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
 
-                    let completionList = { IsIncomplete = false; Items = its }
-                    success (Some completionList)
+                    let label =
+                      match d.NamespaceToOpen with
+                      | Some no -> sprintf "%s (open %s)" d.Name no
+                      | None -> d.Name
+
+                    { CompletionItem.Create(d.Name) with
+                        Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                        InsertText = Some code
+                        SortText = Some(sprintf "%06d" id)
+                        FilterText = Some d.Name })
+
+                let its =
+                  if not includeKeywords then
+                    items
+                  else
+                    Array.append items KeywordList.keywordCompletionItems
+
+                let completionList = { IsIncomplete = false; Items = its }
+                success (Some completionList)
 
     with e ->
       logger.error (
         Log.setMessage "TextDocumentCompletion Request Errored {p}"
         >> Log.addContextDestructured "p" p
         >> Log.addExn e)
-      return LspResult.internalError (string e)
+      return! LspResult.internalError (string e)
   }
 
   override __.CompletionItemResolve(ci: CompletionItem) =
@@ -1253,21 +1275,17 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
             |> Seq.collect(snd)
           match getAutoCompleteByDeclName sym |> AVal.force with
           | None -> //Isn't in sync filled cache, we don't have result
-            CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
+             CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
           | Some (decl, pos, fn, _ , _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
-            let source = getFileInfoForFile fn |> AVal.force
 
-            match source with
-            | None -> CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-            | Some source ->
               let tip = decl.Description
-
               let n =
                 match getAutoCompleteNamespacesByDeclName sym |> AVal.force with
                 | None -> None
                 | Some s -> Some s
 
               CoreResponse.Res(HelpText.Full(sym, tip, n))
+
     Debug.measureAsync "CompletionItemResolve" <|
     async {
       logger.info (
@@ -1284,140 +1302,129 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           |> success
     }
 
-  override x.TextDocumentSignatureHelp(sigHelpParams: SignatureHelpParams) = asyncResult {
+  override x.TextDocumentSignatureHelp(p: SignatureHelpParams) = asyncResult {
     try
       logger.info (
         Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
-        >> Log.addContextDestructured "parms" sigHelpParams
+        >> Log.addContextDestructured "parms" p
       )
 
-      let pos = sigHelpParams.GetFcsPos()
-      let file = sigHelpParams.GetFilePath() |> Utils.normalizePath
-      match getFileInfoForFile file |> AVal.force with
-      | None -> return! success None
-      | Some updates ->
-        let namedText = updates.NamedText
-        let lineStr = namedText.GetLine pos
-        let tyRes = (getTypeCheckResults (file)) |> AVal.force
-        match (getTypeCheckResults (file)) |> AVal.force with
-        | None -> return! LspResult.internalError $"No type check results for {file}"
-        | Some tyRes ->
-          let charAtCaret = sigHelpParams.Context |> Option.bind (fun c -> c.TriggerCharacter)
 
-          match!
-            SignatureHelp.getSignatureHelpFor (tyRes, pos, namedText, charAtCaret, None)
-            |> AsyncResult.ofStringErr
-          with
-          | None ->
-            ()
-            return! success None
-          | Some sigHelp ->
-            // sigHelpKind <- Some sigHelp.SigHelpKind
+      let (filePath, pos) = getFilePathAndPosition p
+      let! namedText = tryGetFileSource filePath |> Result.ofStringErr
 
-            let sigs =
-              sigHelp.Methods
-              |> Array.map (fun m ->
-                let (signature, comment) = TipFormatter.formatPlainTip m.Description
+      let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+      let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
 
-                let parameters =
-                  m.Parameters
-                  |> Array.map (fun p ->
-                    { ParameterInformation.Label = p.ParameterName
-                      Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
+      let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
 
-                let d = Documentation.Markup(markdown comment)
+      match!
+        SignatureHelp.getSignatureHelpFor (tyRes, pos, namedText, charAtCaret, None)
+        |> AsyncResult.ofStringErr
+      with
+      | None ->
+        ()
+        return! success None
+      | Some sigHelp ->
+        // sigHelpKind <- Some sigHelp.SigHelpKind
 
-                { SignatureInformation.Label = signature
-                  Documentation = Some d
-                  Parameters = Some parameters })
+        let sigs =
+          sigHelp.Methods
+          |> Array.map (fun m ->
+            let (signature, comment) = TipFormatter.formatPlainTip m.Description
 
-            let res =
-              { Signatures = sigs
-                ActiveSignature = sigHelp.ActiveOverload
-                ActiveParameter = sigHelp.ActiveParameter }
+            let parameters =
+              m.Parameters
+              |> Array.map (fun p ->
+                { ParameterInformation.Label = p.ParameterName
+                  Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
-            return! success (Some res)
-        with e ->
-          logger.error (
-            Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
-            >> Log.addContextDestructured "parms" sigHelpParams
-            >> Log.addExn e
-          )
-          return! LspResult.internalError (string e)
-      }
-  override x.TextDocumentHover(p: TextDocumentPositionParams) = async {
+            let d = Documentation.Markup(markdown comment)
+
+            { SignatureInformation.Label = signature
+              Documentation = Some d
+              Parameters = Some parameters })
+
+        let res =
+          { Signatures = sigs
+            ActiveSignature = sigHelp.ActiveOverload
+            ActiveParameter = sigHelp.ActiveParameter }
+
+        return! success (Some res)
+    with e ->
+      logger.error (
+        Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+        >> Log.addExn e
+      )
+      return! LspResult.internalError (string e)
+  }
+  override x.TextDocumentHover(p: TextDocumentPositionParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentHover Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    // Debug.waitForDebuggerAttached "adaptive-ionide"
-    let pos = p.GetFcsPos()
-    let file = p.GetFilePath() |> Utils.normalizePath
-    match getFileInfoForFile file |> AVal.force with
-    | None -> return success None
-    | Some updates ->
-      let namedText = updates.NamedText
-      let lineStr = namedText.GetLine pos
-      let tyRes = (getTypeCheckResults (file)) |> AVal.force
-      match (getTypeCheckResults (file)) |> AVal.force with
-      | None -> return LspResult.internalError $"No type check results for {file}"
-      | Some tyRes ->
-        match tyRes.TryGetToolTipEnhanced pos lineStr.Value with
-        | Ok(Some (tip, signature, footer, typeDoc)) ->
-            let formatCommentStyle =
-              let config = AVal.force config
-              if config.TooltipMode = "full" then
-                TipFormatter.FormatCommentStyle.FullEnhanced
-              else if config.TooltipMode = "summary" then
-                TipFormatter.FormatCommentStyle.SummaryOnly
-              else
-                TipFormatter.FormatCommentStyle.Legacy
 
-            match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
-            | (sigCommentFooter :: _) :: _ ->
-              let signature, comment, footer = sigCommentFooter
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    match tyRes.TryGetToolTipEnhanced pos lineStr with
+    | Ok(Some (tip, signature, footer, typeDoc)) ->
+        let formatCommentStyle =
+          let config = AVal.force config
+          if config.TooltipMode = "full" then
+            TipFormatter.FormatCommentStyle.FullEnhanced
+          else if config.TooltipMode = "summary" then
+            TipFormatter.FormatCommentStyle.SummaryOnly
+          else
+            TipFormatter.FormatCommentStyle.Legacy
 
-              let markStr lang (value: string) =
-                MarkedString.WithLanguage { Language = lang; Value = value }
+        match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
+        | (sigCommentFooter :: _) :: _ ->
+          let signature, comment, footer = sigCommentFooter
 
-              let fsharpBlock (lines: string[]) =
-                lines |> String.concat Environment.NewLine |> markStr "fsharp"
+          let markStr lang (value: string) =
+            MarkedString.WithLanguage { Language = lang; Value = value }
 
-              let sigContent =
-                let lines =
-                  signature.Split Environment.NewLine
-                  |> Array.filter (not << String.IsNullOrWhiteSpace)
+          let fsharpBlock (lines: string[]) =
+            lines |> String.concat Environment.NewLine |> markStr "fsharp"
 
-                match lines |> Array.splitAt (lines.Length - 1) with
-                | (h, [| StartsWith "Full name:" fullName |]) ->
-                  [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
-                | _ -> [| fsharpBlock lines |]
+          let sigContent =
+            let lines =
+              signature.Split Environment.NewLine
+              |> Array.filter (not << String.IsNullOrWhiteSpace)
+
+            match lines |> Array.splitAt (lines.Length - 1) with
+            | (h, [| StartsWith "Full name:" fullName |]) ->
+              [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
+            | _ -> [| fsharpBlock lines |]
 
 
-              let commentContent = comment |> MarkedString.String
+          let commentContent = comment |> MarkedString.String
 
-              let footerContent =
-                footer.Split Environment.NewLine
-                |> Array.filter (not << String.IsNullOrWhiteSpace)
-                |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
+          let footerContent =
+            footer.Split Environment.NewLine
+            |> Array.filter (not << String.IsNullOrWhiteSpace)
+            |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
 
 
-              let response =
-                { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
-                  Range = None }
+          let response =
+            { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
+              Range = None }
 
-              return success (Some response)
-            | _ ->
-              return success None
-        | Ok (None) ->
+          return (Some response)
+        | _ ->
+          return None
+    | Ok (None) ->
 
-          return LspResult.internalError $"No TryGetToolTipEnhanced results for {file}"
-        | Error e ->
-          logger.error(
-            Log.setMessage "Failed with {error}"
-            >> Log.addContext "error" e
-          )
-          return LspResult.internalError e
+      return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
+    | Error e ->
+      logger.error(
+        Log.setMessage "Failed with {error}"
+        >> Log.addContext "error" e
+      )
+      return! LspResult.internalError e
   }
 
   override x.TextDocumentRename(p: RenameParams) =
@@ -1427,141 +1434,116 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     )
     Helpers.notImplemented
 
-  override x.TextDocumentDefinition(p : TextDocumentPositionParams) = async {
+  override x.TextDocumentDefinition(p : TextDocumentPositionParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentDefinition Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    let pos = p.GetFcsPos()
-    let file = p.GetFilePath() |> Utils.normalizePath
-    match getFileInfoForFile file |> AVal.force with
-    | None -> return success None
-    | Some updates ->
-      let namedText = updates.NamedText
-      let lineStr = namedText.GetLine pos
-      match (getTypeCheckResults (file)) |> AVal.force with
-      | None -> return! Helpers.notImplemented
-      | Some tyRes ->
-        match! tyRes.TryFindDeclaration pos lineStr.Value with
-        | Error e -> return LspResult.internalError e
-        | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
+
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+
+    let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
+    return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
   }
 
-  override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) = async {
+  override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentTypeDefinition Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    let pos = p.GetFcsPos()
-    let file = p.GetFilePath() |> Utils.normalizePath
-    match getFileInfoForFile file |> AVal.force with
-    | None -> return success None
-    | Some updates ->
-      let namedText = updates.NamedText
-      let lineStr = namedText.GetLine pos
-      match (getTypeCheckResults (file)) |> AVal.force with
-      | None -> return! Helpers.notImplemented
-      | Some tyRes ->
-        match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
-        | Error e -> return LspResult.internalError e
-        | Ok decl -> return decl |> findDeclToLspLocation |> GotoResult.Single |> Some |> success
+
+    let (filePath, pos) = getFilePathAndPosition p
+
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
+    return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
   }
   override x.TextDocumentReferences(p: ReferenceParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentReferences Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    let pos = p.GetFcsPos()
-    let file = p.GetFilePath() |> Utils.normalizePath
-    match getFileInfoForFile file |> AVal.force with
-    | None -> return! success None
-    | Some updates ->
-      let namedText = updates.NamedText
-      let lineStr = namedText.GetLine pos
-      match (getTypeCheckResults (file)) |> AVal.force with
-      | None -> return! Helpers.notImplemented
-      | Some tyRes ->
-        let findReferencesForSymbolInFile (file,project, symbol) =
-          checker.FindBackgroundReferencesInFile(
-                file,
-                project,
-                symbol,
-                canInvalidateProject = false,
-                userOpName = "find references"
-              )
-        let tryGetFileSource file =
-          getFileInfoForFile file
-          |> AVal.force
-          |> Option.map (fun f -> f.NamedText)
-          |> Option.orElseWith(fun () ->
-            try
-              let change = File.ReadAllText(UMX.untag file)
-              NamedText(file, change) |> Some
-            with e -> None
+
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let lineStr = namedText.GetLine pos
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let findReferencesForSymbolInFile (file,project, symbol) =
+      checker.FindBackgroundReferencesInFile(
+            file,
+            project,
+            symbol,
+            canInvalidateProject = false,
+            userOpName = "find references"
           )
-          |> Result.ofOption(fun () -> $"Could not read file: {file}")
 
 
-        let getProjectOptions file =
-          getProjectOptionsForFile file
-          |> AVal.force
-          |> Option.map fst
-        let projectsThatContainFile file =
-          projectsThatContainFile file
-        let getDependentProjectsOfProjects ps =
-          let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
-          let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
-          let currentPass = ResizeArray()
-          currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+    let getProjectOptions file =
+      getProjectOptionsForFile file
+      |> AVal.force
+      |> Option.map fst
+    let projectsThatContainFile file =
+      projectsThatContainFile file
+    let getDependentProjectsOfProjects ps =
+      let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+      let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
-          let mutable continueAlong = true
+      let currentPass = ResizeArray()
+      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
 
-          while continueAlong do
-            let dependents =
-              projectSnapshot
-              |> Seq.filter (fun p ->
-                p.ReferencedProjects
-                |> Seq.exists (fun r ->
-                  match r.ProjectFilePath with
-                  | None -> false
-                  | Some p -> currentPass.Contains(p)))
+      let mutable continueAlong = true
 
-            if Seq.isEmpty dependents then
-              continueAlong <- false
-              currentPass.Clear()
-            else
-              for d in dependents do
-                allDependents.Add d |> ignore<bool>
+      while continueAlong do
+        let dependents =
+          projectSnapshot
+          |> Seq.filter (fun p ->
+            p.ReferencedProjects
+            |> Seq.exists (fun r ->
+              match r.ProjectFilePath with
+              | None -> false
+              | Some p -> currentPass.Contains(p)))
 
-              currentPass.Clear()
-              currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+        if Seq.isEmpty dependents then
+          continueAlong <- false
+          currentPass.Clear()
+        else
+          for d in dependents do
+            allDependents.Add d |> ignore<bool>
 
-          Seq.toList allDependents
-        let getProjectOptionsForFsproj file =
-          loadedProjectOptions
-          |> AVal.force
-          |> Seq.map fst
-          |> Seq.tryFind(fun x -> x.ProjectFileName = file)
-        let! usages =
-          Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, namedText, tyRes)
-           |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
-          // match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
-          // | Error e -> return LspResult.internalError e
-          // | Ok decl ->
-        match usages with
-        | Choice1Of2 (decls, usages) ->
-          return
-            Seq.append decls.Values usages.Values
-            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
-            |> Seq.toArray
-            |> Some
-        | Choice2Of2 combinedRanges ->
-          return
-            combinedRanges.Values
-            |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
-            |> Seq.toArray
-            |> Some
+          currentPass.Clear()
+          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+      Seq.toList allDependents
+    let getProjectOptionsForFsproj file =
+      loadedProjectOptions
+      |> AVal.force
+      |> Seq.map fst
+      |> Seq.tryFind(fun x -> x.ProjectFileName = file)
+    let! usages =
+      Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, namedText, tyRes)
+        |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+      // match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
+      // | Error e -> return LspResult.internalError e
+      // | Ok decl ->
+    match usages with
+    | Choice1Of2 (decls, usages) ->
+      return
+        Seq.append decls.Values usages.Values
+        |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+        |> Seq.toArray
+        |> Some
+    | Choice2Of2 combinedRanges ->
+      return
+        combinedRanges.Values
+        |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
+        |> Seq.toArray
+        |> Some
   }
 
   override x.TextDocumentDocumentHighlight(p) =
@@ -1653,66 +1635,60 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       >> Log.addContextDestructured "parms" p
     )
 
-    let handler f (arg: CodeLens) =
-      async {
+    let handler (f ) (arg: CodeLens) : Async<LspResult<CodeLens>> =
+      asyncResult {
         let pos = protocolPosToPos arg.Range.Start
 
         let data = arg.Data.Value.ToObject<string[]>()
 
-        let file = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
+        let filePath = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
 
         try
-          let tyRes = getTypeCheckResults file |> AVal.force
+          let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
 
-          match tyRes with
-          | None -> return success { p with Command = None }
-          | Some tyRes ->
 
-            logger.info (
-              Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
-              >> Log.addContextDestructured "file" file
+          logger.info (
+            Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
+            >> Log.addContextDestructured "file" filePath
+          )
+
+          let! (namedText : NamedText) = tryGetFileSource filePath |> Result.ofStringErr
+          let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+
+          let typ = data.[1]
+          let! r = Async.Catch(f arg pos tyRes namedText lineStr typ filePath)
+
+          match r with
+          | Choice1Of2 (r: LspResult<CodeLens option>) ->
+            match r with
+            | Ok (Some r) -> return r
+            | _ -> return Unchecked.defaultof<_>
+          | Choice2Of2 e ->
+            logger.error (
+              Log.setMessage "CodeLensResolve - Child operation failed for {file}"
+              >> Log.addContextDestructured "file" filePath
+              >> Log.addExn e
             )
 
-            match getFileInfoForFile file |> AVal.force with
-            | None -> return success { p with Command = None }
-            | Some updates ->
-              let lines = updates.NamedText
-              let lineStr = lines.GetLine pos
+            let title = if typ = "signature" then "" else "0 References"
 
-              let typ = data.[1]
-              let! r = Async.Catch(f arg pos tyRes lines lineStr typ file)
+            let codeLens =
+              { p with
+                  Command =
+                    Some
+                      { Title = title
+                        Command = ""
+                        Arguments = None } }
 
-              match r with
-              | Choice1Of2 (r: LspResult<CodeLens option>) ->
-                match r with
-                | Ok (Some r) -> return Ok r
-                | _ -> return Ok Unchecked.defaultof<_>
-              | Choice2Of2 e ->
-                logger.error (
-                  Log.setMessage "CodeLensResolve - Child operation failed for {file}"
-                  >> Log.addContextDestructured "file" file
-                  >> Log.addExn e
-                )
-
-                let title = if typ = "signature" then "" else "0 References"
-
-                let codeLens =
-                  { p with
-                      Command =
-                        Some
-                          { Title = title
-                            Command = ""
-                            Arguments = None } }
-
-                return success codeLens
+            return codeLens
         with e ->
           logger.error (
             Log.setMessage "CodeLensResolve - Operation failed on {file}"
-            >> Log.addContextDestructured "file" file
+            >> Log.addContextDestructured "file" filePath
             >> Log.addExn e
           )
 
-          return { p with Command = None } |> success
+          return! { p with Command = None } |> success
       }
 
     let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
@@ -1725,7 +1701,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       (fun p pos tyRes lines lineStr typ file ->
         async {
           if typ = "signature" then
-            match Debug.measure "TryGetSignatureData" (fun () ->  tyRes.TryGetSignatureData pos lineStr.Value |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes) with
+            match Debug.measure "TryGetSignatureData" (fun () ->  tyRes.TryGetSignatureData pos lineStr |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes) with
             | CoreResponse.InfoRes msg
             | CoreResponse.ErrorRes msg ->
               logger.error (
@@ -1753,17 +1729,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
                     canInvalidateProject = false,
                     userOpName = "find references"
                   )
-            let tryGetFileSource file =
-              getFileInfoForFile file
-              |> AVal.force
-              |> Option.map (fun f -> f.NamedText)
-              |> Option.orElseWith(fun () ->
-                try
-                  let change = File.ReadAllText(UMX.untag file)
-                  NamedText(file, change) |> Some
-                with e -> None
-              )
-              |> Result.ofOption(fun () -> $"Could not read file: {file}")
+
 
             let getProjectOptions file =
               getProjectOptionsForFile file
@@ -1807,7 +1773,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
               |> Seq.map fst
               |> Seq.tryFind(fun x -> x.ProjectFileName = file)
             let! res =
-              Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, lines, tyRes)
+              Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr, lines, tyRes)
               |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
             let res =
@@ -1894,11 +1860,9 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     Helpers.notImplemented
 
   member private x.handleSemanticTokens (filePath : string<LocalPath>) range
-    : LspResult<SemanticTokens option> =
+    : LspResult<SemanticTokens option> = result {
 
-    match getTypeCheckResults (filePath) |> AVal.force with
-    | None -> LspResult.internalError $"No typecheck result for {filePath}"
-    | Some tyRes ->
+      let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
       let r = tyRes.GetCheckResults.GetSemanticClassification(range)
       let filteredRanges = Commands.scrubRanges r
 
@@ -1910,9 +1874,9 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           struct (fcsRangeToLsp item.Range, ty, mods))
 
       match encodeSemanticHighlightRanges lspTypedRanges with
-      | None -> success None
-      | Some encoded -> success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
-
+      | None -> return None
+      | Some encoded -> return (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
+    }
 
   override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> = async {
     logger.info (
@@ -1951,44 +1915,34 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       Log.setMessage "FSharpSignature Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    async {
-      let pos = p.GetFcsPos()
-      let file = p.GetFilePath() |> Utils.normalizePath
-      match getFileInfoForFile file |> AVal.force with
-      | None -> return success None
-      | Some updates ->
-        let namedText = updates.NamedText
-        let lineStr = namedText.GetLine pos
-        match (getTypeCheckResults (file)) |> AVal.force with
-        | None -> return! Helpers.notImplemented
-        | Some tyRes ->
-          return
-            Commands.typesig tyRes pos lineStr.Value
-            |> Result.ofCoreResponse
-            |> Result.map (fun tip -> Some { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip })
+    asyncResult {
+
+      let (filePath, pos) = getFilePathAndPosition p
+      let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+
+      let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+      let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+      let! tip =
+        Commands.typesig tyRes pos lineStr
+        |> Result.ofCoreResponse
+
+      return Some { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
     }
 
-  member x.FSharpSignatureData(p: TextDocumentPositionParams) = Debug.measureAsync "FSharpSignatureData" <| async {
+  member x.FSharpSignatureData(p: TextDocumentPositionParams) = Debug.measureAsync "FSharpSignatureData" <| asyncResult  {
     logger.info (
       Log.setMessage "FSharpSignatureData Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
     let pos = FcsPos.mkPos (p.Position.Line) (p.Position.Character + 2)
-    let file = p.TextDocument.GetFilePath() |> Utils.normalizePath
-    match getFileInfoForFile file |> AVal.force with
-    | None -> return LspResult.internalError $"No fileinfo results for {file}"
-    | Some updates ->
-      let lines = updates.NamedText
-      let lineStr = lines.GetLine pos
-      return
-        match  getTypeCheckResults file |> AVal.force with
-        | Some tyRes ->
-          match  tyRes.TryGetSignatureData pos lineStr.Value with
-          | Ok (typ, parms, generics) ->
-              { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-              |> success
-          | Error e -> LspResult.internalError e
-        | None -> LspResult.internalError $"No typecheck results for {file}"
+    let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let! (typ, parms, generics)  = tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
+    return { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) } |> Some
+
   }
 
 
@@ -2136,46 +2090,16 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     )
     Helpers.notImplemented
 
-  member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) = async {
+  member x.FSharpPipelineHints(p: FSharpPipelineHintRequest) = asyncResult {
     logger.info (
       Log.setMessage "FSharpPipelineHints Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
-    match getTypeCheckResults fn |> AVal.force with
-    | None -> return LspResult.internalError $"No typecheck result for {fn}"
-    | Some tyRes ->
-      let tryGetFileSource file =
-          let fileinfo =
-            getFileInfoForFile file
-            |> AVal.force
-          fileinfo
-          |> Option.map (fun f -> f.NamedText)
-          |> Option.orElseWith(fun () ->
-            try
-              let change = File.ReadAllText(UMX.untag file)
-              NamedText(file, change) |> Some
-            with e -> None
-          )
-          |> Result.ofOption(fun () -> $"Could not read file: {file}")
-      return
+    let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let! res = Commands.pipelineHints tryGetFileSource tyRes |> Result.ofCoreResponse
 
-        match Commands.pipelineHints tryGetFileSource tyRes with
-        | CoreResponse.InfoRes msg
-        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-        | CoreResponse.Res (res) ->
-          { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
-          |> success
-
-        // |> Result.ofCoreResponse
-        // |> Result.tee(fun x ->
-        //       logger.info (
-        //         Log.setMessage "FSharpPipelineHints found {resultCount} results"
-        //         >> Log.addContextDestructured "resultCount" (Seq.length x)
-        //       )
-        // )
-        // |> Result.map(fun res -> { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res })
-
+    return { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
   }
 
   member __.FsProjMoveFileUp(p: DotnetFileRequest) =
