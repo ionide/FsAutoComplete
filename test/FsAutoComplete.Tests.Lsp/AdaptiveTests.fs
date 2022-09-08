@@ -7,7 +7,7 @@ open FSharp.Compiler.Text
 open System.Diagnostics
 open FSharp.Data.Adaptive
 open System
-
+open Microsoft.Build.Graph
 
 // search tags: debug, debugger, attach
 module Debugging =
@@ -62,7 +62,7 @@ let awaitManualInput (msg : string) =
     Console.ReadLine() |> ignore
 
 let tests toolsPath =
-    ftestList "Adaptive" [
+    ptestList "Adaptive" [
         testCaseAsync "Lol" <| async {
             let loader = WorkspaceLoaderViaProjectGraph.Create(toolsPath)
             let slnPath = "/Users/theangrybyrd/Repositories/public/FsToolkit.ErrorHandling/FsToolkit.ErrorHandling.sln"

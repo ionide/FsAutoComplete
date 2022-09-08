@@ -55,7 +55,7 @@ let lspTests =
 
             Utils.Tests.Server.tests state
             Utils.Tests.CursorbasedTests.tests state
-            
+
             CodeLens.tests state
             documentSymbolTest state
             Completion.autocompleteTest state
@@ -92,16 +92,16 @@ let lspTests =
     ]
 
 [<Tests>]
-let tests = 
+let tests =
   testList "FSAC" [
-    Adaptive.tests toolsPath
-    // testList (nameof(Utils)) [
-    //   Utils.Tests.Utils.tests
-    //   Utils.Tests.TextEdit.tests
-    // ]
-    // InlayHintTests.explicitTypeInfoTests
+    // Adaptive.tests toolsPath
+    testList (nameof(Utils)) [
+      Utils.Tests.Utils.tests
+      Utils.Tests.TextEdit.tests
+    ]
+    InlayHintTests.explicitTypeInfoTests
 
-    // lspTests
+    lspTests
   ]
 
 
