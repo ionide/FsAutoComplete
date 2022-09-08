@@ -616,59 +616,52 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   /// * file doesn't exist on disk (untitled or deleted)
   /// * file is outside of current workspace (and not part of any project)
   let forgetDocument (uri: DocumentUri) =
-    let filePath = 
-      uri 
-      |> Path.FileUriToLocalPath
-      |> Utils.normalizePath
+    let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
 
     // remove cached data for
     // * non-existing files (untitled & deleted)
     // * files outside of workspace (and not used by any project)
-    let doesNotExist (file: string<LocalPath>) =
-      not (File.Exists (UMX.untag file))
+    let doesNotExist (file: string<LocalPath>) = not (File.Exists(UMX.untag file))
+
     let isOutsideWorkspace (file: string<LocalPath>) =
       match rootPath with
-      | None -> 
-          // no workspace specified
-          true
+      | None ->
+        // no workspace specified
+        true
       | Some rootPath ->
-          let rec isInside (rootDir: DirectoryInfo, dirToCheck: DirectoryInfo) =
-            if String.Equals(rootDir.FullName, dirToCheck.FullName, StringComparison.InvariantCultureIgnoreCase) then
+        let rec isInside (rootDir: DirectoryInfo, dirToCheck: DirectoryInfo) =
+          if String.Equals(rootDir.FullName, dirToCheck.FullName, StringComparison.InvariantCultureIgnoreCase) then
+            true
+          else
+            match dirToCheck.Parent with
+            | null -> false
+            | parent -> isInside (rootDir, parent)
+
+        let rootDir = DirectoryInfo(rootPath)
+        let fileDir = FileInfo(UMX.untag file).Directory
+
+        if isInside (rootDir, fileDir) then
+          false
+        else
+          // file might be outside of workspace but part of a project
+          match state.GetProjectOptions file with
+          | None -> true
+          | Some projOptions ->
+            if doesNotExist (UMX.tag projOptions.ProjectFileName) then
+              // case for script file
               true
             else
-              match dirToCheck.Parent with
-              | null -> false
-              | parent ->
-                  isInside (rootDir, parent)
+              // issue: fs-file does never get removed from project options (-> requires reload of FSAC to register)
+              // -> don't know if file still part of project (file might have been removed from project)
+              // -> keep cache for file
+              false
 
-          let rootDir = DirectoryInfo(rootPath)
-          let fileDir = FileInfo(UMX.untag file).Directory
-          
-          if isInside (rootDir, fileDir) then
-            false
-          else
-            // file might be outside of workspace but part of a project
-            match state.GetProjectOptions file with
-            | None -> true
-            | Some projOptions ->
-                if doesNotExist (UMX.tag projOptions.ProjectFileName) then
-                  // case for script file
-                  true
-                else
-                  // issue: fs-file does never get removed from project options (-> requires reload of FSAC to register)
-                  // -> don't know if file still part of project (file might have been removed from project)
-                  // -> keep cache for file
-                  false
-
-    if
-      doesNotExist filePath
-      ||
-      isOutsideWorkspace filePath
-    then
+    if doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}"
         >> Log.addContext "file" filePath
       )
+
       state.Forget filePath
       diagnosticCollections.ClearFor uri
 
@@ -1103,14 +1096,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       ()
     }
 
-  override _.TextDocumentDidClose(p) = async {
-    logger.info (
-      Log.setMessage "TextDocumentDidOpen Request: {parms}"
-      >> Log.addContextDestructured "parms" p
-    )
+  override _.TextDocumentDidClose(p) =
+    async {
+      logger.info (
+        Log.setMessage "TextDocumentDidOpen Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
 
-    forgetDocument p.TextDocument.Uri
-  }
+      forgetDocument p.TextDocument.Uri
+    }
 
   override __.TextDocumentCompletion(p: CompletionParams) =
     asyncResult {
@@ -2011,6 +2005,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       |> Array.iter (fun c ->
         if c.Type = FileChangeType.Deleted then
           forgetDocument c.Uri
+
         ())
 
       return ()
