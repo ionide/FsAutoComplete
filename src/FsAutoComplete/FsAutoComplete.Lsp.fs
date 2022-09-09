@@ -304,7 +304,7 @@ type WorkspaceChosen =
 type AdaptiveWorkspaceChosen =
 | Sln of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
 | Directory of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
-| Projs of aval<HashSet<string<LocalPath> * DateTime>>
+| Projs of aval<HashMap<string<LocalPath>, DateTime>>
 | NotChosen
 
 
@@ -569,15 +569,22 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       | WorkspaceChosen.Sln v -> adaptiveFile v |> AdaptiveWorkspaceChosen.Sln
       | WorkspaceChosen.Directory d -> failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory
       | WorkspaceChosen.Projs projs ->
-        projs
-        |> Seq.map(adaptiveFile)
-        |> ASet.ofSeq
-        |> ASet.mapA id
-        |> ASet.toAVal
+        let projChanges =
+          projs
+          |> ASet.ofSeq
+          |> ASet.mapAtoAMap (UMX.untag >> AdaptiveFile.GetLastWriteTimeUtc )
+        projChanges.AddCallback(fun old delta ->
+          logger.info(
+            Log.setMessage "Loading projects because of {delta}"
+            >> Log.addContextDestructured "delta" delta
+          )) |> ignore
+        projChanges
+        |> AMap.toAVal
         |> AdaptiveWorkspaceChosen.Projs
       | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen
 
     )
+
 
   let clientCapabilities = cval<ClientCapabilities option> None
   let glyphToCompletionKind =  clientCapabilities |> AVal.map(glyphToCompletionKindGenerator)
@@ -616,6 +623,27 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   //   )
   //   |> ASet.ofAVal
   //   |> ASet.mapA id
+  let objFileChanges (projectPaths : seq<string>) =
+
+    projectPaths
+    |> ASet.ofSeq
+    |> ASet.collect (fun (p : string) ->
+      let objFolder = (Path.GetDirectoryName p) </> "obj" |> Path.GetFullPath
+      let projectAssetsFile = objFolder </> "project.assets.json"
+      let projectProps = ".*\.props$"
+
+      let projectAssetsFileAdaptive = (UMX.tag projectAssetsFile) |> ASet.single |> ASet.mapA(adaptiveFile)
+      AdaptiveDirectory.GetFiles(objFolder, System.Text.RegularExpressions.Regex(projectProps))
+      |> ASet.map(fun fi -> UMX.tag fi.FullName)
+      |> ASet.mapA(adaptiveFile)
+      // |> AMap.union projectAssetsFileAdaptive
+      // |> ASet.map(fun fi -> UMX.tag<LocalPath> fi.FullName ,fi.LastWriteTimeUtc)
+      |> ASet.union (projectAssetsFileAdaptive)
+    )
+    |> AMap.ofASet
+    |> AMap.map(fun k v -> v |> Seq.max)
+
+
   let loadedProjectOptions =
     adaptiveWorkspacePaths
     |> AVal.bind(fun wsp -> aval {
@@ -626,15 +654,27 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       | AdaptiveWorkspaceChosen.Projs projects ->
         let! loader = loader
         let! projects = projects
+        let projPaths = projects |> Seq.map(fst >> UMX.untag)
+
         projects
         |> Seq.iter(fun (proj, _) ->
+
           UMX.untag proj
           |> ProjectResponse.ProjectLoading
           |> NotificationEvent.Workspace
           |> notifications.Trigger
         )
+        let projectObjDependencies = objFileChanges projPaths
 
-
+        projectObjDependencies.AddCallback(fun old delta ->
+          logger.info(
+            Log.setMessage "Loading projects because of {delta}"
+            >> Log.addContextDestructured "delta" delta
+          )
+        ) |> ignore
+        let! projectObjDependencies = projectObjDependencies |> AMap.toAVal
+        // Debug.waitForDebuggerAttached "AdaptiveServer--->"
+        // TODO Figure out why adding/removing an fs file from an fsproj doesn't show up without reloading
         let projectOptions = loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList) |> Seq.toList
         let options =
           projectOptions
@@ -1016,31 +1056,31 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         |> Option.map FSharpConfig.FromDto
         |> Option.defaultValue FSharpConfig.Default
       let rootPath = p.RootPath.Value
-      // let projs =
-      //   let peeks =
-      //     WorkspacePeek.peek rootPath c.WorkspaceModePeekDeepLevel (c.ExcludeProjectDirectories |> List.ofArray)
-      //     |> List.map Workspace.mapInteresting
-      //     |> List.sortByDescending (fun x ->
-      //       match x with
-      //       | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
-      //       | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
-      //   logger.info (
-      //       Log.setMessage "Choosing from interesting items {items}"
-      //       >> Log.addContextDestructured "items" peeks
-      //     )
-      //   match peeks with
-      //   | [] -> []
-      //   | [ CommandResponse.WorkspacePeekFound.Directory projs ] ->
-      //     projs.Fsprojs
-      //   | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
-      //     sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
-      //   | _ -> []
-      //   |> List.map(Utils.normalizePath)
+      let projs =
+        let peeks =
+          WorkspacePeek.peek rootPath c.WorkspaceModePeekDeepLevel (c.ExcludeProjectDirectories |> List.ofArray)
+          |> List.map Workspace.mapInteresting
+          |> List.sortByDescending (fun x ->
+            match x with
+            | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
+            | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
+        logger.info (
+            Log.setMessage "Choosing from interesting items {items}"
+            >> Log.addContextDestructured "items" peeks
+          )
+        match peeks with
+        | [] -> []
+        | [ CommandResponse.WorkspacePeekFound.Directory projs ] ->
+          projs.Fsprojs
+        | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
+          sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
+        | _ -> []
+        |> List.map(Utils.normalizePath)
 
       transact(fun () ->
         clientCapabilities.Value <- p.Capabilities
         config.Value <- c
-        // workspacePaths.Value <- WorkspaceChosen.Projs (Set.ofList projs)
+        workspacePaths.Value <- WorkspaceChosen.Projs (Set.ofList projs)
       )
       return
           { InitializeResult.Default with
@@ -2097,6 +2137,10 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       >> Log.addContextDestructured "parms" p
     )
     try
+      let projs = p.TextDocuments |> Array.map(fun t -> t.GetFilePath() |> Utils.normalizePath ) |> Set.ofArray
+      transact (fun () ->
+        workspacePaths.Value <- (WorkspaceChosen.Projs projs)
+      )
       let options = loadedProjectOptions |> AVal.force
       return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }  |> success
 
