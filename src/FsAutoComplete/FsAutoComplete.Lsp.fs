@@ -559,8 +559,8 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
-  //TODO Adding to solution
-  // TODO Adding new project file not yet added to solution
+  // JB:TODO Adding to solution
+  // JB:TODO Adding new project file not yet added to solution
   let workspacePaths : ChangeableValue<WorkspaceChosen> = cval WorkspaceChosen.NotChosen
   let adaptiveWorkspacePaths =
     workspacePaths
@@ -591,38 +591,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   let glyphToSymbolKind = clientCapabilities |> AVal.map glyphToSymbolKindGenerator
   let config = cval<FSharpConfig> FSharpConfig.Default
   let entityCache = EntityCache()
-  // let entryPoints =
-  //   (rootpath, config)
-  //   ||> AVal.map2(fun rootPath config ->
-  //     rootPath
-  //     |> Option.bind(fun rootPath ->
-  //       let peeks =
-  //         WorkspacePeek.peek rootPath config.WorkspaceModePeekDeepLevel (config.ExcludeProjectDirectories |> List.ofArray)
-  //         |> List.map Workspace.mapInteresting
-  //         |> List.sortByDescending (fun x ->
-  //           match x with
-  //           | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
-  //           | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
-  //       logger.info (
-  //           Log.setMessage "Choosing from interesting items {items}"
-  //           >> Log.addContextDestructured "items" peeks
-  //         )
-  //       match peeks with
-  //       | [] -> None
-  //       | [ CommandResponse.WorkspacePeekFound.Directory projs ] ->
-  //         projs.Fsprojs
-  //         |> List.map adaptiveFile
-  //         |> Some
-  //       | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
-  //         Some [
-  //           sln.Path |> adaptiveFile
-  //         ]
-  //       | _ -> None
-  //     )
-  //     |> Option.defaultValue []
-  //   )
-  //   |> ASet.ofAVal
-  //   |> ASet.mapA id
+
   let objFileChanges (projectPaths : seq<string>) =
 
     projectPaths
@@ -636,8 +605,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       AdaptiveDirectory.GetFiles(objFolder, System.Text.RegularExpressions.Regex(projectProps))
       |> ASet.map(fun fi -> UMX.tag fi.FullName)
       |> ASet.mapA(adaptiveFile)
-      // |> AMap.union projectAssetsFileAdaptive
-      // |> ASet.map(fun fi -> UMX.tag<LocalPath> fi.FullName ,fi.LastWriteTimeUtc)
       |> ASet.union (projectAssetsFileAdaptive)
     )
     |> AMap.ofASet
@@ -665,7 +632,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           |> notifications.Trigger
         )
         let projectObjDependencies = objFileChanges projPaths
-
+        // JB:TODO Ask Discord about if this could cause memory leaks
         projectObjDependencies.AddCallback(fun old delta ->
           logger.info(
             Log.setMessage "Loading projects because of {delta}"
@@ -673,8 +640,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
           )
         ) |> ignore
         let! projectObjDependencies = projectObjDependencies |> AMap.toAVal
-        // Debug.waitForDebuggerAttached "AdaptiveServer--->"
-        // TODO Figure out why adding/removing an fs file from an fsproj doesn't show up without reloading
         let projectOptions = loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList) |> Seq.toList
         let options =
           projectOptions
