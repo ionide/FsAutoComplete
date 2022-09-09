@@ -829,13 +829,28 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
   let knownFsFilesToProjectOptions =
     knownFsFilesWithUpdates
-    |> AMap.mapA(fun file _ ->
-      loadedProjectOptions
-      |> AVal.map(fun opts ->
-          opts
-          |> List.tryFind(fun (opts, _) ->
-            opts.SourceFiles |> Array.contains(UMX.untag file)
-          )
+    |> AMap.mapA(fun file info ->
+      if Utils.isAScript (UMX.untag file) then
+        let (opts, errors) =
+          checker.GetProjectOptionsFromScript(
+              UMX.untag file,
+              info.NamedText,
+              assumeDotNetFramework = false,
+              useSdkRefs = true,
+              useFsiAuxLib = true,
+              // otherFlags = allFlags,
+              userOpName = "getNetCoreScriptOptions"
+          ) |> Async.RunSynchronously
+        // checker.GetProjectOptionsFromScript()
+        Some opts |> AVal.constant
+      else
+        loadedProjectOptions
+        |> AVal.map(fun opts ->
+            opts
+            |> List.tryFind(fun (opts, _) ->
+              opts.SourceFiles |> Array.contains(UMX.untag file)
+            )
+            |> Option.map fst
     ))
     |> AMap.choose (fun _ v -> v)
 
@@ -934,7 +949,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       let fileVersion = info.LastWriteTime.Ticks |> int
       let sourceText = info.NamedText
       match! getProjectOptionsForFile file with
-      | Some (opts, extraInfo) ->
+      | Some (opts) ->
         let parseAndCheck =
           Debug.measure "parseAndCheckFile" <| fun () ->
             try
@@ -1211,7 +1226,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
             >> Log.addContextDestructured "file" f
           )
           match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
-          | Some fileInfo, Some (opts, _) ->
+          | Some fileInfo, Some (opts) ->
             let fileversion = int fileInfo.LastWriteTime.Ticks
             return! parseAndCheckFile f fileversion fileInfo.NamedText opts |> Async.Ignore
           | _, _ -> ()
@@ -1605,7 +1620,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     let getProjectOptions file =
       getProjectOptionsForFile file
       |> AVal.force
-      |> Option.map fst
+      // |> Option.map fst
     let projectsThatContainFile file =
       projectsThatContainFile file
     let getDependentProjectsOfProjects ps =
@@ -1852,7 +1867,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
             let getProjectOptions file =
               getProjectOptionsForFile file
               |> AVal.force
-              |> Option.map fst
+              // |> Option.map fst
             let projectsThatContainFile file =
               projectsThatContainFile file
             let getDependentProjectsOfProjects ps =
