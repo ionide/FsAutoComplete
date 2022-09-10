@@ -236,14 +236,14 @@ type Microsoft.FSharp.Control.Async with
               if ctx <> null && ctx <> nctx then ctx.Post((fun _ -> g()), null)
               else g() )
 
-          let removeObj : IDisposable option ref = ref None
+          let mutable removeObj : IDisposable option  = None
           let removeLock = new obj()
           let setRemover r =
-              lock removeLock (fun () -> removeObj := Some r)
+              lock removeLock (fun () -> removeObj <- Some r)
           let remove() =
               lock removeLock (fun () ->
-                  match !removeObj with
-                  | Some d -> removeObj := None
+                  match removeObj with
+                  | Some d -> removeObj <- None
                               d.Dispose()
                   | None   -> ())
           synchronize (fun f ->
@@ -1822,12 +1822,72 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         |> Some
 
   }
-  override x.TextDocumentImplementation(p) =
+  override x.TextDocumentImplementation(p) = asyncResult {
+
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = tryGetLineStr pos namedText  |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+
     logger.info (
       Log.setMessage "TextDocumentImplementation Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+
+    let getProjectOptions file =
+      getProjectOptionsForFile file
+      |> AVal.force
+      |> Option.get
+    let getUsesOfSymbol (filePath, opts : _ list, symbol : FSharpSymbol) =  async {
+      //JB:TODO Consolodate this with CompilerServiceInterface
+      // let opts = opts |> Seq.toList
+      match FSharpCompilerServiceChecker.GetDependingProjects filePath opts with
+      | None -> return [||]
+      | Some (opts, []) ->
+        // let opts = clearProjectReferences opts
+        let! res = checker.ParseAndCheckProject opts
+        return res.GetUsesOfSymbol symbol
+      | Some (opts, dependentProjects) ->
+        let! res =
+          opts :: dependentProjects
+          |> List.map (fun (opts) ->
+            async {
+              // let opts = clearProjectReferences opts
+              let! res = checker.ParseAndCheckProject opts
+              return res.GetUsesOfSymbol symbol
+            })
+          |> Async.Parallel
+
+        return res |> Array.concat
+    }
+
+    let getAllProjects () =
+      knownFsFilesToProjectOptions |> AMap.force
+      |> Seq.toList
+      |> List.map(fun (path, opt) -> UMX.untag path, opt)
+
+    let! res =
+      Commands.symbolImplementationProject
+        getProjectOptions
+        getUsesOfSymbol
+        getAllProjects
+        tyRes
+        pos
+        lineStr
+      |> AsyncResult.ofCoreResponse
+
+
+    let ranges: FSharp.Compiler.Text.Range[] =
+      match res with
+      | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
+
+    let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+
+    match mappedRanges with
+    | [||] -> return None
+    | [| single |] -> return Some(GotoResult.Single single)
+    | multiple -> return Some(GotoResult.Multiple multiple)
+  }
   override __.TextDocumentDocumentSymbol(p) = async {
     logger.info (
       Log.setMessage "TextDocumentDocumentSymbol Request: {parms}"
@@ -2004,7 +2064,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
             let getProjectOptions file =
               getProjectOptionsForFile file
               |> AVal.force
-              // |> Option.map fst
             let projectsThatContainFile file =
               projectsThatContainFile file
             let getDependentProjectsOfProjects ps =

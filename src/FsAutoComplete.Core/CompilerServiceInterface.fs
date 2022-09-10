@@ -132,7 +132,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     with get () = disableInMemoryProjectReferences
     and set (value) = disableInMemoryProjectReferences <- value
 
-  member __.GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectOptions>) =
+  static member GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectOptions>) =
     let project =
       options
       |> Seq.tryFind (fun (k, _) -> (UMX.untag k).ToUpperInvariant() = (UMX.untag file).ToUpperInvariant())
@@ -300,7 +300,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" file
       )
 
-      match x.GetDependingProjects file options with
+      match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some (opts, []) ->
         let opts = clearProjectReferences opts

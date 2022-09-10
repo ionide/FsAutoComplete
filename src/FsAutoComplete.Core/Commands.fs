@@ -89,6 +89,32 @@ type NotificationEvent =
 
 module Commands =
 
+  let symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+
+    let filterSymbols symbols =
+      symbols
+      |> Array.where (fun (su: FSharpSymbolUse) ->
+        su.IsFromDispatchSlotImplementation
+        || (su.IsFromType
+            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
+
+    async {
+      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
+      | Ok (sym, usages) ->
+        let fsym = sym.Symbol
+
+        if fsym.IsPrivateToFile then
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
+        else if fsym.IsInternalToProject then
+          let opts = getProjectOptions tyRes.FileName
+          let! symbols = getUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+        else
+          let! symbols = getUsesOfSymbol(tyRes.FileName, getAllProjects(), sym.Symbol)
+          let symbols = filterSymbols symbols
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+      | Error e -> return CoreResponse.ErrorRes e
+    }
   let renameSymbol (symbolUseWorkspace : _ -> _ -> _ -> _ ->  Async<Result<Choice<Dictionary<string,range array> * Dictionary<string,range array>,Dictionary<string,range array>>,string>>) (tryGetFileSource : _ -> Result<NamedText,_>) (pos: Position) (tyRes: ParseAndCheckResults) (lineStr: LineStr) (text: NamedText) =
     asyncResult {
       match! symbolUseWorkspace pos lineStr text tyRes with
@@ -1371,31 +1397,17 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+    let getProjectOptions filePath = state.GetProjectOptions' filePath
+    let getUsesOfSymbol (filePath, opts, sym : FSharpSymbol) =  checker.GetUsesOfSymbol(filePath, opts, sym)
+    let getAllProjects () = state.FSharpProjectOptions |> Seq.toList
 
-    let filterSymbols symbols =
-      symbols
-      |> Array.where (fun (su: FSharpSymbolUse) ->
-        su.IsFromDispatchSlotImplementation
-        || (su.IsFromType
-            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
-
-    async {
-      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
-      | Ok (sym, usages) ->
-        let fsym = sym.Symbol
-
-        if fsym.IsPrivateToFile then
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
-        else if fsym.IsInternalToProject then
-          let opts = state.GetProjectOptions' tyRes.FileName
-          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-        else
-          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-          let symbols = filterSymbols symbols
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-      | Error e -> return CoreResponse.ErrorRes e
-    }
+    Commands.symbolImplementationProject
+      getProjectOptions
+      getUsesOfSymbol
+      getAllProjects
+      tyRes
+      pos
+      lineStr
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
