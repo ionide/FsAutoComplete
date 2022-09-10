@@ -268,6 +268,9 @@ type Microsoft.FSharp.Control.Async with
               return! workflow
           })
 
+module Async =
+  let RunSynchronouslyWithCT ct work = Async.RunSynchronously(work, cancellationToken=ct)
+
 type IObservable<'T> with
   /// Fires an event only after the specified interval has passed in which no other pending event has fired. Buffers all events leading up to that emit.
   member x.BufferedDebounce(ts : TimeSpan) =
@@ -541,7 +544,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
       ()
     }
-    |> Async.RunSynchronously
+    |> Async.RunSynchronouslyWithCT typeCheckCancellation.Token
   do disposables.Add(
       (notifications.Publish :> IObservable<_>)
         // .GroupBy(fun e -> e)
@@ -822,7 +825,13 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       try
         let change = File.ReadAllText(UMX.untag file)
         NamedText(file, change) |> Some
-      with e -> None
+      with e ->
+        logger.warn (
+          Log.setMessage "Could not read file {file}"
+          >> Log.addContextDestructured "file" file
+          >> Log.addExn e
+        )
+        None
     )
     |> Result.ofOption(fun () -> $"Could not read file: {file}")
 
@@ -831,6 +840,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
     knownFsFilesWithUpdates
     |> AMap.mapA(fun file info ->
       if Utils.isAScript (UMX.untag file) then
+        // JB:TODO use the settings to parse the project options correctly.  See CompilerServiceInterface for details.
         let (opts, errors) =
           checker.GetProjectOptionsFromScript(
               UMX.untag file,
@@ -840,8 +850,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
               useFsiAuxLib = true,
               // otherFlags = allFlags,
               userOpName = "getNetCoreScriptOptions"
-          ) |> Async.RunSynchronously
-        // checker.GetProjectOptionsFromScript()
+          ) |> Async.RunSynchronouslyWithCT typeCheckCancellation.Token
         Some opts |> AVal.constant
       else
         loadedProjectOptions
@@ -953,7 +962,9 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         let parseAndCheck =
           Debug.measure "parseAndCheckFile" <| fun () ->
             try
-              Async.RunSynchronously(parseAndCheckFile file fileVersion sourceText opts, cancellationToken=typeCheckCancellation.Token) |> Some
+              parseAndCheckFile file fileVersion sourceText opts
+              |> Async.RunSynchronouslyWithCT typeCheckCancellation.Token
+              |> Some
             with :? OperationCanceledException as e ->
               None
         return parseAndCheck
@@ -1560,12 +1571,115 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       return! LspResult.internalError e
   }
 
-  override x.TextDocumentRename(p: RenameParams) =
+  override x.TextDocumentRename(p: RenameParams) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentRename Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = namedText |> tryGetLineStr pos |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+    let findReferencesForSymbolInFile (file,project, symbol) =
+      checker.FindBackgroundReferencesInFile(
+            file,
+            project,
+            symbol,
+            canInvalidateProject = false,
+            userOpName = "find references"
+          )
+
+
+
+    let getProjectOptions file =
+      getProjectOptionsForFile file
+      |> AVal.force
+      // |> Option.map fst
+    let projectsThatContainFile file =
+      projectsThatContainFile file
+    let getDependentProjectsOfProjects ps =
+      let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+      let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
+
+      let currentPass = ResizeArray()
+      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+
+      let mutable continueAlong = true
+
+      while continueAlong do
+        let dependents =
+          projectSnapshot
+          |> Seq.filter (fun p ->
+            p.ReferencedProjects
+            |> Seq.exists (fun r ->
+              match r.ProjectFilePath with
+              | None -> false
+              | Some p -> currentPass.Contains(p)))
+
+        if Seq.isEmpty dependents then
+          continueAlong <- false
+          currentPass.Clear()
+        else
+          for d in dependents do
+            allDependents.Add d |> ignore<bool>
+
+          currentPass.Clear()
+          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+      Seq.toList allDependents
+    let getProjectOptionsForFsproj file =
+      loadedProjectOptions
+      |> AVal.force
+      |> Seq.map fst
+      |> Seq.tryFind(fun x -> x.ProjectFileName = file)
+    let getDeclarationLocation (symUse, text) = SymbolLocation.getDeclarationLocation (symUse, text, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects)
+
+
+    let symbolUseWorkspace pos lineStr namedText tyRes =
+      Commands.symbolUseWorkspace
+        getDeclarationLocation
+        findReferencesForSymbolInFile
+        tryGetFileSource
+        getProjectOptionsForFsproj
+        pos
+        lineStr
+        namedText
+        tyRes
+    let! documentsAndRanges =
+      Commands.renameSymbol
+        symbolUseWorkspace
+        tryGetFileSource
+        pos
+        tyRes
+        lineStr
+        namedText
+      |> AsyncResult.ofStringErr
+
+    let documentChanges =
+          documentsAndRanges
+          |> Seq.map (fun (namedText, symbols) ->
+            let edits =
+              let newName =
+                p.NewName
+                |> FSharp.Compiler.Syntax.PrettyNaming.AddBackticksToIdentifierIfNeeded
+
+              symbols
+              |> Seq.map (fun sym ->
+                let range = fcsRangeToLsp sym
+                { Range = range; NewText = newName })
+              |> Array.ofSeq
+
+            { TextDocument =
+                { Uri = Path.FilePathToUri(UMX.untag namedText.FileName)
+                  // Version = commands.TryGetFileVersion namedText.FileName }
+                  Version = None }
+              Edits = edits })
+          |> Array.ofSeq
+    let clientCapabilities = clientCapabilities |> AVal.force |> Option.get
+    return WorkspaceEdit.Create(documentChanges, clientCapabilities) |> Some
+
+
+  }
 
   override x.TextDocumentDefinition(p : TextDocumentPositionParams) = asyncResult {
     logger.info (
@@ -1604,7 +1718,7 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
 
     let (filePath, pos) = getFilePathAndPosition p
     let! namedText = tryGetFileSource filePath |> Result.ofStringErr
-    let lineStr = namedText.GetLine pos
+    let! lineStr = tryGetLineStr pos namedText  |> Result.ofStringErr
     let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
     let findReferencesForSymbolInFile (file,project, symbol) =
       checker.FindBackgroundReferencesInFile(
@@ -1659,11 +1773,22 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
       |> Seq.map fst
       |> Seq.tryFind(fun x -> x.ProjectFileName = file)
     let! usages =
-      Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, namedText, tyRes)
-        |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
-      // match! tyRes.TryFindTypeDeclaration pos lineStr.Value with
-      // | Error e -> return LspResult.internalError e
-      // | Ok decl ->
+      let getDeclarationLocation (symUse, text) = SymbolLocation.getDeclarationLocation (symUse, text, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects)
+
+      Commands.symbolUseWorkspace
+        getDeclarationLocation
+        findReferencesForSymbolInFile
+        tryGetFileSource
+        getProjectOptionsForFsproj
+        pos
+        lineStr
+        namedText
+        tyRes
+      |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+
+      // Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr.Value, namedText, tyRes)
+      //   |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+
     match usages with
     | Choice1Of2 (decls, usages) ->
       return
@@ -1906,9 +2031,18 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
               |> Seq.map fst
               |> Seq.tryFind(fun x -> x.ProjectFileName = file)
             let! res =
-              Commands.symbolUseWorkspace( findReferencesForSymbolInFile, tryGetFileSource, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects, getProjectOptionsForFsproj, pos, lineStr, lines, tyRes)
-              |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+              let getDeclarationLocation (symUse, text) = SymbolLocation.getDeclarationLocation (symUse, text, getProjectOptions, projectsThatContainFile, getDependentProjectsOfProjects)
 
+              Commands.symbolUseWorkspace
+                getDeclarationLocation
+                findReferencesForSymbolInFile
+                tryGetFileSource
+                getProjectOptionsForFsproj
+                pos
+                lineStr
+                lines
+                tyRes
+              |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
             let res =
               match res with
               | Core.Result.Error msg ->
@@ -3521,7 +3655,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
         let! documentsAndRanges =
-          commands.RenameSymbol(pos, tyRes, lineStr, lines)
+          commands.RenameSymbol2(pos, tyRes, lineStr, lines)
           |> Async.Catch
           |> Async.map (function
             | Choice1Of2 v -> v

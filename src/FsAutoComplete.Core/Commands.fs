@@ -89,6 +89,40 @@ type NotificationEvent =
 
 module Commands =
 
+  let renameSymbol (symbolUseWorkspace : _ -> _ -> _ -> _ ->  Async<Result<Choice<Dictionary<string,range array> * Dictionary<string,range array>,Dictionary<string,range array>>,string>>) (tryGetFileSource : _ -> Result<NamedText,_>) (pos: Position) (tyRes: ParseAndCheckResults) (lineStr: LineStr) (text: NamedText) =
+    asyncResult {
+      match! symbolUseWorkspace pos lineStr text tyRes with
+      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+          let! text = tryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
+          | false, _ -> totalSetOfRanges[text] <- declUsages
+
+        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+          let! text = tryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
+          let! text = tryGetFileSource(UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+    }
+
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetToolTip pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
@@ -211,64 +245,19 @@ module Commands =
         { Namespace = n
           Position = pos
           Scope = ic.ScopeKind }))
-  let symbolUseWorkspace (
-    findReferencesForSymbolInFile : (string * FSharpProjectOptions * FSharpSymbol)-> Async<Range seq>,
-    tryGetFileSource : string<LocalPath> -> ResultOrString<NamedText>,
-    getProjectOptions,
-    projectsThatContainFile,
-    getDependentProjectsOfProjects,
-    getProjectOptionsForFsproj,
-    pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
+  let symbolUseWorkspace
+    getDeclarationLocation
+    (findReferencesForSymbolInFile : (string * FSharpProjectOptions * FSharpSymbol)-> Async<Range seq>)
+    (tryGetFileSource : string<LocalPath> -> ResultOrString<NamedText>)
+    // getProjectOptions
+    // projectsThatContainFile
+    // getDependentProjectsOfProjects
+    getProjectOptionsForFsproj
+    pos
+    lineStr
+    (text: NamedText)
+    (tyRes: ParseAndCheckResults) =
     asyncResult {
-      let getDeclarationLocation
-        (
-          symbolUse: FSharpSymbolUse,
-          currentDocument: NamedText
-        ) : SymbolDeclarationLocation option =
-        if symbolUse.IsPrivateToFile then
-          Some SymbolDeclarationLocation.CurrentDocument
-        else
-          let isSymbolLocalForProject = symbolUse.Symbol.IsInternalToProject
-
-          let declarationLocation =
-            match symbolUse.Symbol.ImplementationLocation with
-            | Some x -> Some x
-            | None -> symbolUse.Symbol.DeclarationLocation
-
-          match declarationLocation with
-          | Some loc ->
-            let isScript = isAScript loc.FileName
-            // sometimes the source file locations start with a capital, despite all of our efforts.
-            let normalizedPath =
-              if System.Char.IsUpper(loc.FileName[0]) then
-                string (System.Char.ToLowerInvariant loc.FileName[0])
-                + (loc.FileName.Substring(1))
-              else
-                loc.FileName
-
-            let taggedFilePath = UMX.tag normalizedPath
-
-            if isScript && taggedFilePath = currentDocument.FileName then
-              Some SymbolDeclarationLocation.CurrentDocument
-            elif isScript then
-              // The standalone script might include other files via '#load'
-              // These files appear in project options and the standalone file
-              // should be treated as an individual project
-              getProjectOptions(taggedFilePath)
-              |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
-            else
-              let projectsThatContainFile =
-                projectsThatContainFile(taggedFilePath)
-
-              let projectsThatDependOnContainingProjects =
-                getDependentProjectsOfProjects projectsThatContainFile
-
-              match projectsThatDependOnContainingProjects with
-              | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
-              | projects ->
-                Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
-          | None -> None
-
 
       let findReferencesInFile
         (
@@ -1350,172 +1339,35 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
     asyncResult {
 
-      let findReferencesInFile
-        (
-          file,
-          symbol: FSharpSymbol,
-          project: FSharpProjectOptions,
-          onFound: range -> Async<unit>
-        ) =
+      let getDeclarationLocation (symUse, text) = SymbolLocation.getDeclarationLocation (symUse, text, state.GetProjectOptions, state.ProjectController.ProjectsThatContainFile, state.ProjectController.GetDependentProjectsOfProjects)
+      let findReferencesForSymbolInFile (file, project, symbol) = checker.FindReferencesForSymbolInFile(file, project, symbol)
+      let tryGetFileSource symbolFile = state.TryGetFileSource(symbolFile)
+      let getProjectOptionsForFsproj fsprojPath = state.ProjectController.GetProjectOptionsForFsproj fsprojPath
 
-        asyncResult {
-          let! (references: Range seq) = checker.FindReferencesForSymbolInFile(file, project, symbol)
-
-          for reference in references do
-            do! onFound reference
-        }
-
-      let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
-        projects
-        |> List.traverseAsyncResultM (fun p ->
-          asyncResult {
-            for file in p.SourceFiles do
-              do! findReferencesInFile (file, symbol, p, onFound)
-          })
-
-      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
-
-      let splitByDeclaration (uses: FSharpSymbolUse[]) =
-        uses |> Array.partition (fun u -> u.IsFromDefinition)
-
-      let toDict (symbolUseRanges: range[]) =
-        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
-
-        symbolUseRanges
-        |> Array.collect (fun symbolUse ->
-          let file = symbolUse.FileName
-          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
-          // then we'd need to map the files to some kind of document identfier and dedupe by that
-          // before issueing the renames. We don't, so this becomes very simple
-          [| file, symbolUse |])
-        |> Array.groupBy fst
-        |> Array.iter (fun (key, items) ->
-          let itemsSeq = items |> Array.map snd
-          dict[key] <- itemsSeq
-          ())
-
-        dict
-
-      let! symUse =
-        tyRes.TryGetSymbolUse pos lineStr
-        |> Result.ofOption (fun _ -> "No result found")
-
-      let symbol = symUse.Symbol
-
-      let! declLoc =
-        SymbolLocation.getDeclarationLocation (symUse, text, state.GetProjectOptions, state.ProjectController.ProjectsThatContainFile, state.ProjectController.GetDependentProjectsOfProjects)
-        |> Result.ofOption (fun _ -> "No declaration location found")
-
-      match declLoc with
-      | SymbolDeclarationLocation.CurrentDocument ->
-        let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-        let declarations, usages = splitByDeclaration symbolUses
-
-        let declarationRanges, usageRanges =
-          toDict (ranges declarations), toDict (ranges usages)
-
-        return Choice1Of2(declarationRanges, usageRanges)
-
-      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-        let symbolUseRanges = ImmutableArray.CreateBuilder()
-        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
-        let symbolFile = symbolRange.TaggedFileName
-
-        let symbolFileText =
-          state.TryGetFileSource(symbolFile)
-          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
-
-        let symbolText =
-          symbolFileText[symbolRange]
-          |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
-
-        let projects =
-          if isInternalToProject then
-            projects
-          else
-            [ for project in projects do
-                yield project
-
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> p.OutputFile |> state.ProjectController.GetProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-
-        let onFound (symbolUseRange: range) =
-          async {
-            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
-            let symbolFile = symbolUseRange.TaggedFileName
-            let targetText = state.TryGetFileSource(symbolFile)
-
-            match targetText with
-            | Error e -> ()
-            | Ok sourceText ->
-              let sourceSpan =
-                sourceText[symbolUseRange]
-                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
-
-              // There are two kinds of ranges we get back:
-              // * ranges that exactly match the short name of the symbol
-              // * ranges that are longer than the short name of the symbol,
-              //   typically because we're talking about some kind of fully-qualified usage
-              // For the latter, we need to adjust the reported range to just be the portion
-              // of the fully-qualfied text that is the symbol name.
-              if sourceSpan = symbolText then
-                symbolUseRanges.Add symbolUseRange
-              else
-                match sourceSpan.IndexOf(symbolText) with
-                | -1 -> ()
-                | n ->
-                  if sourceSpan.Length >= n + symbolText.Length then
-                    let startPos = symbolUseRange.Start.IncColumn n
-                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
-
-                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
-                    symbolUseRanges.Add actualUseRange
-          }
-
-        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
-
-        // Distinct these down because each TFM will produce a new 'project'.
-        // Unless guarded by a #if define, symbols with the same range will be added N times
-        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-
-        return Choice2Of2(toDict symbolUseRanges)
+      return!
+        Commands.symbolUseWorkspace
+          getDeclarationLocation
+          findReferencesForSymbolInFile
+          tryGetFileSource
+          getProjectOptionsForFsproj
+          pos
+          lineStr
+          text
+          tyRes
     }
 
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      match! x.SymbolUseWorkspace(pos, lineStr, text, tyRes) with
-      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
-
-        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
-          | false, _ -> totalSetOfRanges[text] <- declUsages
-
-        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
-      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
-
-        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+      let symbolUseWorkspace pos lineStr text tyRes = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+      let tryGetFileSource filePath =  state.TryGetFileSource filePath
+      return!
+        Commands.renameSymbol
+          symbolUseWorkspace
+          tryGetFileSource
+          pos
+          tyRes
+          lineStr
+          text
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
