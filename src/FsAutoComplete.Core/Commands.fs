@@ -88,6 +88,117 @@ type NotificationEvent =
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
 module Commands =
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+  let formatSelection
+      (tryGetFileCheckerOptionsWithLines : _ -> Result<NamedText,_>)
+      (formatSelectionAsync : _ -> System.Threading.Tasks.Task<FantomasResponse>)
+      (file: string<LocalPath>)
+      (rangeToFormat: FormatSelectionRange)
+     : Async<Result<FormatDocumentResponse, string>> =
+    asyncResult {
+      try
+        let filePath = (UMX.untag file)
+        let!  text = tryGetFileCheckerOptionsWithLines file
+        let currentCode = string text
+
+        let! fantomasResponse =
+          formatSelectionAsync
+            { SourceCode = currentCode
+              FilePath = filePath
+              Config = None
+              Range = rangeToFormat }
+
+        match fantomasResponse with
+        | { Code = 1
+            Content = Some code
+            SelectedRange = Some range } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
+          return FormatDocumentResponse.FormattedRange(text, code, range)
+        | { Code = 2 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+          return FormatDocumentResponse.UnChanged
+        | { Code = 3; Content = Some error } ->
+          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | { Code = 4 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+          return FormatDocumentResponse.Ignored
+        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
+        | _ ->
+          fantomasLogger.warn (
+            Log.setMessage (
+              sprintf
+                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
+                file
+                fantomasResponse.Code
+                fantomasResponse
+            )
+          )
+
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+      with ex ->
+        fantomasLogger.warn (
+          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+        )
+
+        return! Core.Error ex.Message
+    }
+
+  let formatDocument
+    (tryGetFileCheckerOptionsWithLines : _ -> Result<NamedText,_>)
+    (formatDocumentAsync : _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (file: string<LocalPath>)
+      : Async<Result<FormatDocumentResponse, string>> =
+    asyncResult {
+      try
+        let filePath = (UMX.untag file)
+        let!  text = tryGetFileCheckerOptionsWithLines file
+        let currentCode = string text
+
+        let! fantomasResponse =
+          formatDocumentAsync
+            { SourceCode = currentCode
+              FilePath = filePath
+              Config = None }
+
+        match fantomasResponse with
+        | { Code = 1; Content = Some code } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+          return FormatDocumentResponse.Formatted(text, code)
+        | { Code = 2 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+          return FormatDocumentResponse.UnChanged
+        | { Code = 3; Content = Some error } ->
+          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | { Code = 4 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+          return FormatDocumentResponse.Ignored
+        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
+        | _ ->
+          fantomasLogger.warn (
+            Log.setMessage (
+              sprintf
+                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
+                file
+                fantomasResponse.Code
+                fantomasResponse
+            )
+          )
+
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+      with ex ->
+        fantomasLogger.warn (
+          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+        )
+
+        return! Core.Error ex.Message
+    }
 
   let symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
 
@@ -1757,109 +1868,17 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
   member x.FormatDocument(file: string<LocalPath>) : Async<Result<FormatDocumentResponse, string>> =
-    asyncResult {
-      try
-        let filePath = (UMX.untag file)
-        let! _, text = x.TryGetFileCheckerOptionsWithLines file
-        let currentCode = string text
-
-        let! fantomasResponse =
-          fantomasService.FormatDocumentAsync
-            { SourceCode = currentCode
-              FilePath = filePath
-              Config = None }
-
-        match fantomasResponse with
-        | { Code = 1; Content = Some code } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
-          return FormatDocumentResponse.Formatted(text, code)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with ex ->
-        fantomasLogger.warn (
-          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
-          >> Log.addContextDestructured "message" ex.Message
-          >> Log.addExn ex
-        )
-
-        return! Core.Error ex.Message
-    }
-
+    let tryGetFileCheckerOptionsWithLines file = x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+    let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
+    Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
   member x.FormatSelection
     (
       file: string<LocalPath>,
       rangeToFormat: FormatSelectionRange
     ) : Async<Result<FormatDocumentResponse, string>> =
-    asyncResult {
-      try
-        let filePath = (UMX.untag file)
-        let! _, text = x.TryGetFileCheckerOptionsWithLines file
-        let currentCode = string text
-
-        let! fantomasResponse =
-          fantomasService.FormatSelectionAsync
-            { SourceCode = currentCode
-              FilePath = filePath
-              Config = None
-              Range = rangeToFormat }
-
-        match fantomasResponse with
-        | { Code = 1
-            Content = Some code
-            SelectedRange = Some range } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
-          return FormatDocumentResponse.FormattedRange(text, code, range)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with ex ->
-        fantomasLogger.warn (
-          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
-          >> Log.addContextDestructured "message" ex.Message
-          >> Log.addExn ex
-        )
-
-        return! Core.Error ex.Message
-    }
+        let tryGetFileCheckerOptionsWithLines file = x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+        let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
+        Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
 
   member _.ClearFantomasCache() = fantomasService.ClearCache()
 
