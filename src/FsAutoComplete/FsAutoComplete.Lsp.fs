@@ -1912,12 +1912,29 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
   }
 
 
-  override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) =
+  override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) = asyncResult {
     logger.info (
       Log.setMessage "WorkspaceSymbol Request: {parms}"
       >> Log.addContextDestructured "parms" symbolRequest
     )
-    Helpers.notImplemented
+    let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
+    let decls =
+      knownFsFilesToCheckedDeclarations
+      |> AMap.force
+      |> Seq.toArray
+    let res =
+        decls
+        |> Array.collect (fun (p,ns) ->
+          let uri = Path.LocalPathToUri p
+          ns
+          |> Array.collect (fun n ->
+            getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query))
+        )
+        |> Some
+
+    return res
+  }
+
 
   override x.TextDocumentFormatting(p: DocumentFormattingParams) =
     logger.info (
