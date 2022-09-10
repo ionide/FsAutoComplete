@@ -595,6 +595,12 @@ type InlayHintDto =
     parameterNames: bool option
     disableLongTooltip: bool option }
 
+type DebugDto =
+  { DontCheckRelatedFiles: bool option
+    CheckFileDebouncerTimeout: int option
+    LogDurationBetweenCheckFiles: bool option
+    LogCheckFileDuration: bool option }
+
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
@@ -630,7 +636,8 @@ type FSharpConfigDto =
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
     CodeLenses: CodeLensConfigDto option
-    InlayHints: InlayHintDto option }
+    InlayHints: InlayHintDto option
+    Debug: DebugDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto }
 
@@ -651,6 +658,18 @@ type InlayHintsConfig =
     { typeAnnotations = true
       parameterNames = true
       disableLongTooltip = true }
+
+type DebugConfig =
+  { DontCheckRelatedFiles: bool
+    CheckFileDebouncerTimeout: int
+    LogDurationBetweenCheckFiles: bool
+    LogCheckFileDuration: bool }
+
+  static member Default =
+    { DontCheckRelatedFiles = false
+      CheckFileDebouncerTimeout = 250
+      LogDurationBetweenCheckFiles = false
+      LogCheckFileDuration = false }
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -687,7 +706,8 @@ type FSharpConfig =
     TooltipMode: string
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
-    InlayHints: InlayHintsConfig }
+    InlayHints: InlayHintsConfig
+    Debug: DebugConfig }
 
   static member Default: FSharpConfig =
     { AutomaticWorkspaceInit = false
@@ -724,7 +744,8 @@ type FSharpConfig =
       TooltipMode = "full"
       GenerateBinlog = false
       CodeLenses = CodeLensConfig.Default
-      InlayHints = InlayHintsConfig.Default }
+      InlayHints = InlayHintsConfig.Default
+      Debug = DebugConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
     { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
@@ -780,7 +801,17 @@ type FSharpConfig =
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations true
             parameterNames = defaultArg ihDto.parameterNames true
-            disableLongTooltip = defaultArg ihDto.disableLongTooltip true } }
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip true }
+      Debug =
+        match dto.Debug with
+        | None -> DebugConfig.Default
+        | Some dDto ->
+          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles DebugConfig.Default.DontCheckRelatedFiles
+            CheckFileDebouncerTimeout =
+              defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
+            LogDurationBetweenCheckFiles =
+              defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
+            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration DebugConfig.Default.LogCheckFileDuration } }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -849,7 +880,16 @@ type FSharpConfig =
         | Some ihDto ->
           { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
             parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames
-            disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip } }
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip }
+      Debug =
+        match dto.Debug with
+        | None -> DebugConfig.Default
+        | Some dDto ->
+          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles x.Debug.DontCheckRelatedFiles
+            CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
+            LogDurationBetweenCheckFiles =
+              defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
+            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration x.Debug.LogCheckFileDuration } }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with

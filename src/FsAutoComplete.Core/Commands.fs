@@ -767,21 +767,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   /// * check the file
   /// * check the other files in the project that depend on this file
   /// * check projects that are downstream of the project containing this file
-  member x.CheckFileAndAllDependentFilesInAllProjects
+  member x.CheckFile
     (
       file: string<LocalPath>,
       version,
       content,
       tfmConfig,
-      isFirstOpen
+      checkFilesThatThisFileDependsOn,
+      checkFilesThatDependsOnFile,
+      checkDependentProjects
     ) : Async<unit> =
     async {
       match! x.EnsureProjectOptionsForFile(file, content, version, tfmConfig) with
       | None -> ()
       | Some opts ->
-
-        // parse dependent files, if necessary
-        if isFirstOpen then
+        // parse dependent  files, if necessary
+        if checkFilesThatThisFileDependsOn then
           do!
             opts.SourceFilesThatThisFileDependsOn(file)
             |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
@@ -792,22 +793,46 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         do! x.CheckFile(file, content, version, opts)
 
         // then parse all files that depend on it in this project,
+        if checkFilesThatDependsOnFile then
+          do!
+            opts.SourceFilesThatDependOnFile(file)
+            |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
+            |> Async.Sequential
+            |> Async.map ignore<unit[]>
 
-        do!
-          opts.SourceFilesThatDependOnFile(file)
-          |> Array.map (UMX.tag >> (fun f -> x.SimpleCheckFile(f, tfmConfig)))
-          |> Async.Sequential
-          |> Async.map ignore<unit[]>
-
-    // then parse all files in dependent projects
-    // TODO: Disabled due to performance issues - investigate.
-    // do!
-    //   state.ProjectController.GetDependentProjectsOfProjects([ opts ])
-    //   |> List.map x.CheckProject
-    //   |> Async.Sequential
-    //   |> Async.map ignore<unit[]>
-
+        // then parse all files in dependent projects
+        if checkDependentProjects then
+          do!
+            state.ProjectController.GetDependentProjectsOfProjects([ opts ])
+            |> List.map x.CheckProject
+            |> Async.Sequential
+            |> Async.map ignore<unit[]>
     }
+
+  /// Does everything required to check a file:
+  /// * ensure we have project options for the file available
+  /// * check any unchecked files in the project that this file depends on
+  /// * check the file
+  /// * check the other files in the project that depend on this file
+  /// * check projects that are downstream of the project containing this file
+  member x.CheckFileAndAllDependentFilesInAllProjects
+    (
+      file: string<LocalPath>,
+      version: int,
+      content: NamedText,
+      tfmConfig: FSIRefs.TFM,
+      isFirstOpen: bool
+    ) : Async<unit> =
+    x.CheckFile(
+      file,
+      version,
+      content,
+      tfmConfig,
+      checkFilesThatThisFileDependsOn = isFirstOpen,
+      checkFilesThatDependsOnFile = true,
+      // TODO: Disabled due to performance issues - investigate.
+      checkDependentProjects = false
+    )
 
   /// easy helper that looks up a file and all required checking information then checks it.
   /// intended use is from the other, more complex Parse members, because the filePath is untagged

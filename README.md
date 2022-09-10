@@ -172,6 +172,17 @@ Options that should be send as `initializationOptions` as part of `initialize` r
         "FSharp.fsiExtraParameters": ["--langversion:preview"]
     ```
 
+#### Debug Settings
+Settings to change internal behavior. Intended for debugging purposes and not for normal use.
+* `FSharp.Debug.DontCheckRelatedFiles` - usually checking a file involves checking related files too. This prevents this and limits file checking to just the current file.  
+  Default: `false`
+* `FSharp.Debug.CheckFileDebouncerTimeout` - Duration (in ms) of no user write activity (in practice: no LSP `textDocument/didChange` notification) before file checking gets triggered.  
+  Default: `250`
+* `FSharp.Debug.LogDurationBetweenCheckFiles`: Logs duration between the start of to consecutive file checks.  
+  Default: `false`  
+* `FSharp.Debug.LogCheckFileDuration`: Logs duration of file checking operation.  
+  Default: `false`
+
 ## Troubleshooting
 
 ### FileWatcher exceptions

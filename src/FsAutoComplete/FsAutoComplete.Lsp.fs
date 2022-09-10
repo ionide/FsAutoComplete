@@ -3,11 +3,9 @@ module FsAutoComplete.Lsp
 open System
 open System.IO
 open System.Threading
-open System.Diagnostics
 open FsAutoComplete
 open FsAutoComplete.Core
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.Utils
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
@@ -15,7 +13,6 @@ open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
-open LspHelpers
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
@@ -27,9 +24,8 @@ open CliWrap.Buffered
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
-open FSharp.UMX
-open StreamJsonRpc
 open Fantomas.Client.Contracts
+open FSharp.Control.Reactive.Observable
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -254,17 +250,68 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 Version = Some version } }
     }
 
+  /// UTC Time of start of last `checkFile` call
+  /// -> `lastCheckFile - DateTime.UtcNow` is duration between two `checkFile` calls,
+  ///    but doesn't include execution time of previous `checkFile`!
+  ///
+  /// `UtcNow` instead if `Utc`: faster, and we're only interested in elapsed duration
+  ///
+  /// `DateTime` instead of `Stopwatch`: stopwatch doesn't work with multiple simultaneous consumers
+  let mutable lastCheckFile = DateTime.UtcNow
+
   let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
     asyncResult {
+
+      let start =
+        if config.Debug.LogDurationBetweenCheckFiles then
+          let now = DateTime.UtcNow
+          let d = now - lastCheckFile
+          lastCheckFile <- now
+
+          logger.warn (
+            Log.setMessage "Start: checkFile({file}, version={version}), {duration} after last checkFile start"
+            >> Log.addContext "file" filePath
+            >> Log.addContext "version" version
+            >> Log.addContext "duration" d
+          )
+
+          now
+        elif config.Debug.LogCheckFileDuration then
+          DateTime.UtcNow
+        else
+          Unchecked.defaultof<_>
+
       let tfmConfig =
         config.UseSdkScripts
         |> function
           | true -> FSIRefs.TFM.NetCore
           | false -> FSIRefs.TFM.NetFx
 
-      do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, version, content, tfmConfig, isFirstOpen)
+      if config.Debug.DontCheckRelatedFiles then
+        do!
+          commands.CheckFile(
+            filePath,
+            version,
+            content,
+            tfmConfig,
+            checkFilesThatThisFileDependsOn = false,
+            checkFilesThatDependsOnFile = false,
+            checkDependentProjects = false
+          )
+      else
+        do! commands.CheckFileAndAllDependentFilesInAllProjects(filePath, version, content, tfmConfig, isFirstOpen)
 
       analyzeFile (filePath, version) |> Async.Start
+
+      if config.Debug.LogCheckFileDuration then
+        let d = DateTime.UtcNow - start
+
+        logger.warn (
+          Log.setMessage "Finished: checkFile({file}, version={version}) in {duration}"
+          >> Log.addContext "file" filePath
+          >> Log.addContext "version" version
+          >> Log.addContext "duration" d
+        )
     }
 
   let checkChangedFile (p: DidChangeTextDocumentParams) =
@@ -296,9 +343,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "file" filePath
         )
     }
-    |> Async.Start
 
-  let checkFileDebouncer = Debounce(250, checkChangedFile)
+  let checkFileDebouncer =
+    Debounce(DebugConfig.Default.CheckFileDebouncerTimeout, checkChangedFile)
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -507,8 +554,51 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         >> Log.addContext "ex" ex.Message
       )
 
+  let updateDebugConfig (newConfig: DebugConfig, oldConfig: DebugConfig) =
+    if newConfig.DontCheckRelatedFiles <> oldConfig.DontCheckRelatedFiles then
+      if newConfig.DontCheckRelatedFiles then
+        logger.warn (Log.setMessage "Checking of related files disabled!")
+      else
+        logger.warn (Log.setMessage "Checking of related files enabled (default)")
+
+
+    if newConfig.CheckFileDebouncerTimeout < 0 then
+      logger.error (
+        Log.setMessage "CheckFileDebouncerTimeout cannot be negative, but is {timeout}"
+        >> Log.addContext "timeout" newConfig.CheckFileDebouncerTimeout
+      )
+    elif newConfig.CheckFileDebouncerTimeout <> oldConfig.CheckFileDebouncerTimeout then
+      if DebugConfig.Default.CheckFileDebouncerTimeout = newConfig.CheckFileDebouncerTimeout then
+        logger.warn (
+          Log.setMessage "Changing checkFileDebouncer.Timeout to {newTimeout} (default) (from {oldTimeout})"
+          >> Log.addContext "newTimeout" newConfig.CheckFileDebouncerTimeout
+          >> Log.addContext "oldTimeout" checkFileDebouncer.Timeout
+        )
+      else
+        logger.warn (
+          Log.setMessage "Changing checkFileDebouncer.Timeout to {newTimeout} (from {oldTimeout})"
+          >> Log.addContext "newTimeout" newConfig.CheckFileDebouncerTimeout
+          >> Log.addContext "oldTimeout" checkFileDebouncer.Timeout
+        )
+
+      checkFileDebouncer.Timeout <- newConfig.CheckFileDebouncerTimeout
+
+    if newConfig.LogDurationBetweenCheckFiles <> oldConfig.LogDurationBetweenCheckFiles then
+      if newConfig.LogDurationBetweenCheckFiles then
+        logger.warn (Log.setMessage "Enabled: log duration between checkFile")
+      else
+        logger.warn (Log.setMessage "Disabled: log duration between checkFile (default)")
+
+    if newConfig.LogCheckFileDuration <> oldConfig.LogCheckFileDuration then
+      if newConfig.LogCheckFileDuration then
+        logger.warn (Log.setMessage "Enabled: log checkFile duration")
+      else
+        logger.warn (Log.setMessage "Disabled: log checkFile duration (default)")
+
   /// centralize any state changes when the config is updated here
   let updateConfig (newConfig: FSharpConfig) =
+    updateDebugConfig (newConfig.Debug, config.Debug)
+
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
     config <- newConfig
 
@@ -1047,7 +1137,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let filePath = doc.GetFilePath() |> Utils.normalizePath
       // types are incorrect for this endpoint - version is always supplied by the client
       let endVersion = doc.Version.Value
-
 
       logger.info (
         Log.setMessage "TextDocumentDidChange Request: {parms}"
