@@ -21,6 +21,7 @@ open Utils
 open Utils.Utils
 open FsToolkit.ErrorHandling.Operator.AsyncResult
 open FSharpx.Control
+open Utils.Tests
 
 ///Test for initialization of the server
 let initTests state =
@@ -371,3 +372,56 @@ let tooltipTests state =
               "* `'a` is `int`"
               "* `'b` is `int`"
               "* `'c` is `int`" ] ] ]
+
+let closeTests state =
+  // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
+  let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CloseTests")
+  let workspace = Path.Combine(root, "Workspace")
+  serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server -> [
+    testCaseAsync "closing untitled script file clears diagnostics" (async {
+      let source = 
+        // The value or constructor 'untitled' is not defined.
+        "let foo = untitled" 
+      let! (doc, diags) = server |> Server.createUntitledDocument source
+      Expect.isNonEmpty diags "There should be an error"
+      do! doc |> Document.close
+
+      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+      Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
+    })
+    testCaseAsync "closing existing script file inside workspace doesn't clear diagnostics" (async {
+      let! (doc, diags) = server |> Server.openDocument "Script.fsx"
+      Expect.isNonEmpty diags "There should be an error"
+      do! doc |> Document.close
+
+      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+    })
+    testCaseAsync "closing existing script file outside workspace clears diagnostics" (async {
+      let file = Path.Combine(root, "Script.fsx")
+      let! (doc, diags) = server |> Server.openDocument file
+      Expect.isNonEmpty diags "There should be an error"
+      do! doc |> Document.close
+
+      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+      Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
+    })
+
+    testCaseAsync "closing existing file inside project & workspace doesn't clear diagnostics" (async {
+      let! (doc, diags) = server |> Server.openDocument "InsideProjectInsideWorkspace.fs"
+      Expect.isNonEmpty diags "There should be an error"
+      do! doc |> Document.close
+
+      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+    })
+    testCaseAsync "closing existing file inside project but outside workspace doesn't clear diagnostics" (async {
+      let file = Path.Combine(root, "InsideProjectOutsideWorkspace.fs")
+      let! (doc, diags) = server |> Server.openDocument file
+      Expect.isNonEmpty diags "There should be an error"
+      do! doc |> Document.close
+
+      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+    })
+  ])

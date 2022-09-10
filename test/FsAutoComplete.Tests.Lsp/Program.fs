@@ -51,6 +51,7 @@ let lspTests =
               FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
 
             initTests state
+            closeTests state
 
             Utils.Tests.Server.tests state
             Utils.Tests.CursorbasedTests.tests state

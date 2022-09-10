@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="InsideProjectInsideWorkspace.fs" />
+    <Compile Include="../InsideProjectOutsideWorkspace.fs" />
+  </ItemGroup>
+
+</Project>

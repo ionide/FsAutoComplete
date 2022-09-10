@@ -292,3 +292,10 @@ type State =
 
       return (opts, text, line)
     }
+
+  /// Removes `file` from all caches
+  member x.Forget(file: string<LocalPath>) =
+    x.LastCheckedVersion.TryRemove(file) |> ignore
+    x.Files.TryRemove(file) |> ignore
+    x.ProjectController.RemoveProjectOptions(UMX.untag file) |> ignore
+    x.ScriptProjectOptions.TryRemove(file) |> ignore

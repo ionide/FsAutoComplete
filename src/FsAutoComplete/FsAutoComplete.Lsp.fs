@@ -612,6 +612,59 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   do commandDisposables.Add <| commands.Notify.Subscribe handleCommandEvents
 
+  /// Removes all caches (state & diagnostics) if:
+  /// * file doesn't exist on disk (untitled or deleted)
+  /// * file is outside of current workspace (and not part of any project)
+  let forgetDocument (uri: DocumentUri) =
+    let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
+
+    // remove cached data for
+    // * non-existing files (untitled & deleted)
+    // * files outside of workspace (and not used by any project)
+    let doesNotExist (file: string<LocalPath>) = not (File.Exists(UMX.untag file))
+
+    let isOutsideWorkspace (file: string<LocalPath>) =
+      match rootPath with
+      | None ->
+        // no workspace specified
+        true
+      | Some rootPath ->
+        let rec isInside (rootDir: DirectoryInfo, dirToCheck: DirectoryInfo) =
+          if String.Equals(rootDir.FullName, dirToCheck.FullName, StringComparison.InvariantCultureIgnoreCase) then
+            true
+          else
+            match dirToCheck.Parent with
+            | null -> false
+            | parent -> isInside (rootDir, parent)
+
+        let rootDir = DirectoryInfo(rootPath)
+        let fileDir = FileInfo(UMX.untag file).Directory
+
+        if isInside (rootDir, fileDir) then
+          false
+        else
+          // file might be outside of workspace but part of a project
+          match state.GetProjectOptions file with
+          | None -> true
+          | Some projOptions ->
+            if doesNotExist (UMX.tag projOptions.ProjectFileName) then
+              // case for script file
+              true
+            else
+              // issue: fs-file does never get removed from project options (-> requires reload of FSAC to register)
+              // -> don't know if file still part of project (file might have been removed from project)
+              // -> keep cache for file
+              false
+
+    if doesNotExist filePath || isOutsideWorkspace filePath then
+      logger.info (
+        Log.setMessage "Removing cached data for {file}"
+        >> Log.addContext "file" filePath
+      )
+
+      state.Forget filePath
+      diagnosticCollections.ClearFor uri
+
   ///Helper function for handling Position requests using **recent** type check results
   member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams>
     (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> NamedText -> AsyncLspResult<'a>)
@@ -1041,6 +1094,16 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       )
 
       ()
+    }
+
+  override _.TextDocumentDidClose(p) =
+    async {
+      logger.info (
+        Log.setMessage "TextDocumentDidOpen Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      forgetDocument p.TextDocument.Uri
     }
 
   override __.TextDocumentCompletion(p: CompletionParams) =
@@ -1941,8 +2004,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p.Changes
       |> Array.iter (fun c ->
         if c.Type = FileChangeType.Deleted then
-          let uri = c.Uri
-          diagnosticCollections.ClearFor uri
+          forgetDocument c.Uri
 
         ())
 
