@@ -1202,7 +1202,6 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         typeCheckCancellation <- new CancellationTokenSource()
         knownFsTextChanges.AddOrUpdate(filePath, adder, updater)
       )
-
       // textDocumentDidChangeNotifications.Trigger p
       return ()
     with e ->
@@ -1804,12 +1803,25 @@ type AdaptiveFSharpLspServer (workspaceLoader : IWorkspaceLoader, lspClient : FS
         |> Some
   }
 
-  override x.TextDocumentDocumentHighlight(p) =
+  override x.TextDocumentDocumentHighlight(p) = asyncResult {
     logger.info (
       Log.setMessage "TextDocumentDocumentHighlight Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-    Helpers.notImplemented
+    let (filePath, pos) = getFilePathAndPosition p
+    let! namedText = tryGetFileSource filePath |> Result.ofStringErr
+    let! lineStr = tryGetLineStr pos namedText  |> Result.ofStringErr
+    let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+
+    let! (symbol, uses) = tyRes.TryGetSymbolUseAndUsages pos lineStr |> Result.ofStringErr
+    return
+      uses
+        |> Array.map (fun s ->
+          { DocumentHighlight.Range = fcsRangeToLsp s.Range
+            Kind = None })
+        |> Some
+
+  }
   override x.TextDocumentImplementation(p) =
     logger.info (
       Log.setMessage "TextDocumentImplementation Request: {parms}"
@@ -3655,7 +3667,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
       asyncResult {
         let! documentsAndRanges =
-          commands.RenameSymbol2(pos, tyRes, lineStr, lines)
+          commands.RenameSymbol(pos, tyRes, lineStr, lines)
           |> Async.Catch
           |> Async.map (function
             | Choice1Of2 v -> v
