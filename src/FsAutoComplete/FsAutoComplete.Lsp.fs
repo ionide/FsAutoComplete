@@ -2767,22 +2767,32 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         })
       p
 
-  override __.WorkspaceDidChangeWatchedFiles(p) =
+  override __.WorkspaceDidChangeWatchedFiles(p) = async {
 
     logger.info (
       Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
 
-    Helpers.ignoreNotification
+    p.Changes
+    |> Array.iter (fun c ->
+      if c.Type = FileChangeType.Deleted then
+        let uri = c.Uri
+        diagnosticCollections.ClearFor uri
 
-  override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) =
+      ())
+  }
+
+  override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) = async {
     logger.info (
       Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}"
       >> Log.addContextDestructured "parms" p
     )
-
-    Helpers.ignoreNotification
+    let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
+    let c = config |> AVal.force
+    let c = c.AddDto dto.FSharp
+    transact(fun () -> config.Value <- c)
+  }
 
   override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
     logger.info (
