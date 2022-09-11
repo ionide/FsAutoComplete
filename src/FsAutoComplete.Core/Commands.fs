@@ -90,6 +90,174 @@ type NotificationEvent =
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
+  let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
+    { LineCount = lines.Lines.Length
+      FullName = tyRes.FileName // from the compiler, assumed safe
+      GetText = fun _ -> string lines
+      GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
+      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
+
+  let getAbstractClassStub
+    tryFindAbstractClassExprInBufferAtPos
+    writeAbstractClassStub
+    (tyRes: ParseAndCheckResults)
+    (objExprRange: Range)
+    (lines: NamedText)
+    (lineStr: LineStr)
+    =
+    asyncResult {
+      let doc = docForText lines tyRes
+
+      let! abstractClass =
+        tryFindAbstractClassExprInBufferAtPos objExprRange.Start doc
+        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
+
+      let! (insertPosition, generatedCode) =
+        writeAbstractClassStub tyRes doc lines lineStr abstractClass
+        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
+
+      return CoreResponse.Res(generatedCode, insertPosition)
+    }
+  let getRecordStub tryFindRecordDefinitionFromPos (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (line: LineStr) =
+    async {
+      let doc = docForText lines tyRes
+      let! res = tryFindRecordDefinitionFromPos pos doc
+
+      match res with
+      | None -> return CoreResponse.InfoRes "Record at position not found"
+      | Some (recordEpr, (Some recordDefinition), insertionPos) ->
+        if shouldGenerateRecordStub recordEpr recordDefinition then
+          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
+        else
+          return CoreResponse.InfoRes "Record at position not found"
+      | _ -> return CoreResponse.InfoRes "Record at position not found"
+    }
+
+  let getNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
+    async {
+      match Lexer.findLongIdents (pos.Column, line) with
+      | None -> return CoreResponse.InfoRes "Ident not found"
+      | Some (_, idents) ->
+        match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
+        | None -> return CoreResponse.InfoRes "EntityKind not found"
+        | Some entityKind ->
+
+          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+
+          match symbol with
+          | None -> return CoreResponse.InfoRes "Symbol at position not found"
+          | Some sym ->
+
+
+            let entities = tyRes.GetAllEntities true
+
+            let isAttribute = entityKind = EntityKind.Attribute
+
+            let entities =
+              entities
+              |> List.filter (fun e ->
+                match entityKind, (e.Kind LookupType.Fuzzy) with
+                | EntityKind.Attribute, EntityKind.Attribute
+                | EntityKind.Type,
+                  (EntityKind.Type
+                  | EntityKind.Attribute)
+                | EntityKind.FunctionOrValue _, _ -> true
+                | EntityKind.Attribute, _
+                | _, EntityKind.Module _
+                | EntityKind.Module _, _
+                | EntityKind.Type, _ -> false)
+
+            let maybeUnresolvedIdents =
+              idents |> Array.map (fun ident -> { Ident = ident; Resolved = false })
+
+            let entities =
+              entities
+              |> List.collect (fun e ->
+                [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                  if isAttribute then
+                    let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
+
+                    if
+                      (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
+                      && lastIdent.EndsWith "Attribute"
+                    then
+                      yield
+                        e.TopRequireQualifiedAccessParent,
+                        e.AutoOpenParent,
+                        e.Namespace,
+                        e.CleanedIdents
+                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+
+            let createEntity =
+              ParsedInput.TryFindInsertionContext
+                pos.Line
+                tyRes.GetParseResults.ParseTree
+                maybeUnresolvedIdents
+                OpenStatementInsertionPoint.Nearest
+
+            let word = sym.Text
+
+            let candidates = entities |> Seq.collect createEntity |> Seq.toList
+
+            let openNamespace =
+              candidates
+              |> List.choose (fun (entity, ctx) ->
+                entity.Namespace |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
+              |> List.groupBy (fun (ns, _, _) -> ns)
+              |> List.map (fun (ns, xs) ->
+                ns,
+                xs
+                |> List.map (fun (_, name, ctx) -> name, ctx)
+                |> List.distinctBy (fun (name, _) -> name)
+                |> List.sortBy fst)
+              |> List.collect (fun (ns, names) ->
+                let multipleNames =
+                  match names with
+                  | [] -> false
+                  | [ _ ] -> false
+                  | _ -> true
+
+                names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+
+            let qualifySymbolActions =
+              candidates
+              |> List.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+              |> List.distinct
+              |> List.sort
+
+            return CoreResponse.Res(word, openNamespace, qualifySymbolActions)
+    }
+  let getUnionPatternMatchCases
+    tryFindUnionDefinitionFromPos
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    (lines: ISourceText)
+    (line: LineStr)
+    =
+    async {
+
+      let doc =
+        { Document.LineCount = lines.Length
+          FullName = tyRes.FileName
+          GetText = fun _ -> string lines
+          GetLineText0 = fun i -> lines.GetLineString i
+          GetLineText1 = fun i -> lines.GetLineString(i - 1) }
+
+      let! res = tryFindUnionDefinitionFromPos pos doc
+
+      match res with
+      | None -> return CoreResponse.InfoRes "Union at position not found"
+      | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
+
+        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
+          let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
+
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
+        else
+          return CoreResponse.InfoRes "Union at position not found"
+    }
+
   let formatSelection
       (tryGetFileCheckerOptionsWithLines : _ -> Result<NamedText,_>)
       (formatSelectionAsync : _ -> System.Threading.Tasks.Task<FantomasResponse>)
@@ -853,13 +1021,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   let codeGenServer = CodeGenerationService(checker, state)
 
-  let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
-    { LineCount = lines.Lines.Length
-      FullName = tyRes.FileName // from the compiler, assumed safe
-      GetText = fun _ -> string lines
-      GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
-      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
-
 
   let fillHelpTextInTheBackground decls (pos: Position) fn getLine =
     let declName (d: DeclarationListItem) = d.Name
@@ -1573,99 +1734,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   //     |> AsyncResult.recoverCancellationIgnore
 
   member x.GetNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
-    async {
-      match Lexer.findLongIdents (pos.Column, line) with
-      | None -> return CoreResponse.InfoRes "Ident not found"
-      | Some (_, idents) ->
-        match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
-        | None -> return CoreResponse.InfoRes "EntityKind not found"
-        | Some entityKind ->
-
-          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-
-          match symbol with
-          | None -> return CoreResponse.InfoRes "Symbol at position not found"
-          | Some sym ->
-
-
-            let entities = tyRes.GetAllEntities true
-
-            let isAttribute = entityKind = EntityKind.Attribute
-
-            let entities =
-              entities
-              |> List.filter (fun e ->
-                match entityKind, (e.Kind LookupType.Fuzzy) with
-                | EntityKind.Attribute, EntityKind.Attribute
-                | EntityKind.Type,
-                  (EntityKind.Type
-                  | EntityKind.Attribute)
-                | EntityKind.FunctionOrValue _, _ -> true
-                | EntityKind.Attribute, _
-                | _, EntityKind.Module _
-                | EntityKind.Module _, _
-                | EntityKind.Type, _ -> false)
-
-            let maybeUnresolvedIdents =
-              idents |> Array.map (fun ident -> { Ident = ident; Resolved = false })
-
-            let entities =
-              entities
-              |> List.collect (fun e ->
-                [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
-                  if isAttribute then
-                    let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
-
-                    if
-                      (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
-                      && lastIdent.EndsWith "Attribute"
-                    then
-                      yield
-                        e.TopRequireQualifiedAccessParent,
-                        e.AutoOpenParent,
-                        e.Namespace,
-                        e.CleanedIdents
-                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
-
-            let createEntity =
-              ParsedInput.TryFindInsertionContext
-                pos.Line
-                tyRes.GetParseResults.ParseTree
-                maybeUnresolvedIdents
-                OpenStatementInsertionPoint.Nearest
-
-            let word = sym.Text
-
-            let candidates = entities |> Seq.collect createEntity |> Seq.toList
-
-            let openNamespace =
-              candidates
-              |> List.choose (fun (entity, ctx) ->
-                entity.Namespace |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
-              |> List.groupBy (fun (ns, _, _) -> ns)
-              |> List.map (fun (ns, xs) ->
-                ns,
-                xs
-                |> List.map (fun (_, name, ctx) -> name, ctx)
-                |> List.distinctBy (fun (name, _) -> name)
-                |> List.sortBy fst)
-              |> List.collect (fun (ns, names) ->
-                let multipleNames =
-                  match names with
-                  | [] -> false
-                  | [ _ ] -> false
-                  | _ -> true
-
-                names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
-
-            let qualifySymbolActions =
-              candidates
-              |> List.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
-              |> List.distinct
-              |> List.sort
-
-            return CoreResponse.Res(word, openNamespace, qualifySymbolActions)
-    }
+    Commands.getNamespaceSuggestions tyRes pos line
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1676,46 +1745,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (line: LineStr)
     =
     async {
-      let codeGenService = CodeGenerationService(checker, state)
-
-      let doc =
-        { Document.LineCount = lines.Length
-          FullName = tyRes.FileName
-          GetText = fun _ -> string lines
-          GetLineText0 = fun i -> lines.GetLineString i
-          GetLineText1 = fun i -> lines.GetLineString(i - 1) }
-
-      let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
-
-      match res with
-      | None -> return CoreResponse.InfoRes "Union at position not found"
-      | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
-
-        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
-          let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-
-          return CoreResponse.Res(result, insertionPos.InsertionPos)
-        else
-          return CoreResponse.InfoRes "Union at position not found"
+      let tryFindUnionDefinitionFromPos = tryFindUnionDefinitionFromPos codeGenServer
+      return! Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos lines line
     }
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
   member x.GetRecordStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (line: LineStr) =
-    async {
-      let doc = docForText lines tyRes
-      let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
 
-      match res with
-      | None -> return CoreResponse.InfoRes "Record at position not found"
-      | Some (recordEpr, (Some recordDefinition), insertionPos) ->
-        if shouldGenerateRecordStub recordEpr recordDefinition then
-          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
-          return CoreResponse.Res(result, insertionPos.InsertionPos)
-        else
-          return CoreResponse.InfoRes "Record at position not found"
-      | _ -> return CoreResponse.InfoRes "Record at position not found"
-    }
+    Commands.getRecordStub (tryFindRecordDefinitionFromPos codeGenServer) tyRes pos lines line
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1725,19 +1763,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (lines: NamedText)
     (lineStr: LineStr)
     =
-    asyncResult {
-      let doc = docForText lines tyRes
-
-      let! abstractClass =
-        AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer objExprRange.Start doc
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
-
-      let! (insertPosition, generatedCode) =
-        AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
-
-      return CoreResponse.Res(generatedCode, insertPosition)
-    }
+    let tryFindAbstractClassExprInBufferAtPos = AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
+    let writeAbstractClassStub = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
+    Commands.getAbstractClassStub
+      tryFindAbstractClassExprInBufferAtPos
+      writeAbstractClassStub
+      tyRes
+      objExprRange
+      lines
+      lineStr
     |> AsyncResult.foldResult id id
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
