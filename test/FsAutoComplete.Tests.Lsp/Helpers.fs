@@ -169,6 +169,19 @@ let createServer (state: unit -> State) =
   let server = new FSharpLspServer(innerState, client)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
+let createAdaptiveServer (workspaceLoader) =
+  let serverInteractions = new Cacher<_>()
+  let recordNotifications = record serverInteractions
+
+  let recordRequests =
+    { new Server.ClientRequestSender with
+        member __.Send name payload = record serverInteractions name payload }
+
+  let loader = workspaceLoader ()
+  let client = FSharpLspClient(recordNotifications, recordRequests)
+  let server = new AdaptiveFSharpLspServer(loader, client)
+  server :> IFSharpLspServer, serverInteractions :> ClientEvents
+
 let defaultConfigDto: FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
     ExcludeProjectDirectories = None
@@ -408,7 +421,7 @@ let dotnetToolRestore dir =
   runProcess dir "dotnet" "tool restore"
   |> Async.map expectExitCodeZero
 
-let serverInitialize path (config: FSharpConfigDto) state =
+let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
     dotnetCleanup path
     let files = Directory.GetFiles(path)
@@ -417,7 +430,7 @@ let serverInitialize path (config: FSharpConfigDto) state =
        |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
       do! dotnetRestore path
 
-    let server, clientNotifications = createServer state
+    let (server : IFSharpLspServer), clientNotifications = createServer ()
 
     clientNotifications |> Observable.add logEvent
 

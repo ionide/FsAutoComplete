@@ -24,12 +24,12 @@ open FSharpx.Control
 open Utils.Tests
 
 ///Test for initialization of the server
-let initTests state =
+let initTests createServer =
   testCaseAsync
     "InitTest"
     (async {
       let tempDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
-      let (server, event) = createServer state
+      let (server : IFSharpLspServer, event) = createServer ()
 
       let p: InitializeParams =
         { ProcessId = Some 1
@@ -379,9 +379,9 @@ let closeTests state =
   let workspace = Path.Combine(root, "Workspace")
   serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server -> [
     testCaseAsync "closing untitled script file clears diagnostics" (async {
-      let source = 
+      let source =
         // The value or constructor 'untitled' is not defined.
-        "let foo = untitled" 
+        "let foo = untitled"
       let! (doc, diags) = server |> Server.createUntitledDocument source
       Expect.isNonEmpty diags "There should be an error"
       do! doc |> Document.close

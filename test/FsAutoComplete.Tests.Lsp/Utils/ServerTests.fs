@@ -40,7 +40,7 @@ let cleanableTestList
 let private serverTestList'
   runner
   name
-  state
+  createServer
   config
   path
   tests
@@ -48,7 +48,7 @@ let private serverTestList'
   // path must be "absolutely normalized". `..` (parent) isn't valid -> Uri in FSAC and uri in doc are otherwise different, which leads to infinte waiting or timeouts.
   let path = path |> Option.map (System.IO.Path.GetFullPath)
 
-  let init = Server.create path config state
+  let init = Server.create path config createServer
   let cleanup = Server.shutdown
 
   cleanableTestList

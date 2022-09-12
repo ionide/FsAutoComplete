@@ -49,7 +49,7 @@ type Document =
       doc |> Document.close |> Async.RunSynchronously
 
 module Server =
-  let private initialize path (config: FSharpConfigDto) state =
+  let private initialize path (config: FSharpConfigDto) createServer =
     async {
       logger.trace (
         Log.setMessage "Initialize Server in {path}"
@@ -66,7 +66,7 @@ module Server =
            |> not then
           do! dotnetRestore path
 
-      let (server, events) = createServer state
+      let (server : IFSharpLspServer, events : IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
       let p: InitializeParams =
@@ -96,9 +96,9 @@ module Server =
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
-  let create path config state : CachedServer =
+  let create path config createServer : CachedServer =
     async {
-      let! server = initialize path config state
+      let! server = initialize path config createServer
 
       if path |> Option.isSome then
         do! waitForWorkspaceFinishedParsing server.Events
