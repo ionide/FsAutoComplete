@@ -108,6 +108,48 @@ module Commands =
         return CoreResponse.ErrorRes ex.Message
     }
 
+  let addFileAbove (fsprojPath: string) (fileVirtPath: string) newFileName = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let addFileBelow (fsprojPath: string) (fileVirtPath: string) newFileName = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
   let removeFile fsprojPath fileVirtPath = async {
       FsProjEditor.removeFile fsprojPath fileVirtPath
       return CoreResponse.Res()

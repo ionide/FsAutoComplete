@@ -3228,21 +3228,39 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       Helpers.notImplemented
 
-    override __.FsProjAddFileAbove(p: DotnetFile2Request) =
+    override __.FsProjAddFileAbove(p: DotnetFile2Request) = async {
       logger.info (
         Log.setMessage "FsProjAddFileAbove Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-      Helpers.notImplemented
+      let! res = Commands.addFileAbove p.FsProj p.FileVirtualPath p.NewFile
 
-    override __.FsProjAddFileBelow(p: DotnetFile2Request) =
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg
+        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+        | CoreResponse.Res (_) -> { Content = "" } |> success
+
+      return res
+    }
+
+    override __.FsProjAddFileBelow(p: DotnetFile2Request) = async {
       logger.info (
         Log.setMessage "FsProjAddFileBelow Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-      Helpers.notImplemented
+      let! res = Commands.addFileBelow p.FsProj p.FileVirtualPath p.NewFile
+
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg
+        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+        | CoreResponse.Res (_) -> { Content = "" } |> success
+
+      return res
+    }
 
 
     override __.FsProjAddFile(p: DotnetFileRequest) = async {
