@@ -54,7 +54,7 @@ let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
 let lspTests =
-  ftestList
+  testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
         for (lspName, lspFactory) in lspServers do

@@ -2786,7 +2786,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
 
           let! hints =
-            commands.InlayHints(
+            Commands.InlayHints(
               lines,
               tyRes,
               fcsRange,
