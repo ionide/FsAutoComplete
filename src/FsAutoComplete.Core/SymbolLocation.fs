@@ -17,7 +17,7 @@ let getDeclarationLocation
     getProjectOptions,
     projectsThatContainFile,
     getDependentProjectsOfProjects
-    // state: State
+  // state: State
   ) : SymbolDeclarationLocation option =
   if symbolUse.IsPrivateToFile then
     Some SymbolDeclarationLocation.CurrentDocument
@@ -48,11 +48,10 @@ let getDeclarationLocation
         // The standalone script might include other files via '#load'
         // These files appear in project options and the standalone file
         // should be treated as an individual project
-        getProjectOptions(taggedFilePath)
+        getProjectOptions (taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
-        let projectsThatContainFile =
-          projectsThatContainFile(taggedFilePath)
+        let projectsThatContainFile = projectsThatContainFile (taggedFilePath)
 
         let projectsThatDependOnContainingProjects =
           getDependentProjectsOfProjects projectsThatContainFile

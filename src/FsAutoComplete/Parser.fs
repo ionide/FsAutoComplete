@@ -119,7 +119,7 @@ module Parser =
 
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled->
+      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then
             Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -139,8 +139,8 @@ module Parser =
         let toolsPath =
           Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
 
-        let lspFactory  =
-          if adaptiveLspEnabled then
+        let lspFactory =
+          if adaptiveLspEnabled || true then
             fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory
           else
             fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory

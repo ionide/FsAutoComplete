@@ -210,6 +210,7 @@ module Async =
 [<AutoOpen>]
 module ObservableExtensions =
   open System.Reactive.Linq
+
   type IObservable<'T> with
 
     /// Fires an event only after the specified interval has passed in which no other pending event has fired. Buffers all events leading up to that emit.

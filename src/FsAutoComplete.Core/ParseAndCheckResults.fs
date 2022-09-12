@@ -608,6 +608,7 @@ type ParseAndCheckResults
                 results.Items
                 |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
               | _ -> results.Items
+
             let sortedDecls =
               decls
               |> Array.sortWith (fun x y ->

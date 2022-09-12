@@ -90,20 +90,16 @@ type NotificationEvent =
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
-  let getRangesAtPosition
-    (getParseResultsForFile : _ -> Async<Result<FSharpParseFileResults,_>>)
-    file
-    positions =
+  let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
     asyncResult {
-        let! ast = getParseResultsForFile file
-        return
-          positions
-          |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
+      let! ast = getParseResultsForFile file
+      return positions |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
     }
 
   let scopesForFile
-    (getParseResultsForFile : _ -> Async<Result<NamedText * FSharpParseFileResults,_>>)
-    (file: string<LocalPath>) =
+    (getParseResultsForFile: _ -> Async<Result<NamedText * FSharpParseFileResults, _>>)
+    (file: string<LocalPath>)
+    =
     asyncResult {
 
       let! (text, ast) = getParseResultsForFile file
@@ -113,6 +109,7 @@ module Commands =
 
       return ranges
     }
+
   let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
     { LineCount = lines.Lines.Length
       FullName = tyRes.FileName // from the compiler, assumed safe
@@ -141,7 +138,14 @@ module Commands =
 
       return CoreResponse.Res(generatedCode, insertPosition)
     }
-  let getRecordStub tryFindRecordDefinitionFromPos (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (line: LineStr) =
+
+  let getRecordStub
+    tryFindRecordDefinitionFromPos
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    (lines: NamedText)
+    (line: LineStr)
+    =
     async {
       let doc = docForText lines tyRes
       let! res = tryFindRecordDefinitionFromPos pos doc
@@ -251,6 +255,7 @@ module Commands =
 
             return CoreResponse.Res(word, openNamespace, qualifySymbolActions)
     }
+
   let getUnionPatternMatchCases
     tryFindUnionDefinitionFromPos
     (tyRes: ParseAndCheckResults)
@@ -282,15 +287,15 @@ module Commands =
     }
 
   let formatSelection
-      (tryGetFileCheckerOptionsWithLines : _ -> Result<NamedText,_>)
-      (formatSelectionAsync : _ -> System.Threading.Tasks.Task<FantomasResponse>)
-      (file: string<LocalPath>)
-      (rangeToFormat: FormatSelectionRange)
-     : Async<Result<FormatDocumentResponse, string>> =
+    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (file: string<LocalPath>)
+    (rangeToFormat: FormatSelectionRange)
+    : Async<Result<FormatDocumentResponse, string>> =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let!  text = tryGetFileCheckerOptionsWithLines file
+        let! text = tryGetFileCheckerOptionsWithLines file
         let currentCode = string text
 
         let! fantomasResponse =
@@ -339,14 +344,14 @@ module Commands =
     }
 
   let formatDocument
-    (tryGetFileCheckerOptionsWithLines : _ -> Result<NamedText,_>)
-    (formatDocumentAsync : _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
-      : Async<Result<FormatDocumentResponse, string>> =
+    : Async<Result<FormatDocumentResponse, string>> =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let!  text = tryGetFileCheckerOptionsWithLines file
+        let! text = tryGetFileCheckerOptionsWithLines file
         let currentCode = string text
 
         let! fantomasResponse =
@@ -391,7 +396,14 @@ module Commands =
         return! Core.Error ex.Message
     }
 
-  let symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  let symbolImplementationProject
+    getProjectOptions
+    getUsesOfSymbol
+    getAllProjects
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    lineStr
+    =
 
     let filterSymbols symbols =
       symbols
@@ -409,29 +421,41 @@ module Commands =
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
           let opts = getProjectOptions tyRes.FileName
-          let! symbols = getUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+          let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          let! symbols = getUsesOfSymbol(tyRes.FileName, getAllProjects(), sym.Symbol)
+          let! symbols = getUsesOfSymbol (tyRes.FileName, getAllProjects (), sym.Symbol)
           let symbols = filterSymbols symbols
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
     }
-  let renameSymbol (symbolUseWorkspace : _ -> _ -> _ -> _ ->  Async<Result<Choice<Dictionary<string,range array> * Dictionary<string,range array>,Dictionary<string,range array>>,string>>) (tryGetFileSource : _ -> Result<NamedText,_>) (pos: Position) (tyRes: ParseAndCheckResults) (lineStr: LineStr) (text: NamedText) =
+
+  let renameSymbol
+    (symbolUseWorkspace: _
+                           -> _
+                           -> _
+                           -> _
+                           -> Async<Result<Choice<Dictionary<string, range array> * Dictionary<string, range array>, Dictionary<string, range array>>, string>>)
+    (tryGetFileSource: _ -> Result<NamedText, _>)
+    (pos: Position)
+    (tyRes: ParseAndCheckResults)
+    (lineStr: LineStr)
+    (text: NamedText)
+    =
     asyncResult {
       match! symbolUseWorkspace pos lineStr text tyRes with
       | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
         let totalSetOfRanges = Dictionary<NamedText, _>()
 
         for (KeyValue (filePath, declUsages)) in declarationsByDocument do
-          let! text = tryGetFileSource(UMX.tag filePath)
+          let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
           | false, _ -> totalSetOfRanges[text] <- declUsages
 
         for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
-          let! text = tryGetFileSource(UMX.tag filePath)
+          let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
@@ -442,7 +466,7 @@ module Commands =
         let totalSetOfRanges = Dictionary<NamedText, _>()
 
         for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
-          let! text = tryGetFileSource(UMX.tag filePath)
+          let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
@@ -455,7 +479,7 @@ module Commands =
     tyRes.TryGetToolTip pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  let pipelineHints (tryGetFileSource : _ -> Result<NamedText,_>) (tyRes: ParseAndCheckResults) =
+  let pipelineHints (tryGetFileSource: _ -> Result<NamedText, _>) (tyRes: ParseAndCheckResults) =
     result {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
       let! contents = tryGetFileSource tyRes.FileName
@@ -517,7 +541,12 @@ module Commands =
     }
     |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
-  let calculateNamespaceInsert currentAst (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
+  let calculateNamespaceInsert
+    currentAst
+    (decl: DeclarationListItem)
+    (pos: Position)
+    getLine
+    : CompletionNamespaceInsert option =
     let getLine (p: Position) = getLine p |> Option.defaultValue ""
 
     let idents = decl.FullName.Split '.'
@@ -573,10 +602,11 @@ module Commands =
         { Namespace = n
           Position = pos
           Scope = ic.ScopeKind }))
+
   let symbolUseWorkspace
     getDeclarationLocation
-    (findReferencesForSymbolInFile : (string * FSharpProjectOptions * FSharpSymbol)-> Async<Range seq>)
-    (tryGetFileSource : string<LocalPath> -> ResultOrString<NamedText>)
+    (findReferencesForSymbolInFile: (string * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
     // getProjectOptions
     // projectsThatContainFile
     // getDependentProjectsOfProjects
@@ -584,7 +614,8 @@ module Commands =
     pos
     lineStr
     (text: NamedText)
-    (tyRes: ParseAndCheckResults) =
+    (tyRes: ParseAndCheckResults)
+    =
     asyncResult {
 
       let findReferencesInFile
@@ -595,7 +626,7 @@ module Commands =
           onFound: range -> Async<unit>
         ) =
         asyncResult {
-          let! (references: Range seq) = findReferencesForSymbolInFile(file, project, symbol)
+          let! (references: Range seq) = findReferencesForSymbolInFile (file, project, symbol)
 
           for reference in references do
             do! onFound reference
@@ -658,13 +689,11 @@ module Commands =
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
-        let! symbolFileText =
-          tryGetFileSource(symbolFile)
-          // |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+        let! symbolFileText = tryGetFileSource (symbolFile)
+        // |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
 
-        let! symbolText =
-          symbolFileText.[symbolRange]
-          // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
+        let! symbolText = symbolFileText.[symbolRange]
+        // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
 
         let projects =
           if isInternalToProject then
@@ -675,15 +704,14 @@ module Commands =
 
                 yield!
                   project.ReferencedProjects
-                  |> Array.choose (fun p -> p.OutputFile |> getProjectOptionsForFsproj)
-            ]
+                  |> Array.choose (fun p -> p.OutputFile |> getProjectOptionsForFsproj) ]
             |> List.distinctBy (fun x -> x.ProjectFileName)
 
         let onFound (symbolUseRange: range) =
           async {
             let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
             let symbolFile = symbolUseRange.TaggedFileName
-            let targetText = tryGetFileSource(symbolFile)
+            let targetText = tryGetFileSource (symbolFile)
 
             match targetText with
             | Error e -> ()
@@ -1591,8 +1619,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
     |> Result.map CoreResponse.Res
 
-  member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    Commands.typesig tyRes pos lineStr
+  member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = Commands.typesig tyRes pos lineStr
 
   member x.SymbolUse (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetSymbolUseAndUsages pos lineStr
@@ -1660,10 +1687,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
     asyncResult {
 
-      let getDeclarationLocation (symUse, text) = SymbolLocation.getDeclarationLocation (symUse, text, state.GetProjectOptions, state.ProjectController.ProjectsThatContainFile, state.ProjectController.GetDependentProjectsOfProjects)
-      let findReferencesForSymbolInFile (file, project, symbol) = checker.FindReferencesForSymbolInFile(file, project, symbol)
+      let getDeclarationLocation (symUse, text) =
+        SymbolLocation.getDeclarationLocation (
+          symUse,
+          text,
+          state.GetProjectOptions,
+          state.ProjectController.ProjectsThatContainFile,
+          state.ProjectController.GetDependentProjectsOfProjects
+        )
+
+      let findReferencesForSymbolInFile (file, project, symbol) =
+        checker.FindReferencesForSymbolInFile(file, project, symbol)
+
       let tryGetFileSource symbolFile = state.TryGetFileSource(symbolFile)
-      let getProjectOptionsForFsproj fsprojPath = state.ProjectController.GetProjectOptionsForFsproj fsprojPath
+
+      let getProjectOptionsForFsproj fsprojPath =
+        state.ProjectController.GetProjectOptionsForFsproj fsprojPath
 
       return!
         Commands.symbolUseWorkspace
@@ -1679,30 +1718,23 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      let symbolUseWorkspace pos lineStr text tyRes = x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
-      let tryGetFileSource filePath =  state.TryGetFileSource filePath
-      return!
-        Commands.renameSymbol
-          symbolUseWorkspace
-          tryGetFileSource
-          pos
-          tyRes
-          lineStr
-          text
+      let symbolUseWorkspace pos lineStr text tyRes =
+        x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+
+      let tryGetFileSource filePath = state.TryGetFileSource filePath
+      return! Commands.renameSymbol symbolUseWorkspace tryGetFileSource pos tyRes lineStr text
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     let getProjectOptions filePath = state.GetProjectOptions' filePath
-    let getUsesOfSymbol (filePath, opts, sym : FSharpSymbol) =  checker.GetUsesOfSymbol(filePath, opts, sym)
-    let getAllProjects () = state.FSharpProjectOptions |> Seq.toList
 
-    Commands.symbolImplementationProject
-      getProjectOptions
-      getUsesOfSymbol
-      getAllProjects
-      tyRes
-      pos
-      lineStr
+    let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
+      checker.GetUsesOfSymbol(filePath, opts, sym)
+
+    let getAllProjects () =
+      state.FSharpProjectOptions |> Seq.toList
+
+    Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1786,8 +1818,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (lines: NamedText)
     (lineStr: LineStr)
     =
-    let tryFindAbstractClassExprInBufferAtPos = AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
-    let writeAbstractClassStub = AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
+    let tryFindAbstractClassExprInBufferAtPos =
+      AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
+
+    let writeAbstractClassStub =
+      AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
+
     Commands.getAbstractClassStub
       tryFindAbstractClassExprInBufferAtPos
       writeAbstractClassStub
@@ -1887,12 +1923,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
 
   member x.GetRangesAtPosition file positions =
-    let getParseResultsForFile file = asyncResult {
-      let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
-      let parseOpts = Utils.projectOptionsToParseOptions opts
-      let! ast = checker.ParseFile(file, text, parseOpts)
-      return ast
-    }
+    let getParseResultsForFile file =
+      asyncResult {
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
+        let parseOpts = Utils.projectOptionsToParseOptions opts
+        let! ast = checker.ParseFile(file, text, parseOpts)
+        return ast
+      }
+
     Commands.getRangesAtPosition getParseResultsForFile file positions
 
   member x.GetGitHash() =
@@ -1903,15 +1941,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async { return [ CoreResponse.InfoRes "quitting..." ] }
 
   member x.ScopesForFile(file: string<LocalPath>) =
-    let getParseResultsForFile file = asyncResult {
-      let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
-      let parseOpts = Utils.projectOptionsToParseOptions opts
-      let! ast = checker.ParseFile(file, text, parseOpts)
-      return text, ast
-    }
-    Commands.scopesForFile
-      getParseResultsForFile
-      file
+    let getParseResultsForFile file =
+      asyncResult {
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
+        let parseOpts = Utils.projectOptionsToParseOptions opts
+        let! ast = checker.ParseFile(file, text, parseOpts)
+        return text, ast
+      }
+
+    Commands.scopesForFile getParseResultsForFile file
 
 
   member __.SetDotnetSDKRoot(dotnetBinary: System.IO.FileInfo) =
@@ -1920,17 +1958,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
   member x.FormatDocument(file: string<LocalPath>) : Async<Result<FormatDocumentResponse, string>> =
-    let tryGetFileCheckerOptionsWithLines file = x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+    let tryGetFileCheckerOptionsWithLines file =
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+
     let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
     Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
+
   member x.FormatSelection
     (
       file: string<LocalPath>,
       rangeToFormat: FormatSelectionRange
     ) : Async<Result<FormatDocumentResponse, string>> =
-        let tryGetFileCheckerOptionsWithLines file = x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
-        let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
-        Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
+    let tryGetFileCheckerOptionsWithLines file =
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+
+    let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
+    Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
 
   member _.ClearFantomasCache() = fantomasService.ClearCache()
 
