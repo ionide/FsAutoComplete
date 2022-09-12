@@ -14,10 +14,10 @@ open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
-open FSharp.Control.Reactive.Observable
+
 open FsToolkit.ErrorHandling
 open FSharp.UMX
-open FSharp.Analyzers
+
 open FSharp.Compiler.Text
 open CliWrap
 open CliWrap.Buffered
@@ -32,7 +32,7 @@ open FSharp.Data.Adaptive
 open Ionide.ProjInfo
 open FSharp.Compiler.CodeAnalysis
 open System.Linq
-open System.Reactive
+
 open System.Reactive.Linq
 open Microsoft.Build.Graph
 open FsAutoComplete.LspHelpers
@@ -1118,7 +1118,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       (x :> System.IDisposable).Dispose() |> async.Return
 
     override _.Initialize(p: InitializeParams) =
-      async {
+      asyncResult {
         try
           logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p)
 
@@ -1222,7 +1222,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                         // Some { ResolveProvider = Some false }
                   }
             }
-            |> success
+
         with e ->
           logger.error (
             Log.setMessage "Initialize Request Errored {p}"
@@ -1230,7 +1230,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addExn e
           )
 
-          return LspResult.internalError (string e)
+          return! LspResult.internalError (string e)
       }
 
     override __.Initialized(p: InitializedParams) =
@@ -3040,13 +3040,45 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
 
-    override x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
-      logger.info (
-        Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) = asyncResult {
+      try
+        logger.info (
+          Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+        let (filePath, pos) = getFilePathAndPosition p
+        let! namedText = tryGetFile filePath |> Result.ofStringErr
 
-      Helpers.notImplemented
+        let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
+        let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
+        let! {  InsertPosition = insertPos
+                InsertText = text } =
+          Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
+          |> AsyncResult.ofStringErr
+
+        let edit: ApplyWorkspaceEditParams =
+            { Label = Some "Generate Xml Documentation"
+              Edit =
+                { DocumentChanges =
+                    Some
+                      [| { TextDocument = p.TextDocument
+                           Edits =
+                             [| { Range = fcsPosToProtocolRange insertPos
+                                  NewText = text } |] } |]
+                  Changes = None } }
+
+        let! response = lspClient.WorkspaceApplyEdit edit
+        return ()
+
+      with e ->
+        logger.error (
+          Log.setMessage "FSharpDocumentationGenerator Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
+        )
+
+        return! LspResult.internalError (string e)
+    }
 
     override __.FSharpLineLense(p) =
       asyncResult {

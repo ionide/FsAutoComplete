@@ -859,7 +859,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     p
     |> x.positionHandler (fun p pos tyRes lineStr lines ->
-      (match commands.SignatureData tyRes pos lineStr with
+      (match Commands.SignatureData tyRes pos lineStr with
        | CoreResponse.InfoRes msg
        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
        | CoreResponse.Res (typ, parms, generics) ->
@@ -2041,7 +2041,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         (fun p pos tyRes lines lineStr typ file ->
           async {
             if typ = "signature" then
-              match commands.SignatureData tyRes pos lineStr with
+              match Commands.SignatureData tyRes pos lineStr with
               | CoreResponse.InfoRes msg
               | CoreResponse.ErrorRes msg ->
                 logger.error (
@@ -2262,7 +2262,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       p
       |> handler (fun p pos tyRes lineStr ->
-        (match commands.SignatureData tyRes pos lineStr with
+        (match Commands.SignatureData tyRes pos lineStr with
          | CoreResponse.InfoRes msg
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
          | CoreResponse.Res (typ, parms, generics) ->
@@ -2281,7 +2281,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         asyncResult {
           let! { InsertPosition = insertPos
                  InsertText = text } =
-            commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
+            Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
             |> AsyncResult.ofStringErr
 
           let edit: ApplyWorkspaceEditParams =

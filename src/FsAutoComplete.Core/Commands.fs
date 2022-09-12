@@ -1695,7 +1695,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     tyRes.TryGetSymbolUseAndUsages pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.SignatureData (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member SignatureData (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetSignatureData pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
@@ -1705,14 +1705,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   /// for a given member, use its signature information to generate placeholder XML documentation strings.
   /// calculates the required indent and gives the position to insert the text.
-  member x.GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
+  static member GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
     asyncResult {
       let trimmed = lineStr.TrimStart(' ')
       let indentLength = lineStr.Length - trimmed.Length
       let indentString = String.replicate indentLength " "
 
       let! (_, memberParameters, genericParameters) =
-        x.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+         Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
 
       let summarySection = "/// <summary></summary>"
 
