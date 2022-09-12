@@ -15,6 +15,7 @@ open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
+open FSharp.Control.Reactive.Observable
 open FsToolkit.ErrorHandling
 open FSharp.UMX
 open FSharp.Analyzers
@@ -25,7 +26,7 @@ open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 open Fantomas.Client.Contracts
-open FSharp.Control.Reactive.Observable
+open Fantomas.Client.LSPFantomasService
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -6024,7 +6025,7 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use output = Console.OpenStandardOutput()
 
   let requestsHandlings =
-    (defaultRequestHandlings (): Map<string, ServerRequestHandling<FSharpLspServer>>)
+    (defaultRequestHandlings (): Map<string, ServerRequestHandling<AdaptiveFSharpLspServer>>)
     |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
     |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
     |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
