@@ -19,7 +19,7 @@ let private logger = LogProvider.getLoggerByName "Utils.Server"
 
 type Server =
   { RootPath: string option
-    Server: FSharpLspServer
+    Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int }
 

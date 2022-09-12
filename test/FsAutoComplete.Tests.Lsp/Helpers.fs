@@ -167,7 +167,7 @@ let createServer (state: unit -> State) =
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
   let server = new FSharpLspServer(innerState, client)
-  server, serverInteractions :> ClientEvents
+  server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
@@ -450,7 +450,7 @@ let loadDocument path : TextDocumentItem =
     Version = 0
     Text = File.ReadAllText path }
 
-let parseProject projectFilePath (server: FSharpLspServer) =
+let parseProject projectFilePath (server: IFSharpLspServer) =
   async {
     let projectParams: ProjectParms =
       { Project = { Uri = Path.FilePathToUri projectFilePath } }

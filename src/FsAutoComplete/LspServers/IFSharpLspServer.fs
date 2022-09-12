@@ -1,4 +1,5 @@
 namespace FsAutoComplete.Lsp
+open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.LspHelpers
 
@@ -16,7 +17,7 @@ type OptionallyVersionedTextDocumentPositionParams =
 
 [<Interface>]
 type IFSharpLspServer =
-  // inherit ILspServer
+  inherit ILspServer
   abstract FSharpSignature : TextDocumentPositionParams -> Async<LspResult<PlainNotification>>
   abstract FSharpSignatureData : TextDocumentPositionParams -> Async<LspResult<PlainNotification>>
   abstract FSharpDocumentationGenerator : OptionallyVersionedTextDocumentPositionParams -> AsyncLspResult<unit>
@@ -35,7 +36,7 @@ type IFSharpLspServer =
   abstract FSharpDocumentation :TextDocumentPositionParams -> Async<LspResult<PlainNotification>>
   abstract FSharpDocumentationSymbol :DocumentationForSymbolReuqest -> Async<LspResult<PlainNotification>>
   abstract FSharpLiterateRequest : FSharpLiterateRequest -> Async<LspResult<PlainNotification>>
-  abstract LoadAnalyzers : obj -> Async<LspResult<PlainNotification>>
+  abstract LoadAnalyzers : obj -> Async<LspResult<unit>>
   abstract FSharpPipelineHints :FSharpPipelineHintRequest -> Async<LspResult<PlainNotification>>
   abstract FsProjMoveFileUp :DotnetFileRequest -> Async<LspResult<PlainNotification>>
   abstract FsProjMoveFileDown :DotnetFileRequest -> Async<LspResult<PlainNotification>>
