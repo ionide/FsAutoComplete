@@ -90,6 +90,34 @@ type NotificationEvent =
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
+  let addFile (fsprojPath: string) fileVirtPath = async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, fileVirtPath)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        FsProjEditor.addFile fsprojPath fileVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let removeFile fsprojPath fileVirtPath = async {
+      FsProjEditor.removeFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
+  let addExistingFile fsprojPath fileVirtPath = async {
+      FsProjEditor.addExistingFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
   let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
     asyncResult {
       let! ast = getParseResultsForFile file

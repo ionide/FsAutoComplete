@@ -3245,30 +3245,54 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       Helpers.notImplemented
 
 
-    override __.FsProjAddFile(p: DotnetFileRequest) =
+    override __.FsProjAddFile(p: DotnetFileRequest) = async {
       logger.info (
         Log.setMessage "FsProjAddFile Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-      Helpers.notImplemented
+      let! res = Commands.addFile p.FsProj p.FileVirtualPath
+      let res =
+          match res with
+          | CoreResponse.InfoRes msg
+          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+          | CoreResponse.Res (_) -> { Content = "" } |> success
 
-    override _.FsProjRemoveFile(p: DotnetFileRequest) =
+      return res
+    }
+
+    override _.FsProjRemoveFile(p: DotnetFileRequest) = async {
       logger.info (
         Log.setMessage "FsProjRemoveFile Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
 
-      Helpers.notImplemented
+      let! res = Commands.removeFile p.FsProj p.FileVirtualPath
 
-    override _.FsProjAddExistingFile(p: DotnetFileRequest) =
+      let res =
+          match res with
+          | CoreResponse.InfoRes msg
+          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+          | CoreResponse.Res (_) -> { Content = "" } |> success
+
+      return res
+    }
+
+    override _.FsProjAddExistingFile(p: DotnetFileRequest) = asyncResult {
 
       logger.info (
         Log.setMessage "FsProjAddExistingFile Request: {parms}"
         >> Log.addContextDestructured "parms" p
       )
+      let! res = Commands.addExistingFile p.FsProj p.FileVirtualPath
+      let res =
+        match res with
+        | CoreResponse.InfoRes msg
+        | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+        | CoreResponse.Res _ -> { Content = "" } |> success
 
-      Helpers.notImplemented
+      return! res
+    }
 
     override x.Dispose() = disposables.Dispose()
 
