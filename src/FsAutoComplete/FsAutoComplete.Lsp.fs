@@ -897,6 +897,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
+  let parseFile (file: string<LocalPath>) sourceText opts = async {
+    let! parsedResult = checker.ParseFile(UMX.untag file, sourceText, opts)
+    return parsedResult
+  }
   let parseAndCheckFile (file: string<LocalPath>) sourceText opts =
     async {
       logger.info (
@@ -918,7 +922,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         asyncResult {
           let! (pr, ca) =
             checker.ParseAndCheckFileInProject((UMX.untag file), sourceText.GetHashCode(), sourceText, opts)
-
           return! checkAnswerToResults pr ca
         }
 
@@ -979,6 +982,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return parseAndCheck
     }
 
+  let knownFsFilesToParsedResults =
+    knownFsFilesWithUpdates
+    |> AMap.mapA (fun file info ->
+      aval {
+        let sourceText = info.Lines
+        match! getProjectOptionsForFile file with
+        | Some opts ->
+          return
+            Debug.measure "parseFile"
+              <| fun () ->
+                  try
+                      let opts = Utils.projectOptionsToParseOptions opts
+                      parseFile file sourceText opts
+                      |> Async.RunSynchronouslyWithCT typeCheckCancellation.Token
+                      |> Some
+                  with :? OperationCanceledException as e ->
+                    None
+        | None -> return None
+      }
+    )
+    |> AMap.choose (fun _ v -> v)
   let knownFsFilesToCheckedFilesResults =
     knownFsFilesWithUpdates
     |> AMap.mapA (fun file info ->
@@ -1003,13 +1027,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AMap.choose (fun _ v -> v)
 
 
-
+  let getParseResults filePath =
+    knownFsFilesToParsedResults |> AMap.tryFind filePath
   let getTypeCheckResults filePath =
     knownFsFilesToCheckedFilesResults |> AMap.tryFind (filePath)
 
   let tryGetLineStr pos (text: NamedText) =
     text.GetLine(pos)
     |> Result.ofOption (fun () -> $"No line in {text.FileName} at position {pos}")
+
+  let tryGetParseResults filePath =
+    getParseResults filePath
+    |> AVal.force
+    |> Result.ofOption (fun () -> $"No parse results for {filePath}")
 
   let tryGetTypeCheckResults filePath =
     getTypeCheckResults filePath
@@ -2855,15 +2885,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let getParseResultsForFile file =
           asyncResult {
             let! namedText = tryGetFileSource file
-            let! tyRes = tryGetTypeCheckResults file
-            return namedText, tyRes.GetParseResults
+            let! parseResults = tryGetParseResults file
+            return namedText, parseResults
           }
 
         let! scopes = Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
         return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq |> Some
       with e ->
         logger.error (
-          Log.setMessage "WorkspaceDidChangeConfiguration Request Errored {p}"
+          Log.setMessage "TextDocumentFoldingRange Request Errored {p}"
           >> Log.addContextDestructured "p" rangeP
           >> Log.addExn e
         )
@@ -2871,14 +2901,43 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return! LspResult.internalError (string e)
     }
 
-  override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
-    logger.info (
-      Log.setMessage "TextDocumentSelectionRange Request: {parms}"
-      >> Log.addContextDestructured "parms" selectionRangeP
-    )
+  override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) = asyncResult {
+    try
+      logger.info (
+        Log.setMessage "TextDocumentSelectionRange Request: {parms}"
+        >> Log.addContextDestructured "parms" selectionRangeP
+      )
 
-    Helpers.notImplemented
+      let rec mkSelectionRanges =
+        function
+        | [] -> None
+        | r :: xs ->
+          Some
+            { Range = fcsRangeToLsp r
+              Parent = mkSelectionRanges xs }
 
+      let file = selectionRangeP.TextDocument.GetFilePath() |> Utils.normalizePath
+
+      let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
+
+      let getParseResultsForFile file =
+        asyncResult {
+          let! parseResults = tryGetParseResults file
+          return parseResults
+        }
+
+      let! ranges = Commands.getRangesAtPosition getParseResultsForFile file poss |> AsyncResult.ofStringErr
+
+      return ranges |> List.choose mkSelectionRanges |> Some
+    with e ->
+      logger.error (
+        Log.setMessage "TextDocumentSelectionRange Request Errored {p}"
+        >> Log.addContextDestructured "p" selectionRangeP
+        >> Log.addExn e
+      )
+
+      return! LspResult.internalError (string e)
+  }
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : LspResult<SemanticTokens option> =
     result {
 
@@ -5222,7 +5281,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     }
 
   override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
-    async {
+    asyncResult {
       logger.info (
         Log.setMessage "TextDocumentSelectionRange Request: {parms}"
         >> Log.addContextDestructured "parms" selectionRangeP
@@ -5240,15 +5299,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
 
-      let! res = commands.GetRangesAtPosition file poss
+      let! ranges = commands.GetRangesAtPosition file poss |> AsyncResult.ofStringErr
 
-      match res with
-      | CoreResponse.InfoRes msg
-      | CoreResponse.ErrorRes msg -> return internalError msg
-      | CoreResponse.Res ranges ->
-        let response = ranges |> List.choose mkSelectionRanges
-        // logger.info (Log.setMessage "TextDocumentSelectionRange Response: {parms}" >> Log.addContextDestructured "parms" response)
-        return success (Some response)
+      return ranges |> List.choose mkSelectionRanges |> Some
     }
 
   member x.FSharpSignature(p: TextDocumentPositionParams) =

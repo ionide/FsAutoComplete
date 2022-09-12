@@ -90,6 +90,29 @@ type NotificationEvent =
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
+  let getRangesAtPosition
+    (getParseResultsForFile : _ -> Async<Result<FSharpParseFileResults,_>>)
+    file
+    positions =
+    asyncResult {
+        let! ast = getParseResultsForFile file
+        return
+          positions
+          |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
+    }
+
+  let scopesForFile
+    (getParseResultsForFile : _ -> Async<Result<NamedText * FSharpParseFileResults,_>>)
+    (file: string<LocalPath>) =
+    asyncResult {
+
+      let! (text, ast) = getParseResultsForFile file
+
+      let ranges =
+        Structure.getOutliningRanges (text.ToString().Split("\n")) ast.ParseTree
+
+      return ranges
+    }
   let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
     { LineCount = lines.Lines.Length
       FullName = tyRes.FileName // from the compiler, assumed safe
@@ -1864,18 +1887,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
 
   member x.GetRangesAtPosition file positions =
-    async {
-      match state.TryGetFileCheckerOptionsWithLines file with
-      | Ok (opts, text) ->
-        let parseOpts = Utils.projectOptionsToParseOptions opts
-        let! ast = checker.ParseFile(file, text, parseOpts)
-
-        return
-          positions
-          |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
-          |> CoreResponse.Res
-      | _ -> return CoreResponse.InfoRes "Couldn't find file state"
+    let getParseResultsForFile file = asyncResult {
+      let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
+      let parseOpts = Utils.projectOptionsToParseOptions opts
+      let! ast = checker.ParseFile(file, text, parseOpts)
+      return ast
     }
+    Commands.getRangesAtPosition getParseResultsForFile file positions
 
   member x.GetGitHash() =
     let version = Version.info ()
@@ -1885,16 +1903,16 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async { return [ CoreResponse.InfoRes "quitting..." ] }
 
   member x.ScopesForFile(file: string<LocalPath>) =
-    asyncResult {
+    let getParseResultsForFile file = asyncResult {
       let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
       let parseOpts = Utils.projectOptionsToParseOptions opts
       let! ast = checker.ParseFile(file, text, parseOpts)
-
-      let ranges =
-        Structure.getOutliningRanges (text.ToString().Split("\n")) ast.ParseTree
-
-      return ranges
+      return text, ast
     }
+    Commands.scopesForFile
+      getParseResultsForFile
+      file
+
 
   member __.SetDotnetSDKRoot(dotnetBinary: System.IO.FileInfo) =
     checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
