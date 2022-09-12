@@ -10,10 +10,11 @@ open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
 
-module FcsRange = FSharp.Compiler.Text.Range
+
 type FcsRange = FSharp.Compiler.Text.Range
-module FcsPos = FSharp.Compiler.Text.Position
+module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
+module FcsPos = FSharp.Compiler.Text.Position
 
 [<AutoOpen>]
 module Conversions =
