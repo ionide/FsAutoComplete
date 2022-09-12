@@ -1193,7 +1193,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                             TriggerCharacters = Some([| '.'; ''' |])
                             AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                           }
-                      CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+                      CodeLensProvider =
+                        None
+                        // TODO: Fix bugs and performance
+                        // Some { CodeLensOptions.ResolveProvider = Some true }
                       CodeActionProvider = None
                       // Some
                       //   { CodeActionKinds = None
@@ -1212,7 +1215,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                               createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
                             Range = Some true
                             Full = Some(U2.First true) }
-                      InlayHintProvider = Some { ResolveProvider = Some false } } }
+                      InlayHintProvider =
+                        None
+                        // TODO: Fix bugs and performance
+                        // FsAutoComplete.Core.Workaround.ServiceParseTreeWalk+SyntaxTraversal+defaultTraverse causing stack overflows
+                        // Some { ResolveProvider = Some false }
+                  }
+            }
             |> success
         with e ->
           logger.error (
@@ -2967,7 +2976,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     // FSharp Operations
     // -----------------
 
-    override x.FSharpLiterateRequest (p) =
+    override x.FSharpLiterateRequest (p: FSharpLiterateRequest) =
       logger.info (
         Log.setMessage "FSharpLiterateRequest Request: {parms}"
         >> Log.addContextDestructured "parms" p
