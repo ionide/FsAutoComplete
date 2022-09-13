@@ -1628,8 +1628,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               return CoreResponse.Res(HelpText.Full(sym, tip, n))
     }
 
-  member x.CompilerLocation() =
+  static member CompilerLocation(checker : FSharpCompilerServiceChecker) =
     CoreResponse.Res(Environment.fsc, Environment.fsi, Some "", checker.GetDotnetRoot())
+  member x.CompilerLocation() =
+    Commands.CompilerLocation(checker)
 
   member x.Colorization enabled = state.ColorizationOutput <- enabled
   member x.Error msg = [ CoreResponse.ErrorRes msg ]

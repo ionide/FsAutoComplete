@@ -624,10 +624,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
-  // let parseFile (file: string<LocalPath>) sourceText opts = async {
-  //   let! parsedResult = checker.ParseFile(UMX.untag file, sourceText, opts)
-  //   return parsedResult
-  // }
   let parseAndCheckFile (checker : FSharpCompilerServiceChecker) (file: string<LocalPath>) sourceText opts =
     async {
       logger.info (
@@ -658,7 +654,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
 
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
-        // Debug.waitForDebuggerAttached "AdaptiveIonide"
+
         let errors =
           Array.append checkErrors parseErrors
           |> Array.distinctBy (fun e ->
@@ -1395,11 +1391,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             with
             | None -> return! success (Some completionList)
             | Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols) ->
-              // Debug
-              // logger.info(
-              //   Log.setMessage "TextDocumentCompletion found decls: {decls}"
-              //   >> Log.addContextDestructured "decls" decls
-              // )
+
               return!
                 Debug.measure "TextDocumentCompletion.TryGetCompletions success"
                 <| fun () ->
@@ -3024,8 +3016,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           match getDeclarations fn |> AVal.force with
           | None ->
-            //JB:TODO Error handle
-            return! Helpers.notImplemented
+            return! LspResult.internalError $"No declerations found for {fn}"
           | Some decls ->
             let decls = decls |> Array.map (fun d -> d, fn)
 
@@ -3042,13 +3033,31 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError (string e)
       }
 
-    override __.FSharpCompilerLocation(p) =
-      logger.info (
-        Log.setMessage "FSharpCompilerLocation Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override __.FSharpCompilerLocation(p) = asyncResult {
+      try
+        logger.info (
+          Log.setMessage "FSharpCompilerLocation Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+        let checker = checker |> AVal.force
+        let! (fsc, fsi, msbuild, sdk) = Commands.CompilerLocation checker |> Result.ofCoreResponse |> Result.ofStringErr
+        return
+            { Content =
+                CommandResponse.compilerLocation
+                  FsAutoComplete.JsonSerializer.writeJson
+                  fsc
+                  fsi
+                  msbuild
+                  (sdk |> Option.map (fun (di: DirectoryInfo) -> di.FullName)) }
+      with e ->
+        logger.error (
+          Log.setMessage "FSharpCompilerLocation Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
+        )
 
-      Helpers.notImplemented
+        return! LspResult.internalError (string e)
+    }
 
     override __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) =
       asyncResult {
