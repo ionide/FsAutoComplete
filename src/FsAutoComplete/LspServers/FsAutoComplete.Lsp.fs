@@ -2437,7 +2437,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.DotnetNewList()
+        let! res = Commands.DotnetNewList()
 
         let res =
           match res with
@@ -2457,7 +2457,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.DotnetNewRun p.Template p.Name p.Output []
+        let! res = Commands.DotnetNewRun p.Template p.Name p.Output []
 
         let res =
           match res with
@@ -2475,7 +2475,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.DotnetAddProject p.Target p.Reference
+        let! res = Commands.DotnetAddProject p.Target p.Reference
 
         let res =
           match res with
@@ -2493,7 +2493,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.DotnetRemoveProject p.Target p.Reference
+        let! res = Commands.DotnetRemoveProject p.Target p.Reference
 
         let res =
           match res with
@@ -2511,7 +2511,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.DotnetSlnAdd p.Target p.Reference
+        let! res = Commands.DotnetSlnAdd p.Target p.Reference
 
         let res =
           match res with
@@ -2529,7 +2529,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.FsProjMoveFileUp p.FsProj p.FileVirtualPath
+        let! res = Commands.FsProjMoveFileUp p.FsProj p.FileVirtualPath
 
         let res =
           match res with
@@ -2547,7 +2547,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = commands.FsProjMoveFileDown p.FsProj p.FileVirtualPath
+        let! res = Commands.FsProjMoveFileDown p.FsProj p.FileVirtualPath
 
         let res =
           match res with
@@ -2656,7 +2656,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
-        (match commands.Help tyRes pos lineStr with
+        (match Commands.Help tyRes pos lineStr with
          | CoreResponse.InfoRes msg
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
          | CoreResponse.Res (t) ->
@@ -2673,7 +2673,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
-        (match commands.FormattedDocumentation tyRes pos lineStr with
+        (match Commands.FormattedDocumentation tyRes pos lineStr with
          | CoreResponse.InfoRes msg
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
          | CoreResponse.Res (tip, xml, signature, footer, cm) ->
@@ -2695,10 +2695,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       match commands.LastCheckResult with
       | None -> AsyncLspResult.internalError "error"
       | Some tyRes ->
-        match commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly with
-        | Ok (CoreResponse.InfoRes msg)
-        | Ok (CoreResponse.ErrorRes msg) -> AsyncLspResult.internalError msg
-        | Ok (CoreResponse.Res (xml, assembly, doc, signature, footer, cn)) ->
+        match Commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly with
+        | (CoreResponse.InfoRes msg)
+        | (CoreResponse.ErrorRes msg) -> AsyncLspResult.internalError msg
+        | (CoreResponse.Res (xml, assembly, doc, signature, footer, cn)) ->
           let xmldoc =
             match doc with
             | FSharpXmlDoc.None -> [||]
@@ -2714,7 +2714,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 (signature, footer, cn) }
           |> success
           |> async.Return
-        | Error e -> AsyncLspResult.internalError e
 
     override __.LoadAnalyzers(path) =
       async {

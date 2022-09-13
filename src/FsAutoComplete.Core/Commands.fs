@@ -54,7 +54,7 @@ type DocumentEdit =
   { InsertPosition: pos
     InsertText: string }
 
-module Result =
+module private Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
     | CoreResponse.Res a -> Ok a
@@ -1214,14 +1214,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res results
     }
 
-  member x.DotnetNewList() =
+  static member DotnetNewList() =
     async {
       let results = DotnetNewTemplate.installedTemplates ()
       return CoreResponse.Res results
     }
 
 
-  member x.DotnetNewRun
+  static member DotnetNewRun
     (templateShortName: string)
     (name: string option)
     (output: string option)
@@ -1232,31 +1232,31 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res results
     }
 
-  member x.DotnetAddProject (toProject: string) (reference: string) =
+  static member DotnetAddProject (toProject: string) (reference: string) =
     async {
       let! result = DotnetCli.dotnetAddProject toProject reference
       return CoreResponse.Res result
     }
 
-  member x.DotnetRemoveProject (fromProject: string) (reference: string) =
+  static member DotnetRemoveProject (fromProject: string) (reference: string) =
     async {
       let! result = DotnetCli.dotnetRemoveProject fromProject reference
       return CoreResponse.Res result
     }
 
-  member x.DotnetSlnAdd (sln: string) (project: string) =
+  static member DotnetSlnAdd (sln: string) (project: string) =
     async {
       let! result = DotnetCli.dotnetSlnAdd sln project
       return CoreResponse.Res result
     }
 
-  member _.FsProjMoveFileUp (fsprojPath: string) (fileVirtPath: string) =
+  static member FsProjMoveFileUp (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.moveFileUp fsprojPath fileVirtPath
       return CoreResponse.Res()
     }
 
-  member _.FsProjMoveFileDown (fsprojPath: string) (fileVirtPath: string) =
+  static member FsProjMoveFileDown (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.moveFileDown fsprojPath fileVirtPath
       return CoreResponse.Res()
@@ -1683,13 +1683,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     tyRes.TryGetToolTipEnhanced pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.FormattedDocumentation (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member FormattedDocumentation (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetFormattedDocumentation pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.FormattedDocumentationForSymbol (tyRes: ParseAndCheckResults) (xmlSig: string) (assembly: string) =
+  static member FormattedDocumentationForSymbol (tyRes: ParseAndCheckResults) (xmlSig: string) (assembly: string) =
     tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
-    |> Result.map CoreResponse.Res
+    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
   member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = Commands.typesig tyRes pos lineStr
 
@@ -1701,7 +1701,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     tyRes.TryGetSignatureData pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.Help (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member Help (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetF1Help pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
