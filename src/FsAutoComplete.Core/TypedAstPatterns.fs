@@ -15,7 +15,7 @@ module SymbolUse =
 
   let private attributeSuffixLength = "Attribute".Length
 
-  let (|Entity|_|) (symbol: FSharpSymbolUse) : (FSharpEntity (* cleanFullNames *)  * string list) option =
+  let (|Entity|_|) (symbol: FSharpSymbolUse) : (FSharpEntity (* cleanFullNames *) * string list) option =
     match symbol.Symbol with
     | :? FSharpEntity as ent ->
       // strip generic parameters count suffix (List`1 => List)
@@ -259,7 +259,7 @@ module SymbolPatterns =
 
   let private attributeSuffixLength = "Attribute".Length
 
-  let (|Entity|_|) (symbol: FSharpSymbolUse) : (FSharpEntity (* cleanFullNames *)  * string list) option =
+  let (|Entity|_|) (symbol: FSharpSymbolUse) : (FSharpEntity (* cleanFullNames *) * string list) option =
     match symbol.Symbol with
     | :? FSharpEntity as ent ->
       // strip generic parameters count suffix (List`1 => List)
@@ -288,7 +288,7 @@ module SymbolPatterns =
       Some(ent, cleanFullNames)
     | _ -> None
 
-  let (|EntityFromSymbol|_|) (symbol: FSharpSymbol) : (FSharpEntity (* cleanFullNames *)  * string list) option =
+  let (|EntityFromSymbol|_|) (symbol: FSharpSymbol) : (FSharpEntity (* cleanFullNames *) * string list) option =
     match symbol with
     | :? FSharpEntity as ent ->
       // strip generic parameters count suffix (List`1 => List)
