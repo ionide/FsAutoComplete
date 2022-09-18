@@ -1715,7 +1715,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
                 let! result =
                   Cli.Wrap("dotnet").WithArguments(
-                    "tool install fantomas-tool"
+                    "tool install fantomas"
                   )
                     .WithWorkingDirectory(
                     rootPath
@@ -1730,12 +1730,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   do!
                     lspClient.WindowShowMessage
                       { Type = MessageType.Info
-                        Message = "fantomas-tool was installed locally" }
+                        Message = "fantomas was installed locally" }
 
                   commands.ClearFantomasCache()
                 else
                   fantomasLogger.warn (
-                    Log.setMessage (sprintf "Unable to install a compatible version of fantomas-tool in %s" rootPath)
+                    Log.setMessage (sprintf "Unable to install a compatible version of fantomas in %s" rootPath)
                   )
               }
 
@@ -1744,7 +1744,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         | Ok (Some { Title = "Install globally" }) ->
           let! result =
             Cli.Wrap("dotnet").WithArguments(
-              "tool install -g fantomas-tool"
+              "tool install -g fantomas"
             )
               .ExecuteBufferedAsync()
               .Task
@@ -1756,11 +1756,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             do!
               lspClient.WindowShowMessage
                 { Type = MessageType.Info
-                  Message = "fantomas-tool was installed globally" }
+                  Message = "fantomas was installed globally" }
 
             commands.ClearFantomasCache()
           else
-            fantomasLogger.warn (Log.setMessage "Unable to install a compatible version of fantomas-tool globally")
+            fantomasLogger.warn (Log.setMessage "Unable to install a compatible version of fantomas globally")
         | _ -> ()
 
         return LspResult.internalError "Fantomas install not found."
