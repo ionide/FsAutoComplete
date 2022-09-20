@@ -479,85 +479,89 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Seq.distinct
     |> Seq.toList
 
-  let openFiles = cset<string<LocalPath>> []
+  let openFiles = cmap<string<LocalPath>, VolatileFile> ()
+  let volaTileFile path text version lastWriteTime =
+    { Touched = lastWriteTime
+      Lines = NamedText(path,  text)
+      Version = version }
 
-  let adaptiveFile (filepath: string<LocalPath>) =
-    aval {
-      let untagged = UMX.untag filepath
-      let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
-      let! text = AdaptiveFile.ReadAllText untagged
-      let namedText = NamedText(filepath, text)
+  // let adaptiveFile (filepath: string<LocalPath>) =
+  //   aval {
+  //     let untagged = UMX.untag filepath
+  //     let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
+  //     let! text = AdaptiveFile.ReadAllText untagged
+  //     let namedText = NamedText(filepath, text)
 
-      let file: VolatileFile =
-        { Touched = lastWriteTime
-          Lines = namedText
-          Version = None }
+  //     let file: VolatileFile =
+  //       { Touched = lastWriteTime
+  //         Lines = namedText
+  //         Version = None }
 
-      return file
-    }
+  //     return file
+  //   }
 
 
-  let knownFsFilesWithFileSystemUpdates = openFiles |> ASet.mapAtoAMap adaptiveFile
+  // let knownFsFilesWithFileSystemUpdates = openFiles |> ASet.mapAtoAMap adaptiveFile
 
-  let knownFsTextChanges =
-    cmap<string<LocalPath>, clist<DidChangeTextDocumentParams>> ()
+  // let knownFsTextChanges =
+  //   cmap<string<LocalPath>, clist<DidChangeTextDocumentParams>> ()
 
-  let knownFsFilesWithUpdates =
-    knownFsFilesWithFileSystemUpdates
-    |> AMap.mapA (fun filePath updates ->
-      aval {
-        match! AMap.tryFind filePath knownFsTextChanges with
-        | None -> return updates
-        | Some textChanges ->
-          let! contentChanges = textChanges |> AList.toAVal
+  // let knownFsFilesWithUpdates =
+  //   knownFsFilesWithFileSystemUpdates
+  //   |> AMap.mapA (fun filePath updates ->
+  //     aval {
+  //       match! AMap.tryFind filePath knownFsTextChanges with
+  //       | None -> return updates
+  //       | Some textChanges ->
+  //         let! contentChanges = textChanges |> AList.toAVal
 
-          let namedText =
-            (updates, contentChanges)
-            ||> Seq.fold (fun text changeParams ->
-              let changes = changeParams.ContentChanges
+  //         let namedText =
+  //           (updates, contentChanges)
+  //           ||> Seq.fold (fun text changeParams ->
+  //             let changes = changeParams.ContentChanges
 
-              (text, changes)
-              ||> Seq.fold (fun text change ->
-                match change.Range with
-                | None -> // replace entire content
-                  { Touched = DateTime.UtcNow
-                    Lines = NamedText(filePath, change.Text)
-                    Version = changeParams.TextDocument.Version }
-                | Some rangeToReplace ->
-                  // replace just this slice
-                  let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+  //             (text, changes)
+  //             ||> Seq.fold (fun text change ->
+  //               match change.Range with
+  //               | None -> // replace entire content
+  //                 { Touched = DateTime.UtcNow
+  //                   Lines = NamedText(filePath, change.Text)
+  //                   Version = changeParams.TextDocument.Version }
+  //               | Some rangeToReplace ->
+  //                 // replace just this slice
+  //                 let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
 
-                  try
-                    match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
-                    | Ok text ->
-                      { Touched = DateTime.UtcNow
-                        Lines = text
-                        Version = changeParams.TextDocument.Version }
-                    | Error message ->
-                      logger.error (
-                        Log.setMessage "Error applying change to document {file} for version {version}: {message}"
-                        >> Log.addContextDestructured "file" filePath
-                        >> Log.addContextDestructured "message" message
-                      )
+  //                 try
+  //                   match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
+  //                   | Ok text ->
+  //                     { Touched = DateTime.UtcNow
+  //                       Lines = text
+  //                       Version = changeParams.TextDocument.Version }
+  //                   | Error message ->
+  //                     logger.error (
+  //                       Log.setMessage "Error applying change to document {file} for version {version}: {message}"
+  //                       >> Log.addContextDestructured "file" filePath
+  //                       >> Log.addContextDestructured "message" message
+  //                     )
 
-                      text
-                  with e ->
-                    logger.error (
-                      Log.setMessage "Error applying change to document {file} for version {version}: {message}"
-                      >> Log.addContextDestructured "file" filePath
-                      >> Log.addContextDestructured "message" (string e)
-                      >> Log.addExn e
-                    )
+  //                     text
+  //                 with e ->
+  //                   logger.error (
+  //                     Log.setMessage "Error applying change to document {file} for version {version}: {message}"
+  //                     >> Log.addContextDestructured "file" filePath
+  //                     >> Log.addContextDestructured "message" (string e)
+  //                     >> Log.addExn e
+  //                   )
 
-                    text))
+  //                   text))
 
-          return namedText
-      }
+  //         return namedText
+  //     }
 
-    )
+  //   )
 
   let getFileInfoForFile file =
-    knownFsFilesWithUpdates |> AMap.tryFind file
+    openFiles |> AMap.tryFind file
 
   let tryGetFile file =
     getFileInfoForFile file
@@ -586,7 +590,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     tryGetFile filePath |> Result.map (fun f -> f.Lines)
 
   let knownFsFilesToProjectOptions =
-    knownFsFilesWithUpdates
+    openFiles
     |> AMap.mapA (fun file info ->
       if Utils.isAScript (UMX.untag file) then
         (checker, tfmConfig)
@@ -682,7 +686,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
   let knownFsFilesToParsedResults =
-    knownFsFilesWithUpdates
+    openFiles
     |> AMap.mapA (fun file info ->
       aval {
         let! checker = checker
@@ -704,7 +708,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     )
     |> AMap.choose (fun _ v -> v)
   let knownFsFilesToCheckedFilesResults =
-    knownFsFilesWithUpdates
+    openFiles
     |> AMap.mapA (fun file info ->
       aval {
         let! checker = checker
@@ -764,30 +768,30 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       .Publish()
       .RefCount()
 
-  do
-    disposables.Add(
-      textDocumentDidChangeDebounced.Subscribe(fun ps ->
-        logger.info (
-          Log.setMessage "textDocumentDidChangeNotifications Request: {parms}"
-          >> Log.addContextDestructured "parms" ps
-        )
+  // do
+  //   disposables.Add(
+  //     textDocumentDidChangeDebounced.Subscribe(fun ps ->
+  //       logger.info (
+  //         Log.setMessage "textDocumentDidChangeNotifications Request: {parms}"
+  //         >> Log.addContextDestructured "parms" ps
+  //       )
 
-        ps
-        |> Seq.groupBy (fun p -> p.TextDocument.GetFilePath() |> Utils.normalizePath)
-        |> Seq.iter (fun (filePath, items) ->
-          //   let items = items |> Seq.sortBy (fun p -> p.TextDocument.Version)
-          //   // AddOrUpdate inmemory changes
-          //   let contentChanges = items |> Seq.collect (fun i -> i.ContentChanges)
-          //   // let filePath =  ps.TextDocument.GetFilePath() |> Utils.normalizePath
-          //   // let contentChanges = ps.ContentChanges
-          let adder key = clist items
+  //       ps
+  //       |> Seq.groupBy (fun p -> p.TextDocument.GetFilePath() |> Utils.normalizePath)
+  //       |> Seq.iter (fun (filePath, items) ->
+  //         //   let items = items |> Seq.sortBy (fun p -> p.TextDocument.Version)
+  //         //   // AddOrUpdate inmemory changes
+  //         //   let contentChanges = items |> Seq.collect (fun i -> i.ContentChanges)
+  //         //   // let filePath =  ps.TextDocument.GetFilePath() |> Utils.normalizePath
+  //         //   // let contentChanges = ps.ContentChanges
+  //         let adder key = clist items
 
-          let updater key (value: clist<_>) =
-            value.AddRange items
-            value
+  //         let updater key (value: clist<_>) =
+  //           value.AddRange items
+  //           value
 
-          transact (fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))))
-    )
+  //         transact (fun () -> knownFsTextChanges.AddOrUpdate(filePath, adder, updater))))
+  //   )
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
@@ -1230,7 +1234,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-          transact (fun () -> openFiles.Add filePath) |> ignore
+          let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
+
+          transact (fun () -> openFiles[filePath] <- file) |> ignore
           let checker = checker |> AVal.force
           do! forceTypeCheck checker filePath
           return ()
@@ -1253,6 +1259,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let doc = p.TextDocument
+
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           transact (fun () -> openFiles.Remove(filePath) |> ignore)
           diagnosticCollections.ClearFor(doc.Uri)
@@ -1277,18 +1284,24 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
 
-          let adder key = clist [ p ]
+          // let adder key = clist [ p ]
 
-          let updater key (value: clist<_>) =
-            value.Add p |> ignore
-            value
+
+          // let updater key (value: clist<_>) =
+          //   value.Add p |> ignore
+          //   value
+          let  changes = p.ContentChanges |> Array.head
+
+          let file = volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           transact (fun () ->
             typeCheckCancellation.Cancel()
             typeCheckCancellation.Dispose()
             typeCheckCancellation <- new CancellationTokenSource()
-            knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
+            openFiles[filePath] <- file
+            // knownFsTextChanges.AddOrUpdate(filePath, adder, updater))
           // textDocumentDidChangeNotifications.Trigger p
+          )
           return ()
         with e ->
           logger.error (
@@ -1311,12 +1324,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
+          let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
 
           // This removes any in memory changes, it will re-read from the filesystem
-          transact (fun () -> knownFsTextChanges.Remove filePath |> ignore)
+          transact (fun () -> openFiles[filePath] <- file)
 
           let checker = checker |> AVal.force
-          let knownFiles = openFiles |> ASet.force
+          let knownFiles = openFiles |> AMap.force |> Seq.map fst
           do! knownFiles |> Seq.map (forceTypeCheck checker) |> Async.Sequential |> Async.Ignore
           return ()
         with e ->
