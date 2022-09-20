@@ -456,7 +456,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             ProjectResponse.Project(ws, false)
             |> NotificationEvent.Workspace
             |> notifications.Trigger)
-
+          ProjectResponse.WorkspaceLoad true
+          |> NotificationEvent.Workspace
+          |> notifications.Trigger
           return options
       })
 
@@ -665,6 +667,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let diags = errors |> Array.map fcsErrorToDiagnostic
         diagnosticCollections.SetFor(uri, "F# Compiler", diags)
         return parseAndCheck
+    }
+
+  let forceTypeCheck checker f =
+    async {
+      logger.info (
+        Log.setMessage "TextDocumentDidSave Forced Check : {file}"
+        >> Log.addContextDestructured "file" f
+      )
+
+      match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
+      | Some fileInfo, Some (opts) -> return! parseAndCheckFile checker f fileInfo.Lines opts |> Async.Ignore
+      | _, _ -> ()
     }
 
   let knownFsFilesToParsedResults =
@@ -1149,13 +1163,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                             AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                           }
                       CodeLensProvider =
-                        None
+                        // None
                         // TODO: Fix bugs and performance
-                        // Some { CodeLensOptions.ResolveProvider = Some true }
-                      CodeActionProvider = None
-                      // Some
-                      //   { CodeActionKinds = None
-                      //     ResolveProvider = None }
+                        Some { CodeLensOptions.ResolveProvider = Some true }
+                      CodeActionProvider =
+                        Some
+                          { CodeActionKinds = None
+                            ResolveProvider = None }
                       TextDocumentSync =
                         Some
                           { TextDocumentSyncOptions.Default with
@@ -1171,10 +1185,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                             Range = Some true
                             Full = Some(U2.First true) }
                       InlayHintProvider =
-                        None
+                        // None
                         // TODO: Fix bugs and performance
                         // FsAutoComplete.Core.Workaround.ServiceParseTreeWalk+SyntaxTraversal+defaultTraverse causing stack overflows
-                        // Some { ResolveProvider = Some false }
+                        Some { ResolveProvider = Some false }
                   }
             }
 
@@ -1217,6 +1231,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           transact (fun () -> openFiles.Add filePath) |> ignore
+          let checker = checker |> AVal.force
+          do! forceTypeCheck checker filePath
           return ()
         with e ->
           logger.error (
@@ -1239,7 +1255,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           transact (fun () -> openFiles.Remove(filePath) |> ignore)
-          diagnosticCollections.ClearFor(Path.LocalPathToUri filePath)
+          diagnosticCollections.ClearFor(doc.Uri)
           return ()
         with e ->
           logger.error (
@@ -1298,21 +1314,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           // This removes any in memory changes, it will re-read from the filesystem
           transact (fun () -> knownFsTextChanges.Remove filePath |> ignore)
+
           let checker = checker |> AVal.force
-          let forceTypeCheck f =
-            async {
-              logger.info (
-                Log.setMessage "TextDocumentDidSave Forced Check : {file}"
-                >> Log.addContextDestructured "file" f
-              )
-
-              match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
-              | Some fileInfo, Some (opts) -> return! parseAndCheckFile checker f fileInfo.Lines opts |> Async.Ignore
-              | _, _ -> ()
-            }
-
           let knownFiles = openFiles |> ASet.force
-          do! knownFiles |> Seq.map forceTypeCheck |> Async.Sequential |> Async.Ignore
+          do! knownFiles |> Seq.map (forceTypeCheck checker) |> Async.Sequential |> Async.Ignore
           return ()
         with e ->
           logger.error (

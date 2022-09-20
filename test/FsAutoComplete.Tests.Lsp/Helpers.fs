@@ -483,6 +483,7 @@ let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification)
        else
          None
 
+let internal defaultTimeout = TimeSpan.FromSeconds 10.0
 let waitForWorkspaceFinishedParsing (events: ClientEvents) =
   let chooser (name, payload) =
     match name with
@@ -501,6 +502,7 @@ let waitForWorkspaceFinishedParsing (events: ClientEvents) =
 
   events
   |> Observable.choose chooser
+  |> Observable.timeoutSpan defaultTimeout
   |> Async.AwaitObservable
 
 let private typedEvents<'t> (typ: string) : IObservable<string * obj> -> IObservable<'t> =

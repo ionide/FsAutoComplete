@@ -32,8 +32,8 @@ Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
   [
-    // "Ionide WorkspaceLoader", WorkspaceLoader.Create
-    "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+    "Ionide WorkspaceLoader", WorkspaceLoader.Create
+    // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
   ]
 
 let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
@@ -59,7 +59,7 @@ let lspTests =
     [ for (loaderName, workspaceLoaderFactory) in loaders do
         for (lspName, lspFactory) in lspServers do
           testList
-            $"{loaderName}-{lspName}"
+            $"{loaderName}.{lspName}"
             [
               Templates.tests ()
               let createServer () = lspFactory toolsPath workspaceLoaderFactory
@@ -235,7 +235,7 @@ let main args =
 
   let config =
     { defaultConfig with
-        failOnFocusedTests = true
+        // failOnFocusedTests = true
         printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
         verbosity = logLevel }
 

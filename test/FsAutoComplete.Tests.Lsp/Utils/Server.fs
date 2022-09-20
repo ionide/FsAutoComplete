@@ -65,7 +65,6 @@ module Server =
            |> Seq.isEmpty
            |> not then
           do! dotnetRestore path
-
       let (server : IFSharpLspServer, events : IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
@@ -88,6 +87,7 @@ module Server =
 
       match! server.Initialize p with
       | Ok _ ->
+        do! server.Initialized (InitializedParams())
         return
           { RootPath = path
             Server = server
@@ -307,7 +307,6 @@ module Document =
         |> Async.AwaitObservable
     }
 
-  let private defaultTimeout = TimeSpan.FromSeconds 10.0
 
   /// Note: Mutates passed `doc`
   let private incrVersion (doc: Document) =
@@ -331,7 +330,7 @@ module Document =
       do! doc.Server.Server.TextDocumentDidOpen p
 
       try
-        return! doc |> waitForLatestDiagnostics defaultTimeout
+        return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
       with
       | :? TimeoutException -> return failwith $"Timeout waiting for latest diagnostics for {doc.Uri}"
     }
@@ -357,7 +356,7 @@ module Document =
 
       do! doc.Server.Server.TextDocumentDidChange p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
-      return! doc |> waitForLatestDiagnostics defaultTimeout
+      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
   let private assertOk result =
