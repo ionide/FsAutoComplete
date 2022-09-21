@@ -2882,6 +2882,28 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   override x.Dispose() = x.Shutdown() |> Async.Start
 
+open System.Threading.Tasks
+open StreamJsonRpc
+
+let createRpc (handler: IJsonRpcMessageHandler) : JsonRpc =
+  let rec (|HandleableException|_|) (e: exn) =
+    match e with
+    | :? LocalRpcException -> Some()
+    | :? TaskCanceledException -> Some()
+    | :? OperationCanceledException -> Some()
+    | :? System.AggregateException as aex ->
+      if aex.InnerExceptions.Count = 1 then
+        (|HandleableException|_|) aex.InnerException
+      else
+        None
+    | _ -> None
+
+  { new JsonRpc(handler) with
+      member this.IsFatalException(ex: Exception) =
+        match ex with
+        | HandleableException -> false
+        | _ -> true }
+
 let startCore toolsPath stateStorageDir workspaceLoaderFactory =
   use input = Console.OpenStandardInput()
   use output = Console.OpenStandardOutput()
@@ -2922,8 +2944,13 @@ let startCore toolsPath stateStorageDir workspaceLoaderFactory =
 
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
 
-  Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient (fun lspClient ->
-    new FSharpLspServer(state, lspClient))
+  Ionide.LanguageServerProtocol.Server.start
+    requestsHandlings
+    input
+    output
+    FSharpLspClient
+    (fun lspClient -> new FSharpLspServer(state, lspClient))
+    createRpc
 
 let start toolsPath stateStorageDir workspaceLoaderFactory =
   let logger = LogProvider.getLoggerByName "Startup"
