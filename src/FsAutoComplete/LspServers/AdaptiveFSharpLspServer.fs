@@ -570,12 +570,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       try
         let untaged = UMX.untag file
         let lastWriteTime = File.GetLastWriteTimeUtc untaged
-        let change = File.ReadAllText untaged
+        if File.Exists untaged then
+          let change = File.ReadAllText untaged
 
-        { Touched = lastWriteTime
-          Lines = NamedText(file, change)
-          Version = None }
-        |> Some
+          { Touched = lastWriteTime
+            Lines = NamedText(file, change)
+            Version = None }
+          |> Some
+        else
+          None
       with e ->
         logger.warn (
           Log.setMessage "Could not read file {file}"
@@ -631,17 +634,41 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
-  let parseAndCheckFile (checker : FSharpCompilerServiceChecker) (file: string<LocalPath>) sourceText opts =
+  let analyzeFile (filePath, version) =
+    let config = config |> AVal.force
+    let analyzers =
+      [
+        // if config.Linter then
+        //   commands.Lint filePath |> Async .Ignore
+        // if config.UnusedOpensAnalyzer then
+        //   commands.CheckUnusedOpens filePath
+        // if config.UnusedDeclarationsAnalyzer then
+        //   commands.CheckUnusedDeclarations filePath
+        // if config.SimplifyNameAnalyzer then
+        //   commands.CheckSimplifiedNames filePath
+      ]
+
+    async {
+      do! analyzers |> Async.Parallel |> Async.Ignore<unit[]>
+
+      do!
+        lspClient.NotifyDocumentAnalyzed
+          { TextDocument =
+              { Uri = filePath |> Path.LocalPathToUri
+                Version = version } }
+    }
+
+  let parseAndCheckFile (checker : FSharpCompilerServiceChecker) (file: VolatileFile) opts =
     async {
       logger.info (
         Log.setMessage "Getting typecheck results for {file} - {hash}"
         >> Log.addContextDestructured "file" file
-        >> Log.addContextDestructured "hash" (sourceText.GetHashCode())
+        >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
       )
 
-      let! result = checker.ParseAndCheckFileInProject(file, (sourceText.GetHashCode()), sourceText, opts)
-
-      notifications.Trigger(NotificationEvent.FileParsed(file))
+      let! result = checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
+      analyzeFile (file.Lines.FileName, file.Version) |> Async.Start
+      notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName))
 
       match result with
       | Error e ->
@@ -667,7 +694,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Array.distinctBy (fun e ->
             e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-        let uri = Path.LocalPathToUri(file)
+        let uri = Path.LocalPathToUri(file.Lines.FileName)
         let diags = errors |> Array.map fcsErrorToDiagnostic
         diagnosticCollections.SetFor(uri, "F# Compiler", diags)
         return parseAndCheck
@@ -681,7 +708,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       )
 
       match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
-      | Some fileInfo, Some (opts) -> return! parseAndCheckFile checker f fileInfo.Lines opts |> Async.Ignore
+      | Some fileInfo, Some (opts) -> return! parseAndCheckFile checker fileInfo opts |> Async.Ignore
       | _, _ -> ()
     }
 
@@ -712,7 +739,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AMap.mapA (fun file info ->
       aval {
         let! checker = checker
-        let sourceText = info.Lines
 
         match! getProjectOptionsForFile file with
         | Some (opts) ->
@@ -720,7 +746,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Debug.measure "parseAndCheckFile"
             <| fun () ->
                  try
-                   parseAndCheckFile checker file sourceText opts
+                   parseAndCheckFile checker info opts
                    |> Async.RunSynchronouslyWithCT typeCheckCancellation.Token
                    |> Some
                  with :? OperationCanceledException as e ->
@@ -1236,7 +1262,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
 
-          transact (fun () -> openFiles[filePath] <- file) |> ignore
+          transact (fun () ->
+            typeCheckCancellation.Cancel()
+            typeCheckCancellation.Dispose()
+            typeCheckCancellation <- new CancellationTokenSource()
+            openFiles[filePath] <- file) |> ignore
           let checker = checker |> AVal.force
           do! forceTypeCheck checker filePath
           return ()
@@ -1261,8 +1291,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let doc = p.TextDocument
 
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-          transact (fun () -> openFiles.Remove(filePath) |> ignore)
+
           diagnosticCollections.ClearFor(doc.Uri)
+          // do! Async.Sleep 1000
           return ()
         with e ->
           logger.error (
@@ -1327,11 +1358,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
 
           // This removes any in memory changes, it will re-read from the filesystem
-          transact (fun () -> openFiles[filePath] <- file)
-
+          transact (fun () ->
+            typeCheckCancellation.Cancel()
+            typeCheckCancellation.Dispose()
+            typeCheckCancellation <- new CancellationTokenSource()
+            openFiles[filePath] <- file)
           let checker = checker |> AVal.force
           let knownFiles = openFiles |> AMap.force |> Seq.map fst
           do! knownFiles |> Seq.map (forceTypeCheck checker) |> Async.Sequential |> Async.Ignore
+          // GC.Collect()
+          // GC.WaitForPendingFinalizers()
           return ()
         with e ->
           logger.error (

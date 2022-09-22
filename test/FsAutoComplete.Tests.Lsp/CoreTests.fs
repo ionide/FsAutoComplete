@@ -377,8 +377,8 @@ let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
   let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CloseTests")
   let workspace = Path.Combine(root, "Workspace")
-  serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server -> [
-    ftestCaseAsync "closing untitled script file clears diagnostics" (async {
+  fserverTestList "close tests" state defaultConfigDto (Some workspace) (fun server -> [
+    testCaseAsync "closing untitled script file clears diagnostics" (async {
 
       let source =
         // The value or constructor 'untitled' is not defined.
@@ -389,7 +389,7 @@ let closeTests state =
       do! doc |> Document.close
 
       let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
+      Expect.equal diags Array.empty "There should be a final publishDiagnostics without any diags"
     })
     testCaseAsync "closing existing script file inside workspace doesn't clear diagnostics" (async {
       let! (doc, diags) = server |> Server.openDocument "Script.fsx"
