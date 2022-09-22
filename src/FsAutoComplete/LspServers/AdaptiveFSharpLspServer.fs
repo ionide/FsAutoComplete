@@ -947,6 +947,62 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile |])
 
+  let forgetDocument (uri: DocumentUri) =
+    let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
+
+    let doesNotExist (file: string<LocalPath>) = not (File.Exists(UMX.untag file))
+
+    let isOutsideWorkspace (file: string<LocalPath>) = 
+      rootPath
+      |> AVal.map (fun rootPath ->
+        match rootPath with
+        | None -> true // no root workspace specified
+        | Some rootPath ->
+          let rec isInside (rootDir: DirectoryInfo, dirToCheck: DirectoryInfo) =
+            if String.Equals(rootDir.FullName, dirToCheck.FullName, StringComparison.InvariantCultureIgnoreCase) then
+              true
+            else
+              match dirToCheck.Parent with
+              | null -> false
+              | parent -> isInside (rootDir, parent)
+          
+          let rootDir = DirectoryInfo(rootPath)
+          let fileDir = FileInfo(UMX.untag file).Directory
+
+          if isInside(rootDir, fileDir) then
+            false
+          else
+            getProjectOptionsForFile file
+            |> AVal.map (fun projectOptions ->
+              match projectOptions with
+              | None -> true
+              | Some projectOptions ->
+                if doesNotExist (UMX.tag projectOptions.ProjectFileName) then
+                  true // script file
+                else
+                  // issue: fs-file does never get removed from project options (-> requires reload of FSAC to register)
+                  // -> don't know if file still part of project (file might have been removed from project)
+                  // -> keep cache for file
+                  false
+            ) |> AVal.force
+      ) |> AVal.force
+    
+    if doesNotExist filePath || isOutsideWorkspace filePath then
+      logger.info (
+        Log.setMessage "Removing cached data for {file}."
+        >> Log.addContext "file" filePath
+      )
+      transact(fun () ->
+        openFiles.Remove filePath |> ignore
+      )
+      diagnosticCollections.ClearFor(uri)
+    else
+      logger.info (
+        Log.setMessage "File {file} exists inside workspace so diagnostics will not be cleared"
+        >> Log.addContext "file" filePath
+      )
+
+
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : LspResult<SemanticTokens option> =
       result {
 
@@ -1289,11 +1345,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let doc = p.TextDocument
+          forgetDocument doc.Uri
 
-          let filePath = doc.GetFilePath() |> Utils.normalizePath
-
-          diagnosticCollections.ClearFor(doc.Uri)
-          // do! Async.Sleep 1000
           return ()
         with e ->
           logger.error (
@@ -2580,8 +2633,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           p.Changes
           |> Array.iter (fun c ->
             if c.Type = FileChangeType.Deleted then
-              let uri = c.Uri
-              diagnosticCollections.ClearFor uri
+              forgetDocument c.Uri
 
             ())
         with e ->
