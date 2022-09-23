@@ -20,6 +20,13 @@ jobs:
             label: "repo global.json"
             build_net7: false
             test_tfm: net6.0
+          # latest 6.0.100 (covers Ubuntu distro builds of the SDK)
+          - global-json-file: "global.json"
+            dotnet-version: "6.0.109"
+            include-prerelease: false
+            label: "6.0.109"
+            build_net7: false
+            test_tfm: net6.0
           # latest 6.0 stable
           - global-json-file: "global.json"
             dotnet-version: "6.0.x"
