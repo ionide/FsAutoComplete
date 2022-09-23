@@ -48,38 +48,38 @@ jobs:
     name: Build on ${{matrix.os}} for ${{ matrix.label }}
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    # setup .NET per the repo global.json
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      # setup .NET per the repo global.json
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v2
 
-    # setup .NET per test session
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v2
-      with:
-        include-prerelease: ${{ matrix.include-prerelease }}
-        global-json-file: ${{ matrix.global-json-file }}
-        dotnet-version: ${{ matrix.dotnet-version }}
+      # setup .NET per test session
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          include-prerelease: ${{ matrix.include-prerelease }}
+          global-json-file: ${{ matrix.global-json-file }}
+          dotnet-version: ${{ matrix.dotnet-version }}
 
-    # remove global.json so that the env configuration takes precedence
-    - name: Purge global.json
-      run: rm global.json
+      # remove global.json so that the env configuration takes precedence
+      - name: Purge global.json
+        run: rm global.json
 
-    # let's make sure we're on the version we think we are.
-    - name: Announce .NET version
-      run: dotnet --info
+      # let's make sure we're on the version we think we are.
+      - name: Announce .NET version
+        run: dotnet --info
 
-    - name: Restore tools
-      run: dotnet tool restore
+      - name: Restore tools
+        run: dotnet tool restore
 
-    - name: Run Build
-      run: dotnet run --project build -t Build
-      env:
-        BuildNet7: ${{ matrix.build_net7 }}
+      - name: Run Build
+        run: dotnet run --project build -t Build
+        env:
+          BuildNet7: ${{ matrix.build_net7 }}
 
-    - name: Run and report tests
-      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager"
-      working-directory: test/FsAutoComplete.Tests.Lsp
-      env:
-        BuildNet7: ${{ matrix.build_net7 }}
+      - name: Run and report tests
+        run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager"
+        working-directory: test/FsAutoComplete.Tests.Lsp
+        env:
+          BuildNet7: ${{ matrix.build_net7 }}
