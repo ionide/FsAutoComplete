@@ -50,10 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # setup .NET per the repo global.json
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v2
-
       # setup .NET per test session
       - name: Setup .NET
         uses: actions/setup-dotnet@v2
