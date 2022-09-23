@@ -261,9 +261,7 @@ module Commands =
               |> List.filter (fun e ->
                 match entityKind, (e.Kind LookupType.Fuzzy) with
                 | EntityKind.Attribute, EntityKind.Attribute
-                | EntityKind.Type,
-                  (EntityKind.Type
-                  | EntityKind.Attribute)
+                | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
                 | EntityKind.FunctionOrValue _, _ -> true
                 | EntityKind.Attribute, _
                 | _, EntityKind.Module _
