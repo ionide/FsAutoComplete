@@ -20,6 +20,9 @@ jobs:
            6.0.x
           include-prerelease: true
 
+      - name: remove global.json so that 7.0 builds
+        run: rm global.json
+
       - name: Restore tools
         run: dotnet tool restore
 
