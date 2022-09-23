@@ -90,7 +90,8 @@ type NotificationEvent =
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
 
-  let addFile (fsprojPath: string) fileVirtPath = async {
+  let addFile (fsprojPath: string) fileVirtPath =
+    async {
       try
         let dir = Path.GetDirectoryName fsprojPath
         let newFilePath = Path.Combine(dir, fileVirtPath)
@@ -108,7 +109,8 @@ module Commands =
         return CoreResponse.ErrorRes ex.Message
     }
 
-  let addFileAbove (fsprojPath: string) (fileVirtPath: string) newFileName = async {
+  let addFileAbove (fsprojPath: string) (fileVirtPath: string) newFileName =
+    async {
       try
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
@@ -129,7 +131,8 @@ module Commands =
         return CoreResponse.ErrorRes ex.Message
     }
 
-  let addFileBelow (fsprojPath: string) (fileVirtPath: string) newFileName = async {
+  let addFileBelow (fsprojPath: string) (fileVirtPath: string) newFileName =
+    async {
       try
         let dir = Path.GetDirectoryName fsprojPath
         let virtPathDir = Path.GetDirectoryName fileVirtPath
@@ -150,12 +153,14 @@ module Commands =
         return CoreResponse.ErrorRes ex.Message
     }
 
-  let removeFile fsprojPath fileVirtPath = async {
+  let removeFile fsprojPath fileVirtPath =
+    async {
       FsProjEditor.removeFile fsprojPath fileVirtPath
       return CoreResponse.Res()
     }
 
-  let addExistingFile fsprojPath fileVirtPath = async {
+  let addExistingFile fsprojPath fileVirtPath =
+    async {
       FsProjEditor.addExistingFile fsprojPath fileVirtPath
       return CoreResponse.Res()
     }
@@ -1628,10 +1633,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               return CoreResponse.Res(HelpText.Full(sym, tip, n))
     }
 
-  static member CompilerLocation(checker : FSharpCompilerServiceChecker) =
+  static member CompilerLocation(checker: FSharpCompilerServiceChecker) =
     CoreResponse.Res(Environment.fsc, Environment.fsi, Some "", checker.GetDotnetRoot())
-  member x.CompilerLocation() =
-    Commands.CompilerLocation(checker)
+
+  member x.CompilerLocation() = Commands.CompilerLocation(checker)
 
   member x.Colorization enabled = state.ColorizationOutput <- enabled
   member x.Error msg = [ CoreResponse.ErrorRes msg ]
@@ -1714,7 +1719,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let indentString = String.replicate indentLength " "
 
       let! (_, memberParameters, genericParameters) =
-         Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+        Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
 
       let summarySection = "/// <summary></summary>"
 
