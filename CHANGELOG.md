@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.1] - 2022-09-22
+
+### Changed
+
+* [Remove diagnostics for files that aren't in the workspace when they are closed](https://github.com/fsharp/FsAutoComplete/pull/1010) (thanks @Booksbaum!)
+* [Improve performance/concurrency for checking files](https://github.com/fsharp/FsAutoComplete/pull/1008) (thanks @Booksbaum!)
+
 ## [0.57.0] - 2022-09-05
 
 ### Added
