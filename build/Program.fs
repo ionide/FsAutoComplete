@@ -223,8 +223,6 @@ let init args =
 
   "ReleaseArchive" ==> "All" |> ignore<string>
 
-  Target.runOrDefaultWithArguments "Build"
-
 [<EntryPoint>]
 let main args =
   init ((args |> List.ofArray))
