@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.57.2] - 2022-09-24
+
+### Fixed
+
+* [Fix request cancellation causing crashes for emacs clients](https://github.com/fsharp/FsAutoComplete/pull/1013)
+
 ## [0.57.1] - 2022-09-22
 
 ### Changed
