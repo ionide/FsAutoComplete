@@ -39,14 +39,15 @@ open FsAutoComplete.LspHelpers
 [<AutoOpen>]
 module AdaptiveExtensions =
   type ChangeableHashMap<'Key, 'Value> with
+
     member x.AddOrUpdate(key, adder, updater) =
       match x.TryGetValue key with
       | None -> x.[key] <- adder key
       | Some v -> x.[key] <- updater key v
 
 module AVal =
-  let mapOption f =
-    AVal.map (Option.map f)
+  let mapOption f = AVal.map (Option.map f)
+
 module ASet =
   let mapAtoAMap mapper src =
     src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
@@ -54,7 +55,7 @@ module ASet =
 module AMap =
   let tryFindA key map =
     AMap.tryFind key map
-    |> AVal.bind(Option.defaultWith(fun () -> AVal.constant None))
+    |> AVal.bind (Option.defaultWith (fun () -> AVal.constant None))
 
 
 [<RequireQualifiedAccess>]
@@ -311,9 +312,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        .BufferedDebounce(
-          TimeSpan.FromMilliseconds(200.)
-        )
+        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
         .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
@@ -486,15 +485,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFiles = cmap<string<LocalPath>, VolatileFile * CancellationTokenSource> ()
 
-  let updateOpenFiles (file : VolatileFile) =
+  let updateOpenFiles (file: VolatileFile) =
     openFiles
     |> AMap.tryFind file.Lines.FileName
     |> AVal.force
-    |> Option.iter(fun (_,cts) -> cts.Cancel() ; cts.Dispose())
+    |> Option.iter (fun (_, cts) ->
+      cts.Cancel()
+      cts.Dispose())
 
-    transact(fun () ->
-      openFiles[file.Lines.FileName] <- file, new CancellationTokenSource()
-    )
+    transact (fun () -> openFiles[file.Lines.FileName] <- file, new CancellationTokenSource())
 
   let volaTileFile path text version lastWriteTime =
     { Touched = lastWriteTime
@@ -513,10 +512,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         if File.Exists untaged then
           let change = File.ReadAllText untaged
+
           let file =
             { Touched = lastWriteTime
               Lines = NamedText(file, change)
               Version = None }
+
           (file, new CancellationTokenSource()) |> Some
         else
           None
@@ -537,6 +538,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFiles
     |> AMap.map' (fun (info, cts) ->
       let file = info.Lines.FileName
+
       if Utils.isAScript (UMX.untag file) then
         (checker, tfmConfig)
         ||> AVal.map2 (fun checker tfm ->
@@ -553,13 +555,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> AVal.map (fun opts ->
           opts
           |> List.tryFind (fun (opts, _) -> opts.SourceFiles |> Array.contains (UMX.untag file))
-          |> Option.map fst)
-    )
+          |> Option.map fst))
 
 
   let getProjectOptionsForFile file =
-    knownFsFilesToProjectOptions
-    |> AMap.tryFindA file
+    knownFsFilesToProjectOptions |> AMap.tryFindA file
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
@@ -604,7 +604,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     async {
       logger.info (
         Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
-        >> Log.addContextDestructured "file"  file.Lines.FileName
+        >> Log.addContextDestructured "file" file.Lines.FileName
         >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
         >> Log.addContextDestructured "date" (file.Touched)
       )
@@ -647,10 +647,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let forceTypeCheck checker f =
     async {
-      logger.info (
-        Log.setMessage "Forced Check : {file}"
-        >> Log.addContextDestructured "file" f
-      )
+      logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
 
       match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
       | Some (fileInfo, _), Some (opts) -> return! parseAndCheckFile checker fileInfo opts |> Async.Ignore
@@ -744,7 +741,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let tryGetParseResultsForFile filePath pos =
       asyncResult {
-        let! (file , _) = tryGetFile filePath
+        let! (file, _) = tryGetFile filePath
         let! lineStr = file.Lines |> tryGetLineStr pos
         let! tyRes = tryGetTypeCheckResults filePath
         return tyRes, lineStr, file.Lines
@@ -815,27 +812,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          RemoveRedundantQualifier.fix
          Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
          AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
-        //  Run.ifEnabled
-        //    (fun _ -> config.UnionCaseStubGeneration)
-        //    (GenerateUnionCases.fix
-        //      getFileLines
-        //      tryGetParseResultsForFile
-        //      getUnionPatternMatchCases
-        //      (unionCaseStubReplacements config))
+         //  Run.ifEnabled
+         //    (fun _ -> config.UnionCaseStubGeneration)
+         //    (GenerateUnionCases.fix
+         //      getFileLines
+         //      tryGetParseResultsForFile
+         //      getUnionPatternMatchCases
+         //      (unionCaseStubReplacements config))
          ExternalSystemDiagnostics.linter
          ExternalSystemDiagnostics.analyzers
          Run.ifEnabled
            (fun _ -> config.InterfaceStubGeneration)
            (ImplementInterface.fix tryGetParseResultsForFile tryGetProjectOptions (implementInterfaceConfig config))
-        //  Run.ifEnabled
-        //    (fun _ -> config.RecordStubGeneration)
-        //    (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
-        //  Run.ifEnabled
-        //    (fun _ -> config.AbstractClassStubGeneration)
-        //    (GenerateAbstractClassStub.fix
-        //      tryGetParseResultsForFile
-        //      getAbstractClassStub
-        //      (abstractClassStubReplacements config))
+         //  Run.ifEnabled
+         //    (fun _ -> config.RecordStubGeneration)
+         //    (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
+         //  Run.ifEnabled
+         //    (fun _ -> config.AbstractClassStubGeneration)
+         //    (GenerateAbstractClassStub.fix
+         //      tryGetParseResultsForFile
+         //      getAbstractClassStub
+         //      (abstractClassStubReplacements config))
          AddMissingEqualsToTypeDefinition.fix getFileLines
          ChangePrefixNegationToInfixSubtraction.fix getFileLines
          ConvertDoubleEqualsToSingleEquals.fix getRangeText
@@ -1230,7 +1227,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-          let _ = tryGetTypeCheckResults  filePath
+          let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
@@ -1278,6 +1275,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let file =
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
+
           updateOpenFiles file
 
           return ()
@@ -1291,6 +1289,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
 
       }
+
     override __.TextDocumentDidSave(p) =
       asyncResult {
         try
@@ -1298,21 +1297,25 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Log.setMessage "TextDocumentDidSave Request: {parms}"
             >> Log.addContextDestructured "parms" p
           )
+
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
 
           updateOpenFiles file
           let knownFiles = openFiles |> AMap.force |> Seq.map fst
+
           logger.info (
             Log.setMessage "typechecking for files {files}"
             >> Log.addContextDestructured "files" knownFiles
           )
+
           do!
             knownFiles
             |> Seq.map (forceTypeCheck (AVal.force checker))
             |> Async.Sequential
             |> Async.Ignore
+
           GC.Collect()
           GC.WaitForPendingFinalizers()
           return ()
@@ -1693,6 +1696,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let getProjectOptions file =
             getProjectOptionsForFile file |> AVal.force
+
           let projectsThatContainFile file = projectsThatContainFile file
 
           let getDependentProjectsOfProjects ps =
@@ -1865,6 +1869,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let getProjectOptions file =
             getProjectOptionsForFile file |> AVal.force
+
           let projectsThatContainFile file = projectsThatContainFile file
 
           let getDependentProjectsOfProjects ps =
@@ -2010,12 +2015,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             knownFsFilesToProjectOptions
             |> AMap.force
             |> Seq.toList
-            |> List.choose(fun (path,opt) ->
+            |> List.choose (fun (path, opt) ->
               option {
                 let! opt = AVal.force opt
                 return UMX.untag path, opt
-              }
-            )
+              })
 
           let! res =
             Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
@@ -2084,12 +2088,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
+
           let decls =
             knownFsFilesToCheckedDeclarations
             |> AMap.force
             |> Seq.toArray
             |> Array.map (fun (p, ns) -> p, AVal.force ns)
-            |> Array.choose(fun (p, ns) -> ns |> Option.map(fun ns -> p, ns))
+            |> Array.choose (fun (p, ns) -> ns |> Option.map (fun ns -> p, ns))
 
           let res =
             decls
