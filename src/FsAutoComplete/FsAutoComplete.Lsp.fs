@@ -1864,7 +1864,13 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       asyncResult {
         let (fixes: Async<Result<Fix list, string>[]>) =
           codeFixes
-          |> Array.map (fun codeFix -> codeFix codeActionParams)
+          |> Array.map (fun codeFix ->
+            async {
+              try
+                return! codeFix codeActionParams
+              with e ->
+                return Ok []
+            })
           |> Async.Parallel
 
         let! fixes = fixes
