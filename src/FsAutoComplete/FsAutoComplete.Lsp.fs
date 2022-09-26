@@ -1714,10 +1714,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                       )
 
                 let! result =
-                  Cli.Wrap("dotnet").WithArguments(
-                    "tool install fantomas"
-                  )
-                    .WithWorkingDirectory(
+                  Cli.Wrap("dotnet").WithArguments("tool install fantomas").WithWorkingDirectory(
                     rootPath
                   )
                     .ExecuteBufferedAsync()
