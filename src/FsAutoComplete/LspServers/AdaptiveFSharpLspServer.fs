@@ -74,9 +74,7 @@ type AdaptiveWorkspaceChosen =
 
 type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient) =
 
-
   let disposables = new System.Reactive.Disposables.CompositeDisposable()
-
 
   let config = cval<FSharpConfig> FSharpConfig.Default
 
@@ -181,8 +179,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             let diags =
               decls
               |> Array.map
-
-
 
                 (fun ({ Range = range
                         RelativeName = _relName }) ->
@@ -470,19 +466,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let projectsThatContainFile (file: string<LocalPath>) =
-    let untagged = UMX.untag file
-
-    loadedProjectOptions
-    |> AVal.force
-    |> Seq.choose (fun (p, _) ->
-      if p.SourceFiles |> Array.contains untagged then
-        Some p
-      else
-        None)
-    |> Seq.distinct
-    |> Seq.toList
-
   let openFiles = cmap<string<LocalPath>, VolatileFile * CancellationTokenSource> ()
 
   let updateOpenFiles (file: VolatileFile) =
@@ -542,24 +525,24 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       if Utils.isAScript (UMX.untag file) then
         (checker, tfmConfig)
         ||> AVal.map2 (fun checker tfm ->
-          try
-            let opts =
-              checker.GetProjectOptionsFromScript(file, info.Lines, tfm)
-              |> Async.RunSynchronouslyWithCT cts.Token
+          let opts =
+            checker.GetProjectOptionsFromScript(file, info.Lines, tfm)
+            |> Async.RunSynchronouslyWithCTSafe cts.Token
 
-            Some opts
-          with :? OperationCanceledException as e ->
-            None)
+          opts |> Option.map List.singleton |> Option.defaultValue List.empty)
+
       else
         loadedProjectOptions
         |> AVal.map (fun opts ->
           opts
-          |> List.tryFind (fun (opts, _) -> opts.SourceFiles |> Array.contains (UMX.untag file))
-          |> Option.map fst))
+          |> List.filter (fun (opts, _) -> opts.SourceFiles |> Array.contains (UMX.untag file))
+          |> List.map fst))
 
 
   let getProjectOptionsForFile file =
-    knownFsFilesToProjectOptions |> AMap.tryFindA file
+    knownFsFilesToProjectOptions
+    |> AMap.tryFind file
+    |> AVal.bind (Option.defaultValue (AVal.constant []))
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
@@ -649,7 +632,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     async {
       logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
 
-      match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force with
+      match getFileInfoForFile f |> AVal.force, getProjectOptionsForFile f |> AVal.force |> List.tryHead with
       | Some (fileInfo, _), Some (opts) -> return! parseAndCheckFile checker fileInfo opts |> Async.Ignore
       | _, _ -> ()
     }
@@ -662,19 +645,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let! checker = checker
         let sourceText = info.Lines
 
-        match! getProjectOptionsForFile file with
+        match! getProjectOptionsForFile file |> AVal.map List.tryHead with
         | Some opts ->
           return
             Debug.measure "parseFile"
             <| fun () ->
-                 try
-                   let opts = Utils.projectOptionsToParseOptions opts
+                 let opts = Utils.projectOptionsToParseOptions opts
 
-                   checker.ParseFile(file, info.Lines, opts)
-                   |> Async.RunSynchronouslyWithCT cts.Token
-                   |> Some
-                 with :? OperationCanceledException as e ->
-                   None
+                 checker.ParseFile(file, info.Lines, opts)
+                 |> Async.RunSynchronouslyWithCTSafe cts.Token
         | None -> return None
       })
 
@@ -686,17 +665,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let file = info.Lines.FileName
         let! checker = checker
 
-        match! getProjectOptionsForFile file with
+        match! getProjectOptionsForFile file |> AVal.map List.tryHead with
         | Some (opts) ->
           let parseAndCheck =
             Debug.measure "parseAndCheckFile"
             <| fun () ->
-                 try
-                   parseAndCheckFile checker info opts
-                   |> Async.RunSynchronouslyWithCT cts.Token
-                   |> Some
-                 with :? OperationCanceledException as e ->
-                   None
+                 parseAndCheckFile checker info opts
+                 |> Async.RunSynchronouslyWithCTSafe cts.Token
 
           return parseAndCheck
         | None -> return None
@@ -761,7 +736,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
     let tryGetProjectOptions filePath =
-      projectsThatContainFile filePath
+      getProjectOptionsForFile filePath
+      |> AVal.force
       |> Seq.tryHead
       |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
 
@@ -885,6 +861,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             false
           else
             getProjectOptionsForFile file
+            |> AVal.map List.tryHead
             |> AVal.map (fun projectOptions ->
               match projectOptions with
               | None -> true
@@ -1695,9 +1672,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
           let getProjectOptions file =
-            getProjectOptionsForFile file |> AVal.force
+            getProjectOptionsForFile file |> AVal.force |> List.tryHead
 
-          let projectsThatContainFile file = projectsThatContainFile file
+          let projectsThatContainFile file =
+            getProjectOptionsForFile file |> AVal.force
 
           let getDependentProjectsOfProjects ps =
             let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
@@ -1868,9 +1846,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
           let getProjectOptions file =
-            getProjectOptionsForFile file |> AVal.force
+            getProjectOptionsForFile file |> AVal.force |> List.tryHead
 
-          let projectsThatContainFile file = projectsThatContainFile file
+          let projectsThatContainFile file =
+            getProjectOptionsForFile file |> AVal.force
 
           let getDependentProjectsOfProjects ps =
             let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
@@ -2004,7 +1983,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let getProjectOptions file =
-            getProjectOptionsForFile file |> AVal.force |> Option.get
+            getProjectOptionsForFile file |> AVal.force |> List.head
 
           let checker = checker |> AVal.force
 
@@ -2017,7 +1996,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Seq.toList
             |> List.choose (fun (path, opt) ->
               option {
-                let! opt = AVal.force opt
+                let! opt = AVal.force opt |> List.tryHead
                 return UMX.untag path, opt
               })
 
@@ -2397,9 +2376,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
               let getProjectOptions file =
-                getProjectOptionsForFile file |> AVal.force
+                getProjectOptionsForFile file |> AVal.force |> List.tryHead
 
-              let projectsThatContainFile file = projectsThatContainFile file
+              let projectsThatContainFile file =
+                getProjectOptionsForFile file |> AVal.force
 
               let getDependentProjectsOfProjects ps =
                 let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst

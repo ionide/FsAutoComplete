@@ -140,6 +140,13 @@ module Async =
   let RunSynchronouslyWithCT ct work =
     Async.RunSynchronously(work, cancellationToken = ct)
 
+  let RunSynchronouslyWithCTSafe ct work =
+    try
+      work |> RunSynchronouslyWithCT ct |> Some
+    with
+    | :? OperationCanceledException as e -> None
+    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") -> None
+
 [<AutoOpen>]
 module ObservableExtensions =
   open System.Reactive.Linq
