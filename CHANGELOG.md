@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.57.3] - 2022-09-27
+
+### Fixed
+
+* [Don't let codeFixes bring down the application](https://github.com/fsharp/FsAutoComplete/pull/1016)
+
+### Changed
+
+* [Renamed fantomas-tool settings to fantomas](https://github.com/fsharp/FsAutoComplete/pull/1012) (Thanks @nojaf!)
+
 ## [0.57.2] - 2022-09-24
 
 ### Fixed
