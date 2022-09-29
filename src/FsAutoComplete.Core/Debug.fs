@@ -127,16 +127,19 @@ module Debug =
 
         let message =
           match eventArgs.EventId with
-          | 0 -> Log.setMessage (string eventArgs.Payload.[0])
-          | 1 -> Log.setMessage "In {function}" >> logFunctionName eventArgs.Payload.[0]
+          | 0 -> Log.setMessage (string eventArgs.Payload.[0]) |> Some
+          | 1 -> Log.setMessage "In {function}" >> logFunctionName eventArgs.Payload.[0] |> Some
           | 2 ->
             Log.setMessage "{function}: {message}"
             >> logFunctionName eventArgs.Payload.[1]
             >> Log.addContextDestructured "message" eventArgs.Payload.[0]
+            |> Some
           | 3 ->
             inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
 
-            Log.setMessage "Started {function}" >> logFunctionName eventArgs.Payload.[0]
+            Log.setMessage "Started {function}"
+            >> logFunctionName eventArgs.Payload.[0]
+            |> Some
           | 4 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
@@ -146,12 +149,14 @@ module Debug =
               >> logFunctionName eventArgs.Payload.[0]
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
             | false, _ -> Log.setMessage "Finished {function}" >> logFunctionName eventArgs.Payload.[0]
+            |> Some
           | 5 ->
             inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
 
             Log.setMessage "Started {function}: {message}"
             >> logFunctionName eventArgs.Payload.[1]
             >> Log.addContextDestructured "message" eventArgs.Payload.[0]
+            |> Some
           | 6 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
@@ -161,17 +166,18 @@ module Debug =
               >> logFunctionName eventArgs.Payload.[1]
               >> Log.addContextDestructured "seconds" delta.TotalSeconds
               >> Log.addContextDestructured "message" (eventArgs.Payload.[0])
+              |> Some
             | false, _ ->
               Log.setMessage "Finished {function}: {message}"
               >> logFunctionName eventArgs.Payload.[1]
               >> Log.addContextDestructured "message" eventArgs.Payload.[0]
-          | other ->
-            Log.setMessage "Unknown event {name}({id}) with payload {payload}"
-            >> Log.addContext "id" other
-            >> Log.addContextDestructured "name" eventArgs.EventName
-            >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
-
-        (eventLevelToLogLevel eventArgs.Level) message
+              |> Some
+          | other -> None
+        // Log.setMessage "Unknown event {name}({id}) with payload {payload}"
+        // >> Log.addContext "id" other
+        // >> Log.addContextDestructured "name" eventArgs.EventName
+        // >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
+        message |> Option.iter (eventLevelToLogLevel eventArgs.Level)
 
       interface System.IDisposable with
         member __.Dispose() =

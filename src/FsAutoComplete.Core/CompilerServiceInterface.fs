@@ -24,6 +24,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       keepAllBackgroundSymbolUses = true
     )
 
+
   // /// FCS only accepts absolute file paths, so this ensures that by
   // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
   // let ensureAbsolutePath path =

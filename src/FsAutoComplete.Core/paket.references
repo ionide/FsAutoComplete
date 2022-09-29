@@ -1,7 +1,4 @@
 FSharp.Compiler.Service
-Ionide.ProjInfo
-Ionide.ProjInfo.FCS
-Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Newtonsoft.Json
 ICSharpCode.Decompiler

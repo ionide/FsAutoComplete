@@ -48,6 +48,33 @@ module AdaptiveExtensions =
 module AVal =
   let mapOption f = AVal.map (Option.map f)
 
+  let mapWithAdditionalDependenies (mapping: 'a -> 'b * list<IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
+    let mutable lastDeps = HashSet.empty
+
+    { new AVal.AbstractVal<'b>() with
+        member x.Compute(token: AdaptiveToken) =
+          let input = value.GetValue token
+
+          // re-evaluate the mapping based on the (possibly new input)
+          let result, deps = mapping input
+
+          // compute the change in the additional dependencies and adjust the graph accordingly
+          let newDeps = HashSet.ofList deps
+
+          for op in HashSet.computeDelta lastDeps newDeps do
+            match op with
+            | Add (_, d) ->
+              // the new dependency needs to be evaluated with our token, s.t. we depend on it in the future
+              d.GetValueUntyped token |> ignore
+            | Rem (_, d) ->
+              // we no longer need to depend on the old dependency so we can remove ourselves from its outputs
+              lock d.Outputs (fun () -> d.Outputs.Remove x) |> ignore
+
+          lastDeps <- newDeps
+
+          result }
+    :> aval<_>
+
 module ASet =
   let mapAtoAMap mapper src =
     src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
@@ -315,8 +342,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
   let adaptiveFile (filePath: string<LocalPath>) =
-    AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
-    |> AVal.map (fun writeTime -> filePath, writeTime)
+    let file =
+      AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
+      |> AVal.map (fun writeTime -> filePath, writeTime)
+
+    file.AddMarkingCallback(fun () ->
+      logger.info (
+        Log.setMessage "Loading projects because of {delta}"
+        >> Log.addContextDestructured "delta" filePath
+      ))
+    |> ignore
+
+    file
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
@@ -361,66 +398,61 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
 
-  let objFileChanges (projectPaths: seq<string>) =
-
-    projectPaths
-    |> ASet.ofSeq
-    |> ASet.collect (fun (p: string) ->
-      let objFolder = (Path.GetDirectoryName p) </> "obj" |> Path.GetFullPath
-      let projectAssetsFile = objFolder </> "project.assets.json"
-      let projectProps = ".*\.props$"
-
-      let projectAssetsFileAdaptive =
-        (UMX.tag projectAssetsFile) |> ASet.single |> ASet.mapA (adaptiveFile)
-
-      AdaptiveDirectory.GetFiles(objFolder, System.Text.RegularExpressions.Regex(projectProps))
-      |> ASet.map (fun fi -> UMX.tag fi.FullName)
-      |> ASet.mapA (adaptiveFile)
-      |> ASet.union (projectAssetsFileAdaptive))
-    |> AMap.ofASet
-    |> AMap.map' (fun v -> v |> Seq.max)
-
-
   let loadedProjectOptions =
-    adaptiveWorkspacePaths
-    |> AVal.bind (fun wsp ->
+    (loader, adaptiveWorkspacePaths)
+    ||> AVal.bind2 (fun loader wsp ->
       aval {
         match wsp with
         | AdaptiveWorkspaceChosen.NotChosen -> return []
         | AdaptiveWorkspaceChosen.Sln _ -> return raise (NotImplementedException())
         | AdaptiveWorkspaceChosen.Directory _ -> return raise (NotImplementedException())
         | AdaptiveWorkspaceChosen.Projs projects ->
-          let! loader = loader
-          and! projects = projects
-          let projPaths = projects |> Seq.map (fst >> UMX.untag)
+          let! projectOptions =
+            projects
+            |> AVal.mapWithAdditionalDependenies (fun projects ->
 
-          projects
-          |> Seq.iter (fun (proj, _) ->
 
-            UMX.untag proj
-            |> ProjectResponse.ProjectLoading
-            |> NotificationEvent.Workspace
-            |> notifications.Trigger)
+              projects
+              |> Seq.iter (fun (proj: string<LocalPath>, _) ->
+                UMX.untag proj
+                |> ProjectResponse.ProjectLoading
+                |> NotificationEvent.Workspace
+                |> notifications.Trigger)
 
-          let projectObjDependencies = objFileChanges projPaths
-          // JB:TODO Ask Discord about if this could cause memory leaks
-          projectObjDependencies.AddCallback(fun old delta ->
-            logger.info (
-              Log.setMessage "Loading projects because of {delta}"
-              >> Log.addContextDestructured "delta" delta
-            ))
-          |> ignore
+              let projectOptions =
+                loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList)
+                |> Seq.toList
 
-          let! projectObjDependencies = projectObjDependencies |> AMap.toAVal
+              for p in projectOptions do
+                logger.info (
+                  Log.setMessage "Found BaseIntermediateOutputPath of {path}"
+                  >> Log.addContextDestructured "path" p.Properties
+                )
 
-          let projectOptions =
-            loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList)
-            |> Seq.toList
+              let additionalDependencies =
+
+                [ for p in projectOptions do
+                    match p.Properties |> Seq.tryFind (fun x -> x.Name = "ProjectAssetsFile") with
+                    | Some v -> yield adaptiveFile (UMX.tag v.Value)
+                    | None -> ()
+
+                    match p.Properties |> Seq.tryFind (fun x -> x.Name = "MSBuildAllProjects") with
+                    | Some v ->
+                      yield!
+                        v.Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        |> Array.map (UMX.tag >> adaptiveFile)
+                    | None -> () ]
+                |> Seq.cast<IAdaptiveValue>
+                |> Seq.toList
+
+              projectOptions, additionalDependencies)
+
 
           let options =
             projectOptions
             |> List.map (fun o ->
               let fso = FCS.mapToFSharpProjectOptions o projectOptions
+
               fso, o)
 
           options
@@ -459,7 +491,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> NotificationEvent.Workspace
           |> notifications.Trigger
 
-          return options
+          return options |> List.map fst
       })
 
 
@@ -535,8 +567,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         loadedProjectOptions
         |> AVal.map (fun opts ->
           opts
-          |> List.filter (fun (opts, _) -> opts.SourceFiles |> Array.contains (UMX.untag file))
-          |> List.map fst))
+          |> List.filter (fun (opts) -> opts.SourceFiles |> Array.contains (UMX.untag file))))
 
 
   let getProjectOptionsForFile file =
@@ -592,8 +623,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContextDestructured "date" (file.Touched)
       )
 
+      use cts = new CancellationTokenSource()
+      cts.CancelAfter(TimeSpan.FromSeconds(60.))
+
       let! result =
         checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
+        |> Async.withCancellation cts.Token
 
       analyzeFile (file.Lines.FileName, file.Version) |> Async.Start
       notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName))
@@ -614,7 +649,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         )
 
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
-
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
         let errors =
@@ -625,6 +659,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let uri = Path.LocalPathToUri(file.Lines.FileName)
         let diags = errors |> Array.map fcsErrorToDiagnostic
         diagnosticCollections.SetFor(uri, "F# Compiler", diags)
+
+        // System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
+        //   System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
+
+        // GC.Collect()
+        // GC.WaitForPendingFinalizers()
         return parseAndCheck
     }
 
@@ -642,10 +682,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AMap.map' (fun (info, cts) ->
       aval {
         let file = info.Lines.FileName
-        let! checker = checker
         let sourceText = info.Lines
 
-        match! getProjectOptionsForFile file |> AVal.map List.tryHead with
+        let! checker = checker
+        and! projectOptions = getProjectOptionsForFile file
+
+        match List.tryHead projectOptions with
         | Some opts ->
           return
             Debug.measure "parseFile"
@@ -664,8 +706,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       aval {
         let file = info.Lines.FileName
         let! checker = checker
+        and! projectOptions = getProjectOptionsForFile file
 
-        match! getProjectOptionsForFile file |> AVal.map List.tryHead with
+        match List.tryHead projectOptions with
         | Some (opts) ->
           let parseAndCheck =
             Debug.measure "parseAndCheckFile"
@@ -1280,21 +1323,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
 
           updateOpenFiles file
-          let knownFiles = openFiles |> AMap.force |> Seq.map fst
+          let knownFiles = openFiles |> AMap.force
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
             >> Log.addContextDestructured "files" knownFiles
           )
 
-          do!
-            knownFiles
-            |> Seq.map (forceTypeCheck (AVal.force checker))
-            |> Async.Sequential
-            |> Async.Ignore
+          let checker = (AVal.force checker)
 
-          GC.Collect()
-          GC.WaitForPendingFinalizers()
+          for (file, (_, ct)) in knownFiles do
+            forceTypeCheck checker file
+            |> Async.RunSynchronouslyWithCTSafe ct.Token
+            |> ignore<unit option>
+
+
           return ()
         with e ->
           logger.error (
@@ -1678,7 +1721,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             getProjectOptionsForFile file |> AVal.force
 
           let getDependentProjectsOfProjects ps =
-            let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+            let projectSnapshot = loadedProjectOptions |> AVal.force
             let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
             let currentPass = ResizeArray()
@@ -1711,7 +1754,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let getProjectOptionsForFsproj file =
             loadedProjectOptions
             |> AVal.force
-            |> Seq.map fst
             |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
           let getDeclarationLocation (symUse, text) =
@@ -1852,7 +1894,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             getProjectOptionsForFile file |> AVal.force
 
           let getDependentProjectsOfProjects ps =
-            let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+            let projectSnapshot = loadedProjectOptions |> AVal.force
             let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
             let currentPass = ResizeArray()
@@ -1885,7 +1927,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let getProjectOptionsForFsproj file =
             loadedProjectOptions
             |> AVal.force
-            |> Seq.map fst
             |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
           let! usages =
@@ -2382,7 +2423,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 getProjectOptionsForFile file |> AVal.force
 
               let getDependentProjectsOfProjects ps =
-                let projectSnapshot = loadedProjectOptions |> AVal.force |> Seq.map fst
+                let projectSnapshot = loadedProjectOptions |> AVal.force
                 let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
                 let currentPass = ResizeArray()
@@ -2415,7 +2456,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               let getProjectOptionsForFsproj file =
                 loadedProjectOptions
                 |> AVal.force
-                |> Seq.map fst
                 |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
               let! res =
