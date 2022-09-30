@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.57.4] - 2022-09-30
+
+### Fixed
+
+* [Update LSP library so Code Actions calls don't crash anymore](https://github.com/fsharp/FsAutoComplete/pull/1018)
+
 ## [0.57.3] - 2022-09-27
 
 ### Fixed
