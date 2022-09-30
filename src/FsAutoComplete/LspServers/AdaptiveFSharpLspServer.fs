@@ -340,7 +340,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
-
   let adaptiveFile (filePath: string<LocalPath>) =
     let file =
       AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
@@ -660,11 +659,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let diags = errors |> Array.map fcsErrorToDiagnostic
         diagnosticCollections.SetFor(uri, "F# Compiler", diags)
 
-        // System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
-        //   System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
+          System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
 
-        // GC.Collect()
-        // GC.WaitForPendingFinalizers()
+        GC.Collect()
+        GC.WaitForPendingFinalizers()
+
         return parseAndCheck
     }
 
@@ -719,22 +719,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return parseAndCheck
         | None -> return None
       })
-
-  // let knownFsFilesToRecentCheckedFileResults =
-  //   openFiles
-  //   |> AMap.map' (fun (info, cts) ->
-  //     aval {
-  //       let file = info.Lines.FileName
-  //       let! checker = checker
-  //       and! projectOptions = getProjectOptionsForFile file
-
-  //       match List.tryHead projectOptions with
-  //       | Some (opts) ->
-  //         let parseAndCheck = checker.TryGetRecentCheckResultsForFile(file, opts, None)
-  //         return parseAndCheck
-  //       | None -> return None
-  //     })
-
 
   let getParseResults filePath =
     knownFsFilesToParsedResults |> AMap.tryFindA filePath
@@ -1373,7 +1357,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addExn e
           )
 
-          return ()
+
+        return ()
       }
 
     override __.TextDocumentCompletion(p: CompletionParams) =
@@ -2326,7 +2311,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               [| if config.LineLens.Enabled <> "replaceCodeLens" then
                    if config.CodeLenses.Signature.Enabled then
                      yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
-
                  // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
                  if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
                    yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
