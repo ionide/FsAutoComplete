@@ -559,7 +559,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         ||> AVal.map2 (fun checker tfm ->
           let opts =
             checker.GetProjectOptionsFromScript(file, info.Lines, tfm)
-            |> Async.RunSynchronouslyWithCTSafe cts.Token
+            |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
           opts |> Option.map List.singleton |> Option.defaultValue List.empty)
 
@@ -695,7 +695,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                  let opts = Utils.projectOptionsToParseOptions opts
 
                  checker.ParseFile(file, info.Lines, opts)
-                 |> Async.RunSynchronouslyWithCTSafe cts.Token
+                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
         | None -> return None
       })
 
@@ -714,11 +714,26 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Debug.measure "parseAndCheckFile"
             <| fun () ->
                  parseAndCheckFile checker info opts
-                 |> Async.RunSynchronouslyWithCTSafe cts.Token
+                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
           return parseAndCheck
         | None -> return None
       })
+
+  // let knownFsFilesToRecentCheckedFileResults =
+  //   openFiles
+  //   |> AMap.map' (fun (info, cts) ->
+  //     aval {
+  //       let file = info.Lines.FileName
+  //       let! checker = checker
+  //       and! projectOptions = getProjectOptionsForFile file
+
+  //       match List.tryHead projectOptions with
+  //       | Some (opts) ->
+  //         let parseAndCheck = checker.TryGetRecentCheckResultsForFile(file, opts, None)
+  //         return parseAndCheck
+  //       | None -> return None
+  //     })
 
 
   let getParseResults filePath =
@@ -726,6 +741,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let getTypeCheckResults filePath =
     knownFsFilesToCheckedFilesResults |> AMap.tryFindA (filePath)
+
+
+  let getRecentTypeCheckResults filePath =
+    let checker = checker |> AVal.force
+    let projectOptions = getProjectOptionsForFile filePath |> AVal.force
+
+    List.tryHead projectOptions
+    |> Option.bind (fun opts -> checker.TryGetRecentCheckResultsForFile(filePath, opts, None))
+
 
   let tryGetLineStr pos (text: NamedText) =
     text.GetLine(pos)
@@ -737,10 +761,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Result.ofOption (fun () -> $"No parse results for {filePath}")
 
   let tryGetTypeCheckResults filePath =
-    getTypeCheckResults (filePath)
-    |> AVal.force
-    |> Result.ofOption (fun () -> $"No type check results for {filePath}")
+    let tyResults = getTypeCheckResults (filePath)
 
+    match getRecentTypeCheckResults filePath with
+    | Some s ->
+      if lock tyResults (fun () -> tyResults.OutOfDate) then
+        Async.Start(async { tyResults |> AVal.force |> ignore })
+
+      Some s
+    | None -> tyResults |> AVal.force
+    |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
   let knownFsFilesToCheckedDeclarations =
     knownFsFilesToCheckedFilesResults
@@ -1179,10 +1209,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                             TriggerCharacters = Some([| '.'; ''' |])
                             AllCommitCharacters = None //TODO: what chars shoudl commit completions?
                           }
-                      CodeLensProvider =
-                        // None
-                        // TODO: Fix bugs and performance
-                        Some { CodeLensOptions.ResolveProvider = Some true }
+                      CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
                       CodeActionProvider =
                         Some
                           { CodeActionKinds = None
@@ -1311,7 +1338,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
     override __.TextDocumentDidSave(p) =
-      asyncResult {
+      async {
         try
           logger.info (
             Log.setMessage "TextDocumentDidSave Request: {parms}"
@@ -1332,9 +1359,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let checker = (AVal.force checker)
 
-          for (file, (_, ct)) in knownFiles do
+          for (file, (_, cts)) in knownFiles do
             forceTypeCheck checker file
-            |> Async.RunSynchronouslyWithCTSafe ct.Token
+            |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
             |> ignore<unit option>
 
 
@@ -1348,7 +1375,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return ()
       }
-      |> Async.Ignore
 
     override __.TextDocumentCompletion(p: CompletionParams) =
       Debug.measureAsync "TextDocumentCompletion"
@@ -1893,8 +1919,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let projectsThatContainFile file =
             getProjectOptionsForFile file |> AVal.force
 
+
           let getDependentProjectsOfProjects ps =
             let projectSnapshot = loadedProjectOptions |> AVal.force
+
             let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
             let currentPass = ResizeArray()
@@ -1928,6 +1956,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             loadedProjectOptions
             |> AVal.force
             |> Seq.tryFind (fun x -> x.ProjectFileName = file)
+          // |> Option.filter (fun x -> x.ProjectFileName.EndsWith("fsproj"))
 
           let! usages =
             let getDeclarationLocation (symUse, text) =
@@ -2298,9 +2327,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                    if config.CodeLenses.Signature.Enabled then
                      yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
 
-                   // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
-                   if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
-                     yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
+                 // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
+                 if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
+                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
 
             return Some res
         with e ->
@@ -2483,7 +2512,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 match res with
                 | Core.Result.Error msg ->
                   logger.error (
-                    Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+                    Log.setMessage "CodeLensResolve - error getting symbol use for {file} - {error}"
                     >> Log.addContextDestructured "file" file
                     >> Log.addContextDestructured "error" msg
                   )

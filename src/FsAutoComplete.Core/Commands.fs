@@ -89,6 +89,7 @@ type NotificationEvent =
 
 module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+  let commandsLogger = LogProvider.getLoggerByName "Commands"
 
   let addFile (fsprojPath: string) fileVirtPath =
     async {
@@ -680,9 +681,6 @@ module Commands =
     getDeclarationLocation
     (findReferencesForSymbolInFile: (string * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
-    // getProjectOptions
-    // projectsThatContainFile
-    // getDependentProjectsOfProjects
     getProjectOptionsForFsproj
     pos
     lineStr
@@ -699,19 +697,29 @@ module Commands =
           onFound: range -> Async<unit>
         ) =
         asyncResult {
-          let! (references: Range seq) = findReferencesForSymbolInFile (file, project, symbol)
+          try
+            let! (references: Range seq) = findReferencesForSymbolInFile (file, project, symbol)
 
-          for reference in references do
-            do! onFound reference
+            for reference in references do
+              do! onFound reference
+          with e ->
+            commandsLogger.error (
+              Log.setMessage "Failed findReferencesForSymbolInFile with {file}"
+              >> Log.addExn e
+              >> Log.addContextDestructured "file" file
+            // >> Log.addContextDestructured "symbol" symbol
+            )
         }
 
       let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
         projects
-        |> List.traverseAsyncResultM (fun p ->
+        |> List.map (fun p ->
           asyncResult {
             for file in p.SourceFiles do
               do! findReferencesInFile (file, symbol, p, onFound)
           })
+        |> Async.Parallel
+        |> Async.map (Array.toList >> FsToolkit.ErrorHandling.List.sequenceResultM)
 
       let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
 
@@ -762,8 +770,9 @@ module Commands =
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
-        let! symbolFileText = tryGetFileSource (symbolFile)
-        // |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+        let symbolFileText =
+          tryGetFileSource (symbolFile)
+          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
 
         let! symbolText = symbolFileText.[symbolRange]
         // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
@@ -1363,7 +1372,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.TryGetRecentTypeCheckResultsForFile(file, opts, text) =
     async {
-      match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
+      match checker.TryGetRecentCheckResultsForFile(file, opts, Some text) with
       | None ->
         let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
@@ -1947,7 +1956,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let! (opts, source) = state.TryGetFileCheckerOptionsWithSource file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, Some source)
 
       match tyResOpt with
       | None -> ()
@@ -1963,7 +1972,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, Some source)
 
       match tyResOpt with
       | None -> ()
@@ -1983,7 +1992,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
+      match checker.TryGetRecentCheckResultsForFile(file, opts, Some source) with
       | None -> return ()
       | Some tyRes ->
         let! unused =

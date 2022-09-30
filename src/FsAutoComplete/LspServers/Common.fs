@@ -164,7 +164,7 @@ module Async =
 
   let RunSynchronouslyWithCTSafe ct work =
     try
-      work |> RunSynchronouslyWithCT ct |> Some
+      work |> RunSynchronouslyWithCT(ct ()) |> Some
     with
     | :? OperationCanceledException as e -> None
     | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") -> None

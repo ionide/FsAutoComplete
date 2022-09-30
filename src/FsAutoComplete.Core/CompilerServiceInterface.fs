@@ -245,7 +245,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     let path = UMX.untag fn
     checker.ParseFile(path, source, fpo)
 
-  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: NamedText, options) =
+  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: ISourceText, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
@@ -279,14 +279,14 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText option) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
     checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
     let options = clearProjectReferences options
 
-    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, ?sourceText = source, userOpName = opName)
     |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
 
   member x.GetUsesOfSymbol
@@ -322,6 +322,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
+    checkerLogger.info (
+      Log.setMessage "FindReferencesForSymbolInFile - {file}"
+      >> Log.addContextDestructured "file" file
+    )
     checker.FindBackgroundReferencesInFile(
       file,
       project,
