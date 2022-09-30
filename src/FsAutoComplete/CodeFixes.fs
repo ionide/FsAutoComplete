@@ -310,7 +310,12 @@ module Run =
     runDiagnostics (fun d -> d.Message.Contains checkMessage) handler
 
   let ifDiagnosticByType (diagnosticType: string) handler : CodeFix =
-    runDiagnostics (fun d -> d.Source.Contains diagnosticType) handler
+    runDiagnostics
+      (fun d ->
+        match d.Source with
+        | None -> false
+        | Some s -> s.Contains diagnosticType)
+      handler
 
   let ifDiagnosticByCode codes handler : CodeFix =
     runDiagnostics (fun d -> d.Code.IsSome && Set.contains d.Code.Value codes) handler

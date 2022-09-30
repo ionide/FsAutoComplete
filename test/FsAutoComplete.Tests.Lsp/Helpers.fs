@@ -559,10 +559,9 @@ let diagnosticsFromSource (desiredSource: String) =
   Observable.choose (fun (diags: Diagnostic[]) ->
     match diags
           |> Array.choose (fun d ->
-            if d.Source.StartsWith desiredSource then
-              Some d
-            else
-              None)
+            match d.Source with
+            | Some s -> if s.StartsWith desiredSource then Some d else None
+            | None -> None)
       with
     | [||] -> None
     | diags -> Some diags)

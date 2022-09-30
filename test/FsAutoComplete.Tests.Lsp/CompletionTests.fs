@@ -428,11 +428,13 @@ let autoOpenTests state =
                      // Message required for QuickFix to fire ("is not defined")
                      Message = $"The value or constructor '{word}' is not defined."
                      Code = Some "39"
-                     Source = "F# Compiler"
+                     Source = Some "F# Compiler"
                      RelatedInformation = None
                      Tags = None
                      Data = None
-                     CodeDescription = None } |] } }
+                     CodeDescription = None } |]
+              Only = None
+              TriggerKind = None } }
 
       let (|ContainsOpenAction|_|) (codeActions: CodeAction []) =
         codeActions
