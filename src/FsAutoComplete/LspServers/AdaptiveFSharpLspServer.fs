@@ -386,8 +386,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        .SelectMany(fun l -> l.Distinct())
+        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        // .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
@@ -651,7 +651,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         loadedProjectOptions
         |> AVal.map (fun opts ->
           opts
-          |> List.filter (fun (opts) -> opts.SourceFiles |> Array.contains (UMX.untag file))))
+          |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (file))))
 
 
   let getProjectOptionsForFile file =
@@ -673,20 +673,54 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
-  let analyzeFile (filePath, version) =
+  let analyzeFile (filePath: string<LocalPath>, version, source, tyRes: ParseAndCheckResults) =
     let config = config |> AVal.force
+
+    let checkUnusedOpens =
+      async {
+        try
+          let! unused =
+            UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
+
+          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)))
+        with e ->
+          logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
+      }
+
+    let checkUnusedDeclarations =
+      async {
+        try
+          let isScript = Utils.isAScript (UMX.untag filePath)
+          let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
+          let unused = unused |> Seq.toArray
+
+          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused))
+        with e ->
+          logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
+      }
+
+    let checkSimplifiedNames =
+      async {
+        try
+          let getSourceLine lineNo = source.GetLineString(lineNo - 1)
+
+          let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
+          let simplified = Array.ofSeq simplified
+          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified))
+        with e ->
+          logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
+      }
 
     let analyzers =
       [
-      // if config.Linter then
-      //   commands.Lint filePath |> Async .Ignore
-      // if config.UnusedOpensAnalyzer then
-      //   commands.CheckUnusedOpens filePath
-      // if config.UnusedDeclarationsAnalyzer then
-      //   commands.CheckUnusedDeclarations filePath
-      // if config.SimplifyNameAnalyzer then
-      //   commands.CheckSimplifiedNames filePath
-      ]
+        // if config.Linter then
+        //   commands.Lint filePath |> Async .Ignore
+        if config.UnusedOpensAnalyzer then
+          checkUnusedOpens
+        if config.UnusedDeclarationsAnalyzer then
+          checkUnusedDeclarations
+        if config.SimplifyNameAnalyzer then
+          checkSimplifiedNames ]
 
     async {
       do! analyzers |> Async.Parallel |> Async.Ignore<unit[]>
@@ -714,7 +748,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
         |> Async.withCancellation cts.Token
 
-      analyzeFile (file.Lines.FileName, file.Version) |> Async.Start
       notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName))
 
       match result with
@@ -731,6 +764,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           Log.setMessage "Typecheck completed successfully for {file}"
           >> Log.addContextDestructured "file" file.Lines.FileName
         )
+
+        analyzeFile (file.Lines.FileName, file.Version, file.Lines, parseAndCheck)
+        |> Async.Start
 
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
@@ -1232,29 +1268,32 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             | None -> p.RootPath
 
           let projs =
-            let peeks =
-              WorkspacePeek.peek
-                actualRootPath.Value
-                c.WorkspaceModePeekDeepLevel
-                (c.ExcludeProjectDirectories |> List.ofArray)
-              |> List.map Workspace.mapInteresting
-              |> List.sortByDescending (fun x ->
-                match x with
-                | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
-                | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
+            match actualRootPath with
+            | None -> []
+            | Some actualRootPath ->
+              let peeks =
+                WorkspacePeek.peek
+                  actualRootPath
+                  c.WorkspaceModePeekDeepLevel
+                  (c.ExcludeProjectDirectories |> List.ofArray)
+                |> List.map Workspace.mapInteresting
+                |> List.sortByDescending (fun x ->
+                  match x with
+                  | CommandResponse.WorkspacePeekFound.Solution sln -> Workspace.countProjectsInSln sln
+                  | CommandResponse.WorkspacePeekFound.Directory _ -> -1)
 
-            logger.info (
-              Log.setMessage "Choosing from interesting items {items}"
-              >> Log.addContextDestructured "items" peeks
-            )
+              logger.info (
+                Log.setMessage "Choosing from interesting items {items}"
+                >> Log.addContextDestructured "items" peeks
+              )
 
-            match peeks with
-            | [] -> []
-            | [ CommandResponse.WorkspacePeekFound.Directory projs ] -> projs.Fsprojs
-            | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
-              sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
-            | _ -> []
-            |> List.map (Utils.normalizePath)
+              match peeks with
+              | [] -> []
+              | [ CommandResponse.WorkspacePeekFound.Directory projs ] -> projs.Fsprojs
+              | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
+                sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
+              | _ -> []
+              |> List.map (Utils.normalizePath)
 
 
 
@@ -1405,6 +1444,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
+          let _ = tryGetTypeCheckResults filePath
 
           return ()
         with e ->
