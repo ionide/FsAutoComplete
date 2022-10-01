@@ -46,7 +46,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
         match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
         | ResultOrString.Error _ -> return! None
         | ResultOrString.Ok (opts, text, line) ->
-          let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, Some text)
+          let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
           let symbolUse = result.TryGetSymbolUse pos line
           return! Some(symbol, symbolUse)
       else
@@ -58,7 +58,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
     | ResultOrString.Error _ -> None
     | ResultOrString.Ok (opts, text) ->
       try
-        checker.TryGetRecentCheckResultsForFile(fileName, opts, Some text)
+        checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
         |> Option.map (fun n -> n.GetParseResults)
       with _ ->
         None

@@ -279,15 +279,29 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText option) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
-    checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
+    checkerLogger.info (
+      Log.setMessage "{opName} - {hash}"
+      >> Log.addContextDestructured "opName" opName
+      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+    )
 
     let options = clearProjectReferences options
 
-    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, ?sourceText = source, userOpName = opName)
-    |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
+    let result =
+      checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
+      |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
+
+    checkerLogger.info (
+      Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
+      >> Log.addContextDestructured "opName" opName
+      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+      >> Log.addContextDestructured "cacheHit" result.IsSome
+    )
+
+    result
 
   member x.GetUsesOfSymbol
     (
@@ -326,6 +340,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       Log.setMessage "FindReferencesForSymbolInFile - {file}"
       >> Log.addContextDestructured "file" file
     )
+
     checker.FindBackgroundReferencesInFile(
       file,
       project,

@@ -1372,7 +1372,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.TryGetRecentTypeCheckResultsForFile(file, opts, text) =
     async {
-      match checker.TryGetRecentCheckResultsForFile(file, opts, Some text) with
+      match checker.TryGetRecentCheckResultsForFile(file, opts, text) with
       | None ->
         let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
@@ -1956,7 +1956,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let! (opts, source) = state.TryGetFileCheckerOptionsWithSource file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, Some source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()
@@ -1972,7 +1972,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, Some source)
+      let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
       match tyResOpt with
       | None -> ()
@@ -1992,7 +1992,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
 
-      match checker.TryGetRecentCheckResultsForFile(file, opts, Some source) with
+      match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
       | None -> return ()
       | Some tyRes ->
         let! unused =

@@ -45,8 +45,39 @@ module AdaptiveExtensions =
       | None -> x.[key] <- adder key
       | Some v -> x.[key] <- updater key v
 
+module Utils =
+  let cheapEqual (a: 'T) (b: 'T) =
+    ShallowEqualityComparer<'T>.Instance.Equals (a, b)
+
+type MapDisposableTupleVal<'T1, 'T2, 'T3 when 'T3 :> IDisposable>(mapping: 'T1 -> ('T2 * 'T3), input: aval<'T1>) =
+  inherit AVal.AbstractVal<'T2>()
+
+  // can we avoid double caching (here and in AbstractVal)
+  let mutable cache: ValueOption<struct ('T1 * 'T2 * 'T3)> = ValueNone
+
+  override x.Compute(token: AdaptiveToken) =
+    let i = input.GetValue token
+
+    match cache with
+    | ValueSome (struct (a, b, _)) when Utils.cheapEqual a i -> b
+    | ValueSome (struct (a, b, c)) ->
+      (c :> IDisposable).Dispose()
+      let (b, c) = mapping i
+      cache <- ValueSome(struct (i, b, c))
+      b
+    | ValueNone ->
+      let (b, c) = mapping i
+      cache <- ValueSome(struct (i, b, c))
+      b
+
+
+
+
 module AVal =
   let mapOption f = AVal.map (Option.map f)
+
+  let mapDisposableTuple mapper value =
+    MapDisposableTupleVal(mapper, value) :> aval<_>
 
   let mapWithAdditionalDependenies (mapping: 'a -> 'b * list<IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
     let mutable lastDeps = HashSet.empty
@@ -75,14 +106,34 @@ module AVal =
           result }
     :> aval<_>
 
+
 module ASet =
   let mapAtoAMap mapper src =
     src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
 
 module AMap =
-  let tryFindA key map =
-    AMap.tryFind key map
-    |> AVal.bind (Option.defaultWith (fun () -> AVal.constant None))
+  let tryFindAO key (map: amap<_, aval<option<'b>>>) =
+    aval {
+      let! item = AMap.tryFind key map
+
+      match item with
+      | Some x -> return! x
+      | None -> return None
+    }
+
+  let tryFindA key (map: amap<_, aval<'b>>) =
+    aval {
+      let! item = AMap.tryFind key map
+
+      match item with
+      | Some v ->
+        let! v2 = v
+        return Some v2
+      | None -> return None
+    }
+
+  let mapVA mapper (map: amap<_, aval<'b>>) =
+    map |> AMap.mapA (fun k v -> AVal.map mapper v)
 
 
 [<RequireQualifiedAccess>]
@@ -345,14 +396,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
       |> AVal.map (fun writeTime -> filePath, writeTime)
 
-    file.AddMarkingCallback(fun () ->
-      logger.info (
-        Log.setMessage "Loading projects because of {delta}"
-        >> Log.addContextDestructured "delta" filePath
-      ))
-    |> ignore
+    let cb =
+      file.AddMarkingCallback(fun () ->
+        logger.info (
+          Log.setMessage "Loading projects because of {delta}"
+          >> Log.addContextDestructured "delta" filePath
+        ))
 
-    file
+
+    file |> AVal.mapDisposableTuple (fun x -> x, cb)
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
@@ -375,14 +427,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> ASet.ofSeq
           |> ASet.mapAtoAMap (UMX.untag >> AdaptiveFile.GetLastWriteTimeUtc)
 
-        projChanges.AddCallback(fun old delta ->
-          logger.info (
-            Log.setMessage "Loading projects because of {delta}"
-            >> Log.addContextDestructured "delta" delta
-          ))
-        |> ignore
+        let cb =
+          projChanges.AddCallback(fun old delta ->
+            logger.info (
+              Log.setMessage "Loading projects because of {delta}"
+              >> Log.addContextDestructured "delta" delta
+            ))
 
-        projChanges |> AMap.toAVal |> AdaptiveWorkspaceChosen.Projs
+        projChanges
+        |> AMap.toAVal
+        |> AVal.mapDisposableTuple (fun x -> x, cb)
+        |> AdaptiveWorkspaceChosen.Projs
+
       | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen
 
     )
@@ -435,10 +491,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     | Some v -> yield adaptiveFile (UMX.tag v.Value)
                     | None -> ()
 
+                    let objPath =
+                      p.Properties
+                      |> Seq.tryFind (fun x -> x.Name = "BaseIntermediateOutputPath")
+                      |> Option.map (fun v -> v.Value)
+
+                    let isWithinObjFolder (file: string) =
+                      match objPath with
+                      | None -> true // if no obj folder provided assume we should track this file
+                      | Some v -> file.Contains(v)
+
                     match p.Properties |> Seq.tryFind (fun x -> x.Name = "MSBuildAllProjects") with
                     | Some v ->
                       yield!
                         v.Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
                         |> Array.map (UMX.tag >> adaptiveFile)
                     | None -> () ]
                 |> Seq.cast<IAdaptiveValue>
@@ -497,24 +564,35 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let openFiles = cmap<string<LocalPath>, VolatileFile * CancellationTokenSource> ()
+  // let openFiles = cmap<string<LocalPath>, VolatileFile * CancellationTokenSource> ()
+
+  let openFiles =
+    cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
+
+  let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
   let updateOpenFiles (file: VolatileFile) =
-    openFiles
-    |> AMap.tryFind file.Lines.FileName
-    |> AVal.force
-    |> Option.iter (fun (_, cts) ->
-      cts.Cancel()
-      cts.Dispose())
 
-    transact (fun () -> openFiles[file.Lines.FileName] <- file, new CancellationTokenSource())
+    let adder _ = //file, new CancellationTokenSource()
+      cval (file, new CancellationTokenSource())
+
+    let updater _ (v: cval<_>) =
+      let (oldFile, cts: CancellationTokenSource) = v.Value
+      cts.Cancel()
+      cts.Dispose()
+      v.Value <- file, new CancellationTokenSource()
+      v
+
+
+    transact (fun () -> openFiles.AddOrUpdate(file.Lines.FileName, adder, updater))
+
 
   let volaTileFile path text version lastWriteTime =
     { Touched = lastWriteTime
       Lines = NamedText(path, text)
       Version = version }
 
-  let getFileInfoForFile file = openFiles |> AMap.tryFind file
+  let getFileInfoForFile file = openFilesA |> AMap.tryFindA file
 
   let tryGetFile file =
     getFileInfoForFile file
@@ -545,12 +623,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         None)
     |> Result.ofOption (fun () -> $"Could not read file: {file}")
 
+  let tryGetFileOpt filePath =
+    getFileInfoForFile filePath |> AVal.force |> Option.map fst
+
+  do
+    FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
+      FsAutoComplete.FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, tryGetFileOpt)
+
   let tryGetFileSource filePath =
     tryGetFile filePath |> Result.map (fun (f, _) -> f.Lines)
 
   let knownFsFilesToProjectOptions =
-    openFiles
-    |> AMap.map' (fun (info, cts) ->
+    openFilesA
+    |> AMap.mapVA (fun (info, cts) ->
       let file = info.Lines.FileName
 
       if Utils.isAScript (UMX.untag file) then
@@ -678,8 +763,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
   let knownFsFilesToParsedResults =
-    openFiles
-    |> AMap.map' (fun (info, cts) ->
+    openFilesA
+    |> AMap.mapVA (fun (info, cts) ->
       aval {
         let file = info.Lines.FileName
         let sourceText = info.Lines
@@ -700,9 +785,25 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       })
 
 
+  let knownFsFilesToRecentCheckedFilesResults =
+    openFilesA
+    |> AMap.mapVA (fun (info, cts) ->
+      aval {
+        let file = info.Lines.FileName
+        let! checker = checker
+        and! projectOptions = getProjectOptionsForFile file
+
+        match List.tryHead projectOptions with
+        | Some (opts) ->
+          let parseAndCheck = checker.TryGetRecentCheckResultsForFile(file, opts, info.Lines)
+
+          return parseAndCheck
+        | None -> return None
+      })
+
   let knownFsFilesToCheckedFilesResults =
-    openFiles
-    |> AMap.map' (fun (info, cts) ->
+    openFilesA
+    |> AMap.mapVA (fun (info, cts) ->
       aval {
         let file = info.Lines.FileName
         let! checker = checker
@@ -721,18 +822,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       })
 
   let getParseResults filePath =
-    knownFsFilesToParsedResults |> AMap.tryFindA filePath
+    knownFsFilesToParsedResults |> AMap.tryFindAO filePath
 
   let getTypeCheckResults filePath =
-    knownFsFilesToCheckedFilesResults |> AMap.tryFindA (filePath)
+    knownFsFilesToCheckedFilesResults |> AMap.tryFindAO (filePath)
 
 
   let getRecentTypeCheckResults filePath =
-    let checker = checker |> AVal.force
-    let projectOptions = getProjectOptionsForFile filePath |> AVal.force
-
-    List.tryHead projectOptions
-    |> Option.bind (fun opts -> checker.TryGetRecentCheckResultsForFile(filePath, opts, None))
+    knownFsFilesToRecentCheckedFilesResults |> AMap.tryFindAO (filePath)
 
 
   let tryGetLineStr pos (text: NamedText) =
@@ -747,7 +844,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let tryGetTypeCheckResults filePath =
     let tyResults = getTypeCheckResults (filePath)
 
-    match getRecentTypeCheckResults filePath with
+    match getRecentTypeCheckResults filePath |> AVal.force with
     | Some s ->
       if lock tyResults (fun () -> tyResults.OutOfDate) then
         Async.Start(async { tyResults |> AVal.force |> ignore })
@@ -761,7 +858,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AMap.map' (AVal.mapOption (fun parseAndCheck -> parseAndCheck.GetParseResults.GetNavigationItems().Declarations))
 
   let getDeclarations filename =
-    knownFsFilesToCheckedDeclarations |> AMap.tryFindA (filename)
+    knownFsFilesToCheckedDeclarations |> AMap.tryFindAO (filename)
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
@@ -1334,7 +1431,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
 
           updateOpenFiles file
-          let knownFiles = openFiles |> AMap.force
+          let knownFiles = openFilesA |> AMap.force
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
@@ -1343,11 +1440,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let checker = (AVal.force checker)
 
-          for (file, (_, cts)) in knownFiles do
+          for (file, aFile) in knownFiles do
+            let (_, cts) = aFile |> AVal.force
+
             forceTypeCheck checker file
             |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
             |> ignore<unit option>
-
 
           return ()
         with e ->
