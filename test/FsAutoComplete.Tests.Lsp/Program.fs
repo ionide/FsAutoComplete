@@ -31,24 +31,28 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
-  [
-    "Ionide WorkspaceLoader", WorkspaceLoader.Create
+  [ "Ionide WorkspaceLoader", WorkspaceLoader.Create
     // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
-  ]
+    ]
 
 let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
-    let testRunDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString()) |> DirectoryInfo
-    let createServer () =
-      FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
-    Helpers.createServer createServer
+  let testRunDir =
+    Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
+    |> DirectoryInfo
+
+  let createServer () =
+    FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
+
+  Helpers.createServer createServer
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory =
   Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath)
 
-let lspServers = [
-  // "FSharpLspServer", fsharpLspServerFactory
-  "AdaptiveLspServer", adaptiveLspServerFactory
-]
+let lspServers =
+  [
+    "FSharpLspServer", fsharpLspServerFactory
+    // "AdaptiveLspServer", adaptiveLspServerFactory
+    ]
 
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
@@ -60,9 +64,9 @@ let lspTests =
         for (lspName, lspFactory) in lspServers do
           testList
             $"{loaderName}.{lspName}"
-            [
-              Templates.tests ()
-              let createServer () = lspFactory toolsPath workspaceLoaderFactory
+            [ Templates.tests ()
+              let createServer () =
+                lspFactory toolsPath workspaceLoaderFactory
 
               initTests createServer
               closeTests createServer
@@ -84,12 +88,12 @@ let lspTests =
               dependencyManagerTests createServer
               interactiveDirectivesUnitTests
 
-              // commented out because FSDN is down
-              //fsdnTest createServer
+              // // commented out because FSDN is down
+              // //fsdnTest createServer
               uriTests
               //linterTests createServer
               formattingTests createServer
-              analyzerTests createServer
+              analyzerTests createServer // stalling on adaptive
               signatureTests createServer
               SignatureHelp.tests createServer
               CodeFixTests.Tests.tests createServer
@@ -97,26 +101,23 @@ let lspTests =
               GoTo.tests createServer
               FindReferences.tests createServer
               InfoPanelTests.docFormattingTest createServer
-              DetectUnitTests.tests createServer
+              DetectUnitTests.tests createServer //stalling on adaptive
               XmlDocumentationGeneration.tests createServer
               InlayHintTests.tests createServer
               DependentFileChecking.tests createServer
               UnusedDeclarationsTests.tests createServer
-            ]
-    ]
+
+              ] ]
 
 [<Tests>]
 let tests =
-  testList "FSAC" [
-    // Adaptive.tests toolsPath
-    testList (nameof(Utils)) [
-      Utils.Tests.Utils.tests
-      Utils.Tests.TextEdit.tests
-    ]
-    InlayHintTests.explicitTypeInfoTests
+  testList
+    "FSAC"
+    [
+      testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+      InlayHintTests.explicitTypeInfoTests
 
-    lspTests
-  ]
+      lspTests ]
 
 
 [<EntryPoint>]
@@ -132,12 +133,12 @@ let main args =
       if args |> Array.contains "--debug" then
         Logging.LogLevel.Verbose
       else
-        match args
-              |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
-              |> Option.map (fun log -> log.Substring(logMarker.Length))
-          with
-        | Some ("warn"
-        | "warning") -> Logging.LogLevel.Warn
+        match
+          args
+          |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+          |> Option.map (fun log -> log.Substring(logMarker.Length))
+        with
+        | Some ("warn" | "warning") -> Logging.LogLevel.Warn
         | Some "error" -> Logging.LogLevel.Error
         | Some "fatal" -> Logging.LogLevel.Fatal
         | Some "info" -> Logging.LogLevel.Info
@@ -161,7 +162,7 @@ let main args =
     | Logging.LogLevel.Error -> LogEventLevel.Error
     | Logging.LogLevel.Fatal -> LogEventLevel.Fatal
 
-  let parseLogExcludes (args: string []) =
+  let parseLogExcludes (args: string[]) =
     let excludeMarker = "--exclude-from-log="
 
     let toExclude =
@@ -169,9 +170,7 @@ let main args =
       |> Array.filter (fun arg -> arg.StartsWith excludeMarker)
       |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-    let args =
-      args
-      |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
+    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
 
     toExclude, args
 
@@ -182,9 +181,7 @@ let main args =
   let sourcesToExclude =
     Matching.WithProperty<string>(
       Constants.SourceContextPropertyName,
-      fun s ->
-        s <> null
-        && logSourcesToExclude |> Array.contains s
+      fun s -> s <> null && logSourcesToExclude |> Array.contains s
     )
 
   let argsToRemove, loaders =
@@ -227,7 +224,7 @@ let main args =
 
   // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests
   Serilog.Log.Logger <- serilogLogger
-  LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
+  LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
 
   let fixedUpArgs = args |> Array.except argsToRemove
 
