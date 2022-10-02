@@ -49,10 +49,10 @@ module Utils =
   let cheapEqual (a: 'T) (b: 'T) =
     ShallowEqualityComparer<'T>.Instance.Equals (a, b)
 
+
 type MapDisposableTupleVal<'T1, 'T2, 'T3 when 'T3 :> IDisposable>(mapping: 'T1 -> ('T2 * 'T3), input: aval<'T1>) =
   inherit AVal.AbstractVal<'T2>()
 
-  // can we avoid double caching (here and in AbstractVal)
   let mutable cache: ValueOption<struct ('T1 * 'T2 * 'T3)> = ValueNone
 
   override x.Compute(token: AdaptiveToken) =
@@ -69,9 +69,6 @@ type MapDisposableTupleVal<'T1, 'T2, 'T3 when 'T3 :> IDisposable>(mapping: 'T1 -
       let (b, c) = mapping i
       cache <- ValueSome(struct (i, b, c))
       b
-
-
-
 
 module AVal =
   let mapOption f = AVal.map (Option.map f)
@@ -167,7 +164,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       else
         FSIRefs.TFM.NetFx)
 
-  let logger = LogProvider.getLoggerByName "AdaptiveFSharpLspServer"
+  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (
@@ -566,8 +563,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  // let openFiles = cmap<string<LocalPath>, VolatileFile * CancellationTokenSource> ()
-
   let openFiles =
     cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
 
@@ -575,15 +570,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let updateOpenFiles (file: VolatileFile) =
 
-    let adder _ = //file, new CancellationTokenSource()
+    let adder _ =
       cval (file, new CancellationTokenSource())
 
     let updater _ (v: cval<_>) =
-      let (oldFile, cts: CancellationTokenSource) = v.Value
-      cts.Cancel()
-      cts.Dispose()
-      v.Value <- file, new CancellationTokenSource()
-      v
+      let (oldFile: VolatileFile, cts: CancellationTokenSource) = v.Value
+
+      if file.Version = oldFile.Version then
+        v
+      else
+        cts.Cancel()
+        cts.Dispose()
+        v.Value <- file, new CancellationTokenSource()
+        v
 
 
     transact (fun () -> openFiles.AddOrUpdate(file.Lines.FileName, adder, updater))
