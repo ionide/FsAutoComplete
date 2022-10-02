@@ -385,8 +385,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        .SelectMany(fun l -> l.Distinct())
+        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        // .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
@@ -574,15 +574,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       cval (file, new CancellationTokenSource())
 
     let updater _ (v: cval<_>) =
-      let (oldFile: VolatileFile, cts: CancellationTokenSource) = v.Value
-
-      if file.Version = oldFile.Version then
-        v
-      else
-        cts.Cancel()
-        cts.Dispose()
-        v.Value <- file, new CancellationTokenSource()
-        v
+      let (oldFile, cts: CancellationTokenSource) = v.Value
+      cts.Cancel()
+      cts.Dispose()
+      v.Value <- file, new CancellationTokenSource()
+      v
 
 
     transact (fun () -> openFiles.AddOrUpdate(file.Lines.FileName, adder, updater))
@@ -626,8 +622,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Result.ofOption (fun () -> $"Could not read file: {file}")
 
   let tryGetFileOpt filePath =
-    // getFileInfoForFile filePath |> AVal.force |> Option.map fst
-    tryGetFile filePath |> Option.ofResult |> Option.map fst
+    getFileInfoForFile filePath |> AVal.force |> Option.map fst
 
   do
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
@@ -1468,8 +1463,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-
-          Async.Start(async { tryGetTypeCheckResults filePath |> ignore })
+          let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
@@ -1519,8 +1513,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
-          Async.Start(async { tryGetTypeCheckResults filePath |> ignore })
-
+          let _ = tryGetTypeCheckResults filePath
 
           return ()
         with e ->
@@ -2039,7 +2032,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
 
           let! usages =
-            symbolUseWorkspace pos lineStr namedText.Lines tyRes
+            symbolUseWorkspace
+              pos
+              lineStr
+              namedText.Lines
+              tyRes
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           match usages with
@@ -2501,9 +2498,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                 return { p with Command = Some cmd } |> Some |> success
             else
-
               let! res =
-                symbolUseWorkspace pos lineStr lines tyRes
+                symbolUseWorkspace
+                  pos
+                  lineStr
+                  lines
+                  tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
               let res =
