@@ -184,6 +184,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let notifications = Event<NotificationEvent>()
 
+  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
   let handleCommandEvents (n: NotificationEvent) =
     try
       async {
@@ -386,8 +388,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        // .SelectMany(fun l -> l.Distinct())
+        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
@@ -599,11 +601,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AVal.force
     |> Option.orElseWith (fun () ->
       try
-        let untaged = UMX.untag file
-        let lastWriteTime = File.GetLastWriteTimeUtc untaged
+        let untagged = UMX.untag file
 
-        if File.Exists untaged then
-          let change = File.ReadAllText untaged
+        if File.Exists untagged && isFileWithFSharp untagged then
+          let change = File.ReadAllText untagged
+
+          let lastWriteTime = File.GetLastWriteTimeUtc untagged
 
           let file =
             { Touched = lastWriteTime
@@ -624,7 +627,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Result.ofOption (fun () -> $"Could not read file: {file}")
 
   let tryGetFileOpt filePath =
-    getFileInfoForFile filePath |> AVal.force |> Option.map fst
+    // getFileInfoForFile filePath |> AVal.force |> Option.map fst
+    tryGetFile filePath |> Option.ofResult |> Option.map fst
 
   do
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
@@ -645,6 +649,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             checker.GetProjectOptionsFromScript(file, info.Lines, tfm)
             |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
+          opts |> Option.iter (scriptFileProjectOptions.Trigger)
           opts |> Option.map List.singleton |> Option.defaultValue List.empty)
 
       else
@@ -1081,6 +1086,74 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       )
 
 
+  let symbolUseWorkspace pos lineStr text tyRes =
+
+    let findReferencesForSymbolInFile (file, project, symbol) =
+      let checker = checker |> AVal.force
+      checker.FindReferencesForSymbolInFile(file, project, symbol)
+
+    let getProjectOptions file =
+      getProjectOptionsForFile file |> AVal.force |> List.tryHead
+
+    let projectsThatContainFile file =
+      getProjectOptionsForFile file |> AVal.force
+
+    let getProjectOptionsForFsproj file =
+      loadedProjectOptions
+      |> AVal.force
+      |> Seq.tryFind (fun x -> x.ProjectFileName = file)
+
+    let getDependentProjectsOfProjects ps =
+      let projectSnapshot = loadedProjectOptions |> AVal.force
+
+      let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
+
+      let currentPass = ResizeArray()
+      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+
+      let mutable continueAlong = true
+
+      while continueAlong do
+        let dependents =
+          projectSnapshot
+          |> Seq.filter (fun p ->
+            p.ReferencedProjects
+            |> Seq.exists (fun r ->
+              match r.ProjectFilePath with
+              | None -> false
+              | Some p -> currentPass.Contains(p)))
+
+        if Seq.isEmpty dependents then
+          continueAlong <- false
+          currentPass.Clear()
+        else
+          for d in dependents do
+            allDependents.Add d |> ignore<bool>
+
+          currentPass.Clear()
+          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+      Seq.toList allDependents
+
+    let getDeclarationLocation (symUse, text) =
+      SymbolLocation.getDeclarationLocation (
+        symUse,
+        text,
+        getProjectOptions,
+        projectsThatContainFile,
+        getDependentProjectsOfProjects
+      )
+
+    Commands.symbolUseWorkspace
+      getDeclarationLocation
+      findReferencesForSymbolInFile
+      tryGetFileSource
+      getProjectOptionsForFsproj
+      pos
+      lineStr
+      text
+      tyRes
+
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : LspResult<SemanticTokens option> =
     result {
 
@@ -1246,6 +1319,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return! LspResult.internalError (string e)
     }
 
+  member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
+
   interface IFSharpLspServer with
     override x.Shutdown() =
       (x :> System.IDisposable).Dispose() |> async.Return
@@ -1394,7 +1469,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-          let _ = tryGetTypeCheckResults filePath
+
+          Async.Start(async { tryGetTypeCheckResults filePath |> ignore })
           return ()
         with e ->
           logger.error (
@@ -1444,7 +1520,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
-          let _ = tryGetTypeCheckResults filePath
+          Async.Start(async { tryGetTypeCheckResults filePath |> ignore })
+
 
           return ()
         with e ->
@@ -1856,75 +1933,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! (namedText, _) = tryGetFile filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
-          let checker = checker |> AVal.force
 
-          let findReferencesForSymbolInFile (file, project, symbol) =
-            checker.FindReferencesForSymbolInFile(file, project, symbol)
-
-
-
-          let getProjectOptions file =
-            getProjectOptionsForFile file |> AVal.force |> List.tryHead
-
-          let projectsThatContainFile file =
-            getProjectOptionsForFile file |> AVal.force
-
-          let getDependentProjectsOfProjects ps =
-            let projectSnapshot = loadedProjectOptions |> AVal.force
-            let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
-
-            let currentPass = ResizeArray()
-            currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-            let mutable continueAlong = true
-
-            while continueAlong do
-              let dependents =
-                projectSnapshot
-                |> Seq.filter (fun p ->
-                  p.ReferencedProjects
-                  |> Seq.exists (fun r ->
-                    match r.ProjectFilePath with
-                    | None -> false
-                    | Some p -> currentPass.Contains(p)))
-
-              if Seq.isEmpty dependents then
-                continueAlong <- false
-                currentPass.Clear()
-              else
-                for d in dependents do
-                  allDependents.Add d |> ignore<bool>
-
-                currentPass.Clear()
-                currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-            Seq.toList allDependents
-
-          let getProjectOptionsForFsproj file =
-            loadedProjectOptions
-            |> AVal.force
-            |> Seq.tryFind (fun x -> x.ProjectFileName = file)
-
-          let getDeclarationLocation (symUse, text) =
-            SymbolLocation.getDeclarationLocation (
-              symUse,
-              text,
-              getProjectOptions,
-              projectsThatContainFile,
-              getDependentProjectsOfProjects
-            )
-
-
-          let symbolUseWorkspace pos lineStr namedText tyRes =
-            Commands.symbolUseWorkspace
-              getDeclarationLocation
-              findReferencesForSymbolInFile
-              tryGetFileSource
-              getProjectOptionsForFsproj
-              pos
-              lineStr
-              namedText
-              tyRes
 
           let! documentsAndRanges =
             Commands.renameSymbol symbolUseWorkspace tryGetFileSource pos tyRes lineStr namedText.Lines
@@ -2029,77 +2038,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! (namedText, _) = tryGetFile filePath |> Result.ofStringErr
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           let! tyRes = tryGetTypeCheckResults filePath |> Result.ofStringErr
-          let checker = checker |> AVal.force
-
-          let findReferencesForSymbolInFile (file, project, symbol) =
-            checker.FindReferencesForSymbolInFile(file, project, symbol)
-
-
-
-          let getProjectOptions file =
-            getProjectOptionsForFile file |> AVal.force |> List.tryHead
-
-          let projectsThatContainFile file =
-            getProjectOptionsForFile file |> AVal.force
-
-
-          let getDependentProjectsOfProjects ps =
-            let projectSnapshot = loadedProjectOptions |> AVal.force
-
-            let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
-
-            let currentPass = ResizeArray()
-            currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-            let mutable continueAlong = true
-
-            while continueAlong do
-              let dependents =
-                projectSnapshot
-                |> Seq.filter (fun p ->
-                  p.ReferencedProjects
-                  |> Seq.exists (fun r ->
-                    match r.ProjectFilePath with
-                    | None -> false
-                    | Some p -> currentPass.Contains(p)))
-
-              if Seq.isEmpty dependents then
-                continueAlong <- false
-                currentPass.Clear()
-              else
-                for d in dependents do
-                  allDependents.Add d |> ignore<bool>
-
-                currentPass.Clear()
-                currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-            Seq.toList allDependents
-
-          let getProjectOptionsForFsproj file =
-            loadedProjectOptions
-            |> AVal.force
-            |> Seq.tryFind (fun x -> x.ProjectFileName = file)
-          // |> Option.filter (fun x -> x.ProjectFileName.EndsWith("fsproj"))
 
           let! usages =
-            let getDeclarationLocation (symUse, text) =
-              SymbolLocation.getDeclarationLocation (
-                symUse,
-                text,
-                getProjectOptions,
-                projectsThatContainFile,
-                getDependentProjectsOfProjects
-              )
-
-            Commands.symbolUseWorkspace
-              getDeclarationLocation
-              findReferencesForSymbolInFile
-              tryGetFileSource
-              getProjectOptionsForFsproj
-              pos
-              lineStr
-              namedText.Lines
-              tyRes
+            symbolUseWorkspace pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           match usages with
@@ -2561,73 +2502,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                 return { p with Command = Some cmd } |> Some |> success
             else
-              let checker = checker |> AVal.force
-
-              let findReferencesForSymbolInFile (file, project, symbol) =
-                checker.FindReferencesForSymbolInFile(file, project, symbol)
-
-
-              let getProjectOptions file =
-                getProjectOptionsForFile file |> AVal.force |> List.tryHead
-
-              let projectsThatContainFile file =
-                getProjectOptionsForFile file |> AVal.force
-
-              let getDependentProjectsOfProjects ps =
-                let projectSnapshot = loadedProjectOptions |> AVal.force
-                let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
-
-                let currentPass = ResizeArray()
-                currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-                let mutable continueAlong = true
-
-                while continueAlong do
-                  let dependents =
-                    projectSnapshot
-                    |> Seq.filter (fun p ->
-                      p.ReferencedProjects
-                      |> Seq.exists (fun r ->
-                        match r.ProjectFilePath with
-                        | None -> false
-                        | Some p -> currentPass.Contains(p)))
-
-                  if Seq.isEmpty dependents then
-                    continueAlong <- false
-                    currentPass.Clear()
-                  else
-                    for d in dependents do
-                      allDependents.Add d |> ignore<bool>
-
-                    currentPass.Clear()
-                    currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-                Seq.toList allDependents
-
-              let getProjectOptionsForFsproj file =
-                loadedProjectOptions
-                |> AVal.force
-                |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
               let! res =
-                let getDeclarationLocation (symUse, text) =
-                  SymbolLocation.getDeclarationLocation (
-                    symUse,
-                    text,
-                    getProjectOptions,
-                    projectsThatContainFile,
-                    getDependentProjectsOfProjects
-                  )
-
-                Commands.symbolUseWorkspace
-                  getDeclarationLocation
-                  findReferencesForSymbolInFile
-                  tryGetFileSource
-                  getProjectOptionsForFsproj
-                  pos
-                  lineStr
-                  lines
-                  tyRes
+                symbolUseWorkspace pos lineStr lines tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
               let res =
