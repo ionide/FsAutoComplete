@@ -159,12 +159,12 @@ let scriptProjectOptionsCacheTests state =
 
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()
+
       match server with
-      | :? FsAutoComplete.Lsp.FSharpLspServer as server ->
-        server.ScriptFileProjectOptions.Add(options.Add)
-      | :? FsAutoComplete.Lsp.AdaptiveFSharpLspServer  as server ->
-        failwith "ScriptFileProjectOptions not implemented"
+      | :? FsAutoComplete.Lsp.FSharpLspServer as server -> server.ScriptFileProjectOptions.Add(options.Add)
+      | :? FsAutoComplete.Lsp.AdaptiveFSharpLspServer as server -> server.ScriptFileProjectOptions.Add(options.Add)
       | _ -> failwith "Unknown server type"
+
       let scriptPath = Path.Combine(workingDir, "Script.fsx")
       do! waitForWorkspaceFinishedParsing events
       return server, events, workingDir, scriptPath, options
