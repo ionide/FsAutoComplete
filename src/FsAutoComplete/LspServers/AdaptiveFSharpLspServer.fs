@@ -386,8 +386,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        // .SelectMany(fun l -> l.Distinct())
+        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
@@ -1508,7 +1508,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-          let _ = tryGetTypeCheckResults filePath
+          Async.Start(async {
+            do! Async.Sleep 100
+            tryGetTypeCheckResults filePath |> ignore
+          })
+          // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
@@ -1558,8 +1562,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
-          let _ = tryGetTypeCheckResults filePath
-
+          Async.Start(async {
+            do! Async.Sleep 100
+            tryGetTypeCheckResults filePath |> ignore
+          })
+          // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
