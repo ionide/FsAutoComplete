@@ -10,6 +10,7 @@ open FSharp.Compiler.Symbols
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.CodeAnalysis
 open FsToolkit.ErrorHandling
+open FSharp.UMX
 
 [<Measure>]
 type Line0
@@ -17,51 +18,58 @@ type Line0
 [<Measure>]
 type Line1
 
+type ICodeGenerationService =
+  abstract TokenizeLine : string<LocalPath> * int -> option<list<FSharpTokenInfo>>
+  abstract GetSymbolAtPosition : string<LocalPath> * Position -> option<LexerSymbol>
+  abstract GetSymbolAndUseAtPositionOfKind : string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
+  abstract ParseFileInProject : string<LocalPath> -> option<FSharpParseFileResults>
+
 type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
-  member x.TokenizeLine(fileName, i) =
-    option {
-      let! text = state.TryGetFileSource fileName |> Option.ofResult
+  interface ICodeGenerationService with
+    override x.TokenizeLine(fileName, i) =
+      option {
+        let! text = state.TryGetFileSource fileName |> Option.ofResult
 
-      try
-        let! line = text.GetLine(Position.mkPos i 0)
-        return Lexer.tokenizeLine [||] line
-      with _ ->
-        return! None
-    }
+        try
+          let! line = text.GetLine(Position.mkPos i 0)
+          return Lexer.tokenizeLine [||] line
+        with _ ->
+          return! None
+      }
 
-  member x.GetSymbolAtPosition(fileName, pos: Position) =
-    match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-    | ResultOrString.Error _ -> None
-    | ResultOrString.Ok (opts, lines, line) ->
-      try
-        Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-      with _ ->
-        None
+    override x.GetSymbolAtPosition(fileName, pos: Position) =
+      match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+      | ResultOrString.Error _ -> None
+      | ResultOrString.Ok (opts, lines, line) ->
+        try
+          Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+        with _ ->
+          None
 
-  member x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
-    asyncMaybe {
-      let! symbol = x.GetSymbolAtPosition(fileName, pos)
+    override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
+      asyncMaybe {
+        let! symbol = (x :> ICodeGenerationService).GetSymbolAtPosition(fileName, pos)
 
-      if symbol.Kind = kind then
-        match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-        | ResultOrString.Error _ -> return! None
-        | ResultOrString.Ok (opts, text, line) ->
-          let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-          let symbolUse = result.TryGetSymbolUse pos line
-          return! Some(symbol, symbolUse)
-      else
-        return! None
-    }
+        if symbol.Kind = kind then
+          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+          | ResultOrString.Error _ -> return! None
+          | ResultOrString.Ok (opts, text, line) ->
+            let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
+            let symbolUse = result.TryGetSymbolUse pos line
+            return! Some(symbol, symbolUse)
+        else
+          return! None
+      }
 
-  member x.ParseFileInProject(fileName) =
-    match state.TryGetFileCheckerOptionsWithLines fileName with
-    | ResultOrString.Error _ -> None
-    | ResultOrString.Ok (opts, text) ->
-      try
-        checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-        |> Option.map (fun n -> n.GetParseResults)
-      with _ ->
-        None
+    override x.ParseFileInProject(fileName) =
+      match state.TryGetFileCheckerOptionsWithLines fileName with
+      | ResultOrString.Error _ -> None
+      | ResultOrString.Ok (opts, text) ->
+        try
+          checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
+          |> Option.map (fun n -> n.GetParseResults)
+        with _ ->
+          None
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
@@ -105,7 +113,7 @@ module CodeGenerationUtils =
       typ
 
   let tryFindTokenLPosInRange
-    (codeGenService: CodeGenerationService)
+    (codeGenService: ICodeGenerationService)
     (range: Range)
     (document: Document)
     (predicate: FSharpTokenInfo -> bool)

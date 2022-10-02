@@ -372,17 +372,17 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
   let writtenCaseCount = getWrittenCases patMatchExpr |> Set.count
   caseCount > 0 && writtenCaseCount < caseCount
 
-let tryFindPatternMatchExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Position) (document: Document) =
+let tryFindPatternMatchExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncMaybe {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
     let input = parseResults.ParseTree
     return! tryFindPatternMatchExprInParsedInput pos input
   }
 
-let tryFindBarTokenLPosInRange (codeGenService: CodeGenerationService) (range: Range) (document: Document) =
+let tryFindBarTokenLPosInRange (codeGenService: ICodeGenerationService) (range: Range) (document: Document) =
   tryFindTokenLPosInRange codeGenService range document (fun tokenInfo -> tokenInfo.TokenName = "BAR")
 
-let tryFindInsertionParams (codeGenService: CodeGenerationService) document (patMatchExpr: PatternMatchExpr) =
+let tryFindInsertionParams (codeGenService: ICodeGenerationService) document (patMatchExpr: PatternMatchExpr) =
   match List.rev patMatchExpr.Clauses with
   | [] ->
     // Not possible normally
@@ -488,7 +488,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
     | _ -> not (FsAutoComplete.FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
 
-let tryFindCaseInsertionParamsAtPos (codeGenService: CodeGenerationService) pos document =
+let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos document =
   asyncMaybe {
     let! patMatchExpr = tryFindPatternMatchExprInBufferAtPos codeGenService pos document
 
@@ -499,7 +499,7 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: CodeGenerationService) pos 
       return! None
   }
 
-let tryFindUnionDefinitionFromPos (codeGenService: CodeGenerationService) pos document =
+let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =
   asyncMaybe {
     let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
     let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)

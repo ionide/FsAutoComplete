@@ -35,6 +35,7 @@ open System.Linq
 open System.Reactive.Linq
 open Microsoft.Build.Graph
 open FsAutoComplete.LspHelpers
+open FsAutoComplete.UnionPatternMatchCaseGenerator
 
 [<AutoOpen>]
 module AdaptiveExtensions =
@@ -900,6 +901,55 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let pos = p.GetFcsPos()
     filePath, pos
 
+  let tryGetProjectOptions filePath =
+    getProjectOptionsForFile filePath
+    |> AVal.force
+    |> Seq.tryHead
+    |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
+
+  // abstract TokenizeLine : string<LocalPath> * int -> option<list<FSharpTokenInfo>>
+  // abstract GetSymbolAtPosition : string<LocalPath> * Position -> option<LexerSymbol>
+  // abstract GetSymbolAndUseAtPositionOfKind : string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
+  // abstract ParseFileInProject : string<LocalPath> -> option<FSharpParseFileResults>
+  let codeGenServer = {
+    new ICodeGenerationService with
+      member x.TokenizeLine(file, i) =
+        option {
+          let! (text, _) = tryGetFile file |> Option.ofResult
+
+          try
+            let! line = text.Lines.GetLine(Position.mkPos i 0)
+            return Lexer.tokenizeLine [||] line
+          with _ ->
+            return! None
+        }
+      member x.GetSymbolAtPosition(file, pos) =
+        option {
+          try
+            let! (text, _) = tryGetFile file |> Option.ofResult
+            let! line = tryGetLineStr pos text.Lines |> Option.ofResult
+            return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+          with _ ->
+            return! None
+        }
+
+      member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
+        asyncMaybe {
+          let! symbol = x.GetSymbolAtPosition(fileName, pos)
+
+          if symbol.Kind = kind then
+            let! (text, _) = tryGetFile fileName |> Option.ofResult
+            let! line = tryGetLineStr pos text.Lines |> Option.ofResult
+            let! result = tryGetTypeCheckResults fileName |> Option.ofResult
+            let symbolUse = result.TryGetSymbolUse pos line
+            return! Some(symbol, symbolUse)
+          else
+            return! None
+        }
+      member x.ParseFileInProject(file) =
+        tryGetParseResults file |> Option.ofResult
+  }
+
   let codefixes =
     let getFileLines = tryGetFileSource
 
@@ -915,8 +965,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       getFileLines fileName
       |> Result.bind (fun lines -> lines.GetText(protocolRangeToRange (UMX.untag fileName) range))
 
-    let tryFindUnionDefinitionFromPos _ =
-      failwith "tryFindUnionDefinitionFromPos"
+    let tryFindUnionDefinitionFromPos = tryFindUnionDefinitionFromPos codeGenServer
 
     let getUnionPatternMatchCases tyRes pos lines line =
       Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos lines line
@@ -924,11 +973,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let unionCaseStubReplacements (config) () =
       Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
-    let tryGetProjectOptions filePath =
-      getProjectOptionsForFile filePath
-      |> AVal.force
-      |> Seq.tryHead
-      |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
 
     let implementInterfaceConfig config () : ImplementInterface.Config =
       { ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
@@ -938,8 +982,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let recordStubReplacements config () =
       Map.ofList [ "$1", config.RecordStubGenerationBody ]
 
-    let tryFindRecordDefinitionFromPos _ _ =
-      failwith "tryFindRecordDefinitionFromPos"
+    let tryFindRecordDefinitionFromPos =
+      RecordStubGenerator.tryFindRecordDefinitionFromPos codeGenServer
 
     let getRecordStub tyRes pos lines line =
       Commands.getRecordStub (tryFindRecordDefinitionFromPos) tyRes pos lines line
@@ -952,10 +996,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         [ "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
           "$methodBody", config.AbstractClassStubGenerationMethodBody ]
 
-    let tryFindAbstractClassExprInBufferAtPos _ =
-      failwith "tryFindAbstractClassExprInBufferAtPos"
+    let tryFindAbstractClassExprInBufferAtPos =
+      AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
 
-    let writeAbstractClassStub _ = failwith "writeAbstractClassStub"
+    let writeAbstractClassStub =
+      AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
@@ -977,27 +1022,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          RemoveRedundantQualifier.fix
          Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
          AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
-         //  Run.ifEnabled
-         //    (fun _ -> config.UnionCaseStubGeneration)
-         //    (GenerateUnionCases.fix
-         //      getFileLines
-         //      tryGetParseResultsForFile
-         //      getUnionPatternMatchCases
-         //      (unionCaseStubReplacements config))
+         Run.ifEnabled
+            (fun _ -> config.UnionCaseStubGeneration)
+            (GenerateUnionCases.fix
+              getFileLines
+              tryGetParseResultsForFile
+              getUnionPatternMatchCases
+              (unionCaseStubReplacements config))
          ExternalSystemDiagnostics.linter
          ExternalSystemDiagnostics.analyzers
          Run.ifEnabled
            (fun _ -> config.InterfaceStubGeneration)
            (ImplementInterface.fix tryGetParseResultsForFile tryGetProjectOptions (implementInterfaceConfig config))
-         //  Run.ifEnabled
-         //    (fun _ -> config.RecordStubGeneration)
-         //    (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
-         //  Run.ifEnabled
-         //    (fun _ -> config.AbstractClassStubGeneration)
-         //    (GenerateAbstractClassStub.fix
-         //      tryGetParseResultsForFile
-         //      getAbstractClassStub
-         //      (abstractClassStubReplacements config))
+         Run.ifEnabled
+            (fun _ -> config.RecordStubGeneration)
+            (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
+         Run.ifEnabled
+            (fun _ -> config.AbstractClassStubGeneration)
+            (GenerateAbstractClassStub.fix
+              tryGetParseResultsForFile
+              getAbstractClassStub
+              (abstractClassStubReplacements config))
          AddMissingEqualsToTypeDefinition.fix getFileLines
          ChangePrefixNegationToInfixSubtraction.fix getFileLines
          ConvertDoubleEqualsToSingleEquals.fix getRangeText

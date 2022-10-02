@@ -80,7 +80,7 @@ let private tryFindAbstractClassExprInParsedInput
 
 /// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
 /// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
-let tryFindAbstractClassExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Position) (document: Document) =
+let tryFindAbstractClassExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncMaybe {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
     return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
@@ -110,7 +110,7 @@ let getMemberNameAndRanges (abstractClassData) =
 
 /// Try to find the start column, so we know what the base indentation should be
 let inferStartColumn
-  (codeGenServer: CodeGenerationService)
+  (codeGenServer: ICodeGenerationService)
   (pos: Position)
   (doc: Document)
   (lines: ISourceText)
@@ -143,7 +143,7 @@ let inferStartColumn
 /// If the destination type isn't an abstract class, or if there are no missing members to implement,
 /// nothing is written. Otherwise, a list of missing members is generated and written
 let writeAbstractClassStub
-  (codeGenServer: CodeGenerationService)
+  (codeGenServer: ICodeGenerationService)
   (checkResultForFile: ParseAndCheckResults)
   (doc: Document)
   (lines: ISourceText)
