@@ -43,8 +43,5 @@
     <Compile Include="SymbolLocation.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\dotnet-proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
-  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

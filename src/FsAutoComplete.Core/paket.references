@@ -8,7 +8,7 @@ FSharp.UMX
 FsToolkit.ErrorHandling
 Fantomas.Client
 
-
+Ionide.ProjInfo.ProjectSystem
 System.Reflection.Metadata
 Microsoft.Build.Utilities.Core
 Ionide.LanguageServerProtocol
