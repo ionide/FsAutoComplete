@@ -23,6 +23,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true,
       keepAllBackgroundSymbolUses = true
     )
+
   let entityCache = EntityCache()
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"
