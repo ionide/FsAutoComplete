@@ -254,7 +254,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 { Range = fcsRangeToLsp n
                   Code = Some "FSAC0001"
                   Severity = Some DiagnosticSeverity.Hint
-                  Source = "FSAC"
+                  Source = Some "FSAC"
                   Message = "Unused open statement"
                   RelatedInformation = None
                   Tags = Some [| DiagnosticTag.Unnecessary |]
@@ -272,7 +272,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 { Range = fcsRangeToLsp n
                   Code = Some "FSAC0003"
                   Severity = Some DiagnosticSeverity.Hint
-                  Source = "FSAC"
+                  Source = Some "FSAC"
                   Message = "This value is unused"
                   RelatedInformation = Some [||]
                   Tags = Some [| DiagnosticTag.Unnecessary |]
@@ -293,7 +293,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   { Diagnostic.Range = fcsRangeToLsp range
                     Code = Some "FSAC0002"
                     Severity = Some DiagnosticSeverity.Hint
-                    Source = "FSAC"
+                    Source = Some "FSAC"
                     Message = "This qualifier is redundant"
                     RelatedInformation = Some [||]
                     Tags = Some [| DiagnosticTag.Unnecessary |]
@@ -376,7 +376,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   { Range = range
                     Code = Option.ofObj m.Code
                     Severity = Some severity
-                    Source = $"F# Analyzers (%s{m.Type})"
+                    Source = Some $"F# Analyzers (%s{m.Type})"
                     Message = m.Message
                     RelatedInformation = None
                     Tags = None
@@ -1305,11 +1305,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   else
                     let dotConfigContent = File.ReadAllText dotConfig
 
-                    if dotConfigContent.Contains("fantomas-tool") then
-                      // uninstall a older, non-compatible version of fantomas-tool
+                    if dotConfigContent.Contains("fantomas") then
+                      // uninstall a older, non-compatible version of fantomas
                       let! result =
                         Cli.Wrap("dotnet").WithArguments(
-                          "tool uninstall fantomas-tool"
+                          "tool uninstall fantomas"
                         )
                           .WithWorkingDirectory(
                           rootPath
@@ -1321,13 +1321,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                       if result.ExitCode <> 0 then
                         fantomasLogger.warn (
                           Log.setMessage (
-                            sprintf "Unable to uninstall a non compatible version of fantomas-tool in %s" rootPath
+                            sprintf "Unable to uninstall a non compatible version of fantomas in %s" rootPath
                           )
                         )
 
                   let! result =
                     Cli.Wrap("dotnet").WithArguments(
-                      "tool install fantomas-tool"
+                      "tool install fantomas"
                     )
                       .WithWorkingDirectory(
                       rootPath
@@ -1342,12 +1342,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     do!
                       lspClient.WindowShowMessage
                         { Type = MessageType.Info
-                          Message = "fantomas-tool was installed locally" }
+                          Message = "fantomas was installed locally" }
 
                     fantomasService.ClearCache()
                   else
                     fantomasLogger.warn (
-                      Log.setMessage (sprintf "Unable to install a compatible version of fantomas-tool in %s" rootPath)
+                      Log.setMessage (sprintf "Unable to install a compatible version of fantomas in %s" rootPath)
                     )
                 }
 
@@ -1356,7 +1356,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           | (Some { Title = "Install globally" }) ->
             let! result =
               Cli.Wrap("dotnet").WithArguments(
-                "tool install -g fantomas-tool"
+                "tool install -g fantomas"
               )
                 .ExecuteBufferedAsync()
                 .Task
@@ -1368,11 +1368,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               do!
                 lspClient.WindowShowMessage
                   { Type = MessageType.Info
-                    Message = "fantomas-tool was installed globally" }
+                    Message = "fantomas was installed globally" }
 
               fantomasService.ClearCache()
             else
-              fantomasLogger.warn (Log.setMessage "Unable to install a compatible version of fantomas-tool globally")
+              fantomasLogger.warn (Log.setMessage "Unable to install a compatible version of fantomas globally")
           | _ -> ()
 
           return! LspResult.internalError "Fantomas install not found."
@@ -2403,7 +2403,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let (fixes: Async<Result<Fix list, string>[]>) =
             codefixes
             |> AVal.force
-            |> Array.map (fun codeFix -> codeFix codeActionParams)
+            |> Array.map (fun codeFix ->
+              async {
+                try
+                  return! codeFix codeActionParams
+                with e ->
+                  return Ok []
+              })
             |> Async.Parallel
 
           let! fixes = fixes
@@ -3727,6 +3733,28 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override x.Dispose() = disposables.Dispose()
 
 module AdaptiveFSharpLspServer =
+
+  open System.Threading.Tasks
+  open StreamJsonRpc
+
+  let createRpc (handler: IJsonRpcMessageHandler) : JsonRpc =
+    let rec (|HandleableException|_|) (e: exn) =
+      match e with
+      | :? LocalRpcException -> Some()
+      | :? TaskCanceledException -> Some()
+      | :? OperationCanceledException -> Some()
+      | :? System.AggregateException as aex ->
+        if aex.InnerExceptions.Count = 1 then
+          (|HandleableException|_|) aex.InnerException
+        else
+          None
+      | _ -> None
+
+    { new JsonRpc(handler) with
+        member this.IsFatalException(ex: Exception) =
+          match ex with
+          | HandleableException -> false
+          | _ -> true }
   let startCore toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
@@ -3765,4 +3793,4 @@ module AdaptiveFSharpLspServer =
       let loader = workspaceLoaderFactory toolsPath
       new AdaptiveFSharpLspServer(loader, lspClient) :> IFSharpLspServer
 
-    Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer
+    Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer createRpc

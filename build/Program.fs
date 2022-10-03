@@ -133,7 +133,7 @@ let init args =
     if result.ExitCode = 0 then
       Trace.log "No files need formatting"
     elif result.ExitCode = 99 then
-      failwith "Some files need formatting, run `dotnet fake build -t Format` to format them"
+      failwith "Some files need formatting, run the `Format` target to format them"
     else
       Trace.logf "Errors while formatting: %A" result.Errors
       failwith "Unknown errors while formatting")
@@ -230,7 +230,7 @@ let main args =
   try
     match args with
     | [| target |] -> Target.runOrDefaultWithArguments target
-    | _ -> Target.runOrDefaultWithArguments "Default"
+    | _ -> Target.runOrDefaultWithArguments "Test"
 
     0
   with e ->

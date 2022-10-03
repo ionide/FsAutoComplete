@@ -376,7 +376,7 @@ module Document =
       let ps: CodeActionParams =
         { TextDocument = doc.TextDocumentIdentifier
           Range = range
-          Context = { Diagnostics = diagnostics } }
+          Context = { Diagnostics = diagnostics; Only = None; TriggerKind = None } }
 
       let! res = doc.Server.Server.TextDocumentCodeAction ps
       return res |> assertOk

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.57.4] - 2022-09-30
+
+### Fixed
+
+* [Update LSP library so Code Actions calls don't crash anymore](https://github.com/fsharp/FsAutoComplete/pull/1018)
+
+## [0.57.3] - 2022-09-27
+
+### Fixed
+
+* [Don't let codeFixes bring down the application](https://github.com/fsharp/FsAutoComplete/pull/1016)
+
+### Changed
+
+* [Renamed fantomas-tool settings to fantomas](https://github.com/fsharp/FsAutoComplete/pull/1012) (Thanks @nojaf!)
+
+## [0.57.2] - 2022-09-24
+
+### Fixed
+
+* [Fix request cancellation causing crashes for emacs clients](https://github.com/fsharp/FsAutoComplete/pull/1013)
+
 ## [0.57.1] - 2022-09-22
 
 ### Changed

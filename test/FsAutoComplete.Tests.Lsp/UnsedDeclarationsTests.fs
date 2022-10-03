@@ -23,7 +23,7 @@ let private checkUsageAt
   expected
   = async {
     let source = sourceWithoutCursor |> Text.trimTripleQuotation
-    let! (doc, diags) = 
+    let! (doc, diags) =
       let getDoc =
         match doc with
         | Untitled -> Server.createUntitledDocument
@@ -36,7 +36,7 @@ let private checkUsageAt
       |> Array.filter (fun d -> d.Range |> Range.containsStrictly cursor)
 
     let isUnused (diag: Diagnostic) =
-      diag.Source = "FSAC"
+      diag.Source = Some "FSAC"
       &&
       diag.Code = Some "FSAC0003"
       &&
@@ -46,9 +46,9 @@ let private checkUsageAt
 
     let diag = diagsAtCursor |> Array.filter isUnused
     match expected with
-    | Unused -> 
+    | Unused ->
         Expect.hasLength diag 1 "There should be exactly one unused value diagnostic at cursor position"
-    | Used -> 
+    | Used ->
         Expect.hasLength diag 0 "There should be no unused value diagnostic at cursor position"
   }
 
@@ -59,12 +59,12 @@ let private checkUsage
   expected
   = async {
     let (cursor, source) =
-      sourceWithCursor 
+      sourceWithCursor
       |> Text.trimTripleQuotation
       |> Cursor.assertExtractPosition
     do! checkUsageAt server doc source cursor expected
   }
-  
+
 
 let private scriptTests state =
   let config = {
@@ -224,7 +224,7 @@ let private projectTests state =
         """
         Used
 
-    
+
     testCaseAsync "unused private function variable" <|
       checkUsage server file
         """
@@ -250,7 +250,7 @@ let private projectTests state =
         let $0f _ = ()
         """
         Used
-    
+
     // https://github.com/fsharp/FsAutoComplete/issues/832
     testList "issue #832" [
       // `$P`: used (or public -> not marked unused)

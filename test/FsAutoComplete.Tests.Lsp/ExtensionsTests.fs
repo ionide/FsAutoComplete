@@ -116,7 +116,7 @@ let linterTests state =
              End = { Line = 0; Character = 11 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0042"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "Consider changing `test` to PascalCase."
          RelatedInformation = None
          Tags = None
@@ -128,7 +128,7 @@ let linterTests state =
              End = { Line = 1; Character = 25 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`not (a = b)` might be able to be refactored into `a <> b`."
          RelatedInformation = None
          Tags = None
@@ -140,7 +140,7 @@ let linterTests state =
              End = { Line = 2; Character = 26 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`not (a <> b)` might be able to be refactored into `a = b`."
          RelatedInformation = None
          Tags = None
@@ -152,7 +152,7 @@ let linterTests state =
              End = { Line = 3; Character = 22 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`fun x -> x` might be able to be refactored into `id`."
          RelatedInformation = None
          Tags = None
@@ -164,7 +164,7 @@ let linterTests state =
              End = { Line = 4; Character = 20 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`not true` might be able to be refactored into `false`."
          RelatedInformation = None
          Tags = None
@@ -176,7 +176,7 @@ let linterTests state =
              End = { Line = 5; Character = 21 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`not false` might be able to be refactored into `true`."
          RelatedInformation = None
          Tags = None
@@ -188,7 +188,7 @@ let linterTests state =
              End = { Line = 7; Character = 21 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`a <> true` might be able to be refactored into `not a`."
          RelatedInformation = None
          Tags = None
@@ -200,7 +200,7 @@ let linterTests state =
              End = { Line = 8; Character = 20 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`x = null` might be able to be refactored into `isNull x`."
          RelatedInformation = None
          Tags = None
@@ -212,7 +212,7 @@ let linterTests state =
              End = { Line = 9; Character = 37 } }
          Severity = Some DiagnosticSeverity.Information
          Code = Some "FL0065"
-         Source = "F# Linter"
+         Source = Some "F# Linter"
          Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
          RelatedInformation = None
          Tags = None
@@ -343,7 +343,7 @@ let analyzerTests state =
                          End = { Line = 3; Character = 31 } }
                      Severity = Some DiagnosticSeverity.Warning
                      Code = Some "OV001"
-                     Source = "F# Analyzers (Option.Value analyzer)"
+                     Source = Some "F# Analyzers (Option.Value analyzer)"
                      Message = "Option.Value shouldn't be used"
                      RelatedInformation = None
                      Tags = None
