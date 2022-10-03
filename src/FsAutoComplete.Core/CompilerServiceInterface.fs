@@ -23,19 +23,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       enableBackgroundItemKeyStoreAndSemanticClassification = true,
       keepAllBackgroundSymbolUses = true
     )
-
-
-  // /// FCS only accepts absolute file paths, so this ensures that by
-  // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
-  // let ensureAbsolutePath path =
-  //   if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
-  //   else
-  //       match Environment.OSVersion.Platform with
-  //       | PlatformID.Unix
-  //       | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
-  //       | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
-  //       </> Path.GetFileName path
-
   let entityCache = EntityCache()
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"

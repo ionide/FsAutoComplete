@@ -1,36 +1,11 @@
 namespace FsAutoComplete.Lsp
 
 
-// open FsAutoComplete.Lsp
-// open System
-// open System.IO
-// open System.Threading
-// open FsAutoComplete
-// open FsAutoComplete.Core
-// open FsAutoComplete.LspHelpers
-// open FsAutoComplete.CodeFix
-// open FsAutoComplete.CodeFix.Types
-// open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.LspHelpers
-// open Newtonsoft.Json.Linq
-// open Ionide.ProjInfo
-// open FSharp.Control.Reactive.Observable
-// open FsToolkit.ErrorHandling
-// open FSharp.UMX
-// open FSharp.Analyzers
-// open FSharp.Compiler.Text
-// open CliWrap
-// open CliWrap.Buffered
-// open FSharp.Compiler.Tokenization
-// open FSharp.Compiler.EditorServices
-// open FSharp.Compiler.Symbols
-// open Fantomas.Client.Contracts
-// open Fantomas.Client.LSPFantomasService
-
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
 
