@@ -584,10 +584,7 @@ type ParseAndCheckResults
 
             let results =
               checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
-            // logger.info (
-            //   Log.setMessage "TryGetCompletions - decls: {decls}"
-            //   >> Log.addContextDestructured "decls" results
-            // )
+
             let getKindPriority =
               function
               | CompletionItemKind.CustomOperation -> -1

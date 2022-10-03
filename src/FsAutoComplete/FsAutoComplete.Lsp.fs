@@ -763,7 +763,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     async {
       let pos = arg.GetFcsPos()
       let file = arg.GetFilePath() |> Utils.normalizePath
-      // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
       match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
       | ResultOrString.Error s ->
@@ -817,7 +816,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     async {
       let file = arg.GetFilePath() |> Utils.normalizePath
 
-      // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
       match commands.TryGetFileCheckerOptionsWithLines(file) with
       | ResultOrString.Error s ->
         logger.error (
@@ -2166,8 +2164,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       | CoreResponse.ErrorRes msg -> return internalError msg
       | CoreResponse.Res ranges ->
         let response = ranges |> List.choose mkSelectionRanges
-        // logger.info (Log.setMessage "TextDocumentSelectionRange Response: {parms}" >> Log.addContextDestructured "parms" response)
-        return success (Some response)
+         return success (Some response)
     }
 
   member x.FSharpSignature(p: TextDocumentPositionParams) =

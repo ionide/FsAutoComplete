@@ -614,7 +614,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     async {
       let pos = arg.GetFcsPos()
       let file = arg.GetFilePath() |> Utils.normalizePath
-      // logger.info (Log.setMessage "PositionHandler - Position request: {file} at {pos}" >> Log.addContextDestructured "file" file >> Log.addContextDestructured "pos" pos)
 
       match commands.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos) with
       | ResultOrString.Error s ->
