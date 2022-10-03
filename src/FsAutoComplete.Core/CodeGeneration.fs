@@ -19,10 +19,13 @@ type Line0
 type Line1
 
 type ICodeGenerationService =
-  abstract TokenizeLine : string<LocalPath> * int -> option<list<FSharpTokenInfo>>
-  abstract GetSymbolAtPosition : string<LocalPath> * Position -> option<LexerSymbol>
-  abstract GetSymbolAndUseAtPositionOfKind : string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
-  abstract ParseFileInProject : string<LocalPath> -> option<FSharpParseFileResults>
+  abstract TokenizeLine: string<LocalPath> * int -> option<list<FSharpTokenInfo>>
+  abstract GetSymbolAtPosition: string<LocalPath> * Position -> option<LexerSymbol>
+
+  abstract GetSymbolAndUseAtPositionOfKind:
+    string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
+
+  abstract ParseFileInProject: string<LocalPath> -> option<FSharpParseFileResults>
 
 type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
   interface ICodeGenerationService with

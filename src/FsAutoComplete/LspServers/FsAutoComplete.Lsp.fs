@@ -778,10 +778,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   if dotConfigContent.Contains("fantomas") then
                     // uninstall a older, non-compatible version of fantomas
                     let! result =
-                      Cli.Wrap("dotnet").WithArguments(
-                        "tool uninstall fantomas"
-                      )
-                        .WithWorkingDirectory(
+                      Cli.Wrap("dotnet").WithArguments("tool uninstall fantomas").WithWorkingDirectory(
                         rootPath
                       )
                         .ExecuteBufferedAsync()
@@ -796,10 +793,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                       )
 
                 let! result =
-                  Cli.Wrap("dotnet").WithArguments(
-                    "tool install fantomas"
-                  )
-                    .WithWorkingDirectory(
+                  Cli.Wrap("dotnet").WithArguments("tool install fantomas").WithWorkingDirectory(
                     rootPath
                   )
                     .ExecuteBufferedAsync()
@@ -2907,6 +2901,7 @@ module FSharpLspServer =
           match ex with
           | HandleableException -> false
           | _ -> true }
+
   let startCore toolsPath stateStorageDir workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()

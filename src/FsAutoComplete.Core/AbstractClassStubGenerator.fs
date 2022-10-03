@@ -80,7 +80,11 @@ let private tryFindAbstractClassExprInParsedInput
 
 /// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
 /// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
-let tryFindAbstractClassExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
+let tryFindAbstractClassExprInBufferAtPos
+  (codeGenService: ICodeGenerationService)
+  (pos: Position)
+  (document: Document)
+  =
   asyncMaybe {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
     return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree

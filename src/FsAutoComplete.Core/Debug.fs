@@ -136,8 +136,7 @@ module Debug =
           | 3 ->
             inflightEvents.TryAdd(eventArgs.Task, DateTimeOffset.UtcNow) |> ignore
 
-            Log.setMessage "Started {function}"
-            >> logFunctionName eventArgs.Payload.[0]
+            Log.setMessage "Started {function}" >> logFunctionName eventArgs.Payload.[0]
           | 4 ->
             match inflightEvents.TryRemove(eventArgs.Task) with
             | true, startTime ->
@@ -171,6 +170,7 @@ module Debug =
             >> Log.addContext "id" other
             >> Log.addContextDestructured "name" eventArgs.EventName
             >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
+
         eventLevelToLogLevel eventArgs.Level message
 
       interface System.IDisposable with

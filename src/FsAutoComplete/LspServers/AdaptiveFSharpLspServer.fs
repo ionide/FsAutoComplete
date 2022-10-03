@@ -49,13 +49,14 @@ module AdaptiveExtensions =
       match x.TryGetValue key with
       | None -> x.Add(key, adder key)
       | Some v -> x.Add(key, updater key v)
+
     /// <summary>
     /// Adds the given key and calls the adder function if no previous key exists.
     /// Otherwise calls updater with the current key/value but does not override existing value in the map.
     /// This is useful when the 'Value is itself a changeable value like a cval, aset, amap which should be changed
     /// but the parent container doesn't need to know about those changes itself.
     /// </summary>
-    member x.AddOrElse (key, adder, updater) =
+    member x.AddOrElse(key, adder, updater) =
       match x.TryGetValue key with
       | None -> x.Add(key, adder key) |> ignore
       | Some v -> updater key v
@@ -68,7 +69,11 @@ module Utils =
 /// <summary>
 /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
 /// </summary>
-type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable>(mapping: 'T1 -> ('T2 * 'Disposable), input: aval<'T1>) =
+type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable>
+  (
+    mapping: 'T1 -> ('T2 * 'Disposable),
+    input: aval<'T1>
+  ) =
   inherit AVal.AbstractVal<'T2>()
 
   let mutable cache: ValueOption<struct ('T1 * 'T2 * 'Disposable)> = ValueNone
@@ -822,6 +827,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     async {
       logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
       let config = config |> AVal.force
+
       match findFileInOpenFiles f |> AVal.force, getProjectOptionsForFile f |> AVal.force |> List.tryHead with
       | Some (fileInfo, _), Some (opts) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
       | _, _ -> ()
@@ -934,44 +940,45 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Seq.tryHead
     |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
 
-  let codeGenServer = {
-    new ICodeGenerationService with
-      member x.TokenizeLine(file, i) =
-        option {
-          let! (text, _) = forceFindOpenFileOrRead file |> Option.ofResult
-
-          try
-            let! line = text.Lines.GetLine(Position.mkPos i 0)
-            return Lexer.tokenizeLine [||] line
-          with _ ->
-            return! None
-        }
-      member x.GetSymbolAtPosition(file, pos) =
-        option {
-          try
+  let codeGenServer =
+    { new ICodeGenerationService with
+        member x.TokenizeLine(file, i) =
+          option {
             let! (text, _) = forceFindOpenFileOrRead file |> Option.ofResult
-            let! line = tryGetLineStr pos text.Lines |> Option.ofResult
-            return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-          with _ ->
-            return! None
-        }
 
-      member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
-        asyncMaybe {
-          let! symbol = x.GetSymbolAtPosition(fileName, pos)
+            try
+              let! line = text.Lines.GetLine(Position.mkPos i 0)
+              return Lexer.tokenizeLine [||] line
+            with _ ->
+              return! None
+          }
 
-          if symbol.Kind = kind then
-            let! (text, _) = forceFindOpenFileOrRead fileName |> Option.ofResult
-            let! line = tryGetLineStr pos text.Lines |> Option.ofResult
-            let! result = forceGetTypeCheckResults fileName |> Option.ofResult
-            let symbolUse = result.TryGetSymbolUse pos line
-            return! Some(symbol, symbolUse)
-          else
-            return! None
-        }
-      member x.ParseFileInProject(file) =
-        forceGetParseResults file |> Option.ofResult
-  }
+        member x.GetSymbolAtPosition(file, pos) =
+          option {
+            try
+              let! (text, _) = forceFindOpenFileOrRead file |> Option.ofResult
+              let! line = tryGetLineStr pos text.Lines |> Option.ofResult
+              return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+            with _ ->
+              return! None
+          }
+
+        member x.GetSymbolAndUseAtPositionOfKind(fileName, pos, kind) =
+          asyncMaybe {
+            let! symbol = x.GetSymbolAtPosition(fileName, pos)
+
+            if symbol.Kind = kind then
+              let! (text, _) = forceFindOpenFileOrRead fileName |> Option.ofResult
+              let! line = tryGetLineStr pos text.Lines |> Option.ofResult
+              let! result = forceGetTypeCheckResults fileName |> Option.ofResult
+              let symbolUse = result.TryGetSymbolUse pos line
+              return! Some(symbol, symbolUse)
+            else
+              return! None
+          }
+
+        member x.ParseFileInProject(file) =
+          forceGetParseResults file |> Option.ofResult }
 
   let codefixes =
     let getFileLines = forceFindSourceText
@@ -1046,26 +1053,26 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
          AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
          Run.ifEnabled
-            (fun _ -> config.UnionCaseStubGeneration)
-            (GenerateUnionCases.fix
-              getFileLines
-              tryGetParseResultsForFile
-              getUnionPatternMatchCases
-              (unionCaseStubReplacements config))
+           (fun _ -> config.UnionCaseStubGeneration)
+           (GenerateUnionCases.fix
+             getFileLines
+             tryGetParseResultsForFile
+             getUnionPatternMatchCases
+             (unionCaseStubReplacements config))
          ExternalSystemDiagnostics.linter
          ExternalSystemDiagnostics.analyzers
          Run.ifEnabled
            (fun _ -> config.InterfaceStubGeneration)
            (ImplementInterface.fix tryGetParseResultsForFile forceGetProjectOptions (implementInterfaceConfig config))
          Run.ifEnabled
-            (fun _ -> config.RecordStubGeneration)
-            (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
+           (fun _ -> config.RecordStubGeneration)
+           (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
          Run.ifEnabled
-            (fun _ -> config.AbstractClassStubGeneration)
-            (GenerateAbstractClassStub.fix
-              tryGetParseResultsForFile
-              getAbstractClassStub
-              (abstractClassStubReplacements config))
+           (fun _ -> config.AbstractClassStubGeneration)
+           (GenerateAbstractClassStub.fix
+             tryGetParseResultsForFile
+             getAbstractClassStub
+             (abstractClassStubReplacements config))
          AddMissingEqualsToTypeDefinition.fix getFileLines
          ChangePrefixNegationToInfixSubtraction.fix getFileLines
          ConvertDoubleEqualsToSingleEquals.fix getRangeText
@@ -1129,12 +1136,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   // issue: fs-file does never get removed from project options (-> requires reload of FSAC to register)
                   // -> don't know if file still part of project (file might have been removed from project)
                   // -> keep cache for file
-                  false)
-        )
-        |> AVal.force
+                  false))
+      |> AVal.force
 
 
-    if doesNotExist filePath || isOutsideWorkspace filePath  then
+    if doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
@@ -1308,10 +1314,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     if dotConfigContent.Contains("fantomas") then
                       // uninstall a older, non-compatible version of fantomas
                       let! result =
-                        Cli.Wrap("dotnet").WithArguments(
-                          "tool uninstall fantomas"
-                        )
-                          .WithWorkingDirectory(
+                        Cli.Wrap("dotnet").WithArguments("tool uninstall fantomas").WithWorkingDirectory(
                           rootPath
                         )
                           .ExecuteBufferedAsync()
@@ -1326,10 +1329,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                         )
 
                   let! result =
-                    Cli.Wrap("dotnet").WithArguments(
-                      "tool install fantomas"
-                    )
-                      .WithWorkingDirectory(
+                    Cli.Wrap("dotnet").WithArguments("tool install fantomas").WithWorkingDirectory(
                       rootPath
                     )
                       .ExecuteBufferedAsync()
@@ -1532,10 +1532,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-          Async.Start(async {
-            do! Async.Sleep 100
-            forceGetTypeCheckResults filePath |> ignore
-          })
+
+          Async.Start(
+            async {
+              do! Async.Sleep 100
+              forceGetTypeCheckResults filePath |> ignore
+            }
+          )
           // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
@@ -1586,10 +1589,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
-          Async.Start(async {
-            do! Async.Sleep 100
-            forceGetTypeCheckResults filePath |> ignore
-          })
+
+          Async.Start(
+            async {
+              do! Async.Sleep 100
+              forceGetTypeCheckResults filePath |> ignore
+            }
+          )
           // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
@@ -2108,11 +2114,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
           let! usages =
-            symbolUseWorkspace
-              pos
-              lineStr
-              namedText.Lines
-              tyRes
+            symbolUseWorkspace pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           match usages with
@@ -2427,7 +2429,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             )
 
           let tryGetFileVersion filePath =
-            forceFindOpenFileOrRead filePath |> Option.ofResult |> Option.bind (fun (f, _) -> f.Version)
+            forceFindOpenFileOrRead filePath
+            |> Option.ofResult
+            |> Option.bind (fun (f, _) -> f.Version)
 
           let clientCapabilities = clientCapabilities |> AVal.force
 
@@ -2581,11 +2585,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 return { p with Command = Some cmd } |> Some |> success
             else
               let! res =
-                symbolUseWorkspace
-                  pos
-                  lineStr
-                  lines
-                  tyRes
+                symbolUseWorkspace pos lineStr lines tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
               let res =
@@ -3755,6 +3755,7 @@ module AdaptiveFSharpLspServer =
           match ex with
           | HandleableException -> false
           | _ -> true }
+
   let startCore toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
