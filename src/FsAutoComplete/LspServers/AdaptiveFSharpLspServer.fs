@@ -669,7 +669,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFilesA
     |> AMap.mapAdaptiveValue (fun (info, cts) ->
       let file = info.Lines.FileName
-
       if Utils.isAScript (UMX.untag file) then
         (checker, tfmConfig)
         ||> AVal.map2 (fun checker tfm ->
@@ -1487,9 +1486,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                             Range = Some true
                             Full = Some(U2.First true) }
                       InlayHintProvider =
-                        // None
-                        // TODO: Fix bugs and performance
-                        // FsAutoComplete.Core.Workaround.ServiceParseTreeWalk+SyntaxTraversal+defaultTraverse causing stack overflows
                         Some { ResolveProvider = Some false } } }
 
         with e ->
@@ -1539,7 +1535,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               forceGetTypeCheckResults filePath |> ignore
             }
           )
-          // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
@@ -1596,7 +1591,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               forceGetTypeCheckResults filePath |> ignore
             }
           )
-          // let _ = tryGetTypeCheckResults filePath
           return ()
         with e ->
           logger.error (
@@ -1633,10 +1627,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           for (file, aFile) in knownFiles do
             let (_, cts) = aFile |> AVal.force
-
-            forceTypeCheck checker file
-            |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
-            |> ignore<unit option>
+            do!
+              forceTypeCheck checker file
+              |> Async.withCancellationSafe(fun () -> cts.Token)
+              |> Async.Ignore<unit option>
 
           return ()
         with e ->
