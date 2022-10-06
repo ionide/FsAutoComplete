@@ -187,10 +187,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let config = cval<FSharpConfig> FSharpConfig.Default
 
+
   let checker =
     config
     |> AVal.map (fun c -> c.EnableAnalyzers) // Maps will cache values and we don't want to recreate FSharpCompilerServiceChecker unless only EnableAnalyzers changed
     |> AVal.map (FSharpCompilerServiceChecker)
+
+  let mutableConfigChanges =
+    let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
+    aval {
+      let! config = config
+      and! checker = checker
+      checker.SetFSIAdditionalArguments
+        [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument
+           yield! config.FSIExtraParameters |]
+      return ()
+    }
+
+  let updateConfig c =
+    transact(fun () -> config.Value <-c)
+    mutableConfigChanges |> AVal.force
+
 
   let tfmConfig =
     config
@@ -1031,6 +1048,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let writeAbstractClassStub =
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
+    let foo bar fizz = fizz * fizz
+
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
         tryFindAbstractClassExprInBufferAtPos
@@ -1437,56 +1456,55 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           transact (fun () ->
             rootPath.Value <- actualRootPath
             clientCapabilities.Value <- p.Capabilities
-            config.Value <- c
+            updateConfig c
             workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
 
 
           return
-            { InitializeResult.Default with
-                Capabilities =
-                  { ServerCapabilities.Default with
-                      HoverProvider = Some true
-                      RenameProvider = Some(U2.First true)
-                      DefinitionProvider = Some true
-                      TypeDefinitionProvider = Some true
-                      ImplementationProvider = Some true
-                      ReferencesProvider = Some true
-                      DocumentHighlightProvider = Some true
-                      DocumentSymbolProvider = Some true
-                      WorkspaceSymbolProvider = Some true
-                      DocumentFormattingProvider = Some true
-                      DocumentRangeFormattingProvider = Some true
-                      SignatureHelpProvider =
-                        Some
-                          { TriggerCharacters = Some [| '('; ','; ' ' |]
-                            RetriggerCharacters = Some [| ','; ')'; ' ' |] }
-                      CompletionProvider =
-                        Some
-                          { ResolveProvider = Some true
-                            TriggerCharacters = Some([| '.'; ''' |])
-                            AllCommitCharacters = None //TODO: what chars shoudl commit completions?
-                          }
-                      CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
-                      CodeActionProvider =
-                        Some
-                          { CodeActionKinds = None
-                            ResolveProvider = None }
-                      TextDocumentSync =
-                        Some
-                          { TextDocumentSyncOptions.Default with
-                              OpenClose = Some true
-                              Change = Some TextDocumentSyncKind.Full
-                              Save = Some { IncludeText = Some true } }
-                      FoldingRangeProvider = Some true
-                      SelectionRangeProvider = Some true
-                      SemanticTokensProvider =
-                        Some
-                          { Legend =
-                              createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-                            Range = Some true
-                            Full = Some(U2.First true) }
-                      InlayHintProvider =
-                        Some { ResolveProvider = Some false } } }
+              { InitializeResult.Default with
+                  Capabilities =
+                    { ServerCapabilities.Default with
+                        HoverProvider = Some true
+                        RenameProvider = Some(U2.First true)
+                        DefinitionProvider = Some true
+                        TypeDefinitionProvider = Some true
+                        ImplementationProvider = Some true
+                        ReferencesProvider = Some true
+                        DocumentHighlightProvider = Some true
+                        DocumentSymbolProvider = Some true
+                        WorkspaceSymbolProvider = Some true
+                        DocumentFormattingProvider = Some true
+                        DocumentRangeFormattingProvider = Some true
+                        SignatureHelpProvider =
+                          Some
+                            { TriggerCharacters = Some [| '('; ','; ' ' |]
+                              RetriggerCharacters = Some [| ','; ')'; ' ' |] }
+                        CompletionProvider =
+                          Some
+                            { ResolveProvider = Some true
+                              TriggerCharacters = Some([| '.'; ''' |])
+                              AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+                            }
+                        CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+                        CodeActionProvider =
+                          Some
+                            { CodeActionKinds = None
+                              ResolveProvider = None }
+                        TextDocumentSync =
+                          Some
+                            { TextDocumentSyncOptions.Default with
+                                OpenClose = Some true
+                                Change = Some TextDocumentSyncKind.Full
+                                Save = Some { IncludeText = Some true } }
+                        FoldingRangeProvider = Some true
+                        SelectionRangeProvider = Some true
+                        SemanticTokensProvider =
+                          Some
+                            { Legend =
+                                createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
+                              Range = Some true
+                              Full = Some(U2.First true) }
+                        InlayHintProvider = Some { ResolveProvider = Some false } } }
 
         with e ->
           logger.error (
@@ -2392,9 +2410,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! namedText = forceFindOpenFileOrRead filePath |> Result.ofStringErr
-
-          let! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
           let (fixes: Async<Result<Fix list, string>[]>) =
             codefixes
@@ -2672,7 +2687,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
           let c = config |> AVal.force
           let c = c.AddDto dto.FSharp
-          transact (fun () -> config.Value <- c)
+          updateConfig c
 
         with e ->
           logger.error (

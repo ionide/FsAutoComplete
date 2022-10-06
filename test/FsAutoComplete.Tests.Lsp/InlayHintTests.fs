@@ -1776,6 +1776,7 @@ let explicitTypeInfoTests =
               ()
             """
                    ExplicitType.Invalid ] ]
+      testSequenced <|
       testList
         "Bindings"
         [ testList
@@ -1994,6 +1995,7 @@ let explicitTypeInfoTests =
               ()
             """
                    (ExplicitType.Exists) ] ]
+      testSequenced <|
       testList
         "Patterns"
         [ testList

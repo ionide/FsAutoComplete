@@ -201,6 +201,7 @@ module Server =
 
 module Document =
   open System.Reactive.Linq
+  open System.Threading.Tasks
 
   let private typedEvents<'t> typ : _ -> System.IObservable<'t> =
     Observable.choose (fun (typ', _o) ->
@@ -290,21 +291,26 @@ module Document =
         >> Log.addContext "uri" doc.Uri
         >> Log.addContext "version" doc.Version
       )
+      let tcs = TaskCompletionSource<_>()
 
-      return!
+      doc
+      |> diagnosticsStream
+      |> Observable.takeUntilOther (
         doc
-        |> diagnosticsStream
-        |> Observable.takeUntilOther (
-          doc
-          // `fsharp/documentAnalyzed` signals all checks & analyzers done
-          |> analyzedStream
-          |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
-          // wait for late diagnostics
-          |> Observable.delay waitForLateDiagnosticsDelay
-        )
-        |> Observable.last
-        |> Observable.timeoutSpan timeout
-        |> Async.AwaitObservable
+        // `fsharp/documentAnalyzed` signals all checks & analyzers done
+        |> analyzedStream
+        |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
+        // wait for late diagnostics
+        |> Observable.delay waitForLateDiagnosticsDelay
+      )
+      |> Observable.bufferSpan (timeout)
+      // |> Observable.timeoutSpan timeout
+      |> Observable.subscribe(fun x -> tcs.SetResult x)
+      |> ignore
+
+      let! result = tcs.Task |> Async.AwaitTask
+
+      return result |> Seq.last
     }
 
 

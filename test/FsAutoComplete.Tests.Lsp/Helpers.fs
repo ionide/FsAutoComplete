@@ -135,7 +135,7 @@ type Async =
         | Choice2Of2 exn -> raise exn
     }
 
-let logger = Serilog.Log.Logger.ForContext("SourceContext", "LSPTests")
+let logger = lazy Serilog.Log.Logger.ForContext("SourceContext", "LSPTests")
 
 type Cacher<'t> = System.Reactive.Subjects.ReplaySubject<'t>
 type ClientEvents = IObservable<string * obj>
@@ -367,11 +367,11 @@ open CliWrap
 open CliWrap.Buffered
 
 let logEvent (name, payload) =
-  logger.Debug("{name}: {payload}", name, payload)
+  logger.Value.Debug("{name}: {payload}", name, payload)
 
 let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
-    logger.Debug("[{section}] dotnet restore: {line}", section, line)
+    logger.Value.Debug("[{section}] dotnet restore: {line}", section, line)
 
 let dotnetCleanup baseDir =
   [ "obj"; "bin" ]
@@ -420,7 +420,7 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
       do! dotnetRestore path
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
-
+    logger.Value.Error("LOLOLOLOL")
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
@@ -462,7 +462,7 @@ let parseProject projectFilePath (server: IFSharpLspServer) =
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams
     do! Async.Sleep(TimeSpan.FromSeconds 3.)
-    logger.Debug("{project} parse result: {result}", projectName, result)
+    logger.Value.Debug("{project} parse result: {result}", projectName, result)
   }
 
 let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification) : 't option =
@@ -486,7 +486,7 @@ let waitForWorkspaceFinishedParsing (events: ClientEvents) =
       | _ -> None
     | _ -> None
 
-  logger.Debug "waiting for workspace to finish loading"
+  logger.Value.Debug "waiting for workspace to finish loading"
 
   events
   |> Observable.choose chooser
@@ -532,7 +532,7 @@ let editsFor (file: string) =
     | edits -> Some edits)
 
 let fileDiagnostics (file: string) =
-  logger.Information("waiting for events on file {file}", file)
+  logger.Value.Information("waiting for events on file {file}", file)
 
   getDiagnosticsEvents
   >> matchFiles (Set.ofList [ file ])
@@ -540,7 +540,7 @@ let fileDiagnostics (file: string) =
   >> Observable.map (fun d -> d.Diagnostics)
 
 let fileDiagnosticsForUri (uri: string) =
-  logger.Information("waiting for events on file {file}", uri)
+  logger.Value.Information("waiting for events on file {file}", uri)
 
   getDiagnosticsEvents
   >> Observable.choose (fun n -> if n.Uri = uri then Some n.Diagnostics else None)
