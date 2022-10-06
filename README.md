@@ -18,24 +18,14 @@ Currently it is used by:
 It's based on:
 
 * [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
-* [Ionide.ProjInfo](https://github.com/ionide/proj-info) for project/solution management.
-* [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
-* [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
-
-## Required software
-
-FsAutoComplete can run on .NET/mono or .NET Core. We highly recommend using .Net Core version of FSAC as we plan to remove the "full framework" version soon - [read more](https://github.com/fsharp/FsAutoComplete/issues/506)
-
-### FSAC .NET Core
-
-* .NET Core Sdk (Required: >= 2.1, Recommended: >= 3.0 )
-
+* [Ionide.ProjInfo](https://github.com/ionide/proj-info) for project/solution management.## Required software
 
 ## Building and testing
 
 Requirements:
 
-* .NET Core Sdk, see [global.json](global.json) for the exact version.
+* .NET SDK, see [global.json](global.json) for the exact version.
+   Minimum: >= 6.0, Recommended: >= 7.0 
 
 1. Restore dotnet tools to install local Paket `dotnet tool restore`
 2. Build FSAC with `dotnet run --project build`
