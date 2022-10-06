@@ -19,6 +19,8 @@ It's based on:
 
 * [FSharp.Compiler.Service](https://github.com/fsharp/FSharp.Compiler.Service/) for F# language info.
 * [Ionide.ProjInfo](https://github.com/ionide/proj-info) for project/solution management.## Required software
+* [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
+* [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
 
 ## Building and testing
 
