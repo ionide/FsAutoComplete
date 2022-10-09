@@ -2,6 +2,7 @@ module FsAutoComplete.SignatureHelp
 
 open System
 open FSharp.Compiler.Text
+open FsAutoComplete.UntypedAstUtils
 open FsToolkit.ErrorHandling
 open FsAutoComplete
 open FSharp.UMX
@@ -212,38 +213,42 @@ let getSignatureHelpFor
     possibleSessionKind
   ) =
   asyncResult {
-    let previousNonWhitespaceChar =
-      let rec loop ch pos =
-        if Char.IsWhiteSpace ch then
-          match lines.TryGetPrevChar pos with
-          | Some (prevPos, prevChar) -> loop prevChar prevPos
-          | None -> None
-        else
-          Some(pos, ch)
+    match Completion.atPos (pos, tyRes.GetParseResults.ParseTree) with
+    | Completion.Context.StringLiteral -> return None
+    | Completion.Context.SynType
+    | Completion.Context.Unknown ->
+      let previousNonWhitespaceChar =
+        let rec loop ch pos =
+          if Char.IsWhiteSpace ch then
+            match lines.TryGetPrevChar pos with
+            | Some (prevPos, prevChar) -> loop prevChar prevPos
+            | None -> None
+          else
+            Some(pos, ch)
 
-      match lines.TryGetPrevChar pos with
-      | Some (prevPos, prevChar) -> loop prevChar prevPos
-      | None -> None
+        match lines.TryGetPrevChar pos with
+        | Some (prevPos, prevChar) -> loop prevChar prevPos
+        | None -> None
 
-    let! (previousNonWhitespaceCharPos, previousNonWhitespaceChar) =
-      previousNonWhitespaceChar
-      |> Result.ofOption (fun _ -> "Couldn't find previous non-whitespace char")
+      let! (previousNonWhitespaceCharPos, previousNonWhitespaceChar) =
+        previousNonWhitespaceChar
+        |> Result.ofOption (fun _ -> "Couldn't find previous non-whitespace char")
 
-    let! charAtPos =
-      triggerChar
-      |> Option.orElseWith (fun _ -> lines.TryGetChar pos)
-      |> Result.ofOption (fun _ -> "Couldn't find a trigger char")
+      let! charAtPos =
+        triggerChar
+        |> Option.orElseWith (fun _ -> lines.TryGetChar pos)
+        |> Result.ofOption (fun _ -> "Couldn't find a trigger char")
 
-    match charAtPos, possibleSessionKind with
-    // Generally ' ' indicates a function application, but it's also used commonly after a comma in a method call.
-    // This means that the adjusted position relative to the caret could be a ',' or a '(' or '<',
-    // which would mean we're already inside of a method call - not a function argument. So we bail if that's the case.
-    | (' ', _)
-    | (_, Some FunctionApplication) when
-      previousNonWhitespaceChar <> ','
-      && previousNonWhitespaceChar <> '('
-      && previousNonWhitespaceChar <> '<'
-      ->
-      return! getSignatureHelpForFunctionApplication (tyRes, pos, previousNonWhitespaceCharPos, lines)
-    | _ -> return! getSignatureHelpForMethod (tyRes, pos, lines, triggerChar)
+      match charAtPos, possibleSessionKind with
+      // Generally ' ' indicates a function application, but it's also used commonly after a comma in a method call.
+      // This means that the adjusted position relative to the caret could be a ',' or a '(' or '<',
+      // which would mean we're already inside of a method call - not a function argument. So we bail if that's the case.
+      | (' ', _)
+      | (_, Some FunctionApplication) when
+        previousNonWhitespaceChar <> ','
+        && previousNonWhitespaceChar <> '('
+        && previousNonWhitespaceChar <> '<'
+        ->
+        return! getSignatureHelpForFunctionApplication (tyRes, pos, previousNonWhitespaceCharPos, lines)
+      | _ -> return! getSignatureHelpForMethod (tyRes, pos, lines, triggerChar)
   }
