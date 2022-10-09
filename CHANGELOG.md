@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.58.0] - 2022-10-09
+
+### Added
+
+* [Experimental implementation of the LSP server based on FSharp.Data.Adaptive](https://github.com/fsharp/FsAutoComplete/pull/1007). It can be enabled by passing `--adaptive-lsp-server-enabled` on the CLI. (Thanks @TheAngryByrd!)
+
 ## [0.57.4] - 2022-09-30
 
 ### Fixed
