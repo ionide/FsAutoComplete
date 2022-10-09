@@ -159,14 +159,16 @@ module Async =
       return! tcs.Task |> Async.AwaitTask
     }
 
-  let withCancellationSafe ct work = async {
-    try
-      let! result = withCancellation (ct ()) work
-      return Some result
-    with
-    | :? OperationCanceledException as e -> return None
-    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") -> return None
-  }
+  let withCancellationSafe ct work =
+    async {
+      try
+        let! result = withCancellation (ct ()) work
+        return Some result
+      with
+      | :? OperationCanceledException as e -> return None
+      | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
+        return None
+    }
 
   let RunSynchronouslyWithCT ct work =
     Async.RunSynchronously(work, cancellationToken = ct)
@@ -186,10 +188,7 @@ module ObservableExtensions =
 
     /// Fires an event only after the specified interval has passed in which no other pending event has fired. Buffers all events leading up to that emit.
     member x.BufferedDebounce(ts: TimeSpan) =
-      x
-        .Publish(fun shared ->
-          shared.Window(shared.Throttle(ts))
-        )
+      x.Publish(fun shared -> shared.Window(shared.Throttle(ts)))
 
 module Helpers =
   let notImplemented<'t> = async.Return LspResult.notImplemented<'t>

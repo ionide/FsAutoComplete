@@ -195,17 +195,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let mutableConfigChanges =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
+
     aval {
       let! config = config
       and! checker = checker
+
       checker.SetFSIAdditionalArguments
         [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument
            yield! config.FSIExtraParameters |]
+
       return ()
     }
 
   let updateConfig c =
-    transact(fun () -> config.Value <-c)
+    transact (fun () -> config.Value <- c)
     mutableConfigChanges |> AVal.force
 
 
@@ -686,6 +689,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFilesA
     |> AMap.mapAdaptiveValue (fun (info, cts) ->
       let file = info.Lines.FileName
+
       if Utils.isAScript (UMX.untag file) then
         (checker, tfmConfig)
         ||> AVal.map2 (fun checker tfm ->
@@ -1461,50 +1465,50 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
           return
-              { InitializeResult.Default with
-                  Capabilities =
-                    { ServerCapabilities.Default with
-                        HoverProvider = Some true
-                        RenameProvider = Some(U2.First true)
-                        DefinitionProvider = Some true
-                        TypeDefinitionProvider = Some true
-                        ImplementationProvider = Some true
-                        ReferencesProvider = Some true
-                        DocumentHighlightProvider = Some true
-                        DocumentSymbolProvider = Some true
-                        WorkspaceSymbolProvider = Some true
-                        DocumentFormattingProvider = Some true
-                        DocumentRangeFormattingProvider = Some true
-                        SignatureHelpProvider =
-                          Some
-                            { TriggerCharacters = Some [| '('; ','; ' ' |]
-                              RetriggerCharacters = Some [| ','; ')'; ' ' |] }
-                        CompletionProvider =
-                          Some
-                            { ResolveProvider = Some true
-                              TriggerCharacters = Some([| '.'; ''' |])
-                              AllCommitCharacters = None //TODO: what chars shoudl commit completions?
-                            }
-                        CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
-                        CodeActionProvider =
-                          Some
-                            { CodeActionKinds = None
-                              ResolveProvider = None }
-                        TextDocumentSync =
-                          Some
-                            { TextDocumentSyncOptions.Default with
-                                OpenClose = Some true
-                                Change = Some TextDocumentSyncKind.Full
-                                Save = Some { IncludeText = Some true } }
-                        FoldingRangeProvider = Some true
-                        SelectionRangeProvider = Some true
-                        SemanticTokensProvider =
-                          Some
-                            { Legend =
-                                createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-                              Range = Some true
-                              Full = Some(U2.First true) }
-                        InlayHintProvider = Some { ResolveProvider = Some false } } }
+            { InitializeResult.Default with
+                Capabilities =
+                  { ServerCapabilities.Default with
+                      HoverProvider = Some true
+                      RenameProvider = Some(U2.First true)
+                      DefinitionProvider = Some true
+                      TypeDefinitionProvider = Some true
+                      ImplementationProvider = Some true
+                      ReferencesProvider = Some true
+                      DocumentHighlightProvider = Some true
+                      DocumentSymbolProvider = Some true
+                      WorkspaceSymbolProvider = Some true
+                      DocumentFormattingProvider = Some true
+                      DocumentRangeFormattingProvider = Some true
+                      SignatureHelpProvider =
+                        Some
+                          { TriggerCharacters = Some [| '('; ','; ' ' |]
+                            RetriggerCharacters = Some [| ','; ')'; ' ' |] }
+                      CompletionProvider =
+                        Some
+                          { ResolveProvider = Some true
+                            TriggerCharacters = Some([| '.'; ''' |])
+                            AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+                          }
+                      CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+                      CodeActionProvider =
+                        Some
+                          { CodeActionKinds = None
+                            ResolveProvider = None }
+                      TextDocumentSync =
+                        Some
+                          { TextDocumentSyncOptions.Default with
+                              OpenClose = Some true
+                              Change = Some TextDocumentSyncKind.Full
+                              Save = Some { IncludeText = Some true } }
+                      FoldingRangeProvider = Some true
+                      SelectionRangeProvider = Some true
+                      SemanticTokensProvider =
+                        Some
+                          { Legend =
+                              createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
+                            Range = Some true
+                            Full = Some(U2.First true) }
+                      InlayHintProvider = Some { ResolveProvider = Some false } } }
 
         with e ->
           logger.error (
@@ -1553,6 +1557,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               forceGetTypeCheckResults filePath |> ignore
             }
           )
+
           return ()
         with e ->
           logger.error (
@@ -1609,6 +1614,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               forceGetTypeCheckResults filePath |> ignore
             }
           )
+
           return ()
         with e ->
           logger.error (
@@ -1645,9 +1651,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           for (file, aFile) in knownFiles do
             let (_, cts) = aFile |> AVal.force
+
             do!
               forceTypeCheck checker file
-              |> Async.withCancellationSafe(fun () -> cts.Token)
+              |> Async.withCancellationSafe (fun () -> cts.Token)
               |> Async.Ignore<unit option>
 
           return ()
