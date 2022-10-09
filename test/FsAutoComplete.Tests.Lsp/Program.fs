@@ -35,72 +35,89 @@ let loaders =
     // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
     ]
 
+let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
+  let testRunDir =
+    Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
+    |> DirectoryInfo
+
+  let createServer () =
+    FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
+
+  Helpers.createServer createServer
+
+let adaptiveLspServerFactory toolsPath workspaceLoaderFactory =
+  Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath)
+
+let lspServers =
+  [
+    "FSharpLspServer", fsharpLspServerFactory
+    // "AdaptiveLspServer", adaptiveLspServerFactory
+    ]
+
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
 let lspTests =
   testList
     "lsp"
-    [ for (name, workspaceLoaderFactory) in loaders do
-        testList
-          name
-          [
-            Templates.tests ()
-            let testRunDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString()) |> DirectoryInfo
-            let state () =
-              FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
+    [ for (loaderName, workspaceLoaderFactory) in loaders do
+        for (lspName, lspFactory) in lspServers do
+          testList
+            $"{loaderName}.{lspName}"
+            [ Templates.tests ()
+              let createServer () =
+                lspFactory toolsPath workspaceLoaderFactory
 
-            initTests state
-            closeTests state
+              initTests createServer
+              closeTests createServer
 
-            Utils.Tests.Server.tests state
-            Utils.Tests.CursorbasedTests.tests state
+              Utils.Tests.Server.tests createServer
+              Utils.Tests.CursorbasedTests.tests createServer
 
-            CodeLens.tests state
-            documentSymbolTest state
-            Completion.autocompleteTest state
-            Completion.autoOpenTests state
-            Rename.tests state
-            foldingTests state
-            tooltipTests state
-            Highlighting.tests state
-            scriptPreviewTests state
-            scriptEvictionTests state
-            scriptProjectOptionsCacheTests state
-            dependencyManagerTests state
-            interactiveDirectivesUnitTests
+              CodeLens.tests createServer
+              documentSymbolTest createServer
+              Completion.autocompleteTest createServer
+              Completion.autoOpenTests createServer
+              Rename.tests createServer
+              foldingTests createServer
+              tooltipTests createServer
+              Highlighting.tests createServer
+              scriptPreviewTests createServer
+              scriptEvictionTests createServer
+              scriptProjectOptionsCacheTests createServer
+              dependencyManagerTests createServer
+              interactiveDirectivesUnitTests
 
-            // commented out because FSDN is down
-            //fsdnTest state
-            uriTests
-            //linterTests state
-            formattingTests state
-            analyzerTests state
-            signatureTests state
-            SignatureHelp.tests state
-            CodeFixTests.Tests.tests state
-            Completion.tests state
-            GoTo.tests state
-            FindReferences.tests state
-            InfoPanelTests.docFormattingTest state
-            DetectUnitTests.tests state
-            XmlDocumentationGeneration.tests state
-            InlayHintTests.tests state
-            DependentFileChecking.tests state
-            UnusedDeclarationsTests.tests state
-          ]
-    ]
+              // // commented out because FSDN is down
+              // //fsdnTest createServer
+              uriTests
+              //linterTests createServer
+              formattingTests createServer
+              analyzerTests createServer // stalling on adaptive
+              signatureTests createServer
+              SignatureHelp.tests createServer
+              CodeFixTests.Tests.tests createServer
+              Completion.tests createServer
+              GoTo.tests createServer
+              FindReferences.tests createServer
+              InfoPanelTests.docFormattingTest createServer
+              DetectUnitTests.tests createServer //stalling on adaptive
+              XmlDocumentationGeneration.tests createServer
+              InlayHintTests.tests createServer
+              DependentFileChecking.tests createServer
+              UnusedDeclarationsTests.tests createServer
+
+              ] ]
 
 [<Tests>]
-let tests = testList "FSAC" [
-  testList (nameof(Utils)) [
-    Utils.Tests.Utils.tests
-    Utils.Tests.TextEdit.tests
-  ]
-  InlayHintTests.explicitTypeInfoTests
+let tests =
+  testList
+    "FSAC"
+    [
+      testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+      InlayHintTests.explicitTypeInfoTests
 
-  lspTests
-]
+      lspTests ]
 
 
 [<EntryPoint>]
@@ -116,12 +133,12 @@ let main args =
       if args |> Array.contains "--debug" then
         Logging.LogLevel.Verbose
       else
-        match args
-              |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
-              |> Option.map (fun log -> log.Substring(logMarker.Length))
-          with
-        | Some ("warn"
-        | "warning") -> Logging.LogLevel.Warn
+        match
+          args
+          |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+          |> Option.map (fun log -> log.Substring(logMarker.Length))
+        with
+        | Some ("warn" | "warning") -> Logging.LogLevel.Warn
         | Some "error" -> Logging.LogLevel.Error
         | Some "fatal" -> Logging.LogLevel.Fatal
         | Some "info" -> Logging.LogLevel.Info
@@ -145,7 +162,7 @@ let main args =
     | Logging.LogLevel.Error -> LogEventLevel.Error
     | Logging.LogLevel.Fatal -> LogEventLevel.Fatal
 
-  let parseLogExcludes (args: string []) =
+  let parseLogExcludes (args: string[]) =
     let excludeMarker = "--exclude-from-log="
 
     let toExclude =
@@ -153,9 +170,7 @@ let main args =
       |> Array.filter (fun arg -> arg.StartsWith excludeMarker)
       |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-    let args =
-      args
-      |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
+    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
 
     toExclude, args
 
@@ -166,9 +181,7 @@ let main args =
   let sourcesToExclude =
     Matching.WithProperty<string>(
       Constants.SourceContextPropertyName,
-      fun s ->
-        s <> null
-        && logSourcesToExclude |> Array.contains s
+      fun s -> s <> null && logSourcesToExclude |> Array.contains s
     )
 
   let argsToRemove, loaders =
@@ -211,7 +224,7 @@ let main args =
 
   // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests
   Serilog.Log.Logger <- serilogLogger
-  LogProvider.setLoggerProvider (Providers.SerilogProvider.create())
+  LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
 
   let fixedUpArgs = args |> Array.except argsToRemove
 
@@ -219,7 +232,7 @@ let main args =
 
   let config =
     { defaultConfig with
-        failOnFocusedTests = true
+        // failOnFocusedTests = true
         printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
         verbosity = logLevel }
 

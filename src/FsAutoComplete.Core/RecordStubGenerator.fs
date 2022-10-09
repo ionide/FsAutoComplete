@@ -214,7 +214,7 @@ let walkAndFindRecordBinding (pos, input) =
 
   SyntaxTraversal.Traverse(pos, input, walker)
 
-let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos: Position) (document: Document) =
+let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncMaybe {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
@@ -222,7 +222,7 @@ let tryFindRecordExprInBufferAtPos (codeGenService: CodeGenerationService) (pos:
     return found
   }
 
-let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (document: Document) (expr: RecordExpr) =
+let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (document: Document) (expr: RecordExpr) =
 
   maybe {
     let! rangeWhereToLookForEnclosingRBrace =
@@ -253,7 +253,7 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: CodeGenerationService) (d
   }
   |> Option.isSome
 
-let tryFindStubInsertionParamsAtPos (codeGenService: CodeGenerationService) (pos: Position) (document: Document) =
+let tryFindStubInsertionParamsAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncMaybe {
     let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
 
@@ -270,7 +270,7 @@ let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
   let writtenFieldCount = recordExpr.FieldExprList.Length
   fieldCount > 0 && writtenFieldCount < fieldCount
 
-let tryFindRecordDefinitionFromPos (codeGenService: CodeGenerationService) (pos: Position) (document: Document) =
+let tryFindRecordDefinitionFromPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncMaybe {
     let! recordExpression, insertionPos = tryFindStubInsertionParamsAtPos codeGenService pos document
 

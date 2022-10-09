@@ -236,7 +236,7 @@ let autocompleteTest state =
     }
     |> Async.Cache
 
-  let makeAutocompleteTestList (serverConfig: (FSharpLspServer * string) Async) =
+  let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
     [ testCaseAsync
         "Get Autocomplete module members"
         (async {
@@ -416,7 +416,7 @@ let autoOpenTests state =
     { Line = pos.Line
       Character = indentation }
 
-  let getQuickFix (server: FSharpLspServer, path: string) (word: string, ns: string) (cursor: Position) =
+  let getQuickFix (server: IFSharpLspServer, path: string) (word: string, ns: string) (cursor: Position) =
     async {
       let p =
         { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri path }
@@ -460,7 +460,7 @@ let autoOpenTests state =
   let test
     (compareWithQuickFix: bool)
     (name: string option)
-    (server: Async<FSharpLspServer * string>)
+    (server: Async<IFSharpLspServer * string>)
     (word: string, ns: string)
     (cursor: Position)
     (expectedOpen: Position)

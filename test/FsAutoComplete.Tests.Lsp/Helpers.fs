@@ -17,12 +17,7 @@ let rec private copyDirectory sourceDir destDir =
   let dir = DirectoryInfo(sourceDir)
 
   if not dir.Exists then
-    raise (
-      DirectoryNotFoundException(
-        "Source directory does not exist or could not be found: "
-        + sourceDir
-      )
-    )
+    raise (DirectoryNotFoundException("Source directory does not exist or could not be found: " + sourceDir))
 
   let dirs = dir.GetDirectories()
 
@@ -140,7 +135,7 @@ type Async =
         | Choice2Of2 exn -> raise exn
     }
 
-let logger = Serilog.Log.Logger.ForContext("SourceContext", "LSPTests")
+let logger = lazy Serilog.Log.Logger.ForContext("SourceContext", "LSPTests")
 
 type Cacher<'t> = System.Reactive.Subjects.ReplaySubject<'t>
 type ClientEvents = IObservable<string * obj>
@@ -167,7 +162,20 @@ let createServer (state: unit -> State) =
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
   let server = new FSharpLspServer(innerState, client)
-  server, serverInteractions :> ClientEvents
+  server :> IFSharpLspServer, serverInteractions :> ClientEvents
+
+let createAdaptiveServer (workspaceLoader) =
+  let serverInteractions = new Cacher<_>()
+  let recordNotifications = record serverInteractions
+
+  let recordRequests =
+    { new Server.ClientRequestSender with
+        member __.Send name payload = record serverInteractions name payload }
+
+  let loader = workspaceLoader ()
+  let client = FSharpLspClient(recordNotifications, recordRequests)
+  let server = new AdaptiveFSharpLspServer(loader, client)
+  server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
@@ -235,7 +243,7 @@ let clientCaps: ClientCapabilities =
     let inlayHintCaps: InlayHintWorkspaceClientCapabilities =
       { RefreshSupport = Some false }
 
-    let codeLensCaps:  CodeLensWorkspaceClientCapabilities =
+    let codeLensCaps: CodeLensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
     { ApplyEdit = Some true
@@ -359,11 +367,11 @@ open CliWrap
 open CliWrap.Buffered
 
 let logEvent (name, payload) =
-  logger.Debug("{name}: {payload}", name, payload)
+  logger.Value.Debug("{name}: {payload}", name, payload)
 
 let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
-    logger.Debug("[{section}] dotnet restore: {line}", section, line)
+    logger.Value.Debug("[{section}] dotnet restore: {line}", section, line)
 
 let dotnetCleanup baseDir =
   [ "obj"; "bin" ]
@@ -376,10 +384,7 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     let! ctok = Async.CancellationToken
 
     let! result =
-      Cli.Wrap(exePath).WithArguments(
-        args
-      )
-        .WithWorkingDirectory(
+      Cli.Wrap(exePath).WithArguments(args).WithWorkingDirectory(
         workingDir
       )
         .WithValidation(
@@ -401,24 +406,21 @@ let inline expectExitCodeZero (r: BufferedCommandResult) =
     $"Expected exit code zero but was %i{r.ExitCode}.\nStdOut: %s{r.StandardOutput}\nStdErr: %s{r.StandardError}"
 
 let dotnetRestore dir =
-  runProcess dir "dotnet" "restore"
-  |> Async.map expectExitCodeZero
+  runProcess dir "dotnet" "restore" |> Async.map expectExitCodeZero
 
 let dotnetToolRestore dir =
-  runProcess dir "dotnet" "tool restore"
-  |> Async.map expectExitCodeZero
+  runProcess dir "dotnet" "tool restore" |> Async.map expectExitCodeZero
 
-let serverInitialize path (config: FSharpConfigDto) state =
+let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
     dotnetCleanup path
     let files = Directory.GetFiles(path)
 
-    if files
-       |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
+    if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
       do! dotnetRestore path
 
-    let server, clientNotifications = createServer state
-
+    let (server: IFSharpLspServer), clientNotifications = createServer ()
+    logger.Value.Error("LOLOLOLOL")
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
@@ -440,7 +442,9 @@ let serverInitialize path (config: FSharpConfigDto) state =
     let! result = server.Initialize p
 
     match result with
-    | Result.Ok res -> return (server, clientNotifications)
+    | Result.Ok res ->
+      do! server.Initialized(InitializedParams())
+      return (server, clientNotifications)
     | Result.Error e -> return failwith "Initialization failed"
   }
 
@@ -450,7 +454,7 @@ let loadDocument path : TextDocumentItem =
     Version = 0
     Text = File.ReadAllText path }
 
-let parseProject projectFilePath (server: FSharpLspServer) =
+let parseProject projectFilePath (server: IFSharpLspServer) =
   async {
     let projectParams: ProjectParms =
       { Project = { Uri = Path.FilePathToUri projectFilePath } }
@@ -458,17 +462,15 @@ let parseProject projectFilePath (server: FSharpLspServer) =
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams
     do! Async.Sleep(TimeSpan.FromSeconds 3.)
-    logger.Debug("{project} parse result: {result}", projectName, result)
+    logger.Value.Debug("{project} parse result: {result}", projectName, result)
   }
 
 let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification) : 't option =
   notification.Content
   |> JsonSerializer.readJson<ResponseMsg<'t>>
-  |> fun r ->
-       if r.Kind = eventType then
-         Some r.Data
-       else
-         None
+  |> fun r -> if r.Kind = eventType then Some r.Data else None
+
+let internal defaultTimeout = TimeSpan.FromSeconds 10.0
 
 let waitForWorkspaceFinishedParsing (events: ClientEvents) =
   let chooser (name, payload) =
@@ -484,18 +486,15 @@ let waitForWorkspaceFinishedParsing (events: ClientEvents) =
       | _ -> None
     | _ -> None
 
-  logger.Debug "waiting for workspace to finish loading"
+  logger.Value.Debug "waiting for workspace to finish loading"
 
   events
   |> Observable.choose chooser
+  |> Observable.timeoutSpan defaultTimeout
   |> Async.AwaitObservable
 
 let private typedEvents<'t> (typ: string) : IObservable<string * obj> -> IObservable<'t> =
-  Observable.choose (fun (typ', _o) ->
-    if typ' = typ then
-      Some(unbox _o)
-    else
-      None)
+  Observable.choose (fun (typ', _o) -> if typ' = typ then Some(unbox _o) else None)
 
 let private payloadAs<'t> = Observable.map (fun (_typ, o) -> unbox<'t> o)
 
@@ -503,8 +502,7 @@ let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
   typedEvents<Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
 let private fileName (u: DocumentUri) =
-  u.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries)
-  |> Array.last
+  u.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
 
 /// note that the files here are intended to be the filename only., not the full URI.
 let private matchFiles (files: string Set) =
@@ -527,18 +525,14 @@ let editsFor (file: string) =
 
     let forFile =
       edits
-      |> Array.collect (fun e ->
-        if e.TextDocument.Uri = fileAsUri then
-          e.Edits
-        else
-          [||])
+      |> Array.collect (fun e -> if e.TextDocument.Uri = fileAsUri then e.Edits else [||])
 
     match forFile with
     | [||] -> None
     | edits -> Some edits)
 
 let fileDiagnostics (file: string) =
-  logger.Information("waiting for events on file {file}", file)
+  logger.Value.Information("waiting for events on file {file}", file)
 
   getDiagnosticsEvents
   >> matchFiles (Set.ofList [ file ])
@@ -546,14 +540,10 @@ let fileDiagnostics (file: string) =
   >> Observable.map (fun d -> d.Diagnostics)
 
 let fileDiagnosticsForUri (uri: string) =
-  logger.Information("waiting for events on file {file}", uri)
+  logger.Value.Information("waiting for events on file {file}", uri)
 
   getDiagnosticsEvents
-  >> Observable.choose (fun n ->
-    if n.Uri = uri then
-      Some n.Diagnostics
-    else
-      None)
+  >> Observable.choose (fun n -> if n.Uri = uri then Some n.Diagnostics else None)
 
 let diagnosticsFromSource (desiredSource: String) =
   Observable.choose (fun (diags: Diagnostic[]) ->
@@ -567,20 +557,16 @@ let diagnosticsFromSource (desiredSource: String) =
     | diags -> Some diags)
 
 let analyzerDiagnostics file =
-  fileDiagnostics file
-  >> diagnosticsFromSource "F# Analyzers"
+  fileDiagnostics file >> diagnosticsFromSource "F# Analyzers"
 
 let linterDiagnostics file =
-  fileDiagnostics file
-  >> diagnosticsFromSource "F# Linter"
+  fileDiagnostics file >> diagnosticsFromSource "F# Linter"
 
 let fsacDiagnostics file =
-  fileDiagnostics file
-  >> diagnosticsFromSource "FSAC"
+  fileDiagnostics file >> diagnosticsFromSource "FSAC"
 
 let compilerDiagnostics file =
-  fileDiagnostics file
-  >> diagnosticsFromSource "F# Compiler"
+  fileDiagnostics file >> diagnosticsFromSource "F# Compiler"
 
 let diagnosticsToResult =
   Observable.map (function
@@ -588,19 +574,13 @@ let diagnosticsToResult =
     | diags -> Core.Error diags)
 
 let waitForParseResultsForFile file =
-  fileDiagnostics file
-  >> diagnosticsToResult
-  >> Async.AwaitObservable
+  fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
 let waitForFsacDiagnosticsForFile file =
-  fsacDiagnostics file
-  >> diagnosticsToResult
-  >> Async.AwaitObservable
+  fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
 let waitForCompilerDiagnosticsForFile file =
-  compilerDiagnostics file
-  >> diagnosticsToResult
-  >> Async.AwaitObservable
+  compilerDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
 let waitForParsedScript (event: ClientEvents) =
   event
@@ -608,10 +588,7 @@ let waitForParsedScript (event: ClientEvents) =
   |> Observable.choose (fun n ->
     let filename = n.Uri.Replace('\\', '/').Split('/') |> Array.last
 
-    if filename = "Script.fs" then
-      Some n
-    else
-      None)
+    if filename = "Script.fs" then Some n else None)
   |> Async.AwaitObservable
 
 let waitForTestDetected (fileName: string) (events: ClientEvents) : Async<TestDetectedNotification> =
@@ -622,9 +599,7 @@ let waitForTestDetected (fileName: string) (events: ClientEvents) : Async<TestDe
   |> Async.AwaitObservable
 
 let waitForEditsForFile file =
-  workspaceEdits
-  >> editsFor file
-  >> Async.AwaitObservable
+  workspaceEdits >> editsFor file >> Async.AwaitObservable
 
 let trySerialize (t: string) : 't option =
   try

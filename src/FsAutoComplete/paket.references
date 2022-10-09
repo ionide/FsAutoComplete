@@ -10,8 +10,6 @@ FsToolkit.ErrorHandling
 ICSharpCode.Decompiler
 Ionide.KeepAChangelog.Tasks
 Ionide.LanguageServerProtocol
-Ionide.ProjInfo
-Ionide.ProjInfo.ProjectSystem
 Microsoft.NETFramework.ReferenceAssemblies
 Microsoft.SourceLink.GitHub
 Newtonsoft.Json
@@ -21,3 +19,4 @@ Serilog.Sinks.Console
 Serilog.Sinks.File
 System.CommandLine
 System.Configuration.ConfigurationManager
+FSharp.Data.Adaptive

@@ -1,7 +1,4 @@
 FSharp.Compiler.Service
-Ionide.ProjInfo
-Ionide.ProjInfo.FCS
-Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Newtonsoft.Json
 ICSharpCode.Decompiler
@@ -11,6 +8,7 @@ FSharp.UMX
 FsToolkit.ErrorHandling
 Fantomas.Client
 
+Ionide.ProjInfo.ProjectSystem
 System.Reflection.Metadata
 Microsoft.Build.Utilities.Core
 Ionide.LanguageServerProtocol

@@ -24,12 +24,14 @@ open FSharpx.Control
 open Utils.Tests
 
 ///Test for initialization of the server
-let initTests state =
+let initTests createServer =
   testCaseAsync
     "InitTest"
     (async {
-      let tempDir = Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
-      let (server, event) = createServer state
+      let tempDir =
+        Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
+
+      let (server: IFSharpLspServer, event) = createServer ()
 
       let p: InitializeParams =
         { ProcessId = Some 1
@@ -37,20 +39,22 @@ let initTests state =
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
           Capabilities = Some clientCaps
-          ClientInfo = Some {
-            Name = "FSAC Tests"
-            Version = Some "0.0.0"
-          }
-          WorkspaceFolders = Some [| {
-            Uri = Path.FilePathToUri tempDir
-            Name = "Test Folder"
-          } |]
+          ClientInfo =
+            Some
+              { Name = "FSAC Tests"
+                Version = Some "0.0.0" }
+          WorkspaceFolders =
+            Some
+              [| { Uri = Path.FilePathToUri tempDir
+                   Name = "Test Folder" } |]
           trace = None }
 
       let! result = server.Initialize p
 
       match result with
       | Result.Ok res ->
+        do! server.Initialized(InitializedParams())
+
         Expect.equal
           res.Capabilities.CodeActionProvider
           (Some
@@ -75,7 +79,7 @@ let initTests state =
         Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
         Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
         Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
-        Expect.equal res.Capabilities.RenameProvider (Some (U2.First true)) "Rename Provider"
+        Expect.equal res.Capabilities.RenameProvider (Some(U2.First true)) "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
@@ -129,8 +133,7 @@ let documentSymbolTest state =
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok (Some (U2.Second res)) ->
-              raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+          | Result.Ok (Some (U2.Second res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =
@@ -304,63 +307,32 @@ let tooltipTests state =
           verifySignature
             26
             5
-            (concatLines [ "val funcWithFunParam:"
-                           "   f: (int -> unit) ->"
-                           "   i: int"
-                           "   -> unit" ])
+            (concatLines [ "val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int"; "   -> unit" ])
           // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
-          verifySignature
-            30
-            12
-            (concatLines [ "val funcWithTupleParam:"
-                           "   : int *"
-                           "   : int"
-                           "   -> int * int" ])
+          verifySignature 30 12 (concatLines [ "val funcWithTupleParam:"; "   : int *"; "   : int"; "   -> int * int" ])
           // verify formatting of struct tuple args in parameter tooltips.
           verifySignature
             32
             12
-            (concatLines [ "val funcWithStructTupleParam:"
-                           "   f: struct (int * int)"
-                           "   -> struct (int * int)" ])
-          verifySignature
-            36
-            15
-            (concatLines [ "member Foo:"
-                           "   stuff: int * int * int"
-                           "       -> int" ])
-          verifySignature
-            37
-            15
-            (concatLines [ "member Bar:"
-                           "   a: int *"
-                           "   b: int *"
-                           "   c: int"
-                           "   -> int" ])
+            (concatLines
+              [ "val funcWithStructTupleParam:"
+                "   f: struct (int * int)"
+                "   -> struct (int * int)" ])
+          verifySignature 36 15 (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
+          verifySignature 37 15 (concatLines [ "member Bar:"; "   a: int *"; "   b: int *"; "   c: int"; "   -> int" ])
           // verify formatting for multi-char operators
-          verifySignature
-            39
-            7
-            (concatLines [ "val ( .>> ):"
-                           "   x: int ->"
-                           "   y: int"
-                           "   -> int" ])
+          verifySignature 39 7 (concatLines [ "val ( .>> ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify formatting for single-char operators
-          verifySignature
-            41
-            6
-            (concatLines [ "val ( ^ ):"
-                           "   x: int ->"
-                           "   y: int"
-                           "   -> int" ])
+          verifySignature 41 6 (concatLines [ "val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify rendering of generic constraints
           verifySignature
             43
             13
-            (concatLines [ "val inline add:"
-                           "   x: ^a (requires static member ( + ) ) ->"
-                           "   y: ^b (requires static member ( + ) )"
-                           "   -> ^c" ])
+            (concatLines
+              [ "val inline add:"
+                "   x: ^a (requires static member ( + ) ) ->"
+                "   y: ^b (requires static member ( + ) )"
+                "   -> ^c" ])
           // verify rendering of solved generic constraints in tooltips for members where they are solved
           verifyDescription
             45
@@ -377,51 +349,64 @@ let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
   let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CloseTests")
   let workspace = Path.Combine(root, "Workspace")
-  serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server -> [
-    testCaseAsync "closing untitled script file clears diagnostics" (async {
-      let source = 
-        // The value or constructor 'untitled' is not defined.
-        "let foo = untitled" 
-      let! (doc, diags) = server |> Server.createUntitledDocument source
-      Expect.isNonEmpty diags "There should be an error"
-      do! doc |> Document.close
 
-      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
-    })
-    testCaseAsync "closing existing script file inside workspace doesn't clear diagnostics" (async {
-      let! (doc, diags) = server |> Server.openDocument "Script.fsx"
-      Expect.isNonEmpty diags "There should be an error"
-      do! doc |> Document.close
+  serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server ->
+    [ testCaseAsync
+        "closing untitled script file clears diagnostics"
+        (async {
 
-      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
-    })
-    testCaseAsync "closing existing script file outside workspace clears diagnostics" (async {
-      let file = Path.Combine(root, "Script.fsx")
-      let! (doc, diags) = server |> Server.openDocument file
-      Expect.isNonEmpty diags "There should be an error"
-      do! doc |> Document.close
+          let source =
+            // The value or constructor 'untitled' is not defined.
+            "let foo = untitled"
 
-      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
-    })
+          let! (doc, diags) = server |> Server.createUntitledDocument source
 
-    testCaseAsync "closing existing file inside project & workspace doesn't clear diagnostics" (async {
-      let! (doc, diags) = server |> Server.openDocument "InsideProjectInsideWorkspace.fs"
-      Expect.isNonEmpty diags "There should be an error"
-      do! doc |> Document.close
+          Expect.isNonEmpty diags "There should be an error"
+          do! doc |> Document.close
 
-      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
-    })
-    testCaseAsync "closing existing file inside project but outside workspace doesn't clear diagnostics" (async {
-      let file = Path.Combine(root, "InsideProjectOutsideWorkspace.fs")
-      let! (doc, diags) = server |> Server.openDocument file
-      Expect.isNonEmpty diags "There should be an error"
-      do! doc |> Document.close
+          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          Expect.equal diags Array.empty "There should be a final publishDiagnostics without any diags"
+        })
+      testCaseAsync
+        "closing existing script file inside workspace doesn't clear diagnostics"
+        (async {
+          let! (doc, diags) = server |> Server.openDocument "Script.fsx"
+          Expect.isNonEmpty diags "There should be an error"
+          do! doc |> Document.close
 
-      let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
-      Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
-    })
-  ])
+          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+        })
+      testCaseAsync
+        "closing existing script file outside workspace clears diagnostics"
+        (async {
+          let file = Path.Combine(root, "Script.fsx")
+          let! (doc, diags) = server |> Server.openDocument file
+          Expect.isNonEmpty diags "There should be an error"
+          do! doc |> Document.close
+
+          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
+        })
+
+      testCaseAsync
+        "closing existing file inside project & workspace doesn't clear diagnostics"
+        (async {
+          let! (doc, diags) = server |> Server.openDocument "InsideProjectInsideWorkspace.fs"
+          Expect.isNonEmpty diags "There should be an error"
+          do! doc |> Document.close
+
+          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+        })
+      testCaseAsync
+        "closing existing file inside project but outside workspace doesn't clear diagnostics"
+        (async {
+          let file = Path.Combine(root, "InsideProjectOutsideWorkspace.fs")
+          let! (doc, diags) = server |> Server.openDocument file
+          Expect.isNonEmpty diags "There should be an error"
+          do! doc |> Document.close
+
+          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
+        }) ])

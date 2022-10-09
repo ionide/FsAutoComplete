@@ -24,17 +24,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       keepAllBackgroundSymbolUses = true
     )
 
-  // /// FCS only accepts absolute file paths, so this ensures that by
-  // /// rooting relative paths onto HOME on *nix and %HOMRDRIVE%%HOMEPATH% on windows
-  // let ensureAbsolutePath path =
-  //   if (try Path.GetFullPath path |> ignore; true with _ -> false) then path
-  //   else
-  //       match Environment.OSVersion.Platform with
-  //       | PlatformID.Unix
-  //       | PlatformID.MacOSX -> Environment.GetEnvironmentVariable "HOME"
-  //       | _ -> Environment.ExpandEnvironmentVariables "%HOMEDRIVE%%HOMEPATH%"
-  //       </> Path.GetFileName path
-
   let entityCache = EntityCache()
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"
@@ -132,7 +121,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     with get () = disableInMemoryProjectReferences
     and set (value) = disableInMemoryProjectReferences <- value
 
-  member __.GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectOptions>) =
+  static member GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectOptions>) =
     let project =
       options
       |> Seq.tryFind (fun (k, _) -> (UMX.untag k).ToUpperInvariant() = (UMX.untag file).ToUpperInvariant())
@@ -244,7 +233,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     let path = UMX.untag fn
     checker.ParseFile(path, source, fpo)
 
-  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: NamedText, options) =
+  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: ISourceText, options) =
     async {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
@@ -278,15 +267,29 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         return ResultOrString.Error(ex.ToString())
     }
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: NamedText) =
+  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
-    checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
+    checkerLogger.info (
+      Log.setMessage "{opName} - {hash}"
+      >> Log.addContextDestructured "opName" opName
+      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+    )
 
     let options = clearProjectReferences options
 
-    checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
-    |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
+    let result =
+      checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
+      |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
+
+    checkerLogger.info (
+      Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
+      >> Log.addContextDestructured "opName" opName
+      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+      >> Log.addContextDestructured "cacheHit" result.IsSome
+    )
+
+    result
 
   member x.GetUsesOfSymbol
     (
@@ -300,7 +303,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" file
       )
 
-      match x.GetDependingProjects file options with
+      match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some (opts, []) ->
         let opts = clearProjectReferences opts
@@ -321,6 +324,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
+    checkerLogger.info (
+      Log.setMessage "FindReferencesForSymbolInFile - {file}"
+      >> Log.addContextDestructured "file" file
+    )
+
     checker.FindBackgroundReferencesInFile(
       file,
       project,

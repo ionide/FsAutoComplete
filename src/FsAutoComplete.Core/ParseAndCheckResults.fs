@@ -583,7 +583,7 @@ type ParseAndCheckResults
           | _ ->
 
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
 
             let getKindPriority =
               function
@@ -646,7 +646,7 @@ type ParseAndCheckResults
               && not results.IsForType
               && not results.IsError
               && List.isEmpty longName.QualifyingIdents
-
+            // Debug.waitForDebuggerAttachedAndBreak "--> TryGetCompletions"
             return Some(sortedDecls, residue, shouldKeywords)
         with :? TimeoutException ->
           return None

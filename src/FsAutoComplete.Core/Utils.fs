@@ -99,13 +99,35 @@ type Document =
     GetLineText0: int -> string
     GetLineText1: int -> string }
 
+/// <summary>
+/// Checks if the file ends with `.fsx` `.fsscript` or `.sketchfs`
+/// </summary>
 let isAScript (fileName: string) =
   let ext = Path.GetExtension(fileName)
 
   [ ".fsx"; ".fsscript"; ".sketchfs" ] |> List.exists ((=) ext)
 
+/// <summary>
+/// Checks if the file ends with `.fsi`
+/// </summary>
+let isSignatureFile (fileName: string) = fileName.EndsWith ".fsi"
+
+/// <summary>
+/// Checks if the file ends with `.fs`
+/// </summary>
+let isFsharpFile (fileName: string) = fileName.EndsWith ".fs"
+
+/// <summary>
+/// This is a combination of `isAScript`, `isSignatureFile`, and `isFsharpFile`
+/// </summary>
+/// <param name="fileName"></param>
+/// <returns></returns>
+let isFileWithFSharp fileName =
+  [ isAScript; isSignatureFile; isFsharpFile ]
+  |> List.exists (fun f -> f fileName)
+
 let normalizePath (file: string) : string<LocalPath> =
-  if file.EndsWith ".fs" || file.EndsWith ".fsi" || file.EndsWith ".fsx" then
+  if isFileWithFSharp file then
     let p = Path.GetFullPath file
     UMX.tag<LocalPath> ((p.Chars 0).ToString().ToLower() + p.Substring(1))
   else
@@ -120,9 +142,7 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
   //TODO: Investigate why sometimes SourceFiles are not filled
   let files =
     match checkOptions.SourceFiles with
-    | [||] ->
-      checkOptions.OtherOptions
-      |> Array.where (fun n -> n.EndsWith ".fs" || n.EndsWith ".fsx" || n.EndsWith ".fsi")
+    | [||] -> checkOptions.OtherOptions |> Array.where (isFileWithFSharp)
     | x -> x
 
   { FSharpParsingOptions.Default with SourceFiles = files }

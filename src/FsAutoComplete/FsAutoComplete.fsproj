@@ -23,7 +23,11 @@
     <Compile Include="LspHelpers.fs" />
     <Compile Include="CodeFixes.fs" />
     <Compile Include="CodeFixes/*.fs" />
-    <Compile Include="FsAutoComplete.Lsp.fs" />
+    <Compile Include="LspServers/IFSharpLspServer.fs" />
+    <Compile Include="LspServers/FSharpLspClient.fs" />
+    <Compile Include="LspServers/Common.fs" />
+    <Compile Include="LspServers/AdaptiveFSharpLspServer.fs" />
+    <Compile Include="LspServers/FsAutoComplete.Lsp.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />
@@ -34,7 +38,6 @@
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
   </ItemGroup>
-
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
@@ -53,6 +56,7 @@
       <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
     </ItemGroup>
   </Target>
+
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

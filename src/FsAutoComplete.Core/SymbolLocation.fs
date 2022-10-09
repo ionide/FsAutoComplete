@@ -14,7 +14,10 @@ let getDeclarationLocation
   (
     symbolUse: FSharpSymbolUse,
     currentDocument: NamedText,
-    state: State
+    getProjectOptions,
+    projectsThatContainFile,
+    getDependentProjectsOfProjects
+  // state: State
   ) : SymbolDeclarationLocation option =
   if symbolUse.IsPrivateToFile then
     Some SymbolDeclarationLocation.CurrentDocument
@@ -45,14 +48,13 @@ let getDeclarationLocation
         // The standalone script might include other files via '#load'
         // These files appear in project options and the standalone file
         // should be treated as an individual project
-        state.GetProjectOptions(taggedFilePath)
+        getProjectOptions (taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
-        let projectsThatContainFile =
-          state.ProjectController.ProjectsThatContainFile(taggedFilePath)
+        let projectsThatContainFile = projectsThatContainFile (taggedFilePath)
 
         let projectsThatDependOnContainingProjects =
-          state.ProjectController.GetDependentProjectsOfProjects projectsThatContainFile
+          getDependentProjectsOfProjects projectsThatContainFile
 
         match projectsThatDependOnContainingProjects with
         | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))

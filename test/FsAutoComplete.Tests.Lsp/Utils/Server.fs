@@ -19,7 +19,7 @@ let private logger = LogProvider.getLoggerByName "Utils.Server"
 
 type Server =
   { RootPath: string option
-    Server: FSharpLspServer
+    Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int }
 
@@ -49,7 +49,7 @@ type Document =
       doc |> Document.close |> Async.RunSynchronously
 
 module Server =
-  let private initialize path (config: FSharpConfigDto) state =
+  let private initialize path (config: FSharpConfigDto) createServer =
     async {
       logger.trace (
         Log.setMessage "Initialize Server in {path}"
@@ -65,8 +65,7 @@ module Server =
            |> Seq.isEmpty
            |> not then
           do! dotnetRestore path
-
-      let (server, events) = createServer state
+      let (server : IFSharpLspServer, events : IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
       let p: InitializeParams =
@@ -88,6 +87,7 @@ module Server =
 
       match! server.Initialize p with
       | Ok _ ->
+        do! server.Initialized (InitializedParams())
         return
           { RootPath = path
             Server = server
@@ -96,9 +96,9 @@ module Server =
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
-  let create path config state : CachedServer =
+  let create path config createServer : CachedServer =
     async {
-      let! server = initialize path config state
+      let! server = initialize path config createServer
 
       if path |> Option.isSome then
         do! waitForWorkspaceFinishedParsing server.Events
@@ -201,6 +201,7 @@ module Server =
 
 module Document =
   open System.Reactive.Linq
+  open System.Threading.Tasks
 
   let private typedEvents<'t> typ : _ -> System.IObservable<'t> =
     Observable.choose (fun (typ', _o) ->
@@ -290,24 +291,28 @@ module Document =
         >> Log.addContext "uri" doc.Uri
         >> Log.addContext "version" doc.Version
       )
+      let tcs = TaskCompletionSource<_>()
 
-      return!
+      doc
+      |> diagnosticsStream
+      |> Observable.takeUntilOther (
         doc
-        |> diagnosticsStream
-        |> Observable.takeUntilOther (
-          doc
-          // `fsharp/documentAnalyzed` signals all checks & analyzers done
-          |> analyzedStream
-          |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
-          // wait for late diagnostics
-          |> Observable.delay waitForLateDiagnosticsDelay
-        )
-        |> Observable.last
-        |> Observable.timeoutSpan timeout
-        |> Async.AwaitObservable
+        // `fsharp/documentAnalyzed` signals all checks & analyzers done
+        |> analyzedStream
+        |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
+        // wait for late diagnostics
+        |> Observable.delay waitForLateDiagnosticsDelay
+      )
+      |> Observable.bufferSpan (timeout)
+      // |> Observable.timeoutSpan timeout
+      |> Observable.subscribe(fun x -> tcs.SetResult x)
+      |> ignore
+
+      let! result = tcs.Task |> Async.AwaitTask
+
+      return result |> Seq.last
     }
 
-  let private defaultTimeout = TimeSpan.FromSeconds 10.0
 
   /// Note: Mutates passed `doc`
   let private incrVersion (doc: Document) =
@@ -331,7 +336,7 @@ module Document =
       do! doc.Server.Server.TextDocumentDidOpen p
 
       try
-        return! doc |> waitForLatestDiagnostics defaultTimeout
+        return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
       with
       | :? TimeoutException -> return failwith $"Timeout waiting for latest diagnostics for {doc.Uri}"
     }
@@ -357,7 +362,7 @@ module Document =
 
       do! doc.Server.Server.TextDocumentDidChange p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
-      return! doc |> waitForLatestDiagnostics defaultTimeout
+      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
   let private assertOk result =

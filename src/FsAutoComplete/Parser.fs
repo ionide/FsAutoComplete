@@ -11,6 +11,7 @@ open System.CommandLine.Builder
 open Serilog.Filters
 open System.Runtime.InteropServices
 open System.Threading.Tasks
+open FsAutoComplete.Lsp
 
 module Parser =
 
@@ -88,6 +89,12 @@ module Parser =
     )
     |> zero
 
+  let adaptiveLspServerOption =
+    Option<bool>(
+      "--adaptive-lsp-server-enabled",
+      "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
+    )
+
   let stateLocationOption =
     Option<DirectoryInfo>(
       "--state-directory",
@@ -106,12 +113,13 @@ module Parser =
     rootCommand.AddOption waitForDebuggerOption
     rootCommand.AddOption backgroundServiceOption
     rootCommand.AddOption projectGraphOption
+    rootCommand.AddOption adaptiveLspServerOption
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
 
 
     rootCommand.SetHandler(
-      Func<_, _, Task>(fun projectGraphEnabled stateDirectory ->
+      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
         let workspaceLoaderFactory =
           if projectGraphEnabled then
             Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
@@ -131,13 +139,20 @@ module Parser =
         let toolsPath =
           Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
 
+        let lspFactory =
+          if adaptiveLspEnabled then
+            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory
+          else
+            fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory
+
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 
-        let result = Lsp.start toolsPath stateDirectory workspaceLoaderFactory
+        let result = FSharpLspServer.start lspFactory
 
         Task.FromResult result),
       projectGraphOption,
-      stateLocationOption
+      stateLocationOption,
+      adaptiveLspServerOption
     )
 
     rootCommand

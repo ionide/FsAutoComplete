@@ -25,6 +25,7 @@ open System.Collections.Immutable
 open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 
+
 [<RequireQualifiedAccess>]
 type LocationResponse<'a> = Use of 'a
 
@@ -53,7 +54,7 @@ type DocumentEdit =
   { InsertPosition: pos
     InsertText: string }
 
-module Result =
+module private Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
     | CoreResponse.Res a -> Ok a
@@ -86,28 +87,749 @@ type NotificationEvent =
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
-type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
-  let fileParsed = Event<FSharpParseFileResults>()
-
-  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
-
-  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
-
-  let disposables = ResizeArray()
-
-  let mutable workspaceRoot: string option = rootPath
-  let mutable linterConfigFileRelativePath: string option = None
-  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
-  let mutable lastCheckResult: ParseAndCheckResults option = None
-
-  let notify = Event<NotificationEvent>()
-
-  let fileStateSet = Event<unit>()
+module Commands =
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
-  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+  let addFile (fsprojPath: string) fileVirtPath =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let newFilePath = Path.Combine(dir, fileVirtPath)
+        let fileInfo = FileInfo(newFilePath)
 
-  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        FsProjEditor.addFile fsprojPath fileVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let addFileAbove (fsprojPath: string) (fileVirtPath: string) newFileName =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let addFileBelow (fsprojPath: string) (fileVirtPath: string) newFileName =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let virtPathDir = Path.GetDirectoryName fileVirtPath
+
+        let newFilePath = Path.Combine(dir, virtPathDir, newFileName)
+        let fileInfo = FileInfo(newFilePath)
+
+        // Ensure the destination directory exist
+        if not fileInfo.Directory.Exists then
+          fileInfo.Directory.Create()
+
+        (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
+
+        let newVirtPath = Path.Combine(virtPathDir, newFileName)
+        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let removeFile fsprojPath fileVirtPath =
+    async {
+      FsProjEditor.removeFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
+  let addExistingFile fsprojPath fileVirtPath =
+    async {
+      FsProjEditor.addExistingFile fsprojPath fileVirtPath
+      return CoreResponse.Res()
+    }
+
+  let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
+    asyncResult {
+      let! ast = getParseResultsForFile file
+      return positions |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
+    }
+
+  let scopesForFile
+    (getParseResultsForFile: _ -> Async<Result<NamedText * FSharpParseFileResults, _>>)
+    (file: string<LocalPath>)
+    =
+    asyncResult {
+
+      let! (text, ast) = getParseResultsForFile file
+
+      let ranges =
+        Structure.getOutliningRanges (text.ToString().Split("\n")) ast.ParseTree
+
+      return ranges
+    }
+
+  let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
+    { LineCount = lines.Lines.Length
+      FullName = tyRes.FileName // from the compiler, assumed safe
+      GetText = fun _ -> string lines
+      GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
+      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
+
+  let getAbstractClassStub
+    tryFindAbstractClassExprInBufferAtPos
+    writeAbstractClassStub
+    (tyRes: ParseAndCheckResults)
+    (objExprRange: Range)
+    (lines: NamedText)
+    (lineStr: LineStr)
+    =
+    asyncResult {
+      let doc = docForText lines tyRes
+
+      let! abstractClass =
+        tryFindAbstractClassExprInBufferAtPos objExprRange.Start doc
+        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
+
+      let! (insertPosition, generatedCode) =
+        writeAbstractClassStub tyRes doc lines lineStr abstractClass
+        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
+
+      return CoreResponse.Res(generatedCode, insertPosition)
+    }
+
+  let getRecordStub
+    tryFindRecordDefinitionFromPos
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    (lines: NamedText)
+    (line: LineStr)
+    =
+    async {
+      let doc = docForText lines tyRes
+      let! res = tryFindRecordDefinitionFromPos pos doc
+
+      match res with
+      | None -> return CoreResponse.InfoRes "Record at position not found"
+      | Some (recordEpr, (Some recordDefinition), insertionPos) ->
+        if shouldGenerateRecordStub recordEpr recordDefinition then
+          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
+        else
+          return CoreResponse.InfoRes "Record at position not found"
+      | _ -> return CoreResponse.InfoRes "Record at position not found"
+    }
+
+  let getNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
+    async {
+      match Lexer.findLongIdents (pos.Column, line) with
+      | None -> return CoreResponse.InfoRes "Ident not found"
+      | Some (_, idents) ->
+        match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
+        | None -> return CoreResponse.InfoRes "EntityKind not found"
+        | Some entityKind ->
+
+          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+
+          match symbol with
+          | None -> return CoreResponse.InfoRes "Symbol at position not found"
+          | Some sym ->
+
+
+            let entities = tyRes.GetAllEntities true
+
+            let isAttribute = entityKind = EntityKind.Attribute
+
+            let entities =
+              entities
+              |> List.filter (fun e ->
+                match entityKind, (e.Kind LookupType.Fuzzy) with
+                | EntityKind.Attribute, EntityKind.Attribute
+                | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
+                | EntityKind.FunctionOrValue _, _ -> true
+                | EntityKind.Attribute, _
+                | _, EntityKind.Module _
+                | EntityKind.Module _, _
+                | EntityKind.Type, _ -> false)
+
+            let maybeUnresolvedIdents =
+              idents |> Array.map (fun ident -> { Ident = ident; Resolved = false })
+
+            let entities =
+              entities
+              |> List.collect (fun e ->
+                [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                  if isAttribute then
+                    let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
+
+                    if
+                      (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
+                      && lastIdent.EndsWith "Attribute"
+                    then
+                      yield
+                        e.TopRequireQualifiedAccessParent,
+                        e.AutoOpenParent,
+                        e.Namespace,
+                        e.CleanedIdents
+                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+
+            let createEntity =
+              ParsedInput.TryFindInsertionContext
+                pos.Line
+                tyRes.GetParseResults.ParseTree
+                maybeUnresolvedIdents
+                OpenStatementInsertionPoint.Nearest
+
+            let word = sym.Text
+
+            let candidates = entities |> Seq.collect createEntity |> Seq.toList
+
+            let openNamespace =
+              candidates
+              |> List.choose (fun (entity, ctx) ->
+                entity.Namespace |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
+              |> List.groupBy (fun (ns, _, _) -> ns)
+              |> List.map (fun (ns, xs) ->
+                ns,
+                xs
+                |> List.map (fun (_, name, ctx) -> name, ctx)
+                |> List.distinctBy (fun (name, _) -> name)
+                |> List.sortBy fst)
+              |> List.collect (fun (ns, names) ->
+                let multipleNames =
+                  match names with
+                  | [] -> false
+                  | [ _ ] -> false
+                  | _ -> true
+
+                names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
+
+            let qualifySymbolActions =
+              candidates
+              |> List.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
+              |> List.distinct
+              |> List.sort
+
+            return CoreResponse.Res(word, openNamespace, qualifySymbolActions)
+    }
+
+  let getUnionPatternMatchCases
+    tryFindUnionDefinitionFromPos
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    (lines: ISourceText)
+    (line: LineStr)
+    =
+    async {
+
+      let doc =
+        { Document.LineCount = lines.Length
+          FullName = tyRes.FileName
+          GetText = fun _ -> string lines
+          GetLineText0 = fun i -> lines.GetLineString i
+          GetLineText1 = fun i -> lines.GetLineString(i - 1) }
+
+      let! res = tryFindUnionDefinitionFromPos pos doc
+
+      match res with
+      | None -> return CoreResponse.InfoRes "Union at position not found"
+      | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
+
+        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
+          let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
+
+          return CoreResponse.Res(result, insertionPos.InsertionPos)
+        else
+          return CoreResponse.InfoRes "Union at position not found"
+    }
+
+  let formatSelection
+    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (file: string<LocalPath>)
+    (rangeToFormat: FormatSelectionRange)
+    : Async<Result<FormatDocumentResponse, string>> =
+    asyncResult {
+      try
+        let filePath = (UMX.untag file)
+        let! text = tryGetFileCheckerOptionsWithLines file
+        let currentCode = string text
+
+        let! fantomasResponse =
+          formatSelectionAsync
+            { SourceCode = currentCode
+              FilePath = filePath
+              Config = None
+              Range = rangeToFormat }
+
+        match fantomasResponse with
+        | { Code = 1
+            Content = Some code
+            SelectedRange = Some range } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
+          return FormatDocumentResponse.FormattedRange(text, code, range)
+        | { Code = 2 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+          return FormatDocumentResponse.UnChanged
+        | { Code = 3; Content = Some error } ->
+          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | { Code = 4 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+          return FormatDocumentResponse.Ignored
+        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
+        | _ ->
+          fantomasLogger.warn (
+            Log.setMessage (
+              sprintf
+                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
+                file
+                fantomasResponse.Code
+                fantomasResponse
+            )
+          )
+
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+      with ex ->
+        fantomasLogger.warn (
+          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+        )
+
+        return! Core.Error ex.Message
+    }
+
+  let formatDocument
+    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (file: string<LocalPath>)
+    : Async<Result<FormatDocumentResponse, string>> =
+    asyncResult {
+      try
+        let filePath = (UMX.untag file)
+        let! text = tryGetFileCheckerOptionsWithLines file
+        let currentCode = string text
+
+        let! fantomasResponse =
+          formatDocumentAsync
+            { SourceCode = currentCode
+              FilePath = filePath
+              Config = None }
+
+        match fantomasResponse with
+        | { Code = 1; Content = Some code } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
+          return FormatDocumentResponse.Formatted(text, code)
+        | { Code = 2 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+          return FormatDocumentResponse.UnChanged
+        | { Code = 3; Content = Some error } ->
+          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | { Code = 4 } ->
+          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+          return FormatDocumentResponse.Ignored
+        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
+        | _ ->
+          fantomasLogger.warn (
+            Log.setMessage (
+              sprintf
+                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
+                file
+                fantomasResponse.Code
+                fantomasResponse
+            )
+          )
+
+          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+      with ex ->
+        fantomasLogger.warn (
+          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+        )
+
+        return! Core.Error ex.Message
+    }
+
+  let symbolImplementationProject
+    getProjectOptions
+    getUsesOfSymbol
+    getAllProjects
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    lineStr
+    =
+
+    let filterSymbols symbols =
+      symbols
+      |> Array.where (fun (su: FSharpSymbolUse) ->
+        su.IsFromDispatchSlotImplementation
+        || (su.IsFromType
+            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
+
+    async {
+      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
+      | Ok (sym, usages) ->
+        let fsym = sym.Symbol
+
+        if fsym.IsPrivateToFile then
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
+        else if fsym.IsInternalToProject then
+          let opts = getProjectOptions tyRes.FileName
+          let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+        else
+          let! symbols = getUsesOfSymbol (tyRes.FileName, getAllProjects (), sym.Symbol)
+          let symbols = filterSymbols symbols
+          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
+      | Error e -> return CoreResponse.ErrorRes e
+    }
+
+  let renameSymbol
+    (symbolUseWorkspace: _
+                           -> _
+                           -> _
+                           -> _
+                           -> Async<Result<Choice<Dictionary<string, range array> * Dictionary<string, range array>, Dictionary<string, range array>>, string>>)
+    (tryGetFileSource: _ -> Result<NamedText, _>)
+    (pos: Position)
+    (tyRes: ParseAndCheckResults)
+    (lineStr: LineStr)
+    (text: NamedText)
+    =
+    asyncResult {
+      match! symbolUseWorkspace pos lineStr text tyRes with
+      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+          let! text = tryGetFileSource (UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
+          | false, _ -> totalSetOfRanges[text] <- declUsages
+
+        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+          let! text = tryGetFileSource (UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
+        let totalSetOfRanges = Dictionary<NamedText, _>()
+
+        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
+          let! text = tryGetFileSource (UMX.tag filePath)
+
+          match totalSetOfRanges.TryGetValue(text) with
+          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
+          | false, _ -> totalSetOfRanges[text] <- symbolUses
+
+        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+    }
+
+  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+    tyRes.TryGetToolTip pos lineStr
+    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
+
+  let pipelineHints (tryGetFileSource: _ -> Result<NamedText, _>) (tyRes: ParseAndCheckResults) =
+    result {
+      // Debug.waitForDebuggerAttached "AdaptiveServer"
+      let! contents = tryGetFileSource tyRes.FileName
+
+      let getSignatureAtPos pos =
+        option {
+          let! lineStr = contents.GetLine pos
+
+          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+
+          return TipFormatter.extractGenericParameters tip
+        }
+        |> Option.defaultValue []
+
+      let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
+        tokens
+        |> List.exists (fun token ->
+          token.CharClass <> FSharpTokenCharKind.Comment
+          && token.CharClass <> FSharpTokenCharKind.WhiteSpace
+          && token.CharClass <> FSharpTokenCharKind.LineComment)
+        |> not
+
+      let getStartingPipe =
+        function
+        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | _ -> None
+
+      let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
+        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
+
+        let isPipe = getStartingPipe currentTokens
+
+        match isCommentOrWhitespace, isPipe with
+        | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
+        | false, Some pipe ->
+          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
+        | false, None -> currentIndex, false, acc
+
+      let hints =
+        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
+        |> Array.map (Lexer.tokenizeLine [||])
+        |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
+        |> Array.fold folder (0, false, [])
+        |> (fun (_, _, third) -> third |> Array.ofList)
+        |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
+          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
+          let gens = getSignatureAtPos pipePos
+
+          let previousNonPipeLine =
+            if lastExpressionLineWasPipe then
+              None
+            else
+              Some lastExpressionLine
+
+          currentIndex, previousNonPipeLine, gens)
+
+      return CoreResponse.Res hints
+    }
+    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+
+  let calculateNamespaceInsert
+    currentAst
+    (decl: DeclarationListItem)
+    (pos: Position)
+    getLine
+    : CompletionNamespaceInsert option =
+    let getLine (p: Position) = getLine p |> Option.defaultValue ""
+
+    let idents = decl.FullName.Split '.'
+
+    decl.NamespaceToOpen
+    |> Option.bind (fun n ->
+      (currentAst ())
+      |> Option.map (fun ast ->
+        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
+      |> Option.map (fun ic ->
+        //TODO: unite with `CodeFix/ResolveNamespace`
+        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
+
+        let detectIndentation (line: string) =
+          line |> Seq.takeWhile ((=) ' ') |> Seq.length
+
+        // adjust line
+        let pos =
+          match ic.ScopeKind with
+          | ScopeKind.Namespace ->
+            // for namespace `open` isn't created close at namespace,
+            // but instead on first member
+            // -> move `open` closer to namespace
+            // this only happens when there are no other `open`
+
+            // from insert position go up until first open OR namespace
+            ic.Pos.LinesToBeginning()
+            |> Seq.tryFind (fun l ->
+              let lineStr = getLine l
+              // namespace MUST be top level -> no indentation
+              lineStr.StartsWith "namespace ")
+            |> function
+              // move to the next line below "namespace"
+              | Some l -> l.IncLine()
+              | None -> ic.Pos
+          | _ -> ic.Pos
+
+        // adjust column
+        let pos =
+          match pos with
+          | Pos (1, c) -> pos
+          | Pos (l, 0) ->
+            let prev = getLine (pos.DecLine())
+            let indentation = detectIndentation prev
+
+            if indentation <> 0 then
+              // happens when there are already other `open`s
+              Position.mkPos l indentation
+            else
+              pos
+          | Pos (_, c) -> pos
+
+        { Namespace = n
+          Position = pos
+          Scope = ic.ScopeKind }))
+
+  let symbolUseWorkspace
+    getDeclarationLocation
+    (findReferencesForSymbolInFile: (string * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
+    getProjectOptionsForFsproj
+    pos
+    lineStr
+    (text: NamedText)
+    (tyRes: ParseAndCheckResults)
+    =
+    asyncResult {
+
+      let findReferencesInFile
+        (
+          file,
+          symbol: FSharpSymbol,
+          project: FSharpProjectOptions,
+          onFound: range -> Async<unit>
+        ) =
+        asyncResult {
+          try
+            let! (references: Range seq) = findReferencesForSymbolInFile (file, project, symbol)
+
+            for reference in references do
+              do! onFound reference
+          with e ->
+            commandsLogger.error (
+              Log.setMessage "Failed findReferencesForSymbolInFile with {file}"
+              >> Log.addExn e
+              >> Log.addContextDestructured "file" file
+            // >> Log.addContextDestructured "symbol" symbol
+            )
+        }
+
+      let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
+        projects
+        |> List.map (fun p ->
+          asyncResult {
+            for file in p.SourceFiles do
+              do! findReferencesInFile (file, symbol, p, onFound)
+          })
+        |> Async.Parallel
+        |> Async.map (Array.toList >> FsToolkit.ErrorHandling.List.sequenceResultM)
+
+      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
+
+      let splitByDeclaration (uses: FSharpSymbolUse[]) =
+        uses |> Array.partition (fun u -> u.IsFromDefinition)
+
+      let toDict (symbolUseRanges: range[]) =
+        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
+
+        symbolUseRanges
+        |> Array.collect (fun symbolUse ->
+          let file = symbolUse.FileName
+          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
+          // then we'd need to map the files to some kind of document identfier and dedupe by that
+          // before issueing the renames. We don't, so this becomes very simple
+          [| file, symbolUse |])
+        |> Array.groupBy fst
+        |> Array.iter (fun (key, items) ->
+          let itemsSeq = items |> Array.map snd
+          dict[key] <- itemsSeq
+          ())
+
+        dict
+
+      let! symUse =
+        tyRes.TryGetSymbolUse pos lineStr
+        |> Result.ofOption (fun _ -> "No result found")
+
+      let symbol = symUse.Symbol
+
+      let! declLoc =
+        getDeclarationLocation (symUse, text)
+        |> Result.ofOption (fun _ -> "No declaration location found")
+
+      match declLoc with
+      | SymbolDeclarationLocation.CurrentDocument ->
+        let! ct = Async.CancellationToken
+        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+        let declarations, usages = splitByDeclaration symbolUses
+
+        let declarationRanges, usageRanges =
+          toDict (ranges declarations), toDict (ranges usages)
+
+        return Choice1Of2(declarationRanges, usageRanges)
+
+      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
+        let symbolUseRanges = ImmutableArray.CreateBuilder()
+        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
+        let symbolFile = symbolRange.TaggedFileName
+
+        let symbolFileText =
+          tryGetFileSource (symbolFile)
+          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+
+        let! symbolText = symbolFileText.[symbolRange]
+        // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
+
+        let projects =
+          if isInternalToProject then
+            projects
+          else
+            [ for project in projects do
+                yield project
+
+                yield!
+                  project.ReferencedProjects
+                  |> Array.choose (fun p -> p.OutputFile |> getProjectOptionsForFsproj) ]
+            |> List.distinctBy (fun x -> x.ProjectFileName)
+
+        let onFound (symbolUseRange: range) =
+          async {
+            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
+            let symbolFile = symbolUseRange.TaggedFileName
+            let targetText = tryGetFileSource (symbolFile)
+
+            match targetText with
+            | Error e -> ()
+            | Ok sourceText ->
+              let sourceSpan =
+                sourceText.[symbolUseRange]
+                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
+
+              // There are two kinds of ranges we get back:
+              // * ranges that exactly match the short name of the symbol
+              // * ranges that are longer than the short name of the symbol,
+              //   typically because we're talking about some kind of fully-qualified usage
+              // For the latter, we need to adjust the reported range to just be the portion
+              // of the fully-qualfied text that is the symbol name.
+              if sourceSpan = symbolText then
+                symbolUseRanges.Add symbolUseRange
+              else
+                match sourceSpan.IndexOf(symbolText) with
+                | -1 -> ()
+                | n ->
+                  if sourceSpan.Length >= n + symbolText.Length then
+                    let startPos = symbolUseRange.Start.IncColumn n
+                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
+
+                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
+                    symbolUseRanges.Add actualUseRange
+          }
+
+        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
+
+        // Distinct these down because each TFM will produce a new 'project'.
+        // Unless guarded by a #if define, symbols with the same range will be added N times
+        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
+
+        return Choice2Of2(toDict symbolUseRanges)
+    }
 
   // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
   // set of range segments that are non-overlapping with the children
@@ -171,6 +893,32 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       highlights |> Array.collect expandParents)
     |> Array.sortBy startToken
+
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
+  let fileParsed = Event<FSharpParseFileResults>()
+
+  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
+
+  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
+  let disposables = ResizeArray()
+
+  let mutable workspaceRoot: string option = rootPath
+  let mutable linterConfigFileRelativePath: string option = None
+  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
+  let mutable lastCheckResult: ParseAndCheckResults option = None
+
+  let notify = Event<NotificationEvent>()
+
+  let fileStateSet = Event<unit>()
+  let commandsLogger = LogProvider.getLoggerByName "Commands"
+
+  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+
+
 
   let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
     let ctx: SDK.Context =
@@ -406,69 +1154,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   let codeGenServer = CodeGenerationService(checker, state)
 
-  let docForText (lines: NamedText) (tyRes: ParseAndCheckResults) : Document =
-    { LineCount = lines.Lines.Length
-      FullName = tyRes.FileName // from the compiler, assumed safe
-      GetText = fun _ -> string lines
-      GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
-      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
-
-  let calculateNamespaceInsert (decl: DeclarationListItem) (pos: Position) getLine : CompletionNamespaceInsert option =
-    let getLine (p: Position) = getLine p |> Option.defaultValue ""
-
-    let idents = decl.FullName.Split '.'
-
-    decl.NamespaceToOpen
-    |> Option.bind (fun n ->
-      state.CurrentAST
-      |> Option.map (fun ast ->
-        ParsedInput.FindNearestPointToInsertOpenDeclaration (pos.Line) ast idents OpenStatementInsertionPoint.Nearest)
-      |> Option.map (fun ic ->
-        //TODO: unite with `CodeFix/ResolveNamespace`
-        //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
-
-        let detectIndentation (line: string) =
-          line |> Seq.takeWhile ((=) ' ') |> Seq.length
-
-        // adjust line
-        let pos =
-          match ic.ScopeKind with
-          | ScopeKind.Namespace ->
-            // for namespace `open` isn't created close at namespace,
-            // but instead on first member
-            // -> move `open` closer to namespace
-            // this only happens when there are no other `open`
-
-            // from insert position go up until first open OR namespace
-            ic.Pos.LinesToBeginning()
-            |> Seq.tryFind (fun l ->
-              let lineStr = getLine l
-              // namespace MUST be top level -> no indentation
-              lineStr.StartsWith "namespace ")
-            |> function
-              // move to the next line below "namespace"
-              | Some l -> l.IncLine()
-              | None -> ic.Pos
-          | _ -> ic.Pos
-
-        // adjust column
-        let pos =
-          match pos with
-          | Pos (1, c) -> pos
-          | Pos (l, 0) ->
-            let prev = getLine (pos.DecLine())
-            let indentation = detectIndentation prev
-
-            if indentation <> 0 then
-              // happens when there are already other `open`s
-              Position.mkPos l indentation
-            else
-              pos
-          | Pos (_, c) -> pos
-
-        { Namespace = n
-          Position = pos
-          Scope = ic.ScopeKind }))
 
   let fillHelpTextInTheBackground decls (pos: Position) fn getLine =
     let declName (d: DeclarationListItem) = d.Name
@@ -482,7 +1167,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       for decl in decls do
         let n = declName decl
 
-        match calculateNamespaceInsert decl pos getLine with
+        match Commands.calculateNamespaceInsert (fun () -> state.CurrentAST) decl pos getLine with
         | Some insert -> state.CompletionNamespaceInsert.[n] <- insert
         | None -> ()
     }
@@ -541,14 +1226,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res results
     }
 
-  member x.DotnetNewList() =
+  static member DotnetNewList() =
     async {
       let results = DotnetNewTemplate.installedTemplates ()
       return CoreResponse.Res results
     }
 
 
-  member x.DotnetNewRun
+  static member DotnetNewRun
     (templateShortName: string)
     (name: string option)
     (output: string option)
@@ -559,31 +1244,31 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res results
     }
 
-  member x.DotnetAddProject (toProject: string) (reference: string) =
+  static member DotnetAddProject (toProject: string) (reference: string) =
     async {
       let! result = DotnetCli.dotnetAddProject toProject reference
       return CoreResponse.Res result
     }
 
-  member x.DotnetRemoveProject (fromProject: string) (reference: string) =
+  static member DotnetRemoveProject (fromProject: string) (reference: string) =
     async {
       let! result = DotnetCli.dotnetRemoveProject fromProject reference
       return CoreResponse.Res result
     }
 
-  member x.DotnetSlnAdd (sln: string) (project: string) =
+  static member DotnetSlnAdd (sln: string) (project: string) =
     async {
       let! result = DotnetCli.dotnetSlnAdd sln project
       return CoreResponse.Res result
     }
 
-  member _.FsProjMoveFileUp (fsprojPath: string) (fileVirtPath: string) =
+  static member FsProjMoveFileUp (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.moveFileUp fsprojPath fileVirtPath
       return CoreResponse.Res()
     }
 
-  member _.FsProjMoveFileDown (fsprojPath: string) (fileVirtPath: string) =
+  static member FsProjMoveFileDown (fsprojPath: string) (fileVirtPath: string) =
     async {
       FsProjEditor.moveFileDown fsprojPath fileVirtPath
       return CoreResponse.Res()
@@ -916,7 +1601,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       return CoreResponse.Res decls
     }
 
-  member __.Helptext sym =
+  member _.Helptext sym =
     async {
       match KeywordList.keywordDescriptions.TryGetValue sym with
       | true, s -> return CoreResponse.Res(HelpText.Simple(sym, s))
@@ -949,19 +1634,21 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
               let n =
                 match state.CompletionNamespaceInsert.TryFind sym with
-                | None -> calculateNamespaceInsert decl pos source.GetLine
+                | None -> Commands.calculateNamespaceInsert (fun () -> state.CurrentAST) decl pos source.GetLine
                 | Some s -> Some s
 
               return CoreResponse.Res(HelpText.Full(sym, tip, n))
     }
 
-  member x.CompilerLocation() =
+  static member CompilerLocation(checker: FSharpCompilerServiceChecker) =
     CoreResponse.Res(Environment.fsc, Environment.fsi, Some "", checker.GetDotnetRoot())
+
+  member x.CompilerLocation() = Commands.CompilerLocation(checker)
 
   member x.Colorization enabled = state.ColorizationOutput <- enabled
   member x.Error msg = [ CoreResponse.ErrorRes msg ]
 
-  member x.Completion
+  member _.Completion
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     lineStr
@@ -992,10 +1679,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         // Send the first help text without being requested.
         // This allows it to be displayed immediately in the editor.
-        let firstMatchOpt =
-          decls
-          |> Array.sortBy declName
-          |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+        // let firstMatchOpt =
+        //   decls
+        //   |> Array.sortBy declName
+        //   |> Array.tryFind (fun d -> (declName d).StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
 
         let includeKeywords = includeKeywords && shouldKeywords
 
@@ -1008,40 +1695,38 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     tyRes.TryGetToolTipEnhanced pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.FormattedDocumentation (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member FormattedDocumentation (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetFormattedDocumentation pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.FormattedDocumentationForSymbol (tyRes: ParseAndCheckResults) (xmlSig: string) (assembly: string) =
+  static member FormattedDocumentationForSymbol (tyRes: ParseAndCheckResults) (xmlSig: string) (assembly: string) =
     tyRes.TryGetFormattedDocumentationForSymbol xmlSig assembly
-    |> Result.map CoreResponse.Res
-
-  member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    tyRes.TryGetToolTip pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
+
+  member x.Typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = Commands.typesig tyRes pos lineStr
 
   member x.SymbolUse (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetSymbolUseAndUsages pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.SignatureData (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member SignatureData (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetSignatureData pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
-  member x.Help (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+  static member Help (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetF1Help pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
   /// for a given member, use its signature information to generate placeholder XML documentation strings.
   /// calculates the required indent and gives the position to insert the text.
-  member x.GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
+  static member GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
     asyncResult {
       let trimmed = lineStr.TrimStart(' ')
       let indentLength = lineStr.Length - trimmed.Length
       let indentString = String.replicate indentLength " "
 
       let! (_, memberParameters, genericParameters) =
-        x.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+        Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
 
       let summarySection = "/// <summary></summary>"
 
@@ -1086,199 +1771,54 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
     asyncResult {
 
-      let findReferencesInFile
-        (
-          file,
-          symbol: FSharpSymbol,
-          project: FSharpProjectOptions,
-          onFound: range -> Async<unit>
-        ) =
-        asyncResult {
-          let! (references: Range seq) = checker.FindReferencesForSymbolInFile(file, project, symbol)
+      let getDeclarationLocation (symUse, text) =
+        SymbolLocation.getDeclarationLocation (
+          symUse,
+          text,
+          state.GetProjectOptions,
+          state.ProjectController.ProjectsThatContainFile,
+          state.ProjectController.GetDependentProjectsOfProjects
+        )
 
-          for reference in references do
-            do! onFound reference
-        }
+      let findReferencesForSymbolInFile (file, project, symbol) =
+        checker.FindReferencesForSymbolInFile(file, project, symbol)
 
-      let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
-        projects
-        |> List.traverseAsyncResultM (fun p ->
-          asyncResult {
-            for file in p.SourceFiles do
-              do! findReferencesInFile (file, symbol, p, onFound)
-          })
+      let tryGetFileSource symbolFile = state.TryGetFileSource(symbolFile)
 
-      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
+      let getProjectOptionsForFsproj fsprojPath =
+        state.ProjectController.GetProjectOptionsForFsproj fsprojPath
 
-      let splitByDeclaration (uses: FSharpSymbolUse[]) =
-        uses |> Array.partition (fun u -> u.IsFromDefinition)
-
-      let toDict (symbolUseRanges: range[]) =
-        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
-
-        symbolUseRanges
-        |> Array.collect (fun symbolUse ->
-          let file = symbolUse.FileName
-          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
-          // then we'd need to map the files to some kind of document identfier and dedupe by that
-          // before issueing the renames. We don't, so this becomes very simple
-          [| file, symbolUse |])
-        |> Array.groupBy fst
-        |> Array.iter (fun (key, items) ->
-          let itemsSeq = items |> Array.map snd
-          dict[key] <- itemsSeq
-          ())
-
-        dict
-
-      let! symUse =
-        tyRes.TryGetSymbolUse pos lineStr
-        |> Result.ofOption (fun _ -> "No result found")
-
-      let symbol = symUse.Symbol
-
-      let! declLoc =
-        SymbolLocation.getDeclarationLocation (symUse, text, state)
-        |> Result.ofOption (fun _ -> "No declaration location found")
-
-      match declLoc with
-      | SymbolDeclarationLocation.CurrentDocument ->
-        let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-        let declarations, usages = splitByDeclaration symbolUses
-
-        let declarationRanges, usageRanges =
-          toDict (ranges declarations), toDict (ranges usages)
-
-        return Choice1Of2(declarationRanges, usageRanges)
-
-      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-        let symbolUseRanges = ImmutableArray.CreateBuilder()
-        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
-        let symbolFile = symbolRange.TaggedFileName
-
-        let symbolFileText =
-          state.TryGetFileSource(symbolFile)
-          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
-
-        let symbolText =
-          symbolFileText[symbolRange]
-          |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
-
-        let projects =
-          if isInternalToProject then
-            projects
-          else
-            [ for project in projects do
-                yield project
-
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> p.OutputFile |> state.ProjectController.GetProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-
-        let onFound (symbolUseRange: range) =
-          async {
-            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
-            let symbolFile = symbolUseRange.TaggedFileName
-            let targetText = state.TryGetFileSource(symbolFile)
-
-            match targetText with
-            | Error e -> ()
-            | Ok sourceText ->
-              let sourceSpan =
-                sourceText[symbolUseRange]
-                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
-
-              // There are two kinds of ranges we get back:
-              // * ranges that exactly match the short name of the symbol
-              // * ranges that are longer than the short name of the symbol,
-              //   typically because we're talking about some kind of fully-qualified usage
-              // For the latter, we need to adjust the reported range to just be the portion
-              // of the fully-qualfied text that is the symbol name.
-              if sourceSpan = symbolText then
-                symbolUseRanges.Add symbolUseRange
-              else
-                match sourceSpan.IndexOf(symbolText) with
-                | -1 -> ()
-                | n ->
-                  if sourceSpan.Length >= n + symbolText.Length then
-                    let startPos = symbolUseRange.Start.IncColumn n
-                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
-
-                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
-                    symbolUseRanges.Add actualUseRange
-          }
-
-        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
-
-        // Distinct these down because each TFM will produce a new 'project'.
-        // Unless guarded by a #if define, symbols with the same range will be added N times
-        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-
-        return Choice2Of2(toDict symbolUseRanges)
+      return!
+        Commands.symbolUseWorkspace
+          getDeclarationLocation
+          findReferencesForSymbolInFile
+          tryGetFileSource
+          getProjectOptionsForFsproj
+          pos
+          lineStr
+          text
+          tyRes
     }
 
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      match! x.SymbolUseWorkspace(pos, lineStr, text, tyRes) with
-      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
+      let symbolUseWorkspace pos lineStr text tyRes =
+        x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
 
-        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
-          | false, _ -> totalSetOfRanges[text] <- declUsages
-
-        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
-      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
-
-        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
-          let! text = state.TryGetFileSource(UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+      let tryGetFileSource filePath = state.TryGetFileSource filePath
+      return! Commands.renameSymbol symbolUseWorkspace tryGetFileSource pos tyRes lineStr text
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
+    let getProjectOptions filePath = state.GetProjectOptions' filePath
 
-    let filterSymbols symbols =
-      symbols
-      |> Array.where (fun (su: FSharpSymbolUse) ->
-        su.IsFromDispatchSlotImplementation
-        || (su.IsFromType
-            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
+    let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
+      checker.GetUsesOfSymbol(filePath, opts, sym)
 
-    async {
-      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
-      | Ok (sym, usages) ->
-        let fsym = sym.Symbol
+    let getAllProjects () =
+      state.FSharpProjectOptions |> Seq.toList
 
-        if fsym.IsPrivateToFile then
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
-        else if fsym.IsInternalToProject then
-          let opts = state.GetProjectOptions' tyRes.FileName
-          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-        else
-          let! symbols = checker.GetUsesOfSymbol(tyRes.FileName, state.FSharpProjectOptions, sym.Symbol)
-          let symbols = filterSymbols symbols
-          return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-      | Error e -> return CoreResponse.ErrorRes e
-    }
+    Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1333,97 +1873,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   //     |> AsyncResult.recoverCancellationIgnore
 
   member x.GetNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
-    async {
-      match Lexer.findLongIdents (pos.Column, line) with
-      | None -> return CoreResponse.InfoRes "Ident not found"
-      | Some (_, idents) ->
-        match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
-        | None -> return CoreResponse.InfoRes "EntityKind not found"
-        | Some entityKind ->
-
-          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-
-          match symbol with
-          | None -> return CoreResponse.InfoRes "Symbol at position not found"
-          | Some sym ->
-
-
-            let entities = tyRes.GetAllEntities true
-
-            let isAttribute = entityKind = EntityKind.Attribute
-
-            let entities =
-              entities
-              |> List.filter (fun e ->
-                match entityKind, (e.Kind LookupType.Fuzzy) with
-                | EntityKind.Attribute, EntityKind.Attribute
-                | EntityKind.Type, (EntityKind.Type | EntityKind.Attribute)
-                | EntityKind.FunctionOrValue _, _ -> true
-                | EntityKind.Attribute, _
-                | _, EntityKind.Module _
-                | EntityKind.Module _, _
-                | EntityKind.Type, _ -> false)
-
-            let maybeUnresolvedIdents =
-              idents |> Array.map (fun ident -> { Ident = ident; Resolved = false })
-
-            let entities =
-              entities
-              |> List.collect (fun e ->
-                [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
-                  if isAttribute then
-                    let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
-
-                    if
-                      (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
-                      && lastIdent.EndsWith "Attribute"
-                    then
-                      yield
-                        e.TopRequireQualifiedAccessParent,
-                        e.AutoOpenParent,
-                        e.Namespace,
-                        e.CleanedIdents
-                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
-
-            let createEntity =
-              ParsedInput.TryFindInsertionContext
-                pos.Line
-                tyRes.GetParseResults.ParseTree
-                maybeUnresolvedIdents
-                OpenStatementInsertionPoint.Nearest
-
-            let word = sym.Text
-
-            let candidates = entities |> Seq.collect createEntity |> Seq.toList
-
-            let openNamespace =
-              candidates
-              |> List.choose (fun (entity, ctx) ->
-                entity.Namespace |> Option.map (fun ns -> ns, entity.FullDisplayName, ctx))
-              |> List.groupBy (fun (ns, _, _) -> ns)
-              |> List.map (fun (ns, xs) ->
-                ns,
-                xs
-                |> List.map (fun (_, name, ctx) -> name, ctx)
-                |> List.distinctBy (fun (name, _) -> name)
-                |> List.sortBy fst)
-              |> List.collect (fun (ns, names) ->
-                let multipleNames =
-                  match names with
-                  | [] -> false
-                  | [ _ ] -> false
-                  | _ -> true
-
-                names |> List.map (fun (name, ctx) -> ns, name, ctx, multipleNames))
-
-            let qualifySymbolActions =
-              candidates
-              |> List.map (fun (entity, _) -> entity.FullRelativeName, entity.Qualifier)
-              |> List.distinct
-              |> List.sort
-
-            return CoreResponse.Res(word, openNamespace, qualifySymbolActions)
-    }
+    Commands.getNamespaceSuggestions tyRes pos line
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1434,46 +1884,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (line: LineStr)
     =
     async {
-      let codeGenService = CodeGenerationService(checker, state)
-
-      let doc =
-        { Document.LineCount = lines.Length
-          FullName = tyRes.FileName
-          GetText = fun _ -> string lines
-          GetLineText0 = fun i -> lines.GetLineString i
-          GetLineText1 = fun i -> lines.GetLineString(i - 1) }
-
-      let! res = tryFindUnionDefinitionFromPos codeGenService pos doc
-
-      match res with
-      | None -> return CoreResponse.InfoRes "Union at position not found"
-      | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
-
-        if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
-          let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
-
-          return CoreResponse.Res(result, insertionPos.InsertionPos)
-        else
-          return CoreResponse.InfoRes "Union at position not found"
+      let tryFindUnionDefinitionFromPos = tryFindUnionDefinitionFromPos codeGenServer
+      return! Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos lines line
     }
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
   member x.GetRecordStub (tyRes: ParseAndCheckResults) (pos: Position) (lines: NamedText) (line: LineStr) =
-    async {
-      let doc = docForText lines tyRes
-      let! res = tryFindRecordDefinitionFromPos codeGenServer pos doc
 
-      match res with
-      | None -> return CoreResponse.InfoRes "Record at position not found"
-      | Some (recordEpr, (Some recordDefinition), insertionPos) ->
-        if shouldGenerateRecordStub recordEpr recordDefinition then
-          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
-          return CoreResponse.Res(result, insertionPos.InsertionPos)
-        else
-          return CoreResponse.InfoRes "Record at position not found"
-      | _ -> return CoreResponse.InfoRes "Record at position not found"
-    }
+    Commands.getRecordStub (tryFindRecordDefinitionFromPos codeGenServer) tyRes pos lines line
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
 
@@ -1483,19 +1902,19 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (lines: NamedText)
     (lineStr: LineStr)
     =
-    asyncResult {
-      let doc = docForText lines tyRes
+    let tryFindAbstractClassExprInBufferAtPos =
+      AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
 
-      let! abstractClass =
-        AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer objExprRange.Start doc
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
+    let writeAbstractClassStub =
+      AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
-      let! (insertPosition, generatedCode) =
-        AbstractClassStubGenerator.writeAbstractClassStub codeGenServer tyRes doc lines lineStr abstractClass
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
-
-      return CoreResponse.Res(generatedCode, insertPosition)
-    }
+    Commands.getAbstractClassStub
+      tryFindAbstractClassExprInBufferAtPos
+      writeAbstractClassStub
+      tyRes
+      objExprRange
+      lines
+      lineStr
     |> AsyncResult.foldResult id id
     |> x.AsCancellable tyRes.FileName
     |> AsyncResult.recoverCancellation
@@ -1588,18 +2007,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
 
   member x.GetRangesAtPosition file positions =
-    async {
-      match state.TryGetFileCheckerOptionsWithLines file with
-      | Ok (opts, text) ->
+    let getParseResultsForFile file =
+      asyncResult {
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
         let parseOpts = Utils.projectOptionsToParseOptions opts
         let! ast = checker.ParseFile(file, text, parseOpts)
+        return ast
+      }
 
-        return
-          positions
-          |> List.map (UntypedAstUtils.getRangesAtPosition ast.ParseTree)
-          |> CoreResponse.Res
-      | _ -> return CoreResponse.InfoRes "Couldn't find file state"
-    }
+    Commands.getRangesAtPosition getParseResultsForFile file positions
 
   member x.GetGitHash() =
     let version = Version.info ()
@@ -1609,16 +2025,16 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async { return [ CoreResponse.InfoRes "quitting..." ] }
 
   member x.ScopesForFile(file: string<LocalPath>) =
-    asyncResult {
-      let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
-      let parseOpts = Utils.projectOptionsToParseOptions opts
-      let! ast = checker.ParseFile(file, text, parseOpts)
+    let getParseResultsForFile file =
+      asyncResult {
+        let! (opts, text) = state.TryGetFileCheckerOptionsWithLines file
+        let parseOpts = Utils.projectOptionsToParseOptions opts
+        let! ast = checker.ParseFile(file, text, parseOpts)
+        return text, ast
+      }
 
-      let ranges =
-        Structure.getOutliningRanges (text.ToString().Split("\n")) ast.ParseTree
+    Commands.scopesForFile getParseResultsForFile file
 
-      return ranges
-    }
 
   member __.SetDotnetSDKRoot(dotnetBinary: System.IO.FileInfo) =
     checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
@@ -1626,109 +2042,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   member __.SetFSIAdditionalArguments args = checker.SetFSIAdditionalArguments args
 
   member x.FormatDocument(file: string<LocalPath>) : Async<Result<FormatDocumentResponse, string>> =
-    asyncResult {
-      try
-        let filePath = (UMX.untag file)
-        let! _, text = x.TryGetFileCheckerOptionsWithLines file
-        let currentCode = string text
+    let tryGetFileCheckerOptionsWithLines file =
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
 
-        let! fantomasResponse =
-          fantomasService.FormatDocumentAsync
-            { SourceCode = currentCode
-              FilePath = filePath
-              Config = None }
-
-        match fantomasResponse with
-        | { Code = 1; Content = Some code } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
-          return FormatDocumentResponse.Formatted(text, code)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with ex ->
-        fantomasLogger.warn (
-          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
-          >> Log.addContextDestructured "message" ex.Message
-          >> Log.addExn ex
-        )
-
-        return! Core.Error ex.Message
-    }
+    let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
+    Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
 
   member x.FormatSelection
     (
       file: string<LocalPath>,
       rangeToFormat: FormatSelectionRange
     ) : Async<Result<FormatDocumentResponse, string>> =
-    asyncResult {
-      try
-        let filePath = (UMX.untag file)
-        let! _, text = x.TryGetFileCheckerOptionsWithLines file
-        let currentCode = string text
+    let tryGetFileCheckerOptionsWithLines file =
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
 
-        let! fantomasResponse =
-          fantomasService.FormatSelectionAsync
-            { SourceCode = currentCode
-              FilePath = filePath
-              Config = None
-              Range = rangeToFormat }
-
-        match fantomasResponse with
-        | { Code = 1
-            Content = Some code
-            SelectedRange = Some range } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
-          return FormatDocumentResponse.FormattedRange(text, code, range)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-      with ex ->
-        fantomasLogger.warn (
-          Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
-          >> Log.addContextDestructured "message" ex.Message
-          >> Log.addExn ex
-        )
-
-        return! Core.Error ex.Message
-    }
+    let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
+    Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
 
   member _.ClearFantomasCache() = fantomasService.ClearCache()
 
@@ -1739,7 +2068,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let r = res.GetCheckResults.GetSemanticClassification(range)
 
-      let filteredRanges = scrubRanges r
+      let filteredRanges = Commands.scrubRanges r
       return CoreResponse.Res filteredRanges
     }
 
@@ -1766,7 +2095,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   //     return CoreResponse.Res html
   //   }
 
-  member _.InlayHints(text, tyRes: ParseAndCheckResults, range, ?showTypeHints, ?showParameterHints) =
+  static member InlayHints(text, tyRes: ParseAndCheckResults, range, ?showTypeHints, ?showParameterHints) =
     let hintConfig: Core.InlayHints.HintConfig =
       { ShowTypeHints = defaultArg showTypeHints true
         ShowParameterHints = defaultArg showParameterHints true }
@@ -1774,66 +2103,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
-    result {
-      let! contents = state.TryGetFileSource tyRes.FileName
-
-      let getSignatureAtPos pos =
-        option {
-          let! lineStr = contents.GetLine pos
-
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
-
-          return TipFormatter.extractGenericParameters tip
-        }
-        |> Option.defaultValue []
-
-      let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
-        tokens
-        |> List.exists (fun token ->
-          token.CharClass <> FSharpTokenCharKind.Comment
-          && token.CharClass <> FSharpTokenCharKind.WhiteSpace
-          && token.CharClass <> FSharpTokenCharKind.LineComment)
-        |> not
-
-      let getStartingPipe =
-        function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | _ -> None
-
-      let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
-        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
-
-        let isPipe = getStartingPipe currentTokens
-
-        match isCommentOrWhitespace, isPipe with
-        | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
-        | false, Some pipe ->
-          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
-        | false, None -> currentIndex, false, acc
-
-      let hints =
-        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
-        |> Array.map (Lexer.tokenizeLine [||])
-        |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
-        |> Array.fold folder (0, false, [])
-        |> (fun (_, _, third) -> third |> Array.ofList)
-        |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
-          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
-          let gens = getSignatureAtPos pipePos
-
-          let previousNonPipeLine =
-            if lastExpressionLineWasPipe then
-              None
-            else
-              Some lastExpressionLine
-
-          currentIndex, previousNonPipeLine, gens)
-
-      return CoreResponse.Res hints
-    }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
-
+    Commands.pipelineHints state.TryGetFileSource tyRes
 
   interface IDisposable with
     member x.Dispose() =

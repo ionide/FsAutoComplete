@@ -611,12 +611,12 @@ let private untitledGotoTests state =
     }
   ])
 
-let tests state =
+let tests createServer =
   testSequenced
   <| testList
       "Go to definition tests"
       [
-        gotoTest state
-        scriptGotoTests state
-        untitledGotoTests state
+        gotoTest createServer
+        scriptGotoTests createServer
+        untitledGotoTests createServer
        ]

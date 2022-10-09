@@ -9,6 +9,7 @@ YoloDev.Expecto.TestSdk
 AltCover
 GitHubActionsTestLogger
 CliWrap
+FSharp.Data.Adaptive
 
 Microsoft.Build copy_local:false
 Microsoft.Build.Framework copy_local:false
