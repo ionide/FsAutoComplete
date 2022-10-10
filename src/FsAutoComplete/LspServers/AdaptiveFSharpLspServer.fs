@@ -105,7 +105,7 @@ module AVal =
   /// <summary>
   /// Calls a mapping function which creates additional dependencies to be tracked.
   /// </summary>
-  let mapWithAdditionalDependenies (mapping: 'a -> 'b * list<IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
+  let mapWithAdditionalDependenies (mapping: 'a -> 'b * list<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
     let mutable lastDeps = HashSet.empty
 
     { new AVal.AbstractVal<'b>() with
@@ -247,7 +247,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           | NotificationEvent.FileParsed fn ->
             let uri = Path.LocalPathToUri fn
 
-            do! lspClient.CodeLensRefresh()
             do! ({ Content = UMX.untag uri }: PlainNotification) |> lspClient.NotifyFileParsed
           | NotificationEvent.Workspace ws ->
 
@@ -441,8 +440,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        .SelectMany(fun l -> l.Distinct())
+        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        // .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
@@ -506,8 +505,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let glyphToSymbolKind = clientCapabilities |> AVal.map glyphToSymbolKindGenerator
 
-
-
   let loadedProjectOptions =
     (loader, adaptiveWorkspacePaths)
     ||> AVal.bind2 (fun loader wsp ->
@@ -520,7 +517,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! projectOptions =
             projects
             |> AVal.mapWithAdditionalDependenies (fun projects ->
-
 
               projects
               |> Seq.iter (fun (proj: string<LocalPath>, _) ->
@@ -563,8 +559,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                         |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
                         |> Array.map (UMX.tag >> adaptiveFile)
                     | None -> () ]
-                |> Seq.cast<IAdaptiveValue>
-                |> Seq.toList
 
               projectOptions, additionalDependencies)
 
@@ -624,13 +618,23 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
+  let cancelAllOpenFileCheckRequests () =
+    transact (fun () ->
+      let files = openFiles |> AMap.force
+
+      for (_, fileVal) in files do
+        let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
+        cts.Cancel()
+        cts.Dispose()
+        fileVal.Value <- oldFile, new CancellationTokenSource())
+
   let updateOpenFiles (file: VolatileFile) =
 
     let adder _ =
       cval (file, new CancellationTokenSource())
 
     let updater _ (v: cval<_>) =
-      let (oldFile, cts: CancellationTokenSource) = v.Value
+      let (oldFile, cts: CancellationTokenSource) = v |> AVal.force
       cts.Cancel()
       cts.Dispose()
       v.Value <- file, new CancellationTokenSource()
@@ -816,8 +820,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           >> Log.addContextDestructured "file" file.Lines.FileName
         )
 
-        analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck)
-        |> Async.Start
 
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
@@ -827,9 +829,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Array.distinctBy (fun e ->
             e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-        let uri = Path.LocalPathToUri(file.Lines.FileName)
-        let diags = errors |> Array.map fcsErrorToDiagnostic
-        diagnosticCollections.SetFor(uri, "F# Compiler", diags)
+        NotificationEvent.ParseError(errors, file.Lines.FileName)
+        |> notifications.Trigger
+
+
+        do! analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck)
 
         // LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
         // Yes this seems excessive doing this every time we type check but it's the best current kludge.
@@ -843,9 +847,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
   /// Bypass Adaptive checking and tell the checker to check a file
-  let forceTypeCheck checker f =
+  let forceTypeCheck f =
     async {
       logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
+      let checker = checker |> AVal.force
       let config = config |> AVal.force
 
       match findFileInOpenFiles f |> AVal.force, getProjectOptionsForFile f |> AVal.force |> List.tryHead with
@@ -1550,14 +1555,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
           let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
           updateOpenFiles file
-
-          Async.Start(
-            async {
-              do! Async.Sleep 100
-              forceGetTypeCheckResults filePath |> ignore
-            }
-          )
-
+          forceGetTypeCheckResults filePath |> ignore
           return ()
         with e ->
           logger.error (
@@ -1607,13 +1605,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
 
           updateOpenFiles file
-
-          Async.Start(
-            async {
-              do! Async.Sleep 100
-              forceGetTypeCheckResults filePath |> ignore
-            }
-          )
+          forceGetTypeCheckResults filePath |> ignore
 
           return ()
         with e ->
@@ -1647,15 +1639,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "files" knownFiles
           )
 
-          let checker = (AVal.force checker)
+          cancelAllOpenFileCheckRequests ()
 
           for (file, aFile) in knownFiles do
             let (_, cts) = aFile |> AVal.force
 
             do!
-              forceTypeCheck checker file
+              forceTypeCheck file
               |> Async.withCancellationSafe (fun () -> cts.Token)
               |> Async.Ignore<unit option>
+
+          do! lspClient.CodeLensRefresh()
 
           return ()
         with e ->
