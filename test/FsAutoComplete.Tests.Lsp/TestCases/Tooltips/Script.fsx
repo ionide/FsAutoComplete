@@ -44,3 +44,8 @@ let (^) x y = x + y
 let inline add x y = x + y
 
 let result = add 5 5
+
+let mailbox =
+  MailboxProcessor<string>.Start(
+    fun _ -> async.Return()
+  )

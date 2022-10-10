@@ -343,7 +343,19 @@ let tooltipTests state =
               ""
               "* `'a` is `int`"
               "* `'b` is `int`"
-              "* `'c` is `int`" ] ] ]
+              "* `'c` is `int`" ]
+          verifySignature
+            48
+            28
+            (concatLines
+              [
+                  "static member Start:"
+                  "   body             : (MailboxProcessor<string> -> Async<unit>) *"
+                  "   cancellationToken: option<System.Threading.CancellationToken>"
+                  "                   -> MailboxProcessor<string>"
+              ]
+            )
+        ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

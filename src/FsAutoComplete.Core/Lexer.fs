@@ -1,6 +1,8 @@
 namespace FsAutoComplete
 
 open FSharp.Compiler.Tokenization
+open FsAutoComplete.Logging
+open FsAutoComplete.Logging.Types
 
 type SymbolKind =
   | Ident
@@ -37,6 +39,8 @@ type private DraftToken =
       RightColumn = token.LeftColumn + token.FullMatchedLength - 1 }
 
 module Lexer =
+  let logger = LogProvider.getLoggerByName "Lexer"
+
   /// Return all tokens of current line
   let tokenizeLine (args: string[]) lineStr =
     let defines =
@@ -81,7 +85,11 @@ module Lexer =
       else
         Other
     elif token.Tag = FSharpTokenTag.LPAREN then
-      if token.FullMatchedLength = 1 && lineStr.[token.LeftColumn + 1] = '|' then
+      if
+        token.FullMatchedLength = 1
+        && lineStr.Length > token.LeftColumn + 1
+        && lineStr.[token.LeftColumn + 1] = '|'
+      then
         ActivePattern
       else
         Other
@@ -264,7 +272,16 @@ module Lexer =
 
     try
       getSymbolFromTokens tokens line col lineStr lookupKind
-    with _ ->
+    with e ->
+      logger.error (
+        Log.setMessage "getSymbol failed: {line} {col} {lineStr} {lookupKind} {args}"
+        >> Log.addContextDestructured "line" line
+        >> Log.addContextDestructured "col" col
+        >> Log.addContextDestructured "lineStr" lineStr
+        >> Log.addContextDestructured "lookupKind" lookupKind
+        >> Log.addContextDestructured "args" args
+        >> Log.addExn e
+      )
       //LoggingService.LogInfo (sprintf "Getting lex symbols failed with %O" e)
       None
 
