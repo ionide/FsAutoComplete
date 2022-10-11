@@ -634,18 +634,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       cval (file, new CancellationTokenSource())
 
     let updater _ (v: cval<_>) =
-      let (oldFile, cts: CancellationTokenSource) = v |> AVal.force
+      let (oldFile, cts: CancellationTokenSource) = v.Value
       cts.Cancel()
       cts.Dispose()
       v.Value <- file, new CancellationTokenSource()
 
     transact (fun () -> openFiles.AddOrElse(file.Lines.FileName, adder, updater))
-
-
-  let volaTileFile path text version lastWriteTime =
-    { Touched = lastWriteTime
-      Lines = NamedText(path, text)
-      Version = version }
 
   let findFileInOpenFiles file = openFilesA |> AMap.tryFindA file
 
@@ -1553,7 +1547,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-          let file = volaTileFile filePath doc.Text (Some doc.Version) DateTime.UtcNow
+          // We want to try to use the file system's datetime if available
+          let file = VolatileFile.Create(filePath, doc.Text, (Some doc.Version))
           updateOpenFiles file
           forceGetTypeCheckResults filePath |> ignore
           return ()
@@ -1601,8 +1596,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let changes = p.ContentChanges |> Array.head
 
+          // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
+          // TODO: Incremental changes
           let file =
-            volaTileFile filePath changes.Text (p.TextDocument.Version) DateTime.UtcNow
+            VolatileFile.Create(filePath, changes.Text, p.TextDocument.Version, DateTime.UtcNow)
 
           updateOpenFiles file
           forceGetTypeCheckResults filePath |> ignore
@@ -1629,7 +1626,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-          let file = volaTileFile filePath p.Text.Value None DateTime.UtcNow
+
+          let file =
+            option {
+              let! oldFile = forceFindOpenFile filePath
+              let oldFile = p.Text |> Option.map (oldFile.SetText) |> Option.defaultValue oldFile
+              return oldFile.UpdateTouched()
+            }
+            |> Option.defaultWith (fun () ->
+              // Very unlikely to get here
+              VolatileFile.Create(filePath, p.Text.Value, None, DateTime.UtcNow))
 
           updateOpenFiles file
           let knownFiles = openFilesA |> AMap.force
@@ -1658,7 +1664,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "p" p
             >> Log.addExn e
           )
-
 
         return ()
       }
