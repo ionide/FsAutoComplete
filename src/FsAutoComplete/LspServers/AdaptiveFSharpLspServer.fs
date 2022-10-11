@@ -440,8 +440,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add(
       (notifications.Publish :> IObservable<_>)
-        // .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
-        // .SelectMany(fun l -> l.Distinct())
+        .BufferedDebounce(TimeSpan.FromMilliseconds(200.))
+        .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
