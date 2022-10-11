@@ -355,6 +355,54 @@ type VolatileFile =
     Lines: NamedText
     Version: int option }
 
+  /// <summary>Updates the Lines value</summary>
+  member this.SetLines(lines) = { this with Lines = lines }
+
+  /// <summary>Updates the Lines value with supplied text</summary>
+  member this.SetText(text) =
+    this.SetLines(NamedText(this.Lines.FileName, text))
+
+
+  /// <summary>Updates the Touched value</summary>
+  member this.SetTouched touched = { this with Touched = touched }
+
+
+  /// <summary>Updates the Touched value attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow. </summary>
+  member this.UpdateTouched() =
+    let path = UMX.untag this.Lines.FileName
+
+    let dt =
+      if File.Exists path then
+        File.GetLastWriteTimeUtc path
+      else
+        DateTime.UtcNow
+
+    this.SetTouched dt
+
+
+  /// <summary>Helper method to create a VolatileFile</summary>
+  static member Create(lines, version, touched) =
+    { Lines = lines
+      Version = version
+      Touched = touched }
+
+  /// <summary>Helper method to create a VolatileFile</summary>
+  static member Create(path, text, version, touched) =
+    VolatileFile.Create(NamedText(path, text), version, touched)
+
+  /// <summary>Helper method to create a VolatileFile, attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow.</summary>
+  static member Create(path: string<LocalPath>, text, version) =
+    let touched =
+      let path = UMX.untag path
+
+      if File.Exists path then
+        File.GetLastWriteTimeUtc path
+      else
+        DateTime.UtcNow
+
+    VolatileFile.Create(path, text, version, touched)
+
+
 type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
 
@@ -412,7 +460,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
       |> Utils.normalizePath
       |> tryFindFile
       |> Option.map (fun f -> f.Touched)
-      |> Option.defaultValue DateTime.MinValue
+      |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim f)
 
     member _.NormalizePathShim(f: string) = f |> Utils.normalizePath |> UMX.untag
 

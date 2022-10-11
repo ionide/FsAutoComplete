@@ -188,7 +188,9 @@ module ObservableExtensions =
 
     /// Fires an event only after the specified interval has passed in which no other pending event has fired. Buffers all events leading up to that emit.
     member x.BufferedDebounce(ts: TimeSpan) =
-      x.Publish(fun shared -> shared.Window(shared.Throttle(ts)))
+      x
+        .Publish(fun shared -> shared.Window(shared.Throttle(ts)))
+        .SelectMany(fun l -> l.ToList())
 
 module Helpers =
   let notImplemented<'t> = async.Return LspResult.notImplemented<'t>
