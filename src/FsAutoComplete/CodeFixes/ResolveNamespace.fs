@@ -76,7 +76,23 @@ let fix
         ns
 
     let lineStr =
-      let whitespace = String.replicate ctx.Pos.Column " "
+      let whitespace =
+        let column =
+          // HACK: This is a work around for inheriting the correct column of the current module
+          // It seems the column we get from FCS is incorrect
+          let previousLine = docLine - 1
+          let insertionPointIsNotOutOfBoundsOfTheFile = docLine > 0
+
+          let theThereAreOtherOpensInThisModule =
+            text.GetLineString(previousLine).Contains "open "
+
+          if insertionPointIsNotOutOfBoundsOfTheFile && theThereAreOtherOpensInThisModule then
+            text.GetLineString(previousLine).Split("open") |> Seq.head |> Seq.length // inherit the previous opens whitespace
+          else
+            ctx.Pos.Column
+
+        String.replicate column " "
+
       $"%s{whitespace}open %s{actualOpen}\n"
 
     let edits =
