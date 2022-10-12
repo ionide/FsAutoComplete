@@ -6,7 +6,7 @@ open FsToolkit.ErrorHandling
 
 /// Functions to extract Cursor or Range from a given string.
 /// Cursor is marked in string with `$0` (`Cursor.Marker`)
-/// 
+///
 /// Note: Only `\n` is supported. Neither `\r\n` nor `\r` produce correct results.
 module Cursor =
   /// 0-based
@@ -29,8 +29,8 @@ module Cursor =
   *)
 
   /// Returns Cursor Position BEFORE index
-  /// 
-  /// Index might be `text.Length` (-> cursor AFTER last character). 
+  ///
+  /// Index might be `text.Length` (-> cursor AFTER last character).
   /// All other out of text range indices throw exception.
   let beforeIndex (i: int) (text: string) : Position =
     assert(i >= 0)
@@ -45,8 +45,8 @@ module Cursor =
     pos line char
 
   /// Returns index of first `$0` (`Cursor.Marker`) and the updated input text without the cursor marker.
-  /// 
-  /// Note: Cursor Position is BEFORE index.  
+  ///
+  /// Note: Cursor Position is BEFORE index.
   /// Note: Index might be `text.Length` (-> Cursor AFTER last char in text)
   let tryExtractIndex (text: string) =
     match text.IndexOf Marker with
@@ -79,16 +79,16 @@ module Cursor =
     let tryFindAnyCursor (lines: string[]) =
       lines
       |> Seq.mapi (fun i l -> (i,l))
-      |> Seq.tryPick (fun (i,line) -> 
-          tryFindAnyCursorInLine line 
+      |> Seq.tryPick (fun (i,line) ->
+          tryFindAnyCursorInLine line
           |> Option.map (fun (marker, c, line) -> (marker, pos i c, line))
          )
       |> function
           | None -> None
-          | Some (marker, p,line) -> 
+          | Some (marker, p,line) ->
               lines.[p.Line] <- line
               Some ((marker, p), lines)
-    
+
     let lines = text |> Text.lines
     match tryFindAnyCursor lines with
     | None -> None
@@ -96,9 +96,9 @@ module Cursor =
         let text = lines |> String.concat "\n"
         Some ((marker, p), text)
 
-  /// Returns Position of first `$0` (`Cursor.Marker`) and the updated input text without the cursor marker.  
+  /// Returns Position of first `$0` (`Cursor.Marker`) and the updated input text without the cursor marker.
   /// Only the first `$0` is processed.
-  /// 
+  ///
   /// Note: Cursor Position is BETWEEN characters and might be outside of text range (cursor AFTER last character)
   let tryExtractPosition =
     tryExtractPositionMarkedWithAnyOf [| Marker |]
@@ -109,7 +109,7 @@ module Cursor =
     >> Option.defaultWith (fun _ -> failtest "No cursor")
 
   /// Returns Range between the first two `$0` (`Cursor.Marker`) and the updated text without the two cursor markers.
-  /// 
+  ///
   /// If there's only one cursor marker, the range covers exactly that position (`Start = End`)
   let tryExtractRange (text: string) =
     match tryExtractPosition text with
@@ -125,9 +125,9 @@ module Cursor =
 
   /// Position is between characters, while index is on character.
   /// For Insert & Remove: character indices
-  /// 
+  ///
   /// Returned index is AFTER cursor:
-  /// * `Column=0`: before first char; `Index=0`: on first char 
+  /// * `Column=0`: before first char; `Index=0`: on first char
   /// * `Column=1`: after first char, before 2nd char; `Index=1`: on 2nd char
   /// * `Column=max`: after last char; `Index=max`: AFTER last char in line (-> `\n` or end of string)
   let tryIndexOf (pos: Position) (text: string) =
@@ -157,7 +157,7 @@ module Cursor =
     >> Result.valueOr (failtestf "Invalid position: %s")
 
   /// Calculates cursors position after all edits are applied.
-  /// 
+  ///
   /// When cursor inside a changed area:
   /// * deleted: cursor moves to start of deletion:
   ///   ```fsharp
@@ -184,7 +184,7 @@ module Cursor =
   ///   let foo = 42 $0- 7 + 123
   ///   ```
   ///   -> like deletion
-  ///   * Implementation detail:  
+  ///   * Implementation detail:
   ///     Replacement is considered: First delete (-> move cursor to front), then insert (-> cursor stays)
   ///
   /// Note: `edits` must be sorted by range!
@@ -213,7 +213,7 @@ module Cursor =
             else
               - e.Character + s.Character
           { Line = pos.Line + deltaLine; Character = pos.Character + deltaChar }
-        
+
       // add new text to pos
       let pos =
         if System.String.IsNullOrEmpty edit.NewText then
@@ -248,7 +248,7 @@ module Cursor =
 
 module Cursors =
   /// For each cursor (`$0`) in text: return text with just that one cursor
-  /// 
+  ///
   /// Note: doesn't trim input!
   let iter (textWithCursors: string) =
     let rec collect (textsWithSingleCursor) (textWithCursors: string) =
@@ -264,7 +264,7 @@ module Cursors =
     collect [] textWithCursors
 
   /// Returns all cursor (`$0`) positions and the text without any cursors.
-  /// 
+  ///
   /// Unlike `iter` this extracts positions instead of reducing to texts with one cursor
   let extract (textWithCursors: string) =
     let tps =
@@ -274,7 +274,7 @@ module Cursors =
     let text = tps |> List.head |> snd
     let poss = tps |> List.map fst
     (text, poss)
-    
+
 
   /// Like `extract`, but instead of just extracting Cursors marked with `Cursor.Marker` (`$0`),
   /// this here extract all specified markers.
@@ -337,8 +337,8 @@ module Text =
 module TextEdit =
 
   let apply (edit: TextEdit) =
-    // `edit` is from FSAC LSP -> might contain `\r`. 
-    // But only `\n` handled by `Text.lines` -> remove `\r` 
+    // `edit` is from FSAC LSP -> might contain `\r`.
+    // But only `\n` handled by `Text.lines` -> remove `\r`
     let newText = edit.NewText |> Text.removeCarriageReturn
     Text.replace edit.Range newText
 
@@ -352,7 +352,7 @@ module TextEdit =
     &&
     not (edit |> inserts)
 
-  // **Note**:  
+  // **Note**:
   // VS Code allows TextEdits, that might not be strictly valid according to LSP Specs [^1]:
   // * inserts into not existing line (text has 2 line, insert into line 5 is ok)
   // * inserts into line way after last character (line has 15 char, insert into column 1000 is ok)
@@ -360,9 +360,9 @@ module TextEdit =
   // * empty text edits (neither inserts nor deletes text)
   //
   // LSP Specs are quite vague. So above might or might not be ok according to Specs.
-  // But from FSAC perspective: Any case above most likely indicates an error in CodeFix implementation  
+  // But from FSAC perspective: Any case above most likely indicates an error in CodeFix implementation
   // -> TextEdit must be STRICTLY correct and all of the cases above are considered erroneous!
-  // 
+  //
   // [^1]: https://microsoft.github.io/language-server-protocol/specifications/specification-current/
 
   /// Checks passed `edit` for errors:
@@ -382,11 +382,11 @@ module TextEdit =
       Some "Expected positive End.Character, but was negative"
     else if edit.Range.Start > edit.Range.End then
       Some "Expected Range.Start <= Range.End, but was Start > End"
-    else if edit |> doesNothing then
-      Some "Expected change, but does nothing (neither delete nor insert)"
+    // else if edit |> doesNothing then
+    //   Some "Expected change, but does nothing (neither delete nor insert)"
     else
       None
-    
+
 module TextEdits =
 
   /// Checks edits for:
@@ -394,13 +394,13 @@ module TextEdits =
   /// * All TextEdits are valid (`TextEdit.tryFindError`)
   /// * Edits don't overlap
   /// * For same position: All inserted before at most one replace (or delete)
-  /// 
-  /// 
+  ///
+  ///
   /// [LSP Specification for `TextEdit[]`](https://microsoft.github.io/language-server-protocol/specifications/specification-current/#textEditArray)
-  /// > Text edits ranges must never overlap, that means no part of the original document must be manipulated by more than one edit. 
-  /// > However, it is possible that multiple edits have the same start position: multiple inserts, 
-  /// > or any number of inserts followed by a single remove or replace edit. 
-  /// > If multiple inserts have the same position, the order in the array defines the order 
+  /// > Text edits ranges must never overlap, that means no part of the original document must be manipulated by more than one edit.
+  /// > However, it is possible that multiple edits have the same start position: multiple inserts,
+  /// > or any number of inserts followed by a single remove or replace edit.
+  /// > If multiple inserts have the same position, the order in the array defines the order
   /// > in which the inserted strings appear in the resulting text.
   let tryFindError (edits: TextEdit list) =
     let rec tryFindOverlappingEditExample (edits: TextEdit list) =
@@ -413,7 +413,7 @@ module TextEdits =
           | None ->
             tryFindOverlappingEditExample edits
     let (|Overlapping|_|) = tryFindOverlappingEditExample
-    let (|Invalids|_|) = 
+    let (|Invalids|_|) =
       List.choose (fun edit -> edit |> TextEdit.tryFindError |> Option.map (fun err -> (edit, err)))
       >> function | [] -> None | errs -> Some errs
     let findSameStarts (edits: TextEdit list) =
@@ -439,7 +439,7 @@ module TextEdits =
     | [] -> Some "Expected at least one TextEdit, but were none"
     // edits should be valid
     | Invalids errs ->
-      sprintf 
+      sprintf
         "Expected all TextEdits to be valid, but there was at least one erroneous Edit. Invalid Edits: %A"
         errs
       |> Some
@@ -448,7 +448,7 @@ module TextEdits =
         Some $"Expected no overlaps, but at least two edits overlap: {edit1.Range} and {edit2.Range}"
     // For same position: all inserts must be before at most one Delete/Replace
     | ReplaceNotLast errs ->
-      sprintf 
+      sprintf
         "Expected Inserts before at most one Delete/Replace, but there was at least one Delete/Before in invalid position: Invalid Edits: %A"
         errs
       |> Some
@@ -482,7 +482,7 @@ module TextEdits =
 module WorkspaceEdit =
   /// Extract `TextEdit[]` from either `DocumentChanges` or `Changes`.
   /// All edits MUST be for passed `textDocument`.
-  /// 
+  ///
   /// Checks for errors:
   /// * Either `DocumentChanges` or `Changes`, but not both
   ///   * FsAutoComplete sends only `DocumentChanges`
@@ -500,7 +500,7 @@ module WorkspaceEdit =
       else
         match textDocument.Version, version with
         // only compare `Version` when `textDocument` and `version` has a Version. Otherwise ignore
-        | Some textDocVersion, Some version when textDocVersion <> version -> 
+        | Some textDocVersion, Some version when textDocVersion <> version ->
             Some $"Edit should be for document version `{textDocVersion}`, but version was `{version}`"
         | _ -> None
 
