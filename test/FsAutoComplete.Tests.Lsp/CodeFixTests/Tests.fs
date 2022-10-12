@@ -1331,7 +1331,7 @@ let private renameUnusedValue state =
         """
         (Diagnostics.acceptAll)
         selectPrefix
-  
+
     testCaseAsync "replace doesn't trigger for function" <|
       CodeFix.checkNotApplicable server
         """
@@ -1370,8 +1370,8 @@ let private replaceWithSuggestionTests state =
     let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
     let validateDiags (diags: Diagnostic[]) =
       Diagnostics.expectCode "39" diags
-      Expect.exists 
-        diags 
+      Expect.exists
+        diags
         (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
         "Diagnostic with code 39 should suggest name"
     testCaseAsync "can change Min to min" <|
@@ -1467,19 +1467,53 @@ let private replaceWithSuggestionTests state =
 let private resolveNamespaceTests state =
   let config = { defaultConfigDto with ResolveNamespaces = Some true }
   serverTestList (nameof ResolveNamespace) state config None (fun server -> [
+    let selectCodeFix = CodeFix.matching (fun ca -> ca.Title.StartsWith "open")
     testCaseAsync "doesn't fail when target not in last line" <|
       CodeFix.checkApplicable server
         """
         let x = $0Min(2.0, 1.0)
         """   // Note: new line at end!
         (Diagnostics.log >> Diagnostics.acceptAll)
-        (CodeFix.log >> CodeFix.matching (fun ca -> ca.Title.StartsWith "open") >> Array.take 1)
+        (CodeFix.log >> selectCodeFix >> Array.take 1)
     testCaseAsync "doesn't fail when target in last line" <|
       CodeFix.checkApplicable server
         "let x = $0Min(2.0, 1.0)"   // Note: No new line at end!
         (Diagnostics.log >> Diagnostics.acceptAll)
-        (CodeFix.log >> CodeFix.matching (fun ca -> ca.Title.StartsWith "open") >> Array.take 1)
+        (CodeFix.log >> selectCodeFix >> Array.take 1)
+    testCaseAsync "place open in module correctly when having additional modules"
+      <| CodeFix.check
+           server
+           """
+module Foo =
+  open Microsoft
 
+  let foo = Date$0Time.Now
+        """
+           (Diagnostics.log >> Diagnostics.acceptAll)
+           selectCodeFix
+           """
+module Foo =
+  open Microsoft
+  open System
+
+  let foo = DateTime.Now
+        """
+
+
+    testCaseAsync "place open in module correctly without any modules"
+      <| CodeFix.check
+           server
+           """
+module Foo =
+  let foo = $0DateTime.Now
+        """
+           (Diagnostics.log >> Diagnostics.acceptAll)
+           selectCodeFix
+           """
+module Foo =
+  open System
+  let foo = DateTime.Now
+        """
     //TODO: Implement & unify with `Completion.AutoOpen` (`CompletionTests.fs`)
     // Issues:
     // * Complex because of nesting modules (-> where to open)
