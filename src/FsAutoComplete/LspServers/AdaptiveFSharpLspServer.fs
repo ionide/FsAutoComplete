@@ -239,7 +239,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
-  let handleCommandEvents (n: NotificationEvent, ct : CancellationToken) =
+  let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
     try
       async {
         try
@@ -522,11 +522,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               projects
               |> Seq.iter (fun (proj: string<LocalPath>, _) ->
                 let not =
-                  UMX.untag proj
-                  |> ProjectResponse.ProjectLoading
-                  |> NotificationEvent.Workspace
-                notifications.Trigger(not, CancellationToken.None)
-              )
+                  UMX.untag proj |> ProjectResponse.ProjectLoading |> NotificationEvent.Workspace
+
+                notifications.Trigger(not, CancellationToken.None))
 
               let projectOptions =
                 loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList)
@@ -567,6 +565,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let! checker = checker
           checker.ClearCaches() // if we got new projects assume we're gonna need to clear caches
+
           let options =
             projectOptions
             |> List.map (fun o ->
@@ -601,14 +600,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Extra = extraInfo
                 ProjectItems = projViewerItemsNormalized.Items
                 Additionals = Map.empty }
-            let not =
-              ProjectResponse.Project(ws, false)
-              |> NotificationEvent.Workspace
-            notifications.Trigger(not, CancellationToken.None)
-            )
-          let not =
-            ProjectResponse.WorkspaceLoad true
-            |> NotificationEvent.Workspace
+
+            let not = ProjectResponse.Project(ws, false) |> NotificationEvent.Workspace
+            notifications.Trigger(not, CancellationToken.None))
+
+          let not = ProjectResponse.WorkspaceLoad true |> NotificationEvent.Workspace
 
           notifications.Trigger(not, CancellationToken.None)
 
@@ -619,150 +615,147 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let openFiles =
-    cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
+  let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
 
   let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
   let textChanges = cmap<string<LocalPath>, cset<DidChangeTextDocumentParams>> ()
+
   let sortedTextChanges =
-      textChanges
-      |> AMap.map'( fun x -> x :> aset<_>
-        // ASet.sortBy(fun (x : DidChangeTextDocumentParams) -> x.TextDocument.Version.Value)
-      )
-  let openFilesWithChanges =
+    textChanges
+    |> AMap.map' (fun x -> x :> aset<_>
+    // ASet.sortBy (fun (x: DidChangeTextDocumentParams) -> x.TextDocument.Version.Value)
+    )
+
+  let openFilesWithChanges: amap<_, aval<VolatileFile * CancellationTokenSource>> =
 
     openFilesA
-    |> AMap.map(fun filePath file ->
-        aval {
-          let! (file, cts) = file
-          and! changes = sortedTextChanges |> AMap.tryFind filePath
-          match changes with
-          | None -> return (file, cts)
-          | Some c ->
-            let! ps =  c |> ASet.toAVal
-            let changes = ps |> Seq.sortBy(fun x -> x.TextDocument.Version.Value) |> Seq.collect(fun p -> p.ContentChanges |> Array.map(fun x -> x,  p.TextDocument.Version.Value))
-            // try
-            // cts.Cancel() ;
-            // cts.Dispose();
-            // with _ ->
-            //   ()
-            let file =
-              (file, changes)
-                ||> Seq.fold (fun text (change, version) ->
-                  match change.Range with
-                  | None -> // replace entire content
-                    // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
-                    VolatileFile.Create(filePath, change.Text, Some version, DateTime.UtcNow)
-                  | Some rangeToReplace ->
-                    // replace just this slice
-                    let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
-                    try
-                      match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
-                      | Ok text ->
-                        VolatileFile.Create(text, Some version, DateTime.UtcNow)
+    |> AMap.map (fun filePath file ->
+      aval {
+        let! file = file
+        and! changes = sortedTextChanges |> AMap.tryFind filePath
 
-                      | Error message ->
-                        logger.error (
-                          Log.setMessage "Error applying {change} to document {file} for version {version} - {range} : {message} "
-                          >> Log.addContextDestructured "file" filePath
-                          >> Log.addContextDestructured "version" version
-                          >> Log.addContextDestructured "message" message
-                          >> Log.addContextDestructured "range" fcsRangeToReplace
-                          >> Log.addContextDestructured "change" change
-                        )
+        match changes with
+        | None -> return (file, new CancellationTokenSource())
+        | Some c ->
+          let! ps = c |> ASet.toAVal
 
-                        text
-                    with e ->
-                      logger.error (
-                          Log.setMessage "Error applying {change} to document {file} for version {version} - {range}"
-                          >> Log.addContextDestructured "file" filePath
-                          >> Log.addContextDestructured "range" fcsRangeToReplace
-                          >> Log.addContextDestructured "version" version
-                          >> Log.addContextDestructured "change" change
-                          >> Log.addExn e
-                      )
-                      text
-                )
+          let changes =
+            ps
+            |> Seq.sortBy (fun x -> x.TextDocument.Version.Value)
+            |> Seq.collect (fun p -> p.ContentChanges |> Array.map (fun x -> x, p.TextDocument.Version.Value))
 
-            return (file, new CancellationTokenSource())
+          let file =
+            (file, changes)
+            ||> Seq.fold (fun text (change, version) ->
+              match change.Range with
+              | None -> // replace entire content
+                // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
+                VolatileFile.Create(filePath, change.Text, Some version, DateTime.UtcNow)
+              | Some rangeToReplace ->
+                // replace just this slice
+                let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
 
-            // let file =
-            //   (file,c)
-            //   ||> AList.fold(fun text change ->
-            //     let version = change.TextDocument.Version
-            //     (text, change.ContentChanges)
-            //     ||> Seq.fold (fun text change ->
-            //       match change.Range with
-            //       | None -> // replace entire content
-            //         // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
-            //         VolatileFile.Create(filePath, change.Text, version, DateTime.UtcNow)
-            //       | Some rangeToReplace ->
-            //         // replace just this slice
-            //         let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
-            //         match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
-            //         | Ok text ->
-            //           VolatileFile.Create(text, version, DateTime.UtcNow)
+                try
+                  match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
+                  | Ok text -> VolatileFile.Create(text, Some version, DateTime.UtcNow)
 
-            //         | Error message ->
-            //           logger.error (
-            //             Log.setMessage "Error applying change to document {file} for version {version}: {message} - {range}"
-            //             >> Log.addContextDestructured "file" filePath
-            //             >> Log.addContextDestructured "version" version
-            //             >> Log.addContextDestructured "message" message
-            //             >> Log.addContextDestructured "range" fcsRangeToReplace
-            //           )
+                  | Error message ->
+                    logger.error (
+                      Log.setMessage
+                        "Error applying {change} to document {file} for version {version} - {range} : {message} "
+                      >> Log.addContextDestructured "file" filePath
+                      >> Log.addContextDestructured "version" version
+                      >> Log.addContextDestructured "message" message
+                      >> Log.addContextDestructured "range" fcsRangeToReplace
+                      >> Log.addContextDestructured "change" change
+                    )
 
-            //           text
-            //     )
-            //   )
-            // return! file |> AVal.map(fun f -> cts.Cancel() ;cts.Dispose(); f, new CancellationTokenSource())
-        }
-    )
+                    text
+                with e ->
+                  logger.error (
+                    Log.setMessage "Error applying {change} to document {file} for version {version} - {range}"
+                    >> Log.addContextDestructured "file" filePath
+                    >> Log.addContextDestructured "range" fcsRangeToReplace
+                    >> Log.addContextDestructured "version" version
+                    >> Log.addContextDestructured "change" change
+                    >> Log.addExn e
+                  )
+
+                  text)
+
+          return (file, new CancellationTokenSource())
+      // way worse on memory
+      // let file =
+      //   (file, c)
+      //   ||> AList.fold (fun text change ->
+      //     let version = change.TextDocument.Version
+
+      //     (text, change.ContentChanges)
+      //     ||> Seq.fold (fun text change ->
+      //       match change.Range with
+      //       | None -> // replace entire content
+      //         // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
+      //         VolatileFile.Create(filePath, change.Text, version, DateTime.UtcNow)
+      //       | Some rangeToReplace ->
+      //         // replace just this slice
+      //         let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+
+      //         match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
+      //         | Ok text -> VolatileFile.Create(text, version, DateTime.UtcNow)
+
+      //         | Error message ->
+      //           logger.error (
+      //             Log.setMessage
+      //               "Error applying change to document {file} for version {version}: {message} - {range}"
+      //             >> Log.addContextDestructured "file" filePath
+      //             >> Log.addContextDestructured "version" version
+      //             >> Log.addContextDestructured "message" message
+      //             >> Log.addContextDestructured "range" fcsRangeToReplace
+      //           )
+
+      //           text))
+
+      // return! file |> AVal.map (fun f -> f, new CancellationTokenSource())
+      })
+
   let cancelAllOpenFileCheckRequests () =
-    let files = openFiles |> AMap.force
+    let files = openFilesWithChanges |> AMap.force
 
     for (_, fileVal) in files do
+      ()
       let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
-      // try
       cts.Cancel()
       cts.Dispose()
-      // with _ -> ()
-      transact (fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
+
   let cancelForFile filePath =
+    openFilesWithChanges
+    |> AMap.tryFind filePath
+    |> AVal.force
+    |> Option.iter (fun fileVal ->
+      let (oldFile, cts) = fileVal |> AVal.force
 
-        openFilesWithChanges |> AMap.tryFind filePath |> AVal.force
-        |> Option.iter(fun fileVal ->
-          let (oldFile, cts) = fileVal |> AVal.force
-          try
-            logger.info(
-              Log.setMessage "Cancelling {filePath} - {version}"
-              >> Log.addContextDestructured "filePath" filePath
-              >> Log.addContextDestructured "version" oldFile.Version
-            )
-            cts.Cancel()
-            cts.Dispose()
-          with _ -> ()
-          // transact(fun () ->
-          //   fileVal.Value <- oldFile, new CancellationTokenSource()
-          // )
-      )
-  let updateOpenFiles (file: VolatileFile) =
-
-    let adder _ =
-      cval (file, new CancellationTokenSource())
-
-    let updater _ (v: cval<_>) =
-      let (oldFile, cts: CancellationTokenSource) = v.Value
       try
+        logger.info (
+          Log.setMessage "Cancelling {filePath} - {version}"
+          >> Log.addContextDestructured "filePath" filePath
+          >> Log.addContextDestructured "version" oldFile.Version
+        )
+
         cts.Cancel()
         cts.Dispose()
-      with _ -> ()
-      v.Value <- file, new CancellationTokenSource()
+      with _ ->
+        ())
+
+  let updateOpenFiles (file: VolatileFile) =
+    cancelForFile file.FileName
+    let adder _ = cval file
+    let updater _ (v: cval<_>) = v.Value <- file
 
     transact (fun () -> openFiles.AddOrElse(file.Lines.FileName, adder, updater))
 
-  let findFileInOpenFiles file = openFilesWithChanges |> AMap.tryFindA file
+  let findFileInOpenFiles file =
+    openFilesWithChanges |> AMap.tryFindA file
 
   let forceFindOpenFileOrRead file =
     findFileInOpenFiles file
@@ -850,6 +843,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
         try
           let! ct = Async.CancellationToken
+
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
 
@@ -913,6 +907,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
         >> Log.addContextDestructured "date" (file.Touched)
       )
+
       use cts = new CancellationTokenSource()
       cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
@@ -1029,7 +1024,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Debug.measure $"parseAndCheckFile - {file}"
             <| fun () ->
                  parseAndCheckFile checker info opts config
-                 |> Async.RunSynchronouslyWithCTSafe (fun () -> cts.Token)
+                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
           return parseAndCheck
         | None -> return None
@@ -1723,10 +1718,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
 
-          transact(fun () ->
+          transact (fun () ->
             cancelForFile filePath
-            textChanges.AddOrElse(filePath, (fun _ -> cset<_> [p]), (fun _ v -> v.Add p |> ignore))
-          )
+            textChanges.AddOrElse(filePath, (fun _ -> cset<_> [ p ]), (fun _ v -> v.Add p |> ignore)))
           // forceGetTypeCheckResults filePath |> ignore
           // async {
           //   do! Async.Sleep(1000)
@@ -1753,6 +1747,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
+          cancelAllOpenFileCheckRequests ()
+
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
@@ -1765,17 +1761,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Option.defaultWith (fun () ->
               // Very unlikely to get here
               VolatileFile.Create(filePath, p.Text.Value, None, DateTime.UtcNow))
-          transact(fun () ->
+
+          transact (fun () ->
             updateOpenFiles file
-            textChanges.Remove filePath |> ignore
-          )
+            textChanges.Remove filePath |> ignore)
+
           let knownFiles = openFilesWithChanges |> AMap.force
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
             >> Log.addContextDestructured "files" knownFiles
           )
-          cancelAllOpenFileCheckRequests ()
+
 
           for (file, aFile) in knownFiles do
             let (_, cts) = aFile |> AVal.force
@@ -1806,6 +1803,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Log.setMessage "TextDocumentCompletion Request: {parms}"
             >> Log.addContextDestructured "parms" p
           )
+
           do! Async.Sleep(100) // TextDocumentCompletion will get sent before TextDocumentDidChange sometimes
           let (filePath, pos) = getFilePathAndPosition p
 
