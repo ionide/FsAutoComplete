@@ -144,7 +144,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       // because we know there are lines after the first line
       let firstLine = (x :> ISourceText).GetLineString(m.StartLine - 1)
 
-      builder.AppendLine(firstLine.Substring(m.StartColumn))
+      builder.AppendLine(firstLine.Substring(Math.Min(firstLine.Length, m.StartColumn)))
       |> ignore<System.Text.StringBuilder>
 
       // whole intermediate lines, including newlines
@@ -155,7 +155,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       // final part, potential slice, so we do not include the trailing newline
       let lastLine = (x :> ISourceText).GetLineString(m.EndLine - 1)
 
-      builder.Append(lastLine.Substring(0, m.EndColumn))
+      builder.Append(lastLine.Substring(0, Math.Min(lastLine.Length, m.EndColumn)))
       |> ignore<System.Text.StringBuilder>
 
       Ok(builder.ToString())
@@ -260,8 +260,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<NamedText, string> =
     result {
       let startRange, endRange = x.SplitAt(m)
-      let! startText = x[startRange]
-      let! endText = x[endRange]
+      let! startText = x[startRange] |> Result.mapError(fun x -> $"startRange -> {x}")
+      let! endText = x[endRange] |> Result.mapError(fun x -> $"endRange -> {x}")
       let totalText = startText + text + endText
       return NamedText(x.FileName, totalText)
     }
