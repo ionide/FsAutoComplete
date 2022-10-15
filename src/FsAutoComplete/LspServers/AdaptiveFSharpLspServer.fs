@@ -235,11 +235,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
-  let notifications = Event<NotificationEvent>()
+  let notifications = Event<NotificationEvent * CancellationToken>()
 
   let scriptFileProjectOptions = Event<FSharpProjectOptions>()
 
-  let handleCommandEvents (n: NotificationEvent) =
+  let handleCommandEvents (n: NotificationEvent, ct : CancellationToken) =
     try
       async {
         try
@@ -432,10 +432,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         ()
       }
-      |> Async.RunSynchronouslyWithCT CancellationToken.None
-
+      |> Async.RunSynchronouslyWithCT ct
     with :? OperationCanceledException as e ->
       ()
+
 
   do
     disposables.Add(
@@ -444,6 +444,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         .SelectMany(fun l -> l.Distinct())
         .Subscribe(fun e -> handleCommandEvents e)
     )
+
 
   let adaptiveFile (filePath: string<LocalPath>) =
     let file =
@@ -520,10 +521,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               projects
               |> Seq.iter (fun (proj: string<LocalPath>, _) ->
-                UMX.untag proj
-                |> ProjectResponse.ProjectLoading
-                |> NotificationEvent.Workspace
-                |> notifications.Trigger)
+                let not =
+                  UMX.untag proj
+                  |> ProjectResponse.ProjectLoading
+                  |> NotificationEvent.Workspace
+                notifications.Trigger(not, CancellationToken.None)
+              )
 
               let projectOptions =
                 loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList)
@@ -562,7 +565,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               projectOptions, additionalDependencies)
 
-
+          let! checker = checker
+          checker.ClearCaches() // if we got new projects assume we're gonna need to clear caches
           let options =
             projectOptions
             |> List.map (fun o ->
@@ -597,14 +601,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Extra = extraInfo
                 ProjectItems = projViewerItemsNormalized.Items
                 Additionals = Map.empty }
-
-            ProjectResponse.Project(ws, false)
+            let not =
+              ProjectResponse.Project(ws, false)
+              |> NotificationEvent.Workspace
+            notifications.Trigger(not, CancellationToken.None)
+            )
+          let not =
+            ProjectResponse.WorkspaceLoad true
             |> NotificationEvent.Workspace
-            |> notifications.Trigger)
 
-          ProjectResponse.WorkspaceLoad true
-          |> NotificationEvent.Workspace
-          |> notifications.Trigger
+          notifications.Trigger(not, CancellationToken.None)
 
           return options |> List.map fst
       })
@@ -618,16 +624,129 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
+  let textChanges = cmap<string<LocalPath>, cset<DidChangeTextDocumentParams>> ()
+  let sortedTextChanges =
+      textChanges
+      |> AMap.map'( fun x -> x :> aset<_>
+        // ASet.sortBy(fun (x : DidChangeTextDocumentParams) -> x.TextDocument.Version.Value)
+      )
+  let openFilesWithChanges =
+
+    openFilesA
+    |> AMap.map(fun filePath file ->
+        aval {
+          let! (file, cts) = file
+          and! changes = sortedTextChanges |> AMap.tryFind filePath
+          match changes with
+          | None -> return (file, cts)
+          | Some c ->
+            let! ps =  c |> ASet.toAVal
+            let changes = ps |> Seq.sortBy(fun x -> x.TextDocument.Version.Value) |> Seq.collect(fun p -> p.ContentChanges |> Array.map(fun x -> x,  p.TextDocument.Version.Value))
+            // try
+            // cts.Cancel() ;
+            // cts.Dispose();
+            // with _ ->
+            //   ()
+            let file =
+              (file, changes)
+                ||> Seq.fold (fun text (change, version) ->
+                  match change.Range with
+                  | None -> // replace entire content
+                    // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
+                    VolatileFile.Create(filePath, change.Text, Some version, DateTime.UtcNow)
+                  | Some rangeToReplace ->
+                    // replace just this slice
+                    let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+                    try
+                      match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
+                      | Ok text ->
+                        VolatileFile.Create(text, Some version, DateTime.UtcNow)
+
+                      | Error message ->
+                        logger.error (
+                          Log.setMessage "Error applying {change} to document {file} for version {version} - {range} : {message} "
+                          >> Log.addContextDestructured "file" filePath
+                          >> Log.addContextDestructured "version" version
+                          >> Log.addContextDestructured "message" message
+                          >> Log.addContextDestructured "range" fcsRangeToReplace
+                          >> Log.addContextDestructured "change" change
+                        )
+
+                        text
+                    with e ->
+                      logger.error (
+                          Log.setMessage "Error applying {change} to document {file} for version {version} - {range}"
+                          >> Log.addContextDestructured "file" filePath
+                          >> Log.addContextDestructured "range" fcsRangeToReplace
+                          >> Log.addContextDestructured "version" version
+                          >> Log.addContextDestructured "change" change
+                          >> Log.addExn e
+                      )
+                      text
+                )
+
+            return (file, new CancellationTokenSource())
+
+            // let file =
+            //   (file,c)
+            //   ||> AList.fold(fun text change ->
+            //     let version = change.TextDocument.Version
+            //     (text, change.ContentChanges)
+            //     ||> Seq.fold (fun text change ->
+            //       match change.Range with
+            //       | None -> // replace entire content
+            //         // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
+            //         VolatileFile.Create(filePath, change.Text, version, DateTime.UtcNow)
+            //       | Some rangeToReplace ->
+            //         // replace just this slice
+            //         let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+            //         match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
+            //         | Ok text ->
+            //           VolatileFile.Create(text, version, DateTime.UtcNow)
+
+            //         | Error message ->
+            //           logger.error (
+            //             Log.setMessage "Error applying change to document {file} for version {version}: {message} - {range}"
+            //             >> Log.addContextDestructured "file" filePath
+            //             >> Log.addContextDestructured "version" version
+            //             >> Log.addContextDestructured "message" message
+            //             >> Log.addContextDestructured "range" fcsRangeToReplace
+            //           )
+
+            //           text
+            //     )
+            //   )
+            // return! file |> AVal.map(fun f -> cts.Cancel() ;cts.Dispose(); f, new CancellationTokenSource())
+        }
+    )
   let cancelAllOpenFileCheckRequests () =
-    transact (fun () ->
-      let files = openFiles |> AMap.force
+    let files = openFiles |> AMap.force
 
-      for (_, fileVal) in files do
-        let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
-        cts.Cancel()
-        cts.Dispose()
-        fileVal.Value <- oldFile, new CancellationTokenSource())
+    for (_, fileVal) in files do
+      let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
+      // try
+      cts.Cancel()
+      cts.Dispose()
+      // with _ -> ()
+      transact (fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
+  let cancelForFile filePath =
 
+        openFilesWithChanges |> AMap.tryFind filePath |> AVal.force
+        |> Option.iter(fun fileVal ->
+          let (oldFile, cts) = fileVal |> AVal.force
+          try
+            logger.info(
+              Log.setMessage "Cancelling {filePath} - {version}"
+              >> Log.addContextDestructured "filePath" filePath
+              >> Log.addContextDestructured "version" oldFile.Version
+            )
+            cts.Cancel()
+            cts.Dispose()
+          with _ -> ()
+          // transact(fun () ->
+          //   fileVal.Value <- oldFile, new CancellationTokenSource()
+          // )
+      )
   let updateOpenFiles (file: VolatileFile) =
 
     let adder _ =
@@ -635,13 +754,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let updater _ (v: cval<_>) =
       let (oldFile, cts: CancellationTokenSource) = v.Value
-      cts.Cancel()
-      cts.Dispose()
+      try
+        cts.Cancel()
+        cts.Dispose()
+      with _ -> ()
       v.Value <- file, new CancellationTokenSource()
 
     transact (fun () -> openFiles.AddOrElse(file.Lines.FileName, adder, updater))
 
-  let findFileInOpenFiles file = openFilesA |> AMap.tryFindA file
+  let findFileInOpenFiles file = openFilesWithChanges |> AMap.tryFindA file
 
   let forceFindOpenFileOrRead file =
     findFileInOpenFiles file
@@ -684,7 +805,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     forceFindOpenFileOrRead filePath |> Result.map (fun (f, _) -> f.Lines)
 
   let openFilesToProjectOptions =
-    openFilesA
+    openFilesWithChanges
     |> AMap.mapAdaptiveValue (fun (info, cts) ->
       let file = info.Lines.FileName
 
@@ -728,10 +849,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let checkUnusedOpens =
       async {
         try
+          let! ct = Async.CancellationToken
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
 
-          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)))
+          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
       }
@@ -739,11 +861,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let checkUnusedDeclarations =
       async {
         try
+          let! ct = Async.CancellationToken
           let isScript = Utils.isAScript (UMX.untag filePath)
           let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
           let unused = unused |> Seq.toArray
 
-          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused))
+          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
       }
@@ -753,9 +876,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         try
           let getSourceLine lineNo = source.GetLineString(lineNo - 1)
 
+          let! ct = Async.CancellationToken
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
-          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified))
+          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified), ct)
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
       }
@@ -789,7 +913,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
         >> Log.addContextDestructured "date" (file.Touched)
       )
-
       use cts = new CancellationTokenSource()
       cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
@@ -797,7 +920,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
         |> Async.withCancellation cts.Token
 
-      notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName))
+      let! ct = Async.CancellationToken
+      notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName), ct)
 
       match result with
       | Error e ->
@@ -823,8 +947,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Array.distinctBy (fun e ->
             e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-        NotificationEvent.ParseError(errors, file.Lines.FileName)
-        |> notifications.Trigger
+        notifications.Trigger(NotificationEvent.ParseError(errors, file.Lines.FileName), ct)
+
 
 
         do! analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck)
@@ -853,7 +977,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
   let openFilesToParsedResults =
-    openFilesA
+    openFilesWithChanges
     |> AMap.mapAdaptiveValue (fun (info, cts) ->
       aval {
         let file = info.Lines.FileName
@@ -875,7 +999,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
   let openFilesToRecentCheckedFilesResults =
-    openFilesA
+    openFilesWithChanges
     |> AMap.mapAdaptiveValue (fun (info, _) ->
       aval {
         let file = info.Lines.FileName
@@ -891,7 +1015,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       })
 
   let openFilesToCheckedFilesResults =
-    openFilesA
+    openFilesWithChanges
     |> AMap.mapAdaptiveValue (fun (info, cts) ->
       aval {
         let file = info.Lines.FileName
@@ -902,10 +1026,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         match List.tryHead projectOptions with
         | Some (opts) ->
           let parseAndCheck =
-            Debug.measure "parseAndCheckFile"
+            Debug.measure $"parseAndCheckFile - {file}"
             <| fun () ->
                  parseAndCheckFile checker info opts config
-                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
+                 |> Async.RunSynchronouslyWithCTSafe (fun () -> cts.Token)
 
           return parseAndCheck
         | None -> return None
@@ -1051,7 +1175,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let writeAbstractClassStub =
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
-    let foo bar fizz = fizz * fizz
 
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
@@ -1120,6 +1243,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile |])
 
+
+
+
   let forgetDocument (uri: DocumentUri) =
     let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
 
@@ -1161,7 +1287,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force
 
 
-    if doesNotExist filePath || isOutsideWorkspace filePath then
+    if true || doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
@@ -1497,7 +1623,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                         Some
                           { TextDocumentSyncOptions.Default with
                               OpenClose = Some true
-                              Change = Some TextDocumentSyncKind.Full
+                              Change = Some TextDocumentSyncKind.Incremental
                               Save = Some { IncludeText = Some true } }
                       FoldingRangeProvider = Some true
                       SelectionRangeProvider = Some true
@@ -1592,17 +1718,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
 
-          let changes = p.ContentChanges |> Array.head
+          let doc = p.TextDocument
+          let filePath = doc.GetFilePath() |> Utils.normalizePath
 
-          // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
-          // TODO: Incremental changes
-          let file =
-            VolatileFile.Create(filePath, changes.Text, p.TextDocument.Version, DateTime.UtcNow)
 
-          updateOpenFiles file
-          forceGetTypeCheckResults filePath |> ignore
+          transact(fun () ->
+            cancelForFile filePath
+            textChanges.AddOrElse(filePath, (fun _ -> cset<_> [p]), (fun _ v -> v.Add p |> ignore))
+          )
+          // forceGetTypeCheckResults filePath |> ignore
+          // async {
+          //   do! Async.Sleep(1000)
+          //   forceGetTypeCheckResults filePath |> ignore
+          // } |> Async.Start
 
           return ()
         with e ->
@@ -1636,15 +1765,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Option.defaultWith (fun () ->
               // Very unlikely to get here
               VolatileFile.Create(filePath, p.Text.Value, None, DateTime.UtcNow))
-
-          updateOpenFiles file
-          let knownFiles = openFilesA |> AMap.force
+          transact(fun () ->
+            updateOpenFiles file
+            textChanges.Remove filePath |> ignore
+          )
+          let knownFiles = openFilesWithChanges |> AMap.force
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
             >> Log.addContextDestructured "files" knownFiles
           )
-
           cancelAllOpenFileCheckRequests ()
 
           for (file, aFile) in knownFiles do
@@ -1676,7 +1806,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Log.setMessage "TextDocumentCompletion Request: {parms}"
             >> Log.addContextDestructured "parms" p
           )
-
+          do! Async.Sleep(100) // TextDocumentCompletion will get sent before TextDocumentDidChange sometimes
           let (filePath, pos) = getFilePathAndPosition p
 
           let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
