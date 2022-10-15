@@ -354,6 +354,7 @@ type VolatileFile =
   { Touched: DateTime
     Lines: NamedText
     Version: int option }
+  member this.FileName = this.Lines.FileName
 
   /// <summary>Updates the Lines value</summary>
   member this.SetLines(lines) = { this with Lines = lines }
