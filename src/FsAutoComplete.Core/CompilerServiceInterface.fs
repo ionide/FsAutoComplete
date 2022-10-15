@@ -227,6 +227,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
 
+  /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
+  member _.ClearCaches () =
+    checker.InvalidateAll()
+    checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
+
   member __.ParseFile(fn: string<LocalPath>, source, fpo) =
     checkerLogger.info (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
 
@@ -241,7 +246,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
-
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
