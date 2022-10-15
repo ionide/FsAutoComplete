@@ -725,8 +725,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     for (_, fileVal) in files do
       ()
       let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
-      cts.Cancel()
-      cts.Dispose()
+
+      try
+        cts.Cancel()
+        cts.Dispose()
+      with e ->
+        ()
 
   let cancelForFile filePath =
     openFilesWithChanges
@@ -1766,13 +1770,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             updateOpenFiles file
             textChanges.Remove filePath |> ignore)
 
-          let knownFiles = openFilesWithChanges |> AMap.force
+          let knownFiles =
+            openFilesWithChanges
+            |> AMap.force
+            |> Seq.sortWith (fun (name, _) (name2, _) ->
+              // Force the current document to be checked first
+              if name = filePath || name2 = filePath then
+                -1
+              else
+                compare name name2)
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
             >> Log.addContextDestructured "files" knownFiles
           )
-
 
           for (file, aFile) in knownFiles do
             let (_, cts) = aFile |> AVal.force
