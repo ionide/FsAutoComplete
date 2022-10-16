@@ -550,6 +550,11 @@ type ParseAndCheckResults
           let residue = longName.PartialIdent
 
           logger.info (
+            Log.setMessage "TryGetCompletions - lineStr: {lineStr}"
+            >> Log.addContextDestructured "lineStr" lineStr
+          )
+
+          logger.info (
             Log.setMessage "TryGetCompletions - long name: {longName}"
             >> Log.addContextDestructured "longName" longName
           )
@@ -580,9 +585,7 @@ type ParseAndCheckResults
           | Some k when k.Kind = Other && not isEmpty -> return None
           | Some k when k.Kind = Operator -> return None
           | Some k when k.Kind = Keyword -> return None
-          | None when isEmpty -> return None
           | _ ->
-
             let results =
               checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
 
