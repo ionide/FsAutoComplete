@@ -1243,50 +1243,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           |> Async.Start
 
         return
-          { InitializeResult.Default with
-              Capabilities =
-                { ServerCapabilities.Default with
-                    HoverProvider = Some true
-                    RenameProvider = Some(U2.First true)
-                    DefinitionProvider = Some true
-                    TypeDefinitionProvider = Some true
-                    ImplementationProvider = Some true
-                    ReferencesProvider = Some true
-                    DocumentHighlightProvider = Some true
-                    DocumentSymbolProvider = Some true
-                    WorkspaceSymbolProvider = Some true
-                    DocumentFormattingProvider = Some true
-                    DocumentRangeFormattingProvider = Some true
-                    SignatureHelpProvider =
-                      Some
-                        { TriggerCharacters = Some [| '('; ','; ' ' |]
-                          RetriggerCharacters = Some [| ','; ')'; ' ' |] }
-                    CompletionProvider =
-                      Some
-                        { ResolveProvider = Some true
-                          TriggerCharacters = Some([| '.'; ''' |])
-                          AllCommitCharacters = None //TODO: what chars shoudl commit completions?
-                        }
-                    CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
-                    CodeActionProvider =
-                      Some
-                        { CodeActionKinds = None
-                          ResolveProvider = None }
-                    TextDocumentSync =
-                      Some
-                        { TextDocumentSyncOptions.Default with
-                            OpenClose = Some true
-                            Change = Some TextDocumentSyncKind.Full
-                            Save = Some { IncludeText = Some true } }
-                    FoldingRangeProvider = Some true
-                    SelectionRangeProvider = Some true
-                    SemanticTokensProvider =
-                      Some
-                        { Legend =
-                            createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-                          Range = Some true
-                          Full = Some(U2.First true) }
-                    InlayHintProvider = Some { ResolveProvider = Some false } } }
+          { InitializeResult.Default with Capabilities = Helpers.defaultServerCapabilities }
           |> success
       }
 
