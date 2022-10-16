@@ -1300,7 +1300,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force
 
 
-    if true || doesNotExist filePath || isOutsideWorkspace filePath then
+    if doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
