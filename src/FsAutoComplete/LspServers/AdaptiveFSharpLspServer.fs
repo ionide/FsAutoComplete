@@ -1859,8 +1859,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 let quickCheck =
                   aval {
                     let! checker = checker
-                    and! projectOptions = getProjectOptionsForFile filePath
-                    return checker.TryGetRecentCheckResultsForFile(filePath, List.head projectOptions, namedText.Lines)
+                    return checker.TryGetLastCheckResultForFile(filePath)
                   }
 
                 let! typeCheckResults =
