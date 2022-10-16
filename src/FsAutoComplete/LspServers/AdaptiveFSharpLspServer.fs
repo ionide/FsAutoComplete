@@ -1057,6 +1057,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Result.ofOption (fun () -> $"No parse results for {filePath}")
 
   let forceGetTypeCheckResults filePath =
+    let rec doIt tryAgain =
+      let result =
         let tyResults = getTypeCheckResults (filePath)
 
         match getRecentTypeCheckResults filePath |> AVal.force with
@@ -1067,6 +1069,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           Some s
         | None -> tyResults |> AVal.force
         |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
+      match result with
+      | Error e when tryAgain ->
+        // mark this file as outdated to force typecheck
+        transact ((findFileInOpenFiles filePath).MarkOutdated)
+        doIt false
+      | Error e -> Error e
+      | Ok x -> Ok x
+    doIt true
 
   let openFilesToCheckedDeclarations =
     openFilesToCheckedFilesResults
