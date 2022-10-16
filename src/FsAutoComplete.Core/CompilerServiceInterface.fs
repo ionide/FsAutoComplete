@@ -237,7 +237,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
-    // todo clear lastCheckResults
     let oldlastCheckResults = lastCheckResults
     lastCheckResults <- new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(20L)))
     oldlastCheckResults.Dispose()
@@ -295,10 +294,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     let opName = sprintf "TryGetLastCheckResultForFile - %A" file
 
     checkerLogger.info (
-      Log.setMessage "{opName}"
-      >> Log.addContextDestructured "opName" opName
+      Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName
 
     )
+
     match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
     | (true, v) -> Some v
     | _ -> None

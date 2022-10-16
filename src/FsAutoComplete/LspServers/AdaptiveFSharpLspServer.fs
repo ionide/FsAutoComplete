@@ -620,11 +620,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let textChanges = cmap<string<LocalPath>, cset<DidChangeTextDocumentParams>> ()
 
-  let sortedTextChanges =
-    textChanges
-    |> AMap.map' (fun x -> x :> aset<_>
-    // ASet.sortBy (fun (x: DidChangeTextDocumentParams) -> x.TextDocument.Version.Value)
-    )
+  let sortedTextChanges = textChanges |> AMap.map' (fun x -> x :> aset<_>)
 
   let openFilesWithChanges: amap<_, aval<VolatileFile * CancellationTokenSource>> =
 
@@ -684,38 +680,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   text)
 
           return (file, new CancellationTokenSource())
-      // way worse on memory
-      // let file =
-      //   (file, c)
-      //   ||> AList.fold (fun text change ->
-      //     let version = change.TextDocument.Version
-
-      //     (text, change.ContentChanges)
-      //     ||> Seq.fold (fun text change ->
-      //       match change.Range with
-      //       | None -> // replace entire content
-      //         // We want to update the DateTime here since TextDocumentDidChange will not have changes reflected on disk
-      //         VolatileFile.Create(filePath, change.Text, version, DateTime.UtcNow)
-      //       | Some rangeToReplace ->
-      //         // replace just this slice
-      //         let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
-
-      //         match text.Lines.ModifyText(fcsRangeToReplace, change.Text) with
-      //         | Ok text -> VolatileFile.Create(text, version, DateTime.UtcNow)
-
-      //         | Error message ->
-      //           logger.error (
-      //             Log.setMessage
-      //               "Error applying change to document {file} for version {version}: {message} - {range}"
-      //             >> Log.addContextDestructured "file" filePath
-      //             >> Log.addContextDestructured "version" version
-      //             >> Log.addContextDestructured "message" message
-      //             >> Log.addContextDestructured "range" fcsRangeToReplace
-      //           )
-
-      //           text))
-
-      // return! file |> AVal.map (fun f -> f, new CancellationTokenSource())
       })
 
   let cancelAllOpenFileCheckRequests () =
@@ -1703,7 +1667,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           transact (fun () ->
             cancelForFile filePath
             textChanges.AddOrElse(filePath, (fun _ -> cset<_> [ p ]), (fun _ v -> v.Add p |> ignore)))
-          // forceGetTypeCheckResults filePath |> ignore
+
           async {
             do! Async.Sleep(10)
             forceGetTypeCheckResults filePath |> ignore
@@ -1754,10 +1718,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AMap.force
             |> Seq.sortWith (fun (name, _) (name2, _) ->
               // Force the current document to be checked first
-              if name = filePath || name2 = filePath then
-                -1
-              else
-                compare name name2)
+              if name = filePath then -1 else compare name name2)
 
           logger.info (
             Log.setMessage "typechecking for files {files}"
