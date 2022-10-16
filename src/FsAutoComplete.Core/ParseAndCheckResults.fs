@@ -580,10 +580,11 @@ type ParseAndCheckResults
           | Some k when k.Kind = Other && not isEmpty -> return None
           | Some k when k.Kind = Operator -> return None
           | Some k when k.Kind = Keyword -> return None
+          | None when isEmpty -> return None
           | _ ->
 
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllSymbols)
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
 
             let getKindPriority =
               function
