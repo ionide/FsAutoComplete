@@ -950,7 +950,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
 
-        do! analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck)
+        Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
 
         // LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
         // Yes this seems excessive doing this every time we type check but it's the best current kludge.
@@ -1721,15 +1721,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
-
           transact (fun () ->
             cancelForFile filePath
             textChanges.AddOrElse(filePath, (fun _ -> cset<_> [ p ]), (fun _ v -> v.Add p |> ignore)))
           // forceGetTypeCheckResults filePath |> ignore
-          // async {
-          //   do! Async.Sleep(1000)
-          //   forceGetTypeCheckResults filePath |> ignore
-          // } |> Async.Start
+          async {
+            do! Async.Sleep(10)
+            forceGetTypeCheckResults filePath |> ignore
+          }
+          |> Async.Start
 
           return ()
         with e ->
@@ -1815,21 +1815,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          do! Async.Sleep(100) // TextDocumentCompletion will get sent before TextDocumentDidChange sometimes
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText2, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
-          let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr2 = namedText2.Lines |> tryGetLineStr pos |> Result.ofStringErr
 
           let completionList =
             { IsIncomplete = false
               Items = KeywordList.hashSymbolCompletionItems }
 
-          if lineStr.StartsWith "#" then
+          if lineStr2.StartsWith "#" then
             let completionList =
               { IsIncomplete = false
                 Items = KeywordList.hashSymbolCompletionItems }
+
 
             return! success (Some completionList)
           else
@@ -1847,7 +1847,25 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             let getCompletions =
               asyncResult {
-                let! typeCheckResults = forceGetTypeCheckResults filePath
+
+                let! (namedText, _) = forceFindOpenFileOrRead filePath
+                let! lineStr = namedText.Lines |> tryGetLineStr pos
+
+                let quickCheck =
+                  aval {
+                    let! checker = checker
+                    and! projectOptions = getProjectOptionsForFile filePath
+                    return checker.TryGetRecentCheckResultsForFile(filePath, List.head projectOptions, namedText.Lines)
+                  }
+
+                let! typeCheckResults =
+                  asyncResult {
+                    // Try to get the latest text as TextDocumentDidChange and this
+                    // might not have been sent in the correct order
+                    match AVal.force quickCheck with
+                    | Some s -> return s
+                    | None -> return! forceGetTypeCheckResults filePath
+                  }
 
                 let getAllSymbols () =
                   if config.ExternalAutocomplete then
@@ -1855,21 +1873,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   else
                     []
 
-                match!
+                let! (decls, residue, shouldKeywords) =
                   Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
-                    typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols)
-                with
-                | None -> return None
-                | Some (decls, residue, shouldKeywords) ->
-                  return Some(decls, residue, shouldKeywords, typeCheckResults, getAllSymbols)
+                    typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols
+                    |> AsyncResult.ofOption (fun () -> "No TryGetCompletions results"))
+
+                return Some(decls, residue, shouldKeywords, typeCheckResults, getAllSymbols, namedText)
               }
 
             match!
-              retryAsyncOption (TimeSpan.FromMilliseconds(100.)) 5 getCompletions
+              retryAsyncOption (TimeSpan.FromMilliseconds(10.)) 100 getCompletions
               |> AsyncResult.ofStringErr
             with
             | None -> return! success (Some completionList)
-            | Some (decls, residue, shouldKeywords, typeCheckResults, getAllSymbols) ->
+            | Some (decls, residue, shouldKeywords, typeCheckResults, _, namedText) ->
 
               return!
                 Debug.measure "TextDocumentCompletion.TryGetCompletions success"
