@@ -137,7 +137,14 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
         cts.Cancel()
 
 module Async =
+  open FsAutoComplete.Logging
+  open FsAutoComplete.Logging.Types
   open System.Threading.Tasks
+
+  let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
+
+  let inline logCancelled e =
+    logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
     async {
@@ -165,8 +172,11 @@ module Async =
         let! result = withCancellation (ct ()) work
         return Some result
       with
-      | :? OperationCanceledException as e -> return None
+      | :? OperationCanceledException as e ->
+        logCancelled e
+        return None
       | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
+        logCancelled e
         return None
     }
 
@@ -177,8 +187,12 @@ module Async =
     try
       work |> RunSynchronouslyWithCT(ct ()) |> Some
     with
-    | :? OperationCanceledException as e -> None
-    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") -> None
+    | :? OperationCanceledException as e ->
+      logCancelled e
+      None
+    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
+      logCancelled e
+      None
 
 [<AutoOpen>]
 module ObservableExtensions =
@@ -197,3 +211,47 @@ module Helpers =
   let ignoreNotification = async.Return(())
 
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
+
+  let defaultServerCapabilities =
+    { ServerCapabilities.Default with
+        HoverProvider = Some true
+        RenameProvider = Some(U2.First true)
+        DefinitionProvider = Some true
+        TypeDefinitionProvider = Some true
+        ImplementationProvider = Some true
+        ReferencesProvider = Some true
+        DocumentHighlightProvider = Some true
+        DocumentSymbolProvider = Some true
+        WorkspaceSymbolProvider = Some true
+        DocumentFormattingProvider = Some true
+        DocumentRangeFormattingProvider = Some true
+        SignatureHelpProvider =
+          Some
+            { TriggerCharacters = Some [| '('; ','; ' ' |]
+              RetriggerCharacters = Some [| ','; ')'; ' ' |] }
+        CompletionProvider =
+          Some
+            { ResolveProvider = Some true
+              TriggerCharacters = Some([| '.'; ''' |])
+              AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+            }
+        CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+        CodeActionProvider =
+          Some
+            { CodeActionKinds = None
+              ResolveProvider = None }
+        TextDocumentSync =
+          Some
+            { TextDocumentSyncOptions.Default with
+                OpenClose = Some true
+                Change = Some TextDocumentSyncKind.Full
+                Save = Some { IncludeText = Some true } }
+        FoldingRangeProvider = Some true
+        SelectionRangeProvider = Some true
+        SemanticTokensProvider =
+          Some
+            { Legend =
+                createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
+              Range = Some true
+              Full = Some(U2.First true) }
+        InlayHintProvider = Some { ResolveProvider = Some false } }
