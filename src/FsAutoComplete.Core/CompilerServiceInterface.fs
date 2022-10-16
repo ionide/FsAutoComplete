@@ -9,6 +9,11 @@ open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open Microsoft.Extensions.Caching.Memory
+open System
+open FsToolkit.ErrorHandling
+
+
 
 type Version = int
 
@@ -25,6 +30,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     )
 
   let entityCache = EntityCache()
+
+  let mutable lastCheckResults: IMemoryCache =
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(20L)))
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
@@ -228,7 +236,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     scriptTypecheckRequirementsChanged.Publish
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
-  member _.ClearCaches () =
+  member _.ClearCaches() =
+    // todo clear lastCheckResults
+    let oldlastCheckResults = lastCheckResults
+    lastCheckResults <- new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(20L)))
+    oldlastCheckResults.Dispose()
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
@@ -239,13 +251,14 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     checker.ParseFile(path, source, fpo)
 
   member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: ISourceText, options) =
-    async {
+    asyncResult {
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
       checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
+
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
@@ -259,17 +272,36 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
             >> Log.addContextDestructured "errors" (List.ofArray p.Diagnostics)
           )
 
-          return ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
+          return! ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
         | FSharpCheckFileAnswer.Succeeded (c) ->
           checkerLogger.info (
             Log.setMessage "{opName} completed successfully"
             >> Log.addContextDestructured "opName" opName
           )
 
-          return Ok(ParseAndCheckResults(p, c, entityCache))
+          let r = ParseAndCheckResults(p, c, entityCache)
+
+          let ops =
+            MemoryCacheEntryOptions()
+              .SetSize(1)
+              .SetSlidingExpiration(TimeSpan.FromMinutes(2.))
+
+          return lastCheckResults.Set(filePath, r, ops)
       with ex ->
-        return ResultOrString.Error(ex.ToString())
+        return! ResultOrString.Error(ex.ToString())
     }
+
+  member _.TryGetLastCheckResultForFile(file: string<LocalPath>) =
+    let opName = sprintf "TryGetLastCheckResultForFile - %A" file
+
+    checkerLogger.info (
+      Log.setMessage "{opName}"
+      >> Log.addContextDestructured "opName" opName
+
+    )
+    match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
+    | (true, v) -> Some v
+    | _ -> None
 
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText) =
     let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
@@ -278,13 +310,20 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       Log.setMessage "{opName} - {hash}"
       >> Log.addContextDestructured "opName" opName
       >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+
     )
 
     let options = clearProjectReferences options
 
     let result =
       checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
-      |> Option.map (fun (pr, cr, _) -> ParseAndCheckResults(pr, cr, entityCache))
+      |> Option.map (fun (pr, cr, version) ->
+        checkerLogger.info (
+          Log.setMessage "{opName} - got results - {version}"
+          >> Log.addContextDestructured "version" version
+        )
+
+        ParseAndCheckResults(pr, cr, entityCache))
 
     checkerLogger.info (
       Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
