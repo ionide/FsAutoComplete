@@ -211,7 +211,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     transact (fun () -> config.Value <- c)
     mutableConfigChanges |> AVal.force
 
-
   let tfmConfig =
     config
     |> AVal.map (fun c ->
@@ -1058,16 +1057,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Result.ofOption (fun () -> $"No parse results for {filePath}")
 
   let forceGetTypeCheckResults filePath =
-    let tyResults = getTypeCheckResults (filePath)
+        let tyResults = getTypeCheckResults (filePath)
 
-    match getRecentTypeCheckResults filePath |> AVal.force with
-    | Some s ->
-      if lock tyResults (fun () -> tyResults.OutOfDate) then
-        Async.Start(async { tyResults |> AVal.force |> ignore })
+        match getRecentTypeCheckResults filePath |> AVal.force with
+        | Some s ->
+          if lock tyResults (fun () -> tyResults.OutOfDate) then
+            Async.Start(async { tyResults |> AVal.force |> ignore })
 
-      Some s
-    | None -> tyResults |> AVal.force
-    |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
+          Some s
+        | None -> tyResults |> AVal.force
+        |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
   let openFilesToCheckedDeclarations =
     openFilesToCheckedFilesResults
@@ -1826,10 +1825,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let! lineStr2 = namedText2.Lines |> tryGetLineStr pos |> Result.ofStringErr
 
-          let completionList =
-            { IsIncomplete = false
-              Items = KeywordList.hashSymbolCompletionItems }
-
           if lineStr2.StartsWith "#" then
             let completionList =
               { IsIncomplete = false
@@ -1864,8 +1859,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                 let! typeCheckResults =
                   asyncResult {
-                    // Try to get the latest text as TextDocumentDidChange and this
-                    // might not have been sent in the correct order
                     match AVal.force quickCheck with
                     | Some s -> return s
                     | None -> return! forceGetTypeCheckResults filePath
@@ -1876,6 +1869,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     typeCheckResults.GetAllEntities true
                   else
                     []
+                // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
+                // This will require the trigger character to be at the place VSCode says it is
+                // Otherwise we'll fail here and our retry logic will come into place
+                do!
+                  match p.Context with
+                  | Some({triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                    namedText.Lines.TryGetChar pos = context.triggerCharacter
+                  | _ -> true
+                  |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
+
 
                 let! (decls, residue, shouldKeywords) =
                   Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
@@ -1889,8 +1892,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               retryAsyncOption (TimeSpan.FromMilliseconds(10.)) 100 getCompletions
               |> AsyncResult.ofStringErr
             with
-            | None -> return! success (Some completionList)
-            | Some (decls, residue, shouldKeywords, typeCheckResults, _, namedText) ->
+            | None -> return! success (None)
+            | Some (decls, _, shouldKeywords, typeCheckResults, _, namedText) ->
 
               return!
                 Debug.measure "TextDocumentCompletion.TryGetCompletions success"
