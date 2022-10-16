@@ -915,9 +915,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
       let! result =
-        Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}" <|
-          checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-          |> Async.withCancellation cts.Token
+        Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
+        <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
+        |> Async.withCancellation cts.Token
 
       let! ct = Async.CancellationToken
       notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName), ct)
@@ -937,17 +937,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           >> Log.addContextDestructured "file" file.Lines.FileName
         )
 
-        Async.Start(async {
-          let checkErrors = parseAndCheck.GetParseResults.Diagnostics
-          let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
+        Async.Start(
+          async {
+            let checkErrors = parseAndCheck.GetParseResults.Diagnostics
+            let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
-          let errors =
-            Array.append checkErrors parseErrors
-            |> Array.distinctBy (fun e ->
-              e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
+            let errors =
+              Array.append checkErrors parseErrors
+              |> Array.distinctBy (fun e ->
+                e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-          notifications.Trigger(NotificationEvent.ParseError(errors, file.Lines.FileName), ct)
-        }, ct)
+            notifications.Trigger(NotificationEvent.ParseError(errors, file.Lines.FileName), ct)
+          },
+          ct
+        )
 
 
 
@@ -955,14 +958,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
 
 
-        Async.Start( async {
-          // LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
-          // Yes this seems excessive doing this every time we type check but it's the best current kludge.
-          System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
-            System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
-          GC.Collect()
-          GC.WaitForPendingFinalizers()
-        }, ct)
+        Async.Start(
+          async {
+            // LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
+            // Yes this seems excessive doing this every time we type check but it's the best current kludge.
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
+              System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
+
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
+          },
+          ct
+        )
 
         return parseAndCheck
     }
@@ -1069,6 +1076,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           Some s
         | None -> tyResults |> AVal.force
         |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
+
       match result with
       | Error e when tryAgain ->
         // mark this file as outdated to force typecheck
@@ -1076,6 +1084,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         doIt false
       | Error e -> Error e
       | Ok x -> Ok x
+
     doIt true
 
   let openFilesToCheckedDeclarations =
@@ -1602,9 +1611,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
 
 
-          return
-            { InitializeResult.Default with
-                Capabilities = Helpers.defaultServerCapabilities }
+          return { InitializeResult.Default with Capabilities = Helpers.defaultServerCapabilities }
 
         with e ->
           logger.error (
@@ -1842,7 +1849,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 // Otherwise we'll fail here and our retry logic will come into place
                 do!
                   match p.Context with
-                  | Some({triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                  | Some ({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
                     namedText.Lines.TryGetChar pos = context.triggerCharacter
                   | _ -> true
                   |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
