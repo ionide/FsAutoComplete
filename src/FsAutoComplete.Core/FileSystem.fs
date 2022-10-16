@@ -260,8 +260,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<NamedText, string> =
     result {
       let startRange, endRange = x.SplitAt(m)
-      let! startText = x[startRange] |> Result.mapError(fun x -> $"startRange -> {x}")
-      let! endText = x[endRange] |> Result.mapError(fun x -> $"endRange -> {x}")
+      let! startText = x[startRange] |> Result.mapError (fun x -> $"startRange -> {x}")
+      let! endText = x[endRange] |> Result.mapError (fun x -> $"endRange -> {x}")
       let totalText = startText + text + endText
       return NamedText(x.FileName, totalText)
     }
@@ -354,6 +354,7 @@ type VolatileFile =
   { Touched: DateTime
     Lines: NamedText
     Version: int option }
+
   member this.FileName = this.Lines.FileName
 
   /// <summary>Updates the Lines value</summary>
