@@ -50,6 +50,7 @@ nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol
+nuget Microsoft.Extensions.Caching.Memory
 
 group Build
   source https://api.nuget.org/v3/index.json
