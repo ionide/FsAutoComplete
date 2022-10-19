@@ -1284,7 +1284,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force
 
 
-    if doesNotExist filePath || isOutsideWorkspace filePath then
+    if true || doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
@@ -1585,8 +1585,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             updateConfig c
             workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
 
+          let defaultSettings =
+            { Helpers.defaultServerCapabilities
+              with
+                TextDocumentSync =
+                  Helpers.defaultServerCapabilities.TextDocumentSync
+                  |> Option.map(fun x ->
+                      { x with Change = Some TextDocumentSyncKind.Incremental }
+                    )
+            }
 
-          return { InitializeResult.Default with Capabilities = Helpers.defaultServerCapabilities }
+          return { InitializeResult.Default with Capabilities = defaultSettings }
 
         with e ->
           logger.error (
@@ -2585,7 +2594,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
-
           match getDeclarations (fn) |> AVal.force with
           | None -> return None
           | Some decls ->
