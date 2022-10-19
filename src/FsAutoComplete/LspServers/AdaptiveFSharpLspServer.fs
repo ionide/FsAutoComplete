@@ -614,7 +614,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
+  let openFiles = cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
 
   let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
@@ -627,11 +627,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFilesA
     |> AMap.map (fun filePath file ->
       aval {
-        let! file = file
+        let! (file, token) = file
         and! changes = sortedTextChanges |> AMap.tryFind filePath
 
         match changes with
-        | None -> return (file, new CancellationTokenSource())
+        | None -> return (file, token)
         | Some c ->
           let! ps = c |> ASet.toAVal
 
@@ -679,14 +679,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                   text)
 
-          return (file, new CancellationTokenSource())
+          return (file, token)
       })
 
   let cancelAllOpenFileCheckRequests () =
-    let files = openFilesWithChanges |> AMap.force
+    let files = openFiles |> AMap.force
 
     for (_, fileVal) in files do
-      ()
       let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
 
       try
@@ -694,9 +693,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         cts.Dispose()
       with e ->
         ()
+      transact(fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
 
   let cancelForFile filePath =
-    openFilesWithChanges
+    openFiles
     |> AMap.tryFind filePath
     |> AVal.force
     |> Option.iter (fun fileVal ->
@@ -712,12 +712,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         cts.Cancel()
         cts.Dispose()
       with _ ->
-        ())
+        ()
+      transact(fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
+        )
 
   let updateOpenFiles (file: VolatileFile) =
     cancelForFile file.FileName
-    let adder _ = cval file
-    let updater _ (v: cval<_>) = v.Value <- file
+    let adder _ = cval (file, new CancellationTokenSource())
+    let updater _ (v: cval<_>) =
+      let (_, cts) = v |> AVal.force
+      v.Value <- file, cts
 
     transact (fun () -> openFiles.AddOrElse(file.Lines.FileName, adder, updater))
 
