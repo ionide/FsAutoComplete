@@ -3708,8 +3708,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
+          let fullPath = Path.Combine(Path.GetDirectoryName p.FsProj, p.FileVirtualPath)
           do! Commands.removeFile p.FsProj p.FileVirtualPath |> AsyncResult.ofCoreResponse
           loadedProjectOptions |> AVal.force |> ignore
+          let fileUri = Path.FilePathToUri fullPath
+          diagnosticCollections.ClearFor fileUri
+
           return { Content = "" }
         with e ->
           logger.error (
