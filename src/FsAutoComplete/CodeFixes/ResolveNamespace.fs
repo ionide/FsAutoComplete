@@ -95,19 +95,7 @@ let fix
 
       $"%s{whitespace}open %s{actualOpen}\n"
 
-    let edits =
-      [| yield insertLine docLine lineStr
-         if
-           text.GetLineCount() < docLine + 1
-           && text.GetLineString(docLine + 1).Trim() <> ""
-         then
-           yield insertLine (docLine + 1) ""
-         if
-           (ctx.Pos.Column = 0 || ctx.ScopeKind = ScopeKind.Namespace)
-           && docLine > 0
-           && not (text.GetLineString(docLine - 1).StartsWith "open")
-         then
-           yield insertLine (docLine - 1) "" |]
+    let edits = [| yield insertLine docLine lineStr |]
 
     { Edits = edits
       File = file
