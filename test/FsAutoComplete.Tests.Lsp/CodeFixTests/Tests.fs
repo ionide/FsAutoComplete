@@ -1514,6 +1514,27 @@ module Foo =
   open System
   let foo = DateTime.Now
         """
+
+
+
+    testCaseAsync "With-attribute"
+      <| CodeFix.check
+          server
+          """
+[<AutoOpen>]
+module Foo =
+
+  let foo = $0DateTime.Now
+          """
+          (Diagnostics.log >> Diagnostics.acceptAll)
+          selectCodeFix
+          """
+[<AutoOpen>]
+module Foo =
+  open System
+
+  let foo = DateTime.Now
+          """
     //TODO: Implement & unify with `Completion.AutoOpen` (`CompletionTests.fs`)
     // Issues:
     // * Complex because of nesting modules (-> where to open)
@@ -1613,7 +1634,7 @@ let private wrapExpressionInParenthesesTests state =
         selectCodeFix
   ])
 
-let tests state = testList "CodeFix tests" [
+let tests state = testList "CodeFix-tests" [
   HelpersTests.tests
 
   AddExplicitTypeAnnotationTests.tests state

@@ -382,8 +382,8 @@ module TextEdit =
       Some "Expected positive End.Character, but was negative"
     else if edit.Range.Start > edit.Range.End then
       Some "Expected Range.Start <= Range.End, but was Start > End"
-    // else if edit |> doesNothing then
-    //   Some "Expected change, but does nothing (neither delete nor insert)"
+    else if edit |> doesNothing then
+      Some "Expected change, but does nothing (neither delete nor insert)"
     else
       None
 
