@@ -614,13 +614,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let openFiles = cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
+  let openFiles =
+    cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
 
   let openFilesA = openFiles |> AMap.map' (fun v -> v :> aval<_>)
 
   let textChanges = cmap<string<LocalPath>, cset<DidChangeTextDocumentParams>> ()
 
-  let sortedTextChanges = textChanges |> AMap.map' (fun x -> x :> aset<_>)
+  let textChangesA = textChanges |> AMap.map' (fun x -> x :> aset<_>)
 
   let openFilesWithChanges: amap<_, aval<VolatileFile * CancellationTokenSource>> =
 
@@ -628,7 +629,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AMap.map (fun filePath file ->
       aval {
         let! (file, token) = file
-        and! changes = sortedTextChanges |> AMap.tryFind filePath
+        and! changes = textChangesA |> AMap.tryFind filePath
 
         match changes with
         | None -> return (file, token)
@@ -682,48 +683,55 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return (file, token)
       })
 
-  let cancelAllOpenFileCheckRequests () =
+
+  let resetFileVal (fileVal: cval<_>) =
+    let (oldFile: VolatileFile, cts: CancellationTokenSource) = fileVal |> AVal.force
+
+    try
+      logger.info (
+        Log.setMessage "Cancelling {filePath} - {version}"
+        >> Log.addContextDestructured "filePath" oldFile.FileName
+        >> Log.addContextDestructured "version" oldFile.Version
+      )
+
+      cts.Cancel()
+      cts.Dispose()
+    with
+    | :? OperationCanceledException
+    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
+      // ignore if already cancelled
+      ()
+
+    transact (fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
+
+  let resetCancellationToken filePath =
+    openFiles |> AMap.tryFind filePath |> AVal.force |> Option.iter (resetFileVal)
+
+  let resetAllCancellationTokens () =
     let files = openFiles |> AMap.force
 
     for (_, fileVal) in files do
-      let (oldFile, cts: CancellationTokenSource) = fileVal |> AVal.force
-
-      try
-        cts.Cancel()
-        cts.Dispose()
-      with e ->
-        ()
-      transact(fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
-
-  let cancelForFile filePath =
-    openFiles
-    |> AMap.tryFind filePath
-    |> AVal.force
-    |> Option.iter (fun fileVal ->
-      let (oldFile, cts) = fileVal |> AVal.force
-
-      try
-        logger.info (
-          Log.setMessage "Cancelling {filePath} - {version}"
-          >> Log.addContextDestructured "filePath" filePath
-          >> Log.addContextDestructured "version" oldFile.Version
-        )
-
-        cts.Cancel()
-        cts.Dispose()
-      with _ ->
-        ()
-      transact(fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
-        )
+      resetFileVal fileVal
 
   let updateOpenFiles (file: VolatileFile) =
-    cancelForFile file.FileName
-    let adder _ = cval (file, new CancellationTokenSource())
+    let adder _ =
+      cval (file, new CancellationTokenSource())
+
     let updater _ (v: cval<_>) =
       let (_, cts) = v |> AVal.force
       v.Value <- file, cts
 
-    transact (fun () -> openFiles.AddOrElse(file.Lines.FileName, adder, updater))
+    transact (fun () ->
+      resetCancellationToken file.FileName
+      openFiles.AddOrElse(file.Lines.FileName, adder, updater))
+
+  let updateTextchanges filePath p =
+    let adder _ = cset<_> [ p ]
+    let updater _ (v: cset<_>) = v.Add p |> ignore
+
+    transact (fun () ->
+      resetCancellationToken filePath
+      textChanges.AddOrElse(filePath, adder, updater))
 
   let findFileInOpenFiles file =
     openFilesWithChanges |> AMap.tryFindA file
@@ -879,6 +887,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContextDestructured "date" (file.Touched)
       )
 
+      // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
       use cts = new CancellationTokenSource()
       cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
@@ -920,16 +929,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           ct
         )
 
-
-
-
         Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
-
 
         Async.Start(
           async {
-            // LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
+            // HACK: LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
             // Yes this seems excessive doing this every time we type check but it's the best current kludge.
+            // It maybe better to set default environment variables from https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector
+            // instead of manually calling this, specifically the `DOTNET_GCConserveMemory` variable.
             System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
               System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
 
@@ -1048,7 +1055,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       match result with
       | Error e when tryAgain ->
         // mark this file as outdated to force typecheck
-        transact ((findFileInOpenFiles filePath).MarkOutdated)
+        transact (fun () ->
+          (openFilesA |> AMap.tryFind filePath |> AVal.force)
+          |> Option.iter (fun x -> x.MarkOutdated()))
+
         doIt false
       | Error e -> Error e
       | Ok x -> Ok x
@@ -1232,9 +1242,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile |])
-
-
-
 
   let forgetDocument (uri: DocumentUri) =
     let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
@@ -1668,9 +1675,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
-          transact (fun () ->
-            cancelForFile filePath
-            textChanges.AddOrElse(filePath, (fun _ -> cset<_> [ p ]), (fun _ v -> v.Add p |> ignore)))
+          updateTextchanges filePath p
 
           async {
             do! Async.Sleep(10)
@@ -1698,7 +1703,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          cancelAllOpenFileCheckRequests ()
+          resetAllCancellationTokens ()
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
