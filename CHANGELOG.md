@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.58.1] - 2022-10-19
+
+### Fixed
+
+* [Fix tooltips for some member accesses](https://github.com/fsharp/fsautocomplete/pull/1023) (thanks @theangrybyrd!)
+* [Performance enhancements for AdaptiveLSPServer and file time fixes for both servers](https://github.com/fsharp/fsautocomplete/pull/1024) (thanks @theangrybyrd!)
+* [Safer directory traversal when probing for projects](https://github.com/fsharp/fsautocomplete/pull/1023) (thanks @sheridanchris!)
+* [Clear diagnostics and stale project options for removed files](https://github.com/fsharp/fsautocomplete/pull/1005) (thanks @MangelMaxime!)
+
+### Removed
+
+* [Remove the now-obsolete --background-service-enabled option](https://github.com/fsharp/fsautocomplete/pull/952)
+
 ## [0.58.0] - 2022-10-09
 
 ### Added
