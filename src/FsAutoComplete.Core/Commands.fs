@@ -713,11 +713,11 @@ module Commands =
 
       let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
         projects
-        |> List.map (fun p ->
-          asyncResult {
+        |> List.collect (fun p -> [
             for file in p.SourceFiles do
-              do! findReferencesInFile (file, symbol, p, onFound)
-          })
+              yield findReferencesInFile (file, symbol, p, onFound)
+        ]
+          )
         |> Async.Parallel
         |> Async.map (Array.toList >> FsToolkit.ErrorHandling.List.sequenceResultM)
 
