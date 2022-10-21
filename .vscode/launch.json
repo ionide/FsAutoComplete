@@ -78,7 +78,7 @@
       "args": [
         "--debug",
         "--filter",
-        "FSAC.lsp.${input:loader}.${input:testName}"
+        "FSAC.lsp.${input:loader}.${input:lsp-server}.${input:testName}"
       ]
     }
   ],
@@ -101,6 +101,17 @@
         "MSBuild Project Graph WorkspaceLoader"
       ],
       "default": "WorkspaceLoader",
+      "type": "pickString"
+    },
+
+    {
+      "id": "lsp-server",
+      "description": "The lsp serrver",
+      "options": [
+        "FSharpLspServer",
+        "AdaptiveLspServer"
+      ],
+      "default": "FSharpLspServer",
       "type": "pickString"
     },
     {
