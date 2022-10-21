@@ -1517,7 +1517,7 @@ module Foo =
 
 
 
-    testCaseAsync "With-attribute"
+    testCaseAsync "With attribute"
       <| CodeFix.check
           server
           """
