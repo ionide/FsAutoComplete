@@ -29,6 +29,7 @@ let fix
 
   let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) =
     let l = ctx.Pos.Line
+
     let retVal =
       match ctx.ScopeKind with
       | ScopeKind.TopModule when l > 1 ->
@@ -53,8 +54,10 @@ let fix
         | Some line -> line + 2
         | None -> l
       | _ -> l
-    let containsAttribute (x : string) = x.Contains "[<"
-    let currentLine = System.Math.Max(retVal - 2 , 0) |> lines.GetLineString
+
+    let containsAttribute (x: string) = x.Contains "[<"
+    let currentLine = System.Math.Max(retVal - 2, 0) |> lines.GetLineString
+
     if currentLine |> containsAttribute then
       retVal + 1
     else
