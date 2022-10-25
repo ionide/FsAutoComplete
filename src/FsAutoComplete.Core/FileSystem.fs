@@ -261,7 +261,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     result {
       let startRange, endRange = x.SplitAt(m)
       let! startText = x[startRange] |> Result.mapError (fun x -> $"startRange -> {x}")
-      let! endText = x[endRange] |> Result.mapError (fun x -> $"endRange -> {x}")
+      and! endText = x[endRange] |> Result.mapError (fun x -> $"endRange -> {x}")
       let totalText = startText + text + endText
       return NamedText(x.FileName, totalText)
     }
