@@ -770,9 +770,9 @@ module Commands =
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
-        let symbolFileText =
+        let! symbolFileText =
           tryGetFileSource (symbolFile)
-          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+          |> Result.mapError (fun e -> e + $"Unable to get file source for file '{symbolFile}'")
 
         let! symbolText = symbolFileText.[symbolRange]
         // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
@@ -790,37 +790,44 @@ module Commands =
             |> List.distinctBy (fun x -> x.ProjectFileName)
 
         let onFound (symbolUseRange: range) =
-          async {
+          asyncResult {
             let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
             let symbolFile = symbolUseRange.TaggedFileName
-            let targetText = tryGetFileSource (symbolFile)
+            let! sourceText = tryGetFileSource (symbolFile)
 
-            match targetText with
-            | Error e -> ()
-            | Ok sourceText ->
-              let sourceSpan =
-                sourceText.[symbolUseRange]
-                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
 
-              // There are two kinds of ranges we get back:
-              // * ranges that exactly match the short name of the symbol
-              // * ranges that are longer than the short name of the symbol,
-              //   typically because we're talking about some kind of fully-qualified usage
-              // For the latter, we need to adjust the reported range to just be the portion
-              // of the fully-qualfied text that is the symbol name.
-              if sourceSpan = symbolText then
-                symbolUseRanges.Add symbolUseRange
-              else
-                match sourceSpan.IndexOf(symbolText) with
-                | -1 -> ()
-                | n ->
-                  if sourceSpan.Length >= n + symbolText.Length then
-                    let startPos = symbolUseRange.Start.IncColumn n
-                    let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
+            let! sourceSpan =
+              sourceText.[symbolUseRange]
+              |> Result.mapError (fun e -> e + "Unable to get text for symbol use")
 
-                    let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
-                    symbolUseRanges.Add actualUseRange
+            // There are two kinds of ranges we get back:
+            // * ranges that exactly match the short name of the symbol
+            // * ranges that are longer than the short name of the symbol,
+            //   typically because we're talking about some kind of fully-qualified usage
+            // For the latter, we need to adjust the reported range to just be the portion
+            // of the fully-qualfied text that is the symbol name.
+            if sourceSpan = symbolText then
+              symbolUseRanges.Add symbolUseRange
+            else
+              match sourceSpan.IndexOf(symbolText) with
+              | -1 -> ()
+              | n ->
+                if sourceSpan.Length >= n + symbolText.Length then
+                  let startPos = symbolUseRange.Start.IncColumn n
+                  let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
+
+                  let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
+                  symbolUseRanges.Add actualUseRange
           }
+          |> Async.map(fun x ->
+            match x with
+            | Ok () -> ()
+            | Error e ->
+              commandsLogger.info(
+                Log.setMessage "OnFound failed: {errpr}"
+                >> Log.addContextDestructured "error" e
+              )
+          )
 
         let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
 
