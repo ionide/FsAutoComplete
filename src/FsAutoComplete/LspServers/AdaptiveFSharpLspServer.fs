@@ -1066,9 +1066,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     doIt true
 
-  let openFilesToCheckedDeclarations =
+  let openFilesToCheckedDeclarations () =
     openFilesToCheckedFilesResults
-    |> AMap.map (fun _ v -> v |> AVal.mapOption (fun parseAndCheck -> parseAndCheck.GetParseResults.GetNavigationItems().Declarations))
+    |> AMap.force
+    |> HashMap.map(fun _ v -> v |> AVal.mapOption(fun c -> c.GetParseResults.GetNavigationItems().Declarations) |> AVal.force )
 
   let getDeclarations filename =
     // openFilesToCheckedDeclarations |> AMap.tryFindAndFlatten (filename)
@@ -1287,14 +1288,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   false))
       |> AVal.force
 
+    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = true
 
-    if true || doesNotExist filePath || isOutsideWorkspace filePath then
+    if thisShouldBeASettingToTurnOffHoldingFilesInMemory || doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
       )
 
-      transact (fun () -> openFiles.Remove filePath |> ignore)
+      transact (fun () ->
+          openFiles.Remove filePath |> ignore
+          textChanges.Remove filePath |> ignore
+        )
       diagnosticCollections.ClearFor(uri)
     else
       logger.info (
@@ -2414,10 +2419,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
           let decls =
-            openFilesToCheckedDeclarations
-            |> AMap.force
+            openFilesToCheckedDeclarations ()
             |> Seq.toArray
-            |> Array.map (fun (p, ns) -> p, AVal.force ns)
             |> Array.choose (fun (p, ns) -> ns |> Option.map (fun ns -> p, ns))
 
           let res =
