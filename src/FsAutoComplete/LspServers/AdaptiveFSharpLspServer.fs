@@ -735,7 +735,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       textChanges.AddOrElse(filePath, adder, updater))
 
   let findFileInOpenFiles file =
-    openFilesWithChanges |> AMap.tryFindA file
+    openFilesWithChanges |> AMap.tryFindA file |> AVal.mapOption fst
+
+  let forceFindOpenFile filePath =
+    findFileInOpenFiles filePath |> AVal.force
 
   let forceFindOpenFileOrRead file =
     findFileInOpenFiles file
@@ -754,7 +757,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               Lines = NamedText(file, change)
               Version = None }
 
-          (file, new CancellationTokenSource()) |> Some
+          Some file
         else
           None
       with e ->
@@ -767,15 +770,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         None)
     |> Result.ofOption (fun () -> $"Could not read file: {file}")
 
-  let forceFindOpenFile filePath =
-    findFileInOpenFiles filePath |> AVal.force |> Option.map fst
+
 
   do
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, forceFindOpenFile)
 
   let forceFindSourceText filePath =
-    forceFindOpenFileOrRead filePath |> Result.map (fun (f, _) -> f.Lines)
+    forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
 
   let openFilesToProjectOptions =
     openFilesWithChanges
@@ -958,7 +960,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let config = config |> AVal.force
 
       match findFileInOpenFiles f |> AVal.force, getProjectOptionsForFile f |> AVal.force |> List.tryHead with
-      | Some (fileInfo, _), Some (opts) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+      | Some (fileInfo), Some (opts) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
       | _, _ -> ()
     }
 
@@ -1092,7 +1094,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     { new ICodeGenerationService with
         member x.TokenizeLine(file, i) =
           option {
-            let! (text, _) = forceFindOpenFileOrRead file |> Option.ofResult
+            let! (text) = forceFindOpenFileOrRead file |> Option.ofResult
 
             try
               let! line = text.Lines.GetLine(Position.mkPos i 0)
@@ -1104,7 +1106,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         member x.GetSymbolAtPosition(file, pos) =
           option {
             try
-              let! (text, _) = forceFindOpenFileOrRead file |> Option.ofResult
+              let! (text) = forceFindOpenFileOrRead file |> Option.ofResult
               let! line = tryGetLineStr pos text.Lines |> Option.ofResult
               return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
             with _ ->
@@ -1116,7 +1118,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             let! symbol = x.GetSymbolAtPosition(fileName, pos)
 
             if symbol.Kind = kind then
-              let! (text, _) = forceFindOpenFileOrRead fileName |> Option.ofResult
+              let! (text) = forceFindOpenFileOrRead fileName |> Option.ofResult
               let! line = tryGetLineStr pos text.Lines |> Option.ofResult
               let! tyRes = forceGetTypeCheckResults fileName |> Option.ofResult
               let symbolUse = tyRes.TryGetSymbolUse pos line
@@ -1133,7 +1135,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let tryGetParseResultsForFile filePath pos =
       asyncResult {
-        let! (file, _) = forceFindOpenFileOrRead filePath
+        let! (file) = forceFindOpenFileOrRead filePath
         let! lineStr = file.Lines |> tryGetLineStr pos
         and! tyRes = forceGetTypeCheckResults filePath
         return tyRes, lineStr, file.Lines
@@ -1784,7 +1786,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! (namedText2, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText2) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
           let! lineStr2 = namedText2.Lines |> tryGetLineStr pos |> Result.ofStringErr
 
@@ -1811,7 +1813,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             let getCompletions =
               asyncResult {
 
-                let! (namedText, _) = forceFindOpenFileOrRead filePath
+                let! (namedText) = forceFindOpenFileOrRead filePath
                 let! lineStr = namedText.Lines |> tryGetLineStr pos
 
                 let quickCheck =
@@ -2013,7 +2015,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
           let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
@@ -2070,7 +2072,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -2146,7 +2148,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -2172,7 +2174,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               let version =
                 forceFindOpenFileOrRead namedText.FileName
                 |> Option.ofResult
-                |> Option.bind (fun (f, _) -> f.Version)
+                |> Option.bind (fun (f) -> f.Version)
 
               { TextDocument =
                   { Uri = Path.FilePathToUri(UMX.untag namedText.FileName)
@@ -2201,7 +2203,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
@@ -2227,7 +2229,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
@@ -2251,7 +2253,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -2291,7 +2293,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -2323,7 +2325,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -2568,7 +2570,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let tryGetFileVersion filePath =
             forceFindOpenFileOrRead filePath
             |> Option.ofResult
-            |> Option.bind (fun (f, _) -> f.Version)
+            |> Option.bind (fun (f) -> f.Version)
 
           let clientCapabilities = clientCapabilities |> AVal.force
 
@@ -2947,7 +2949,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
@@ -3217,7 +3219,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
@@ -3246,7 +3248,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             FSharp.Compiler.Text.Position.mkPos (p.Position.Line) (p.Position.Character + 2)
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
 
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
@@ -3275,7 +3277,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
 
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
@@ -3589,7 +3591,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
           let! t = Commands.Help tyRes pos lineStr |> Result.ofCoreResponse
@@ -3613,7 +3615,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! (namedText, _) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
           lastFSharpDocumentationTypeCheck <- Some tyRes
