@@ -295,7 +295,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
     checkerLogger.info (
       Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName
-
     )
 
     match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
@@ -319,6 +318,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       |> Option.map (fun (pr, cr, version) ->
         checkerLogger.info (
           Log.setMessage "{opName} - got results - {version}"
+          >> Log.addContextDestructured "opName" opName
           >> Log.addContextDestructured "version" version
         )
 
