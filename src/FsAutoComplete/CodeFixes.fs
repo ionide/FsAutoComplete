@@ -1,5 +1,5 @@
-/// This module contains the logic for codefixes that FSAC surfaces, as well as conversion logic between
-/// compiler diagnostics and LSP diagnostics/code actions
+// This module contains the logic for codefixes that FSAC surfaces, as well as conversion logic between
+// compiler diagnostics and LSP diagnostics/code actions
 namespace FsAutoComplete.CodeFix
 
 open FsAutoComplete
