@@ -247,7 +247,7 @@ module Lexer =
         | StaticallyResolvedTypeParameter
         | Keyword -> true
         | _ -> false)
-      /// Gets the option if Some x, otherwise try to get another value
+      // Gets the option if Some x, otherwise try to get another value
 
       |> Option.orElseWith (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
       |> Option.map (fun token ->

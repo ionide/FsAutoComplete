@@ -254,7 +254,7 @@ module SymbolUse =
     | _ -> None
 
 [<AutoOpen>]
-/// Active patterns over `FSharpSymbol`.
+// Active patterns over `FSharpSymbol`.
 module SymbolPatterns =
 
   let private attributeSuffixLength = "Attribute".Length
