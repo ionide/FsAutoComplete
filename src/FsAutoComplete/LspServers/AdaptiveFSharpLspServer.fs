@@ -802,9 +802,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
   let getProjectOptionsForFile file =
-    openFilesToProjectOptions
-    |> AMap.tryFind file
-    |> AVal.bind (Option.defaultValue (AVal.constant []))
+    loadedProjectOptions
+    |> AVal.map (fun opts ->
+      opts
+      |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (file)))
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
@@ -952,16 +953,30 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return parseAndCheck
     }
 
-  /// Bypass Adaptive checking and tell the checker to check a file
-  let forceTypeCheck f =
-    async {
-      logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
-      let checker = checker |> AVal.force
-      let config = config |> AVal.force
+  let mutable typeCheckerToken = new CancellationTokenSource()
 
-      match findFileInOpenFiles f |> AVal.force, getProjectOptionsForFile f |> AVal.force |> List.tryHead with
-      | Some (fileInfo), Some (opts) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
-      | _, _ -> ()
+  let resetAndGetTypeCheckerToken () =
+    lock typeCheckerToken <| fun () ->
+      typeCheckerToken.Cancel()
+      typeCheckerToken.Dispose()
+      typeCheckerToken <- new CancellationTokenSource()
+      typeCheckerToken.Token
+
+  /// Bypass Adaptive checking and tell the checker to check a file
+  let forceTypeCheck f opts =
+    async {
+      try
+        logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" f)
+        let checker = checker |> AVal.force
+        let config = config |> AVal.force
+        let opts = opts |> Option.orElseWith(fun () -> getProjectOptionsForFile f |> AVal.force |> Seq.tryHead )
+
+        match forceFindOpenFileOrRead f, opts with
+        | Ok (fileInfo), Some opts -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+        | _, _ -> ()
+      with e ->
+
+        logger.warn (Log.setMessage "Forced Check error : {file}" >> Log.addContextDestructured "file" f >> Log.addExn e)
     }
 
   let openFilesToParsedResults =
@@ -1290,7 +1305,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   false))
       |> AVal.force
 
-    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = true
+    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = false
 
     if thisShouldBeASettingToTurnOffHoldingFilesInMemory || doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
@@ -1309,6 +1324,73 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContext "file" filePath
       )
 
+  let getDependentFilesForFile file =
+    let projects = getProjectOptionsForFile file |> AVal.force
+    projects
+    |> List.toArray
+    |> Array.collect(fun proj ->
+      logger.info (
+        Log.setMessage "Source Files: {sourceFiles}"
+        >> Log.addContextDestructured "sourceFiles" proj.SourceFiles
+      )
+      let idx = proj.SourceFiles |> Array.findIndex(fun x -> x = UMX.untag file)
+      proj.SourceFiles
+      |> Array.splitAt idx
+      |> snd
+      |> Array.map(fun sourceFile -> proj, sourceFile)
+    )
+    |> Array.distinct
+
+  let getDependentProjectsOfProjects ps =
+    let projectSnapshot = loadedProjectOptions |> AVal.force
+
+    let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
+
+    let currentPass = ResizeArray()
+    currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+
+    let mutable continueAlong = true
+
+    while continueAlong do
+      let dependents =
+        projectSnapshot
+        |> Seq.filter (fun p ->
+          p.ReferencedProjects
+          |> Seq.exists (fun r ->
+            match r.ProjectFilePath with
+            | None -> false
+            | Some p -> currentPass.Contains(p)))
+
+      if Seq.isEmpty dependents then
+        continueAlong <- false
+        currentPass.Clear()
+      else
+        for d in dependents do
+          allDependents.Add d |> ignore<bool>
+
+        currentPass.Clear()
+        currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+    Seq.toList allDependents
+
+  let forceCheckDepenenciesForFile filePath = async {
+    let dependentFiles =
+      getDependentFilesForFile filePath
+    let dependentProjects =
+      getProjectOptionsForFile filePath
+      |> AVal.force
+      |> getDependentProjectsOfProjects
+      |> List.toArray
+      |> Array.collect(fun proj ->
+          proj.SourceFiles
+          |> Array.map(fun sourceFile -> proj, sourceFile)
+      )
+    do!
+      Array.concat [|dependentFiles; dependentProjects|]
+      |> Array.map(fun (proj, file) -> forceTypeCheck (UMX.tag file) (Some proj))
+      |> Async.Sequential
+      |> Async.Ignore<unit array>
+  }
 
   let symbolUseWorkspace pos lineStr text tyRes =
 
@@ -1327,37 +1409,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force
       |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
-    let getDependentProjectsOfProjects ps =
-      let projectSnapshot = loadedProjectOptions |> AVal.force
-
-      let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
-
-      let currentPass = ResizeArray()
-      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-      let mutable continueAlong = true
-
-      while continueAlong do
-        let dependents =
-          projectSnapshot
-          |> Seq.filter (fun p ->
-            p.ReferencedProjects
-            |> Seq.exists (fun r ->
-              match r.ProjectFilePath with
-              | None -> false
-              | Some p -> currentPass.Contains(p)))
-
-        if Seq.isEmpty dependents then
-          continueAlong <- false
-          currentPass.Clear()
-        else
-          for d in dependents do
-            allDependents.Add d |> ignore<bool>
-
-          currentPass.Clear()
-          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-      Seq.toList allDependents
 
     let getDeclarationLocation (symUse, text) =
       SymbolLocation.getDeclarationLocation (
@@ -1700,8 +1751,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           async {
             do! Async.Sleep(10)
             forceGetTypeCheckResults filePath |> ignore
+            do! forceCheckDepenenciesForFile filePath
+
           }
-          |> Async.Start
+          |> Async.StartWithCT (resetAndGetTypeCheckerToken())
 
           return ()
         with e ->
@@ -1712,7 +1765,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           return ()
-
       }
 
     override __.TextDocumentDidSave(p) =
@@ -1741,28 +1793,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           transact (fun () ->
             updateOpenFiles file
             textChanges.Remove filePath |> ignore)
+          async {
+            do! Async.Sleep(10)
+            forceGetTypeCheckResults filePath |> ignore
+            do! lspClient.CodeLensRefresh()
+            do! forceCheckDepenenciesForFile filePath
 
-          let knownFiles =
-            openFilesWithChanges
-            |> AMap.force
-            |> Seq.sortWith (fun (name, _) (name2, _) ->
-              // Force the current document to be checked first
-              if name = filePath then -1 else compare name name2)
-
-          logger.info (
-            Log.setMessage "typechecking for files {files}"
-            >> Log.addContextDestructured "files" knownFiles
-          )
-
-          for (file, aFile) in knownFiles do
-            let (_, cts) = aFile |> AVal.force
-
-            do!
-              forceTypeCheck file
-              |> Async.withCancellationSafe (fun () -> cts.Token)
-              |> Async.Ignore<unit option>
-
-          do! lspClient.CodeLensRefresh()
+          }
+          |> Async.StartWithCT (resetAndGetTypeCheckerToken())
 
           return ()
         with e ->

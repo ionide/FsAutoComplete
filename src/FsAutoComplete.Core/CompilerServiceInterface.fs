@@ -32,7 +32,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   let entityCache = EntityCache()
 
   let mutable lastCheckResults: IMemoryCache =
-    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(20L)))
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(200L)))
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"

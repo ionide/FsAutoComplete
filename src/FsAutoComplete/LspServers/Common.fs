@@ -180,6 +180,8 @@ module Async =
         return None
     }
 
+  let StartWithCT ct work = Async.Start(work, ct)
+
   let RunSynchronouslyWithCT ct work =
     Async.RunSynchronously(work, cancellationToken = ct)
 
