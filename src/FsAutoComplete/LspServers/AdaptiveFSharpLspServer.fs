@@ -953,14 +953,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return parseAndCheck
     }
 
-  let mutable typeCheckerToken = new CancellationTokenSource()
 
-  let resetAndGetTypeCheckerToken () =
-    lock typeCheckerToken <| fun () ->
+  let typeCheckerTokens = new System.Collections.Concurrent.ConcurrentDictionary<string<LocalPath>,CancellationTokenSource>()
+
+  let getCTForFile filePath =
+    let add x = new CancellationTokenSource()
+    let update x (typeCheckerToken : CancellationTokenSource) =
       typeCheckerToken.Cancel()
-      typeCheckerToken.Dispose()
-      typeCheckerToken <- new CancellationTokenSource()
-      typeCheckerToken.Token
+      // typeCheckerToken.Dispose()
+      new CancellationTokenSource()
+    typeCheckerTokens.AddOrUpdate(filePath, add, update).Token
 
   /// Bypass Adaptive checking and tell the checker to check a file
   let forceTypeCheck f opts =
@@ -1387,9 +1389,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       )
     do!
       Array.concat [|dependentFiles; dependentProjects|]
-      |> Array.map(fun (proj, file) -> forceTypeCheck (UMX.tag file) (Some proj))
+      |> Array.map(fun (proj, file) ->
+        let file = UMX.tag file
+        let token = getCTForFile file
+        forceTypeCheck (file) (Some proj) |> Async.withCancellationSafe (fun () -> token)
+      )
       |> Async.Sequential
-      |> Async.Ignore<unit array>
+      |> Async.Ignore<unit option array>
   }
 
   let symbolUseWorkspace pos lineStr text tyRes =
@@ -1751,10 +1757,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           async {
             do! Async.Sleep(10)
             forceGetTypeCheckResults filePath |> ignore
-            do! forceCheckDepenenciesForFile filePath
+
+            //! for smaller projects this isn't really an issue type checking all dependants but bigger ones it is
+            //? Should we have a setting to enable/disable this?
+            // do! forceCheckDepenenciesForFile filePath
 
           }
-          |> Async.StartWithCT (resetAndGetTypeCheckerToken())
+          |> Async.Start
 
           return ()
         with e ->
@@ -1800,7 +1809,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             do! forceCheckDepenenciesForFile filePath
 
           }
-          |> Async.StartWithCT (resetAndGetTypeCheckerToken())
+          |> Async.Start
 
           return ()
         with e ->
