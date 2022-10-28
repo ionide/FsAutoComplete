@@ -293,9 +293,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   member _.TryGetLastCheckResultForFile(file: string<LocalPath>) =
     let opName = sprintf "TryGetLastCheckResultForFile - %A" file
 
-    checkerLogger.info (
-      Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName
-    )
+    checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
     match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
     | (true, v) -> Some v
