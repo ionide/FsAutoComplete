@@ -713,11 +713,9 @@ module Commands =
 
       let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
         projects
-        |> List.collect (fun p -> [
-            for file in p.SourceFiles do
-              yield findReferencesInFile (file, symbol, p, onFound)
-        ]
-          )
+        |> List.collect (fun p ->
+          [ for file in p.SourceFiles do
+              yield findReferencesInFile (file, symbol, p, onFound) ])
         |> Async.Parallel
         |> Async.map (Array.toList >> FsToolkit.ErrorHandling.List.sequenceResultM)
 
@@ -819,15 +817,11 @@ module Commands =
                   let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
                   symbolUseRanges.Add actualUseRange
           }
-          |> Async.map(fun x ->
+          |> Async.map (fun x ->
             match x with
             | Ok () -> ()
             | Error e ->
-              commandsLogger.info(
-                Log.setMessage "OnFound failed: {errpr}"
-                >> Log.addContextDestructured "error" e
-              )
-          )
+              commandsLogger.info (Log.setMessage "OnFound failed: {errpr}" >> Log.addContextDestructured "error" e))
 
         let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
 
