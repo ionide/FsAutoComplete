@@ -164,7 +164,7 @@ module AMap =
 
   /// Adaptively applies the given mapping function to all elements and returns a new amap containing the results.
   let mapAdaptiveValue mapper (map: amap<_, aval<'b>>) =
-    map |> AMap.mapA (fun k v -> AVal.map mapper v)
+    map |> AMap.mapA (fun k v -> AVal.map (mapper k) v)
 
 
 [<RequireQualifiedAccess>]
@@ -734,8 +734,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       resetCancellationToken filePath
       textChanges.AddOrElse(filePath, adder, updater))
 
+  let isFileOpen file =
+    openFilesA
+    |> AMap.tryFindA file
+    |> AVal.map(Option.isSome)
+
+  let findFileInOpenFiles' file =
+    openFilesWithChanges |> AMap.tryFindA file
+
   let findFileInOpenFiles file =
-    openFilesWithChanges |> AMap.tryFindA file |> AVal.mapOption fst
+    findFileInOpenFiles' file |> AVal.mapOption fst
 
   let forceFindOpenFile filePath =
     findFileInOpenFiles filePath |> AVal.force
@@ -779,33 +787,39 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let forceFindSourceText filePath =
     forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
 
+
+  let getProjectOptionsForFile' getFile (filePath : string<LocalPath>) =
+    aval {
+      if Utils.isAScript (UMX.untag filePath) then
+        let! checker = checker
+        and! tfmConfig = tfmConfig
+        and! openFile = getFile filePath
+        return
+          openFile
+          |> Option.bind(fun (info, cts : CancellationTokenSource) ->
+              let opts =
+                checker.GetProjectOptionsFromScript(filePath, info.Lines, tfmConfig)
+                |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
+              opts |> Option.iter (scriptFileProjectOptions.Trigger)
+              opts
+          )
+          |> Option.toList
+      else
+        let! opts = loadedProjectOptions
+        return
+            opts
+            |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (filePath))
+    }
+
+
+
+  let getProjectOptionsForFile (filePath : string<LocalPath>) = getProjectOptionsForFile' findFileInOpenFiles' filePath
+
   let openFilesToProjectOptions =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun (info, cts) ->
-      let file = info.Lines.FileName
-
-      if Utils.isAScript (UMX.untag file) then
-        (checker, tfmConfig)
-        ||> AVal.map2 (fun checker tfm ->
-          let opts =
-            checker.GetProjectOptionsFromScript(file, info.Lines, tfm)
-            |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
-
-          opts |> Option.iter (scriptFileProjectOptions.Trigger)
-          opts |> Option.map List.singleton |> Option.defaultValue List.empty)
-
-      else
-        loadedProjectOptions
-        |> AVal.map (fun opts ->
-          opts
-          |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (file))))
-
-
-  let getProjectOptionsForFile file =
-    loadedProjectOptions
-    |> AVal.map (fun opts ->
-      opts
-      |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (file)))
+    |> AMap.map (fun name file ->
+      getProjectOptionsForFile' (fun _ -> AVal.map Some file) name
+    )
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
@@ -964,6 +978,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       new CancellationTokenSource()
     typeCheckerTokens.AddOrUpdate(filePath, add, update).Token
 
+  let cancelCTForFile filePath = getCTForFile filePath |> ignore
+
   /// Bypass Adaptive checking and tell the checker to check a file
   let forceTypeCheck f opts =
     async {
@@ -983,7 +999,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesToParsedResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun (info, cts) ->
+    |> AMap.mapAdaptiveValue (fun _ (info, cts) ->
       aval {
         let file = info.Lines.FileName
 
@@ -1005,7 +1021,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesToRecentCheckedFilesResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun (info, _) ->
+    |> AMap.mapAdaptiveValue (fun  _ (info, _) ->
       aval {
         let file = info.Lines.FileName
         let! checker = checker
@@ -1021,7 +1037,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesToCheckedFilesResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun (info, cts) ->
+    |> AMap.mapAdaptiveValue (fun _ (info, cts) ->
       aval {
         let file = info.Lines.FileName
         let! checker = checker
@@ -1394,6 +1410,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let token = getCTForFile file
         forceTypeCheck (file) (Some proj) |> Async.withCancellationSafe (fun () -> token)
       )
+      |> Seq.toArray // Force iteration
       |> Async.Sequential
       |> Async.Ignore<unit option array>
   }
@@ -1703,11 +1720,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-          // We want to try to use the file system's datetime if available
-          let file = VolatileFile.Create(filePath, doc.Text, (Some doc.Version))
-          updateOpenFiles file
-          forceGetTypeCheckResults filePath |> ignore
-          return ()
+          if isFileOpen filePath |> AVal.force then
+            return()
+          else
+            // We want to try to use the file system's datetime if available
+            let file = VolatileFile.Create(filePath, doc.Text, (Some doc.Version))
+            updateOpenFiles file
+            forceGetTypeCheckResults filePath |> ignore
+            return ()
         with e ->
           logger.error (
             Log.setMessage "TextDocumentDidOpen Request Errored {p}"
@@ -1751,6 +1771,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
+          resetAllCancellationTokens ()
+          cancelCTForFile filePath
 
           updateTextchanges filePath p
 
