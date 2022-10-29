@@ -614,15 +614,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
-  let openFilesTokens =
-    cmap<string<LocalPath>, cval<CancellationTokenSource>> ()
+  let openFilesTokens = cmap<string<LocalPath>, cval<CancellationTokenSource>> ()
 
 
-  let openFilesTokensA =
-    openFilesTokens |> AMap.map (fun _ v -> v :> aval<_>)
+  let openFilesTokensA = openFilesTokens |> AMap.map (fun _ v -> v :> aval<_>)
 
-  let openFiles =
-    cmap<string<LocalPath>, cval<VolatileFile>> ()
+  let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
 
   let openFilesA = openFiles |> AMap.map (fun _ v -> v :> aval<_>)
 
@@ -698,7 +695,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       logger.info (
         Log.setMessage "Cancelling {filePath} - {version}"
         >> Log.addContextDestructured "filePath" fileVal
-        // >> Log.addContextDestructured "version" oldFile.Version
+      // >> Log.addContextDestructured "version" oldFile.Version
       )
 
       cts.Cancel()
@@ -712,17 +709,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     transact (fun () -> fileVal.Value <- new CancellationTokenSource())
 
   let resetCancellationToken filePath =
-    openFilesTokens |> AMap.tryFind filePath |> AVal.force |> Option.iter (resetFileVal)
+    openFilesTokens
+    |> AMap.tryFind filePath
+    |> AVal.force
+    |> Option.iter (resetFileVal)
 
-    let adder _ =
-      cval (new CancellationTokenSource())
+    let adder _ = cval (new CancellationTokenSource())
 
-    let updater _ (v: cval<_>) =
-      resetFileVal v
+    let updater _ (v: cval<_>) = resetFileVal v
 
-    transact (fun () ->
-      openFilesTokens.AddOrElse(filePath, adder, updater)
-      )
+    transact (fun () -> openFilesTokens.AddOrElse(filePath, adder, updater))
 
   let resetAllCancellationTokens () =
     let files = openFilesTokens |> AMap.force
@@ -731,16 +727,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       resetFileVal fileVal
 
   let updateOpenFiles (file: VolatileFile) =
-    let adder _ =
-      cval file
+    let adder _ = cval file
 
-    let updater _ (v: cval<_>) =
-      v.Value <- file
+    let updater _ (v: cval<_>) = v.Value <- file
 
     transact (fun () ->
       resetCancellationToken file.FileName
-      openFiles.AddOrElse(file.Lines.FileName, adder, updater)
-      )
+      openFiles.AddOrElse(file.Lines.FileName, adder, updater))
 
   let updateTextchanges filePath p =
     let adder _ = cset<_> [ p ]
@@ -756,8 +749,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let findFileInOpenFiles' file =
     openFilesWithChanges |> AMap.tryFindA file
 
-  let findFileInOpenFiles file =
-    findFileInOpenFiles' file
+  let findFileInOpenFiles file = findFileInOpenFiles' file
 
   let forceFindOpenFile filePath =
     findFileInOpenFiles filePath |> AVal.force
@@ -807,11 +799,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       if Utils.isAScript (UMX.untag filePath) then
         let! checker = checker
         and! tfmConfig = tfmConfig
-        and! (openFile : Option<_>) = getFile filePath
+        and! (openFile: Option<_>) = getFile filePath
         and! cts = openFilesTokensA |> AMap.tryFindA filePath
+
         return
           option {
-            let! (info : VolatileFile) = openFile
+            let! (info: VolatileFile) = openFile
             and! cts = cts
 
             let! opts =
@@ -928,12 +921,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
       // use cts = new CancellationTokenSource()
       // cts.CancelAfter(TimeSpan.FromSeconds(60.))
-      let simpleName = Path.GetFileName (UMX.untag file.Lines.FileName)
+      let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
       do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
+
       let! result =
         Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
         <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-        // |> Async.withCancellation cts.Token
+      // |> Async.withCancellation cts.Token
 
       do! progressReport.End($"Typechecked {file.Lines.FileName}")
       let! ct = Async.CancellationToken
@@ -1452,23 +1446,39 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let file = UMX.tag file
           let token = getCTForFile file
 
-          i, forceTypeCheck (file) (Some proj)
+          i,
+          forceTypeCheck (file) (Some proj)
           |> Async.withCancellationSafe (fun () -> token))
         |> Seq.toArray // Force iteration
 
       let progressToken = Guid.NewGuid().ToString("n")
       do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore
       let checksToPerformLength = checksToPerform.Length - 1
+
       let percentage numerator denominator =
-        if denominator = 0 then 0u
+        if denominator = 0 then
+          0u
         else
-          ( (float numerator) / (float denominator)) * 100.0 |> uint32
+          ((float numerator) / (float denominator)) * 100.0 |> uint32
 
       use progressReporter = new ServerProgressReport(lspClient)
-      do! progressReporter.Begin("Typechecking F# files",message = $"0/{checksToPerformLength} remaining" ,percentage = percentage 0 checksToPerformLength )
+
+      do!
+        progressReporter.Begin(
+          "Typechecking F# files",
+          message = $"0/{checksToPerformLength} remaining",
+          percentage = percentage 0 checksToPerformLength
+        )
+
       for (i, check) in checksToPerform do
 
-        do! progressReporter.Report("Typechecking F# files",message = $"{i}/{checksToPerformLength} remaining" , percentage = percentage i checksToPerformLength)
+        do!
+          progressReporter.Report(
+            "Typechecking F# files",
+            message = $"{i}/{checksToPerformLength} remaining",
+            percentage = percentage i checksToPerformLength
+          )
+
         do! check |> Async.Ignore
 
     }
