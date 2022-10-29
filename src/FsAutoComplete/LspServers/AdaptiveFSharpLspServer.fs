@@ -614,8 +614,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
+  let openFilesTokens =
+    cmap<string<LocalPath>, cval<CancellationTokenSource>> ()
+
+
+  let openFilesTokensA =
+    openFilesTokens |> AMap.map (fun _ v -> v :> aval<_>)
+
   let openFiles =
-    cmap<string<LocalPath>, cval<VolatileFile * CancellationTokenSource>> ()
+    cmap<string<LocalPath>, cval<VolatileFile>> ()
 
   let openFilesA = openFiles |> AMap.map (fun _ v -> v :> aval<_>)
 
@@ -623,16 +630,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let textChangesA = textChanges |> AMap.map (fun _ x -> x :> aset<_>)
 
-  let openFilesWithChanges: amap<_, aval<VolatileFile * CancellationTokenSource>> =
+  let openFilesWithChanges: amap<_, aval<VolatileFile>> =
 
     openFilesA
     |> AMap.map (fun filePath file ->
       aval {
-        let! (file, token) = file
+        let! (file) = file
         and! changes = textChangesA |> AMap.tryFind filePath
 
         match changes with
-        | None -> return (file, token)
+        | None -> return (file)
         | Some c ->
           let! ps = c |> ASet.toAVal
 
@@ -680,18 +687,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                   text)
 
-          return (file, token)
+          return (file)
       })
 
 
   let resetFileVal (fileVal: cval<_>) =
-    let (oldFile: VolatileFile, cts: CancellationTokenSource) = fileVal |> AVal.force
+    let cts: CancellationTokenSource = fileVal |> AVal.force
 
     try
       logger.info (
         Log.setMessage "Cancelling {filePath} - {version}"
-        >> Log.addContextDestructured "filePath" oldFile.FileName
-        >> Log.addContextDestructured "version" oldFile.Version
+        >> Log.addContextDestructured "filePath" fileVal
+        // >> Log.addContextDestructured "version" oldFile.Version
       )
 
       cts.Cancel()
@@ -702,28 +709,38 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       // ignore if already cancelled
       ()
 
-    transact (fun () -> fileVal.Value <- oldFile, new CancellationTokenSource())
+    transact (fun () -> fileVal.Value <- new CancellationTokenSource())
 
   let resetCancellationToken filePath =
-    openFiles |> AMap.tryFind filePath |> AVal.force |> Option.iter (resetFileVal)
+    openFilesTokens |> AMap.tryFind filePath |> AVal.force |> Option.iter (resetFileVal)
+
+    let adder _ =
+      cval (new CancellationTokenSource())
+
+    let updater _ (v: cval<_>) =
+      resetFileVal v
+
+    transact (fun () ->
+      openFilesTokens.AddOrElse(filePath, adder, updater)
+      )
 
   let resetAllCancellationTokens () =
-    let files = openFiles |> AMap.force
+    let files = openFilesTokens |> AMap.force
 
     for (_, fileVal) in files do
       resetFileVal fileVal
 
   let updateOpenFiles (file: VolatileFile) =
     let adder _ =
-      cval (file, new CancellationTokenSource())
+      cval file
 
     let updater _ (v: cval<_>) =
-      let (_, cts) = v |> AVal.force
-      v.Value <- file, cts
+      v.Value <- file
 
     transact (fun () ->
       resetCancellationToken file.FileName
-      openFiles.AddOrElse(file.Lines.FileName, adder, updater))
+      openFiles.AddOrElse(file.Lines.FileName, adder, updater)
+      )
 
   let updateTextchanges filePath p =
     let adder _ = cset<_> [ p ]
@@ -740,7 +757,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFilesWithChanges |> AMap.tryFindA file
 
   let findFileInOpenFiles file =
-    findFileInOpenFiles' file |> AVal.mapOption fst
+    findFileInOpenFiles' file
 
   let forceFindOpenFile filePath =
     findFileInOpenFiles filePath |> AVal.force
@@ -790,17 +807,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       if Utils.isAScript (UMX.untag filePath) then
         let! checker = checker
         and! tfmConfig = tfmConfig
-        and! openFile = getFile filePath
-
+        and! (openFile : Option<_>) = getFile filePath
+        and! cts = openFilesTokensA |> AMap.tryFindA filePath
         return
-          openFile
-          |> Option.bind (fun (info, cts: CancellationTokenSource) ->
-            let opts =
+          option {
+            let! (info : VolatileFile) = openFile
+            and! cts = cts
+
+            let! opts =
               checker.GetProjectOptionsFromScript(filePath, info.Lines, tfmConfig)
               |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
-            opts |> Option.iter (scriptFileProjectOptions.Trigger)
-            opts)
+            opts |> scriptFileProjectOptions.Trigger
+            return opts
+          }
           |> Option.toList
       else
         let! opts = loadedProjectOptions
@@ -1007,15 +1027,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesToParsedResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun _ (info, cts) ->
+    |> AMap.mapAdaptiveValue (fun _ (info) ->
       aval {
         let file = info.Lines.FileName
 
         let! checker = checker
         and! projectOptions = getProjectOptionsForFile file
+        and! cts = openFilesTokensA |> AMap.tryFindA file
 
-        match List.tryHead projectOptions with
-        | Some opts ->
+        match List.tryHead projectOptions, cts with
+        | Some opts, Some cts ->
           return
             Debug.measure "parseFile"
             <| fun () ->
@@ -1023,13 +1044,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                  checker.ParseFile(file, info.Lines, opts)
                  |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
-        | None -> return None
+        | _ -> return None
       })
 
 
   let openFilesToRecentCheckedFilesResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun _ (info, _) ->
+    |> AMap.mapAdaptiveValue (fun _ (info) ->
       aval {
         let file = info.Lines.FileName
         let! checker = checker
@@ -1040,20 +1061,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let parseAndCheck = checker.TryGetRecentCheckResultsForFile(file, opts, info.Lines)
 
           return parseAndCheck
-        | None -> return None
+        | _ -> return None
       })
 
   let openFilesToCheckedFilesResults =
     openFilesWithChanges
-    |> AMap.mapAdaptiveValue (fun _ (info, cts) ->
+    |> AMap.mapAdaptiveValue (fun _ (info) ->
       aval {
         let file = info.Lines.FileName
         let! checker = checker
         and! projectOptions = getProjectOptionsForFile file
         and! config = config
+        and! cts = openFilesTokensA |> AMap.tryFindA file
 
-        match List.tryHead projectOptions with
-        | Some (opts) ->
+        match List.tryHead projectOptions, cts with
+        | Some (opts), Some cts ->
           let parseAndCheck =
             Debug.measure $"parseAndCheckFile - {file}"
             <| fun () ->
@@ -1061,7 +1083,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                  |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
 
           return parseAndCheck
-        | None -> return None
+        | _ -> return None
       })
 
   let getParseResults filePath =
