@@ -409,11 +409,18 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
 
   let getContent (filename: string<LocalPath>) =
-    fsLogger.debug (Log.setMessage "Getting content of `{path}`" >> Log.addContext "path" filename)
+
 
     filename
     |> tryFindFile
-    |> Option.map (fun file -> file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
+    |> Option.map (fun file ->
+        fsLogger.debug (
+          Log.setMessage "Getting content of `{path}` - {hash}"
+          >> Log.addContext "path" filename
+          >> Log.addContext "hash" (file.Lines.GetHashCode())
+        )
+        file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes
+      )
 
   /// translation of the BCL's Windows logic for Path.IsPathRooted.
   ///
@@ -457,12 +464,18 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
 
       expanded
 
-    member _.GetLastWriteTimeShim(f: string) =
-      f
-      |> Utils.normalizePath
-      |> tryFindFile
-      |> Option.map (fun f -> f.Touched)
-      |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim f)
+    member _.GetLastWriteTimeShim(filename: string) =
+      let result =
+        filename
+        |> Utils.normalizePath
+        |> tryFindFile
+        |> Option.map (fun f -> f.Touched)
+        |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim filename)
+
+      fsLogger.debug (Log.setMessage "GetLastWriteTimeShim of `{path}` - {date} "
+      >> Log.addContext "path" filename
+      >> Log.addContext "date" result)
+      result
 
     member _.NormalizePathShim(f: string) = f |> Utils.normalizePath |> UMX.untag
 
