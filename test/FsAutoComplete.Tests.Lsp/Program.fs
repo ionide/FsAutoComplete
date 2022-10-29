@@ -50,8 +50,8 @@ let adaptiveLspServerFactory toolsPath workspaceLoaderFactory =
 
 let lspServers =
   [
-    // "FSharpLspServer", fsharpLspServerFactory
-    "AdaptiveLspServer", adaptiveLspServerFactory
+    "FSharpLspServer", fsharpLspServerFactory
+    // "AdaptiveLspServer", adaptiveLspServerFactory
     ]
 
 let mutable toolsPath =
