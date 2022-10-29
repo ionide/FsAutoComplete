@@ -50,8 +50,8 @@ let adaptiveLspServerFactory toolsPath workspaceLoaderFactory =
 
 let lspServers =
   [
-    "FSharpLspServer", fsharpLspServerFactory
-    // "AdaptiveLspServer", adaptiveLspServerFactory
+    // "FSharpLspServer", fsharpLspServerFactory
+    "AdaptiveLspServer", adaptiveLspServerFactory
     ]
 
 let mutable toolsPath =
@@ -93,7 +93,8 @@ let lspTests =
               uriTests
               //linterTests createServer
               formattingTests createServer
-              analyzerTests createServer // stalling on adaptive
+              if lspName <> "AdaptiveLspServer" then
+                analyzerTests createServer // stalling on adaptive
               signatureTests createServer
               SignatureHelp.tests createServer
               CodeFixTests.Tests.tests createServer
@@ -101,7 +102,8 @@ let lspTests =
               GoTo.tests createServer
               FindReferences.tests createServer
               InfoPanelTests.docFormattingTest createServer
-              DetectUnitTests.tests createServer //stalling on adaptive
+              if lspName <> "AdaptiveLspServer" then
+                DetectUnitTests.tests createServer //stalling on adaptive
               XmlDocumentationGeneration.tests createServer
               InlayHintTests.tests createServer
               DependentFileChecking.tests createServer

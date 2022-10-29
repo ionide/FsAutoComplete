@@ -913,7 +913,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               { Uri = filePath |> Path.LocalPathToUri
                 Version = version } }
     }
-
+  // Currently not working as well as it should
+  // let _ = new ProgressListener(lspClient)
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
       logger.info (
@@ -923,15 +924,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         >> Log.addContextDestructured "date" (file.Touched)
       )
 
+      use progressReport = new ServerProgressReport(lspClient)
       // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
-      use cts = new CancellationTokenSource()
-      cts.CancelAfter(TimeSpan.FromSeconds(60.))
-
+      // use cts = new CancellationTokenSource()
+      // cts.CancelAfter(TimeSpan.FromSeconds(60.))
+      let simpleName = Path.GetFileName (UMX.untag file.Lines.FileName)
+      do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
       let! result =
         Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
         <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-        |> Async.withCancellation cts.Token
+        // |> Async.withCancellation cts.Token
 
+      do! progressReport.End($"Typechecked {file.Lines.FileName}")
       let! ct = Async.CancellationToken
       notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName), ct)
 
@@ -1441,17 +1445,32 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> List.toArray
         |> Array.collect (fun proj -> proj.SourceFiles |> Array.map (fun sourceFile -> proj, sourceFile))
 
-      do!
+
+      let checksToPerform =
         Array.concat [| dependentFiles; dependentProjects |]
-        |> Array.map (fun (proj, file) ->
+        |> Array.mapi (fun i (proj, file) ->
           let file = UMX.tag file
           let token = getCTForFile file
 
-          forceTypeCheck (file) (Some proj)
+          i, forceTypeCheck (file) (Some proj)
           |> Async.withCancellationSafe (fun () -> token))
         |> Seq.toArray // Force iteration
-        |> Async.Sequential
-        |> Async.Ignore<unit option array>
+
+      let progressToken = Guid.NewGuid().ToString("n")
+      do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore
+      let checksToPerformLength = checksToPerform.Length - 1
+      let percentage numerator denominator =
+        if denominator = 0 then 0u
+        else
+          ( (float numerator) / (float denominator)) * 100.0 |> uint32
+
+      use progressReporter = new ServerProgressReport(lspClient)
+      do! progressReporter.Begin("Typechecking F# files",message = $"0/{checksToPerformLength} remaining" ,percentage = percentage 0 checksToPerformLength )
+      for (i, check) in checksToPerform do
+
+        do! progressReporter.Report("Typechecking F# files",message = $"{i}/{checksToPerformLength} remaining" , percentage = percentage i checksToPerformLength)
+        do! check |> Async.Ignore
+
     }
 
   let symbolUseWorkspace pos lineStr text tyRes =
@@ -1864,8 +1883,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           async {
             do! Async.Sleep(10)
             forceGetTypeCheckResults filePath |> ignore
-            do! lspClient.CodeLensRefresh()
             do! forceCheckDepenenciesForFile filePath
+            do! lspClient.CodeLensRefresh()
 
           }
           |> Async.Start
