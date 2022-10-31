@@ -51,13 +51,14 @@ let getDeclarationLocation
         getProjectOptions (taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
-        let projectsThatContainFile = projectsThatContainFile (taggedFilePath)
+        match projectsThatContainFile (taggedFilePath) with
+        | [] -> None
+        | projectsThatContainFile ->
+            let projectsThatDependOnContainingProjects =
+              getDependentProjectsOfProjects projectsThatContainFile
 
-        let projectsThatDependOnContainingProjects =
-          getDependentProjectsOfProjects projectsThatContainFile
-
-        match projectsThatDependOnContainingProjects with
-        | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
-        | projects ->
-          Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
+            match projectsThatDependOnContainingProjects with
+            | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
+            | projects ->
+              Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
     | None -> None
