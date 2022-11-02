@@ -595,7 +595,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
   let checker = lazy (FSharpChecker.Create())
   let getSymbolUses source cursor = async {
     let checker = checker.Value
-    let file = "/code.fsx"
+    let file = "code.fsx"
     let path: string<LocalPath> = UMX.tag file
     let source = NamedText(path, source)
 
@@ -717,7 +717,7 @@ match 2 with
 | Even -> ()
 | Odd -> ()
     """
-      let file = "/code.fsx"
+      let file = "code.fsx"
       let source = FSharp.Compiler.Text.SourceText.ofString (text)
       // decl
       let pos = FSharp.Compiler.Text.Position.mkPos 3 24
