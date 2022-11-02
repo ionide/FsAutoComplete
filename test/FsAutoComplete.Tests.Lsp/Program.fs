@@ -65,7 +65,8 @@ let lspTests =
         for (lspName, lspFactory) in lspServers do
           testList
             $"{loaderName}.{lspName}"
-            [ Templates.tests ()
+            [ 
+              Templates.tests ()
               let createServer () =
                 lspFactory toolsPath workspaceLoaderFactory
 
@@ -79,7 +80,6 @@ let lspTests =
               documentSymbolTest createServer
               Completion.autocompleteTest createServer
               Completion.autoOpenTests createServer
-              Rename.tests createServer
               foldingTests createServer
               tooltipTests createServer
               Highlighting.tests createServer
@@ -101,7 +101,10 @@ let lspTests =
               CodeFixTests.Tests.tests createServer
               Completion.tests createServer
               GoTo.tests createServer
+
               FindReferences.tests createServer
+              Rename.tests createServer
+
               InfoPanelTests.docFormattingTest createServer
               DetectUnitTests.tests createServer
               XmlDocumentationGeneration.tests createServer
@@ -110,16 +113,22 @@ let lspTests =
               UnusedDeclarationsTests.tests createServer
 
               ] ]
+      
+/// Tests that do not require a LSP server
+let generalTests = testList "general" [
+  testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+  InlayHintTests.explicitTypeInfoTests
+
+  FindReferences.tryFixupRangeTests
+]
 
 [<Tests>]
 let tests =
   testList
     "FSAC"
     [
-      testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
-      InlayHintTests.explicitTypeInfoTests
-
-      lspTests
+      generalTests
+      lspTests 
     ]
 
 

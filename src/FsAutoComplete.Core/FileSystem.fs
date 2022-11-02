@@ -30,6 +30,8 @@ module PositionExtensions =
     member x.IncColumn() = Position.mkPos x.Line (x.Column + 1)
     member x.IncColumn n = Position.mkPos x.Line (x.Column + n)
 
+    member inline p.WithColumn(col) =
+      Position.mkPos p.Line col
 
   let inline (|Pos|) (p: FSharp.Compiler.Text.Position) = p.Line, p.Column
 
@@ -58,6 +60,13 @@ module RangeExtensions =
     /// utility method to get the tagged filename for use in our state storage
     /// TODO: should we enforce this/use the Path members for normalization?
     member x.TaggedFileName: string<LocalPath> = UMX.tag x.FileName
+
+    member inline r.With(start, fin) =
+      Range.mkRange r.FileName start fin
+    member inline r.WithStart(start) =
+      Range.mkRange r.FileName start r.End
+    member inline r.WithEnd(fin) =
+      Range.mkRange r.FileName r.Start fin
 
 /// A copy of the StringText type from F#.Compiler.Text, which is private.
 /// Adds a UOM-typed filename to make range manipulation easier, as well as
@@ -520,3 +529,193 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
       actualFs.OpenFileForWriteShim(filePath, ?fileMode = fileMode, ?fileAccess = fileAccess, ?fileShare = fileShare)
 
     member _.AssemblyLoader = actualFs.AssemblyLoader
+
+module Symbol =
+  open FSharp.Compiler.Symbols
+
+  /// Declaration, Implementation, Signature
+  let getDeclarationLocations (symbol: FSharpSymbol) =
+    [|
+      symbol.DeclarationLocation
+      symbol.ImplementationLocation
+      symbol.SignatureLocation
+    |]
+    |> Array.choose id
+    |> Array.distinct
+    |> Array.map (fun r -> r.NormalizeDriveLetterCasing())
+
+  /// `true` if `range` is inside at least one `declLocation`
+  /// 
+  /// inside instead of equal: `declLocation` for Active Pattern Case is complete Active Pattern
+  ///   (`Even` -> declLoc: `|Even|Odd|`)
+  let isDeclaration (declLocations: Range[]) (range: Range) =
+    declLocations
+    |> Array.exists (fun l -> Range.rangeContainsRange l range)
+
+  /// For multiple `isDeclaration` calls: 
+  /// caches declaration locations (-> `getDeclarationLocations`) for multiple `isDeclaration` checks of same symbol
+  let getIsDeclaration (symbol: FSharpSymbol) =
+    let declLocs = getDeclarationLocations symbol
+    isDeclaration declLocs
+
+  /// returns `(declarations, usages)`
+  let partitionIntoDeclarationsAndUsages (symbol: FSharpSymbol) (ranges: Range[]) =
+    let isDeclaration = getIsDeclaration symbol
+    ranges
+    |> Array.partition isDeclaration
+
+module Tokenizer =
+  /// Extracts identifier by either looking at backticks or splitting at last `.`.  
+  /// Removes leading paren too (from operator with Module name: `MyModule.(+++`)
+  /// 
+  /// Note: doesn't handle operators containing `.`, 
+  ///       but does handle strange Active Patterns (like with linebreak)
+  ///
+  ///
+  /// based on: `dotnet/fsharp` `Tokenizer.fixupSpan`
+  let private tryFixupRangeBySplittingAtDot (range: Range, text: NamedText, includeBackticks: bool)
+    : Range voption
+    =
+    match text[range] with
+    | Error _ -> ValueNone
+    | Ok rangeText when rangeText.EndsWith "``" ->
+        // find matching opening backticks
+
+        // backticks cannot contain linebreaks -- even for Active Pattern:
+        // `(``|Even|Odd|``)` is ok, but ` (``|Even|\n    Odd|``) is not
+
+        let pre = rangeText.AsSpan(0, rangeText.Length - 2(*backticks*))
+        match pre.LastIndexOf("``") with
+        | -1 ->
+            // invalid identifier -> should not happen
+            range
+            |> ValueSome
+        | i when includeBackticks ->
+            let startCol = range.EndColumn - 2(*backticks*) - (pre.Length - i)
+            range.WithStart(range.End.WithColumn(startCol))
+            |> ValueSome
+        | i ->
+            let startCol = range.EndColumn - 2(*backticks*) - (pre.Length - i - 2(*backticks*))
+            let endCol = range.EndColumn - 2(*backticks*)
+            range.With(range.Start.WithColumn(startCol), range.End.WithColumn(endCol))
+            |> ValueSome
+    | Ok rangeText ->
+          // split at `.`
+          // identifier (after `.`) might contain linebreak -> multiple lines
+          // Note: Active Pattern cannot contain `.` -> split at `.` should be always valid because we handled backticks above
+          //    (`(|``Hello.world``|Odd|)` is not valid (neither is a type name with `.`: `type ``Hello.World`` = ...`))
+          match rangeText.LastIndexOf '.' with
+          | -1 -> 
+              range
+              |> ValueSome
+          | i ->
+              // there might be a `(` after `.`:
+              // `MyModule.(+++` (Note: closing paren in not part of FSharpSymbolUse.Range)
+              // and there might be additional newlines and spaces afterwards
+              let ident = rangeText.AsSpan(i+1(*.*))
+              let trimmedIdent = ident.TrimStart('(').TrimStart("\n\r ")
+              let inFrontOfIdent = ident.Length - trimmedIdent.Length
+
+              let pre = rangeText.AsSpan(0, i+1(*.*) + inFrontOfIdent)
+              // extract lines and columns
+              let nLines = pre.CountLines()
+              let lastLine = pre.LastLine()
+              let startLine = range.StartLine + (nLines - 1)
+              let startCol = 
+                match nLines with
+                | 1 -> range.StartColumn + lastLine.Length
+                | _ -> lastLine.Length
+              range.WithStart(Position.mkPos startLine startCol)
+              |> ValueSome
+
+  /// Cleans `FSharpSymbolUse.Range` (and similar) to only contain main (= last) identifier
+  /// * Removes leading Namespace, Module, Type: `System.String.IsNullOrEmpty` -> `IsNullOrEmpty`
+  /// * Removes leftover open paren: `Microsoft.FSharp.Core.Operators.(+` -> `+`
+  /// * keeps backticks based on `includeBackticks`  
+  ///   -> full identifier range with backticks, just identifier name (~`symbolNameCore`) without backticks
+  ///
+  /// returns `None` iff `range` isn't inside `text` -> `range` & `text` for different states  
+  let tryFixupRange(symbolNameCore: string, range: Range, text: NamedText, includeBackticks: bool)
+    : Range voption
+    =
+    // first: try match symbolNameCore in last line
+    // usually identifier cannot contain linebreak -> is in last line of range
+    // Exception: Active Pattern can span multiple lines: `(|Even|Odd|)` -> `(|Even|\n  Odd|)` is valid too
+
+    /// Range in last line with actual content (-> without indentation)
+    let contentRangeInLastLine (range: range, lastLineText: string) =
+      if range.StartLine = range.EndLine then
+        range
+      else
+        let text = lastLineText.AsSpan(0, range.EndColumn)
+        // remove leading indentation
+        let l = text.TrimStart(' ').Length
+        let startCol = (range.EndColumn - l)
+        range.WithStart(range.End.WithColumn(startCol))
+
+    match text.GetLine range.End with
+    | None -> ValueNone
+    | Some line ->
+        let contentRange = contentRangeInLastLine (range, line)
+        assert(contentRange.StartLine = contentRange.EndLine)
+        let content = line.AsSpan(contentRange.StartColumn, contentRange.EndColumn - contentRange.StartColumn)
+        match content.LastIndexOf symbolNameCore with
+        | -1 ->
+            // cases this can happens:
+            // * Active Pattern with linebreak: `(|Even|\n  Odd|)`  
+            //   -> spans multiple lines
+            // * Active Pattern with backticks in case: `(|``Even``|Odd|)`  
+            //   -> symbolNameCore doesn't match content
+            
+            // fall back to split at `.`
+
+            // differences between `tryFixupRangeBySplittingAtDot` and current function (in other match clause)
+            // * `tryFixupRangeBySplittingAtDot`:
+            //    * handles strange forms of Active Patterns (like linebreak)
+            //    * handles empty symbolName of Active Patterns Case (in decl)
+            //    * (allocates new string)
+            // * current function:
+            //    * handles operators containing `.`
+            //    * (uses Span)
+
+            tryFixupRangeBySplittingAtDot (range, text, includeBackticks)
+        // Extra Pattern: `| -1 | _ when symbolNameCore = "" -> ...` is incorrect -> `when` clause applies to both...
+        | _ when symbolNameCore = "" ->
+            // happens for:
+            // * Active Pattern case inside Active Pattern declaration
+            //   ```fsharp
+            //   let (|Even|Odd|) v =
+            //     if v % 2 = 0 then Even else Odd
+            //                       ^^^^
+            //   ```
+            //   -> `FSharpSymbolUse.Symbol.DisplayName` on marked position is empty
+            tryFixupRangeBySplittingAtDot (range, text, includeBackticks)
+        | i ->
+            let startCol = contentRange.StartColumn + i
+            let endCol = startCol + symbolNameCore.Length
+            if 
+              includeBackticks 
+              &&
+              // detect possible backticks around [startCol:endCol]
+              (
+                contentRange.StartColumn <= startCol - 2(*backticks*)
+                &&
+                endCol + 2(*backticks*) <= contentRange.EndColumn
+                &&
+                (
+                  let maybeBackticks = content.Slice(i-2, 2 + symbolNameCore.Length + 2)
+                  maybeBackticks.StartsWith("``") && maybeBackticks.EndsWith("``")
+                )
+              )
+            then
+              contentRange.With(
+                contentRange.Start.WithColumn(startCol-2(*backticks*)),
+                contentRange.End.WithColumn(endCol+2(*backticks*))
+              )
+              |> ValueSome
+            else
+              contentRange.With(
+                contentRange.Start.WithColumn(startCol),
+                contentRange.End.WithColumn(endCol)
+              )
+              |> ValueSome

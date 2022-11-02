@@ -24,6 +24,7 @@ open FSharp.Compiler.Symbols
 open System.Collections.Immutable
 open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
+open FSharp.Compiler.Syntax
 
 
 [<RequireQualifiedAccess>]
@@ -506,52 +507,6 @@ module Commands =
       | Error e -> return CoreResponse.ErrorRes e
     }
 
-  let renameSymbol
-    (symbolUseWorkspace:
-      _
-        -> _
-        -> _
-        -> _
-        -> Async<Result<Choice<Dictionary<string, range array> * Dictionary<string, range array>, Dictionary<string, range array>>, string>>)
-    (tryGetFileSource: _ -> Result<NamedText, _>)
-    (pos: Position)
-    (tyRes: ParseAndCheckResults)
-    (lineStr: LineStr)
-    (text: NamedText)
-    =
-    asyncResult {
-      match! symbolUseWorkspace pos lineStr text tyRes with
-      | Choice1Of2(declarationsByDocument, symbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
-
-        for (KeyValue(filePath, declUsages)) in declarationsByDocument do
-          let! text = tryGetFileSource (UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
-          | false, _ -> totalSetOfRanges[text] <- declUsages
-
-        for (KeyValue(filePath, symbolUses)) in symbolUsesByDocument do
-          let! text = tryGetFileSource (UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Array.ofSeq
-      | Choice2Of2(mixedDeclarationAndSymbolUsesByDocument) ->
-        let totalSetOfRanges = Dictionary<NamedText, _>()
-
-        for (KeyValue(filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
-          let! text = tryGetFileSource (UMX.tag filePath)
-
-          match totalSetOfRanges.TryGetValue(text) with
-          | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
-          | false, _ -> totalSetOfRanges[text] <- symbolUses
-
-        return totalSetOfRanges |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Array.ofSeq
-    }
-
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetToolTip pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
@@ -752,159 +707,297 @@ module Commands =
           Position = pos
           Scope = ic.ScopeKind }))
 
+  /// * `includeDeclarations`: 
+  ///   if `false` only returns usage locations and excludes declarations
+  ///   * Note: if `true` you can still separate usages and declarations from each other:
+  ///     ```fsharp
+  ///     let! (symbol, uses) = Commands.symbolUseWorkspace ... (*includeDeclarations:*)true ... pos lineStr text tyRes
+  ///     let (declarations, usages) = uses |> Symbol.partitionIntoDeclarationsAndUsages symbol
+  ///     ```
+  /// * `includeBackticks`: 
+  ///   if `true` returns ranges including existing backticks, otherwise without:  
+  ///   `let _ = ``my value`` + 42` 
+  ///   * `true`: ` ``my value`` `
+  ///   * `false`: `my value`
+  /// * `errorOnFailureToFixRange`:  
+  ///   Ranges returned by FCS don't just span the actual identifier, but include Namespace, Module, Type: `System.String.IsNullOrEmpty`  
+  ///   These ranges gets adjusted to include just the concrete identifier (`IsNullOrEmpty`)  
+  ///   * If `false` and range cannot be adjust, the original range gets used.  
+  ///     * When results are more important than always exact range  
+  ///       -> for "Find All References"
+  ///   * If `true`: Instead of using the source range, this function instead returns an Error  
+  ///     * When exact ranges are required
+  ///       -> for "Rename"
   let symbolUseWorkspace
-    getDeclarationLocation
-    (findReferencesForSymbolInFile: (string * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
-    getProjectOptionsForFsproj
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> FSharpProjectOptions option )
+    (getAllProjectOptions: unit -> FSharpProjectOptions seq)
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos lineStr (text: NamedText) (tyRes: ParseAndCheckResults)
+    : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>>
+    =
+    asyncResult {
+      let! symbolUse =
+        tyRes.TryGetSymbolUse pos lineStr
+        |> Result.ofOption (fun _ -> "No symbol")
+      let symbol = symbolUse.Symbol
+
+      let symbolNameCore = symbol.DisplayNameCore
+      let tryAdjustRanges (text: NamedText, ranges: seq<Range>) =
+        let ranges =
+          ranges
+          |> Seq.map (fun range -> range.NormalizeDriveLetterCasing())
+        if errorOnFailureToFixRange then
+          ranges
+          |> Seq.map (fun range ->
+              Tokenizer.tryFixupRange(symbolNameCore, range, text, includeBackticks)
+              |> Result.ofVOption (fun _ -> $"Cannot adjust range")
+          )
+          |> Seq.sequenceResultM
+          |> Result.map (Seq.toArray)
+        else
+          ranges
+          |> Seq.map (fun range ->
+              Tokenizer.tryFixupRange(symbolNameCore, range, text, includeBackticks)
+              |> ValueOption.defaultValue range
+          )
+          |> Seq.toArray
+          |> Ok
+
+      let declLoc = getDeclarationLocation (symbolUse, text)
+      match declLoc with
+        // local symbol -> all uses are inside `text`
+        // Note: declarations in script files are currently always local!
+      | Some SymbolDeclarationLocation.CurrentDocument ->
+          let! ct = Async.CancellationToken
+          let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+          let symbolUses: _ seq =
+            if includeDeclarations then
+              symbolUses
+            else
+              symbolUses
+              |> Seq.filter (fun u -> not u.IsFromDefinition)
+          let ranges =
+            symbolUses
+            |> Seq.map (fun u -> u.Range)
+          // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`
+          let! ranges = tryAdjustRanges (text, ranges)
+          let ranges = 
+            dict [
+              (text.FileName, Seq.toArray ranges)
+            ]
+
+          return (symbol, ranges)
+      | scope ->
+          let projectsToCheck =
+            match scope with
+            | Some (SymbolDeclarationLocation.Projects (projects, (*isLocalForProject=*)true)) ->
+                projects
+            | Some (SymbolDeclarationLocation.Projects (projects, (*isLocalForProject=*)false)) ->
+                [
+                  for project in projects do
+                    yield project
+
+                    yield!
+                      project.ReferencedProjects
+                      |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj)
+                ]
+                |> List.distinctBy (fun x -> x.ProjectFileName)
+            | _(*None*) ->
+                // symbol is declared external -> look through all F# projects
+                // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
+                getAllProjectOptions()
+                |> Seq.distinctBy (fun x -> x.ProjectFileName)
+                |> Seq.toList
+
+          let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
+            match tryGetFileSource file with
+            | Error _ when errorOnFailureToFixRange ->
+                Error $"Cannot get source of '{file}'"
+            | Error _ -> 
+                Ok ranges
+            | Ok text ->
+                tryAdjustRanges (text, ranges)
+                // Note: `Error` only possible when `errorOnFailureToFixRange`
+                |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+
+          let isDeclLocation = 
+            if includeDeclarations then
+              // not actually used
+              fun _ -> false
+            else
+              symbol |> Symbol.getIsDeclaration
+
+          let dict = Dictionary()
+          /// Adds References of `symbol` in `file` to `dict`
+          /// 
+          /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
+          let tryFindReferencesInFile (file: string<LocalPath>, project: FSharpProjectOptions) = 
+            async {
+              if dict.ContainsKey file then
+                return Ok ()
+              else
+                let! references = findReferencesForSymbolInFile(file, project, symbol)
+                let references =
+                  if includeDeclarations then
+                    references
+                  else
+                    references
+                    |> Seq.filter (not << isDeclLocation)
+
+                let references = references |> Seq.toArray
+
+                // Note: this check is important!
+                // otherwise `tryAdjustRanges` tries to get source for files like `AssemblyInfo.fs`
+                //   (which fails -> error if `errorOnFailureToFixRange`)
+                if references |> Array.isEmpty then
+                  return Ok ()
+                else
+                  let ranges = tryAdjustRanges(file, references)
+                  match ranges with
+                  | Error msg when errorOnFailureToFixRange ->
+                      return Error msg
+                  | Error _ ->
+                      dict.TryAdd(file, references) |> ignore
+                      return Ok ()
+                  | Ok ranges -> 
+                      dict.TryAdd(file, ranges) |> ignore
+                      return Ok ()
+            }
+            |> Async.map (fun x ->
+              match x with
+              | Ok () -> ()
+              | Error e ->
+                commandsLogger.info (Log.setMessage "OnFound failed: {errpr}" >> Log.addContextDestructured "error" e))
+
+          let iterProject (project: FSharpProjectOptions) = asyncResult {
+            //Enhancement: do in parallel?
+            for file in project.SourceFiles do
+              let file = UMX.tag file
+              do! tryFindReferencesInFile (file, project)
+          }
+          let iterProjects (projects: FSharpProjectOptions seq) = asyncResult {
+            for project in projects do
+              do! iterProject project
+          }
+          do! iterProjects projectsToCheck
+
+          return (symbol, dict)
+    }
+
+  /// Puts `newName` into backticks if necessary.
+  ///
+  ///
+  /// Also does very basic validation of `newName`:
+  /// * Must be valid operator name when operator
+  let adjustRenameSymbolNewName
+    pos
+    lineStr
+    (text: NamedText)
+    (tyRes: ParseAndCheckResults)
+    (newName: string)
+    =
+    asyncResult {
+      let! symbolUse = 
+        tyRes.TryGetSymbolUse pos lineStr
+        |> Result.ofOption (fun _ -> "Nothing to rename")
+
+      match symbolUse with
+      | SymbolUse.Operator _ ->
+          // different validation rules
+          // and no backticks for operator
+          if PrettyNaming.IsOperatorDisplayName newName then
+            return newName
+          else
+            return! Error $"'%s{newName}' is not a valid operator name!"
+      | _ ->
+        //ENHANCEMENT: more validation like check upper case start for types
+
+        // `IsIdentifierName` doesn't work with backticks
+        // -> only check if no backticks
+        let newBacktickedName =
+          newName
+          |> PrettyNaming.NormalizeIdentifierBackticks
+        if
+          newBacktickedName.StartsWith "``"
+          &&
+          newBacktickedName.EndsWith "``"
+        then
+          return newBacktickedName
+        elif PrettyNaming.IsIdentifierName newName then
+          return newName
+        else
+          return! Error $"'%s{newName}' is not a valid identifier name!"
+    }
+
+  /// `Error` if renaming is invalid at specified `pos`.  
+  /// Otherwise range of identifier at specified `pos`
+  /// 
+  /// Note: 
+  /// Rename for Active Patterns is disabled:  
+  /// Each case is its own identifier and complete Active Pattern name isn't correctly handled by FCS
+  /// 
+  /// Note: 
+  /// Rename for Active Pattern Cases is disabled:  
+  /// `SymbolUseWorkspace` returns ranges for ALL Cases of that Active Pattern instead of just the single case
+  let renameSymbolRange
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (includeBackticks: bool)
     pos
     lineStr
     (text: NamedText)
     (tyRes: ParseAndCheckResults)
     =
     asyncResult {
-
-      let findReferencesInFile
-        (
-          file,
-          symbol: FSharpSymbol,
-          project: FSharpProjectOptions,
-          onFound: range -> Async<unit>
-        ) =
-        asyncResult {
-          try
-            let! (references: Range seq) = findReferencesForSymbolInFile (file, project, symbol)
-
-            for reference in references do
-              do! onFound reference
-          with e ->
-            commandsLogger.error (
-              Log.setMessage "Failed findReferencesForSymbolInFile with {file}"
-              >> Log.addExn e
-              >> Log.addContextDestructured "file" file
-            // >> Log.addContextDestructured "symbol" symbol
-            )
-        }
-
-      let getSymbolUsesInProjects (symbol, projects: FSharpProjectOptions list, onFound) =
-        projects
-        |> List.collect (fun p ->
-          [ for file in p.SourceFiles do
-              yield findReferencesInFile (file, symbol, p, onFound) ])
-        |> Async.Parallel
-        |> Async.map (Array.toList >> FsToolkit.ErrorHandling.List.sequenceResultM)
-
-      let ranges (uses: FSharpSymbolUse[]) = uses |> Array.map (fun u -> u.Range)
-
-      let splitByDeclaration (uses: FSharpSymbolUse[]) =
-        uses |> Array.partition (fun u -> u.IsFromDefinition)
-
-      let toDict (symbolUseRanges: range[]) =
-        let dict = new System.Collections.Generic.Dictionary<string, range[]>()
-
-        symbolUseRanges
-        |> Array.collect (fun symbolUse ->
-          let file = symbolUse.FileName
-          // if we had a more complex project system (one that understood that the same file could be in multiple projects distinctly)
-          // then we'd need to map the files to some kind of document identfier and dedupe by that
-          // before issueing the renames. We don't, so this becomes very simple
-          [| file, symbolUse |])
-        |> Array.groupBy fst
-        |> Array.iter (fun (key, items) ->
-          let itemsSeq = items |> Array.map snd
-          dict[key] <- itemsSeq
-          ())
-
-        dict
-
-      let! symUse =
+      let! symbolUse = 
         tyRes.TryGetSymbolUse pos lineStr
-        |> Result.ofOption (fun _ -> "No result found")
+        |> Result.ofOption (fun _ -> "Nothing to rename")
+      let! _ =
+        // None: external symbol -> not under our control -> cannot rename
+        getDeclarationLocation (symbolUse, text)
+        |> Result.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
 
-      let symbol = symUse.Symbol
+      do!
+        match symbolUse with
+        | SymbolUse.ActivePattern _ ->
+            // Active Pattern is not supported:
+            // ```fsharp
+            // let (|Even|Odd|) v = if v % 2 = 0 then Even else Odd
+            // match 42 with 
+            // | Even -> ()
+            // | Odd -> ()
+            // let _ = (|Even|Odd|) 42
+            // ```
+            // ->
+            // `(|Even|Odd|)` at usage is own symbol -- NOT either Even or Odd (depending on pos)  
+            // -> Rename at that location renames complete `(|Even|Odd|)` -- but not individual usages
+            Error "Renaming of Active Patterns is not supported"
+        | SymbolUse.ActivePatternCase _ ->
+            // Active Pattern Case is not supported:
+            // ```fsharp
+            // let (|Even|Odd|) v = if v % 2 = 0 then Even else Odd
+            // match 42 with 
+            // | Even -> ()
+            // | Odd -> ()
+            // ```
+            // -> `Even` -> finds all occurrences of `Odd` too -> get renamed too...
+            //Enhancement: Handle: Exclude cases that don't match symbol at pos
+            Error "Renaming of Active Pattern Cases is currently not supported"
+        | _ ->
+            Ok ()
 
-      let! declLoc =
-        getDeclarationLocation (symUse, text)
-        |> Result.ofOption (fun _ -> "No declaration location found")
-
-      match declLoc with
-      | SymbolDeclarationLocation.CurrentDocument ->
-        let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-        let declarations, usages = splitByDeclaration symbolUses
-
-        let declarationRanges, usageRanges =
-          toDict (ranges declarations), toDict (ranges usages)
-
-        return Choice1Of2(declarationRanges, usageRanges)
-
-      | SymbolDeclarationLocation.Projects(projects, isInternalToProject) ->
-        let symbolUseRanges = ConcurrentBag<_>()
-        let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
-        let symbolFile = symbolRange.TaggedFileName
-
-        let! symbolFileText =
-          tryGetFileSource (symbolFile)
-          |> Result.mapError (fun e -> e + $"Unable to get file source for file '{symbolFile}'")
-
-        let! symbolText = symbolFileText.[symbolRange]
-        // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
-
-        let projects =
-          if isInternalToProject then
-            projects
-          else
-            [ for project in projects do
-                yield project
-
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> p.OutputFile |> getProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-
-        let onFound (symbolUseRange: range) =
-          asyncResult {
-            let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
-            let symbolFile = symbolUseRange.TaggedFileName
-            let! sourceText = tryGetFileSource (symbolFile)
-
-
-            let! sourceSpan =
-              sourceText.[symbolUseRange]
-              |> Result.mapError (fun e -> e + "Unable to get text for symbol use")
-
-            // There are two kinds of ranges we get back:
-            // * ranges that exactly match the short name of the symbol
-            // * ranges that are longer than the short name of the symbol,
-            //   typically because we're talking about some kind of fully-qualified usage
-            // For the latter, we need to adjust the reported range to just be the portion
-            // of the fully-qualfied text that is the symbol name.
-            if sourceSpan = symbolText then
-              symbolUseRanges.Add symbolUseRange
-            else
-              match sourceSpan.IndexOf(symbolText) with
-              | -1 -> ()
-              | n ->
-                if sourceSpan.Length >= n + symbolText.Length then
-                  let startPos = symbolUseRange.Start.IncColumn n
-                  let endPos = symbolUseRange.Start.IncColumn(n + symbolText.Length)
-
-                  let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
-                  symbolUseRanges.Add actualUseRange
-          }
-          |> Async.map (fun x ->
-            match x with
-            | Ok() -> ()
-            | Error e ->
-              commandsLogger.info (Log.setMessage "OnFound failed: {errpr}" >> Log.addContextDestructured "error" e))
-
-        let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
-
-        // Distinct these down because each TFM will produce a new 'project'.
-        // Unless guarded by a #if define, symbols with the same range will be added N times
-        let symbolUseRanges = symbolUseRanges.ToArray() |> Array.distinct
-
-        return Choice2Of2(toDict symbolUseRanges)
+      let symbol = symbolUse.Symbol
+      let nameCore = symbol.DisplayNameCore
+      let! range = 
+        Tokenizer.tryFixupRange (nameCore, symbolUse.Range, text, includeBackticks)
+        |> Result.ofVOption (fun _ -> "Cannot correctly isolate range of identifier")
+      
+      return (symbol, nameCore, range)
     }
 
   // given an enveloping range and the sub-ranges it overlaps, split out the enveloping range into a
@@ -1851,45 +1944,72 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           InsertText = formattedXmlDoc }
     }
 
-  member x.SymbolUseWorkspace(pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults) =
-    asyncResult {
+  member private x.GetDeclarationLocation (symbolUse, text) =
+    SymbolLocation.getDeclarationLocation (
+      symbolUse,
+      text,
+      state.GetProjectOptions,
+      state.ProjectController.ProjectsThatContainFile,
+      state.ProjectController.GetDependentProjectsOfProjects
+    )
+  member x.SymbolUseWorkspace(
+    pos, lineStr, text: NamedText, tyRes: ParseAndCheckResults, 
+    includeDeclarations: bool, includeBackticks: bool, errorOnFailureToFixRange: bool
+    ) = asyncResult {
+      let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
+        if File.Exists (UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          async {
+            match state.TryGetFileCheckerOptionsWithLines(file) with
+            | Error _ -> return [||]
+            | Ok (opts, source) ->
+                match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
+                | None -> return [||]
+                | Some tyRes ->
+                    let! ct = Async.CancellationToken
+                    let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile (symbol, ct)
+                    return 
+                      usages
+                      |> Seq.map (fun u -> u.Range)
+          }
 
-      let getDeclarationLocation (symUse, text) =
-        SymbolLocation.getDeclarationLocation (
-          symUse,
-          text,
-          state.GetProjectOptions,
-          state.ProjectController.ProjectsThatContainFile,
-          state.ProjectController.GetDependentProjectsOfProjects
-        )
+      let tryGetFileSource symbolFile = 
+        state.TryGetFileSource symbolFile
 
-      let findReferencesForSymbolInFile (file, project, symbol) =
-        checker.FindReferencesForSymbolInFile(file, project, symbol)
-
-      let tryGetFileSource symbolFile = state.TryGetFileSource(symbolFile)
-
-      let getProjectOptionsForFsproj fsprojPath =
-        state.ProjectController.GetProjectOptionsForFsproj fsprojPath
+      let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
+        state.ProjectController.GetProjectOptionsForFsproj (UMX.untag fsprojPath)
+      let getAllProjectOptions () = state.ProjectController.ProjectOptions |> Seq.map snd
 
       return!
         Commands.symbolUseWorkspace
-          getDeclarationLocation
+          x.GetDeclarationLocation
           findReferencesForSymbolInFile
           tryGetFileSource
-          getProjectOptionsForFsproj
+          tryGetProjectOptionsForFsproj
+          getAllProjectOptions
+          includeDeclarations
+          includeBackticks
+          errorOnFailureToFixRange
           pos
           lineStr
           text
           tyRes
     }
 
+  member x.RenameSymbolRange(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
+    Commands.renameSymbolRange x.GetDeclarationLocation false pos lineStr text tyRes
+
+  /// Also checks if rename is valid via `RenameSymbolRange` (-> `Error` -> invalid)
   member x.RenameSymbol(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     asyncResult {
-      let symbolUseWorkspace pos lineStr text tyRes =
-        x.SymbolUseWorkspace(pos, lineStr, text, tyRes)
+      // safety check: rename valid?
+      let! _ = x.RenameSymbolRange(pos, tyRes, lineStr, text)
 
-      let tryGetFileSource filePath = state.TryGetFileSource filePath
-      return! Commands.renameSymbol symbolUseWorkspace tryGetFileSource pos tyRes lineStr text
+      let! (_, usages) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
+      return usages
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
