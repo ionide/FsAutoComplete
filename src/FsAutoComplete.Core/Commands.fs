@@ -709,11 +709,8 @@ module Commands =
 
   /// * `includeDeclarations`: 
   ///   if `false` only returns usage locations and excludes declarations
-  ///   * Note: if `true` you can still separate usages and declarations from each other:
-  ///     ```fsharp
-  ///     let! (symbol, uses) = Commands.symbolUseWorkspace ... (*includeDeclarations:*)true ... pos lineStr text tyRes
-  ///     let (declarations, usages) = uses |> Symbol.partitionIntoDeclarationsAndUsages symbol
-  ///     ```
+  ///   * Note: if `true` you can still separate usages and declarations from each other
+  ///     with `Symbol.partitionInfoDeclarationsAndUsages`
   /// * `includeBackticks`: 
   ///   if `true` returns ranges including existing backticks, otherwise without:  
   ///   `let _ = ``my value`` + 42` 
