@@ -601,14 +601,19 @@ type ReadOnlySpanExtensions =
   [<Extension>]
   static member CountLines(text: ReadOnlySpan<char>) =
     let mutable count = 0
+
     for _ in text.EnumerateLines() do
       count <- count + 1
+
     count
+
   [<Extension>]
   static member LastLine(text: ReadOnlySpan<char>) =
     let mutable line = ReadOnlySpan.Empty
+
     for current in text.EnumerateLines() do
       line <- current
+
     line
 
 type ConcurrentDictionary<'key, 'value> with

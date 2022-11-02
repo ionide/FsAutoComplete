@@ -1597,15 +1597,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! (_, _, range) = 
+          let! (_, _, range) =
             commands.RenameSymbolRange(pos, tyRes, lineStr, lines)
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-          return
-            range
-            |> fcsRangeToLsp
-            |> PrepareRenameResult.Range
-            |> Some
+          return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
         })
 
     override x.TextDocumentRename(p: RenameParams) =
@@ -1621,7 +1617,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           let! newName =
             Commands.adjustRenameSymbolNewName pos lineStr lines tyRes p.NewName
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
-          
+
           let! ranges =
             commands.RenameSymbol(pos, tyRes, lineStr, lines)
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
@@ -1632,24 +1628,18 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
               let edits =
                 kvp.Value
                 |> Array.map (fun range ->
-                    let range = fcsRangeToLsp range
-                    { Range = range; NewText = newName }
-                )
-              
+                  let range = fcsRangeToLsp range
+                  { Range = range; NewText = newName })
+
               let file: string<LocalPath> = kvp.Key
+
               { TextDocument =
-                  {
-                    Uri = Path.FilePathToUri (UMX.untag file)
-                    Version = commands.TryGetFileVersion file
-                  }
-                Edits = edits
-              }
-            )
+                  { Uri = Path.FilePathToUri(UMX.untag file)
+                    Version = commands.TryGetFileVersion file }
+                Edits = edits })
             |> Array.ofSeq
 
-          return 
-            WorkspaceEdit.Create(documentChanges, clientCapabilities.Value)
-            |> Some
+          return WorkspaceEdit.Create(documentChanges, clientCapabilities.Value) |> Some
         })
 
     override x.TextDocumentDefinition(p) =
@@ -1706,9 +1696,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           let references =
-            usages.Values
-            |> Seq.collect (Seq.map fcsRangeToLspLocation)
-            |> Seq.toArray
+            usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
 
           return Some references
         })
@@ -2050,39 +2038,42 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
                 return { p with Command = Some cmd } |> Some |> success
             else
-              let! uses = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, (*includeDeclarations:*)false, true, false)
+              let! uses =
+                commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes (*includeDeclarations:*) , false, true, false)
+
               match uses with
               | Error msg ->
-                  logger.error (
-                    Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
-                    >> Log.addContextDestructured "file" file
-                    >> Log.addContextDestructured "error" msg
+                logger.error (
+                  Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+                  >> Log.addContextDestructured "file" file
+                  >> Log.addContextDestructured "error" msg
+                )
+
+                return
+                  success (
+                    Some
+                      { p with
+                          Command =
+                            Some
+                              { Title = ""
+                                Command = ""
+                                Arguments = None } }
                   )
-                  return 
-                    success (
-                      Some
-                        { p with
-                            Command =
-                              Some
-                                { Title = ""
-                                  Command = ""
-                                  Arguments = None } }
-                    )
 
               | Ok (_, uses) ->
-                  let allUses = uses.Values |> Array.concat
-                  let cmd =
-                    if Array.isEmpty allUses then
-                      { Title = "0 References"
-                        Command = ""
-                        Arguments = None }
-                    else
-                      { Title = $"%d{allUses.Length} References"
-                        Command = "fsharp.showReferences"
-                        Arguments = writePayload (file, pos, allUses) }
-                  
-                  return
-                    { p with Command = Some cmd } |> Some |> success
+                let allUses = uses.Values |> Array.concat
+
+                let cmd =
+                  if Array.isEmpty allUses then
+                    { Title = "0 References"
+                      Command = ""
+                      Arguments = None }
+                  else
+                    { Title = $"%d{allUses.Length} References"
+                      Command = "fsharp.showReferences"
+                      Arguments = writePayload (file, pos, allUses) }
+
+                return { p with Command = Some cmd } |> Some |> success
           })
         p
 

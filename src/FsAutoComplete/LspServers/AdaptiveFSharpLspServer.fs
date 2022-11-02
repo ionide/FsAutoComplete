@@ -1727,6 +1727,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let projectsThatContainFile file =
       getProjectOptionsForFile file |> AVal.force
+
     let getDependentProjectsOfProjects ps =
       let projectSnapshot = loadedProjectOptions |> AVal.force
 
@@ -1768,11 +1769,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       getDependentProjectsOfProjects
     )
 
-  let symbolUseWorkspace 
+  let symbolUseWorkspace
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
-    pos lineStr text tyRes
+    pos
+    lineStr
+    text
+    tyRes
     =
 
     let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
@@ -1784,10 +1788,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force
       |> List.tryFind (fun x -> x.ProjectFileName = UMX.untag file)
 
-    let getAllProjectOptions () : _ seq =
-      loadedProjectOptions
-      |> AVal.force
-      :> _
+    let getAllProjectOptions () : _ seq = loadedProjectOptions |> AVal.force :> _
 
     Commands.symbolUseWorkspace
       getDeclarationLocation
@@ -2630,15 +2631,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
         let! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
-        let! (_, _, range) = 
+        let! (_, _, range) =
           Commands.renameSymbolRange getDeclarationLocation false pos lineStr namedText.Lines tyRes
           |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-        return
-          range
-          |> fcsRangeToLsp
-          |> PrepareRenameResult.Range
-          |> Some
+        return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
       }
 
     override x.TextDocumentRename(p: RenameParams) =
@@ -2663,11 +2660,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
           // safety check: rename valid?
-          let! _ = 
+          let! _ =
             Commands.renameSymbolRange getDeclarationLocation false pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-          let! (_, ranges) = 
+          let! (_, ranges) =
             symbolUseWorkspace true true true pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
@@ -2677,30 +2674,24 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               let edits =
                 kvp.Value
                 |> Array.map (fun range ->
-                    let range = fcsRangeToLsp range
-                    { Range = range; NewText = newName }
-                )
-              
+                  let range = fcsRangeToLsp range
+                  { Range = range; NewText = newName })
+
               let file: string<LocalPath> = kvp.Key
+
               let version =
                 forceFindOpenFileOrRead file
                 |> Option.ofResult
                 |> Option.bind (fun (f) -> f.Version)
 
               { TextDocument =
-                  {
-                    Uri = Path.FilePathToUri (UMX.untag file)
-                    Version = version
-                  }
-                Edits = edits
-              }
-            )
+                  { Uri = Path.FilePathToUri(UMX.untag file)
+                    Version = version }
+                Edits = edits })
             |> Array.ofSeq
 
           let clientCapabilities = clientCapabilities |> AVal.force |> Option.get
-          return 
-            WorkspaceEdit.Create(documentChanges, clientCapabilities)
-            |> Some
+          return WorkspaceEdit.Create(documentChanges, clientCapabilities) |> Some
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -2795,9 +2786,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           let references =
-            usages.Values
-            |> Seq.collect (Seq.map fcsRangeToLspLocation)
-            |> Seq.toArray
+            usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
 
           return Some references
         with e ->
@@ -3295,38 +3284,40 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               let! uses =
                 symbolUseWorkspace false true false pos lineStr lines tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+
               match uses with
               | Error msg ->
-                  logger.error (
-                    Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
-                    >> Log.addContextDestructured "file" file
-                    >> Log.addContextDestructured "error" msg
-                  )
-                  return 
-                    success (
-                      Some
-                        { p with
-                            Command =
-                              Some
-                                { Title = ""
-                                  Command = ""
-                                  Arguments = None } }
-                    )
+                logger.error (
+                  Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+                  >> Log.addContextDestructured "file" file
+                  >> Log.addContextDestructured "error" msg
+                )
 
-              | Ok (_,uses) ->
-                  let allUses = uses.Values |> Array.concat
-                  let cmd =
-                    if Array.isEmpty allUses then
-                      { Title = "0 References"
-                        Command = ""
-                        Arguments = None }
-                    else
-                      { Title = $"%d{allUses.Length} References"
-                        Command = "fsharp.showReferences"
-                        Arguments = writePayload (file, pos, allUses) }
-                  
-                  return
-                    { p with Command = Some cmd } |> Some |> success
+                return
+                  success (
+                    Some
+                      { p with
+                          Command =
+                            Some
+                              { Title = ""
+                                Command = ""
+                                Arguments = None } }
+                  )
+
+              | Ok (_, uses) ->
+                let allUses = uses.Values |> Array.concat
+
+                let cmd =
+                  if Array.isEmpty allUses then
+                    { Title = "0 References"
+                      Command = ""
+                      Arguments = None }
+                  else
+                    { Title = $"%d{allUses.Length} References"
+                      Command = "fsharp.showReferences"
+                      Arguments = writePayload (file, pos, allUses) }
+
+                return { p with Command = Some cmd } |> Some |> success
             else
               logger.error (
                 Log.setMessage "CodeLensResolve - unknown type {file} - {typ}"

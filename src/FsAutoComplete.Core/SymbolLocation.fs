@@ -54,11 +54,11 @@ let getDeclarationLocation
         match projectsThatContainFile (taggedFilePath) with
         | [] -> None
         | projectsThatContainFile ->
-            let projectsThatDependOnContainingProjects =
-              getDependentProjectsOfProjects projectsThatContainFile
+          let projectsThatDependOnContainingProjects =
+            getDependentProjectsOfProjects projectsThatContainFile
 
-            match projectsThatDependOnContainingProjects with
-            | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
-            | projects ->
-              Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
+          match projectsThatDependOnContainingProjects with
+          | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
+          | projects ->
+            Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
     | None -> None

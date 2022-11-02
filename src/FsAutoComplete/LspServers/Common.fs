@@ -218,9 +218,7 @@ module Helpers =
   let defaultServerCapabilities =
     { ServerCapabilities.Default with
         HoverProvider = Some true
-        RenameProvider = Some(U2.Second {
-          PrepareProvider = Some true
-        })
+        RenameProvider = Some(U2.Second { PrepareProvider = Some true })
         DefinitionProvider = Some true
         TypeDefinitionProvider = Some true
         ImplementationProvider = Some true
