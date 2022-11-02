@@ -601,12 +601,14 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
 
     let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source)
     let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
-    Expect.isEmpty parseResults.Diagnostics "There should be no parse diags"
+    // Expect.isEmpty parseResults.Diagnostics "There should be no parse diags"
+    Expect.hasLength parseResults.Diagnostics 0 "There should be no parse diags"
     let checkResults =
       match checkResults with
       | FSharpCheckFileAnswer.Succeeded checkResults -> checkResults
       | _ -> failtest "CheckFile aborted"
-    Expect.isEmpty checkResults.Diagnostics "There should be no check diags"
+    // Expect.isEmpty checkResults.Diagnostics "There should be no check diags"
+    Expect.hasLength checkResults.Diagnostics 0 "There should be no check diags"
     let line = source.Lines[cursor.Line]
     let (col, idents) =
       Lexer.findIdents cursor.Character line SymbolLookupKind.Fuzzy
