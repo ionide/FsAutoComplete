@@ -2050,7 +2050,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
                 return { p with Command = Some cmd } |> Some |> success
             else
-              let! uses = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, true, true, false)
+              let! uses = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, (*includeDeclarations:*)false, true, false)
               match uses with
               | Error msg ->
                   logger.error (
@@ -2072,15 +2072,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
               | Ok (_, uses) ->
                   let allUses = uses.Values |> Array.concat
                   let cmd =
-                    if allUses.Length <= 1 then
-                      // 1 reference means that it's only the declaration, so it's actually 0 references
+                    if Array.isEmpty allUses then
                       { Title = "0 References"
                         Command = ""
                         Arguments = None }
                     else
-                      // multiple references means that the declaration _and_ the references are all present.
-                      // this is kind of a pain, so for now at least, we just return all of them
-                      { Title = $"%d{allUses.Length - 1} References"
+                      { Title = $"%d{allUses.Length} References"
                         Command = "fsharp.showReferences"
                         Arguments = writePayload (file, pos, allUses) }
                   

@@ -3293,7 +3293,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 return { p with Command = Some cmd } |> Some |> success
             elif typ = "reference" then
               let! uses =
-                symbolUseWorkspace true true false pos lineStr lines tyRes
+                symbolUseWorkspace false true false pos lineStr lines tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
               match uses with
               | Error msg ->
@@ -3316,15 +3316,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               | Ok (_,uses) ->
                   let allUses = uses.Values |> Array.concat
                   let cmd =
-                    if allUses.Length <= 1 then
-                      // 1 reference means that it's only the declaration, so it's actually 0 references
+                    if Array.isEmpty allUses then
                       { Title = "0 References"
                         Command = ""
                         Arguments = None }
                     else
-                      // multiple references means that the declaration _and_ the references are all present.
-                      // this is kind of a pain, so for now at least, we just return all of them
-                      { Title = $"%d{allUses.Length - 1} References"
+                      { Title = $"%d{allUses.Length} References"
                         Command = "fsharp.showReferences"
                         Arguments = writePayload (file, pos, allUses) }
                   
