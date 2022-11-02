@@ -128,30 +128,25 @@ let main args =
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
-  let parseLogLevel args =
-    let debugMarker = "--debug"
+  let parseLogLevel (args: string[]) =
     let logMarker = "--log="
 
     let logLevel =
-      if args |> Array.contains "--debug" then
-        Logging.LogLevel.Verbose
-      else
-        match
-          args
-          |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
-          |> Option.map (fun log -> log.Substring(logMarker.Length))
-        with
-        | Some ("warn" | "warning") -> Logging.LogLevel.Warn
-        | Some "error" -> Logging.LogLevel.Error
-        | Some "fatal" -> Logging.LogLevel.Fatal
-        | Some "info" -> Logging.LogLevel.Info
-        | Some "verbose" -> Logging.LogLevel.Verbose
-        | Some "debug" -> Logging.LogLevel.Debug
-        | _ -> Logging.LogLevel.Info
+      match
+        args
+        |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+        |> Option.map (fun log -> log.Substring(logMarker.Length))
+      with
+      | Some ("warn" | "warning") -> Logging.LogLevel.Warn
+      | Some "error" -> Logging.LogLevel.Error
+      | Some "fatal" -> Logging.LogLevel.Fatal
+      | Some "info" -> Logging.LogLevel.Info
+      | Some "verbose" -> Logging.LogLevel.Verbose
+      | Some "debug" -> Logging.LogLevel.Debug
+      | _ -> Logging.LogLevel.Info
 
     let args =
       args
-      |> Array.except [ debugMarker ]
       |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
 
     logLevel, args
