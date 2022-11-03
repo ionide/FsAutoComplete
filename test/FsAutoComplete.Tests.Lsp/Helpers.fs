@@ -357,7 +357,8 @@ let clientCaps: ClientCapabilities =
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
-    Experimental = None }
+    Experimental = None
+    Window = None }
 
 open Expecto.Logging
 open Expecto.Logging.Message

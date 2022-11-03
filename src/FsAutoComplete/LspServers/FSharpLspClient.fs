@@ -9,66 +9,6 @@ open FsAutoComplete.LspHelpers
 open System
 open System.Threading.Tasks
 
-type WorkDoneProgressCreateParams =
-  {
-    ///The token to be used to report progress.
-    token: string
-  }
-
-/// The base protocol offers also support to report progress in a generic fashion.
-/// This mechanism can be used to report any kind of progress including work done progress
-/// (usually used to report progress in the user interface using a progress bar) and partial
-/// result progress to support streaming of results.
-type ProgressParams<'T> =
-  {
-    /// The progress token provided by the client or server.
-    token: string
-    /// The progress data.
-    value: 'T
-  }
-
-type WorkDoneProgressKind =
-  | Begin
-  | Report
-  | End
-
-  override x.ToString() =
-    match x with
-    | Begin -> "begin"
-    | Report -> "report"
-    | End -> "end"
-
-type WorkDoneProgressEnd =
-  { kind: string; message: string option }
-
-type WorkDoneProgress =
-  { kind: string
-    title: string option
-    cancellable: bool option
-    message: string option
-    percentage: uint option }
-
-  static member WorkDoneProgressBegin(title, ?cancellable, ?message, ?percentage) =
-    { kind = WorkDoneProgressKind.Begin.ToString()
-      title = Some title
-      cancellable = cancellable
-      message = message
-      percentage = percentage }
-
-  static member WorkDoneProgressReport(title, ?cancellable, ?message, ?percentage) =
-    { kind = WorkDoneProgressKind.Report.ToString()
-      title = Some title
-      cancellable = cancellable
-      message = message
-      percentage = percentage }
-
-  static member WorkDoneProgressEnd(?message) =
-    { kind = WorkDoneProgressKind.End.ToString()
-      title = None
-      cancellable = None
-      message = message
-      percentage = None }
-
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
 
@@ -135,22 +75,25 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
       sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
     | _ -> async { return () }
 
-  member x.WorkDoneProgressCreate(token: string) =
-    let progressCreate: WorkDoneProgressCreateParams = { token = token }
-    sendServerRequest.Send "window/workDoneProgress/create" (box progressCreate)
+  override x.WorkDoneProgressCreate(token) =
+    match x.ClientCapabilities with
+    | Some { Window = Some { workDoneProgress = Some true} } ->
+      let progressCreate: WorkDoneProgressCreateParams = { token = token }
+      sendServerRequest.Send "window/workDoneProgress/create" (box progressCreate)
+    | _ -> async { return Error (JsonRpc.Error.InternalErrorMessage "workDoneProgress is disabled") }
 
-  member x.Progress(token, value) =
+  override x.Progress(token, value) =
     let progress: ProgressParams<_> = { token = token; value = value }
     sendServerNotification "$/progress" (box progress) |> Async.Ignore
 
 
 
-type ServerProgressReport(lspClient: FSharpLspClient, ?token: string) =
+type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 
   let mutable canReportProgress = true
   let mutable endSent = false
 
-  member val Token = defaultArg token (Guid.NewGuid().ToString())
+  member val Token = defaultArg token (ProgressToken.Second((Guid.NewGuid().ToString())))
 
   member x.Begin(title, ?cancellable, ?message, ?percentage) =
     async {
@@ -164,7 +107,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: string) =
         do!
           lspClient.Progress(
             x.Token,
-            WorkDoneProgress.WorkDoneProgressBegin(
+            WorkDoneProgressBegin.Create(
               title,
               ?cancellable = cancellable,
               ?message = message,
@@ -173,14 +116,13 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: string) =
           )
     }
 
-  member x.Report(title, ?cancellable, ?message, ?percentage) =
+  member x.Report(?cancellable, ?message, ?percentage) =
     async {
       if canReportProgress then
         do!
           lspClient.Progress(
             x.Token,
-            WorkDoneProgress.WorkDoneProgressReport(
-              title,
+            WorkDoneProgressReport.Create(
               ?cancellable = cancellable,
               ?message = message,
               ?percentage = percentage
@@ -191,7 +133,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: string) =
   member x.End(?message) =
     async {
       if canReportProgress && not endSent then
-        do! lspClient.Progress(x.Token, WorkDoneProgress.WorkDoneProgressEnd(?message = message))
+        do! lspClient.Progress(x.Token, WorkDoneProgressEnd.Create(?message = message))
         endSent <- true
     }
 
@@ -223,51 +165,23 @@ type ProgressListener(lspClient) =
 
     let message =
       match eventArgs.EventId with
-
-      // | 3 ->
-      //   let progressReport = new ServerProgressReport(lspClient)
-      //   inflightEvents.TryAdd(eventArgs.Task, progressReport) |> ignore
-      //   progressReport.
-      //   // Log.setMessage "Started {function}" >> logFunctionName eventArgs.Payload.[0]
-      // | 4 ->
-      //   match inflightEvents.TryRemove(eventArgs.Task) with
-      //   | true, startTime ->
-      //     let delta = DateTimeOffset.UtcNow - startTime
-
-      //     // Log.setMessage "Finished {function} in {seconds}"
-      //     // >> logFunctionName eventArgs.Payload.[0]
-      //     // >> Log.addContextDestructured "seconds" delta.TotalSeconds
-      //     ()
-      //   | false, _ ->
-      //     // Log.setMessage "Finished {function}" >> logFunctionName eventArgs.Payload.[0]
-      //     ()
       | 5 ->
         let progressReport = new ServerProgressReport(lspClient)
         let message = eventArgs.Payload.[0] |> string
-
+        let fileName = IO.Path.GetFileName message
         if inflightEvents.TryAdd(eventArgs.Task, progressReport) then
-          progressReport.Begin("Typechecking", message = message) |> Async.Start
-
+          progressReport.Begin($"Dependent Typecheck {fileName}", message = message) |> Async.Start
       | 6 ->
         let message = eventArgs.Payload.[0] |> string
-
         match inflightEvents.TryRemove(eventArgs.Task) with
         | true, report ->
           report.End($"Finished {message}") |> Async.Start
           dispose report
-          // Log.setMessage "Finished {function}: {message} ({seconds} seconds)"
-          // >> logFunctionName eventArgs.Payload.[1]
-          // >> Log.addContextDestructured "seconds" delta.TotalSeconds
-          // >> Log.addContextDestructured "message" (eventArgs.Payload.[0])
           ()
         | false, _ ->
 
           ()
       | other -> ()
-    // Log.setMessage "Unknown event {name}({id}) with payload {payload}"
-    // >> Log.addContext "id" other
-    // >> Log.addContextDestructured "name" eventArgs.EventName
-    // >> Log.addContextDestructured "payload" (eventArgs.Payload |> Seq.toList)
 
     message
 

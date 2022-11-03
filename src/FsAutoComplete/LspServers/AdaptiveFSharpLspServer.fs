@@ -151,7 +151,7 @@ module AMap =
     }
 
   /// Adaptively looks up the given key in the map and binds the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindA key (map: amap<_, aval<'b>>) =
+  let tryFindA key (map: amap<_, #aval<'b>>) =
     aval {
       let! item = AMap.tryFind key map
 
@@ -616,12 +616,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesTokens = cmap<string<LocalPath>, cval<CancellationTokenSource>> ()
 
-
-  let openFilesTokensA = openFilesTokens |> AMap.map (fun _ v -> v :> aval<_>)
-
   let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
-
-  let openFilesA = openFiles |> AMap.map (fun _ v -> v :> aval<_>)
 
   let textChanges = cmap<string<LocalPath>, cset<DidChangeTextDocumentParams>> ()
 
@@ -629,7 +624,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let openFilesWithChanges: amap<_, aval<VolatileFile>> =
 
-    openFilesA
+    openFiles
     |> AMap.map (fun filePath file ->
       aval {
         let! (file) = file
@@ -744,7 +739,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       textChanges.AddOrElse(filePath, adder, updater))
 
   let isFileOpen file =
-    openFilesA |> AMap.tryFindA file |> AVal.map (Option.isSome)
+    openFiles |> AMap.tryFindA file |> AVal.map (Option.isSome)
 
   let findFileInOpenFiles' file =
     openFilesWithChanges |> AMap.tryFindA file
@@ -800,7 +795,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let! checker = checker
         and! tfmConfig = tfmConfig
         and! (openFile: Option<_>) = getFile filePath
-        and! cts = openFilesTokensA |> AMap.tryFindA filePath
+        and! cts = openFilesTokens |> AMap.tryFindA filePath
 
         return
           option {
@@ -907,80 +902,80 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Version = version } }
     }
   // Currently not working as well as it should
-  // let _ = new ProgressListener(lspClient)
+  let _ = new ProgressListener(lspClient)
+
+  let semaphore = new SemaphoreSlim(1,1)
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
-      logger.info (
-        Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
-        >> Log.addContextDestructured "file" file.Lines.FileName
-        >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
-        >> Log.addContextDestructured "date" (file.Touched)
-      )
-
-      use progressReport = new ServerProgressReport(lspClient)
-      // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
-      // use cts = new CancellationTokenSource()
-      // cts.CancelAfter(TimeSpan.FromSeconds(60.))
-      let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
-      do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
-
-      let! result =
-        Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
-        <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-      // |> Async.withCancellation cts.Token
-
-      do! progressReport.End($"Typechecked {file.Lines.FileName}")
-      let! ct = Async.CancellationToken
-      notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName), ct)
-
-      match result with
-      | Error e ->
+      try
         logger.info (
-          Log.setMessage "Typecheck failed for {file} with {error}"
-          >> Log.addContextDestructured "file" file
-          >> Log.addContextDestructured "error" e
-        )
-
-        return failwith e
-      | Ok parseAndCheck ->
-        logger.info (
-          Log.setMessage "Typecheck completed successfully for {file}"
+          Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
           >> Log.addContextDestructured "file" file.Lines.FileName
+          >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
+          >> Log.addContextDestructured "date" (file.Touched)
         )
 
-        Async.Start(
-          async {
-            let checkErrors = parseAndCheck.GetParseResults.Diagnostics
-            let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
+        use progressReport = new ServerProgressReport(lspClient)
 
-            let errors =
-              Array.append checkErrors parseErrors
-              |> Array.distinctBy (fun e ->
-                e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
+        let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
+        do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
 
-            notifications.Trigger(NotificationEvent.ParseError(errors, file.Lines.FileName), ct)
-          },
-          ct
-        )
 
-        Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
+        let! ct = Async.CancellationToken
+        do! semaphore.WaitAsync(ct) |> Async.AwaitTask
 
-        Async.Start(
-          async {
-            // HACK: LargeObjectHeap gets fragmented easily for really large files, which F# can easily have.
-            // Yes this seems excessive doing this every time we type check but it's the best current kludge.
-            // It maybe better to set default environment variables from https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector
-            // instead of manually calling this, specifically the `DOTNET_GCConserveMemory` variable.
-            System.Runtime.GCSettings.LargeObjectHeapCompactionMode <-
-              System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce
 
-          // GC.Collect()
-          // GC.WaitForPendingFinalizers()
-          },
-          ct
-        )
+        // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
+        use cts = new CancellationTokenSource()
+        cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
-        return parseAndCheck
+        let! result =
+          Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
+          <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
+        |> Async.withCancellation cts.Token
+
+        do! progressReport.End($"Typechecked {file.Lines.FileName}")
+
+        notifications.Trigger(NotificationEvent.FileParsed(file.Lines.FileName), ct)
+
+        match result with
+        | Error e ->
+          logger.info (
+            Log.setMessage "Typecheck failed for {file} with {error}"
+            >> Log.addContextDestructured "file" file
+            >> Log.addContextDestructured "error" e
+          )
+
+          return failwith e
+        | Ok parseAndCheck ->
+          logger.info (
+            Log.setMessage "Typecheck completed successfully for {file}"
+            >> Log.addContextDestructured "file" file.Lines.FileName
+          )
+
+          Async.Start(
+            async {
+              let checkErrors = parseAndCheck.GetParseResults.Diagnostics
+              let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
+
+              let errors =
+                Array.append checkErrors parseErrors
+                |> Array.distinctBy (fun e ->
+                  e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
+
+              notifications.Trigger(NotificationEvent.ParseError(errors, file.Lines.FileName), ct)
+            },
+            ct
+          )
+
+          Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
+
+          return parseAndCheck
+        finally
+          try
+            semaphore.Release() |> ignore
+          with
+          | :? SemaphoreFullException -> ()
     }
 
 
@@ -992,7 +987,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let update x (typeCheckerToken: CancellationTokenSource) =
       typeCheckerToken.Cancel()
-      // typeCheckerToken.Dispose()
       new CancellationTokenSource()
 
     typeCheckerTokens.AddOrUpdate(filePath, add, update).Token
@@ -1031,7 +1025,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         let! checker = checker
         and! projectOptions = getProjectOptionsForFile file
-        and! cts = openFilesTokensA |> AMap.tryFindA file
+        and! cts = openFilesTokens |> AMap.tryFindA file
 
         match List.tryHead projectOptions, cts with
         | Some opts, Some cts ->
@@ -1070,7 +1064,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let! checker = checker
         and! projectOptions = getProjectOptionsForFile file
         and! config = config
-        and! cts = openFilesTokensA |> AMap.tryFindA file
+        and! cts = openFilesTokens |> AMap.tryFindA file
 
         match List.tryHead projectOptions, cts with
         | Some (opts), Some cts ->
@@ -1120,7 +1114,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       | Error e when tryAgain ->
         // mark this file as outdated to force typecheck
         transact (fun () ->
-          (openFilesA |> AMap.tryFind filePath |> AVal.force)
+          (openFiles |> AMap.tryFind filePath |> AVal.force)
           |> Option.iter (fun x -> x.MarkOutdated()))
 
         doIt false
@@ -1354,7 +1348,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   false))
       |> AVal.force
 
-    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = false
+    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = true
 
     if
       thisShouldBeASettingToTurnOffHoldingFilesInMemory
@@ -1368,6 +1362,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       transact (fun () ->
         openFiles.Remove filePath |> ignore
+        openFilesTokens.Remove filePath |> ignore
         textChanges.Remove filePath |> ignore)
 
       diagnosticCollections.ClearFor(uri)
@@ -1442,6 +1437,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       let checksToPerform =
         Array.concat [| dependentFiles; dependentProjects |]
+        |> Array.filter(fun (_,file) -> file.Contains "AssemblyInfo.fs" |> not)
         |> Array.mapi (fun i (proj, file) ->
           let file = UMX.tag file
           let token = getCTForFile file
@@ -1451,7 +1447,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Async.withCancellationSafe (fun () -> token))
         |> Seq.toArray // Force iteration
 
-      let progressToken = Guid.NewGuid().ToString("n")
+      let progressToken = ProgressToken.Second (Guid.NewGuid().ToString())
       do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore
       let checksToPerformLength = checksToPerform.Length - 1
 
@@ -1474,7 +1470,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         do!
           progressReporter.Report(
-            "Typechecking F# files",
             message = $"{i}/{checksToPerformLength} remaining",
             percentage = percentage i checksToPerformLength
           )
@@ -1735,6 +1730,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           transact (fun () ->
             rootPath.Value <- actualRootPath
             clientCapabilities.Value <- p.Capabilities
+            lspClient.ClientCapabilities <- p.Capabilities
             updateConfig c
             workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
 
@@ -4009,6 +4005,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
     override x.Dispose() = disposables.Dispose()
+    member this.WorkDoneProgessCancel(token: ProgressToken): Async<unit> =
+        async {
+          logger.info (
+            Log.setMessage "WorkDoneProgessCancel Request: {parms}"
+            >> Log.addContextDestructured "parms" token
+          )
+          return ()
+        }
 
 module AdaptiveFSharpLspServer =
 
