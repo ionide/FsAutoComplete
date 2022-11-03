@@ -599,7 +599,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
     let path: string<LocalPath> = UMX.tag file
     let source = NamedText(path, source)
 
-    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source)
+    let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source, assumeDotNetFramework=false)
     let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
     // Expect.isEmpty parseResults.Diagnostics "There should be no parse diags"
     Expect.hasLength parseResults.Diagnostics 0 "There should be no parse diags"
