@@ -901,8 +901,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               { Uri = filePath |> Path.LocalPathToUri
                 Version = version } }
     }
-  // Currently not working as well as it should
-  let _ = new ProgressListener(lspClient)
+
 
   let semaphore = new SemaphoreSlim(1,1)
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
@@ -914,7 +913,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
           >> Log.addContextDestructured "date" (file.Touched)
         )
-
+        use  _ = new ProgressListener(lspClient)
         use progressReport = new ServerProgressReport(lspClient)
 
         let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
@@ -1348,23 +1347,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   false))
       |> AVal.force
 
-    let thisShouldBeASettingToTurnOffHoldingFilesInMemory = true
+    transact (fun () ->
+      openFiles.Remove filePath |> ignore
+      openFilesTokens.Remove filePath |> ignore
+      textChanges.Remove filePath |> ignore)
 
-    if
-      thisShouldBeASettingToTurnOffHoldingFilesInMemory
-      || doesNotExist filePath
+    if doesNotExist filePath
       || isOutsideWorkspace filePath
     then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
       )
-
-      transact (fun () ->
-        openFiles.Remove filePath |> ignore
-        openFilesTokens.Remove filePath |> ignore
-        textChanges.Remove filePath |> ignore)
-
       diagnosticCollections.ClearFor(uri)
     else
       logger.info (
