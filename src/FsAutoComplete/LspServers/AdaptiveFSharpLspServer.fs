@@ -464,6 +464,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let rootPath = cval<string option> None
 
+
+  let binlogConfig =
+    aval {
+      let! config = config
+      and! rootPath = rootPath
+      match config.GenerateBinlog, rootPath with
+      | _, None
+      | false, _ -> return Ionide.ProjInfo.BinaryLogGeneration.Off
+      | true, Some rootPath ->
+        return Ionide.ProjInfo.BinaryLogGeneration.Within(DirectoryInfo(Path.Combine(rootPath, ".ionide")))
+    }
+
+
+
   // JB:TODO Adding to solution
   // JB:TODO Adding new project file not yet added to solution
   let workspacePaths: ChangeableValue<WorkspaceChosen> =
@@ -514,6 +528,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         | AdaptiveWorkspaceChosen.Sln _ -> return raise (NotImplementedException())
         | AdaptiveWorkspaceChosen.Directory _ -> return raise (NotImplementedException())
         | AdaptiveWorkspaceChosen.Projs projects ->
+          let! binlogConfig = binlogConfig
           let! projectOptions =
             projects
             |> AVal.mapWithAdditionalDependenies (fun projects ->
@@ -526,7 +541,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 notifications.Trigger(not, CancellationToken.None))
 
               let projectOptions =
-                loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList)
+                loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList,[], binlogConfig)
                 |> Seq.toList
 
               for p in projectOptions do
