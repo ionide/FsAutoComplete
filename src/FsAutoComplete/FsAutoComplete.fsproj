@@ -45,7 +45,7 @@
     <PackageType>DotnetTool</PackageType>
     <!-- This rollforward enables us to actually run on the .net 6 runtime without
          retargeting the whole app, minimizing packaged binary size. -->
-    <RollForward>Major</RollForward>
+    <RollForward>LatestMajor</RollForward>
     <!-- workaround for not being able to have p2p dependencies in tool output dir https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
