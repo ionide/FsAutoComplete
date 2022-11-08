@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.58.2] - 2022-11-07
+
+### Fixed
+
+- [Fix reference resolution when there are refassemblies involved](https://github.com/fsharp/FsAutoComplete/pull/1038) (thanks @theangrybyrd!)
+
 ## [0.58.1] - 2022-10-19
 
 ### Fixed
