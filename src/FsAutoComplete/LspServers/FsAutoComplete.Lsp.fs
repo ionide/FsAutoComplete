@@ -2839,8 +2839,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     override x.Dispose() =
       (x :> ILspServer).Shutdown() |> Async.Start
-    member this.WorkDoneProgessCancel(arg1: ProgressToken): Async<unit> =
-        failwith "Not Implemented"
+
+    member this.WorkDoneProgessCancel(arg1: ProgressToken) : Async<unit> = failwith "Not Implemented"
 
 module FSharpLspServer =
 

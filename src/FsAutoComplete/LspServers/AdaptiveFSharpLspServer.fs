@@ -469,6 +469,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     aval {
       let! config = config
       and! rootPath = rootPath
+
       match config.GenerateBinlog, rootPath with
       | _, None
       | false, _ -> return Ionide.ProjInfo.BinaryLogGeneration.Off
@@ -529,6 +530,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         | AdaptiveWorkspaceChosen.Directory _ -> return raise (NotImplementedException())
         | AdaptiveWorkspaceChosen.Projs projects ->
           let! binlogConfig = binlogConfig
+
           let! projectOptions =
             projects
             |> AVal.mapWithAdditionalDependenies (fun projects ->
@@ -541,7 +543,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 notifications.Trigger(not, CancellationToken.None))
 
               let projectOptions =
-                loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList,[], binlogConfig)
+                loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
                 |> Seq.toList
 
               for p in projectOptions do
@@ -918,7 +920,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
 
-  let semaphore = new SemaphoreSlim(1,1)
+  let semaphore = new SemaphoreSlim(1, 1)
+
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
       try
@@ -928,7 +931,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           >> Log.addContextDestructured "hash" (file.Lines.GetHashCode())
           >> Log.addContextDestructured "date" (file.Touched)
         )
-        use  _ = new ProgressListener(lspClient)
+
+        use _ = new ProgressListener(lspClient)
         use progressReport = new ServerProgressReport(lspClient)
 
         let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
@@ -946,7 +950,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let! result =
           Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
           <| checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-        |> Async.withCancellation cts.Token
+          |> Async.withCancellation cts.Token
 
         do! progressReport.End($"Typechecked {file.Lines.FileName}")
 
@@ -985,11 +989,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
 
           return parseAndCheck
-        finally
-          try
-            semaphore.Release() |> ignore
-          with
-          | :? SemaphoreFullException -> ()
+      finally
+        try
+          semaphore.Release() |> ignore
+        with :? SemaphoreFullException ->
+          ()
     }
 
 
@@ -1146,7 +1150,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> AVal.force)
 
   let getDeclarations filename =
-    // openFilesToCheckedDeclarations |> AMap.tryFindAndFlatten (filename)
     openFilesToCheckedFilesResults
     |> AMap.tryFindAndFlatten filename
     |> AVal.mapOption (fun c -> c.GetParseResults.GetNavigationItems().Declarations)
@@ -1367,13 +1370,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       openFilesTokens.Remove filePath |> ignore
       textChanges.Remove filePath |> ignore)
 
-    if doesNotExist filePath
-      || isOutsideWorkspace filePath
-    then
+    if doesNotExist filePath || isOutsideWorkspace filePath then
       logger.info (
         Log.setMessage "Removing cached data for {file}."
         >> Log.addContext "file" filePath
       )
+
       diagnosticCollections.ClearFor(uri)
     else
       logger.info (
@@ -1446,7 +1448,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       let checksToPerform =
         Array.concat [| dependentFiles; dependentProjects |]
-        |> Array.filter(fun (_,file) -> file.Contains "AssemblyInfo.fs" |> not)
+        |> Array.filter (fun (_, file) -> file.Contains "AssemblyInfo.fs" |> not)
         |> Array.mapi (fun i (proj, file) ->
           let file = UMX.tag file
           let token = getCTForFile file
@@ -1456,7 +1458,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Async.withCancellationSafe (fun () -> token))
         |> Seq.toArray // Force iteration
 
-      let progressToken = ProgressToken.Second (Guid.NewGuid().ToString())
+      let progressToken = ProgressToken.Second(Guid.NewGuid().ToString())
       do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore
       let checksToPerformLength = checksToPerform.Length - 1
 
@@ -4014,14 +4016,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
     override x.Dispose() = disposables.Dispose()
-    member this.WorkDoneProgessCancel(token: ProgressToken): Async<unit> =
-        async {
-          logger.info (
-            Log.setMessage "WorkDoneProgessCancel Request: {parms}"
-            >> Log.addContextDestructured "parms" token
-          )
-          return ()
-        }
+
+    member this.WorkDoneProgessCancel(token: ProgressToken) : Async<unit> =
+      async {
+        logger.info (
+          Log.setMessage "WorkDoneProgessCancel Request: {parms}"
+          >> Log.addContextDestructured "parms" token
+        )
+
+        return ()
+      }
 
 module AdaptiveFSharpLspServer =
 

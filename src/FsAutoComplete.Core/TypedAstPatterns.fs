@@ -253,8 +253,8 @@ module SymbolUse =
     | Entity (entity, _) when entity.IsAttributeType -> Some entity
     | _ -> None
 
+/// Active patterns over `FSharpSymbol`.
 [<AutoOpen>]
-// Active patterns over `FSharpSymbol`.
 module SymbolPatterns =
 
   let private attributeSuffixLength = "Attribute".Length
