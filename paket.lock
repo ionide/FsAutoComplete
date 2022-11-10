@@ -24,7 +24,7 @@ NUGET
       DiffPlex (>= 1.6.3)
       Expecto (>= 9.0.4)
       FSharp.Core (>= 4.6)
-    Fantomas.Client (0.6)
+    Fantomas.Client (0.7)
       FSharp.Core (>= 5.0.1)
       SemanticVersioning (>= 2.0.2)
       StreamJsonRpc (>= 2.8.28)
