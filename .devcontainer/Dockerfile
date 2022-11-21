@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See https://go.microsoft.com/fwlink/?linkid=2090316 for license information.
 #-------------------------------------------------------------------------------------------------------------
 
-ARG DOTNETCORE_VERSION=6.0.200
+ARG DOTNETCORE_VERSION=6.0.400
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNETCORE_VERSION}
 
 # Avoid warnings by switching to noninteractive
