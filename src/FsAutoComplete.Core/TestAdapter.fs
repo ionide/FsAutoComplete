@@ -64,7 +64,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       if isExpectoName i.idText then Case
       elif isExpectoListName i.idText then List
       else NotExpecto
-    | SynExpr.LongIdent (_, LongIdentWithDots (lst, _), _, _) ->
+    | SynExpr.LongIdent (_, SynLongIdent (id = lst), _, _) ->
       let i = lst |> List.last
 
       if isExpectoName i.idText then Case
@@ -200,7 +200,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       | _ -> ()
 
   let visitModulesAndNamespaces prefix modulesOrNss =
-    Seq.iter (fun (SynModuleOrNamespace (_, _, _, decls, _, _, _, _)) -> visitDeclarations prefix decls) modulesOrNss
+    Seq.iter (fun (SynModuleOrNamespace (decls = decls)) -> visitDeclarations prefix decls) modulesOrNss
 
   let allTests =
     { Name = ""
@@ -211,7 +211,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (contents = modules)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -224,7 +224,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     attrs
     |> List.collect (fun (attr: SynAttributeList) -> attr.Attributes)
     |> List.exists (fun a ->
-      let str = a.TypeName.Lid |> List.last
+      let str = a.TypeName.LongIdent |> List.last
 
       str.idText.EndsWith "Test"
       || str.idText.EndsWith "TestAttribute"
@@ -239,8 +239,8 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
 
   let getName =
     function
-    | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent(longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> (fun n -> n.idText)
+    | SynPat.Named(ident = SynIdent (ident = name)) -> name.idText
+    | SynPat.LongIdent(longDotId = SynLongIdent (id = ident)) -> ident |> List.last |> (fun n -> n.idText)
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =
@@ -327,7 +327,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
 
   let visitModulesAndNamespaces parent modulesOrNss =
     Seq.iter
-      (fun (SynModuleOrNamespace (ids, _, _, decls, _, _, _, r)) ->
+      (fun (SynModuleOrNamespace (longId = ids; decls = decls; range = r)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
 
@@ -355,7 +355,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (contents = modules)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs
@@ -367,7 +367,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     attrs
     |> List.collect (fun (attr: SynAttributeList) -> attr.Attributes)
     |> List.exists (fun a ->
-      let str = a.TypeName.Lid |> List.last
+      let str = a.TypeName.LongIdent |> List.last
 
       str.idText.EndsWith "Fact"
       || str.idText.EndsWith "FactAttribute"
@@ -378,8 +378,8 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
 
   let getName =
     function
-    | SynPat.Named (ident = name) -> name.idText
-    | SynPat.LongIdent(longDotId = LongIdentWithDots (ident, _)) -> ident |> List.last |> (fun n -> n.idText)
+    | SynPat.Named(ident = SynIdent (ident = name)) -> name.idText
+    | SynPat.LongIdent(longDotId = SynLongIdent (id = ident)) -> ident |> List.last |> (fun n -> n.idText)
     | _ -> ""
 
   let rec visitMember (parent: TestAdapterEntry<range>) =
@@ -468,7 +468,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
 
   let visitModulesAndNamespaces parent modulesOrNss =
     Seq.iter
-      (fun (SynModuleOrNamespace (ids, _, _, decls, _, _, _, r)) ->
+      (fun (SynModuleOrNamespace (longId = ids; decls = decls; range = r)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
 
@@ -496,7 +496,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       Type = "" }
 
   match ast with
-  | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> visitModulesAndNamespaces allTests modules
+  | ParsedInput.ImplFile (ParsedImplFileInput (contents = modules)) -> visitModulesAndNamespaces allTests modules
   | _ -> ()
 
   List.ofSeq allTests.Childs

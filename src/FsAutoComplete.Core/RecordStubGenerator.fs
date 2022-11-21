@@ -65,7 +65,7 @@ type RecordStubsInsertionParams =
         expr.FieldExprList
         |> List.choose (fun fieldInfo ->
           match fieldInfo with
-          | SynExprRecordField (fieldName = (LongIdentWithDots (identHead :: _, _), true)) ->
+          | SynExprRecordField (fieldName = (SynLongIdent(id = identHead :: _), true)) ->
             let fieldLine = identHead.idRange.StartLine
             let indentColumn = identHead.idRange.StartColumn
             Some(fieldInfo, indentColumn, fieldLine)
@@ -89,7 +89,7 @@ type RecordStubsInsertionParams =
         return!
           match lastFieldInfo with
           | SynExprRecordField(expr = None) -> None
-          | SynExprRecordField (fieldName = (LongIdentWithDots (_ :: _, _), true)
+          | SynExprRecordField (fieldName = (SynLongIdent(id = _ :: _), true)
                                 expr = Some expr
                                 blockSeparator = semiColonOpt) ->
             match semiColonOpt with
@@ -152,12 +152,9 @@ let formatRecord
   let fieldsWritten =
     fieldsWritten
     |> List.collect (function
-      | SynExprRecordField (fieldName = (fieldName, _)) ->
+      | SynExprRecordField (fieldName = (SynLongIdent (id = id), _)) ->
         // Extract <Field> in qualified identifiers: A.B.<Field> = ...
-        if fieldName.Lid.Length > 0 then
-          [ (fieldName.Lid.Item(fieldName.Lid.Length - 1)).idText ]
-        else
-          [])
+        if id.Length > 0 then [ (List.last id).idText ] else [])
     |> Set.ofList
 
   let fieldsToWrite =

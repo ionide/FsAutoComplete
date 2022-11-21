@@ -604,10 +604,11 @@ type ParseAndCheckResults
               match filter with
               | Some "StartsWith" ->
                 results.Items
-                |> Array.filter (fun d -> d.Name.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
+                |> Array.filter (fun d -> d.NameInList.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
               | Some "Contains" ->
                 results.Items
-                |> Array.filter (fun d -> d.Name.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                |> Array.filter (fun d ->
+                  d.NameInList.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
               | _ -> results.Items
 
             let sortedDecls =
@@ -638,7 +639,7 @@ type ParseAndCheckResults
                     if n <> 0 then
                       n
                     else
-                      n <- StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name)
+                      n <- StringComparer.OrdinalIgnoreCase.Compare(x.NameInList, y.NameInList)
 
                       if n <> 0 then
                         n

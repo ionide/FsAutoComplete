@@ -62,7 +62,7 @@ type FSharpParseFileResults with
                 else
                   // Check if it's an operator
                   match pat with
-                  | SynPat.LongIdent(longDotId = LongIdentWithDots ([ id ], _)) when id.idText.StartsWith("op_") ->
+                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when id.idText.StartsWith("op_") ->
                     if Range.rangeContainsRange id.idRange diagnosticRange then
                       Some(FullBinding binding.RangeOfBindingWithRhs)
                     else

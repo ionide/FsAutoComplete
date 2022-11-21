@@ -5,6 +5,7 @@ open FSharp.Compiler.Syntax
 open System.Collections.Generic
 open FSharp.Compiler
 open FSharp.Compiler.Text
+open FSharp.Control.Reactive.Observable
 
 type Range with
 
@@ -69,10 +70,10 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
 
 
-  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
+  let rec walkImplFileInput (ParsedImplFileInput (contents = moduleOrNamespaceList)) =
     List.iter walkSynModuleOrNamespace moduleOrNamespaceList
 
-  and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, AllAttrs attrs, _, r)) =
+  and walkSynModuleOrNamespace (SynModuleOrNamespace (decls = decls; attribs = AllAttrs attrs; range = r)) =
     addIfInside r
     List.iter walkAttribute attrs
     List.iter walkSynModuleDecl decls
@@ -115,6 +116,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       List.iter walkType ts
       walkMemberSig sign
+    | SynTypeConstraint.WhereSelfConstrained (t, r) ->
+      addIfInside r
+      walkType t
 
   and walkPat =
     function
@@ -135,7 +139,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynPat.Or (pat1, pat2, r, _) ->
       addIfInside r
       List.iter walkPat [ pat1; pat2 ]
-    | SynPat.LongIdent (ident, _, _, typars, ConstructorPats pats, _, r) ->
+    | SynPat.LongIdent (typarDecls = typars; argPats = ConstructorPats pats; range = r) ->
       addIfInside r
       Option.iter walkSynValTyparDecls typars
       List.iter walkPat pats
@@ -187,7 +191,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynType.MeasurePower (t, _, r) ->
       addIfInside r
       walkType t
-    | SynType.Fun (t1, t2, r)
+    | SynType.Fun (t1, t2, r, _)
     | SynType.MeasureDivide (t1, t2, r) ->
       addIfInside r
       walkType t1
@@ -201,7 +205,11 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       List.iter walkType types
     | SynType.Tuple (_, ts, r) ->
       addIfInside r
-      ts |> List.iter (fun (_, t) -> walkType t)
+
+      ts
+      |> List.iter (function
+        | SynTupleTypeSegment.Type t -> walkType t
+        | _ -> ())
     | SynType.WithGlobalConstraints (t, typeConstraints, r) ->
       addIfInside r
       walkType t
@@ -216,7 +224,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynType.Paren (innerType, r) ->
       addIfInside r
       walkType innerType
-
+    | SynType.SignatureParameter (usedType = t; range = r) ->
+      addIfInside r
+      walkType t
 
   and walkClause (SynMatchClause (pat, e1, e2, r, _, _)) =
     addIfInside r
@@ -311,7 +321,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.MatchLambda (_, _, synMatchClauseList, _, r) ->
       addIfInside r
       List.iter walkClause synMatchClauseList
-    | SynExpr.Match (_, _, e, _, synMatchClauseList, r) ->
+    | SynExpr.Match (expr = e; clauses = synMatchClauseList; range = r) ->
       addIfInside r
       walkExpr e
       List.iter walkClause synMatchClauseList
@@ -371,7 +381,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       walkExpr e2
     | SynExpr.TraitCall (ts, sign, e, r) ->
       addIfInside r
-      List.iter walkTypar ts
+      List.iter walkType ts
       walkMemberSig sign
       walkExpr e
     | SynExpr.Const (SynConst.Measure (_, _, m), r) ->
@@ -407,6 +417,13 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       Option.iter walkExpr e1
       Option.iter walkExpr e2
     | SynExpr.DebugPoint (innerExpr = expr) -> walkExpr expr
+    | SynExpr.Dynamic (funcExpr = e1; argExpr = e2; range = range) ->
+      addIfInside range
+      walkExpr e1
+      walkExpr e2
+    | SynExpr.Typar (t, r) ->
+      addIfInside r
+      walkTypar t
 
   and walkMeasure =
     function
@@ -425,6 +442,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynMeasure.Var (ty, r) ->
       addIfInside r
       walkTypar ty
+    | SynMeasure.Paren (m, r) ->
+      addIfInside r
+      walkMeasure m
     | SynMeasure.One
     | SynMeasure.Anon _ -> ()
 
@@ -521,6 +541,10 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       Option.iter walkType t
       walkExpr e
     | SynMemberDefn.Open (longId, r) -> addIfInside r
+    | SynMemberDefn.GetSetMember (memberDefnForGet = getter; memberDefnForSet = setter; range = range) ->
+      addIfInside range
+      Option.iter walkBinding getter
+      Option.iter walkBinding setter
 
   and walkEnumCase (SynEnumCase (attributes = AllAttrs attrs; range = r)) =
     addIfInside r

@@ -33,6 +33,7 @@ module internal CompletionUtils =
     | FSharpGlyph.Variable -> ("Variable", "V")
     | FSharpGlyph.ExtensionMethod -> ("Extension Method", "M")
     | FSharpGlyph.Error -> ("Error", "E")
+    | FSharpGlyph.TypeParameter -> ("Type", "T")
 
 
   let getEnclosingEntityChar =
@@ -226,7 +227,7 @@ module CommandResponse =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
 
       { UniqueName = e.UniqueName
-        Name = e.Name
+        Name = e.LogicalName
         Glyph = glyph
         GlyphChar = glyphChar
         IsTopLevel = e.IsSingleTopLevel

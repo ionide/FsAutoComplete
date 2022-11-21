@@ -52,7 +52,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       match tryGetSigName diagnostic.Message with
       | None -> return []
       | Some sigName ->
-        let sigName = sigName |> PrettyNaming.AddBackticksToIdentifierIfNeeded
+        let sigName = sigName |> PrettyNaming.NormalizeIdentifierBackticks
 
         // replace usages of parameter with new name
         let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath

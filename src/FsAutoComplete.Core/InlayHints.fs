@@ -11,7 +11,6 @@ open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text.Range
-open FsAutoComplete.Core.Workaround.ServiceParseTreeWalk
 
 /// `traversePat`from `SyntaxTraversal.Traverse`
 ///
@@ -556,7 +555,7 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
 let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
   match pat with
   | SynPat.Named(accessibility = None) -> pat.Range
-  | SynPat.Named (ident = ident; accessibility = Some (access)) ->
+  | SynPat.Named (ident = SynIdent (ident = ident); accessibility = Some (access)) ->
     maybe {
       let start = ident.idRange.Start
       let! line = text.GetLine start
@@ -588,7 +587,7 @@ let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
 /// Note: (deliberately) fails when `pat` is neither `Named` nor `OptionalVal`
 let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: SyntaxVisitorPath) =
   match pat with
-  | SynPat.Named (ident = ident) ->
+  | SynPat.Named(ident = SynIdent (ident = ident)) ->
     // neither `range`, not `pat.Range` includes `accessibility`...
     // `let private (a: int)` is not valid, must include private: `let (private a: int)`
     let patternRange = rangeOfNamedPat text pat
@@ -658,11 +657,11 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // no simple way out: Range for `SynPat.LongIdent` doesn't cover full pats (just ident)
           // see dotnet/fsharp#13115
           // | _ when not (rangeContainsPos pat.Range pos) -> None
-          | SynPat.Named (ident = ident) when
+          | SynPat.Named(ident = SynIdent (ident = ident)) when
             rangeContainsPos ident.idRange pos && invalidPositionForTypeAnnotation pos path
             ->
             ExplicitType.Invalid |> Some
-          | SynPat.Named (ident = ident; isThisVal = false) when rangeContainsPos ident.idRange pos ->
+          | SynPat.Named (ident = SynIdent (ident = ident); isThisVal = false) when rangeContainsPos ident.idRange pos ->
             let typed = isDirectlyTyped ident.idRange.Start path
 
             if typed then

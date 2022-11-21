@@ -107,8 +107,7 @@ module DocumentationFormatter =
       formatShowDocumentationLink name xmlDocSig assemblyName
     else if typ.HasTypeDefinition then
       let name =
-        typ.TypeDefinition.DisplayName
-        |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+        typ.TypeDefinition.DisplayName |> FSharpKeywords.NormalizeIdentifierBackticks
 
       formatShowDocumentationLink name xmlDocSig assemblyName
     else
@@ -131,8 +130,8 @@ module DocumentationFormatter =
           match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
           | true, Some (chopped) when chopped <> c.MemberName -> chopped, true
           | _, _ ->
-            if PrettyNaming.IsMangledOpName c.MemberName then
-              PrettyNaming.DecompileOpName c.MemberName, false
+            if PrettyNaming.IsLogicalOpName c.MemberName then
+              PrettyNaming.ConvertValLogicalNameToDisplayNameCore c.MemberName, false
             else
               c.MemberName, false
 
@@ -235,13 +234,13 @@ module DocumentationFormatter =
           match func.EnclosingEntitySafe with
           | Some ent -> ent.DisplayName
           | _ -> func.DisplayName
-          |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+          |> FSharpKeywords.NormalizeIdentifierBackticks
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
         elif func.DisplayName.StartsWith "( " then
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
+          FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         else
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.DisplayName
+          FSharpKeywords.NormalizeIdentifierBackticks func.DisplayName
 
       name
 
@@ -314,7 +313,7 @@ module DocumentationFormatter =
         |> List.concat
         |> List.map (fun p ->
           let name = Option.defaultValue p.DisplayName p.Name
-          let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded name
+          let normalisedName = FSharpKeywords.NormalizeIdentifierBackticks name
           normalisedName.Length)
 
       match allLengths with
@@ -323,7 +322,7 @@ module DocumentationFormatter =
 
     let formatName indent padding (parameter: FSharpParameter) =
       let name = Option.defaultValue parameter.DisplayName parameter.Name
-      let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded name
+      let normalisedName = FSharpKeywords.NormalizeIdentifierBackticks name
       indent + normalisedName.PadRight padding + ":"
 
     let isDelegate =
@@ -412,7 +411,7 @@ module DocumentationFormatter =
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
         elif func.DisplayName.StartsWith "( " then
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
+          FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then
           PrettyNaming.TryChopPropertyName func.DisplayName
           |> Option.defaultValue func.DisplayName
@@ -536,7 +535,7 @@ module DocumentationFormatter =
          v.LogicalName
        else
          v.DisplayName)
-      |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+      |> FSharpKeywords.NormalizeIdentifierBackticks
 
     let constraints =
       match v.FullTypeSafe with
@@ -732,7 +731,7 @@ module DocumentationFormatter =
 
     let typeDisplay =
       let name =
-        let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded fse.DisplayName
+        let normalisedName = FSharpKeywords.NormalizeIdentifierBackticks fse.DisplayName
 
         if fse.GenericParameters.Count > 0 then
           let paramsAndConstraints =

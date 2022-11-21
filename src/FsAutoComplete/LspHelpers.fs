@@ -126,7 +126,7 @@ module Conversions =
           Range = fcsRangeToLsp decl.Range }
 
       let sym =
-        { SymbolInformation.Name = decl.Name
+        { SymbolInformation.Name = decl.LogicalName
           Kind = kind
           Location = location
           ContainerName = container }
@@ -134,7 +134,7 @@ module Conversions =
       if symbolFilter sym then Some sym else None
 
     [| yield! inner None topLevel.Declaration |> Option.toArray
-       yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.Name)) |]
+       yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName)) |]
 
   let applyQuery (query: string) (info: SymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with

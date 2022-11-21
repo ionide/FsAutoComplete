@@ -406,6 +406,6 @@ let signatureTests state =
     "signature evaluation"
     [ testList
         "tests"
-        [ verifySignature 0 (4, 16) "val arrayOfTuples: (int * int)[]"
+        [ verifySignature 0 (4, 16) "val arrayOfTuples: (int * int) array"
           verifySignature 1 (4, 15) "val listOfTuples: (int * int) list"
           verifySignature 2 (4, 15) "val someFunction: a: 'a -> unit" ] ]

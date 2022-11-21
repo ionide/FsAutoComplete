@@ -380,6 +380,7 @@ module SyntaxTreeOps =
       | SynExpr.Null _
       | SynExpr.Ident _
       | SynExpr.ImplicitZero _
+      | SynExpr.Typar _
       | SynExpr.Const _ -> false
 
       | SynExpr.TypeTest (e, _, _)
@@ -489,5 +490,7 @@ module SyntaxTreeOps =
         |> Option.defaultValue false
       | SynExpr.IndexFromEnd (expr, range) -> walkExpr expr
       | SynExpr.DebugPoint (innerExpr = expr) -> walkExpr expr
+      | SynExpr.Dynamic (funcExpr = funcExpr; argExpr = argExpr) -> walkExpr funcExpr || walkExpr argExpr
+
 
     walkExpr inpExpr

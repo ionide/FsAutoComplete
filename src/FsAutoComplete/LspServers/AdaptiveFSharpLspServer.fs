@@ -2198,7 +2198,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                      transact (fun () ->
                        HashMap.OfList(
                          [ for d in decls do
-                             d.Name, (d, pos, filePath, namedText.Lines.GetLine, typeCheckResults.GetAST) ]
+                             d.NameInList, (d, pos, filePath, namedText.Lines.GetLine, typeCheckResults.GetAST) ]
                        )
                        |> autoCompleteItems.UpdateTo)
                      |> ignore
@@ -2209,23 +2209,26 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                        decls
                        |> Array.mapi (fun id d ->
                          let code =
-                           if System.Text.RegularExpressions.Regex.IsMatch(d.Name, """^[a-zA-Z][a-zA-Z0-9']+$""") then
-                             d.Name
+                           if
+                             System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
+                           then
+                             d.NameInList
                            elif d.NamespaceToOpen.IsSome then
-                             d.Name
+                             d.NameInList
                            else
-                             FSharpKeywords.AddBackticksToIdentifierIfNeeded d.Name
+                             FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
 
                          let label =
                            match d.NamespaceToOpen with
-                           | Some no -> sprintf "%s (open %s)" d.Name no
-                           | None -> d.Name
+                           | Some no -> sprintf "%s (open %s)" d.NameInList no
+                           | None -> d.NameInList
 
-                         { CompletionItem.Create(d.Name) with
+                         { CompletionItem.Create(d.NameInList) with
                              Kind = (AVal.force glyphToCompletionKind) d.Glyph
                              InsertText = Some code
                              SortText = Some(sprintf "%06d" id)
-                             FilterText = Some d.Name })
+                             FilterText = Some d.NameInList
+                             Label = label })
 
                      let its =
                        if not includeKeywords then
@@ -2499,8 +2502,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Seq.map (fun (namedText, symbols) ->
               let edits =
                 let newName =
-                  p.NewName
-                  |> FSharp.Compiler.Syntax.PrettyNaming.AddBackticksToIdentifierIfNeeded
+                  p.NewName |> FSharp.Compiler.Syntax.PrettyNaming.NormalizeIdentifierBackticks
 
                 symbols
                 |> Seq.map (fun sym ->

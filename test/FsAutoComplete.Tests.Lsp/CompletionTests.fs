@@ -499,10 +499,11 @@ let autoOpenTests state =
       | Ok None -> failtest "Request none"
       | Ok (Some res) ->
         Expect.isFalse res.IsIncomplete "Result is incomplete"
-        let ci = res.Items |> Array.find (fun c -> c.Label = word)
+        let ci = res.Items |> Array.tryFind (fun c -> c.Label = word)
+        if ci = None then failwithf $"Couldn't find completion item for `{word}` among the items %A{res.Items |> Array.map (fun i -> i.Label)}" |> ignore
 
         // now get details: `completionItem/resolve` (previous request was `textDocument/completion` -> List of all completions, but without details)
-        match! server.CompletionItemResolve ci with
+        match! server.CompletionItemResolve ci.Value with
         | Error e -> failtestf "Request failed: %A" e
         | Ok ci ->
           Expect.equal ci.Label $"{word} (open {ns})" $"Should be unopened {word}"
