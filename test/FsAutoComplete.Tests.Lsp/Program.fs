@@ -236,7 +236,9 @@ let main args =
   let config =
     { defaultConfig with
         // failOnFocusedTests = true
-        printer = Expecto.Impl.TestPrinters.summaryPrinter defaultConfig.printer
-        verbosity = logLevel }
+        printer = Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer
+        verbosity = logLevel
+        // runInParallel = false
+         }
 
   runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests

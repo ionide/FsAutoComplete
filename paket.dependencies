@@ -20,6 +20,7 @@ nuget Microsoft.Build  copy_local:false
 nuget Microsoft.Build.Framework copy_local:false
 nuget Microsoft.Build.Utilities.Core copy_local:false
 nuget Microsoft.Build.Tasks.Core copy_local: false
+nuget Nuget.Frameworks copy_local: false
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil
@@ -56,6 +57,8 @@ nuget Microsoft.Extensions.Caching.Memory
 group Build
   source https://api.nuget.org/v3/index.json
   storage: none
+
+  framework: net6.0, net7.0
 
   nuget Fake.Core.Target
   nuget Fake.Core.Process
