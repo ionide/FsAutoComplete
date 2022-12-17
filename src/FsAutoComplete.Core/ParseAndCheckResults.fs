@@ -587,7 +587,7 @@ type ParseAndCheckResults
           | Some k when k.Kind = Keyword -> return None
           | _ ->
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getSymbols)
+              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllEntities = getSymbols, completionContextAtPos = (pos, fcsCompletionContext))
 
             let getKindPriority =
               function

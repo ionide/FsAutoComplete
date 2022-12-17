@@ -353,7 +353,7 @@ let autocompleteTest state =
 
           let p: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 32; Character = 26 }
+              Position = { Line = 32; Character = 25 }
               Context = None }
 
           let! res = server.TextDocumentCompletion p
@@ -362,15 +362,8 @@ let autocompleteTest state =
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
           | Result.Ok (Some res) ->
-            Expect.isTrue
-              ((res.Items
-                |> Seq.findIndex (fun n -> n.Label = "Bar")) < 2)
-              "Autocomplete contains given symbol"
-
-            Expect.isTrue
-              ((res.Items
-                |> Seq.findIndex (fun n -> n.Label = "Baz")) < 2)
-              "Autocomplete contains given symbol"
+            Expect.exists res.Items (fun n -> n.Label = "Bar") "Autocomplete contains given symbol"
+            Expect.exists res.Items (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
         }) ]
 
   testList
