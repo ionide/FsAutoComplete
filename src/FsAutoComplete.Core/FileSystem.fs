@@ -472,11 +472,11 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
         |> Option.map (fun f -> f.Touched)
         |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim filename)
 
-      fsLogger.debug (
-        Log.setMessage "GetLastWriteTimeShim of `{path}` - {date} "
-        >> Log.addContext "path" filename
-        >> Log.addContext "date" result
-      )
+      // fsLogger.debug (
+      //   Log.setMessage "GetLastWriteTimeShim of `{path}` - {date} "
+      //   >> Log.addContext "path" filename
+      //   >> Log.addContext "date" result
+      // )
 
       result
 
