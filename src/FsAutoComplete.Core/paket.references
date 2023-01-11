@@ -11,6 +11,6 @@ Fantomas.Client
 Ionide.ProjInfo.ProjectSystem
 System.Reflection.Metadata
 Microsoft.Build.Utilities.Core
-# Ionide.LanguageServerProtocol
+Ionide.LanguageServerProtocol
 Ionide.KeepAChangelog.Tasks
 Microsoft.Extensions.Caching.Memory

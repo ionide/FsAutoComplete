@@ -100,7 +100,7 @@ NUGET
       System.Collections.Immutable (>= 5.0)
       System.Reflection.Metadata (>= 5.0)
     Ionide.KeepAChangelog.Tasks (0.1.8) - copy_local: true
-    Ionide.LanguageServerProtocol (0.4.10)
+    Ionide.LanguageServerProtocol (0.4.11)
       FSharp.Core (>= 6.0)
       Newtonsoft.Json (>= 13.0.1)
       StreamJsonRpc (>= 2.10.44)
@@ -256,7 +256,7 @@ NUGET
       Microsoft.VisualStudio.Validation (>= 16.10.26)
       System.IO.Pipelines (>= 5.0.1)
       System.Runtime.CompilerServices.Unsafe (>= 5.0)
-    Newtonsoft.Json (13.0.1)
+    Newtonsoft.Json (13.0.2)
     NuGet.Frameworks (6.3)
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.debian.9-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)

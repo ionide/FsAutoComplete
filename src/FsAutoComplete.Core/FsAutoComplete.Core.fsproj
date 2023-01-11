@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
-    <ProjectReference Include="C:\Users\jimmy\Repositories\public\TheAngryByrd\LanguageServerProtocol\src\Ionide.LanguageServerProtocol.fsproj"/>
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>
