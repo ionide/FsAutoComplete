@@ -44,5 +44,16 @@
     <Compile Include="SymbolLocation.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="Fantomas.Client" Version="0.7.0" />
+    <PackageReference Include="FSharp.Analyzers.SDK" Version="0.11.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.5" />
+    <PackageReference Include="FSharp.UMX" Version="1.1.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.3.0" />
+    <PackageReference Include="ICSharpCode.Decompiler" Version="7.2.1.6856" />
+    <PackageReference Include="Ionide.LanguageServerProtocol" Version="0.4.12" />
+    <PackageReference Include="Ionide.ProjInfo.ProjectSystem" Version="0.61.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+  </ItemGroup>
+
 </Project>

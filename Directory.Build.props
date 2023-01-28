@@ -4,9 +4,15 @@
     <Title>FsAutoComplete</Title>
     <Product>FsAutoComplete</Product>
     <PackageLicenseExpression Condition=" '$(PackAsTool)' != 'true' ">Apache-2.0</PackageLicenseExpression>
-    <NoWarn>3186</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
+    <NoWarn>$(NoWarn);3186</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
+    <NoWarn>$(NoWarn);NU1608</NoWarn><!-- Ignore Nuget dependency match warnings -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ionide.KeepAChangelog.Tasks" Version="0.1.8" />
+    <PackageReference Include="Dotnet.ReproducibleBuilds" Version="1.1.1" />
+  </ItemGroup>
 
 </Project>

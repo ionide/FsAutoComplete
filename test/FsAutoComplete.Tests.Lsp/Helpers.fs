@@ -253,7 +253,8 @@ let clientCaps: ClientCapabilities =
       Symbol = Some symbolCaps
       SemanticTokens = Some semanticTokenCaps
       InlayHint = Some inlayHintCaps
-      CodeLens = Some codeLensCaps }
+      CodeLens = Some codeLensCaps
+      InlineValue = None }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: SynchronizationCapabilities =
@@ -357,7 +358,8 @@ let clientCaps: ClientCapabilities =
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
-    Experimental = None }
+    Experimental = None
+    Window = None }
 
 open Expecto.Logging
 open Expecto.Logging.Message

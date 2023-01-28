@@ -23,7 +23,6 @@ open SymbolLocation
 open FSharp.Compiler.Symbols
 open System.Collections.Immutable
 open System.Collections.Generic
-open Ionide.ProjInfo.ProjectSystem
 
 
 [<RequireQualifiedAccess>]
@@ -419,7 +418,7 @@ module Commands =
 
   let formatDocument
     (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
-    (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
+    (formatDocumentAsync: FormatDocumentRequest -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     : Async<Result<FormatDocumentResponse, string>> =
     asyncResult {
@@ -613,7 +612,7 @@ module Commands =
 
       return CoreResponse.Res hints
     }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+    |> Result.bimap id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
   let calculateNamespaceInsert
     currentAst
@@ -770,9 +769,9 @@ module Commands =
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
-        let symbolFileText =
+        let! symbolFileText =
           tryGetFileSource (symbolFile)
-          |> Result.fold id (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
+          |> Result.mapError (fun e -> failwith $"Unable to get file source for file '{symbolFile}'")
 
         let! symbolText = symbolFileText.[symbolRange]
         // |> Result.fold id (fun e -> failwith "Unable to get text for initial symbol use")
@@ -790,7 +789,7 @@ module Commands =
             |> List.distinctBy (fun x -> x.ProjectFileName)
 
         let onFound (symbolUseRange: range) =
-          async {
+          asyncResult {
             let symbolUseRange = symbolUseRange.NormalizeDriveLetterCasing()
             let symbolFile = symbolUseRange.TaggedFileName
             let targetText = tryGetFileSource (symbolFile)
@@ -798,9 +797,9 @@ module Commands =
             match targetText with
             | Error e -> ()
             | Ok sourceText ->
-              let sourceSpan =
+              let! sourceSpan =
                 sourceText.[symbolUseRange]
-                |> Result.fold id (fun e -> failwith "Unable to get text for symbol use")
+                |> Result.mapError (fun e -> failwith "Unable to get text for symbol use")
 
               // There are two kinds of ranges we get back:
               // * ranges that exactly match the short name of the symbol
@@ -821,6 +820,7 @@ module Commands =
                     let actualUseRange = Range.mkRange symbolUseRange.FileName startPos endPos
                     symbolUseRanges.Add actualUseRange
           }
+          |> Async.Ignore
 
         let! _ = getSymbolUsesInProjects (symbol, projects, onFound)
 
@@ -2053,7 +2053,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     (
       file: string<LocalPath>,
       rangeToFormat: FormatSelectionRange
-    ) : Async<Result<FormatDocumentResponse, string>> =
+    ) : Async<Result<_, string>> =
     let tryGetFileCheckerOptionsWithLines file =
       x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
 

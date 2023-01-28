@@ -38,6 +38,16 @@
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CliWrap" Version="3.6.0" />
+    <PackageReference Include="Destructurama.FSharp" Version="1.2.0" />
+    <PackageReference Include="FSharp.Data.Adaptive" Version="1.2.13" />
+    <PackageReference Include="Serilog" Version="2.12.0" />
+    <PackageReference Include="Serilog.Sinks.Async" Version="1.5.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
@@ -53,10 +63,8 @@
   <!-- workaround for not being able to have p2p dependencies in tool output dir https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
     <ItemGroup>
-      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -&gt; WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
     </ItemGroup>
   </Target>
 
-
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

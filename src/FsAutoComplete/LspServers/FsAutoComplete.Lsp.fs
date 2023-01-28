@@ -1334,7 +1334,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.fold id (fun _ -> NamedText(filePath, ""))
+          |> Result.bimap id (fun _ -> NamedText(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)
@@ -2882,6 +2882,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     override x.Dispose() =
       (x :> ILspServer).Shutdown() |> Async.Start
+
+    override this.TextDocumentInlineValue(arg1: InlineValueParams): AsyncLspResult<InlineValue[] option> =
+        failwith "Not Implemented"
+    override this.WorkDoneProgessCancel(arg1: ProgressToken): Async<unit> =
+        failwith "Not Implemented"
 
 module FSharpLspServer =
 

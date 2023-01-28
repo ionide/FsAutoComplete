@@ -1864,7 +1864,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             | Some insertText ->
               helpText insertText
               |> Result.ofCoreResponse
-              |> Result.fold (mapHelpText ci) (fun _ -> ci)
+              |> Result.bimap (mapHelpText ci) (fun _ -> ci)
               |> success
 
         with e ->
@@ -3750,6 +3750,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
     override x.Dispose() = disposables.Dispose()
+
+    override this.TextDocumentInlineValue(arg1: InlineValueParams): AsyncLspResult<InlineValue[] option> =
+        failwith "Not Implemented"
+    override this.WorkDoneProgessCancel(arg1: ProgressToken): Async<unit> =
+        failwith "Not Implemented"
 
 module AdaptiveFSharpLspServer =
 
