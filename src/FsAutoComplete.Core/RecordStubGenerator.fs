@@ -49,7 +49,7 @@ type RecordStubsInsertionParams =
           IndentColumn = pos.Column + 1
           InsertionPos = pos }
         |> Some
-      | Some (_toCopy, (withSeparator, _)) ->
+      | Some(_toCopy, (withSeparator, _)) ->
         { Kind = PositionKind.AfterCopyExpression
           IndentColumn = withSeparator.End.Column + 1
           InsertionPos = withSeparator.End }
@@ -65,7 +65,7 @@ type RecordStubsInsertionParams =
         expr.FieldExprList
         |> List.choose (fun fieldInfo ->
           match fieldInfo with
-          | SynExprRecordField (fieldName = (LongIdentWithDots (identHead :: _, _), true)) ->
+          | SynExprRecordField(fieldName = (LongIdentWithDots(identHead :: _, _), true)) ->
             let fieldLine = identHead.idRange.StartLine
             let indentColumn = identHead.idRange.StartColumn
             Some(fieldInfo, indentColumn, fieldLine)
@@ -89,16 +89,15 @@ type RecordStubsInsertionParams =
         return!
           match lastFieldInfo with
           | SynExprRecordField(expr = None) -> None
-          | SynExprRecordField (fieldName = (LongIdentWithDots (_ :: _, _), true)
-                                expr = Some expr
-                                blockSeparator = semiColonOpt) ->
+          | SynExprRecordField(
+              fieldName = (LongIdentWithDots(_ :: _, _), true); expr = Some expr; blockSeparator = semiColonOpt) ->
             match semiColonOpt with
             | None ->
               { Kind = PositionKind.AfterLastField
                 IndentColumn = indentColumn
                 InsertionPos = expr.Range.End }
               |> Some
-            | Some (_range, Some semiColonEndPos) ->
+            | Some(_range, Some semiColonEndPos) ->
               { Kind = PositionKind.AfterLastField
                 IndentColumn = indentColumn
                 InsertionPos = semiColonEndPos }
@@ -152,7 +151,7 @@ let formatRecord
   let fieldsWritten =
     fieldsWritten
     |> List.collect (function
-      | SynExprRecordField (fieldName = (fieldName, _)) ->
+      | SynExprRecordField(fieldName = (fieldName, _)) ->
         // Extract <Field> in qualified identifiers: A.B.<Field> = ...
         if fieldName.Lid.Length > 0 then
           [ (fieldName.Lid.Item(fieldName.Lid.Length - 1)).idText ]
@@ -199,7 +198,7 @@ let walkAndFindRecordBinding (pos, input) =
             synExpr: SynExpr
           ) =
           match synExpr with
-          | SynExpr.Record (recordFields = recordFields; copyInfo = copyInfo) ->
+          | SynExpr.Record(recordFields = recordFields; copyInfo = copyInfo) ->
             Some
               { Expr = synExpr
                 CopyExprOption = copyInfo
@@ -208,7 +207,7 @@ let walkAndFindRecordBinding (pos, input) =
                   recordFields
                   |> List.tryLast
                   |> Option.map (function
-                    | SynExprRecordField (fieldName = (id, _)) -> id.Range.Start)
+                    | SynExprRecordField(fieldName = (id, _)) -> id.Range.Start)
                   |> Option.defaultValue synExpr.Range.Start }
           | _ -> defaultTraverse synExpr }
 
@@ -232,7 +231,7 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (
         let lastField = Seq.last expr.FieldExprList
 
         match lastField with
-        | SynExprRecordField(blockSeparator = Some (semiColonRange, Some _semiColonEndPos)) ->
+        | SynExprRecordField(blockSeparator = Some(semiColonRange, Some _semiColonEndPos)) ->
           // The last field ends with a ';'
           // Look here: { field = expr;<start> ... }<end>
           Some(Range.unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)

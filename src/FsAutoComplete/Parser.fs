@@ -65,8 +65,8 @@ module Parser =
     )
     |> many
     |> fun o ->
-         o.AllowMultipleArgumentsPerToken <- true
-         o
+        o.AllowMultipleArgumentsPerToken <- true
+        o
 
   let waitForDebuggerOption =
     Option<bool>(
@@ -220,16 +220,14 @@ module Parser =
           .Filter.ByExcluding(sourcesToExclude)
           .Enrich.FromLogContext()
           .Destructure.FSharpTypes()
-          .Destructure
-          .ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
+          .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
             { File = r.FileName
               Start = r.Start
               End = r.End })
           .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> { Line = r.Line; Column = r.Column })
           .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
           .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-          .WriteTo
-          .Async(fun c ->
+          .WriteTo.Async(fun c ->
             c.Console(
               outputTemplate = outputTemplate,
               standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),

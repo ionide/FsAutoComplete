@@ -109,77 +109,74 @@ module Lexer =
   let private fixTokens lineStr (tokens: FSharpTokenInfo list) =
     tokens
     |> List.fold
-         (fun (acc, (lastToken: DraftToken option)) token ->
-           match lastToken with
-           //Operator starting with . (like .>>) should be operator
-           | Some ({ Kind = SymbolKind.Dot } as lastToken) when
-             isOperator token && token.LeftColumn <= lastToken.RightColumn
-             ->
-             let mergedToken =
-               { lastToken.Token with
-                   Tag = token.Tag
-                   RightColumn = token.RightColumn }
+      (fun (acc, (lastToken: DraftToken option)) token ->
+        match lastToken with
+        //Operator starting with . (like .>>) should be operator
+        | Some({ Kind = SymbolKind.Dot } as lastToken) when
+          isOperator token && token.LeftColumn <= lastToken.RightColumn
+          ->
+          let mergedToken =
+            { lastToken.Token with
+                Tag = token.Tag
+                RightColumn = token.RightColumn }
 
-             acc,
-             Some
-               { lastToken with
-                   Token = mergedToken
-                   Kind = SymbolKind.Operator }
-           | Some t when token.LeftColumn <= t.RightColumn -> acc, lastToken
-           | Some ({ Kind = SymbolKind.ActivePattern } as lastToken) when
-             token.Tag = FSharpTokenTag.BAR
-             || token.Tag = FSharpTokenTag.IDENT
-             || token.Tag = FSharpTokenTag.UNDERSCORE
-             ->
-             let mergedToken =
-               { lastToken.Token with
-                   Tag = FSharpTokenTag.IDENT
-                   RightColumn = token.RightColumn
-                   FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength }
+          acc,
+          Some
+            { lastToken with
+                Token = mergedToken
+                Kind = SymbolKind.Operator }
+        | Some t when token.LeftColumn <= t.RightColumn -> acc, lastToken
+        | Some({ Kind = SymbolKind.ActivePattern } as lastToken) when
+          token.Tag = FSharpTokenTag.BAR
+          || token.Tag = FSharpTokenTag.IDENT
+          || token.Tag = FSharpTokenTag.UNDERSCORE
+          ->
+          let mergedToken =
+            { lastToken.Token with
+                Tag = FSharpTokenTag.IDENT
+                RightColumn = token.RightColumn
+                FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength }
 
-             acc,
-             Some
-               { lastToken with
-                   Token = mergedToken
-                   RightColumn = lastToken.RightColumn + token.FullMatchedLength }
-           | _ ->
-             match token, lineStr with
-             | GenericTypeParameterPrefix -> acc, Some(DraftToken.Create GenericTypeParameter token)
-             | StaticallyResolvedTypeParameterPrefix ->
-               acc, Some(DraftToken.Create StaticallyResolvedTypeParameter token)
-             | ActivePattern -> acc, Some(DraftToken.Create ActivePattern token)
-             | Other ->
-               let draftToken =
-                 match lastToken with
-                 | Some { Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind } when
-                   isIdentifier token
-                   ->
-                   DraftToken.Create
-                     kind
-                     { token with
-                         LeftColumn = token.LeftColumn - 1
-                         FullMatchedLength = token.FullMatchedLength + 1 }
-                 | Some ({ Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
-                   DraftToken.Create SymbolKind.Ident ap.Token
-                 | Some ({ Kind = SymbolKind.Operator } as op) when token.Tag = FSharpTokenTag.RPAREN ->
-                   DraftToken.Create SymbolKind.Operator op.Token
-                 // ^ operator
-                 | Some { Kind = SymbolKind.StaticallyResolvedTypeParameter } ->
-                   { Kind = SymbolKind.Operator
-                     RightColumn = token.RightColumn - 1
-                     Token = token }
-                 | _ ->
-                   let kind =
-                     if isOperator token then Operator
-                     elif isIdentifier token then Ident
-                     elif isKeyword token then Keyword
-                     elif isPunctuation token then Dot
-                     else Other
+          acc,
+          Some
+            { lastToken with
+                Token = mergedToken
+                RightColumn = lastToken.RightColumn + token.FullMatchedLength }
+        | _ ->
+          match token, lineStr with
+          | GenericTypeParameterPrefix -> acc, Some(DraftToken.Create GenericTypeParameter token)
+          | StaticallyResolvedTypeParameterPrefix -> acc, Some(DraftToken.Create StaticallyResolvedTypeParameter token)
+          | ActivePattern -> acc, Some(DraftToken.Create ActivePattern token)
+          | Other ->
+            let draftToken =
+              match lastToken with
+              | Some { Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind } when isIdentifier token ->
+                DraftToken.Create
+                  kind
+                  { token with
+                      LeftColumn = token.LeftColumn - 1
+                      FullMatchedLength = token.FullMatchedLength + 1 }
+              | Some({ Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
+                DraftToken.Create SymbolKind.Ident ap.Token
+              | Some({ Kind = SymbolKind.Operator } as op) when token.Tag = FSharpTokenTag.RPAREN ->
+                DraftToken.Create SymbolKind.Operator op.Token
+              // ^ operator
+              | Some { Kind = SymbolKind.StaticallyResolvedTypeParameter } ->
+                { Kind = SymbolKind.Operator
+                  RightColumn = token.RightColumn - 1
+                  Token = token }
+              | _ ->
+                let kind =
+                  if isOperator token then Operator
+                  elif isIdentifier token then Ident
+                  elif isKeyword token then Keyword
+                  elif isPunctuation token then Dot
+                  else Other
 
-                   DraftToken.Create kind token
+                DraftToken.Create kind token
 
-               draftToken :: acc, Some draftToken)
-         ([], None)
+            draftToken :: acc, Some draftToken)
+      ([], None)
     |> fst
 
   // Returns symbol at a given position.

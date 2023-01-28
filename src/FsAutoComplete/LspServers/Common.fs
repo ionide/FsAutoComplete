@@ -61,7 +61,8 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     Map.toArray diags |> Array.collect snd |> sendDiagnostics uri
 
   let agents =
-    System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> * CancellationTokenSource>
+    System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
+    CancellationTokenSource>
       ()
 
   let rec restartAgent (fileUri: DocumentUri) =
@@ -82,7 +83,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
           let rec loop (state: Map<string, Diagnostic[]>) =
             async {
               match! inbox.Receive() with
-              | Add (source, diags) ->
+              | Add(source, diags) ->
                 let newState = state |> Map.add source diags
                 do! send uri newState
                 return! loop newState

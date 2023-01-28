@@ -14,10 +14,11 @@ type LineText = string
 /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
-  (getNamespaceSuggestions: ParseAndCheckResults
-                              -> FcsPos
-                              -> LineText
-                              -> Async<CoreResponse<string * list<string * string * InsertionContext * bool> * list<string * string>>>)
+  (getNamespaceSuggestions:
+    ParseAndCheckResults
+      -> FcsPos
+      -> LineText
+      -> Async<CoreResponse<string * list<string * string * InsertionContext * bool> * list<string * string>>>)
   =
 
   /// insert a line of text at a given line
@@ -110,7 +111,7 @@ let fix
       match! getNamespaceSuggestions tyRes pos line with
       | CoreResponse.InfoRes msg
       | CoreResponse.ErrorRes msg -> return []
-      | CoreResponse.Res (word, opens, qualifiers) ->
+      | CoreResponse.Res(word, opens, qualifiers) ->
         let quals =
           qualifiers
           |> List.map (fun (_, qual) -> qualifierFix codeActionParameter.TextDocument diagnostic qual)

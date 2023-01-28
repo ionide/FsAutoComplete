@@ -94,7 +94,7 @@ module private JsonSerializerConverters =
       match value with
       | CommandResponse.ProjectOutputType.Library -> "lib"
       | CommandResponse.ProjectOutputType.Exe -> "exe"
-      | CommandResponse.ProjectOutputType.Custom (x) -> x.ToLower()
+      | CommandResponse.ProjectOutputType.Custom(x) -> x.ToLower()
 
     serializer.Serialize(writer, s)
 

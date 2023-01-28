@@ -156,7 +156,7 @@ module private Format =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           let lang =
             match lang attributes with
             | Some lang -> lang
@@ -186,7 +186,7 @@ module private Format =
       Formatter =
         function
         | VoidElement _ -> None
-        | NonVoidElement (innerText, _) -> "`" + innerText + "`" |> Some }
+        | NonVoidElement(innerText, _) -> "`" + innerText + "`" |> Some }
     |> applyFormatter
 
   let private link text uri = $"[`%s{text}`](%s{uri})"
@@ -201,7 +201,7 @@ module private Format =
           | Some href -> Some(link href href)
           | None -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           match href attributes with
           | Some href -> Some(link innerText href)
           | None -> Some(code innerText) }
@@ -213,7 +213,7 @@ module private Format =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement (innerText, _) -> nl + innerText + nl |> Some }
+        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some }
     |> applyFormatter
 
   let private block =
@@ -222,7 +222,7 @@ module private Format =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement (innerText, _) -> nl + innerText + nl |> Some }
+        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some }
     |> applyFormatter
 
   let private see =
@@ -240,7 +240,7 @@ module private Format =
       Formatter =
         function
         | VoidElement attributes -> formatFromAttributes attributes
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           if String.IsNullOrWhiteSpace innerText then
             formatFromAttributes attributes
           else
@@ -258,7 +258,7 @@ module private Format =
           | Some href -> Some(link href href)
           | None -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           if String.IsNullOrWhiteSpace innerText then
             match href attributes with
             | Some href -> Some(link innerText href)
@@ -276,7 +276,7 @@ module private Format =
           | Some name -> Some(code name)
           | None -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           if String.IsNullOrWhiteSpace innerText then
             match name attributes with
             | Some name ->
@@ -298,7 +298,7 @@ module private Format =
           | Some name -> Some(code name)
           | None -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           if String.IsNullOrWhiteSpace innerText then
             match name attributes with
             | Some name ->
@@ -410,16 +410,16 @@ module private Format =
     Regex.Matches(text, invalidOrBlockPattern, RegexOptions.Multiline)
     |> Seq.cast<Match>
     |> Seq.fold
-         (fun (state: string) (m: Match) ->
-           let orText = m.Groups.["or_text"]
+      (fun (state: string) (m: Match) ->
+        let orText = m.Groups.["or_text"]
 
-           if orText.Success then
-             let replacement = orText.Value.Replace("-or-", "or")
+        if orText.Success then
+          let replacement = orText.Value.Replace("-or-", "or")
 
-             state.Replace(orText.Value, replacement)
-           else
-             state)
-         text
+          state.Replace(orText.Value, replacement)
+        else
+          state)
+      text
 
 
   let private convertTable =
@@ -428,7 +428,7 @@ module private Format =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement (innerText, _) ->
+        | NonVoidElement(innerText, _) ->
 
           let rowCount = Regex.Matches(innerText, "<th\s?>").Count
 
@@ -477,7 +477,7 @@ module private Format =
     match item with
     | DescriptionOnly description -> prefix + " " + description
     | TermOnly term -> prefix + " " + "**" + term + "**"
-    | Definitions (term, description) -> prefix + " " + "**" + term + "** - " + description
+    | Definitions(term, description) -> prefix + " " + "**" + term + "** - " + description
 
   let private list =
     let getType (attributes: Map<string, string>) = Map.tryFind "type" attributes
@@ -540,7 +540,7 @@ module private Format =
 
           let rec extractAllTerms (res: string list) (text: string) =
             match tryGetNonVoidElement text "term" with
-            | Some (fullString, innerText) ->
+            | Some(fullString, innerText) ->
               let escapedRegex = Regex(Regex.Escape(fullString))
               let newText = escapedRegex.Replace(text, "", 1)
               extractAllTerms (res @ [ innerText ]) newText
@@ -562,7 +562,7 @@ module private Format =
 
           let rec extractAllTerms (res: string list) (text: string) =
             match tryGetNonVoidElement text "term" with
-            | Some (fullString, innerText) ->
+            | Some(fullString, innerText) ->
               let escapedRegex = Regex(Regex.Escape(fullString))
               let newText = escapedRegex.Replace(text, "", 1)
               extractAllTerms (res @ [ innerText ]) newText
@@ -578,7 +578,7 @@ module private Format =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement (innerText, attributes) ->
+        | NonVoidElement(innerText, attributes) ->
           let listStyle =
             match getType attributes with
             | Some "bullet" -> Bulleted
@@ -942,7 +942,7 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
       sprintf
         "An error occured when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found LSP output"
 
-  | FSharpXmlDoc.FromXmlFile (dllFile, memberName) ->
+  | FSharpXmlDoc.FromXmlFile(dllFile, memberName) ->
     match getXmlDoc dllFile with
     | Some doc when doc.ContainsKey memberName ->
       let typeDoc =
@@ -1031,7 +1031,7 @@ let formatCompletionItemTip (ToolTipText tips) : (string * string) =
 
       items |> List.tryHead |> Option.map makeTooltip
 
-    | ToolTipElement.CompositionError (error) -> Some("<Note>", error)
+    | ToolTipElement.CompositionError(error) -> Some("<Note>", error)
     | _ -> Some("<Note>", "No signature data"))
 
 /// Formats a tooltip signature for output as a signatureHelp,
@@ -1044,7 +1044,7 @@ let formatPlainTip (ToolTipText tips) : (string * string) =
       let signature = formatUntaggedTexts t.MainDescription
       let description = buildFormatComment t.XmlDoc FormatCommentStyle.Legacy None
       Some(signature, description)
-    | ToolTipElement.CompositionError (error) -> Some("<Note>", error)
+    | ToolTipElement.CompositionError(error) -> Some("<Note>", error)
     | _ -> Some("<Note>", "No signature data"))
 
 let formatTipEnhanced
@@ -1074,12 +1074,13 @@ let formatTipEnhanced
 
           (signature, comment, footer))
       )
-    | ToolTipElement.CompositionError (error) -> Some [ ("<Note>", error, "") ]
+    | ToolTipElement.CompositionError(error) -> Some [ ("<Note>", error, "") ]
     | _ -> None)
 
 let formatDocumentation
   (ToolTipText tips)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string[] * string[] * string[] * string[] * string[] * string[]))
+  ((signature, (constructors, fields, functions, interfaces, attrs, ts)):
+    string * (string[] * string[] * string[] * string[] * string[] * string[]))
   (footer: string)
   (cn: string)
   =
@@ -1103,13 +1104,14 @@ let formatDocumentation
 
           (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn))
       )
-    | ToolTipElement.CompositionError (error) -> Some [ ("<Note>", [||], [||], [||], [||], [||], [||], error, "", "") ]
+    | ToolTipElement.CompositionError(error) -> Some [ ("<Note>", [||], [||], [||], [||], [||], [||], error, "", "") ]
     | _ -> None)
 
 let formatDocumentationFromXmlSig
   (xmlSig: string)
   (assembly: string)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)): string * (string[] * string[] * string[] * string[] * string[] * string[]))
+  ((signature, (constructors, fields, functions, interfaces, attrs, ts)):
+    string * (string[] * string[] * string[] * string[] * string[] * string[]))
   (footer: string)
   (cn: string)
   =

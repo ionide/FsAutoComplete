@@ -6,9 +6,12 @@ open Newtonsoft.Json
 let private httpClient = new System.Net.Http.HttpClient()
 
 type Response =
-  {| values: {| api: {| name: {| ``namespace``: string
-                                 class_name: string
-                                 id: string |} |} |}[] |}
+  {| values:
+       {| api:
+            {| name:
+                 {| ``namespace``: string
+                    class_name: string
+                    id: string |} |} |}[] |}
 
 let query (querystr: string) =
   async {

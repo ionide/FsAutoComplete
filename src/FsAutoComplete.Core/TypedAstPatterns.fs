@@ -86,13 +86,13 @@ module SymbolUse =
 
   let (|TypeAbbreviation|_|) =
     function
-    | Entity (entity, _) when entity.IsFSharpAbbreviation -> Some entity
+    | Entity(entity, _) when entity.IsFSharpAbbreviation -> Some entity
     | _ -> None
 
   let (|Class|_|) =
     function
-    | Entity (entity, _) when entity.IsClass -> Some entity
-    | Entity (entity, _) when
+    | Entity(entity, _) when entity.IsClass -> Some entity
+    | Entity(entity, _) when
       entity.IsFSharp
       && entity.IsOpaque
       && not entity.IsFSharpModule
@@ -108,7 +108,7 @@ module SymbolUse =
 
   let (|Delegate|_|) =
     function
-    | Entity (entity, _) when entity.IsDelegate -> Some entity
+    | Entity(entity, _) when entity.IsDelegate -> Some entity
     | _ -> None
 
   let (|Event|_|) =
@@ -209,37 +209,37 @@ module SymbolUse =
 
   let (|Enum|_|) =
     function
-    | Entity (entity, _) when entity.IsEnum -> Some entity
+    | Entity(entity, _) when entity.IsEnum -> Some entity
     | _ -> None
 
   let (|Interface|_|) =
     function
-    | Entity (entity, _) when entity.IsInterface -> Some entity
+    | Entity(entity, _) when entity.IsInterface -> Some entity
     | _ -> None
 
   let (|Module|_|) =
     function
-    | Entity (entity, _) when entity.IsFSharpModule -> Some entity
+    | Entity(entity, _) when entity.IsFSharpModule -> Some entity
     | _ -> None
 
   let (|Namespace|_|) =
     function
-    | Entity (entity, _) when entity.IsNamespace -> Some entity
+    | Entity(entity, _) when entity.IsNamespace -> Some entity
     | _ -> None
 
   let (|Record|_|) =
     function
-    | Entity (entity, _) when entity.IsFSharpRecord -> Some entity
+    | Entity(entity, _) when entity.IsFSharpRecord -> Some entity
     | _ -> None
 
   let (|Union|_|) =
     function
-    | Entity (entity, _) when entity.IsFSharpUnion -> Some entity
+    | Entity(entity, _) when entity.IsFSharpUnion -> Some entity
     | _ -> None
 
   let (|ValueType|_|) =
     function
-    | Entity (entity, _) when entity.IsValueType && not entity.IsEnum -> Some entity
+    | Entity(entity, _) when entity.IsValueType && not entity.IsEnum -> Some entity
     | _ -> None
 
   let (|ComputationExpression|_|) (symbol: FSharpSymbolUse) =
@@ -250,7 +250,7 @@ module SymbolUse =
 
   let (|Attribute|_|) =
     function
-    | Entity (entity, _) when entity.IsAttributeType -> Some entity
+    | Entity(entity, _) when entity.IsAttributeType -> Some entity
     | _ -> None
 
 [<AutoOpen>]
@@ -348,7 +348,7 @@ module SymbolPatterns =
       let getBaseType (entity: FSharpEntity) =
         try
           match entity.BaseType with
-          | Some (TypeWithDefinition def) -> Some def
+          | Some(TypeWithDefinition def) -> Some def
           | _ -> None
         with _ ->
           None

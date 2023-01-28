@@ -51,7 +51,8 @@ module TypedAstUtils =
           let res =
             match arg with
             | :? int32 as arg when arg = int CompilationRepresentationFlags.ModuleSuffix -> Some()
-            | :? CompilationRepresentationFlags as arg when arg = CompilationRepresentationFlags.ModuleSuffix -> Some()
+            | :? CompilationRepresentationFlags as arg when arg = CompilationRepresentationFlags.ModuleSuffix ->
+              Some()
             | _ -> None
 
           res)))

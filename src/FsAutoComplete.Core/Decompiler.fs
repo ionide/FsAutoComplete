@@ -84,7 +84,7 @@ let resolveType (typeSystem: IDecompilerTypeSystem) (typeName: string) =
 
 let rec formatExtTypeFullName externalType =
   match externalType with
-  | FindDeclExternalType.Type (name, genericArgs) ->
+  | FindDeclExternalType.Type(name, genericArgs) ->
     (match genericArgs with
      | [] -> ""
      | args ->
@@ -102,8 +102,8 @@ let areSameTypes (typeArguments: IReadOnlyList<IType>) ((mParam, paramSym): IPar
     let parameterTypeFullName =
       typeArguments
       |> Seq.fold
-           (fun (str: string) t -> str.Replace(t.ReflectionName, t.Name))
-           (mParam.Type.ReflectionName.Trim([| '&'; ' ' |]))
+        (fun (str: string) t -> str.Replace(t.ReflectionName, t.Name))
+        (mParam.Type.ReflectionName.Trim([| '&'; ' ' |]))
 
     let extTypeFullName = formatExtTypeFullName extType
     parameterTypeFullName = extTypeFullName
@@ -116,12 +116,12 @@ let areSameTypes (typeArguments: IReadOnlyList<IType>) ((mParam, paramSym): IPar
 
 let getDeclaringTypeName =
   function
-  | FindDeclExternalSymbol.Type (fullName) -> fullName
-  | FindDeclExternalSymbol.Constructor (typeName, _args) -> typeName
-  | FindDeclExternalSymbol.Method (typeName, _name, _paramSyms, _genericArity) -> typeName
-  | FindDeclExternalSymbol.Field (typeName, _name) -> typeName
-  | FindDeclExternalSymbol.Event (typeName, _name) -> typeName
-  | FindDeclExternalSymbol.Property (typeName, _name) -> typeName
+  | FindDeclExternalSymbol.Type(fullName) -> fullName
+  | FindDeclExternalSymbol.Constructor(typeName, _args) -> typeName
+  | FindDeclExternalSymbol.Method(typeName, _name, _paramSyms, _genericArity) -> typeName
+  | FindDeclExternalSymbol.Field(typeName, _name) -> typeName
+  | FindDeclExternalSymbol.Event(typeName, _name) -> typeName
+  | FindDeclExternalSymbol.Property(typeName, _name) -> typeName
 
 let findMethodFromArgs (args: FindDeclExternalParam list) (methods: IMethod seq) =
   methods
@@ -155,28 +155,28 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     let symbol =
       match externalSym with
       | FindDeclExternalSymbol.Type _ -> Some(typeDef :> ISymbol)
-      | FindDeclExternalSymbol.Constructor (_typeName, args) ->
+      | FindDeclExternalSymbol.Constructor(_typeName, args) ->
         typeDef.GetConstructors()
         |> findMethodFromArgs args
         |> Option.map (fun x -> x :> ISymbol)
 
-      | FindDeclExternalSymbol.Method (_typeName, name, args, genericArity) ->
+      | FindDeclExternalSymbol.Method(_typeName, name, args, genericArity) ->
         typeDef.GetMethods(filter = Predicate(fun m -> m.Name = name))
         |> Seq.where (fun m -> m.TypeParameters.Count = genericArity)
         |> findMethodFromArgs args
         |> Option.map (fun x -> x :> ISymbol)
 
-      | FindDeclExternalSymbol.Field (_typeName, name) ->
+      | FindDeclExternalSymbol.Field(_typeName, name) ->
         typeDef.GetFields(filter = Predicate(fun m -> m.Name = name))
         |> Seq.tryHead
         |> Option.map (fun x -> x :> ISymbol)
 
-      | FindDeclExternalSymbol.Event (_typeName, name) ->
+      | FindDeclExternalSymbol.Event(_typeName, name) ->
         typeDef.GetEvents(filter = Predicate(fun m -> m.Name = name))
         |> Seq.tryHead
         |> Option.map (fun x -> x :> ISymbol)
 
-      | FindDeclExternalSymbol.Property (_typeName, name) ->
+      | FindDeclExternalSymbol.Property(_typeName, name) ->
         typeDef.GetProperties(filter = Predicate(fun m -> m.Name = name))
         |> Seq.tryHead
         |> Option.map (fun x -> x :> ISymbol)

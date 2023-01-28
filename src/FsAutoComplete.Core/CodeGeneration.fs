@@ -43,7 +43,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
     override x.GetSymbolAtPosition(fileName, pos: Position) =
       match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
       | ResultOrString.Error _ -> None
-      | ResultOrString.Ok (opts, lines, line) ->
+      | ResultOrString.Ok(opts, lines, line) ->
         try
           Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
         with _ ->
@@ -56,7 +56,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
         if symbol.Kind = kind then
           match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
           | ResultOrString.Error _ -> return! None
-          | ResultOrString.Ok (opts, text, line) ->
+          | ResultOrString.Ok(opts, text, line) ->
             let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
             let symbolUse = result.TryGetSymbolUse pos line
             return! Some(symbol, symbolUse)
@@ -67,7 +67,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
     override x.ParseFileInProject(fileName) =
       match state.TryGetFileCheckerOptionsWithLines fileName with
       | ResultOrString.Error _ -> None
-      | ResultOrString.Ok (opts, text) ->
+      | ResultOrString.Ok(opts, text) ->
         try
           checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
           |> Option.map (fun n -> n.GetParseResults)
@@ -278,17 +278,17 @@ module CodeGenerationUtils =
     let args, namesWithIndices =
       args
       |> List.fold
-           (fun (argsSoFar: string list list, namesWithIndices) args ->
-             let argsSoFar', namesWithIndices =
-               args
-               |> List.fold
-                    (fun (acc: string list, allNames) arg ->
-                      let name, allNames = formatArgUsage ctx hasTypeAnnotation allNames arg
-                      name :: acc, allNames)
-                    ([], namesWithIndices)
+        (fun (argsSoFar: string list list, namesWithIndices) args ->
+          let argsSoFar', namesWithIndices =
+            args
+            |> List.fold
+              (fun (acc: string list, allNames) arg ->
+                let name, allNames = formatArgUsage ctx hasTypeAnnotation allNames arg
+                name :: acc, allNames)
+              ([], namesWithIndices)
 
-             List.rev argsSoFar' :: argsSoFar, namesWithIndices)
-           ([], Map.ofList [ ctx.ObjectIdent, Set.empty ])
+          List.rev argsSoFar' :: argsSoFar, namesWithIndices)
+        ([], Map.ofList [ ctx.ObjectIdent, Set.empty ])
 
     args
     |> List.rev
@@ -313,7 +313,7 @@ module CodeGenerationUtils =
 
     let argInfos, retType =
       match argInfos, v.IsPropertyGetterMethod, v.IsPropertySetterMethod with
-      | [ AllAndLast (args, last) ], _, true -> [ args ], Some last.Type
+      | [ AllAndLast(args, last) ], _, true -> [ args ], Some last.Type
       | [ [] ], true, _ -> [], Some retType
       | _, _, _ -> argInfos, Some retType
 
@@ -440,7 +440,7 @@ module CodeGenerationUtils =
       if m.IsDispatchSlot then "override " else "member "
 
     match m with
-    | MemberInfo.PropertyGetSet (getter, setter) ->
+    | MemberInfo.PropertyGetSet(getter, setter) ->
       let (usage, modifiers, getterArgInfos, retType) = preprocess ctx getter
       let closeDeclaration = closeDeclaration retType
       let writeImplementation = writeImplementation ctx
@@ -558,7 +558,7 @@ module CodeGenerationUtils =
 
   let (|TypeOfMember|_|) (m: FSharpMemberOrFunctionOrValue) =
     match m.FullTypeSafe with
-    | Some (MemberFunctionType typ) when m.IsProperty && m.DeclaringEntity.IsSome && m.DeclaringEntity.Value.IsFSharp ->
+    | Some(MemberFunctionType typ) when m.IsProperty && m.DeclaringEntity.IsSome && m.DeclaringEntity.Value.IsFSharp ->
       Some typ
     | Some typ -> Some typ
     | None -> None
@@ -640,7 +640,7 @@ module CodeGenerationUtils =
 
   let (|LongIdentPattern|_|) =
     function
-    | SynPat.LongIdent(longDotId = LongIdentWithDots (xs, _)) ->
+    | SynPat.LongIdent(longDotId = LongIdentWithDots(xs, _)) ->
       //            let (name, range) = xs |> List.map (fun x -> x.idText, x.idRange) |> List.last
       let last = List.last xs
       Some(last.idText, last.idRange)
@@ -651,21 +651,21 @@ module CodeGenerationUtils =
   // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
   let (|MemberNameAndRange|_|) =
     function
-    | SynBinding (valData = SynValData (Some mf, _, _); headPat = LongIdentPattern (name, range)) when
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
       mf.MemberKind = SynMemberKind.PropertyGet
       ->
       if name.StartsWith("get_") then
         Some(name, range)
       else
         Some("get_" + name, range)
-    | SynBinding (valData = SynValData (Some mf, _, _); headPat = LongIdentPattern (name, range)) when
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
       mf.MemberKind = SynMemberKind.PropertySet
       ->
       if name.StartsWith("set_") then
         Some(name, range)
       else
         Some("set_" + name, range)
-    | SynBinding(headPat = LongIdentPattern (name, range)) -> Some(name, range)
+    | SynBinding(headPat = LongIdentPattern(name, range)) -> Some(name, range)
     | _ -> None
 
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =
@@ -815,8 +815,8 @@ module CodeGenerationUtils =
     (displayContext: FSharpDisplayContext)
     excludedMemberSignatures
     (e: FSharpEntity)
-    (getMembersToImplement: FSharpEntity
-                              -> seq<FSharpMemberOrFunctionOrValue * seq<FSharpGenericParameter * FSharpType>>)
+    (getMembersToImplement:
+      FSharpEntity -> seq<FSharpMemberOrFunctionOrValue * seq<FSharpGenericParameter * FSharpType>>)
     verboseMode
     =
     let lines = String.getLines methodBody
@@ -923,17 +923,17 @@ module CodeGenerationUtils =
   let rec (|RationalConst|) =
     function
     | SynRationalConst.Integer i -> string i
-    | SynRationalConst.Rational (numerator, denominator, _) -> sprintf "(%i/%i)" numerator denominator
-    | SynRationalConst.Negate (RationalConst s) -> sprintf "- %s" s
+    | SynRationalConst.Rational(numerator, denominator, _) -> sprintf "(%i/%i)" numerator denominator
+    | SynRationalConst.Negate(RationalConst s) -> sprintf "- %s" s
 
   let rec (|TypeIdent|_|) =
     function
-    | SynType.Var (SynTypar (s, req, _), _) ->
+    | SynType.Var(SynTypar(s, req, _), _) ->
       match req with
       | TyparStaticReq.None -> Some("'" + s.idText)
       | TyparStaticReq.HeadType -> Some("^" + s.idText)
-    | SynType.LongIdent (LongIdentWithDots (xs, _)) -> xs |> Seq.map (fun x -> x.idText) |> String.concat "." |> Some
-    | SynType.App (t, _, ts, _, _, isPostfix, _) ->
+    | SynType.LongIdent(LongIdentWithDots(xs, _)) -> xs |> Seq.map (fun x -> x.idText) |> String.concat "." |> Some
+    | SynType.App(t, _, ts, _, _, isPostfix, _) ->
       match t, ts with
       | TypeIdent typeName, [] -> Some typeName
       | TypeIdent typeName, [ TypeIdent typeArg ] ->
@@ -952,15 +952,15 @@ module CodeGenerationUtils =
         debug "Unsupported case with %A and %A" t ts
         None
     | SynType.Anon _ -> Some "_"
-    | SynType.Tuple (_, ts, _) -> Some(ts |> Seq.choose (snd >> (|TypeIdent|_|)) |> String.concat " * ")
-    | SynType.Array (dimension, TypeIdent typeName, _) -> Some(sprintf "%s [%s]" typeName (String(',', dimension - 1)))
-    | SynType.MeasurePower (TypeIdent typeName, RationalConst power, _) -> Some(sprintf "%s^%s" typeName power)
-    | SynType.MeasureDivide (TypeIdent numerator, TypeIdent denominator, _) ->
+    | SynType.Tuple(_, ts, _) -> Some(ts |> Seq.choose (snd >> (|TypeIdent|_|)) |> String.concat " * ")
+    | SynType.Array(dimension, TypeIdent typeName, _) -> Some(sprintf "%s [%s]" typeName (String(',', dimension - 1)))
+    | SynType.MeasurePower(TypeIdent typeName, RationalConst power, _) -> Some(sprintf "%s^%s" typeName power)
+    | SynType.MeasureDivide(TypeIdent numerator, TypeIdent denominator, _) ->
       Some(sprintf "%s/%s" numerator denominator)
     | _ -> None
 
   let expandTypeParameters (typ: SynType) =
     match typ with
-    | SynType.App (_, _, ts, _, _, _, _)
-    | SynType.LongIdentApp (_, _, _, ts, _, _, _) -> ts |> Seq.choose (|TypeIdent|_|) |> Seq.toArray
+    | SynType.App(_, _, ts, _, _, _, _)
+    | SynType.LongIdentApp(_, _, _, ts, _, _, _) -> ts |> Seq.choose (|TypeIdent|_|) |> Seq.toArray
     | _ -> [||]

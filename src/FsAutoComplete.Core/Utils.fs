@@ -16,7 +16,7 @@ module Map =
   let merge (first: Map<'a, 'b>) (second: Map<'a, 'b>) =
     let mutable result = first
 
-    for (KeyValue (key, value)) in second do
+    for (KeyValue(key, value)) in second do
       result <- Map.add key value result
 
     result
@@ -25,7 +25,7 @@ module Map =
   let combineTakeFirst (first: Map<_, _>) (second: Map<_, _>) =
     let mutable result = first
 
-    for (KeyValue (key, value)) in second do
+    for (KeyValue(key, value)) in second do
       if result.ContainsKey key then
         ()
       else
@@ -35,7 +35,7 @@ module Map =
 
   let values (m: Map<_, _>) =
     seq {
-      for (KeyValue (_, value)) in m do
+      for (KeyValue(_, value)) in m do
         yield value
     }
 
@@ -145,7 +145,8 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
     | [||] -> checkOptions.OtherOptions |> Array.where (isFileWithFSharp)
     | x -> x
 
-  { FSharpParsingOptions.Default with SourceFiles = files }
+  { FSharpParsingOptions.Default with
+      SourceFiles = files }
 
 [<RequireQualifiedAccess>]
 module Option =
@@ -254,7 +255,7 @@ type MaybeBuilder() =
   member inline __.Combine(r1, r2: 'T option) : 'T option =
     match r1 with
     | None -> None
-    | Some () -> r2
+    | Some() -> r2
 
   // M<'T> * ('T -> M<'U>) -> M<'U>
   [<DebuggerStepThrough>]
@@ -310,7 +311,7 @@ type AsyncMaybeBuilder() =
 
       match r1' with
       | None -> return None
-      | Some () -> return! r2
+      | Some() -> return! r2
     }
 
   [<DebuggerStepThrough>]
@@ -723,7 +724,8 @@ module Version =
 
   let private informationalVersion () =
     let assemblies =
-      typeof<VersionInfo>.Assembly.GetCustomAttributes (typeof<AssemblyInformationalVersionAttribute>, true)
+      typeof<VersionInfo>.Assembly
+        .GetCustomAttributes(typeof<AssemblyInformationalVersionAttribute>, true)
 
     match assemblies with
     | [| x |] ->
@@ -751,21 +753,20 @@ module Version =
 type Debounce<'a>(timeout, fn) as x =
 
   let mailbox =
-    MailboxProcessor<'a>.Start
-      (fun agent ->
-        let rec loop ida idb arg =
-          async {
-            let! r = agent.TryReceive(x.Timeout)
+    MailboxProcessor<'a>.Start(fun agent ->
+      let rec loop ida idb arg =
+        async {
+          let! r = agent.TryReceive(x.Timeout)
 
-            match r with
-            | Some arg -> return! loop ida (idb + 1) (Some arg)
-            | None when ida <> idb ->
-              do! fn arg.Value
-              return! loop 0 0 None
-            | None -> return! loop 0 0 arg
-          }
+          match r with
+          | Some arg -> return! loop ida (idb + 1) (Some arg)
+          | None when ida <> idb ->
+            do! fn arg.Value
+            return! loop 0 0 None
+          | None -> return! loop 0 0 arg
+        }
 
-        loop 0 0 None)
+      loop 0 0 None)
 
   /// Calls the function, after debouncing has been applied.
   member _.Bounce(arg) = mailbox.Post(arg)

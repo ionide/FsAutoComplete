@@ -227,7 +227,7 @@ module Commands =
 
       match res with
       | None -> return CoreResponse.InfoRes "Record at position not found"
-      | Some (recordEpr, (Some recordDefinition), insertionPos) ->
+      | Some(recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
           let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
           return CoreResponse.Res(result, insertionPos.InsertionPos)
@@ -240,7 +240,7 @@ module Commands =
     async {
       match Lexer.findLongIdents (pos.Column, line) with
       | None -> return CoreResponse.InfoRes "Ident not found"
-      | Some (_, idents) ->
+      | Some(_, idents) ->
         match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
         | None -> return CoreResponse.InfoRes "EntityKind not found"
         | Some entityKind ->
@@ -349,7 +349,7 @@ module Commands =
 
       match res with
       | None -> return CoreResponse.InfoRes "Union at position not found"
-      | Some (patMatchExpr, unionTypeDefinition, insertionPos) ->
+      | Some(patMatchExpr, unionTypeDefinition, insertionPos) ->
 
         if shouldGenerateUnionPatternMatchCases patMatchExpr unionTypeDefinition then
           let result = formatMatchExpr insertionPos "$1" patMatchExpr unionTypeDefinition
@@ -487,7 +487,7 @@ module Commands =
 
     async {
       match tyRes.TryGetSymbolUseAndUsages pos lineStr with
-      | Ok (sym, usages) ->
+      | Ok(sym, usages) ->
         let fsym = sym.Symbol
 
         if fsym.IsPrivateToFile then
@@ -504,11 +504,12 @@ module Commands =
     }
 
   let renameSymbol
-    (symbolUseWorkspace: _
-                           -> _
-                           -> _
-                           -> _
-                           -> Async<Result<Choice<Dictionary<string, range array> * Dictionary<string, range array>, Dictionary<string, range array>>, string>>)
+    (symbolUseWorkspace:
+      _
+        -> _
+        -> _
+        -> _
+        -> Async<Result<Choice<Dictionary<string, range array> * Dictionary<string, range array>, Dictionary<string, range array>>, string>>)
     (tryGetFileSource: _ -> Result<NamedText, _>)
     (pos: Position)
     (tyRes: ParseAndCheckResults)
@@ -517,35 +518,35 @@ module Commands =
     =
     asyncResult {
       match! symbolUseWorkspace pos lineStr text tyRes with
-      | Choice1Of2 (declarationsByDocument, symbolUsesByDocument) ->
+      | Choice1Of2(declarationsByDocument, symbolUsesByDocument) ->
         let totalSetOfRanges = Dictionary<NamedText, _>()
 
-        for (KeyValue (filePath, declUsages)) in declarationsByDocument do
+        for (KeyValue(filePath, declUsages)) in declarationsByDocument do
           let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges declUsages
           | false, _ -> totalSetOfRanges[text] <- declUsages
 
-        for (KeyValue (filePath, symbolUses)) in symbolUsesByDocument do
+        for (KeyValue(filePath, symbolUses)) in symbolUsesByDocument do
           let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
           | false, _ -> totalSetOfRanges[text] <- symbolUses
 
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
-      | Choice2Of2 (mixedDeclarationAndSymbolUsesByDocument) ->
+        return totalSetOfRanges |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Array.ofSeq
+      | Choice2Of2(mixedDeclarationAndSymbolUsesByDocument) ->
         let totalSetOfRanges = Dictionary<NamedText, _>()
 
-        for (KeyValue (filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
+        for (KeyValue(filePath, symbolUses)) in mixedDeclarationAndSymbolUsesByDocument do
           let! text = tryGetFileSource (UMX.tag filePath)
 
           match totalSetOfRanges.TryGetValue(text) with
           | true, ranges -> totalSetOfRanges[text] <- Array.append ranges symbolUses
           | false, _ -> totalSetOfRanges[text] <- symbolUses
 
-        return totalSetOfRanges |> Seq.map (fun (KeyValue (k, v)) -> k, v) |> Array.ofSeq
+        return totalSetOfRanges |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Array.ofSeq
     }
 
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
@@ -660,8 +661,8 @@ module Commands =
         // adjust column
         let pos =
           match pos with
-          | Pos (1, c) -> pos
-          | Pos (l, 0) ->
+          | Pos(1, c) -> pos
+          | Pos(l, 0) ->
             let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
 
@@ -670,7 +671,7 @@ module Commands =
               Position.mkPos l indentation
             else
               pos
-          | Pos (_, c) -> pos
+          | Pos(_, c) -> pos
 
         { Namespace = n
           Position = pos
@@ -764,7 +765,7 @@ module Commands =
 
         return Choice1Of2(declarationRanges, usageRanges)
 
-      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
+      | SymbolDeclarationLocation.Projects(projects, isInternalToProject) ->
         let symbolUseRanges = ImmutableArray.CreateBuilder()
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
@@ -1181,11 +1182,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     disposables.Add
     <| state.ProjectController.Notifications.Subscribe(fun ev ->
       match ev with
-      | ProjectResponse.Project (p, isFromCache) ->
+      | ProjectResponse.Project(p, isFromCache) ->
         if not isFromCache then
           p.ProjectItems
           |> List.choose (function
-            | ProjectViewerItem.Compile (p, _) -> Some(Utils.normalizePath p))
+            | ProjectViewerItem.Compile(p, _) -> Some(Utils.normalizePath p))
           |> parseFilesInTheBackground
           |> Async.Start
         else
@@ -1368,7 +1369,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.TryGetRecentTypeCheckResultsForFile(file: string<LocalPath>) =
     match state.TryGetFileCheckerOptionsWithLines file with
-    | Ok (opts, text) -> x.TryGetRecentTypeCheckResultsForFile(file, opts, text)
+    | Ok(opts, text) -> x.TryGetRecentTypeCheckResultsForFile(file, opts, text)
     | _ -> async.Return None
 
   member x.TryGetRecentTypeCheckResultsForFile(file, opts, text) =
@@ -1413,7 +1414,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let! projectOptions =
           match state.ScriptProjectOptions.TryFind file with
-          | Some (h, opts) when h = hash -> async.Return opts
+          | Some(h, opts) when h = hash -> async.Return opts
           | _ ->
             async {
               let! projectOptions = checker.GetProjectOptionsFromScript(file, text, fsiRefs)
@@ -1569,7 +1570,9 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         | ResultOrString.Ok text ->
           let files = Array.singleton (UMX.untag file)
 
-          let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files }
+          let parseOptions =
+            { FSharpParsingOptions.Default with
+                SourceFiles = files }
 
           let! decls = checker.GetDeclarations(file, text, parseOptions, version)
           let decls = decls |> Array.map (fun a -> a, file)
@@ -1577,12 +1580,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       | ResultOrString.Error _, Some text ->
         let files = Array.singleton (UMX.untag file)
 
-        let parseOptions = { FSharpParsingOptions.Default with SourceFiles = files }
+        let parseOptions =
+          { FSharpParsingOptions.Default with
+              SourceFiles = files }
 
         let! decls = checker.GetDeclarations(file, text, parseOptions, version)
         let decls = decls |> Array.map (fun a -> a, file)
         return CoreResponse.Res decls
-      | ResultOrString.Ok (checkOptions, text), _ ->
+      | ResultOrString.Ok(checkOptions, text), _ ->
         let parseOptions = Utils.projectOptionsToParseOptions checkOptions
 
         let! decls = checker.GetDeclarations(file, text, parseOptions, version)
@@ -1597,7 +1602,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     async {
       let decls =
         state.NavigationDeclarations.ToArray()
-        |> Array.collect (fun (KeyValue (p, decls)) -> decls |> Array.map (fun d -> d, p))
+        |> Array.collect (fun (KeyValue(p, decls)) -> decls |> Array.map (fun d -> d, p))
 
       return CoreResponse.Res decls
     }
@@ -1619,7 +1624,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           match state.Declarations.TryFind sym with
           | None -> //Isn't in sync filled cache, we don't have result
             return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-          | Some (decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
+          | Some(decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
             let source = state.Files.TryFind fn |> Option.map (fun n -> n.Lines)
 
             match source with
@@ -1666,7 +1671,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
 
       match res with
-      | Some (decls, residue, shouldKeywords) ->
+      | Some(decls, residue, shouldKeywords) ->
         let declName (d: DeclarationListItem) = d.Name
 
         //Init cache for current list
@@ -2049,11 +2054,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
     Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
 
-  member x.FormatSelection
-    (
-      file: string<LocalPath>,
-      rangeToFormat: FormatSelectionRange
-    ) : Async<Result<_, string>> =
+  member x.FormatSelection(file: string<LocalPath>, rangeToFormat: FormatSelectionRange) : Async<Result<_, string>> =
     let tryGetFileCheckerOptionsWithLines file =
       x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
 

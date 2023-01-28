@@ -40,7 +40,7 @@ let fix
       let! (tyRes, line, lines) = getParseResultsForFile fileName casePosFCS
 
       match! generateCases tyRes casePosFCS lines line |> Async.map Ok with
-      | CoreResponse.Res (insertString: string, insertPosition) ->
+      | CoreResponse.Res(insertString: string, insertPosition) ->
         let range =
           { Start = fcsPosToLsp insertPosition
             End = fcsPosToLsp insertPosition }
@@ -49,7 +49,7 @@ let fix
 
         let replaced =
           (insertString, replacements)
-          ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
+          ||> Seq.fold (fun text (KeyValue(key, replacement)) -> text.Replace(key, replacement))
 
         return
           [ { SourceDiagnostic = Some diagnostic
