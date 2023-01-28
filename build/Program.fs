@@ -6,8 +6,6 @@ open Fake.DotNet
 open Fake.Core.TargetOperators
 open Fake.Tools
 
-System.Environment.CurrentDirectory <- (Path.combine __SOURCE_DIRECTORY__ "..")
-
 let project = "FsAutoComplete"
 let changeLogFile = "CHANGELOG.md"
 let mutable changelogs = Changelog.load changeLogFile
@@ -101,16 +99,6 @@ let init args =
       (fun p -> { p with Configuration = DotNet.BuildConfiguration.fromString configuration })
       "FsAutoComplete.sln")
 
-  Target.create "ReplaceFsLibLogNamespaces"
-  <| fun _ ->
-       let replacements =
-         [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
-           "FsLibLog\\.", "FsAutoComplete.Logging" ]
-
-       replacements
-       |> List.iter (fun (``match``, replace) ->
-         (!! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs")
-         |> Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8)
 
   Target.create "Format" (fun _ ->
     let result =
@@ -210,13 +198,12 @@ let init args =
   "PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
   |> ignore<string>
 
-  "Restore" ==> "ReplaceFsLibLogNamespaces" ==> "Build" |> ignore<string>
+  "Restore" ==> "Build" |> ignore<string>
 
   "CheckFormat" ==> "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
   |> ignore<string>
 
-  "ReplaceFsLibLogNamespaces"
-  ==> "LocalRelease"
+  "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
   |> ignore<string>

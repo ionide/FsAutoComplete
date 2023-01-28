@@ -15,5 +15,6 @@
     <PackageReference Include="Fake.DotNet" Version="2.0.0" />
     <PackageReference Include="Fake.DotNet.Cli" Version="5.23.1" />
     <PackageReference Include="Fake.Tools.Git" Version="5.23.1" />
+    <PackageReference Include="MSBuild.StructuredLogger" Version="2.1.768" />
   </ItemGroup>
 </Project>

@@ -2,24 +2,6 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "fake-cli": {
-      "version": "5.23.0",
-      "commands": [
-        "fake"
-      ]
-    },
-    "paket": {
-      "version": "7.2.0-alpha001",
-      "commands": [
-        "paket"
-      ]
-    },
-    "octonav": {
-      "version": "0.0.1",
-      "commands": [
-        "octonav"
-      ]
-    },
     "dotnet-reportgenerator-globaltool": {
       "version": "5.0.2",
       "commands": [
