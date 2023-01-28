@@ -42,6 +42,11 @@
           ContinueOnError="false" />
   </Target>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Copy SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
+          DestinationFolder="$(OutputPath)"
+          ContinueOnError="false" />
+  </Target>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
