@@ -7,5 +7,13 @@
   <ItemGroup>
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="Fake.Core" Version="5.16.0" />
+    <PackageReference Include="Fake.Core.Process" Version="5.23.1" />
+    <PackageReference Include="Fake.Core.ReleaseNotes" Version="5.23.1" />
+    <PackageReference Include="Fake.Core.Target" Version="5.23.1" />
+    <PackageReference Include="Fake.DotNet" Version="2.0.0" />
+    <PackageReference Include="Fake.DotNet.Cli" Version="5.23.1" />
+    <PackageReference Include="Fake.Tools.Git" Version="5.23.1" />
+  </ItemGroup>
 </Project>
