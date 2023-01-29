@@ -4,7 +4,7 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 
 type File =
-  static member CurrentDir([<CallerFilePath;DefaultParameterValue(null: string); OptionalAttribute>] callerPath: string) = callerPath
+  static member CurrentDir([<CallerFilePath;DefaultParameterValue(null: string); OptionalAttribute>] callerPath: string) = System.IO.Path.GetDirectoryName(callerPath)
 
 
 module Expect =

@@ -223,6 +223,7 @@ let tests state = testList (nameof(Server)) [
   testList "with root path" [
     let inTestCases name =
       System.IO.Path.Combine(File.CurrentDir(), "..", "TestCases", "ServerTests", name)
+      |> System.IO.Path.GetFullPath
       |> Some
 
     let noAnalyzersConfig =
