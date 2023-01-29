@@ -257,7 +257,7 @@ NUGET
       System.IO.Pipelines (>= 5.0.1)
       System.Runtime.CompilerServices.Unsafe (>= 5.0)
     Newtonsoft.Json (13.0.2)
-    NuGet.Frameworks (6.3)
+    NuGet.Frameworks (6.3) - copy_local: false
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.debian.9-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
