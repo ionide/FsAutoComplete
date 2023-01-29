@@ -16,7 +16,7 @@ open Utils.TextEdit
 let private gotoTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "GoToTests")
 
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
@@ -489,7 +489,7 @@ let private gotoTest state =
 let private scriptGotoTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "GoToTests")
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let scriptPath = Path.Combine(path, "Script.fsx")

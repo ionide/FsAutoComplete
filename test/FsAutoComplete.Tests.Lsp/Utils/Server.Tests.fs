@@ -222,7 +222,7 @@ let tests state = testList (nameof(Server)) [
 
   testList "with root path" [
     let inTestCases name =
-      System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "TestCases", "ServerTests", name)
+      System.IO.Path.Combine(File.CurrentDir(), "..", "TestCases", "ServerTests", name)
       |> Some
 
     let noAnalyzersConfig =
@@ -592,7 +592,7 @@ f2 "bar" |> ignore
     serverTestList "no root path without analyzers" state defaultConfigDto None (fun server -> [
       testCaseAsync "can create Document by absolute path without root path" <| async {
         let relativePath = "../TestCases/ServerTests/JustScript/Script.fsx"
-        let absolutePath = System.IO.Path.GetFullPath(System.IO.Path.Combine(__SOURCE_DIRECTORY__, relativePath))
+        let absolutePath = System.IO.Path.GetFullPath(System.IO.Path.Combine(File.CurrentDir(), relativePath))
         let! (doc, _) = server |> Server.openDocument absolutePath
         use doc = doc
         ()

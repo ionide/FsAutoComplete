@@ -20,7 +20,7 @@ let private normalizePathCasing =
 let tests state =
   let sameProjectTests =
     let testDir =
-      Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "SameProject")
+      Path.Combine(File.CurrentDir(), "TestCases", "RenameTest", "SameProject")
 
     serverTestList "Within Same Project" state defaultConfigDto (Some testDir) (fun server ->
       [ testCaseAsync
@@ -141,7 +141,7 @@ let tests state =
             NewName = newName
           }
         let! res = doc.Server.Server.TextDocumentRename p
-        let edits = 
+        let edits =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
@@ -219,7 +219,7 @@ let tests state =
     let server =
       async {
         let testDir =
-          Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "CrossProject")
+          Path.Combine(File.CurrentDir(), "TestCases", "RenameTest", "CrossProject")
 
         let! (server, event) = serverInitialize testDir defaultConfigDto state
         do! waitForWorkspaceFinishedParsing event

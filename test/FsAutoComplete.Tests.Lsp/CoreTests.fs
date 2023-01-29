@@ -35,7 +35,7 @@ let initTests createServer =
 
       let p: InitializeParams =
         { ProcessId = Some 1
-          RootPath = Some __SOURCE_DIRECTORY__
+          RootPath = Some (File.CurrentDir())
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
           Capabilities = Some clientCaps
@@ -105,7 +105,7 @@ let initTests createServer =
 let documentSymbolTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "DocumentSymbolTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
       let path = Path.Combine(path, "Script.fsx")
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
@@ -139,7 +139,7 @@ let documentSymbolTest state =
 let foldingTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FoldingTests")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "FoldingTests")
 
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
@@ -190,7 +190,7 @@ let tooltipTests state =
 
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Tooltips")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "Tooltips")
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
@@ -359,7 +359,7 @@ let tooltipTests state =
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
-  let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CloseTests")
+  let root = Path.Combine(File.CurrentDir(), "TestCases", "CloseTests")
   let workspace = Path.Combine(root, "Workspace")
 
   serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server ->

@@ -7,11 +7,12 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
+open Utils.Utils
 
 let tests state =
   let geTestNotification projectFolder fileName =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", projectFolder)
+      let path = Path.Combine(File.CurrentDir(), "TestCases", projectFolder)
       let! server, events = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, fileName)

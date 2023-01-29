@@ -9,9 +9,10 @@ open Utils.Server
 open System
 open FSharp.Control.Reactive
 open FSharpx.Control
+open Utils.Utils
 
 let tests state =
-  let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", "SameProject")
+  let root = Path.Combine(File.CurrentDir(), "TestCases", "DependentFileChecking", "SameProject")
   let aFile, bFile = "A.fs", "B.fs"
   testList (nameof DependentFileChecking) [
     // Separate server for each test
@@ -29,10 +30,10 @@ let tests state =
         // make a change to A (that is clearly incorrect)
         let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
         // start listening for new diagnostics for B
-        let! diagnosticsForBWaiter = 
-          bDiagsStream 
-          |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.) 
-          |> Async.AwaitObservable 
+        let! diagnosticsForBWaiter =
+          bDiagsStream
+          |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.)
+          |> Async.AwaitObservable
           |> Async.StartChild
         let! aDiags = startAChange
         Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous changes"
@@ -55,11 +56,11 @@ let tests state =
           // make a change to A (that is clearly incorrect)
           let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
           // start listening for new diagnostics for B
-          let! diagnosticsForBWaiter = 
-            bDiagsStream 
+          let! diagnosticsForBWaiter =
+            bDiagsStream
             |> Observable.skip i
-            |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.) 
-            |> Async.AwaitObservable 
+            |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.)
+            |> Async.AwaitObservable
             |> Async.StartChild
           let! aDiags = startAChange
           Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous change #%d{i}"

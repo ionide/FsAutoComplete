@@ -7,11 +7,12 @@ open FsToolkit.ErrorHandling
 open Helpers
 open Ionide.LanguageServerProtocol.Types
 open System.IO
+open Utils.Utils
 
 open type System.Environment
 
 let tests state =
-  let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "XmlDocGen")
+  let testPath = Path.Combine(File.CurrentDir(), "TestCases", "XmlDocGen")
   let scriptPath = Path.Combine(testPath, "Script.fsx")
 
   let server =

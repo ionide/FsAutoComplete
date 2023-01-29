@@ -8,11 +8,12 @@ open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Utils.Server
+open Utils.Utils
 
 let tests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Completion")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "Completion")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, "Script.fsx")
@@ -212,7 +213,7 @@ let tests state =
 let autocompleteTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "AutocompleteTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
       do! waitForWorkspaceFinishedParsing event
@@ -226,7 +227,7 @@ let autocompleteTest state =
 
   let scriptServer =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "AutocompleteScriptTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let path = Path.Combine(path, "Script.fsx")
@@ -379,7 +380,7 @@ let autocompleteTest state =
 
 let autoOpenTests state =
   let dirPath =
-    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
+    Path.Combine(File.CurrentDir(), "TestCases", "CompletionAutoOpenTests")
 
   let serverFor (scriptPath: string) =
     async {

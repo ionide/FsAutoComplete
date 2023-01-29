@@ -6,11 +6,12 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open Helpers
 open FsToolkit.ErrorHandling
+open Utils.Utils
 
 let docFormattingTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FormattedDocumentation")
+      let path = Path.Combine(File.CurrentDir(), "TestCases", "FormattedDocumentation")
       let config = defaultConfigDto
       let! (server, events) = serverInitialize path config state
       let path = Path.Combine(path, "Script.fsx")

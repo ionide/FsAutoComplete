@@ -6,9 +6,10 @@ open Helpers
 open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
+open Utils.Utils
 
 let tests state =
-  let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
+  let testPath = Path.Combine(File.CurrentDir(), "TestCases", "HighlightingTest")
   let scriptPath = Path.Combine(testPath, "Script.fsx")
 
   let server =

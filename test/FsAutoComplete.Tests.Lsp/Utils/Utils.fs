@@ -1,5 +1,12 @@
 module Utils.Utils
 
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
+
+type File =
+  static member CurrentDir([<CallerFilePath;DefaultParameterValue(null: string); OptionalAttribute>] callerPath: string) = callerPath
+
+
 module Expect =
   open FsAutoComplete.Utils
   open Expecto
@@ -20,9 +27,9 @@ module Expect =
   }
   /// passed Async `f` is expected to throw `Expecto.AssertException`
   /// -> Expecto Test in `f` is expected to fail
-  /// 
+  ///
   /// ~ Basically fancy `Async` wrapper for `Expect.throwsT<Expecto.AssertException>`
-  /// 
+  ///
   /// Note: `failwith` doesn't trigger success (throws `System.Exception`). Use `failtest` instead
   let failure f = failureMatching (fun _ -> true) f
 
@@ -42,7 +49,7 @@ module Position =
     assert(pos.Line >= 0)
     assert(pos.Character >= 0)
 
-  let inline eq p1 p2 = 
+  let inline eq p1 p2 =
     // p1.Line = p2.Line && p1.Character = p2.Character
     p1 = p2
   let inline gt p1 p2 =
@@ -50,7 +57,7 @@ module Position =
   let inline geq p1 p2 = eq p1 p2 || gt p1 p2
   let inline lt p1 p2 = gt p2 p1
   let inline leq p1 p2 = geq p2 p1
-  
+
 /// Note: Always assumes correct order inside Range: `Start <= End`
 module Range =
   open Ionide.LanguageServerProtocol.Types
@@ -64,7 +71,7 @@ module Range =
     range.Start = range.End
 
   /// Strict: `pos` on `Start` or `End` of `range` counts as containing
-  /// 
+  ///
   /// ```text
   /// ----------------------------------->
   ///       ^^^^^^^^^^^^^^^^^ range
@@ -79,7 +86,7 @@ module Range =
     Position.leq range.Start pos && Position.leq pos range.End
 
   /// Loose: `pos` on `Start` or `End` of `range` doesn't count as containing
-  /// 
+  ///
   /// ```text
   /// ----------------------------------->
   ///       ^^^^^^^^^^^^^^^^^ range
@@ -113,7 +120,7 @@ module Range =
   ///      |  |   ^^^^^^^^ false
   ///      |  ^^^^^^^^ true
   ///      ^^^^^^^^ false
-  ///   ^^^^^^ false  
+  ///   ^^^^^^ false
   ///   ^^^ false
   ///   ^ true
   /// ^^^ true
@@ -129,7 +136,7 @@ module Range =
   ///      |  |   ^^^^^^^^ false
   ///      |  ^^^^^^^^ true
   ///      ^^^^^^^^ true
-  ///   ^^^^^^^ true  
+  ///   ^^^^^^^ true
   /// ```
   let overlapsStrictly (range1: Range) (range2: Range) =
     range1 |> containsStrictly range2.Start
@@ -139,17 +146,17 @@ module Range =
     range2 |> containsStrictly range1.Start
     ||
     range2 |> containsStrictly range1.End
-  
+
   /// Loose: Touching doesn't count as overlapping.
   ///        Neither does both just position and same position
-  /// 
+  ///
   /// ```text
   /// -------------------------->
   ///   ^^^^^^^
   ///   |  |  |   ^^^^^^^^ false
   ///   |  |  ^^^^^^^^ false
   ///   |  ^^^^^^^^ true
-  ///   ^^^^^^^ true  
+  ///   ^^^^^^^ true
   /// ```
   /// ```text
   /// -------------------------->
@@ -165,7 +172,7 @@ module Range =
     not (range1 |> touches range2)
 
   /// Strict: Touching is not disjoint
-  /// 
+  ///
   /// ```text
   /// -------------------------->
   ///   ^^^^^^^
@@ -177,7 +184,7 @@ module Range =
   let isDisjointStrictly (range1: Range) (range2: Range) =
     not <| overlapsStrictly range1 range2
   /// Loose: Touching is disjoint
-  /// 
+  ///
   /// ```text
   /// -------------------------->
   ///   ^^^^^^^
@@ -200,18 +207,18 @@ module Text =
     text.Replace("\r\n", "\n").Replace("\r", "\n")
 
   /// Note: only works with `\n`, but fails with `\r`!
-  let lines (text: string) =    
+  let lines (text: string) =
     assertNoCarriageReturn text
     text.Split '\n'
 
-  /// remove leading `\n` from triple quoted string with text starting in next line 
+  /// remove leading `\n` from triple quoted string with text starting in next line
   let private trimLeadingNewLine (text: string) =
     if text.StartsWith '\n' then
       text.Substring 1
     else
       text
-  /// remove trailing whitespace from last line, if last line is otherwise empty.  
-  /// Note: keeps the `\n`!  
+  /// remove trailing whitespace from last line, if last line is otherwise empty.
+  /// Note: keeps the `\n`!
   /// Note: doesn't trim a single line with just whitespace -> requires at least one `\n`
   let private trimLastWhitespacesLine (text: string) =
     match text.LastIndexOf '\n' with
@@ -257,19 +264,19 @@ module Text =
             line.Substring ind
         )
         |> String.concat "\n"
-  
+
   /// Trim:
   /// * Leading `\n` from triple quotes string with text starting in next line
   /// * indentation (measured for non-empty lines)
-  /// * Trailing whitespace in otherwise empty last line  
+  /// * Trailing whitespace in otherwise empty last line
   ///   Note: `\n` isn't removed
-  /// 
+  ///
   /// Note: Asserts the passed text contains no `\r` (neither `\r` nor `\r\n`).
   ///       It doesn't replace `\r` with `\n` but instead fails!
   let trimTripleQuotation (text: string) =
     assertNoCarriageReturn text
 
-    text 
+    text
     |> trimLeadingNewLine
     |> trimIndentation
     |> trimLastWhitespacesLine

@@ -5,13 +5,14 @@ open System.IO
 open FsAutoComplete
 open Helpers
 open Ionide.LanguageServerProtocol.Types
+open Utils.Utils
 
 let tests state =
   testList
     "Find All References tests"
     [ let server =
         async {
-          let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences")
+          let path = Path.Combine(File.CurrentDir(), "TestCases", "FindReferences")
 
           let! (server, event) = serverInitialize path defaultConfigDto state
           do! waitForWorkspaceFinishedParsing event

@@ -18,7 +18,7 @@ let tests state =
   // requires `fsi` and corresponding `fs` file (and a project!)
   // -> cannot use untitled doc
   // -> use existing files, but load with text specified in tests
-  let path = Path.Combine(__SOURCE_DIRECTORY__, @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
+  let path = Path.Combine(File.CurrentDir(), @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
   let (fsiFile, fsFile) = ("Code.fsi", "Code.fs")
 
   serverTestList (nameof RenameParamToMatchSignature) state defaultConfigDto (Some path) (fun server -> [
