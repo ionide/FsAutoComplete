@@ -6,6 +6,7 @@
     <PackageLicenseExpression Condition=" '$(PackAsTool)' != 'true' ">Apache-2.0</PackageLicenseExpression>
     <NoWarn>$(NoWarn);3186</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
     <NoWarn>$(NoWarn);NU1608</NoWarn><!-- Ignore Nuget dependency match warnings -->
+    <NoWarn>$(NoWarn);NU1605</NoWarn><!-- Ignore Nuget downgrade for FSharp.Core - comes from FsToolkit.ErrorHandling bumping to 7.0 -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
   </PropertyGroup>
