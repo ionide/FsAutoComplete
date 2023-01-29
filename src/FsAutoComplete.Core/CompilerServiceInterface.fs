@@ -35,7 +35,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   // This is used to hold previous check results for autocompletion.
   // We can't seem to rely on the checker for previous cached versions
-  let memoryCache () = new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(2000L)))
+  let memoryCache () =
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(2000L)))
+
   let mutable lastCheckResults: IMemoryCache = memoryCache ()
 
 

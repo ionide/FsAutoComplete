@@ -9,6 +9,7 @@ open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
+open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
@@ -160,7 +161,7 @@ module AMap =
 
 
   /// Adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAVal (mapper : 'Key -> 'InValue -> aval<'OutValue>) (map: amap<'Key, aval<'InValue>>) =
+  let mapAVal (mapper: 'Key -> 'InValue -> aval<'OutValue>) (map: amap<'Key, aval<'InValue>>) =
     map |> AMap.map (fun k v -> AVal.bind (mapper k) v)
 
 
@@ -1141,6 +1142,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let forceGetTypeCheckResultsStale filePath =
     aval {
       let! checker = checker
+
       match checker.TryGetLastCheckResultForFile(filePath) with
       | Some s -> return Ok s
       | None -> return forceGetTypeCheckResults filePath
@@ -1503,7 +1505,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           percentage = percentage 0 checksToPerform.Length
         )
 
-      do! Async.Parallel(checksToPerform, 2)  |> Async.Ignore<unit array>
+      do! Async.Parallel(checksToPerform, 2) |> Async.Ignore<unit array>
 
     }
 
