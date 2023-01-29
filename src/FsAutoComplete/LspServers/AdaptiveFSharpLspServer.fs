@@ -637,7 +637,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
   let openFilesTokens = cmap<string<LocalPath>, cval<CancellationTokenSource>> ()
-
   let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
 
   let textChanges =
@@ -646,7 +645,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let textChangesReadOnly = textChanges |> AMap.map (fun _ x -> x :> aset<_>)
 
   let logTextChange (v: VolatileFile) =
-    logger.info (
+    logger.debug (
       Log.setMessage "TextChanged for file : {fileName} {touched} {version}"
       >> Log.addContextDestructured "fileName" v.FileName
       >> Log.addContextDestructured "touched" v.Touched
@@ -791,6 +790,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     findFileInOpenFiles file
     |> AVal.force
     |> Option.orElseWith (fun () ->
+      // TODO: Log how many times this kind area gets hit and possibly if this should be rethought
       try
         let untagged = UMX.untag file
 
@@ -827,18 +827,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
 
 
-  let getProjectOptionsForFile' getFile (filePath: string<LocalPath>) =
+  let getProjectOptionsForFile' (filePath: string<LocalPath>) file =
+    // TODO Optimize this for better performance
+    // typing #r "nuget: ... " seems to cause GetProjectOptionsFromScript getting called often
+    // which I suspect is also calling dotnet restore too many times
+    // Cancelling doesn't seem to be working as intended here.
     aval {
       if Utils.isAScript (UMX.untag filePath) then
         let! checker = checker
         and! tfmConfig = tfmConfig
-        and! (openFile: Option<_>) = getFile filePath
         and! cts = openFilesTokens |> AMap.tryFindA filePath
 
         return
           option {
-            let! (info: VolatileFile) = openFile
-            and! cts = cts
+            let (info: VolatileFile) = file
+            let! cts = cts
 
             let! opts =
               checker.GetProjectOptionsFromScript(filePath, info.Lines, tfmConfig)
@@ -856,14 +859,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> List.filter (fun (opts) -> opts.SourceFiles |> Array.map Utils.normalizePath |> Array.contains (filePath))
     }
 
-
-
-  let getProjectOptionsForFile (filePath: string<LocalPath>) =
-    getProjectOptionsForFile' findFileInOpenFiles' filePath
-
   let openFilesToProjectOptions =
     openFilesWithChanges
-    |> AMap.map (fun name file -> getProjectOptionsForFile' (fun _ -> AVal.map Some file) name)
+    |> AMap.mapAVal (fun name file -> getProjectOptionsForFile' name file)
+
+  let getProjectOptionsForFile (filePath: string<LocalPath>) =
+    openFilesToProjectOptions
+    |> AMap.tryFindA filePath
+    |> AVal.map (Option.defaultValue [])
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
