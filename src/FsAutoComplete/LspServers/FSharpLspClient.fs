@@ -134,7 +134,10 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     }
 
   interface IAsyncDisposable with
-    member x.DisposeAsync() = task { do! x.End() } |> ValueTask
+    member x.DisposeAsync() =
+      task {
+        do! x.End()
+      } |> ValueTask
 
   interface IDisposable with
     member x.Dispose() =
@@ -152,7 +155,7 @@ type ProgressListener(lspClient) =
   let dispose (d: #IDisposable) = d.Dispose()
   let mutable source = null
 
-  let inflightEvents = ConcurrentDictionary<_, ServerProgressReport>()
+  let mutable inflightEvents = ConcurrentDictionary<_, ServerProgressReport>()
 
   override __.OnEventSourceCreated newSource =
     if newSource.Name = "FSharpCompiler" then
@@ -163,6 +166,7 @@ type ProgressListener(lspClient) =
 
     lock locker
     <| fun () ->
+      try
          if isDisposing then
            ()
          else
@@ -190,12 +194,18 @@ type ProgressListener(lspClient) =
              | other -> ()
 
            message
+      with e -> ()
+
+  member _.DisableEvents(source) = ``base``.DisableEvents(source)
 
   interface System.IDisposable with
-    member __.Dispose() =
-      if isNull source then () else ``base``.DisableEvents(source)
-
+    member this.Dispose() =
       lock locker
       <| fun () ->
+           if isNull source then () else this.DisableEvents(source)
            isDisposing <- true
            inflightEvents.Values |> Seq.iter (dispose)
+           inflightEvents <- null
+
+
+

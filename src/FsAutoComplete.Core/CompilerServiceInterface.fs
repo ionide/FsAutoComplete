@@ -29,10 +29,15 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       keepAllBackgroundSymbolUses = true
     )
 
+
+
   let entityCache = EntityCache()
 
-  let mutable lastCheckResults: IMemoryCache =
-    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(200L)))
+  // This is used to hold previous check results for autocompletion.
+  // We can't seem to rely on the checker for previous cached versions
+  let memoryCache () = new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(2000L)))
+  let mutable lastCheckResults: IMemoryCache = memoryCache ()
+
 
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
@@ -238,7 +243,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
     let oldlastCheckResults = lastCheckResults
-    lastCheckResults <- new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(20L)))
+    lastCheckResults <- memoryCache ()
     oldlastCheckResults.Dispose()
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
@@ -283,7 +288,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           let ops =
             MemoryCacheEntryOptions()
               .SetSize(1)
-              .SetSlidingExpiration(TimeSpan.FromMinutes(2.))
+              .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
           return lastCheckResults.Set(filePath, r, ops)
       with ex ->
