@@ -144,7 +144,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       // because we know there are lines after the first line
       let firstLine = (x :> ISourceText).GetLineString(m.StartLine - 1)
 
-      builder.AppendLine(firstLine.Substring(m.StartColumn))
+      builder.AppendLine(firstLine.Substring(Math.Min(firstLine.Length, m.StartColumn)))
       |> ignore<System.Text.StringBuilder>
 
       // whole intermediate lines, including newlines
@@ -155,7 +155,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
       // final part, potential slice, so we do not include the trailing newline
       let lastLine = (x :> ISourceText).GetLineString(m.EndLine - 1)
 
-      builder.Append(lastLine.Substring(0, m.EndColumn))
+      builder.Append(lastLine.Substring(0, Math.Min(lastLine.Length, m.EndColumn)))
       |> ignore<System.Text.StringBuilder>
 
       Ok(builder.ToString())
@@ -260,8 +260,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<NamedText, string> =
     result {
       let startRange, endRange = x.SplitAt(m)
-      let! startText = x[startRange]
-      let! endText = x[endRange]
+      let! startText = x[startRange] |> Result.mapError (fun x -> $"startRange -> {x}")
+      and! endText = x[endRange] |> Result.mapError (fun x -> $"endRange -> {x}")
       let totalText = startText + text + endText
       return NamedText(x.FileName, totalText)
     }
@@ -355,6 +355,8 @@ type VolatileFile =
     Lines: NamedText
     Version: int option }
 
+  member this.FileName = this.Lines.FileName
+
   /// <summary>Updates the Lines value</summary>
   member this.SetLines(lines) = { this with Lines = lines }
 
@@ -407,11 +409,18 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
 
   let getContent (filename: string<LocalPath>) =
-    fsLogger.debug (Log.setMessage "Getting content of `{path}`" >> Log.addContext "path" filename)
+
 
     filename
     |> tryFindFile
-    |> Option.map (fun file -> file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
+    |> Option.map (fun file ->
+      fsLogger.debug (
+        Log.setMessage "Getting content of `{path}` - {hash}"
+        >> Log.addContext "path" filename
+        >> Log.addContext "hash" (file.Lines.GetHashCode())
+      )
+
+      file.Lines.ToString() |> System.Text.Encoding.UTF8.GetBytes)
 
   /// translation of the BCL's Windows logic for Path.IsPathRooted.
   ///
@@ -455,12 +464,21 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
 
       expanded
 
-    member _.GetLastWriteTimeShim(f: string) =
-      f
-      |> Utils.normalizePath
-      |> tryFindFile
-      |> Option.map (fun f -> f.Touched)
-      |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim f)
+    member _.GetLastWriteTimeShim(filename: string) =
+      let result =
+        filename
+        |> Utils.normalizePath
+        |> tryFindFile
+        |> Option.map (fun f -> f.Touched)
+        |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim filename)
+
+      // fsLogger.debug (
+      //   Log.setMessage "GetLastWriteTimeShim of `{path}` - {date} "
+      //   >> Log.addContext "path" filename
+      //   >> Log.addContext "date" result
+      // )
+
+      result
 
     member _.NormalizePathShim(f: string) = f |> Utils.normalizePath |> UMX.untag
 

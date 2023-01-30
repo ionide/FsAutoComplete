@@ -41,6 +41,7 @@ nuget System.CommandLine prerelease
 nuget FSharp.Data.Adaptive
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
+nuget NuGet.Frameworks copy_local:false
 
 nuget Microsoft.NETFramework.ReferenceAssemblies
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
@@ -50,6 +51,7 @@ nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol
+nuget Microsoft.Extensions.Caching.Memory
 
 group Build
   source https://api.nuget.org/v3/index.json

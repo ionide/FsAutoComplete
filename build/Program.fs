@@ -228,9 +228,7 @@ let main args =
   init ((args |> List.ofArray))
 
   try
-    match args with
-    | [| target |] -> Target.runOrDefaultWithArguments target
-    | _ -> Target.runOrDefaultWithArguments "Test"
+    Target.runOrDefaultWithArguments "ReleaseArchive"
 
     0
   with e ->

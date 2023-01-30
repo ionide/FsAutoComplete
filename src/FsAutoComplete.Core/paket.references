@@ -13,3 +13,4 @@ System.Reflection.Metadata
 Microsoft.Build.Utilities.Core
 Ionide.LanguageServerProtocol
 Ionide.KeepAChangelog.Tasks
+Microsoft.Extensions.Caching.Memory

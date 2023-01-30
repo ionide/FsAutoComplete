@@ -1,2 +1,2 @@
 dotnet tool restore
-dotnet run --project build -t ReleaseArchive
+dotnet run --project ./build/build.fsproj -- -t %*

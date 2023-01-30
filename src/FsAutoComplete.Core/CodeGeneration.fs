@@ -1,4 +1,4 @@
-/// Original code from VisualFSharpPowerTools project: https://github.com/fsprojects/VisualFSharpPowerTools/blob/master/src/FSharp.Editing/CodeGeneration/CodeGeneration.fs
+// Original code from VisualFSharpPowerTools project: https://github.com/fsprojects/VisualFSharpPowerTools/blob/master/src/FSharp.Editing/CodeGeneration/CodeGeneration.fs
 namespace FsAutoComplete
 
 open System

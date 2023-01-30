@@ -30,29 +30,38 @@ let fix
   let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) =
     let l = ctx.Pos.Line
 
-    match ctx.ScopeKind with
-    | ScopeKind.TopModule when l > 1 ->
-      let line = lines.GetLineString(l - 2)
+    let retVal =
+      match ctx.ScopeKind with
+      | ScopeKind.TopModule when l > 1 ->
+        let line = lines.GetLineString(l - 2)
 
-      let isImplicitTopLevelModule =
-        not (line.StartsWith "module" && not (line.EndsWith "="))
+        let isImplicitTopLevelModule =
+          not (line.StartsWith "module" && not (line.EndsWith "="))
 
-      if isImplicitTopLevelModule then 1 else l
-    | ScopeKind.TopModule -> 1
-    | ScopeKind.Namespace ->
-      let mostRecentNamespaceInScope =
-        let lineNos = if l = 0 then [] else [ 0 .. l - 1 ]
+        if isImplicitTopLevelModule then 1 else l
+      | ScopeKind.TopModule -> 1
+      | ScopeKind.Namespace ->
+        let mostRecentNamespaceInScope =
+          let lineNos = if l = 0 then [] else [ 0 .. l - 1 ]
 
-        lineNos
-        |> List.mapi (fun i line -> i, lines.GetLineString line)
-        |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
-        |> List.tryLast
+          lineNos
+          |> List.mapi (fun i line -> i, lines.GetLineString line)
+          |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
+          |> List.tryLast
 
-      match mostRecentNamespaceInScope with
-      // move to the next line below "namespace" and convert it to F# 1-based line number
-      | Some line -> line + 2
-      | None -> l
-    | _ -> l
+        match mostRecentNamespaceInScope with
+        // move to the next line below "namespace" and convert it to F# 1-based line number
+        | Some line -> line + 2
+        | None -> l
+      | _ -> l
+
+    let containsAttribute (x: string) = x.Contains "[<"
+    let currentLine = System.Math.Max(retVal - 2, 0) |> lines.GetLineString
+
+    if currentLine |> containsAttribute then
+      retVal + 1
+    else
+      retVal
 
   let qualifierFix file diagnostic qual =
     { SourceDiagnostic = Some diagnostic
@@ -76,22 +85,26 @@ let fix
         ns
 
     let lineStr =
-      let whitespace = String.replicate ctx.Pos.Column " "
+      let whitespace =
+        let column =
+          // HACK: This is a work around for inheriting the correct column of the current module
+          // It seems the column we get from FCS is incorrect
+          let previousLine = docLine - 1
+          let insertionPointIsNotOutOfBoundsOfTheFile = docLine > 0
+
+          let theThereAreOtherOpensInThisModule () =
+            text.GetLineString(previousLine).Contains "open "
+
+          if insertionPointIsNotOutOfBoundsOfTheFile && theThereAreOtherOpensInThisModule () then
+            text.GetLineString(previousLine).Split("open") |> Seq.head |> Seq.length // inherit the previous opens whitespace
+          else
+            ctx.Pos.Column
+
+        String.replicate column " "
+
       $"%s{whitespace}open %s{actualOpen}\n"
 
-    let edits =
-      [| yield insertLine docLine lineStr
-         if
-           text.GetLineCount() < docLine + 1
-           && text.GetLineString(docLine + 1).Trim() <> ""
-         then
-           yield insertLine (docLine + 1) ""
-         if
-           (ctx.Pos.Column = 0 || ctx.ScopeKind = ScopeKind.Namespace)
-           && docLine > 0
-           && not (text.GetLineString(docLine - 1).StartsWith "open")
-         then
-           yield insertLine (docLine - 1) "" |]
+    let edits = [| yield insertLine docLine lineStr |]
 
     { Edits = edits
       File = file
