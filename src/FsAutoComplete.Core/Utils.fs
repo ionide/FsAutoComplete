@@ -503,6 +503,12 @@ module List =
   let maxUnderThreshold nmax =
     List.maxBy (fun n -> if n > nmax then 0 else n)
 
+  /// Groups a tupled list by the first item to produce a list of values
+  let groupByFst (tupledItems : ('Key * 'Value) list ) =
+    tupledItems
+    |> List.groupBy(fst)
+    |> List.map (fun (key, list) -> key, list |> List.map snd)
+
 
 
 

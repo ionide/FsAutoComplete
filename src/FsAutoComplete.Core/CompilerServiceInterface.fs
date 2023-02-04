@@ -244,9 +244,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
-    let oldlastCheckResults = lastCheckResults
+    lastCheckResults.Dispose()
     lastCheckResults <- memoryCache ()
-    oldlastCheckResults.Dispose()
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
@@ -264,7 +263,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
-
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
