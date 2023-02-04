@@ -583,6 +583,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             // Set some default values as FCS uses these for identification/caching purposes
             let fso =
               { fso with
+                  SourceFiles = fso.SourceFiles |> Array.map(Utils.normalizePath >> UMX.untag)
                   Stamp = fso.Stamp |> Option.orElse (Some DateTime.UtcNow.Ticks)
                   ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString())) }
 

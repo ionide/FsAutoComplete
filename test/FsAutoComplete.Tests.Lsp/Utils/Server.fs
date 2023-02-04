@@ -28,6 +28,7 @@ type CachedServer = Async<Server>
 
 type Document =
   { Server: Server
+    FilePath : string
     Uri: DocumentUri
     mutable Version: int }
   member doc.TextDocumentIdentifier: TextDocumentIdentifier = { Uri = doc.Uri }
@@ -113,9 +114,10 @@ module Server =
       do! server.Server.Shutdown()
     }
 
-  let private createDocument uri server =
+  let private createDocument fullPath uri server =
     { Server = server
       Uri = uri
+      FilePath = fullPath
       Version = 0 }
 
   let private untitledDocUrif = sprintf "untitled:Untitled-%i"
@@ -131,7 +133,7 @@ module Server =
 
       let doc =
         server
-        |> createDocument (server |> nextUntitledDocUri)
+        |> createDocument String.Empty (server |> nextUntitledDocUri)
 
       let! diags = doc |> Document.openWith initialText
 
@@ -157,13 +159,15 @@ module Server =
 
       let doc =
         server
-        |> createDocument (
+        |> createDocument
           fullPath
-          // normalize path is necessary: otherwise might be different lower/upper cases in uri for tests and LSP server:
-          // on windows `E:\...`: `file:///E%3A/...` (before normalize) vs. `file:///e%3A/..` (after normalize)
-          |> normalizePath
-          |> Path.LocalPathToUri
-        )
+          (
+            fullPath
+            // normalize path is necessary: otherwise might be different lower/upper cases in uri for tests and LSP server:
+            // on windows `E:\...`: `file:///E%3A/...` (before normalize) vs. `file:///e%3A/..` (after normalize)
+            |> normalizePath
+            |> Path.LocalPathToUri
+          )
 
       let! diags =
         doc
@@ -192,7 +196,7 @@ module Server =
 
       let doc =
         server
-        |> createDocument (Path.FilePathToUri fullPath)
+        |> createDocument fullPath (Path.FilePathToUri fullPath)
 
       let! diags = doc |> Document.openWith initialText
 
@@ -361,6 +365,18 @@ module Document =
                  Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
+      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
+      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
+    }
+
+  let saveText (text : string) (doc : Document) =
+    async {
+      let p : DidSaveTextDocumentParams = {
+        Text = Some text
+        TextDocument = doc.TextDocumentIdentifier
+      }
+      IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.Now)
+      do! doc.Server.Server.TextDocumentDidSave p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }

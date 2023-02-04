@@ -27,12 +27,12 @@ let tests state =
         Expect.isEmpty bDiags $"There should be no diagnostics in {bFile}"
         let bDiagsStream = bDoc.CompilerDiagnostics
         // make a change to A (that is clearly incorrect)
-        let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
+        let! startAChange = Document.saveText "farts" aDoc |> Async.StartChild
         // start listening for new diagnostics for B
-        let! diagnosticsForBWaiter = 
-          bDiagsStream 
-          |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.) 
-          |> Async.AwaitObservable 
+        let! diagnosticsForBWaiter =
+          bDiagsStream
+          |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.)
+          |> Async.AwaitObservable
           |> Async.StartChild
         let! aDiags = startAChange
         Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous changes"
@@ -53,13 +53,13 @@ let tests state =
         let bDiagsStream = bDoc.CompilerDiagnostics
         for i in 0..10 do
           // make a change to A (that is clearly incorrect)
-          let! startAChange = Document.changeTextTo "farts" aDoc |> Async.StartChild
+          let! startAChange = Document.saveText "farts" aDoc |> Async.StartChild
           // start listening for new diagnostics for B
-          let! diagnosticsForBWaiter = 
-            bDiagsStream 
+          let! diagnosticsForBWaiter =
+            bDiagsStream
             |> Observable.skip i
-            |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.) 
-            |> Async.AwaitObservable 
+            |> Observable.timeoutSpan (TimeSpan.FromSeconds 15.)
+            |> Async.AwaitObservable
             |> Async.StartChild
           let! aDiags = startAChange
           Expect.isNonEmpty aDiags $"Should have had some compilation errors for {aFile} after erroneous change #%d{i}"
