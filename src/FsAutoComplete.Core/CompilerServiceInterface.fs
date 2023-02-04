@@ -263,6 +263,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let options = clearProjectReferences options
       let path = UMX.untag filePath
+
       try
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 

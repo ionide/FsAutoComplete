@@ -148,19 +148,26 @@ open System.Collections.Concurrent
 type ProgressListener(lspClient) =
   inherit EventListener()
   let mutable isDisposed = false
-  let tryDispose (d: #IDisposable) = try d.Dispose() with _ -> ()
+
+  let tryDispose (d: #IDisposable) =
+    try
+      d.Dispose()
+    with _ ->
+      ()
+
   let mutable source = null
 
   let mutable inflightEvents = ConcurrentDictionary<_, ServerProgressReport>()
 
-  member _.EnableEvents(eventSource ,level,matchAnyKeyword) =
+  member _.EnableEvents(eventSource, level, matchAnyKeyword) =
     ``base``.EnableEvents(eventSource, level, matchAnyKeyword)
 
   override x.OnEventSourceCreated newSource =
-    lock x <| fun () ->
-      if newSource.Name = "FSharpCompiler" then
-        x.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
-        source <- newSource
+    lock x
+    <| fun () ->
+         if newSource.Name = "FSharpCompiler" then
+           x.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
+           source <- newSource
 
   override x.OnEventWritten eventArgs =
 

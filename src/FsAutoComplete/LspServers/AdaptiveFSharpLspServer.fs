@@ -232,6 +232,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let notifications = Event<NotificationEvent * CancellationToken>()
 
   let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
     try
       async {
@@ -630,13 +631,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let sourceFileToProjectOptions =
     aval {
       let! options = loadedProjectOptions
+
       return
         options
-        |> List.collect(fun proj -> proj.SourceFiles |> Array.map(fun source -> Utils.normalizePath source, proj) |> Array.toList)
+        |> List.collect (fun proj ->
+          proj.SourceFiles
+          |> Array.map (fun source -> Utils.normalizePath source, proj)
+          |> Array.toList)
         |> List.groupByFst
 
     }
     |> AMap.ofAVal
+
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
@@ -858,7 +864,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! projs =
             sourceFileToProjectOptions
             |> AMap.tryFind filePath
-            |> AVal.map(Option.defaultValue [])
+            |> AVal.map (Option.defaultValue [])
 
           return file, projs
       })
@@ -1500,7 +1506,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       do!
         progressReporter.Begin(
-          "Typechecking Dependent F# files" ,
+          "Typechecking Dependent F# files",
           message = $"0/{checksToPerform.Length} remaining",
           percentage = percentage 0 checksToPerform.Length
         )
