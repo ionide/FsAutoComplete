@@ -88,6 +88,7 @@ type NotificationEvent =
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
 module Commands =
+  open System.Collections.Concurrent
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
@@ -836,7 +837,7 @@ module Commands =
         return Choice1Of2(declarationRanges, usageRanges)
 
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-        let symbolUseRanges = ImmutableArray.CreateBuilder()
+        let symbolUseRanges = ConcurrentBag<_>()
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
