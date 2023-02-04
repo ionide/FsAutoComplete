@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.58.3] - 2023-02-04
+
+### Changed
+
+* [Speed, typechecking, memory usage improvements for Adaptive and normal LSP servers](https://github.com/fsharp/FsAutoComplete/pull/1036)
+* [Don't compute all references unnecessarily](https://github.com/fsharp/FsAutoComplete/pull/1052)
+
+### Removed
+
+* The `FSharp.enableReferenceCodeLens` is deprecated, it's been replaced by the `FSharp.codeLenses.references.enabled` setting.
+
 ## [0.58.2] - 2022-11-07
 
 ### Fixed
