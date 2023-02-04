@@ -434,7 +434,6 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
       do! dotnetRestore path
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
-    logger.Value.Error("LOLOLOLOL")
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
