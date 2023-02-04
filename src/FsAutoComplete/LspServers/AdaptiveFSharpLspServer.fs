@@ -871,9 +871,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       })
 
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
-    sourceFileToProjectOptions
-    |> AMap.tryFind filePath
-    |> AVal.map (Option.defaultValue [])
+    aval {
+      match! sourceFileToProjectOptions |> AMap.tryFind filePath with
+      | None ->
+        // openFilesToChangesAndProjectOptions contains script files that we may need to look through
+        match!  openFilesToChangesAndProjectOptions |> AMap.tryFindA filePath with
+        | None -> return []
+        | Some (_, projs) -> return projs
+      | Some projs -> return projs
+
+    }
+
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()

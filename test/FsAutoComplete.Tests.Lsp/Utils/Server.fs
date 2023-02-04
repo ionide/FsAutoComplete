@@ -194,6 +194,9 @@ module Server =
         |> Utils.normalizePath
         |> FSharp.UMX.UMX.untag
 
+      // To avoid hitting the typechecker cache, we need to update the file's timestamp
+      IO.File.SetLastWriteTimeUtc(fullPath, DateTime.UtcNow)
+
       let doc =
         server
         |> createDocument fullPath (Path.FilePathToUri fullPath)
@@ -375,6 +378,7 @@ module Document =
         Text = Some text
         TextDocument = doc.TextDocumentIdentifier
       }
+      // Simulate the file being written to disk so we don't hit the typechecker cache
       IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.Now)
       do! doc.Server.Server.TextDocumentDidSave p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)

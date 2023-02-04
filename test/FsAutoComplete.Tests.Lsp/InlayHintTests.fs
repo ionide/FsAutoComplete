@@ -1769,7 +1769,8 @@ let explicitTypeInfoTests =
   let testExplicitType textWithCursor expected =
     testExplicitType' textWithCursor (Some expected)
 
-  testList
+  testSequenced
+  <| testList
     "detect type and parens"
     [ testList
         "Expr"
