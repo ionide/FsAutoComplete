@@ -2735,8 +2735,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               [| if config.LineLens.Enabled <> "replaceCodeLens" then
                    if config.CodeLenses.Signature.Enabled then
                      yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
-                 // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
-                 if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
+                 if config.CodeLenses.References.Enabled then
                    yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
 
             return Some res
@@ -2846,7 +2845,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     Arguments = None }
 
                 return { p with Command = Some cmd } |> Some |> success
-            else
+            elif typ = "reference" then
               let! res =
                 symbolUseWorkspace pos lineStr lines tyRes
                 |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
@@ -2905,6 +2904,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     { p with Command = Some cmd } |> Some |> success
 
               return res
+            else
+              logger.error (
+                Log.setMessage "CodeLensResolve - unknown type {file} - {typ}"
+                >> Log.addContextDestructured "file" file
+                >> Log.addContextDestructured "typ" typ
+              )
+
+              return { p with Command = None } |> Some |> success
           })
         p
 
