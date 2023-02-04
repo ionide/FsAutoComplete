@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.58.4] - 2023-02-04
+
+* Fix crash due to missing dependency on Microsoft.Extensions.Caching.Memory
+
 ## [0.58.3] - 2023-02-04
 
 ### Changed
