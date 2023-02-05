@@ -215,7 +215,7 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
   | null -> None
   | documents ->
     documents
-    |> Seq.tryPick (fun (KeyValue (path, url)) ->
+    |> Seq.tryPick (fun (KeyValue(path, url)) ->
       if isWildcardPattern path then
         tryGetUrlWithWildcard path url document
       else
@@ -286,7 +286,7 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
           return Error MissingSourceFile
         | Some doc ->
           match tryGetUrlForDocument json doc with
-          | Some (url, fragment, document) ->
+          | Some(url, fragment, document) ->
             let! tempFile = downloadFileToTempDir url fragment document
             return Ok tempFile
           | None ->
@@ -295,10 +295,10 @@ let tryFetchSourcelinkFile (dllPath: string<LocalPath>) (targetFile: string<Norm
                 "Couldn't derive a url for the source file {target}. None of the following patterns matched: {patterns}"
               >> Log.addContext "target" doc.Name
               >> Log.addContext
-                   "patterns"
-                   (json.documents
-                    |> Seq.map (function
-                      | (KeyValue (k, _)) -> k))
+                "patterns"
+                (json.documents
+                 |> Seq.map (function
+                   | (KeyValue(k, _)) -> k))
             )
 
             return Error MissingPatterns

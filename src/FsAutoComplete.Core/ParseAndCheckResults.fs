@@ -23,11 +23,7 @@ type FindDeclarationResult =
   | File of string
 
 type ParseAndCheckResults
-  (
-    parseResults: FSharpParseFileResults,
-    checkResults: FSharpCheckFileResults,
-    entityCache: EntityCache
-  ) =
+  (parseResults: FSharpParseFileResults, checkResults: FSharpCheckFileResults, entityCache: EntityCache) =
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
@@ -77,7 +73,7 @@ type ParseAndCheckResults
   member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
-    | Some (col, identIsland) ->
+    | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
 
       let declarations =
@@ -86,11 +82,11 @@ type ParseAndCheckResults
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
         | Ok extDec -> ResultOrString.Ok(FindDeclarationResult.ExternalDeclaration extDec)
-        | Error (Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
           ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
-        | Error (Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
           ResultOrString.Error(sprintf "External declaration assembly '%s' not found" assy)
-        | Error (Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception (symbol, file, exn))) ->
+        | Error(Decompiler.FindExternalDeclarationError.DecompileError(Decompiler.Exception(symbol, file, exn))) ->
           Error(
             sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace
           )
@@ -101,11 +97,11 @@ type ParseAndCheckResults
         : (string<NormalizedRepoPathSegment> * Position) option =
         match sym with
         | FindDeclExternalSymbol.Type name -> None
-        | FindDeclExternalSymbol.Constructor (typeName, args) -> None
-        | FindDeclExternalSymbol.Method (typeName, name, paramSyms, genericArity) -> None
-        | FindDeclExternalSymbol.Field (typeName, name) -> None
-        | FindDeclExternalSymbol.Event (typeName, name) -> None
-        | FindDeclExternalSymbol.Property (typeName, name) -> None
+        | FindDeclExternalSymbol.Constructor(typeName, args) -> None
+        | FindDeclExternalSymbol.Method(typeName, name, paramSyms, genericArity) -> None
+        | FindDeclExternalSymbol.Field(typeName, name) -> None
+        | FindDeclExternalSymbol.Event(typeName, name) -> None
+        | FindDeclExternalSymbol.Property(typeName, name) -> None
 
       // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid declfound for f# members.
@@ -117,7 +113,7 @@ type ParseAndCheckResults
           ResultOrString.Error(
             sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName
           )
-        | Some (col, identIsland) ->
+        | Some(col, identIsland) ->
           let identIsland = Array.toList identIsland
 
           let symbolUse =
@@ -181,7 +177,7 @@ type ParseAndCheckResults
           )
 
           match tryRecoverExternalSymbolForNonexistentDecl rangeInNonexistentFile with
-          | Ok (assemblyFile, sourceFile) ->
+          | Ok(assemblyFile, sourceFile) ->
             match! Sourcelink.tryFetchSourcelinkFile assemblyFile sourceFile with
             | Ok localFilePath ->
               return
@@ -192,10 +188,10 @@ type ParseAndCheckResults
                 )
             | Error reason -> return ResultOrString.Error(sprintf "%A" reason)
           | Error e -> return Error e
-        | FindDeclResult.ExternalDecl (assembly, externalSym) ->
+        | FindDeclResult.ExternalDecl(assembly, externalSym) ->
           // not enough info on external symbols to get a range-like thing :(
           match tryGetSourceRangeForSymbol externalSym with
-          | Some (sourceFile, pos) ->
+          | Some(sourceFile, pos) ->
             match! Sourcelink.tryFetchSourcelinkFile (UMX.tag<LocalPath> assembly) sourceFile with
             | Ok localFilePath ->
               return
@@ -218,7 +214,7 @@ type ParseAndCheckResults
     async {
       match Lexer.findLongIdents (pos.Column, lineStr) with
       | None -> return Error "Cannot find ident at this location"
-      | Some (col, identIsland) ->
+      | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
 
         let symbol =
@@ -235,8 +231,8 @@ type ParseAndCheckResults
           let rec tryGetSource (ty: FSharpEntity option) =
             async {
               match ty |> Option.map (fun ty -> ty, ty.DeclarationLocation) with
-              | Some (_, loc) when File.Exists loc.FileName -> return Ok(FindDeclarationResult.Range loc)
-              | Some (ty, loc) ->
+              | Some(_, loc) when File.Exists loc.FileName -> return Ok(FindDeclarationResult.Range loc)
+              | Some(ty, loc) ->
                 match ty.Assembly.FileName with
                 | Some dllFile ->
                   let dllFile = UMX.tag<LocalPath> dllFile
@@ -265,13 +261,11 @@ type ParseAndCheckResults
                 let decompile assembly externalSym =
                   match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
                   | Ok extDec -> ResultOrString.Ok(FindDeclarationResult.ExternalDeclaration extDec)
-                  | Error (Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
                     ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
-                  | Error (Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
                     ResultOrString.Error(sprintf "External declaration assembly '%s' not found" assy)
-                  | Error (Decompiler.FindExternalDeclarationError.DecompileError (Decompiler.Exception (symbol,
-                                                                                                         file,
-                                                                                                         exn))) ->
+                  | Error(Decompiler.FindExternalDeclarationError.DecompileError(Decompiler.Exception(symbol, file, exn))) ->
                     Error(
                       sprintf
                         "Error while decompiling symbol '%A' in file '%s': %s\n%s"
@@ -299,7 +293,7 @@ type ParseAndCheckResults
             | SymbolUse.Constructor c -> c.DeclaringEntity
             | SymbolUse.Property p when p.IsPropertyGetterMethod -> Some p.ReturnParameter.Type |> tryGetTypeDef
             | SymbolUse.Val v -> v.FullTypeSafe |> tryGetTypeDef
-            | SymbolUse.Entity (e, _) -> Some e
+            | SymbolUse.Entity(e, _) -> Some e
             | SymbolUse.UnionCase c -> Some c.ReturnType |> tryGetTypeDef
             | SymbolUse.Parameter p -> Some p.Type |> tryGetTypeDef
             | _ -> None
@@ -310,14 +304,14 @@ type ParseAndCheckResults
   member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "Cannot find ident for tooltip"
-    | Some (col, identIsland) ->
+    | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
         checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
-      | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) ->
+      | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) ->
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
@@ -339,7 +333,7 @@ type ParseAndCheckResults
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (pos.Column, lineStr) with
       | None -> Error "Cannot find ident for tooltip"
-      | Some (col, identIsland) ->
+      | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
         let tip =
@@ -363,7 +357,7 @@ type ParseAndCheckResults
 
             match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
             | None -> Error "No tooltip information"
-            | Some (signature, footer) ->
+            | Some(signature, footer) ->
               let typeDoc =
                 getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
 
@@ -372,7 +366,7 @@ type ParseAndCheckResults
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> Error "Cannot find ident"
-    | Some (col, identIsland) ->
+    | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
@@ -382,7 +376,7 @@ type ParseAndCheckResults
         checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
 
       match tip with
-      | ToolTipText (elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
+      | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
@@ -395,7 +389,7 @@ type ParseAndCheckResults
         | Some symbol ->
           match DocumentationFormatter.getTooltipDetailsFromSymbolUse symbol with
           | None -> Error "No documentation information"
-          | Some (signature, footer, cn) ->
+          | Some(signature, footer, cn) ->
             match symbol with
             | SymbolUse.TypeAbbreviation symbol ->
               Ok(
@@ -420,7 +414,7 @@ type ParseAndCheckResults
 
         if not check then
           match e.Symbol with
-          | FSharpEntity (_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig && abrvEnt.Assembly.SimpleName = assembly
+          | FSharpEntity(_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig && abrvEnt.Assembly.SimpleName = assembly
           | _ -> false
         else
           true)
@@ -435,7 +429,7 @@ type ParseAndCheckResults
 
           if not check then
             match e.Symbol with
-            | FSharpEntity (_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig
+            | FSharpEntity(_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig
             | _ -> false
           else
             true)
@@ -447,7 +441,7 @@ type ParseAndCheckResults
         entities
         |> List.tryPick (fun e ->
           match e.Symbol with
-          | FSharpEntity (ent, _, _) ->
+          | FSharpEntity(ent, _, _) ->
             match ent.MembersFunctionsAndValues |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
             | Some e -> Some(e :> FSharpSymbol)
             | None ->
@@ -461,13 +455,13 @@ type ParseAndCheckResults
     | Some symbol ->
       match DocumentationFormatter.getTooltipDetailsFromSymbol symbol with
       | None -> Error "No tooltip information"
-      | Some (signature, footer, cn) ->
+      | Some(signature, footer, cn) ->
         Ok(symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc, signature, footer, cn)
 
   member __.TryGetSymbolUse (pos: Position) (lineStr: LineStr) : FSharpSymbolUse option =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> None
-    | Some (colu, identIsland) ->
+    | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
       checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
@@ -483,7 +477,7 @@ type ParseAndCheckResults
   member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
-    | Some (colu, identIsland) ->
+    | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
 
@@ -527,7 +521,7 @@ type ParseAndCheckResults
   member __.TryGetF1Help (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
-    | Some (colu, identIsland) ->
+    | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
       let help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
@@ -586,8 +580,18 @@ type ParseAndCheckResults
           | Some k when k.Kind = Operator -> return None
           | Some k when k.Kind = Keyword -> return None
           | _ ->
+            let fcsCompletionContext =
+              ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)
+
             let results =
-              checkResults.GetDeclarationListInfo(Some parseResults, pos.Line, lineStr, longName, getAllEntities = getSymbols, completionContextAtPos = (pos, fcsCompletionContext))
+              checkResults.GetDeclarationListInfo(
+                Some parseResults,
+                pos.Line,
+                lineStr,
+                longName,
+                getAllEntities = getSymbols,
+                completionContextAtPos = (pos, fcsCompletionContext)
+              )
 
             let getKindPriority =
               function

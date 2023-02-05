@@ -98,7 +98,7 @@ module SignatureFormatter =
       let memberConstraint (c: FSharpGenericParameterMemberConstraint) =
         let formattedMemberName, isProperty =
           match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
-          | true, Some (chopped) when chopped <> c.MemberName -> chopped, true
+          | true, Some(chopped) when chopped <> c.MemberName -> chopped, true
           | _, _ ->
             if PrettyNaming.IsLogicalOpName c.MemberName then
               $"( {PrettyNaming.ConvertValLogicalNameToDisplayNameCore c.MemberName} )", false
@@ -615,11 +615,11 @@ module SignatureFormatter =
         fse.MembersFunctionsAndValues
         |> Seq.filter (fun n -> n.IsConstructor && n.Accessibility.IsPublic)
         |> fun v ->
-             match Seq.tryHead v with
-             | None -> ""
-             | Some f ->
-               let l = Seq.length v
-               getFuncSignatureForTypeSignature displayContext f l false false
+            match Seq.tryHead v with
+            | None -> ""
+            | Some f ->
+              let l = Seq.length v
+              getFuncSignatureForTypeSignature displayContext f l false false
 
       let fields =
         fse.FSharpFields
@@ -722,7 +722,7 @@ module SignatureFormatter =
         match entity with
         | SymbolUse.MemberFunctionOrValue m -> Some(m.FullName, m.Assembly.SimpleName)
 
-        | SymbolUse.Entity (c, _) -> Some(c.FullName, c.Assembly.SimpleName)
+        | SymbolUse.Entity(c, _) -> Some(c.FullName, c.Assembly.SimpleName)
 
         | SymbolUse.Field f -> Some(f.FullName, f.Assembly.SimpleName)
 
@@ -738,7 +738,7 @@ module SignatureFormatter =
   ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
   let getTooltipDetailsFromSymbolUse (symbol: FSharpSymbolUse) =
     match symbol with
-    | SymbolUse.Entity (fse, _) ->
+    | SymbolUse.Entity(fse, _) ->
       try
         let signature = getEntitySignature symbol.DisplayContext fse
         Some(signature, footerForType symbol)

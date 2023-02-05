@@ -28,12 +28,12 @@ let fix
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
 
       match! genAbstractClassStub tyRes fcsRange lines line with
-      | CoreResponse.Res (text, position) ->
+      | CoreResponse.Res(text, position) ->
         let replacements = getTextReplacements ()
 
         let replaced =
           (text, replacements)
-          ||> Seq.fold (fun text (KeyValue (key, replacement)) -> text.Replace(key, replacement))
+          ||> Seq.fold (fun text (KeyValue(key, replacement)) -> text.Replace(key, replacement))
 
         return
           [ { SourceDiagnostic = Some diagnostic

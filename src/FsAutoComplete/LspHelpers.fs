@@ -286,11 +286,11 @@ module Workspace =
 
   let mapInteresting i =
     match i with
-    | Interesting.Directory (p, fsprojs) ->
+    | Interesting.Directory(p, fsprojs) ->
       WorkspacePeekFound.Directory
         { WorkspacePeekFoundDirectory.Directory = p
           Fsprojs = fsprojs }
-    | Interesting.Solution (p, sd) ->
+    | Interesting.Solution(p, sd) ->
       let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
         let kind =
           match x.Kind with
@@ -301,7 +301,7 @@ module Workspace =
               WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                 { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
             )
-          | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder (children, files) ->
+          | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
             let c = children |> List.choose item
 
             Some(
@@ -961,7 +961,10 @@ let createTokenLegend<'types, 'modifiers
 /// <param name="rangesAndHighlights"></param>
 /// <returns></returns>
 let encodeSemanticHighlightRanges
-  (rangesAndHighlights: (struct (Ionide.LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list)) array)
+  (rangesAndHighlights:
+    (struct (Ionide.LanguageServerProtocol.Types.Range *
+    ClassificationUtils.SemanticTokenTypes *
+    ClassificationUtils.SemanticTokenModifier list)) array)
   =
   let fileStart =
     { Start = { Line = 0; Character = 0 }
@@ -969,7 +972,10 @@ let encodeSemanticHighlightRanges
 
   let computeLine
     (prev: Ionide.LanguageServerProtocol.Types.Range)
-    ((range, ty, mods): struct (Ionide.LanguageServerProtocol.Types.Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier list))
+    ((range, ty, mods):
+      struct (Ionide.LanguageServerProtocol.Types.Range *
+      ClassificationUtils.SemanticTokenTypes *
+      ClassificationUtils.SemanticTokenModifier list))
     : uint32[] =
     let lineDelta =
       if prev.Start.Line = range.Start.Line then

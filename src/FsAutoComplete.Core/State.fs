@@ -262,7 +262,7 @@ type State =
     : ResultOrString<FSharpProjectOptions * NamedText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error(sprintf "File '%s' not parsed" (UMX.untag file))
-    | Some (volFile) ->
+    | Some(volFile) ->
 
       match x.ProjectController.GetProjectOptions((UMX.untag file)) with
       | None -> Ok(State.FileWithoutProjectOptions(file), volFile.Lines)
@@ -273,7 +273,7 @@ type State =
     : ResultOrString<FSharpProjectOptions * NamedText> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
-    | Ok (opts, lines) -> Ok(opts, lines)
+    | Ok(opts, lines) -> Ok(opts, lines)
 
   member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<NamedText> =
     match x.Files.TryFind(file) with

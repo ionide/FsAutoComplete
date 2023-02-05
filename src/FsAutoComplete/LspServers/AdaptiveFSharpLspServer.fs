@@ -62,16 +62,13 @@ module AdaptiveExtensions =
 
 module Utils =
   let cheapEqual (a: 'T) (b: 'T) =
-    ShallowEqualityComparer<'T>.Instance.Equals (a, b)
+    ShallowEqualityComparer<'T>.Instance.Equals(a, b)
 
 /// <summary>
 /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
 /// </summary>
 type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable>
-  (
-    mapping: 'T1 -> ('T2 * 'Disposable),
-    input: aval<'T1>
-  ) =
+  (mapping: 'T1 -> ('T2 * 'Disposable), input: aval<'T1>) =
   inherit AVal.AbstractVal<'T2>()
 
   let mutable cache: ValueOption<struct ('T1 * 'T2 * 'Disposable)> = ValueNone
@@ -80,8 +77,8 @@ type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable
     let i = input.GetValue token
 
     match cache with
-    | ValueSome (struct (a, b, _)) when Utils.cheapEqual a i -> b
-    | ValueSome (struct (a, b, c)) ->
+    | ValueSome(struct (a, b, _)) when Utils.cheapEqual a i -> b
+    | ValueSome(struct (a, b, c)) ->
       (c :> IDisposable).Dispose()
       let (b, c) = mapping i
       cache <- ValueSome(struct (i, b, c))
@@ -118,10 +115,10 @@ module AVal =
 
           for op in HashSet.computeDelta lastDeps newDeps do
             match op with
-            | Add (_, d) ->
+            | Add(_, d) ->
               // the new dependency needs to be evaluated with our token, s.t. we depend on it in the future
               d.GetValueUntyped token |> ignore
-            | Rem (_, d) ->
+            | Rem(_, d) ->
               // we no longer need to depend on the old dependency so we can remove ourselves from its outputs
               lock d.Outputs (fun () -> d.Outputs.Remove x) |> ignore
 
@@ -405,24 +402,24 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             let ws =
               match ws with
-              | ProjectResponse.Project (x, _) -> CommandResponse.project JsonSerializer.writeJson x
-              | ProjectResponse.ProjectError (_, errorDetails) ->
+              | ProjectResponse.Project(x, _) -> CommandResponse.project JsonSerializer.writeJson x
+              | ProjectResponse.ProjectError(_, errorDetails) ->
                 CommandResponse.projectError JsonSerializer.writeJson errorDetails
-              | ProjectResponse.ProjectLoading (projectFileName) ->
+              | ProjectResponse.ProjectLoading(projectFileName) ->
                 CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
-              | ProjectResponse.WorkspaceLoad (finished) ->
+              | ProjectResponse.WorkspaceLoad(finished) ->
                 CommandResponse.workspaceLoad JsonSerializer.writeJson finished
-              | ProjectResponse.ProjectChanged (projectFileName) -> failwith "Not Implemented"
+              | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
 
             logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
             do! ({ Content = ws }: PlainNotification) |> lspClient.NotifyWorkspace
 
-          | NotificationEvent.ParseError (errors, file) ->
+          | NotificationEvent.ParseError(errors, file) ->
             let uri = Path.LocalPathToUri file
             let diags = errors |> Array.map fcsErrorToDiagnostic
             diagnosticCollections.SetFor(uri, "F# Compiler", diags)
 
-          | NotificationEvent.UnusedOpens (file, opens) ->
+          | NotificationEvent.UnusedOpens(file, opens) ->
             let uri = Path.LocalPathToUri file
 
             let diags =
@@ -440,7 +437,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             diagnosticCollections.SetFor(uri, "F# Unused opens", diags)
 
-          | NotificationEvent.UnusedDeclarations (file, decls) ->
+          | NotificationEvent.UnusedDeclarations(file, decls) ->
             let uri = Path.LocalPathToUri file
 
             let diags =
@@ -458,14 +455,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             diagnosticCollections.SetFor(uri, "F# Unused declarations", diags)
 
-          | NotificationEvent.SimplifyNames (file, decls) ->
+          | NotificationEvent.SimplifyNames(file, decls) ->
             let uri = Path.LocalPathToUri file
 
             let diags =
               decls
               |> Array.map
 
-                (fun ({ Range = range
+                (fun
+                     ({ Range = range
                         RelativeName = _relName }) ->
                   { Diagnostic.Range = fcsRangeToLsp range
                     Code = Some "FSAC0002"
@@ -518,11 +516,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           //         |> List.toArray
           //     diagnosticCollections.SetFor(uri, "F# Linter", diags)
 
-          | NotificationEvent.Canceled (msg) ->
+          | NotificationEvent.Canceled(msg) ->
             let ntf: PlainNotification = { Content = msg }
 
             do! lspClient.NotifyCancelledRequest ntf
-          | NotificationEvent.AnalyzerMessage (messages, file) ->
+          | NotificationEvent.AnalyzerMessage(messages, file) ->
             let uri = Path.LocalPathToUri file
 
             match messages with
@@ -561,7 +559,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     Data = fixes })
 
               diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
-          | NotificationEvent.TestDetected (file, tests) ->
+          | NotificationEvent.TestDetected(file, tests) ->
             let rec map
               (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>)
               : TestAdapter.TestAdapterEntry<Ionide.LanguageServerProtocol.Types.Range> =
@@ -764,9 +762,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let responseFiles =
             projViewerItemsNormalized.Items
             |> List.map (function
-              | ProjectViewerItem.Compile (p, c) -> ProjectViewerItem.Compile(Helpers.fullPathNormalized p, c))
+              | ProjectViewerItem.Compile(p, c) -> ProjectViewerItem.Compile(Helpers.fullPathNormalized p, c))
             |> List.choose (function
-              | ProjectViewerItem.Compile (p, _) -> Some p)
+              | ProjectViewerItem.Compile(p, _) -> Some p)
 
           let references = FscArguments.references (opts.OtherOptions |> List.ofArray)
 
@@ -1052,7 +1050,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       | None -> return []
     }
 
-  let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
+  let autoCompleteItems
+    : cmap<DeclName, DeclarationListItem *
+      Position *
+      string<LocalPath> *
+      (Position -> option<string>) *
+      FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
 
   let getAutoCompleteByDeclName name = autoCompleteItems |> AMap.tryFind name
@@ -1217,7 +1220,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let config = config |> AVal.force
 
         match forceFindOpenFileOrRead f with
-        | Ok (fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1283,8 +1286,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return!
               Debug.measure $"parseAndCheckFile - {file}"
               <| fun () ->
-                   parseAndCheckFile checker info opts config
-                   |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
+                parseAndCheckFile checker info opts config
+                |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
           }
 
       })
@@ -1766,11 +1769,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let rootPath = rootPath |> AVal.force
 
         match res with
-        | (FormatDocumentResponse.Formatted (lines, formatted)) ->
+        | (FormatDocumentResponse.Formatted(lines, formatted)) ->
           let result = handlerFormattedDoc (lines, formatted)
 
           return (Some(result))
-        | (FormatDocumentResponse.FormattedRange (lines, formatted, range)) ->
+        | (FormatDocumentResponse.FormattedRange(lines, formatted, range)) ->
           let result = handleFormattedRange (lines, formatted, range)
 
           return (Some(result))
@@ -1806,9 +1809,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                   if not (File.Exists dotConfig) then
                     let! result =
-                      Cli.Wrap("dotnet").WithArguments("new tool-manifest").WithWorkingDirectory(
-                        rootPath
-                      )
+                      Cli
+                        .Wrap("dotnet")
+                        .WithArguments("new tool-manifest")
+                        .WithWorkingDirectory(rootPath)
                         .ExecuteBufferedAsync()
                         .Task
                       |> Async.AwaitTask
@@ -1823,9 +1827,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                     if dotConfigContent.Contains("fantomas") then
                       // uninstall a older, non-compatible version of fantomas
                       let! result =
-                        Cli.Wrap("dotnet").WithArguments("tool uninstall fantomas").WithWorkingDirectory(
-                          rootPath
-                        )
+                        Cli
+                          .Wrap("dotnet")
+                          .WithArguments("tool uninstall fantomas")
+                          .WithWorkingDirectory(rootPath)
                           .ExecuteBufferedAsync()
                           .Task
                         |> Async.AwaitTask
@@ -1838,9 +1843,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                         )
 
                   let! result =
-                    Cli.Wrap("dotnet").WithArguments("tool install fantomas").WithWorkingDirectory(
-                      rootPath
-                    )
+                    Cli
+                      .Wrap("dotnet")
+                      .WithArguments("tool install fantomas")
+                      .WithWorkingDirectory(rootPath)
                       .ExecuteBufferedAsync()
                       .Task
                     |> Async.AwaitTask
@@ -1864,9 +1870,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> Option.defaultValue (async { return () })
           | (Some { Title = "Install globally" }) ->
             let! result =
-              Cli.Wrap("dotnet").WithArguments(
-                "tool install -g fantomas"
-              )
+              Cli
+                .Wrap("dotnet")
+                .WithArguments("tool install -g fantomas")
                 .ExecuteBufferedAsync()
                 .Task
               |> Async.AwaitTask
@@ -1964,9 +1970,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             { Helpers.defaultServerCapabilities with
                 TextDocumentSync =
                   Helpers.defaultServerCapabilities.TextDocumentSync
-                  |> Option.map (fun x -> { x with Change = Some TextDocumentSyncKind.Incremental }) }
+                  |> Option.map (fun x ->
+                    { x with
+                        Change = Some TextDocumentSyncKind.Incremental }) }
 
-          return { InitializeResult.Default with Capabilities = defaultSettings }
+          return
+            { InitializeResult.Default with
+                Capabilities = defaultSettings }
 
         with e ->
           logger.error (
@@ -2171,7 +2181,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 // Otherwise we'll fail here and our retry logic will come into place
                 do!
                   match p.Context with
-                  | Some ({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                  | Some({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
                     namedText.Lines.TryGetChar pos = context.triggerCharacter
                   | _ -> true
                   |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
@@ -2190,54 +2200,54 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> AsyncResult.ofStringErr
             with
             | None -> return! success (None)
-            | Some (decls, _, shouldKeywords, typeCheckResults, _, namedText) ->
+            | Some(decls, _, shouldKeywords, typeCheckResults, _, namedText) ->
 
               return!
                 Debug.measure "TextDocumentCompletion.TryGetCompletions success"
                 <| fun () ->
-                     transact (fun () ->
-                       HashMap.OfList(
-                         [ for d in decls do
-                             d.NameInList, (d, pos, filePath, namedText.Lines.GetLine, typeCheckResults.GetAST) ]
-                       )
-                       |> autoCompleteItems.UpdateTo)
-                     |> ignore
+                  transact (fun () ->
+                    HashMap.OfList(
+                      [ for d in decls do
+                          d.NameInList, (d, pos, filePath, namedText.Lines.GetLine, typeCheckResults.GetAST) ]
+                    )
+                    |> autoCompleteItems.UpdateTo)
+                  |> ignore
 
-                     let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
+                  let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
 
-                     let items =
-                       decls
-                       |> Array.mapi (fun id d ->
-                         let code =
-                           if
-                             System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
-                           then
-                             d.NameInList
-                           elif d.NamespaceToOpen.IsSome then
-                             d.NameInList
-                           else
-                             FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
+                  let items =
+                    decls
+                    |> Array.mapi (fun id d ->
+                      let code =
+                        if
+                          System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
+                        then
+                          d.NameInList
+                        elif d.NamespaceToOpen.IsSome then
+                          d.NameInList
+                        else
+                          FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
 
-                         let label =
-                           match d.NamespaceToOpen with
-                           | Some no -> sprintf "%s (open %s)" d.NameInList no
-                           | None -> d.NameInList
+                      let label =
+                        match d.NamespaceToOpen with
+                        | Some no -> sprintf "%s (open %s)" d.NameInList no
+                        | None -> d.NameInList
 
-                         { CompletionItem.Create(d.NameInList) with
-                             Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                             InsertText = Some code
-                             SortText = Some(sprintf "%06d" id)
-                             FilterText = Some d.NameInList
-                             Label = label })
+                      { CompletionItem.Create(d.NameInList) with
+                          Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                          InsertText = Some code
+                          SortText = Some(sprintf "%06d" id)
+                          FilterText = Some d.NameInList
+                          Label = label })
 
-                     let its =
-                       if not includeKeywords then
-                         items
-                       else
-                         Array.append items KeywordList.keywordCompletionItems
+                  let its =
+                    if not includeKeywords then
+                      items
+                    else
+                      Array.append items KeywordList.keywordCompletionItems
 
-                     let completionList = { IsIncomplete = false; Items = its }
-                     success (Some completionList)
+                  let completionList = { IsIncomplete = false; Items = its }
+                  success (Some completionList)
 
         with e ->
           logger.error (
@@ -2252,13 +2262,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override __.CompletionItemResolve(ci: CompletionItem) =
       let mapHelpText (ci: CompletionItem) (text: HelpText) =
         match text with
-        | HelpText.Simple (symbolName, text) ->
+        | HelpText.Simple(symbolName, text) ->
           let d = Documentation.Markup(markdown text)
 
           { ci with
               Detail = Some symbolName
               Documentation = Some d }
-        | HelpText.Full (name, tip, additionalEdit) ->
+        | HelpText.Full(name, tip, additionalEdit) ->
           let (si, comment) = TipFormatter.formatCompletionItemTip tip
 
           let edits, label =
@@ -2269,7 +2279,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 let indentation = String(' ', fcsPos.Column)
                 $"{indentation}open {ns}\n"
 
-              let insertPos = { (fcsPos |> fcsPosToLsp) with Character = 0 }
+              let insertPos =
+                { (fcsPos |> fcsPosToLsp) with
+                    Character = 0 }
 
               Some
                 [| { TextEdit.NewText = text
@@ -2300,7 +2312,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             match getAutoCompleteByDeclName sym |> AVal.force with
             | None -> //Isn't in sync filled cache, we don't have result
               CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-            | Some (decl, pos, fn, _, _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
+            | Some(decl, pos, fn, _, _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
 
               let tip = decl.Description
 
@@ -2463,7 +2475,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               return (Some response)
             | _ -> return None
-          | Ok (None) ->
+          | Ok(None) ->
 
             return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
           | Error e ->
@@ -2601,7 +2613,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           match usages with
-          | Choice1Of2 (decls, usages) ->
+          | Choice1Of2(decls, usages) ->
             return
               Seq.append decls.Values usages.Values
               |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
@@ -2698,7 +2710,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let ranges: FSharp.Compiler.Text.Range[] =
             match res with
-            | LocationResponse.Use (_, uses) -> uses |> Array.map (fun u -> u.Range)
+            | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
 
           let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
@@ -2767,7 +2779,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               let uri = Path.LocalPathToUri p
 
               ns
-              |> Array.collect (fun n -> getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
+              |> Array.collect (fun n ->
+                getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
             |> Some
 
           return res
@@ -2990,9 +3003,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             let! r = Async.Catch(f arg pos tyRes namedText lineStr typ filePath)
 
             match r with
-            | Choice1Of2 (r: LspResult<CodeLens option>) ->
+            | Choice1Of2(r: LspResult<CodeLens option>) ->
               match r with
-              | Ok (Some r) -> return r
+              | Ok(Some r) -> return r
               | _ -> return Unchecked.defaultof<_>
             | Choice2Of2 e ->
               logger.error (
@@ -3046,7 +3059,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 )
 
                 return { p with Command = None } |> Some |> success
-              | CoreResponse.Res (typ, parms, _) ->
+              | CoreResponse.Res(typ, parms, _) ->
                 let formatted = SigantureData.formatSignature typ parms
 
                 let cmd =
@@ -3080,7 +3093,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   )
                 | Ok res ->
                   match res with
-                  | Choice1Of2 (_, uses) ->
+                  | Choice1Of2(_, uses) ->
                     let allUses = uses.Values |> Array.concat
 
                     let cmd =

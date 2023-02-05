@@ -351,7 +351,7 @@ module CommandResponse =
 
     let mapItemResponse (p: Ionide.ProjInfo.ProjectViewerItem) : ProjectResponseItem =
       match p with
-      | Ionide.ProjInfo.ProjectViewerItem.Compile (fullpath, extraInfo) ->
+      | Ionide.ProjInfo.ProjectViewerItem.Compile(fullpath, extraInfo) ->
         { ProjectResponseItem.Name = "Compile"
           ProjectResponseItem.FilePath = fullpath
           ProjectResponseItem.VirtualPath = extraInfo.Link
@@ -390,15 +390,15 @@ module CommandResponse =
   let projectError (serialize: Serializer) errorDetails =
     let rec getMessageLines errorDetails =
       match errorDetails with
-      | Ionide.ProjInfo.Types.ProjectNotFound (_) -> [ "couldn't find project" ]
-      | Ionide.ProjInfo.Types.LanguageNotSupported (_) -> [ sprintf "this project is not supported, only fsproj" ]
-      | Ionide.ProjInfo.Types.ProjectNotLoaded (_) ->
+      | Ionide.ProjInfo.Types.ProjectNotFound(_) -> [ "couldn't find project" ]
+      | Ionide.ProjInfo.Types.LanguageNotSupported(_) -> [ sprintf "this project is not supported, only fsproj" ]
+      | Ionide.ProjInfo.Types.ProjectNotLoaded(_) ->
         [ sprintf "this project was not loaded due to some internal error" ]
       | Ionide.ProjInfo.Types.MissingExtraProjectInfos _ ->
         [ sprintf "this project was not loaded because ExtraProjectInfos were missing" ]
-      | Ionide.ProjInfo.Types.InvalidExtraProjectInfos (_, err) ->
+      | Ionide.ProjInfo.Types.InvalidExtraProjectInfos(_, err) ->
         [ sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err ]
-      | Ionide.ProjInfo.Types.ReferencesNotLoaded (_, referenceErrors) ->
+      | Ionide.ProjInfo.Types.ReferencesNotLoaded(_, referenceErrors) ->
 
         [ yield sprintf "this project was not loaded because some references could not be loaded:"
           yield!
@@ -406,25 +406,25 @@ module CommandResponse =
             |> Seq.collect (fun (projPath, er) ->
               [ yield sprintf "  - %s:" projPath
                 yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line) ]) ]
-      | Ionide.ProjInfo.Types.GenericError (_, errorMessage) -> [ errorMessage ]
+      | Ionide.ProjInfo.Types.GenericError(_, errorMessage) -> [ errorMessage ]
       | Ionide.ProjInfo.Types.ProjectNotRestored _ -> [ "Project not restored" ]
 
     let msg = getMessageLines errorDetails |> String.concat Environment.NewLine
 
     match errorDetails with
-    | Ionide.ProjInfo.Types.ProjectNotFound (project) ->
+    | Ionide.ProjInfo.Types.ProjectNotFound(project) ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Ionide.ProjInfo.Types.LanguageNotSupported (project) ->
+    | Ionide.ProjInfo.Types.LanguageNotSupported(project) ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
     | Ionide.ProjInfo.Types.ProjectNotLoaded project ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
     | Ionide.ProjInfo.Types.MissingExtraProjectInfos project ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Ionide.ProjInfo.Types.InvalidExtraProjectInfos (project, _) ->
+    | Ionide.ProjInfo.Types.InvalidExtraProjectInfos(project, _) ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Ionide.ProjInfo.Types.ReferencesNotLoaded (project, _) ->
+    | Ionide.ProjInfo.Types.ReferencesNotLoaded(project, _) ->
       errorG serialize (ErrorData.GenericProjectError { Project = project }) msg
-    | Ionide.ProjInfo.Types.GenericError (project, _) ->
+    | Ionide.ProjInfo.Types.GenericError(project, _) ->
       errorG serialize (ErrorData.ProjectParsingFailed { Project = project }) msg
     | Ionide.ProjInfo.Types.ProjectNotRestored project ->
       errorG serialize (ErrorData.ProjectNotRestored { Project = project }) msg
@@ -437,11 +437,11 @@ module CommandResponse =
   let workspacePeek (serialize: Serializer) (found: WorkspacePeek.Interesting list) =
     let mapInt i =
       match i with
-      | WorkspacePeek.Interesting.Directory (p, fsprojs) ->
+      | WorkspacePeek.Interesting.Directory(p, fsprojs) ->
         WorkspacePeekFound.Directory
           { WorkspacePeekFoundDirectory.Directory = p
             Fsprojs = fsprojs }
-      | WorkspacePeek.Interesting.Solution (p, sd) ->
+      | WorkspacePeek.Interesting.Solution(p, sd) ->
         let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
           let kind =
             match x.Kind with
@@ -452,7 +452,7 @@ module CommandResponse =
                 WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                   { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
               )
-            | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder (children, files) ->
+            | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
               let c = children |> List.choose item
 
               Some(
@@ -562,7 +562,7 @@ module CommandResponse =
               Signature = n
               Comment = m })
         )
-      | _, Some (xml, assembly) ->
+      | _, Some(xml, assembly) ->
         TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn
         |> List.map (
           List.map (fun (n, cns, fds, funcs, intf, attrs, ts, m, f, cn) ->

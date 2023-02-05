@@ -100,7 +100,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
       let! result = lspClient.WorkDoneProgressCreate x.Token
 
       match result with
-      | Ok () -> ()
+      | Ok() -> ()
       | Error e -> canReportProgress <- false
 
       if canReportProgress then
@@ -165,44 +165,44 @@ type ProgressListener(lspClient) =
   override x.OnEventSourceCreated newSource =
     lock x
     <| fun () ->
-         if newSource.Name = "FSharpCompiler" then
-           x.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
-           source <- newSource
+      if newSource.Name = "FSharpCompiler" then
+        x.EnableEvents(newSource, EventLevel.LogAlways, EventKeywords.All)
+        source <- newSource
 
   override x.OnEventWritten eventArgs =
 
     lock x
     <| fun () ->
-         try
-           if isDisposed then
-             ()
-           else
-             let message =
-               match eventArgs.EventId with
-               | 5 ->
-                 let progressReport = new ServerProgressReport(lspClient)
-                 let message = eventArgs.Payload.[0] |> string
-                 let fileName = IO.Path.GetFileName message
+      try
+        if isDisposed then
+          ()
+        else
+          let message =
+            match eventArgs.EventId with
+            | 5 ->
+              let progressReport = new ServerProgressReport(lspClient)
+              let message = eventArgs.Payload.[0] |> string
+              let fileName = IO.Path.GetFileName message
 
-                 if inflightEvents.TryAdd(eventArgs.Task, progressReport) then
-                   progressReport.Begin($"Dependent Typecheck {fileName}", message = message)
-                   |> Async.Start
-               | 6 ->
-                 let message = eventArgs.Payload.[0] |> string
+              if inflightEvents.TryAdd(eventArgs.Task, progressReport) then
+                progressReport.Begin($"Dependent Typecheck {fileName}", message = message)
+                |> Async.Start
+            | 6 ->
+              let message = eventArgs.Payload.[0] |> string
 
-                 match inflightEvents.TryRemove(eventArgs.Task) with
-                 | true, report ->
-                   report.End($"Finished {message}") |> Async.Start
-                   tryDispose report
-                   ()
-                 | false, _ ->
+              match inflightEvents.TryRemove(eventArgs.Task) with
+              | true, report ->
+                report.End($"Finished {message}") |> Async.Start
+                tryDispose report
+                ()
+              | false, _ ->
 
-                   ()
-               | other -> ()
+                ()
+            | other -> ()
 
-             message
-         with e ->
-           ()
+          message
+      with e ->
+        ()
 
   member _.DisableEvents(source) = ``base``.DisableEvents(source)
 
@@ -210,7 +210,7 @@ type ProgressListener(lspClient) =
     member this.Dispose() =
       lock this
       <| fun () ->
-           if isNull source then () else this.DisableEvents(source)
-           isDisposed <- true
-           inflightEvents.Values |> Seq.iter (tryDispose)
-           inflightEvents <- null
+        if isNull source then () else this.DisableEvents(source)
+        isDisposed <- true
+        inflightEvents.Values |> Seq.iter (tryDispose)
+        inflightEvents <- null

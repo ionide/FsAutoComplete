@@ -128,7 +128,7 @@ module DocumentationFormatter =
       let memberConstraint (c: FSharpGenericParameterMemberConstraint) =
         let formattedMemberName, isProperty =
           match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
-          | true, Some (chopped) when chopped <> c.MemberName -> chopped, true
+          | true, Some(chopped) when chopped <> c.MemberName -> chopped, true
           | _, _ ->
             if PrettyNaming.IsLogicalOpName c.MemberName then
               PrettyNaming.ConvertValLogicalNameToDisplayNameCore c.MemberName, false
@@ -790,7 +790,7 @@ module DocumentationFormatter =
 
           sprintf "Full name: %s\nDeclaring Entity: %s\nAssembly: %s" m.SafeFullName link m.Assembly.SimpleName
 
-      | SymbolUse.Entity (c, _) ->
+      | SymbolUse.Entity(c, _) ->
         match c.DeclaringEntity with
         | None -> sprintf "Full name: %s\nAssembly: %s" c.SafeFullName c.Assembly.SimpleName
         | Some e ->
@@ -821,9 +821,9 @@ module DocumentationFormatter =
       match entity with
       | MemberFunctionOrValue m -> sprintf "Full name: %s\nAssembly: %s" m.SafeFullName m.Assembly.SimpleName
 
-      | EntityFromSymbol (c, _) -> sprintf "Full name: %s\nAssembly: %s" c.SafeFullName c.Assembly.SimpleName
+      | EntityFromSymbol(c, _) -> sprintf "Full name: %s\nAssembly: %s" c.SafeFullName c.Assembly.SimpleName
 
-      | Field (f, _) -> sprintf "Full name: %s\nAssembly: %s" f.SafeFullName f.Assembly.SimpleName
+      | Field(f, _) -> sprintf "Full name: %s\nAssembly: %s" f.SafeFullName f.Assembly.SimpleName
 
       | ActivePatternCase ap -> sprintf "Full name: %s\nAssembly: %s" ap.SafeFullName ap.Assembly.SimpleName
 
@@ -850,19 +850,19 @@ module DocumentationFormatter =
     lastDisplayContext <- symbol.DisplayContext
 
     match symbol with
-    | SymbolUse.TypeAbbreviation (fse) ->
+    | SymbolUse.TypeAbbreviation(fse) ->
       try
         let parent = fse.GetAbbreviatedParent()
 
         match parent with
-        | FSharpEntity (ent, _, _) ->
+        | FSharpEntity(ent, _, _) ->
           let signature = getEntitySignature symbol.DisplayContext ent
           Some(signature, footerForType' parent, cn)
         | _ -> None
       with _ ->
         None
 
-    | SymbolUse.Entity (fse, _) ->
+    | SymbolUse.Entity(fse, _) ->
       try
         let signature = getEntitySignature symbol.DisplayContext fse
         Some(signature, footerForType symbol, cn)
@@ -943,7 +943,7 @@ module DocumentationFormatter =
     let cn = compiledNameType' symbol
 
     match symbol with
-    | EntityFromSymbol (fse, _) ->
+    | EntityFromSymbol(fse, _) ->
       try
         let signature = getEntitySignature lastDisplayContext fse
         Some(signature, footerForType' symbol, cn)
@@ -983,7 +983,7 @@ module DocumentationFormatter =
       let signature = getValSignature lastDisplayContext func
       Some((signature, emptyTypeTip), footerForType' symbol, cn)
 
-    | Field (fsf, _) ->
+    | Field(fsf, _) ->
       let signature = getFieldSignature lastDisplayContext fsf
       Some((signature, emptyTypeTip), footerForType' symbol, cn)
 

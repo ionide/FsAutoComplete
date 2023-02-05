@@ -176,8 +176,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
     // should not result in a prompt, whereas this one will:
     //    Console.WriteLine( [(1,2)],
     match triggerChar with
-    | Some ('<' | '(' | ',') when not (tupleEnds |> Array.exists (fun lp -> lp.Column = caretPos.Column)) ->
-      return! None // comma or paren at wrong location = remove help display
+    | Some('<' | '(' | ',') when not (tupleEnds |> Array.exists (fun lp -> lp.Column = caretPos.Column)) -> return! None // comma or paren at wrong location = remove help display
     | _ ->
       // Compute the argument index by working out where the caret is between the various commas.
       let argumentIndex =
@@ -216,13 +215,13 @@ let getSignatureHelpFor
       let rec loop ch pos =
         if Char.IsWhiteSpace ch then
           match lines.TryGetPrevChar pos with
-          | Some (prevPos, prevChar) -> loop prevChar prevPos
+          | Some(prevPos, prevChar) -> loop prevChar prevPos
           | None -> None
         else
           Some(pos, ch)
 
       match lines.TryGetPrevChar pos with
-      | Some (prevPos, prevChar) -> loop prevChar prevPos
+      | Some(prevPos, prevChar) -> loop prevChar prevPos
       | None -> None
 
     let! (previousNonWhitespaceCharPos, previousNonWhitespaceChar) =

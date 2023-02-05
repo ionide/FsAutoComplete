@@ -27,23 +27,23 @@ and private defaultTraversePat visitor origPath pat =
   let path = SyntaxNode.SynPat pat :: origPath
 
   match pat with
-  | SynPat.Paren (p, _) -> traversePat visitor path p
-  | SynPat.As (p1, p2, _)
-  | SynPat.Or (p1, p2, _, _) -> [ p1; p2 ] |> List.tryPick (traversePat visitor path)
-  | SynPat.Ands (ps, _)
-  | SynPat.Tuple (_, ps, _)
-  | SynPat.ArrayOrList (_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
-  | SynPat.Attrib (p, _, _) -> traversePat visitor path p
-  | SynPat.LongIdent (argPats = args) ->
+  | SynPat.Paren(p, _) -> traversePat visitor path p
+  | SynPat.As(p1, p2, _)
+  | SynPat.Or(p1, p2, _, _) -> [ p1; p2 ] |> List.tryPick (traversePat visitor path)
+  | SynPat.Ands(ps, _)
+  | SynPat.Tuple(_, ps, _)
+  | SynPat.ArrayOrList(_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
+  | SynPat.Attrib(p, _, _) -> traversePat visitor path p
+  | SynPat.LongIdent(argPats = args) ->
     match args with
     | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
-    | SynArgPats.NamePatPairs (ps, _) ->
+    | SynArgPats.NamePatPairs(ps, _) ->
       ps
       |> List.map (fun (_, _, pat) -> pat)
       |> List.tryPick (traversePat visitor path)
-  | SynPat.Typed (p, _ty, _) -> traversePat visitor path p
+  | SynPat.Typed(p, _ty, _) -> traversePat visitor path p
   // no access to `traverseSynType` -> no traversing into `ty`
-  | SynPat.Record (fieldPats = fieldPats) ->
+  | SynPat.Record(fieldPats = fieldPats) ->
     fieldPats
     |> List.map (fun (_, _, pat) -> pat)
     |> List.tryPick (traversePat visitor path)
@@ -97,7 +97,7 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
             match expr with
-            | SynExpr.Typed (_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
+            | SynExpr.Typed(_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
             | _ -> defaultTraverse expr
 
           override _.VisitSimplePats(_path, pats) =
@@ -106,21 +106,21 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
             | _ ->
               let exprFunc pat =
                 match pat with
-                | SynSimplePat.Typed (_pat, _targetExpr, range) when Position.posEq range.Start pos -> Some range
+                | SynSimplePat.Typed(_pat, _targetExpr, range) when Position.posEq range.Start pos -> Some range
                 | _ -> None
 
               pats |> List.tryPick exprFunc
 
           override visitor.VisitPat(path, defaultTraverse, pat) =
             match pat with
-            | SynPat.Typed (_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
+            | SynPat.Typed(_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
             | _ -> defaultTraversePat visitor path pat
 
           override _.VisitBinding(_path, defaultTraverse, binding) =
             match binding with
-            | SynBinding (headPat = SynPat.Named (range = patRange)
-                          returnInfo = Some (SynBindingReturnInfo(typeName = SynType.LongIdent (idents)))) ->
-              Some patRange
+            | SynBinding(
+                headPat = SynPat.Named(range = patRange)
+                returnInfo = Some(SynBindingReturnInfo(typeName = SynType.LongIdent(idents)))) -> Some patRange
             | _ -> defaultTraverse binding }
 
     let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
@@ -461,16 +461,16 @@ let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath)
   //ENHANCEMENT: handle SynExpr.Typed? -> not at binding, but usage
   match path with
   | [] -> false
-  | SyntaxNode.SynPat (SynPat.Typed (pat = pat)) :: _ when rangeContainsPos pat.Range identStart -> true
-  | SyntaxNode.SynPat (SynPat.Paren _) :: path -> isDirectlyTyped identStart path
-  | SyntaxNode.SynPat (SynPat.Attrib (pat = pat)) :: path when rangeContainsPos pat.Range identStart ->
+  | SyntaxNode.SynPat(SynPat.Typed(pat = pat)) :: _ when rangeContainsPos pat.Range identStart -> true
+  | SyntaxNode.SynPat(SynPat.Paren _) :: path -> isDirectlyTyped identStart path
+  | SyntaxNode.SynPat(SynPat.Attrib(pat = pat)) :: path when rangeContainsPos pat.Range identStart ->
     isDirectlyTyped identStart path
-  | SyntaxNode.SynBinding (SynBinding (headPat = headPat; returnInfo = Some (SynBindingReturnInfo _))) :: _ when
+  | SyntaxNode.SynBinding(SynBinding(headPat = headPat; returnInfo = Some(SynBindingReturnInfo _))) :: _ when
     rangeContainsPos headPat.Range identStart
     ->
     true
-  | SyntaxNode.SynExpr (SynExpr.Paren _) :: path -> isDirectlyTyped identStart path
-  | SyntaxNode.SynExpr (SynExpr.Typed (expr = expr)) :: _ when rangeContainsPos expr.Range identStart -> true
+  | SyntaxNode.SynExpr(SynExpr.Paren _) :: path -> isDirectlyTyped identStart path
+  | SyntaxNode.SynExpr(SynExpr.Typed(expr = expr)) :: _ when rangeContainsPos expr.Range identStart -> true
   | _ -> false
 
 /// Note: FULL range of pattern -> everything in parens
@@ -478,26 +478,26 @@ let rec private isDirectlyTyped (identStart: Position) (path: SyntaxVisitorPath)
 ///   `let private (a: int)` is not valid, must include private: `let (private a: int)`
 let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: Position) (path: SyntaxVisitorPath) =
   match path with
-  | SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
+  | SyntaxNode.SynPat(SynPat.Paren _) :: _ ->
     // (x)
     Parens.Exist patternRange
-  | SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when rangeContainsPos headPat.Range identStart ->
+  | SyntaxNode.SynBinding(SynBinding(headPat = headPat)) :: _ when rangeContainsPos headPat.Range identStart ->
     // let x =
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.Tuple(isStruct = true)) :: _ ->
+  | SyntaxNode.SynPat(SynPat.Tuple(isStruct = true)) :: _ ->
     // struct (x,y)
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.Tuple _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ ->
+  | SyntaxNode.SynPat(SynPat.Tuple _) :: SyntaxNode.SynPat(SynPat.Paren _) :: _ ->
     // (x,y)
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.Tuple _) :: _ ->
+  | SyntaxNode.SynPat(SynPat.Tuple _) :: _ ->
     // x,y
     Parens.Required patternRange
-  | SyntaxNode.SynPat (SynPat.ArrayOrList _) :: _ ->
+  | SyntaxNode.SynPat(SynPat.ArrayOrList _) :: _ ->
     // [x;y;z]
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As _) :: SyntaxNode.SynPat (SynPat.Paren _) :: _ -> Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+  | SyntaxNode.SynPat(SynPat.As _) :: SyntaxNode.SynPat(SynPat.Paren _) :: _ -> Parens.Optional patternRange
+  | SyntaxNode.SynPat(SynPat.As(rhsPat = pat)) :: SyntaxNode.SynBinding(SynBinding(headPat = headPat)) :: _ when
     rangeContainsPos pat.Range identStart
     && rangeContainsPos headPat.Range identStart
     ->
@@ -506,7 +506,7 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
     // let _ as value: int =
     // (new `: int` belongs to let binding, NOT as pattern)
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: SyntaxNode.SynBinding (SynBinding (headPat = headPat)) :: _ when
+  | SyntaxNode.SynPat(SynPat.As(lhsPat = pat)) :: SyntaxNode.SynBinding(SynBinding(headPat = headPat)) :: _ when
     rangeContainsPos pat.Range identStart
     && rangeContainsPos headPat.Range identStart
     ->
@@ -515,31 +515,31 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
     // let (value: int) as _ =
     // (`: int` belongs to as pattern, but let bindings tries to parse type annotation eagerly -> without parens let binding finished after `: int` -> as not pattern)
     Parens.Required patternRange
-  | SyntaxNode.SynPat (SynPat.As (rhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
+  | SyntaxNode.SynPat(SynPat.As(rhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
     // _ as (value: int)
     Parens.Required patternRange
-  | SyntaxNode.SynPat (SynPat.As (lhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
+  | SyntaxNode.SynPat(SynPat.As(lhsPat = pat)) :: _ when rangeContainsPos pat.Range identStart ->
     // value: int as _
     // ^^^^^^^^^^ unlike rhs this here doesn't require parens...
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.Record _) :: _ ->
+  | SyntaxNode.SynPat(SynPat.Record _) :: _ ->
     // { Value=value }
     Parens.Optional patternRange
-  | SyntaxNode.SynPat (SynPat.LongIdent(argPats = SynArgPats.NamePatPairs (range = range))) :: _ when
+  | SyntaxNode.SynPat(SynPat.LongIdent(argPats = SynArgPats.NamePatPairs(range = range))) :: _ when
     rangeContainsPos range identStart
     ->
     // U (Value=value)
     //   ^           ^
     //   must exist to be valid
     Parens.Optional patternRange
-  | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = true)) :: _ ->
+  | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = true)) :: _ ->
     // use! x =
     // Note: Type is forbidden too...
     Parens.Forbidden
-  | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = false)) :: _ ->
+  | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = false)) :: _ ->
     // let! x =
     Parens.Required patternRange
-  | SyntaxNode.SynExpr (SynExpr.ForEach _) :: _ ->
+  | SyntaxNode.SynExpr(SynExpr.ForEach _) :: _ ->
     // for i in [1..4] do
     Parens.Optional patternRange
   | []
@@ -555,7 +555,7 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
 let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
   match pat with
   | SynPat.Named(accessibility = None) -> pat.Range
-  | SynPat.Named (ident = SynIdent (ident = ident); accessibility = Some (access)) ->
+  | SynPat.Named(ident = SynIdent(ident = ident); accessibility = Some(access)) ->
     maybe {
       let start = ident.idRange.Start
       let! line = text.GetLine start
@@ -587,13 +587,13 @@ let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
 /// Note: (deliberately) fails when `pat` is neither `Named` nor `OptionalVal`
 let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: SyntaxVisitorPath) =
   match pat with
-  | SynPat.Named(ident = SynIdent (ident = ident)) ->
+  | SynPat.Named(ident = SynIdent(ident = ident)) ->
     // neither `range`, not `pat.Range` includes `accessibility`...
     // `let private (a: int)` is not valid, must include private: `let (private a: int)`
     let patternRange = rangeOfNamedPat text pat
     let identStart = ident.idRange.Start
     getParensForPatternWithIdent patternRange identStart path
-  | SynPat.OptionalVal (ident = ident) ->
+  | SynPat.OptionalVal(ident = ident) ->
     let patternRange = pat.Range
     let identStart = ident.idRange.Start
     getParensForPatternWithIdent patternRange identStart path
@@ -611,8 +611,8 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // for i = 1 to 3 do
           //     ^ -> just Ident (neither SynPat nor SynSimplePat)
           //     -> no type allowed (not even parens)...
-          | SynExpr.For (ident = ident) when rangeContainsPos ident.idRange pos -> ExplicitType.Invalid |> Some
-          | SynExpr.Lambda(parsedData = Some (args, body)) ->
+          | SynExpr.For(ident = ident) when rangeContainsPos ident.idRange pos -> ExplicitType.Invalid |> Some
+          | SynExpr.Lambda(parsedData = Some(args, body)) ->
             // original visitor walks down `SynExpr.Lambda(args; body)`
             // Issue:
             //  `args` are `SynSimplePats` -> no complex pattern
@@ -639,7 +639,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
         member visitor.VisitPat(path, defaultTraverse, pat) =
           let invalidPositionForTypeAnnotation (pos: Position) (path: SyntaxNode list) =
             match path with
-            | SyntaxNode.SynExpr (SynExpr.LetOrUseBang(isUse = true)) :: _ ->
+            | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = true)) :: _ ->
               // use! value =
               true
             | _ -> false
@@ -657,11 +657,11 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           // no simple way out: Range for `SynPat.LongIdent` doesn't cover full pats (just ident)
           // see dotnet/fsharp#13115
           // | _ when not (rangeContainsPos pat.Range pos) -> None
-          | SynPat.Named(ident = SynIdent (ident = ident)) when
+          | SynPat.Named(ident = SynIdent(ident = ident)) when
             rangeContainsPos ident.idRange pos && invalidPositionForTypeAnnotation pos path
             ->
             ExplicitType.Invalid |> Some
-          | SynPat.Named (ident = SynIdent (ident = ident); isThisVal = false) when rangeContainsPos ident.idRange pos ->
+          | SynPat.Named(ident = SynIdent(ident = ident); isThisVal = false) when rangeContainsPos ident.idRange pos ->
             let typed = isDirectlyTyped ident.idRange.Start path
 
             if typed then
@@ -675,7 +675,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
                   Parens = parens
                   SpecialRules = [] }
               |> Some
-          | SynPat.OptionalVal (ident = ident) when rangeContainsPos ident.idRange pos ->
+          | SynPat.OptionalVal(ident = ident) when rangeContainsPos ident.idRange pos ->
             let typed = isDirectlyTyped ident.idRange.Start path
 
             if typed then
@@ -711,9 +711,9 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
 
             let rec tryGetIdent pat =
               match pat with
-              | SynSimplePat.Id (ident = ident) when rangeContainsPos ident.idRange pos -> Some pat
-              | SynSimplePat.Attrib (pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
-              | SynSimplePat.Typed (pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+              | SynSimplePat.Id(ident = ident) when rangeContainsPos ident.idRange pos -> Some pat
+              | SynSimplePat.Attrib(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+              | SynSimplePat.Typed(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
               | _ -> None
 
             let! ident = tryGetIdent pat
@@ -724,7 +724,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
                 function
                 | SynSimplePat.Typed _ -> true
                 | SynSimplePat.Id _ -> false
-                | SynSimplePat.Attrib (pat = pat) -> isTyped pat
+                | SynSimplePat.Attrib(pat = pat) -> isTyped pat
 
               let typed = isTyped pat
 
@@ -736,9 +736,11 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
                   |> List.tryHead
                   |> Option.map (function
                     // normal ctor in type: `type A(v) = ...`
-                    | SyntaxNode.SynMemberDefn (SynMemberDefn.ImplicitCtor _) -> true
+                    | SyntaxNode.SynMemberDefn(SynMemberDefn.ImplicitCtor _) -> true
                     //TODO: when? example?
-                    | SyntaxNode.SynTypeDefn (SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some (ctorPats))))) when
+                    | SyntaxNode.SynTypeDefn(SynTypeDefn(
+                        typeRepr = SynTypeDefnRepr.Simple(
+                          simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some(ctorPats))))) when
                       rangeContainsPos ctorPats.Range pos
                       ->
                       true
@@ -785,10 +787,10 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
           match expr with
-          | SynExpr.App (isInfix = false; funcExpr = funcExpr; argExpr = argExpr; range = range) when pos = range.Start ->
+          | SynExpr.App(isInfix = false; funcExpr = funcExpr; argExpr = argExpr; range = range) when pos = range.Start ->
             let isInfixFuncExpr =
               match funcExpr with
-              | SynExpr.App (_, isInfix, _, _, _) -> isInfix
+              | SynExpr.App(_, isInfix, _, _, _) -> isInfix
               | _ -> false
 
             if isInfixFuncExpr then
@@ -796,7 +798,7 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
             else
               let rec withoutParens =
                 function
-                | SynExpr.Paren (expr = expr) -> withoutParens expr
+                | SynExpr.Paren(expr = expr) -> withoutParens expr
                 | expr -> expr
               // f a (b,c)
               // ^^^^^^^^^ App
@@ -808,8 +810,8 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
               let rec findArgs expr =
                 match expr with
                 | SynExpr.Const(constant = SynConst.Unit) -> []
-                | SynExpr.Paren (expr = expr) -> findArgs expr
-                | SynExpr.App (funcExpr = funcExpr; argExpr = argExpr) ->
+                | SynExpr.Paren(expr = expr) -> findArgs expr
+                | SynExpr.App(funcExpr = funcExpr; argExpr = argExpr) ->
                   let otherArgRanges = findArgs funcExpr
 
                   let argRange =
@@ -817,7 +819,7 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
 
                     let tupleArgs =
                       match argExpr |> withoutParens with
-                      | SynExpr.Tuple (exprs = exprs) -> exprs |> List.map (fun e -> e.Range)
+                      | SynExpr.Tuple(exprs = exprs) -> exprs |> List.map (fun e -> e.Range)
                       | _ -> argRange |> List.singleton
 
                     (argRange, tupleArgs)

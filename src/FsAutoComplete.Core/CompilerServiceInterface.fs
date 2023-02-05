@@ -71,7 +71,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           opt.EndsWith "FSharp.Core.dll"
           || opt.EndsWith "FSharp.Compiler.Interactive.Settings.dll")
 
-      { p with OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
+      { p with
+          OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
     if s.StartsWith(prefix) then
@@ -105,7 +106,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       badRefs |> List.exists (fun r -> s.EndsWith r)
 
     fun (projOptions: FSharpProjectOptions) ->
-      { projOptions with OtherOptions = projOptions.OtherOptions |> Array.where (containsBadRef >> not) }
+      { projOptions with
+          OtherOptions = projOptions.OtherOptions |> Array.where (containsBadRef >> not) }
 
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
@@ -116,7 +118,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       >> Log.addContextDestructured "files" files
     )
 
-    { projectOptions with SourceFiles = files }
+    { projectOptions with
+        SourceFiles = files }
 
   let (|Reference|_|) (opt: string) =
     if opt.StartsWith "-r:" then Some(opt.[3..]) else None
@@ -278,7 +281,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           )
 
           return! ResultOrString.Error(sprintf "Check aborted (%A). Errors: %A" c parseErrors)
-        | FSharpCheckFileAnswer.Succeeded (c) ->
+        | FSharpCheckFileAnswer.Succeeded(c) ->
           checkerLogger.info (
             Log.setMessage "{opName} completed successfully"
             >> Log.addContextDestructured "opName" opName
@@ -351,11 +354,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
-      | Some (opts, []) ->
+      | Some(opts, []) ->
         let opts = clearProjectReferences opts
         let! res = checker.ParseAndCheckProject opts
         return res.GetUsesOfSymbol symbol
-      | Some (opts, dependentProjects) ->
+      | Some(opts, dependentProjects) ->
         let! res =
           opts :: dependentProjects
           |> List.map (fun (opts) ->
