@@ -131,7 +131,14 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
     | InterfaceData.Interface(_, Some memberDefns) ->
       memberDefns
       |> List.choose (function
-        | SynMemberDefn.Member(memberDefn = binding) -> Some binding
+        | SynMemberDefn.Member(memberDefn = binding)
+        | SynMemberDefn.GetSetMember(memberDefnForGet = None; memberDefnForSet = Some binding) | SynMemberDefn.GetSetMember(memberDefnForGet = Some binding; memberDefnForSet = None)->
+          Some binding
+        | SynMemberDefn.GetSetMember(memberDefnForGet = Some (SynBinding(range = getRange) as getBinding); memberDefnForSet = Some (SynBinding(range = setRange) as setBinding)) ->
+          if getRange.StartLine < setRange.StartLine then
+            Some setBinding
+          else
+            Some getBinding
         | _ -> None)
       |> List.tryLast
     | InterfaceData.ObjExpr(_, bindings) -> bindings |> List.tryLast
@@ -371,9 +378,13 @@ let fix
                    | Some edit -> edit
                    | None -> () |] }
 
-          return
-            [ getFix titleWithTypeAnnotation (getMainEdit true)
-              getFix titleWithoutTypeAnnotation (getMainEdit false) ]
+          let edits =
+            [
+              getFix titleWithTypeAnnotation (getMainEdit true)
+              // TODO: reenable when https://github.com/dotnet/fsharp/issues/14698 is fixed and shipped
+              // getFix titleWithoutTypeAnnotation (getMainEdit false)
+            ]
+          return edits
         else
           return []
       | _ -> return []
