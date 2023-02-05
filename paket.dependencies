@@ -42,7 +42,6 @@ nuget System.CommandLine prerelease
 nuget FSharp.Data.Adaptive
 nuget Microsoft.NET.Test.Sdk
 nuget Dotnet.ReproducibleBuilds copy_local:true
-nuget NuGet.Frameworks copy_local:false
 
 nuget Microsoft.NETFramework.ReferenceAssemblies
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
