@@ -28,10 +28,10 @@ let tests state =
       ]
   // Note: there's a space after each generated `=` when linebreak! (-> from FCS)
   testList (nameof ImplementInterface) [
-    let config = { 
-      defaultConfigDto with 
+    let config = {
+      defaultConfigDto with
         IndentationSize = Some 2
-        InterfaceStubGeneration = Some true 
+        InterfaceStubGeneration = Some true
         InterfaceStubGenerationObjectIdentifier = Some "_"
         InterfaceStubGenerationMethodBody = Some "failwith \"-\""
     }
@@ -47,7 +47,7 @@ let tests state =
           """
           type X() =
             interface System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           """
           """
@@ -63,7 +63,7 @@ let tests state =
           """
           type X() =
             interface System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           """
           """
@@ -89,14 +89,14 @@ let tests state =
 
           type Printer() =
             interface IPrinter with
-              member _.Disposed: bool = 
+              member _.Disposed: bool =
                 failwith "-"
               member _.Indentation
-                with get (): int = 
+                with get (): int =
                   failwith "-"
-                and set (v: int): unit = 
+                and set (v: int): unit =
                   failwith "-"
-              member _.Print(format: string): unit = 
+              member _.Print(format: string): unit =
                 failwith "-"
           """
           """
@@ -109,9 +109,9 @@ let tests state =
             interface IPrinter with
               member _.Disposed = failwith "-"
               member _.Indentation
-                with get (): int = 
+                with get (): int =
                   failwith "-"
-                and set (v: int): unit = 
+                and set (v: int): unit =
                   failwith "-"
               member _.Print(format) = failwith "-"
           """
@@ -130,10 +130,10 @@ let tests state =
 
           type Printer() =
             interface IPrinter with
-              member _.Indentation with get () = 42
               member _.Indentation
-                with set (v: int): unit = 
+                with set (v: int): unit =
                   failwith "-"
+              member _.Indentation with get () = 42
           """
           """
           type IPrinter =
@@ -143,7 +143,7 @@ let tests state =
             interface IPrinter with
               member _.Indentation with get () = 42
               member _.Indentation
-                with set (v: int): unit = 
+                with set (v: int): unit =
                 failwith "-"
           """
         testBoth "can implement interface member without parameter name"
@@ -160,7 +160,7 @@ let tests state =
 
           type T() =
             interface I with
-              member _.DoStuff(arg1: int): unit = 
+              member _.DoStuff(arg1: int): unit =
                 failwith "-"
           """
           """
@@ -191,9 +191,9 @@ let tests state =
           type T() =
             interface I with
               member _.DoOtherStuff value name = name
-              member _.DoStuff(value: int): unit = 
+              member _.DoStuff(value: int): unit =
                 failwith "-"
-              member _.Value: int = 
+              member _.Value: int =
                 failwith "-"
           """
           """
@@ -230,7 +230,7 @@ let tests state =
             interface I with
               member _.DoOtherStuff value name = name
               member _.Value: int = failwith "-"
-              member _.DoStuff(value: int): unit = 
+              member _.DoStuff(value: int): unit =
                 failwith "-"
           """
           """
@@ -257,7 +257,7 @@ let tests state =
             let v = 4
             member _.DoStuff value = v + value
             interface System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           """
           """
@@ -281,7 +281,7 @@ let tests state =
               Value: int
             }
             interface System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           """
           """
@@ -306,7 +306,7 @@ let tests state =
             | B of int * string
             | C
             interface System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           """
           """
@@ -317,7 +317,7 @@ let tests state =
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
           """
-      ] 
+      ]
       testList "in object expression" [
         testBoth "can implement single interface with single method with existing with and } in same line"
           """
@@ -325,7 +325,7 @@ let tests state =
           """
           """
           { new System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-" }
           """
           """
@@ -338,7 +338,7 @@ let tests state =
           """
           """
           { new System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-" }
           """
           """
@@ -351,7 +351,7 @@ let tests state =
           """
           """
           { new System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-" }
           """
           """
@@ -376,11 +376,11 @@ let tests state =
             abstract member Value: int
 
           { new I with
-              member _.DoOtherStuff(value: int) (name: string): string = 
+              member _.DoOtherStuff(value: int) (name: string): string =
                 failwith "-"
-              member _.DoStuff(value: int): unit = 
+              member _.DoStuff(value: int): unit =
                 failwith "-"
-              member _.Value: int = 
+              member _.Value: int =
                 failwith "-" }
           """
           """
@@ -417,9 +417,9 @@ let tests state =
               member this.DoStuff(value: int): unit =
                 let v = value + 4
                 printfn "Res=%i" v
-              member _.DoOtherStuff(value: int) (name: string): string = 
+              member _.DoOtherStuff(value: int) (name: string): string =
                 failwith "-"
-              member _.Value: int = 
+              member _.Value: int =
                 failwith "-"
           }
           """
@@ -446,7 +446,7 @@ let tests state =
           """
           {
             new System.IDisposable with
-              member _.Dispose(): unit = 
+              member _.Dispose(): unit =
                 failwith "-"
           }
           """
@@ -467,7 +467,7 @@ let tests state =
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
-              member _.Clone(): obj = 
+              member _.Clone(): obj =
                 failwith "-"
           }
           """
@@ -489,7 +489,7 @@ let tests state =
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
-              member _.Clone(): obj = 
+              member _.Clone(): obj =
                 failwith "-"
           }
           """
@@ -600,14 +600,14 @@ let tests state =
               testCaseAsync "{" <|
                 CodeFix.check server
                   """
-                  $0{ 
+                  $0{
                     new System.IDisposable with
                   }
                   """
                   validateDiags
                   selectCodeFixWithoutTypeAnnotation
                   """
-                  { 
+                  {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
@@ -615,14 +615,14 @@ let tests state =
               testCaseAsync "new" <|
                 CodeFix.check server
                   """
-                  { 
+                  {
                     n$0ew System.IDisposable with
                   }
                   """
                   validateDiags
                   selectCodeFixWithoutTypeAnnotation
                   """
-                  { 
+                  {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
@@ -630,14 +630,14 @@ let tests state =
               testCaseAsync "interface name" <|
                 CodeFix.check server
                   """
-                  { 
+                  {
                     new System.IDis$0posable with
                   }
                   """
                   validateDiags
                   selectCodeFixWithoutTypeAnnotation
                   """
-                  { 
+                  {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
@@ -645,14 +645,14 @@ let tests state =
               testCaseAsync "with" <|
                 CodeFix.check server
                   """
-                  { 
+                  {
                     new System.IDisposable wi$0th
                   }
                   """
                   validateDiags
                   selectCodeFixWithoutTypeAnnotation
                   """
-                  { 
+                  {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
@@ -660,14 +660,14 @@ let tests state =
               testCaseAsync "}" <|
                 CodeFix.check server
                   """
-                  { 
+                  {
                     new System.IDisposable with
                   }$0
                   """
                   validateDiags
                   selectCodeFixWithoutTypeAnnotation
                   """
-                  { 
+                  {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
@@ -679,7 +679,7 @@ let tests state =
               CodeFix.check server
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   in$0terface ICloneable with
@@ -689,7 +689,7 @@ let tests state =
                 selectCodeFixWithoutTypeAnnotation
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable with
@@ -700,7 +700,7 @@ let tests state =
               CodeFix.check server
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface IClo$0neable with
@@ -710,7 +710,7 @@ let tests state =
                 selectCodeFixWithoutTypeAnnotation
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable with
@@ -721,7 +721,7 @@ let tests state =
               CodeFix.check server
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable wi$0th
@@ -731,7 +731,7 @@ let tests state =
                 selectCodeFixWithoutTypeAnnotation
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable with
@@ -742,7 +742,7 @@ let tests state =
               CodeFix.check server
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable with
@@ -752,7 +752,7 @@ let tests state =
                 selectCodeFixWithoutTypeAnnotation
                 """
                 open System
-                { 
+                {
                   new IDisposable with
                     member _.Dispose() = failwith "-"
                   interface ICloneable with
@@ -769,7 +769,7 @@ let tests state =
               """
               open System
               type A () =
-                interface 
+                interface
                   $0IDisposable with
               """
               validateDiags
@@ -777,7 +777,7 @@ let tests state =
               """
               open System
               type A () =
-                interface 
+                interface
                   IDisposable with
                   member _.Dispose() = failwith "-"
               """
@@ -878,7 +878,7 @@ let tests state =
             CodeFix.check server
               """
               open System
-              { 
+              {
                 new IDis$0posable
                 with
               }
@@ -887,7 +887,7 @@ let tests state =
               selectCodeFixWithoutTypeAnnotation
               """
               open System
-              { 
+              {
                 new IDisposable
                 with
                   member _.Dispose() = failwith "-"
@@ -897,7 +897,7 @@ let tests state =
             CodeFix.check server
               """
               open System
-              { 
+              {
                 new IDis$0posable
                 // some
                 // comment
@@ -908,7 +908,7 @@ let tests state =
               selectCodeFixWithoutTypeAnnotation
               """
               open System
-              { 
+              {
                 new IDisposable
                 // some
                 // comment
@@ -920,8 +920,8 @@ let tests state =
             CodeFix.check server
               """
               open System
-              { 
-                new 
+              {
+                new
                       IDis$0posable with
               }
               """
@@ -929,8 +929,8 @@ let tests state =
               selectCodeFixWithoutTypeAnnotation
               """
               open System
-              { 
-                new 
+              {
+                new
                       IDisposable with
                   member _.Dispose() = failwith "-"
               }
@@ -939,9 +939,9 @@ let tests state =
             CodeFix.check server
               """
               open System
-              { 
-                new 
-                  IDis$0posable 
+              {
+                new
+                  IDis$0posable
                 with
               }
               """
@@ -949,9 +949,9 @@ let tests state =
               selectCodeFixWithoutTypeAnnotation
               """
               open System
-              { 
-                new 
-                  IDisposable 
+              {
+                new
+                  IDisposable
                 with
                   member _.Dispose() = failwith "-"
               }
@@ -959,10 +959,10 @@ let tests state =
         ]
       ]
     ])
-    let config = { 
-      defaultConfigDto with 
+    let config = {
+      defaultConfigDto with
         IndentationSize = Some 6
-        InterfaceStubGeneration = Some true 
+        InterfaceStubGeneration = Some true
         InterfaceStubGenerationObjectIdentifier = Some "this"
         InterfaceStubGenerationMethodBody = Some "raise (System.NotImplementedException())"
     }
@@ -976,7 +976,7 @@ let tests state =
           """
           type X() =
                 interface System.IDisposable with
-                      member this.Dispose(): unit = 
+                      member this.Dispose(): unit =
                             raise (System.NotImplementedException())
           """
           """
