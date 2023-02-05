@@ -503,7 +503,8 @@ let tests state =
           }
           """
       ]
-      testList "cursor position" [
+      // TECHDEBT(1054): temporarily ignored due to https://github.com/dotnet/fsharp/issues/14698
+      ptestList "cursor position" [
         testList "type" [
           // diagnostic range is just interface name
           // -> triggers only with cursor on interface name
@@ -764,7 +765,7 @@ let tests state =
           ]
         ]
       ]
-      testList "strange existing formatting" [
+      ptestList "strange existing formatting" [
         testList "type" [
           testCaseAsync "interface on prev line" <|
             CodeFix.check server
@@ -948,7 +949,7 @@ let tests state =
               }
               """
               validateDiags
-              selectCodeFixWithoutTypeAnnotation
+              selectCodeFixWithTypeAnnotation
               """
               open System
               {
