@@ -112,32 +112,6 @@ let init args =
          (!! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs")
          |> Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8)
 
-  Target.create "Format" (fun _ ->
-    let result =
-      sourceFiles
-      |> Seq.map (sprintf "\"%s\"")
-      |> String.concat " "
-      |> DotNet.exec id "fantomas"
-
-    if not result.OK then
-      printfn "Errors while formatting all files: %A" result.Messages)
-
-  Target.create "CheckFormat" (fun _ ->
-    let result =
-      sourceFiles
-      |> Seq.map (sprintf "\"%s\"")
-      |> String.concat " "
-      |> sprintf "%s --check"
-      |> DotNet.exec id "fantomas"
-
-    if result.ExitCode = 0 then
-      Trace.log "No files need formatting"
-    elif result.ExitCode = 99 then
-      failwith "Some files need formatting, run the `Format` target to format them"
-    else
-      Trace.logf "Errors while formatting: %A" result.Errors
-      failwith "Unknown errors while formatting")
-
   Target.create "EnsureRepoConfig" (fun _ ->
     // Configure custom git hooks
     // * Currently only used to ensure that code is formatted before pushing
@@ -212,7 +186,7 @@ let init args =
 
   "Restore" ==> "ReplaceFsLibLogNamespaces" ==> "Build" |> ignore<string>
 
-  "CheckFormat" ==> "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
+  "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
   |> ignore<string>
 
   "ReplaceFsLibLogNamespaces"

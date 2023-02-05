@@ -7,7 +7,6 @@
         "label": "format codebase",
         "command": "dotnet",
         "args": [
-          "fake",
           "build",
           "-t",
           "Format"

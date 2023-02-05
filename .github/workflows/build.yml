@@ -1,6 +1,6 @@
 name: Build and test
 
-on: 
+on:
   push:
     branches:
       - main
@@ -69,6 +69,9 @@ jobs:
 
     - name: Restore tools
       run: dotnet tool restore
+
+    - name: Check format
+      run: dotnet build -t:CheckFormat
 
     - name: Run Build
       run: dotnet run --project build -t Build
