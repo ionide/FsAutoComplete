@@ -379,7 +379,7 @@ module Document =
         TextDocument = doc.TextDocumentIdentifier
       }
       // Simulate the file being written to disk so we don't hit the typechecker cache
-      IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.Now)
+      IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
       do! doc.Server.Server.TextDocumentDidSave p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout

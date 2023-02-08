@@ -223,11 +223,11 @@ let tooltipTests state =
 
   let concatLines = String.concat Environment.NewLine
 
-  let verifyDescription line character expectedDescription =
+  let verifyDescriptionImpl testCaseAsync line character expectedDescription =
     let expectedDescription = concatLines expectedDescription
 
     testCaseAsync
-      (sprintf "description for line %d character %d should be '%s" line character expectedDescription)
+      (sprintf "description for line %d character %d" line character)
       (async {
         let! server, scriptPath = server
 
@@ -241,9 +241,12 @@ let tooltipTests state =
         | Ok response -> failtestf "Should have gotten description but got %A" response
         | Result.Error errors -> failtestf "Error while getting description: %A" errors
       })
+  let verifyDescription line character expectedDescription = verifyDescriptionImpl testCaseAsync line character expectedDescription
+  let pverifyDescription reason line character expectedDescription = verifyDescriptionImpl ptestCaseAsync line character expectedDescription
+  let fverifyDescription  line character expectedDescription = verifyDescriptionImpl ftestCaseAsync line character expectedDescription
 
-
-  testList
+  testSequenced
+  <| testList
     "tooltip evaluation"
     [ testList
         "tests"
@@ -260,7 +263,7 @@ let tooltipTests state =
           verifySignature 1 5 "val listOfTuples : list<int * int>" // verify we default to prefix-generics style
           verifySignature 2 5 "val listOfStructTuples : list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
           verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip : float" // verify we strip <MeasureOne> measure annotations
-          verifyDescription
+          pverifyDescription "This test depends on FSharp.Core.xml being in the bin directory of these tests"
             4
             4
             [ "**Description**"

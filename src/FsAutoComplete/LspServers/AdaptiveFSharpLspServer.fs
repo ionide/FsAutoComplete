@@ -183,10 +183,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let config = cval<FSharpConfig> FSharpConfig.Default
 
-  let checker =
-    config
-    |> AVal.map (fun c -> c.EnableAnalyzers) // Maps will cache values and we don't want to recreate FSharpCompilerServiceChecker unless only EnableAnalyzers changed
-    |> AVal.map (FSharpCompilerServiceChecker)
+  let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
+
+  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
+
+  let rootPath = cval<string option> None
 
   let mutableConfigChanges =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
@@ -194,12 +195,51 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     aval {
       let! config = config
       and! checker = checker
+      and! rootPath = rootPath
 
       checker.SetFSIAdditionalArguments
         [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument
            yield! config.FSIExtraParameters |]
 
-      return ()
+      if config.EnableAnalyzers then
+        Loggers.analyzers.info (
+          Log.setMessage "Using analyzer roots of {roots}"
+          >> Log.addContextDestructured "roots" config.AnalyzersPath
+        )
+
+        config.AnalyzersPath
+        |> Array.iter (fun analyzerPath ->
+          match rootPath with
+          | None -> ()
+          | Some workspacePath ->
+            let dir =
+              if
+                System.IO.Path.IsPathRooted analyzerPath
+              // if analyzer is using absolute path, use it as is
+              then
+                analyzerPath
+              // otherwise, it is a relative path and should be combined with the workspace path
+              else
+                System.IO.Path.Combine(workspacePath, analyzerPath)
+
+            Loggers.analyzers.info (
+              Log.setMessage "Loading analyzers from {dir}"
+              >> Log.addContextDestructured "dir" dir
+            )
+
+            let (n, m) = dir |> FSharp.Analyzers.SDK.Client.loadAnalyzers
+
+            Loggers.analyzers.info (
+              Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers"
+              >> Log.addContextDestructured "name" analyzerPath
+              >> Log.addContextDestructured "dllNo" n
+              >> Log.addContextDestructured "analyzersNo" m
+            ))
+
+        return ()
+      else
+        Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
+        return ()
     }
 
   let updateConfig c =
@@ -232,6 +272,90 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let notifications = Event<NotificationEvent * CancellationToken>()
 
   let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
+  let fileParsed =
+    Event<FSharpParseFileResults * FSharpProjectOptions * CancellationToken>()
+
+  let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
+
+
+  do
+    disposables.Add
+    <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) ->
+      logger.info (
+        Log.setMessage "Test Detection of {file} started"
+        >> Log.addContextDestructured "file" parseResults.FileName
+      )
+
+      let fn = UMX.tag parseResults.FileName
+
+      let res =
+        if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+          TestAdapter.getExpectoTests parseResults.ParseTree
+        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+          TestAdapter.getNUnitTest parseResults.ParseTree
+        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+          TestAdapter.getXUnitTest parseResults.ParseTree
+        else
+          []
+
+      logger.info (
+        Log.setMessage "Test Detection of {file} - {res}"
+        >> Log.addContextDestructured "file" parseResults.FileName
+        >> Log.addContextDestructured "res" res
+      )
+
+      notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct))
+
+  do
+    disposables.Add
+    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
+      async {
+        if analyzersEnabled |> AVal.force then
+          let file = volatileFile.FileName
+
+          try
+            Loggers.analyzers.info (
+              Log.setMessage "begin analysis of {file}"
+              >> Log.addContextDestructured "file" file
+            )
+
+            match parseAndCheck.GetCheckResults.ImplementationFile with
+            | Some tast ->
+
+              let res =
+                Commands.analyzerHandler (
+                  file,
+                  volatileFile.Lines.ToString().Split("\n"),
+                  parseAndCheck.GetParseResults.ParseTree,
+                  tast,
+                  parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
+                  parseAndCheck.GetAllEntities
+                )
+
+              notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file), ct)
+
+              Loggers.analyzers.info (
+                Log.setMessage "end analysis of {file}"
+                >> Log.addContextDestructured "file" file
+              )
+
+            | _ ->
+              Loggers.analyzers.info (
+                Log.setMessage "missing components of {file} to run analyzers, skipped them"
+                >> Log.addContextDestructured "file" file
+              )
+
+              ()
+          with ex ->
+            Loggers.analyzers.error (
+              Log.setMessage "Run failed for {file}"
+              >> Log.addContextDestructured "file" file
+              >> Log.addExn ex
+            )
+      }
+      |> Async.StartWithCT ct)
+
 
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
     try
@@ -457,7 +581,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
-  let rootPath = cval<string option> None
 
 
   let binlogConfig =
@@ -583,7 +706,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             // Set some default values as FCS uses these for identification/caching purposes
             let fso =
               { fso with
-                  SourceFiles = fso.SourceFiles |> Array.map(Utils.normalizePath >> UMX.untag)
+                  SourceFiles = fso.SourceFiles |> Array.map (Utils.normalizePath >> UMX.untag)
                   Stamp = fso.Stamp |> Option.orElse (Some DateTime.UtcNow.Ticks)
                   ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString())) }
 
@@ -875,7 +998,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       match! sourceFileToProjectOptions |> AMap.tryFind filePath with
       | None ->
         // openFilesToChangesAndProjectOptions contains script files that we may need to look through
-        match!  openFilesToChangesAndProjectOptions |> AMap.tryFindA filePath with
+        match! openFilesToChangesAndProjectOptions |> AMap.tryFindA filePath with
         | None -> return []
         | Some (_, projs) -> return projs
       | Some projs -> return projs
@@ -1013,6 +1136,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           Async.Start(
             async {
+
+              fileParsed.Trigger(parseAndCheck.GetParseResults, opts, ct)
+              fileChecked.Trigger(parseAndCheck, file, ct)
               let checkErrors = parseAndCheck.GetParseResults.Diagnostics
               let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
@@ -1068,13 +1194,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             let! opts = List.tryHead projectOptions
             and! cts = tryGetOpenFileToken file
 
-            return!
-              Debug.measure "parseFile"
-              <| fun () ->
-                   let opts = Utils.projectOptionsToParseOptions opts
+            let parseOpts = Utils.projectOptionsToParseOptions opts
 
-                   checker.ParseFile(file, info.Lines, opts)
-                   |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
+            let! result =
+              checker.ParseFile(file, info.Lines, parseOpts)
+              |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
+
+            fileParsed.Trigger(result, opts, cts.Token)
+            return result
           }
 
       })
@@ -1930,6 +2057,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do! bypassAdaptiveAndCheckDepenenciesForFile filePath
           do! lspClient.CodeLensRefresh()
 
+          logger.info (
+            Log.setMessage "TextDocumentDidSave Request Finished: {parms}"
+            >> Log.addContextDestructured "parms" p
+          )
 
           return ()
         with e ->
@@ -2232,7 +2363,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           and! tyRes = forceGetTypeCheckResultsStale filePath |> Result.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
-          | Ok (Some (tip, signature, footer, typeDoc)) ->
+          | Ok (Some (tip, signature, footer, typeDoc) as x) ->
+            logger.info (
+              Log.setMessage "TryGetToolTipEnhanced : {parms}"
+              >> Log.addContextDestructured "parms" x
+            )
+
             let formatCommentStyle =
               let config = AVal.force config
 

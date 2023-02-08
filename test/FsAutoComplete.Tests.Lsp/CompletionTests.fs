@@ -27,7 +27,8 @@ let tests state =
     }
     |> Async.Cache
 
-  testList
+  testSequenced
+  <| testList
     "Completion Tests"
     [ testCaseAsync
         "simple module member completion on dot"
