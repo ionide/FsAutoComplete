@@ -1,6 +1,7 @@
 module FsAutoComplete.Tests.Templates
 
 open Expecto
+open Helpers.Expecto.ShadowedTimeouts
 
 let withEnvironmentVariable (variable: string) (value: string) (f: unit -> unit) =
   let priorValue = System.Environment.GetEnvironmentVariable variable

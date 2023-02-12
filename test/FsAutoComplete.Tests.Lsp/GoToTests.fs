@@ -11,6 +11,7 @@ open Utils.ServerTests
 open Utils.Server
 open Utils.Utils
 open Utils.TextEdit
+open Helpers.Expecto.ShadowedTimeouts
 
 ///GoTo tests
 let private gotoTest state =

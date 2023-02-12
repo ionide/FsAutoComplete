@@ -5,6 +5,7 @@ open System.IO
 open FsAutoComplete
 open Helpers
 open Ionide.LanguageServerProtocol.Types
+open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
   testList

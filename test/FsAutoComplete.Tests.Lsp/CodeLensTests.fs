@@ -11,6 +11,7 @@ open Utils.Utils
 open Utils.CursorbasedTests
 open Utils.Tests.TextEdit
 open Newtonsoft.Json.Linq
+open Helpers.Expecto.ShadowedTimeouts
 
 module private CodeLens =
   let assertNoDiagnostics (ds: Diagnostic []) =

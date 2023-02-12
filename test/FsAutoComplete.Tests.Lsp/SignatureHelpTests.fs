@@ -8,6 +8,7 @@ open Utils.Server
 open Utils.Utils
 open Utils.TextEdit
 open Utils.ServerTests
+open Helpers.Expecto.ShadowedTimeouts
 
 type private TriggerType =
   | Manual

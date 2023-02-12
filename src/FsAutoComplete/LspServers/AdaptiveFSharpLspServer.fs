@@ -282,30 +282,37 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   do
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) ->
-      logger.info (
-        Log.setMessage "Test Detection of {file} started"
-        >> Log.addContextDestructured "file" parseResults.FileName
-      )
+      try
+        logger.info (
+          Log.setMessage "Test Detection of {file} started"
+          >> Log.addContextDestructured "file" parseResults.FileName
+        )
 
-      let fn = UMX.tag parseResults.FileName
+        let fn = UMX.tag parseResults.FileName
 
-      let res =
-        if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
-          TestAdapter.getExpectoTests parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
-          TestAdapter.getNUnitTest parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
-          TestAdapter.getXUnitTest parseResults.ParseTree
-        else
-          []
+        let res =
+          if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+            TestAdapter.getExpectoTests parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+            TestAdapter.getNUnitTest parseResults.ParseTree
+          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+            TestAdapter.getXUnitTest parseResults.ParseTree
+          else
+            []
 
-      logger.info (
-        Log.setMessage "Test Detection of {file} - {res}"
-        >> Log.addContextDestructured "file" parseResults.FileName
-        >> Log.addContextDestructured "res" res
-      )
+        logger.info (
+          Log.setMessage "Test Detection of {file} - {res}"
+          >> Log.addContextDestructured "file" parseResults.FileName
+          >> Log.addContextDestructured "res" res
+        )
 
-      notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct))
+        notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct)
+      with e ->
+        logger.info (
+          Log.setMessage "Test Detection of {file} failed - {res}"
+          >> Log.addContextDestructured "file" parseResults.FileName
+          >> Log.addException e
+        ))
 
   do
     disposables.Add

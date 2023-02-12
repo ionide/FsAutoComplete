@@ -118,7 +118,9 @@ let tests =
       testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
       InlayHintTests.explicitTypeInfoTests
 
-      lspTests ]
+      testSequenced lspTests
+
+      ]
 
 
 [<EntryPoint>]

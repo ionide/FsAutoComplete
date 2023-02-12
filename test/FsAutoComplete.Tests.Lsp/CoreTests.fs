@@ -22,6 +22,7 @@ open Utils.Utils
 open FsToolkit.ErrorHandling.Operator.AsyncResult
 open FSharpx.Control
 open Utils.Tests
+open Helpers.Expecto.ShadowedTimeouts
 
 ///Test for initialization of the server
 let initTests createServer =

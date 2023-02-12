@@ -11,6 +11,7 @@ open Utils.ServerTests
 open Utils.Server
 open Utils.Utils
 open Utils.TextEdit
+open Helpers.Expecto.ShadowedTimeouts
 
 let private normalizePathCasing =
   Path.FilePathToUri
@@ -141,7 +142,7 @@ let tests state =
             NewName = newName
           }
         let! res = doc.Server.Server.TextDocumentRename p
-        let edits = 
+        let edits =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"

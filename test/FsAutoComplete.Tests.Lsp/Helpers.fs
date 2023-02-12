@@ -12,6 +12,51 @@ open FSharp.Control.Reactive
 open System.Threading
 open FSharp.UMX
 
+module Expecto =
+  open System.Threading.Tasks
+  let inline testBuilderWithTimeout (ts : TimeSpan) name testCase focus =
+    TestLabel(name, TestCase (Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
+
+  let inline testCaseWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Sync test) Normal
+  let inline ftestCaseWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Sync test) Focused
+  let inline ptestCaseWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Sync test) Pending
+
+  let inline testCaseAsyncWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Async test) Normal
+  let inline ftestCaseAsyncWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Async test) Focused
+  let inline ptestCaseAsyncWithTimeout (ts : TimeSpan) name test =
+    testBuilderWithTimeout ts name (Async test) Pending
+
+  let inline testCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>) =
+    testCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
+  let inline ftestCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>)  =
+    ftestCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
+  let inline ptestCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>)  =
+    ptestCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
+
+  // millisecond
+  let DEFAULT_TIMEOUT =
+    Environment.GetEnvironmentVariable "FSAC_TEST_DEFAULT_TIMEOUT"
+    |> Option.ofObj
+    |> Option.bind(fun x -> match Int32.TryParse x with | (true, v) -> Some v | _ -> None )
+    |> Option.defaultValue (60000)
+    |> TimeSpan.FromMilliseconds
+
+  /// Contains testCase functions that have a `DEFAULT_TIMEOUT` set to them
+  module ShadowedTimeouts =
+
+    let testCase = testCaseWithTimeout DEFAULT_TIMEOUT
+    let ptestCase = ptestCaseWithTimeout DEFAULT_TIMEOUT
+    let ftestCase = ptestCaseWithTimeout DEFAULT_TIMEOUT
+
+    let testCaseAsync = testCaseAsyncWithTimeout DEFAULT_TIMEOUT
+    let ptestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
+    let ftestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
+
 let rec private copyDirectory sourceDir destDir =
   // Get the subdirectories for the specified directory.
   let dir = DirectoryInfo(sourceDir)

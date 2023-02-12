@@ -9,6 +9,7 @@ open FsToolkit.ErrorHandling
 open Utils.ServerTests
 open FsAutoComplete.Core
 open FsAutoComplete.Lsp
+open Helpers.Expecto.ShadowedTimeouts
 
 module private FSharpInlayHints =
   open Utils.Server

@@ -6,6 +6,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open Helpers
 open FsToolkit.ErrorHandling
+open Helpers.Expecto.ShadowedTimeouts
 
 let docFormattingTest state =
   let server =

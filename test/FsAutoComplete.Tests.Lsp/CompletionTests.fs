@@ -8,6 +8,7 @@ open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Utils.Server
+open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
   let server =

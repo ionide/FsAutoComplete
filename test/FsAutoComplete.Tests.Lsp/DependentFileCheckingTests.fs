@@ -9,6 +9,7 @@ open Utils.Server
 open System
 open FSharp.Control.Reactive
 open FSharpx.Control
+open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
   let root = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", "SameProject")

@@ -7,6 +7,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
+open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
   let geTestNotification projectFolder fileName =
