@@ -37,7 +37,7 @@ and private defaultTraversePat visitor origPath pat =
   | SynPat.LongIdent(argPats = args) ->
     match args with
     | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
-    | SynArgPats.NamePatPairs(ps, _) ->
+    | SynArgPats.NamePatPairs(ps, _, _) ->
       ps
       |> List.map (fun (_, _, pat) -> pat)
       |> List.tryPick (traversePat visitor path)
@@ -977,7 +977,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
           parseAndCheck.GetParseResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
 
         let appliedArgRanges =
-          parseAndCheck.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolUse.Range.Start
+          parseAndCheck.GetParseResults.GetAllArgumentsForFunctionApplicationAtPosition symbolUse.Range.Start
 
         match tupledParamInfos, appliedArgRanges with
         | None, None -> ()

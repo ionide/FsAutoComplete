@@ -52,7 +52,8 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
       // The cursor should not be in the nested patterns
       Range.rangeContainsPos r cursorPos
       && List.forall (not << patIsCandidate) nestedPats
-    | SynPat.Tuple _ -> false
+    | SynPat.ListCons(lhs, rhs, r, _) -> patIsCandidate lhs || patIsCandidate rhs
+    | SynPat.Tuple _
     | SynPat.ArrayOrList _
     | SynPat.Record _
     | SynPat.Null _
@@ -115,7 +116,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
   and walkSynMemberDefn (memberDefn: SynMemberDefn) =
     getIfPosInRange memberDefn.Range (fun () ->
       match memberDefn with
-      | SynMemberDefn.AbstractSlot(_synValSig, _memberFlags, _range) -> None
+      | SynMemberDefn.AbstractSlot(_synValSig, _memberFlags, _range, _) -> None
       | SynMemberDefn.AutoProperty(synExpr = expr) -> walkExpr expr
       | SynMemberDefn.Interface(members = members) -> Option.bind (List.tryPick walkSynMemberDefn) members
       | SynMemberDefn.Member(binding, _range) -> walkBinding binding
@@ -306,6 +307,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynPat.IsInst(_, _)
     | SynPat.QuoteExpr(_, _)
     | SynPat.DeprecatedCharRange(_, _, _)
+    | SynPat.ListCons _
     | SynPat.FromParseError(_, _) -> false
 
     | SynPat.Tuple(_, innerPatList, _) -> List.forall checkPattern innerPatList
@@ -330,7 +332,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         Some(func ())
       else
         None
-    | SynArgPats.NamePatPairs(namedPatList, _) ->
+    | SynArgPats.NamePatPairs(namedPatList, _, _) ->
       let patList = namedPatList |> List.unzip3 |> (fun (_, _, pat) -> pat)
 
       if List.forall checkPattern patList then

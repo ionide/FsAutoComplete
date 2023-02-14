@@ -27,7 +27,7 @@ let rec (|Sequentials|_|) =
 let (|ConstructorPats|) =
   function
   | SynArgPats.Pats ps -> ps
-  | SynArgPats.NamePatPairs(xs, _) -> xs |> List.map (fun (_, _, pat) -> pat)
+  | SynArgPats.NamePatPairs(pats = xs) -> xs |> List.map (fun (_, _, pat) -> pat)
 
 /// matches if the range contains the position
 let (|ContainsPos|_|) pos range =
@@ -112,9 +112,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       walkTypar t
       List.iter walkType ts
-    | SynTypeConstraint.WhereTyparSupportsMember(ts, sign, r) ->
+    | SynTypeConstraint.WhereTyparSupportsMember(t, sign, r) ->
       addIfInside r
-      List.iter walkType ts
+      walkType t
       walkMemberSig sign
     | SynTypeConstraint.WhereSelfConstrained(t, r) ->
       addIfInside r
@@ -164,6 +164,10 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       walkPat lpat
       walkPat rpat
+    | SynPat.ListCons(lpat, rpat, r, _) ->
+      addIfInside r
+      walkPat lpat
+      walkPat rpat
 
   and walkTypar (SynTypar(_, _, _)) = ()
 
@@ -176,9 +180,17 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     walkExpr e
 
     returnInfo
-    |> Option.iter (fun (SynBindingReturnInfo(t, r, _)) ->
+    |> Option.iter (fun (SynBindingReturnInfo(t, r, attrs, _)) ->
       addIfInside r
-      walkType t)
+      walkType t
+      walkAttributes attrs)
+
+  and walkAttributes (attrs: SynAttributes) =
+    List.iter
+      (fun (attrList: SynAttributeList) ->
+        addIfInside attrList.Range
+        List.iter walkAttribute attrList.Attributes)
+      attrs
 
   and walkInterfaceImpl (SynInterfaceImpl(bindings = bindings; range = r)) =
     addIfInside r
@@ -191,8 +203,8 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynType.MeasurePower(t, _, r) ->
       addIfInside r
       walkType t
-    | SynType.Fun(t1, t2, r, _)
-    | SynType.MeasureDivide(t1, t2, r) ->
+    | SynType.Fun(t1, t2, r, _) ->
+      // | SynType.MeasureDivide(t1, t2, r) ->
       addIfInside r
       walkType t1
       walkType t2
@@ -227,6 +239,10 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynType.SignatureParameter(usedType = t; range = r) ->
       addIfInside r
       walkType t
+    | SynType.Or(lhs, rhs, r, _) ->
+      addIfInside r
+      walkType lhs
+      walkType rhs
 
   and walkClause (SynMatchClause(pat, e1, e2, r, _, _)) =
     addIfInside r
@@ -379,9 +395,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
         walkExpr body
 
       walkExpr e2
-    | SynExpr.TraitCall(ts, sign, e, r) ->
+    | SynExpr.TraitCall(t, sign, e, r) ->
       addIfInside r
-      List.iter walkType ts
+      walkType t
       walkMemberSig sign
       walkExpr e
     | SynExpr.Const(SynConst.Measure(_, _, m), r) ->
@@ -483,7 +499,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynMemberSig.Interface(t, r) ->
       addIfInside r
       walkType t
-    | SynMemberSig.Member(vs, _, r) ->
+    | SynMemberSig.Member(vs, _, r, _) ->
       addIfInside r
       walkValSig vs
     | SynMemberSig.ValField(f, r) ->
@@ -505,7 +521,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
   and walkMember =
     function
-    | SynMemberDefn.AbstractSlot(valSig, _, r) ->
+    | SynMemberDefn.AbstractSlot(valSig, _, r, _) ->
       addIfInside r
       walkValSig valSig
     | SynMemberDefn.Member(binding, r) ->

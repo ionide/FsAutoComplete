@@ -963,8 +963,6 @@ module CodeGenerationUtils =
       )
     | SynType.Array(dimension, TypeIdent typeName, _) -> Some(sprintf "%s [%s]" typeName (String(',', dimension - 1)))
     | SynType.MeasurePower(TypeIdent typeName, RationalConst power, _) -> Some(sprintf "%s^%s" typeName power)
-    | SynType.MeasureDivide(TypeIdent numerator, TypeIdent denominator, _) ->
-      Some(sprintf "%s/%s" numerator denominator)
     | _ -> None
 
   let expandTypeParameters (typ: SynType) =

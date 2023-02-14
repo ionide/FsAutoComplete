@@ -147,7 +147,11 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
 
   match lastExistingMember with
   | Some(SynBinding(
-      attributes = attributes; valData = SynValData(memberFlags = memberFlags); headPat = headPat; expr = expr)) ->
+      attributes = attributes
+      valData = SynValData(memberFlags = memberFlags)
+      headPat = headPat
+      expr = expr
+      trivia = trivia)) ->
     // align with existing member
     // insert after last member
 
@@ -191,27 +195,7 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
       attributes
       |> List.tryHead
       |> Option.map (fun attr -> attr.Range.StartColumn)
-      |> Option.orElseWith (fun _ ->
-        // leftmost `member` or `override` (and just to be sure: `default`, `abstract` or `static`)
-        match memberFlags with
-        | Some memberFlags ->
-          let trivia = memberFlags.Trivia
-
-          [ trivia.StaticRange
-            trivia.MemberRange
-            trivia.OverrideRange
-            trivia.AbstractRange
-            trivia.DefaultRange ]
-          |> List.choose id
-          |> List.map (fun r -> r.StartColumn)
-          // List.tryMin
-          |> List.fold
-            (fun m c ->
-              match m with
-              | None -> Some c
-              | Some m -> min c m |> Some)
-            None
-        | None -> None)
+      |> Option.orElseWith (fun _ -> Some trivia.LeadingKeyword.Range.StartColumn)
       |> Option.defaultValue
         // fallback: start of head pat (should not happen -> always `member`)
         headPat.Range.StartColumn
