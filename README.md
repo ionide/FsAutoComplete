@@ -88,6 +88,8 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
 * `textDocument/documentHighlight`
 * `textDocument/signatureHelp`
 * `textDocument/documentSymbol`
+* `textDocument/inlayHint`
+* `textDocument/inlineValue`
 * `workspace/didChangeWatchedFiles`
 * `workspace/didChangeConfiguration`
 * `workspace/symbol`

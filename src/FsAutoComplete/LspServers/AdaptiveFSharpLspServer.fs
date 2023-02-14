@@ -1727,6 +1727,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Option.map FSharpConfig.FromDto
             |> Option.defaultValue FSharpConfig.Default
 
+          logger.info (
+            Log.setMessage "Intialization options {items}"
+            >> Log.addContextDestructured "items" c
+          )
+
+          let inlineValueToggle =
+            match c.InlineValues.Enabled with
+            | Some true -> Some { ResolveProvider = Some false }
+            | Some false -> None
+            | None -> None
+
           let actualRootPath =
             match p.RootUri with
             | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
@@ -3170,7 +3181,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return (Some hints)
         with e ->
           logger.error (
-            Log.setMessage "TextDocumentSemanticTokensRange Request Errored {p}"
+            Log.setMessage "TextDocumentInlayHint Request Errored {p}"
             >> Log.addContextDestructured "p" p
             >> Log.addExn e
           )
@@ -3178,6 +3189,42 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError (string e)
       }
 
+    override x.TextDocumentInlineValue(p) =
+      asyncResult {
+        try
+          logger.info (
+            Log.setMessage "TextDocumentInlineValue Request: {parms}"
+            >> Log.addContextDestructured "parms" p
+          )
+
+          let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
+          let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
+
+
+          let! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
+
+          let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
+
+          let! pipelineHints = Commands.InlineValues(namedText.Lines, tyRes)
+
+          let hints =
+            pipelineHints
+            |> Array.map (fun (pos, linehints) ->
+              { InlineValueText.Range = fcsPosToProtocolRange pos
+                Text = linehints }
+              |> InlineValue.InlineValueText)
+            |> Some
+
+          return hints
+        with e ->
+          logger.error (
+            Log.setMessage "TextDocumentInlineValue Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+            >> Log.addExn e
+          )
+
+          return! LspResult.internalError (string e)
+      }
 
     //unsupported -- begin
     override x.CodeActionResolve(p) =

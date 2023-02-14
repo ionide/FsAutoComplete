@@ -553,6 +553,78 @@ module Commands =
     tyRes.TryGetToolTip pos lineStr
     |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
+  // Calculates pipeline hints for now as in fSharp/pipelineHint with a bit of formatting on the hints
+  let inlineValues (contents: NamedText) (tyRes: ParseAndCheckResults) : Async<(pos * String)[]> =
+    asyncResult {
+      // Debug.waitForDebuggerAttached "AdaptiveServer"
+      let getSignatureAtPos pos =
+        option {
+          let! lineStr = contents.GetLine pos
+
+          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+
+          return TipFormatter.extractGenericParameters tip
+        }
+        |> Option.defaultValue []
+
+      let areTokensCommentOrWhitespace (tokens: FSharpTokenInfo list) =
+        tokens
+        |> List.exists (fun token ->
+          token.CharClass <> FSharpTokenCharKind.Comment
+          && token.CharClass <> FSharpTokenCharKind.WhiteSpace
+          && token.CharClass <> FSharpTokenCharKind.LineComment)
+        |> not
+
+      let getStartingPipe =
+        function
+        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | _ -> None
+
+      let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
+        let isCommentOrWhitespace = areTokensCommentOrWhitespace currentTokens
+
+        let isPipe = getStartingPipe currentTokens
+
+        match isCommentOrWhitespace, isPipe with
+        | true, _ -> lastExpressionLine, lastExpressionLineWasPipe, acc
+        | false, Some pipe ->
+          currentIndex, true, (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipe) :: acc
+        | false, None -> currentIndex, false, acc
+
+      // Signature looks like <T> is Async<unit>
+      let inline removeSignPrefix (s: String) =
+        s.Split(" is ") |> Array.tryLast |> Option.defaultValue ""
+
+      let hints =
+        Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
+        |> Array.map (Lexer.tokenizeLine [||])
+        |> Array.mapi (fun currentIndex currentTokens -> currentIndex, currentTokens)
+        |> Array.fold folder (0, false, [])
+        |> (fun (_, _, third) -> third |> Array.ofList)
+        |> Array.Parallel.map (fun (lastExpressionLine, lastExpressionLineWasPipe, currentIndex, pipeToken) ->
+          let pipePos = Position.fromZ currentIndex pipeToken.RightColumn
+          let prevLinePos = Position.fromZ lastExpressionLine 70 //We dont have the column on the previous line. So err to the right and let the client display in the right position
+          let gens = getSignatureAtPos pipePos
+
+          if lastExpressionLineWasPipe then
+            let allS = gens |> List.tryLast |> Option.defaultValue "" |> removeSignPrefix
+            [| (pipePos, allS) |]
+          else
+            match gens with
+            | [ currentS ] -> [| (pipePos, removeSignPrefix currentS) |]
+            | [ prevS; currentS ] ->
+              [| (prevLinePos, removeSignPrefix prevS)
+                 (pipePos, removeSignPrefix currentS) |]
+            | _ ->
+              let allS = gens |> Seq.intersperse "; " |> Seq.reduce (+)
+              [| (pipePos, allS) |])
+
+      return (Array.concat hints)
+    }
+    |> AsyncResult.foldResult id (fun _ -> [||])
+
+
   let pipelineHints (tryGetFileSource: _ -> Result<NamedText, _>) (tyRes: ParseAndCheckResults) =
     result {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
@@ -2103,6 +2175,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         ShowParameterHints = defaultArg showParameterHints true }
 
     FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)
+
+  static member InlineValues(contents: NamedText, tyRes: ParseAndCheckResults) = Commands.inlineValues contents tyRes
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
     Commands.pipelineHints state.TryGetFileSource tyRes

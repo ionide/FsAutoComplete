@@ -1079,6 +1079,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         updateConfig c
 
+        logger.info (
+          Log.setMessage "Intialization options {items}"
+          >> Log.addContextDestructured "items" c
+        )
 
         clientCapabilities <- p.Capabilities
         lspClient.ClientCapabilities <- clientCapabilities
@@ -1095,6 +1099,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             | Some tyRes -> return tyRes, lineAtPos, fileLines
           }
 
+        let inlineValueToggle =
+          match c.InlineValues.Enabled with
+          | Some true -> Some { ResolveProvider = Some false }
+          | Some false -> None
+          | None -> None
 
         let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
 
@@ -2836,6 +2845,29 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
           |> success
           |> async.Return)
+
+    override x.TextDocumentInlineValue(p: InlineValueParams) : AsyncLspResult<InlineValue[] option> =
+      logger.info (
+        Log.setMessage "TextDocumentInlineValue Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      p.TextDocument
+      |> x.fileHandler (fun fn tyRes lines ->
+        async {
+          let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
+
+          let! pipelineHints = Commands.InlineValues(lines, tyRes)
+
+          let hints =
+            pipelineHints
+            |> Array.map (fun (pos, linehints) ->
+              { InlineValueText.Range = fcsPosToProtocolRange pos
+                Text = (linehints.ToString()) }
+              |> InlineValue.InlineValueText)
+
+          return success (Some hints)
+        })
 
     override x.Dispose() =
       (x :> ILspServer).Shutdown() |> Async.Start
