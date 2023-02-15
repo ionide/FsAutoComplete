@@ -860,7 +860,7 @@ module Commands =
             match x with
             | Ok () -> ()
             | Error e ->
-              commandsLogger.info (Log.setMessage "OnFound failed: {errpr}" >> Log.addContextDestructured "error" e))
+              commandsLogger.info (Log.setMessage "OnFound failed: {error}" >> Log.addContextDestructured "error" e))
 
         let iterProject (project: FSharpProjectOptions) =
           asyncResult {
