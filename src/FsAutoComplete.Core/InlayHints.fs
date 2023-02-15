@@ -1001,13 +1001,21 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
         | _, Some appliedArgRanges ->
           let parameters = methodOrConstructor.CurriedParameterGroups |> Seq.concat
 
-          let appliedArgRanges = appliedArgRanges |> Array.ofList
           let definitionArgs = parameters |> Array.ofSeq
 
-          for idx = 0 to appliedArgRanges.Length - 1 do
-            let appliedArgRange = appliedArgRanges.[idx]
+          let parms =
+            appliedArgRanges
+            |> Array.ofList
+            |> Array.mapi (fun i v ->
+              if i < definitionArgs.Length then
+                Some(definitionArgs.[i], v)
+              else
+                None)
+            |> Array.filter Option.isSome
+            |> Array.map Option.get
+
+          for (definitionArg, appliedArgRange) in parms do
             let! appliedArgText = text[appliedArgRange]
-            let definitionArg = definitionArgs.[idx]
 
             if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
               let hint = createParamHint appliedArgRange definitionArg.DisplayName

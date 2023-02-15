@@ -220,6 +220,10 @@ let defaultConfigDto: FSharpConfigDto =
         { typeAnnotations = Some true
           parameterNames = Some true
           disableLongTooltip = Some true }
+    PipelineHints =
+      Some
+        { Enabled = Some true
+          Prefix = Some "//" }
     Debug = None }
 
 let clientCaps: ClientCapabilities =
@@ -243,6 +247,9 @@ let clientCaps: ClientCapabilities =
     let inlayHintCaps: InlayHintWorkspaceClientCapabilities =
       { RefreshSupport = Some false }
 
+    let inlineValueCaps: InlineValueWorkspaceClientCapabilities =
+      { RefreshSupport = Some false }
+
     let codeLensCaps: CodeLensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
@@ -253,6 +260,7 @@ let clientCaps: ClientCapabilities =
       Symbol = Some symbolCaps
       SemanticTokens = Some semanticTokenCaps
       InlayHint = Some inlayHintCaps
+      InlineValue = Some inlineValueCaps
       CodeLens = Some codeLensCaps }
 
   let textCaps: TextDocumentClientCapabilities =
@@ -328,6 +336,10 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         ResolveSupport = None }
 
+    let inlineValueCaps: InlineValueClientCapabilities =
+      { DynamicRegistration = Some true
+        ResolveSupport = None }
+
     let renameCaps: RenameClientCapabilities =
       { DynamicRegistration = Some true
         HonorsChangeAnnotations = Some false
@@ -353,6 +365,7 @@ let clientCaps: ClientCapabilities =
       SelectionRange = Some dynCaps
       SemanticTokens = Some semanticTokensCaps
       InlayHint = Some inlayHintCaps }
+      // InlineValue = Some inlineValueCaps }
 
 
   { Workspace = Some workspaceCaps

@@ -596,6 +596,10 @@ type InlayHintDto =
     parameterNames: bool option
     disableLongTooltip: bool option }
 
+type InlineValueDto =
+  { Enabled: bool option
+    Prefix: string option }
+
 type DebugDto =
   { DontCheckRelatedFiles: bool option
     CheckFileDebouncerTimeout: int option
@@ -637,6 +641,7 @@ type FSharpConfigDto =
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
     CodeLenses: CodeLensConfigDto option
+    PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Debug: DebugDto option }
 
@@ -659,6 +664,14 @@ type InlayHintsConfig =
     { typeAnnotations = true
       parameterNames = true
       disableLongTooltip = true }
+
+type InlineValuesConfig =
+  { Enabled: bool option
+    Prefix: string option }
+
+  static member Default =
+    { Enabled = Some true
+      Prefix = Some "//" }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool
@@ -708,6 +721,7 @@ type FSharpConfig =
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
+    InlineValues: InlineValuesConfig
     Debug: DebugConfig }
 
   static member Default: FSharpConfig =
@@ -746,6 +760,7 @@ type FSharpConfig =
       GenerateBinlog = false
       CodeLenses = CodeLensConfig.Default
       InlayHints = InlayHintsConfig.Default
+      InlineValues = InlineValuesConfig.Default
       Debug = DebugConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
@@ -803,6 +818,14 @@ type FSharpConfig =
           { typeAnnotations = defaultArg ihDto.typeAnnotations true
             parameterNames = defaultArg ihDto.parameterNames true
             disableLongTooltip = defaultArg ihDto.disableLongTooltip true }
+
+      InlineValues =
+        match dto.PipelineHints with
+        | None -> InlineValuesConfig.Default
+        | Some ivDto ->
+          { Enabled = ivDto.Enabled |> Option.defaultValue true |> Some
+            Prefix = ivDto.Prefix |> Option.defaultValue "//" |> Some }
+
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default
@@ -882,6 +905,9 @@ type FSharpConfig =
           { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
             parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames
             disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip }
+      InlineValues =
+        { Enabled = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Enabled)) x.InlineValues.Enabled
+          Prefix = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Prefix)) x.InlineValues.Prefix }
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default

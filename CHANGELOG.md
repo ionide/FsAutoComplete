@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.58.5] - 2023-02-04
+
+* Add textDocument/inlineValue from LSP 3.17
+* InlineValue config option to shadow PipelineHint config option
+* Fix inlayHints for typed params #1046
+
 ## [0.58.4] - 2023-02-04
 
 * Fix crash due to missing dependency on Microsoft.Extensions.Caching.Memory

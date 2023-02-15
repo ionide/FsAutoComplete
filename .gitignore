@@ -42,3 +42,5 @@ test/FsAutoComplete.Tests.Lsp/TestCases/FakeInterop/build.fsx.lock
 coverage.xml
 coverage
 test/FsAutoComplete.Tests.Lsp/TestResults/
+
+.tool-versions

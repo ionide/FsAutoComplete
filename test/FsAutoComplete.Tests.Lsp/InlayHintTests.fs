@@ -1058,6 +1058,15 @@ let private paramHintTests state =
         """
            []
 
+      testCaseAsync "Show param hint for type arg"
+      <| checkAllInMarkedRange
+           server
+           """
+        type Parser(jsonText: string) = member _.Parse(decoder: string -> string) = decoder jsonText
+        $|let parse (decoder: string -> string) (str: string) =  Parser$0(str).Parse(decoder)$|
+        """
+           [ paramHint "jsonText"]
+
       testList
         "operator"
         [ testList
