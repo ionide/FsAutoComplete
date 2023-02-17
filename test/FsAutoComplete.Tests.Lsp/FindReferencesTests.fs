@@ -703,51 +703,6 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
         "Should be correct ranges" 
   }
 
-  //TODO: why does this fail? Succeeds when run outside of FSAC
-  //  For example in Script file with `#r "nuget: FSharp.Compiler.Service, 41.0.5"`
-  // Note: It doesn't use any FSAC stuff -- just FCS
-  ptestCase "FCS: Active Pattern Case in Declaration" <| fun _ ->
-    let test () =
-      let checker = FSharp.Compiler.CodeAnalysis.FSharpChecker.Create()
-
-      let text = """
-let (|Even|Odd|) v = 
-  if v % 2 = 0 then Even else Odd
-match 2 with
-| Even -> ()
-| Odd -> ()
-    """
-      let file = "code.fsx"
-      let source = FSharp.Compiler.Text.SourceText.ofString (text)
-      // decl
-      let pos = FSharp.Compiler.Text.Position.mkPos 3 24
-      // usage
-      // let pos = FSharp.Compiler.Text.Position.mkPos 5 6
-      let names = ["Even"]
-
-      let projOptions, _ =
-        checker.GetProjectOptionsFromScript (file, source)
-        |> Async.RunSynchronously
-      let (parseResults, checkResults') =
-        checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
-        |> Async.RunSynchronously
-      let checkResults =
-        match checkResults' with
-        | FSharp.Compiler.CodeAnalysis.FSharpCheckFileAnswer.Succeeded checkResults -> checkResults
-        | _ -> failwith "CheckFile -> aborted"
-
-      let symbolUse = 
-        checkResults.GetSymbolUseAtLocation(pos.Line, pos.Column, source.GetLineString (pos.Line-1), names)
-        |> Option.defaultWith (fun _ -> failwith "no symbol at location")
-
-      printfn "DisplayNameCore=%A" symbolUse.Symbol.DisplayNameCore
-      printfn "FullName=%A" symbolUse.Symbol.FullName
-
-      if symbolUse.Symbol.DisplayNameCore = "" then
-        failwith $"No display name for symbol with full name '{symbolUse.Symbol.FullName}'"
-
-    test()
-
   testCaseAsync "Active Pattern - simple" <|
     check false
       """
