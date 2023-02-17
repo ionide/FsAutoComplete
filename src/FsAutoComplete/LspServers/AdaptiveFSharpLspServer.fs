@@ -181,13 +181,23 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let disposables = new System.Reactive.Disposables.CompositeDisposable()
 
+  let rootPath = cval<string option> None
+
   let config = cval<FSharpConfig> FSharpConfig.Default
+
 
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
-  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
+  let checker =
+    analyzersEnabled
+    |> AVal.map (FSharpCompilerServiceChecker)
 
-  let rootPath = cval<string option> None
+  /// The reality is a file can be in multiple projects
+  /// This is extracted to make it easier to do some type of customized select
+  /// in the future
+  let selectProject projs =
+    projs
+    |> List.tryHead
 
   let mutableConfigChanges =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
@@ -236,10 +246,31 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               >> Log.addContextDestructured "analyzersNo" m
             ))
 
-        return ()
       else
         Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
-        return ()
+
+      let di = DirectoryInfo config.DotNetRoot
+      if di.Exists then
+        let dotnetBinary =
+          if
+            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(Runtime.InteropServices.OSPlatform.Windows)
+          then
+            FileInfo(Path.Combine(di.FullName, "dotnet.exe"))
+          else
+            FileInfo(Path.Combine(di.FullName, "dotnet"))
+
+        if dotnetBinary.Exists then
+          checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
+
+      else
+        // if we were mistakenly given the path to a dotnet binary
+        // then use the parent directory as the dotnet root instead
+        let fi = FileInfo(di.FullName)
+
+        if fi.Exists && (fi.Name = "dotnet" || fi.Name = "dotnet.exe") then
+          checker.SetDotnetRoot(fi, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
+
+      return ()
     }
 
   let updateConfig c =
@@ -570,21 +601,25 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         .Subscribe(fun e -> handleCommandEvents e)
     )
 
-
-  let adaptiveFile (filePath: string<LocalPath>) =
-    let file =
+  let getLastUTCChangeForFile (filePath: string<LocalPath>) =
       AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
       |> AVal.map (fun writeTime -> filePath, writeTime)
 
-    let cb =
-      file.AddMarkingCallback(fun () ->
+  let addAValLogging cb (aval : aval<_>) =
+    let cb = aval.AddMarkingCallback(cb)
+    aval |> AVal.mapDisposableTuple (fun x -> x, cb)
+
+  let projectFileChanges (filePath: string<LocalPath>) =
+    let file = getLastUTCChangeForFile filePath
+
+    let logMsg () =
         logger.info (
           Log.setMessage "Loading projects because of {delta}"
           >> Log.addContextDestructured "delta" filePath
-        ))
+        )
 
-
-    file |> AVal.mapDisposableTuple (fun x -> x, cb)
+    file
+    |> addAValLogging logMsg
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
@@ -611,7 +646,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     workspacePaths
     |> AVal.map (fun wsp ->
       match wsp with
-      | WorkspaceChosen.Sln v -> adaptiveFile v |> AdaptiveWorkspaceChosen.Sln
+      | WorkspaceChosen.Sln v -> projectFileChanges v |> AdaptiveWorkspaceChosen.Sln
       | WorkspaceChosen.Directory d -> failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory
       | WorkspaceChosen.Projs projs ->
         let projChanges =
@@ -665,6 +700,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               notifications.Trigger(not, CancellationToken.None))
 
+
+            use progressReport = new ServerProgressReport(lspClient)
+            progressReport.Begin($"Loading {projects.Count} Projects") |> Async.RunSynchronously
+
             let projectOptions =
               loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
               |> Seq.toList
@@ -679,7 +718,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               [ for p in projectOptions do
                   match p.Properties |> Seq.tryFind (fun x -> x.Name = "ProjectAssetsFile") with
-                  | Some v -> yield adaptiveFile (UMX.tag v.Value)
+                  | Some v -> yield projectFileChanges (UMX.tag v.Value)
                   | None -> ()
 
                   let objPath =
@@ -690,14 +729,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   let isWithinObjFolder (file: string) =
                     match objPath with
                     | None -> true // if no obj folder provided assume we should track this file
-                    | Some v -> file.Contains(v)
+                    | Some objPath -> file.Contains(objPath)
 
                   match p.Properties |> Seq.tryFind (fun x -> x.Name = "MSBuildAllProjects") with
                   | Some v ->
                     yield!
                       v.Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
                       |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
-                      |> Array.map (UMX.tag >> adaptiveFile)
+                      |> Array.map (UMX.tag >> projectFileChanges)
                   | None -> () ]
 
             projectOptions, additionalDependencies)
@@ -1000,18 +1039,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return file, projs
       })
 
+  let allProjectOptions =
+    let wins =
+      openFilesToChangesAndProjectOptions
+      |> AMap.map (fun k v -> v |> AVal.map snd)
+    let loses =
+      sourceFileToProjectOptions
+      |> AMap.map(fun k v -> AVal.constant v)
+    AMap.union loses wins
+
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
     aval {
-      match! sourceFileToProjectOptions |> AMap.tryFind filePath with
-      | None ->
-        // openFilesToChangesAndProjectOptions contains script files that we may need to look through
-        match! openFilesToChangesAndProjectOptions |> AMap.tryFindA filePath with
-        | None -> return []
-        | Some (_, projs) -> return projs
+      match! allProjectOptions |> AMap.tryFindA filePath with
       | Some projs -> return projs
-
+      | None -> return []
     }
-
 
   let autoCompleteItems: cmap<DeclName, DeclarationListItem * Position * string<LocalPath> * (Position -> option<string>) * FSharp.Compiler.Syntax.ParsedInput> =
     cmap ()
@@ -1089,7 +1131,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
 
-  let semaphore = new SemaphoreSlim(1, 1)
+  static let semaphore = new SemaphoreSlim(1, 1)
 
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
@@ -1198,7 +1240,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         return
           option {
-            let! opts = List.tryHead projectOptions
+            let! opts = selectProject projectOptions
             and! cts = tryGetOpenFileToken file
 
             let parseOpts = Utils.projectOptionsToParseOptions opts
@@ -1223,7 +1265,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         return
           option {
-            let! opts = List.tryHead projectOptions
+            let! opts = selectProject projectOptions
             return! checker.TryGetRecentCheckResultsForFile(file, opts, info.Lines)
           }
       })
@@ -1238,7 +1280,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         return
           option {
-            let! opts = List.tryHead projectOptions
+            let! opts = selectProject projectOptions
             and! cts = tryGetOpenFileToken file
 
             return!
@@ -1315,7 +1357,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let forceGetProjectOptions filePath =
     getProjectOptionsForFile filePath
     |> AVal.force
-    |> Seq.tryHead
+    |> selectProject
     |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
 
   let codeGenServer =
@@ -1506,7 +1548,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           else
             let! projectOptions = getProjectOptionsForFile file
 
-            match projectOptions |> Seq.tryHead with
+            match projectOptions |> selectProject with
             | None -> return true
             | Some projectOptions ->
               if doesNotExist (UMX.tag projectOptions.ProjectFileName) then
@@ -1665,7 +1707,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       checker.FindReferencesForSymbolInFile(file, project, symbol)
 
     let getProjectOptions file =
-      getProjectOptionsForFile file |> AVal.force |> List.tryHead
+      getProjectOptionsForFile file |> AVal.force |> selectProject
 
     let projectsThatContainFile file =
       getProjectOptionsForFile file |> AVal.force
@@ -2641,12 +2683,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             checker.GetUsesOfSymbol(filePath, opts, symbol)
 
           let getAllProjects () =
-            openFilesToChangesAndProjectOptions
+            allProjectOptions
             |> AMap.force
             |> Seq.toList
             |> List.choose (fun (path, opt) ->
               option {
-                let! opt = AVal.force opt |> snd |> List.tryHead
+                let! opt = AVal.force opt |> selectProject
                 return UMX.untag path, opt
               })
 
