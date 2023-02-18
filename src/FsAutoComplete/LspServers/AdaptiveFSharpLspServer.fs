@@ -188,16 +188,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
-  let checker =
-    analyzersEnabled
-    |> AVal.map (FSharpCompilerServiceChecker)
+  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
   /// This is extracted to make it easier to do some type of customized select
   /// in the future
-  let selectProject projs =
-    projs
-    |> List.tryHead
+  let selectProject projs = projs |> List.tryHead
 
   let mutableConfigChanges =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
@@ -250,6 +246,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
 
       let di = DirectoryInfo config.DotNetRoot
+
       if di.Exists then
         let dotnetBinary =
           if
@@ -602,10 +599,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     )
 
   let getLastUTCChangeForFile (filePath: string<LocalPath>) =
-      AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
-      |> AVal.map (fun writeTime -> filePath, writeTime)
+    AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
+    |> AVal.map (fun writeTime -> filePath, writeTime)
 
-  let addAValLogging cb (aval : aval<_>) =
+  let addAValLogging cb (aval: aval<_>) =
     let cb = aval.AddMarkingCallback(cb)
     aval |> AVal.mapDisposableTuple (fun x -> x, cb)
 
@@ -613,13 +610,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let file = getLastUTCChangeForFile filePath
 
     let logMsg () =
-        logger.info (
-          Log.setMessage "Loading projects because of {delta}"
-          >> Log.addContextDestructured "delta" filePath
-        )
+      logger.info (
+        Log.setMessage "Loading projects because of {delta}"
+        >> Log.addContextDestructured "delta" filePath
+      )
 
-    file
-    |> addAValLogging logMsg
+    file |> addAValLogging logMsg
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
@@ -702,7 +698,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
             use progressReport = new ServerProgressReport(lspClient)
-            progressReport.Begin($"Loading {projects.Count} Projects") |> Async.RunSynchronously
+
+            progressReport.Begin($"Loading {projects.Count} Projects")
+            |> Async.RunSynchronously
 
             let projectOptions =
               loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
@@ -796,9 +794,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return options |> List.map fst
     }
 
-  let forceLoadProjects () =
-    loadedProjectOptions
-    |> AVal.force
+  let forceLoadProjects () = loadedProjectOptions |> AVal.force
 
 
   let sourceFileToProjectOptions =
@@ -1044,11 +1040,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let allProjectOptions =
     let wins =
-      openFilesToChangesAndProjectOptions
-      |> AMap.map (fun k v -> v |> AVal.map snd)
-    let loses =
-      sourceFileToProjectOptions
-      |> AMap.map(fun k v -> AVal.constant v)
+      openFilesToChangesAndProjectOptions |> AMap.map (fun k v -> v |> AVal.map snd)
+
+    let loses = sourceFileToProjectOptions |> AMap.map (fun k v -> AVal.constant v)
     AMap.union loses wins
 
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
