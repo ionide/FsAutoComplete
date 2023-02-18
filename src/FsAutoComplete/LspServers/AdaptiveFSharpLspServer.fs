@@ -796,6 +796,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return options |> List.map fst
     }
 
+  let forceLoadProjects () =
+    loadedProjectOptions
+    |> AVal.force
 
 
   let sourceFileToProjectOptions =
@@ -1604,7 +1607,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> Array.distinct
 
   let getDependentProjectsOfProjects ps =
-    let projectSnapshot = loadedProjectOptions |> AVal.force
+    let projectSnapshot = forceLoadProjects ()
 
     let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
 
@@ -1986,7 +1989,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
           // Starts getting project options to cache
-          let _ = loadedProjectOptions |> AVal.force
+          forceLoadProjects () |> ignore
 
           return ()
         with e ->
@@ -3760,7 +3763,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> HashSet.ofArray
 
           transact (fun () -> workspacePaths.Value <- (WorkspaceChosen.Projs projs))
-          let options = loadedProjectOptions |> AVal.force
+          forceLoadProjects () |> ignore
 
           return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }
 
@@ -3833,7 +3836,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 |> HashSet.single
                 |> WorkspaceChosen.Projs)
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
 
           return! Helpers.notImplemented
         with e ->
@@ -3907,7 +3910,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           do! Commands.DotnetAddProject p.Target p.Reference |> AsyncResult.ofCoreResponse
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -3928,7 +3931,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           do! Commands.DotnetRemoveProject p.Target p.Reference |> AsyncResult.ofCoreResponse
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -3949,7 +3952,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           do! Commands.DotnetSlnAdd p.Target p.Reference |> AsyncResult.ofCoreResponse
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4094,7 +4097,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.FsProjMoveFileUp p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4119,7 +4122,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.FsProjMoveFileDown p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4144,7 +4147,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.addFileAbove p.FsProj p.FileVirtualPath p.NewFile
             |> AsyncResult.ofCoreResponse
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4168,7 +4171,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.addFileBelow p.FsProj p.FileVirtualPath p.NewFile
             |> AsyncResult.ofCoreResponse
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4190,7 +4193,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           do! Commands.addFile p.FsProj p.FileVirtualPath |> AsyncResult.ofCoreResponse
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
@@ -4212,7 +4215,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let fullPath = Path.Combine(Path.GetDirectoryName p.FsProj, p.FileVirtualPath)
           do! Commands.removeFile p.FsProj p.FileVirtualPath |> AsyncResult.ofCoreResponse
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           let fileUri = Path.FilePathToUri fullPath
           diagnosticCollections.ClearFor fileUri
 
@@ -4239,7 +4242,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.addExistingFile p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
 
-          loadedProjectOptions |> AVal.force |> ignore
+          forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
           logger.error (
