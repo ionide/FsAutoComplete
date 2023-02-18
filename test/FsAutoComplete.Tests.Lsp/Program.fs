@@ -33,7 +33,7 @@ Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 let loaders =
   [
     "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-    "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
   ]
 
 let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
@@ -119,9 +119,8 @@ let tests =
       testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
       InlayHintTests.explicitTypeInfoTests
 
-      testSequenced lspTests
-
-      ]
+      lspTests
+    ]
 
 
 [<EntryPoint>]

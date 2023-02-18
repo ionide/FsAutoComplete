@@ -86,7 +86,7 @@ let tests state =
       let crossProject = crossProjectRoot tfm
       let aFile, bFile = Path.Join("Library1" </> "A.fs"), ("App" </> "B.fs")
       testList $"CrossProject-{tfm}" [
-        fserverTestList "single" state defaultConfigDto (Some crossProject) (fun server -> [
+        serverTestList "single" state defaultConfigDto (Some crossProject) (fun server -> [
           testCaseAsync "When A is modified B is re-checked" (async {
             // open the files as they are on-disk and verify things are good
             let! (aDoc, aDiags) = Server.openDocument aFile server
