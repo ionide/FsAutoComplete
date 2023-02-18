@@ -31,9 +31,10 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
-  [ "Ionide WorkspaceLoader", WorkspaceLoader.Create
-    // "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
-    ]
+  [
+    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+  ]
 
 let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
   let testRunDir =
