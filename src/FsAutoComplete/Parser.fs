@@ -109,14 +109,16 @@ module Parser =
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
 
+    let globalProps = [ "ProduceReferenceAssembly", "false" ]
 
     rootCommand.SetHandler(
       Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
         let workspaceLoaderFactory =
-          if projectGraphEnabled then
-            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
-          else
-            Ionide.ProjInfo.WorkspaceLoader.Create
+          fun toolsPath ->
+            if projectGraphEnabled then
+              Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, globalProps)
+            else
+              Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, globalProps)
 
         let dotnetPath =
           if
