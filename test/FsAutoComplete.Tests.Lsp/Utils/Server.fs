@@ -62,10 +62,9 @@ module Server =
       | Some path ->
         dotnetCleanup path
 
-        if System.IO.Directory.EnumerateFiles(path, "*.fsproj")
-           |> Seq.isEmpty
-           |> not then
-          do! dotnetRestore path
+        for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+          do! file |> Path.GetDirectoryName |> dotnetRestore
+
       let (server : IFSharpLspServer, events : IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 

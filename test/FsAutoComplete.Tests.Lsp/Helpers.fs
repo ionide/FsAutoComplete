@@ -473,10 +473,9 @@ let dotnetToolRestore dir =
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
     dotnetCleanup path
-    let files = Directory.GetFiles(path)
 
-    if files |> Seq.exists (fun p -> p.EndsWith ".fsproj") then
-      do! dotnetRestore path
+    for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+      do! file |> Path.GetDirectoryName |> dotnetRestore
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
     clientNotifications |> Observable.add logEvent
