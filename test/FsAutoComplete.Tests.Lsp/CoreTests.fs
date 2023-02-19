@@ -264,7 +264,7 @@ let tooltipTests state =
           verifySignature 1 5 "val listOfTuples : list<int * int>" // verify we default to prefix-generics style
           verifySignature 2 5 "val listOfStructTuples : list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
           verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip : float" // verify we strip <MeasureOne> measure annotations
-          pverifyDescription "This test depends on FSharp.Core.xml being in the bin directory of these tests"
+          verifyDescription
             4
             4
             [ "**Description**"
