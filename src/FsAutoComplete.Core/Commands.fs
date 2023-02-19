@@ -837,7 +837,7 @@ module Commands =
 
         return Choice1Of2(declarationRanges, usageRanges)
 
-      | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
+      | SymbolDeclarationLocation.Projects(projects, isInternalToProject) ->
         let symbolUseRanges = ConcurrentBag<_>()
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName

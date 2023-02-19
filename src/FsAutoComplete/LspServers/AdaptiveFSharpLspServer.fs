@@ -2424,7 +2424,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           and! tyRes = forceGetTypeCheckResultsStale filePath |> Result.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
-          | Ok (Some (tip, signature, footer, typeDoc) as x) ->
+          | Ok(Some(tip, signature, footer, typeDoc) as x) ->
             logger.info (
               Log.setMessage "TryGetToolTipEnhanced : {parms}"
               >> Log.addContextDestructured "parms" x
