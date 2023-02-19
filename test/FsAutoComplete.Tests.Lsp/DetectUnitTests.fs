@@ -17,8 +17,9 @@ let tests state =
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, fileName)
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      do! server.TextDocumentDidOpen tdop
+      let! child = Async.StartChild(server.TextDocumentDidOpen tdop)
       let! _diagnostics = waitForParseResultsForFile fileName events
+      do! child
       return! waitForTestDetected fileName events
     }
     |> Async.Cache
