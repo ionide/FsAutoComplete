@@ -29,7 +29,8 @@ let tests state =
       ]
 
   // Note: there's a space after each generated `=` when linebreak! (-> from FCS)\
-  // ignoring due to whitespace real quick.
+  // ignoring these tests due to whitespace real quick.
+  // broken as of FC 43.7.200
   ptestList (nameof ImplementInterface) [
     let config = {
       defaultConfigDto with

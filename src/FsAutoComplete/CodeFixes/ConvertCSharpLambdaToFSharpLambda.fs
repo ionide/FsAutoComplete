@@ -14,7 +14,7 @@ let title = "Replace C#-style lambda with F# lambda"
 let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
   let (|Ident|_|) ofName =
     function
-    | SynExpr.Ident ident when ident.idText = ofName -> Some()
+    | SynExpr.LongIdent(longDotId = SynLongIdent(id = [ ident ])) when ident.idText = ofName -> Some()
     | _ -> None
 
   let (|InfixAppOfOpEqualsGreater|_|) =
