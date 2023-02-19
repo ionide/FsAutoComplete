@@ -11,6 +11,7 @@ open FsToolkit.ErrorHandling
 open FSharpx.Control.Observable
 open FSharp.Control.Reactive
 open System
+open Helpers.Expecto.ShadowedTimeouts
 
 let scriptPreviewTests state =
   let server =

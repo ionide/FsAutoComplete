@@ -22,6 +22,7 @@ open Utils.Utils
 open FsToolkit.ErrorHandling.Operator.AsyncResult
 open FSharpx.Control
 open Utils.Tests
+open Helpers.Expecto.ShadowedTimeouts
 
 ///Test for initialization of the server
 let initTests createServer =
@@ -223,11 +224,11 @@ let tooltipTests state =
 
   let concatLines = String.concat Environment.NewLine
 
-  let verifyDescription line character expectedDescription =
+  let verifyDescriptionImpl testCaseAsync line character expectedDescription =
     let expectedDescription = concatLines expectedDescription
 
     testCaseAsync
-      (sprintf "description for line %d character %d should be '%s" line character expectedDescription)
+      (sprintf "description for line %d character %d" line character)
       (async {
         let! server, scriptPath = server
 
@@ -241,9 +242,12 @@ let tooltipTests state =
         | Ok response -> failtestf "Should have gotten description but got %A" response
         | Result.Error errors -> failtestf "Error while getting description: %A" errors
       })
+  let verifyDescription line character expectedDescription = verifyDescriptionImpl testCaseAsync line character expectedDescription
+  let pverifyDescription reason line character expectedDescription = verifyDescriptionImpl ptestCaseAsync line character expectedDescription
+  let fverifyDescription  line character expectedDescription = verifyDescriptionImpl ftestCaseAsync line character expectedDescription
 
-
-  testList
+  testSequenced
+  <| testList
     "tooltip evaluation"
     [ testList
         "tests"

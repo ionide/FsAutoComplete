@@ -28,6 +28,7 @@ type CachedServer = Async<Server>
 
 type Document =
   { Server: Server
+    FilePath : string
     Uri: DocumentUri
     mutable Version: int }
   member doc.TextDocumentIdentifier: TextDocumentIdentifier = { Uri = doc.Uri }
@@ -61,10 +62,9 @@ module Server =
       | Some path ->
         dotnetCleanup path
 
-        if System.IO.Directory.EnumerateFiles(path, "*.fsproj")
-           |> Seq.isEmpty
-           |> not then
-          do! dotnetRestore path
+        for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+          do! file |> Path.GetDirectoryName |> dotnetRestore
+
       let (server : IFSharpLspServer, events : IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
@@ -113,9 +113,10 @@ module Server =
       do! server.Server.Shutdown()
     }
 
-  let private createDocument uri server =
+  let private createDocument fullPath uri server =
     { Server = server
       Uri = uri
+      FilePath = fullPath
       Version = 0 }
 
   let private untitledDocUrif = sprintf "untitled:Untitled-%i"
@@ -131,7 +132,7 @@ module Server =
 
       let doc =
         server
-        |> createDocument (server |> nextUntitledDocUri)
+        |> createDocument String.Empty (server |> nextUntitledDocUri)
 
       let! diags = doc |> Document.openWith initialText
 
@@ -157,13 +158,15 @@ module Server =
 
       let doc =
         server
-        |> createDocument (
+        |> createDocument
           fullPath
-          // normalize path is necessary: otherwise might be different lower/upper cases in uri for tests and LSP server:
-          // on windows `E:\...`: `file:///E%3A/...` (before normalize) vs. `file:///e%3A/..` (after normalize)
-          |> normalizePath
-          |> Path.LocalPathToUri
-        )
+          (
+            fullPath
+            // normalize path is necessary: otherwise might be different lower/upper cases in uri for tests and LSP server:
+            // on windows `E:\...`: `file:///E%3A/...` (before normalize) vs. `file:///e%3A/..` (after normalize)
+            |> normalizePath
+            |> Path.LocalPathToUri
+          )
 
       let! diags =
         doc
@@ -190,9 +193,12 @@ module Server =
         |> Utils.normalizePath
         |> FSharp.UMX.UMX.untag
 
+      // To avoid hitting the typechecker cache, we need to update the file's timestamp
+      IO.File.SetLastWriteTimeUtc(fullPath, DateTime.UtcNow)
+
       let doc =
         server
-        |> createDocument (Path.FilePathToUri fullPath)
+        |> createDocument fullPath (Path.FilePathToUri fullPath)
 
       let! diags = doc |> Document.openWith initialText
 
@@ -361,6 +367,19 @@ module Document =
                  Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
+      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
+      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
+    }
+
+  let saveText (text : string) (doc : Document) =
+    async {
+      let p : DidSaveTextDocumentParams = {
+        Text = Some text
+        TextDocument = doc.TextDocumentIdentifier
+      }
+      // Simulate the file being written to disk so we don't hit the typechecker cache
+      IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
+      do! doc.Server.Server.TextDocumentDidSave p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }

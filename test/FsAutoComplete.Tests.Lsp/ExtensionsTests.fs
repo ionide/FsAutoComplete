@@ -8,7 +8,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Helpers
 open FsAutoComplete.Lsp
-
+open Helpers.Expecto.ShadowedTimeouts
 
 let fsdnTest state =
 

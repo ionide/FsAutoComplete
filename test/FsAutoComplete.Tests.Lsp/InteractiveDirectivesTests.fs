@@ -2,6 +2,7 @@ module FsAutoComplete.Tests.InteractiveDirectivesTests
 
 open Expecto
 open FsAutoComplete.InteractiveDirectives
+open Helpers.Expecto.ShadowedTimeouts
 
 let interactiveDirectivesUnitTests =
   testList

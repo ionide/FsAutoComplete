@@ -6,6 +6,7 @@ open Helpers
 open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
+open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
   let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")

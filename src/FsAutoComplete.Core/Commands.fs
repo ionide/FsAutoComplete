@@ -88,6 +88,7 @@ type NotificationEvent =
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
 
 module Commands =
+  open System.Collections.Concurrent
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
@@ -836,7 +837,7 @@ module Commands =
         return Choice1Of2(declarationRanges, usageRanges)
 
       | SymbolDeclarationLocation.Projects (projects, isInternalToProject) ->
-        let symbolUseRanges = ImmutableArray.CreateBuilder()
+        let symbolUseRanges = ConcurrentBag<_>()
         let symbolRange = symbol.DefinitionRange.NormalizeDriveLetterCasing()
         let symbolFile = symbolRange.TaggedFileName
 
@@ -967,30 +968,6 @@ module Commands =
       highlights |> Array.collect expandParents)
     |> Array.sortBy startToken
 
-type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
-  let fileParsed = Event<FSharpParseFileResults>()
-
-  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
-
-  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
-
-  let disposables = ResizeArray()
-
-  let mutable workspaceRoot: string option = rootPath
-  let mutable linterConfigFileRelativePath: string option = None
-  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
-  let mutable lastCheckResult: ParseAndCheckResults option = None
-
-  let notify = Event<NotificationEvent>()
-
-  let fileStateSet = Event<unit>()
-  let commandsLogger = LogProvider.getLoggerByName "Commands"
-
-  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
-
-  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
-
-
 
 
   let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
@@ -1037,6 +1014,32 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       )
 
       [||]
+
+
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
+  let fileParsed = Event<FSharpParseFileResults>()
+
+  let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
+
+  let scriptFileProjectOptions = Event<FSharpProjectOptions>()
+
+  let disposables = ResizeArray()
+
+  let mutable workspaceRoot: string option = rootPath
+  let mutable linterConfigFileRelativePath: string option = None
+  // let mutable linterConfiguration: FSharpLint.Application.Lint.ConfigurationParam = FSharpLint.Application.Lint.ConfigurationParam.Default
+  let mutable lastCheckResult: ParseAndCheckResults option = None
+
+  let notify = Event<NotificationEvent>()
+
+  let fileStateSet = Event<unit>()
+  let commandsLogger = LogProvider.getLoggerByName "Commands"
+
+  let checkerLogger = LogProvider.getLoggerByName "CheckerEvents"
+
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+
+
 
   do
     disposables.Add
@@ -1105,7 +1108,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
               | true, fileData ->
 
                 let res =
-                  analyzerHandler (
+                  Commands.analyzerHandler (
                     file,
                     fileData.Lines.ToString().Split("\n"),
                     parseAndCheck.GetParseResults.ParseTree,

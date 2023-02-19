@@ -9,6 +9,7 @@ open FsToolkit.ErrorHandling
 open Utils.ServerTests
 open FsAutoComplete.Core
 open FsAutoComplete.Lsp
+open Helpers.Expecto.ShadowedTimeouts
 
 module private FSharpInlayHints =
   open Utils.Server
@@ -1769,7 +1770,8 @@ let explicitTypeInfoTests =
   let testExplicitType textWithCursor expected =
     testExplicitType' textWithCursor (Some expected)
 
-  testList
+  testSequenced
+  <| testList
     "detect type and parens"
     [ testList
         "Expr"

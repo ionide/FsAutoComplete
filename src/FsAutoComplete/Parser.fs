@@ -14,6 +14,7 @@ open System.Threading.Tasks
 open FsAutoComplete.Lsp
 
 module Parser =
+  open FsAutoComplete.Core
 
   [<Struct>]
   type Pos = { Line: int; Column: int }
@@ -110,13 +111,15 @@ module Parser =
     rootCommand.AddOption stateLocationOption
 
 
+
     rootCommand.SetHandler(
       Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
         let workspaceLoaderFactory =
-          if projectGraphEnabled then
-            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create
-          else
-            Ionide.ProjInfo.WorkspaceLoader.Create
+          fun toolsPath ->
+            if projectGraphEnabled then
+              Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
+            else
+              Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
 
         let dotnetPath =
           if

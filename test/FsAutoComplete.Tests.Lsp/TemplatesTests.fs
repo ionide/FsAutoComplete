@@ -1,6 +1,7 @@
 module FsAutoComplete.Tests.Templates
 
 open Expecto
+open Helpers.Expecto.ShadowedTimeouts
 
 let withEnvironmentVariable (variable: string) (value: string) (f: unit -> unit) =
   let priorValue = System.Environment.GetEnvironmentVariable variable
@@ -13,7 +14,8 @@ let withEnvironmentVariable (variable: string) (value: string) (f: unit -> unit)
     System.Environment.SetEnvironmentVariable(variable, priorValue)
 
 let tests () =
-  testList
+  testSequenced
+  <| testList
     "Templates Tests"
     [ testCase "Templates are not empty"
       <| fun () ->

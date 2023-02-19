@@ -7,6 +7,7 @@ open FsToolkit.ErrorHandling
 open Helpers
 open Ionide.LanguageServerProtocol.Types
 open System.IO
+open Helpers.Expecto.ShadowedTimeouts
 
 open type System.Environment
 
