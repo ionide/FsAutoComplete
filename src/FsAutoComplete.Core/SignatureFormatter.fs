@@ -59,12 +59,8 @@ module SignatureFormatter =
           sprintf "struct (%s)" refTupleStr
         else
           refTupleStr
-      elif typ.IsGenericParameter then
-        (if typ.GenericParameter.IsSolveAtCompileTime then
-           "^"
-         else
-           "'")
-        + typ.GenericParameter.Name
+      elif typ.IsGenericParameter then // no longer need to differentiate between STRP and normal generic parameter types
+        "'" + typ.GenericParameter.Name
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
         let typeDef = typ.TypeDefinition
 
@@ -89,8 +85,7 @@ module SignatureFormatter =
 
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
-    let asGenericParamName (param: FSharpGenericParameter) =
-      (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
+    let asGenericParamName (param: FSharpGenericParameter) = "'" + param.Name
 
     let sb = StringBuilder()
 
@@ -801,13 +796,7 @@ module SignatureFormatter =
 
     | SymbolUse.GenericParameter gp ->
       let signature =
-        sprintf
-          "%s (requires %s)"
-          (if gp.IsSolveAtCompileTime then
-             "^" + gp.Name
-           else
-             "'" + gp.Name)
-          (formatGenericParameter false symbol.DisplayContext gp)
+        $"'%s{gp.Name} (requires %s{formatGenericParameter false symbol.DisplayContext gp})"
 
       Some(signature, footerForType symbol)
 

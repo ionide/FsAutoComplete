@@ -96,13 +96,7 @@ module DocumentationFormatter =
       |> combineParts
 
     elif typ.IsGenericParameter then
-      // generic parameters are either ^ or ' prefixed, depending on if they are inline or not
-      let name =
-        (if typ.GenericParameter.IsSolveAtCompileTime then
-           "^"
-         else
-           "'")
-        + typ.GenericParameter.Name
+      let name = "'" + typ.GenericParameter.Name
 
       formatShowDocumentationLink name xmlDocSig assemblyName
     else if typ.HasTypeDefinition then
@@ -119,8 +113,7 @@ module DocumentationFormatter =
 
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
-    let asGenericParamName (param: FSharpGenericParameter) =
-      (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
+    let asGenericParamName (param: FSharpGenericParameter) = "'" + param.Name
 
     let sb = StringBuilder()
 
@@ -925,13 +918,7 @@ module DocumentationFormatter =
 
     | SymbolUse.GenericParameter gp ->
       let signature =
-        sprintf
-          "%s (requires %s)"
-          (if gp.IsSolveAtCompileTime then
-             "^" + gp.Name
-           else
-             "'" + gp.Name)
-          (formatGenericParameter false symbol.DisplayContext gp)
+        $"'%s{gp.Name} (requires %s{formatGenericParameter false symbol.DisplayContext gp})"
 
       Some((signature, emptyTypeTip), footerForType symbol, cn)
 
@@ -998,13 +985,7 @@ module DocumentationFormatter =
 
     | GenericParameter gp ->
       let signature =
-        sprintf
-          "%s (requires %s)"
-          (if gp.IsSolveAtCompileTime then
-             "^" + gp.Name
-           else
-             "'" + gp.Name)
-          (formatGenericParameter false lastDisplayContext gp)
+        $"'%s{gp.Name} (requires %s{formatGenericParameter false lastDisplayContext gp})"
 
       Some((signature, emptyTypeTip), footerForType' symbol, cn)
 

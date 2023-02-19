@@ -170,8 +170,7 @@ module CodeGenerationUtils =
 
   let keywordSet = set FSharpKeywords.KeywordNames
 
-  let getTypeParameterName (typar: FSharpGenericParameter) =
-    (if typar.IsSolveAtCompileTime then "^" else "'") + typar.Name
+  let getTypeParameterName (typar: FSharpGenericParameter) = "'" + typar.Name
 
   [<NoComparison>]
   type Context =
