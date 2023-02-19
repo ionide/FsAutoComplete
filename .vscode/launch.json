@@ -85,7 +85,7 @@
         "FSharpLspServer",
         "AdaptiveLspServer"
       ],
-      "default": "FSharpLspServer",
+      "default": "AdaptiveLspServer",
       "type": "pickString"
     },
     {

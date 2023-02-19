@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net7.0</TargetFrameworks>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BuildNet7)' == 'true'">net6.0;net7.0</TargetFrameworks>
     <GenerateProgramFile>false</GenerateProgramFile>
     <RollForward>LatestMajor</RollForward>
     <IsTestProject>true</IsTestProject>
@@ -29,23 +30,26 @@
     <Compile Include="Utils/Server.Tests.fs" />
     <Compile Include="Utils/CursorbasedTests.fs" />
     <Compile Include="Utils/CursorbasedTests.Tests.fs" />
-    <Compile Include="*Tests.fs" Exclude="Helpers.fs;Program.fs" />
+    <Compile
+        Include="*Tests.fs"
+        Exclude="Helpers.fs;Program.fs" />
     <Compile Include="CodeFixTests/Utils.fs" />
-    <Compile Include="CodeFixTests/*.fs" Exclude="CodeFixTests/Utils.fs;CodeFixTests/Tests.fs" />
+    <Compile
+        Include="CodeFixTests/*.fs"
+        Exclude="CodeFixTests/Utils.fs;CodeFixTests/Tests.fs" />
     <Compile Include="CodeFixTests/Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <!-- This is a workaround for the test framework using Microsoft.Build dependencies and our project uses it's own set of Microsoft.Build dependencies which causes loading conflicts -->
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Copy SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
-          DestinationFolder="$(OutputPath)"
-          ContinueOnError="false" />
-  </Target>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Copy SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
-          DestinationFolder="$(OutputPath)"
-          ContinueOnError="false" />
+  <!-- This is a workaround for the test framework using Microsoft.Build dependencies and our
+  project uses it's own set of Microsoft.Build dependencies which causes loading conflicts -->
+  <Target
+      Name="PostBuild"
+      AfterTargets="PostBuildEvent">
+    <Copy
+        SourceFiles="$([System.IO.Directory]::GetParent($(BundledRuntimeIdentifierGraphFile)))\NuGet.Frameworks.dll"
+        DestinationFolder="$(OutputPath)"
+        ContinueOnError="false" />
   </Target>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
