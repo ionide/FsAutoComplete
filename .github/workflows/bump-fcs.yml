@@ -1,0 +1,30 @@
+name: update nightly FCS
+
+on:
+  schedule:
+    - 0 6 * * *
+
+jobs:
+  bump-fcs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout nightly branch
+        uses: actions/checkout@v3
+        with:
+          ref: nightly
+      - name: configure .NET
+        uses: actions/setup-dotnet@v2
+      - name: restore tools
+        run: dotnet tool restore
+      # these two are commented out until proj-info is updated with a better version range -
+      # the current one is too strict and prevents us from updating FCS without also updating proj-info
+      # - name: bump FCS
+      #   run: dotnet paket update FSharp.Compiler.Service
+      # - name: commit changes
+      #   run: |
+      #     git config user.name github-actions
+      #     git config user.email github-actions@github.com
+      #     git add paket.lock
+      #     git commit -m "updated FCS to the latest nightly"
+      #     git push
+
