@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - nightly
   pull_request:
 
 jobs:
