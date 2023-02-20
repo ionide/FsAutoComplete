@@ -127,8 +127,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynPat.Ands(pats, r) ->
       addIfInside r
       List.iter walkPat pats
-    | SynPat.Named(ident, _, _, r) ->
-      addIfInside r
+    | SynPat.Named(ident, _, _, r) -> addIfInside r
     | SynPat.Typed(pat, t, r) ->
       addIfInside r
       walkPat pat

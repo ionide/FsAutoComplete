@@ -516,5 +516,4 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
 
     member _.AssemblyLoader = actualFs.AssemblyLoader
 
-    member _.ChangeExtensionShim(path: string, extension: string): string =
-        Path.ChangeExtension(path, extension)
+    member _.ChangeExtensionShim(path: string, extension: string) : string = Path.ChangeExtension(path, extension)
