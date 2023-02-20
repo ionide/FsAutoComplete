@@ -182,6 +182,8 @@ NUGET
       Microsoft.CodeCoverage (>= 17.4.1) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net462)) (&& (== netstandard2.0) (>= netcoreapp3.1))
       Microsoft.TestPlatform.TestHost (>= 17.4.1) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
     Microsoft.NETFramework.ReferenceAssemblies (1.0.3)
+      Microsoft.NETFramework.ReferenceAssemblies.net481 (>= 1.0.3)
+    Microsoft.NETFramework.ReferenceAssemblies.net481 (1.0.3)
     Microsoft.SourceLink.AzureRepos.Git (1.1.1) - copy_local: true
       Microsoft.Build.Tasks.Git (>= 1.1.1)
       Microsoft.SourceLink.Common (>= 1.1.1)
