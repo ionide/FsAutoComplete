@@ -11,7 +11,8 @@ storage: none
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
 
 nuget Fantomas.Client
-nuget FSharp.Compiler.Service
+nuget FSharp.Compiler.Service ~> 43.7.200 prerelease
+nuget FSharp.Core prerelease content: none
 nuget Ionide.ProjInfo
 nuget Ionide.ProjInfo.FCS
 nuget Ionide.ProjInfo.ProjectSystem
@@ -26,7 +27,6 @@ nuget ICSharpCode.Decompiler
 nuget Mono.Cecil
 nuget Newtonsoft.Json
 nuget FSharpLint.Core
-nuget FSharp.Core content: none
 nuget System.Configuration.ConfigurationManager
 nuget Serilog
 nuget Serilog.Sinks.File

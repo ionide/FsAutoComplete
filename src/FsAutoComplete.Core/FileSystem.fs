@@ -515,3 +515,6 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
       actualFs.OpenFileForWriteShim(filePath, ?fileMode = fileMode, ?fileAccess = fileAccess, ?fileShare = fileShare)
 
     member _.AssemblyLoader = actualFs.AssemblyLoader
+
+    member _.ChangeExtensionShim(path: string, extension: string): string =
+        Path.ChangeExtension(path, extension)

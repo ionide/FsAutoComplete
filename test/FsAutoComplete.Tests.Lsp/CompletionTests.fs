@@ -125,7 +125,7 @@ let tests state =
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 13; Character = 10 } // after Lis partial type name in Id record field declaration
+              Position = { Line = 11; Character = 10 } // after Lis partial type name in Id record field declaration
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.Invoked
