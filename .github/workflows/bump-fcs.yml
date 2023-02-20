@@ -3,6 +3,7 @@ name: update nightly FCS
 on:
   schedule:
     - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   bump-fcs:
