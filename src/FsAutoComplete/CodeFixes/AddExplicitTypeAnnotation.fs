@@ -29,25 +29,25 @@ let private isPositionContainedInUntypedImplicitCtorParameter input pos =
       { new SyntaxVisitorBase<_>() with
           member _.VisitModuleDecl(_, defaultTraverse, decl) =
             match decl with
-            | SynModuleDecl.Types (typeDefns = typeDefns) ->
+            | SynModuleDecl.Types(typeDefns = typeDefns) ->
               maybe {
                 let! ctorArgs =
                   typeDefns
                   |> List.tryPick (function
-                    | SynTypeDefn(implicitConstructor = Some (SynMemberDefn.ImplicitCtor (ctorArgs = args))) when
+                    | SynTypeDefn(implicitConstructor = Some(SynMemberDefn.ImplicitCtor(ctorArgs = args))) when
                       rangeContainsPos args.Range pos
                       ->
                       Some args
                     | _ -> None)
 
                 match ctorArgs with
-                | SynSimplePats.SimplePats (pats = pats) ->
+                | SynSimplePats.SimplePats(pats = pats) ->
                   let! pat = pats |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
 
                   let rec tryGetUntypedIdent =
                     function
-                    | SynSimplePat.Id (ident = ident) when rangeContainsPos ident.idRange pos -> Some ident
-                    | SynSimplePat.Attrib (pat = pat) when rangeContainsPos pat.Range pos -> tryGetUntypedIdent pat
+                    | SynSimplePat.Id(ident = ident) when rangeContainsPos ident.idRange pos -> Some ident
+                    | SynSimplePat.Attrib(pat = pat) when rangeContainsPos pat.Range pos -> tryGetUntypedIdent pat
                     | SynSimplePat.Typed _
                     | _ -> None
 
@@ -94,10 +94,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       match res with
       | None -> return []
-      | Some (symbolUse, mfv, explTy) ->
+      | Some(symbolUse, mfv, explTy) ->
         match explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext) with
         | None -> return []
-        | Some (_, edits) ->
+        | Some(_, edits) ->
           return
             [ { File = codeActionParams.TextDocument
                 Title = title

@@ -35,7 +35,7 @@ type FSharpParseFileResults with
               Some(Pattern diagnosticRange)
             else
               match pat with
-              | SynPat.Paren (inner, m) ->
+              | SynPat.Paren(inner, m) ->
                 // otherwise if the pattern inside a parens
                 if Range.rangeContainsRange m diagnosticRange then
                   // explicitly matches
@@ -52,7 +52,7 @@ type FSharpParseFileResults with
 
           override _.VisitBinding(_, defaultTraverse, binding) =
             match binding with
-            | SynBinding (kind = SynBindingKind.Normal; headPat = pat) as binding ->
+            | SynBinding(kind = SynBindingKind.Normal; headPat = pat) as binding ->
               // walk the patterns in the binding first, to allow the parameter traversal a chance to fire
               match defaultTraverse binding with
               | None ->
@@ -62,7 +62,7 @@ type FSharpParseFileResults with
                 else
                   // Check if it's an operator
                   match pat with
-                  | SynPat.LongIdent(longDotId = LongIdentWithDots ([ id ], _)) when id.idText.StartsWith("op_") ->
+                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when id.idText.StartsWith("op_") ->
                     if Range.rangeContainsRange id.idRange diagnosticRange then
                       Some(FullBinding binding.RangeOfBindingWithRhs)
                     else

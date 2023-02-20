@@ -334,10 +334,10 @@ let tooltipTests state =
             13
             (concatLines
               [ "val inline add:"
-                "   x: ^a (requires static member ( + ) ) ->"
-                "   y: ^b (requires static member ( + ) )"
-                "   -> ^c" ])
-          // verify rendering of solved generic constraints in tooltips for members where they are solved
+                "   x: 'a (requires static member ( + ) ) ->"
+                "   y: 'b (requires static member ( + ) )"
+                "   -> 'c" ])
+          //verify rendering of solved generic constraints in tooltips for members where they are solved
           verifyDescription
             45
             15

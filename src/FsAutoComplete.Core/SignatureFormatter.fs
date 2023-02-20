@@ -59,12 +59,8 @@ module SignatureFormatter =
           sprintf "struct (%s)" refTupleStr
         else
           refTupleStr
-      elif typ.IsGenericParameter then
-        (if typ.GenericParameter.IsSolveAtCompileTime then
-           "^"
-         else
-           "'")
-        + typ.GenericParameter.Name
+      elif typ.IsGenericParameter then // no longer need to differentiate between STRP and normal generic parameter types
+        "'" + typ.GenericParameter.Name
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
         let typeDef = typ.TypeDefinition
 
@@ -79,9 +75,9 @@ module SignatureFormatter =
         elif isMeasureType typeDef then
           typ.Format context
         else
-          sprintf "%s<%s>" (FSharpKeywords.AddBackticksToIdentifierIfNeeded typeDef.DisplayName) genericArgs
+          sprintf "%s<%s>" (FSharpKeywords.NormalizeIdentifierBackticks typeDef.DisplayName) genericArgs
       else if typ.HasTypeDefinition then
-        FSharpKeywords.AddBackticksToIdentifierIfNeeded typ.TypeDefinition.DisplayName
+        FSharpKeywords.NormalizeIdentifierBackticks typ.TypeDefinition.DisplayName
       else
         typ.Format context
     with _ ->
@@ -89,8 +85,7 @@ module SignatureFormatter =
 
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
-    let asGenericParamName (param: FSharpGenericParameter) =
-      (if param.IsSolveAtCompileTime then "^" else "'") + param.Name
+    let asGenericParamName (param: FSharpGenericParameter) = "'" + param.Name
 
     let sb = StringBuilder()
 
@@ -98,10 +93,10 @@ module SignatureFormatter =
       let memberConstraint (c: FSharpGenericParameterMemberConstraint) =
         let formattedMemberName, isProperty =
           match c.IsProperty, PrettyNaming.TryChopPropertyName c.MemberName with
-          | true, Some (chopped) when chopped <> c.MemberName -> chopped, true
+          | true, Some(chopped) when chopped <> c.MemberName -> chopped, true
           | _, _ ->
-            if PrettyNaming.IsMangledOpName c.MemberName then
-              $"( {PrettyNaming.DecompileOpName c.MemberName} )", false
+            if PrettyNaming.IsLogicalOpName c.MemberName then
+              $"( {PrettyNaming.ConvertValLogicalNameToDisplayNameCore c.MemberName} )", false
             else
               c.MemberName, false
 
@@ -195,13 +190,13 @@ module SignatureFormatter =
           match func.EnclosingEntitySafe with
           | Some ent -> ent.DisplayName
           | _ -> func.DisplayName
-          |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+          |> FSharpKeywords.NormalizeIdentifierBackticks
         elif func.IsOperatorOrActivePattern then
           $"( {func.DisplayNameCore} )"
         elif func.DisplayName.StartsWith "( " then
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
+          FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         else
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.DisplayName
+          FSharpKeywords.NormalizeIdentifierBackticks func.DisplayName
 
       name
 
@@ -271,7 +266,7 @@ module SignatureFormatter =
     let safeParameterName (p: FSharpParameter) =
       match Option.defaultValue p.DisplayNameCore p.Name with
       | "" -> ""
-      | name -> FSharpKeywords.AddBackticksToIdentifierIfNeeded name
+      | name -> FSharpKeywords.NormalizeIdentifierBackticks name
 
     let padLength =
       let allLengths =
@@ -383,7 +378,7 @@ module SignatureFormatter =
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
         elif func.DisplayName.StartsWith "( " then
-          FSharpKeywords.AddBackticksToIdentifierIfNeeded func.LogicalName
+          FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then
           PrettyNaming.TryChopPropertyName func.DisplayName
           |> Option.defaultValue func.DisplayName
@@ -436,7 +431,7 @@ module SignatureFormatter =
           match func.EnclosingEntitySafe with
           | Some ent -> ent.DisplayName
           | _ -> func.DisplayName
-          |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+          |> FSharpKeywords.NormalizeIdentifierBackticks
         else
           formatFSharpType displayContext func.ReturnParameter.Type
       with _ex ->
@@ -525,7 +520,7 @@ module SignatureFormatter =
          v.LogicalName
        else
          v.DisplayName)
-      |> FSharpKeywords.AddBackticksToIdentifierIfNeeded
+      |> FSharpKeywords.NormalizeIdentifierBackticks
 
     let constraints =
       match v.FullTypeSafe with
@@ -615,11 +610,11 @@ module SignatureFormatter =
         fse.MembersFunctionsAndValues
         |> Seq.filter (fun n -> n.IsConstructor && n.Accessibility.IsPublic)
         |> fun v ->
-             match Seq.tryHead v with
-             | None -> ""
-             | Some f ->
-               let l = Seq.length v
-               getFuncSignatureForTypeSignature displayContext f l false false
+            match Seq.tryHead v with
+            | None -> ""
+            | Some f ->
+              let l = Seq.length v
+              getFuncSignatureForTypeSignature displayContext f l false false
 
       let fields =
         fse.FSharpFields
@@ -679,7 +674,7 @@ module SignatureFormatter =
 
     let typeDisplay =
       let name =
-        let normalisedName = FSharpKeywords.AddBackticksToIdentifierIfNeeded fse.DisplayName
+        let normalisedName = FSharpKeywords.NormalizeIdentifierBackticks fse.DisplayName
 
         if fse.GenericParameters.Count > 0 then
           let paramsAndConstraints =
@@ -722,7 +717,7 @@ module SignatureFormatter =
         match entity with
         | SymbolUse.MemberFunctionOrValue m -> Some(m.FullName, m.Assembly.SimpleName)
 
-        | SymbolUse.Entity (c, _) -> Some(c.FullName, c.Assembly.SimpleName)
+        | SymbolUse.Entity(c, _) -> Some(c.FullName, c.Assembly.SimpleName)
 
         | SymbolUse.Field f -> Some(f.FullName, f.Assembly.SimpleName)
 
@@ -738,7 +733,7 @@ module SignatureFormatter =
   ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
   let getTooltipDetailsFromSymbolUse (symbol: FSharpSymbolUse) =
     match symbol with
-    | SymbolUse.Entity (fse, _) ->
+    | SymbolUse.Entity(fse, _) ->
       try
         let signature = getEntitySignature symbol.DisplayContext fse
         Some(signature, footerForType symbol)
@@ -801,13 +796,7 @@ module SignatureFormatter =
 
     | SymbolUse.GenericParameter gp ->
       let signature =
-        sprintf
-          "%s (requires %s)"
-          (if gp.IsSolveAtCompileTime then
-             "^" + gp.Name
-           else
-             "'" + gp.Name)
-          (formatGenericParameter false symbol.DisplayContext gp)
+        $"'%s{gp.Name} (requires %s{formatGenericParameter false symbol.DisplayContext gp})"
 
       Some(signature, footerForType symbol)
 

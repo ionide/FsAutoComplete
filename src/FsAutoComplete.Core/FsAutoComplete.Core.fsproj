@@ -10,7 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Consts.fs" />
-    <Compile Include="Workaround/ServiceParseTreeWalk.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="TestAdapter.fs" />

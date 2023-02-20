@@ -34,25 +34,26 @@ type private Context =
     Qualifier: string option
   }
 
-let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause (pat, _, _, _, _, _)) =
+let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pat, _, _, _, _, _)) =
   let rec patIsCandidate (pat: SynPat) =
     match pat with
-    | SynPat.Paren (innerPat, _)
-    | SynPat.Attrib (innerPat, _, _) -> patIsCandidate innerPat
-    | SynPat.Const (_, _) -> false
-    | SynPat.Wild (_) -> false
+    | SynPat.Paren(innerPat, _)
+    | SynPat.Attrib(innerPat, _, _) -> patIsCandidate innerPat
+    | SynPat.Const(_, _) -> false
+    | SynPat.Wild(_) -> false
     // TODO: check if we have to handle these cases
-    | SynPat.Typed (innerPat, _, _) -> patIsCandidate innerPat
-    | SynPat.OptionalVal (_, _) -> false
-    | SynPat.Or (lhsPat = leftPat; rhsPat = rightPat) -> patIsCandidate leftPat || patIsCandidate rightPat
-    | SynPat.Ands (innerPatList, _) -> List.exists patIsCandidate innerPatList
+    | SynPat.Typed(innerPat, _, _) -> patIsCandidate innerPat
+    | SynPat.OptionalVal(_, _) -> false
+    | SynPat.Or(lhsPat = leftPat; rhsPat = rightPat) -> patIsCandidate leftPat || patIsCandidate rightPat
+    | SynPat.Ands(innerPatList, _) -> List.exists patIsCandidate innerPatList
     // This is the 'hd :: tail -> ...' pattern
-    | SynPat.LongIdent(longDotId = LongIdentWithDots ([ ident ], [])) when ident.idText = "op_ColonColon" -> false
-    | SynPat.LongIdent (argPats = ConstructorPats nestedPats; range = r) ->
+    | SynPat.LongIdent(longDotId = SynLongIdent(id = [ ident ])) when ident.idText = "op_ColonColon" -> false
+    | SynPat.LongIdent(argPats = ConstructorPats nestedPats; range = r) ->
       // The cursor should not be in the nested patterns
       Range.rangeContainsPos r cursorPos
       && List.forall (not << patIsCandidate) nestedPats
-    | SynPat.Tuple _ -> false
+    | SynPat.ListCons(lhs, rhs, r, _) -> patIsCandidate lhs || patIsCandidate rhs
+    | SynPat.Tuple _
     | SynPat.ArrayOrList _
     | SynPat.Record _
     | SynPat.Null _
@@ -69,37 +70,36 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause (p
 
 let private posIsInLhsOfClause (pos: Position) (clause: SynMatchClause) =
   match clause with
-  | SynMatchClause (whenExpr = None; range = patternRange) -> Range.rangeContainsPos patternRange pos
-  | SynMatchClause (whenExpr = Some guardExpr; range = patternRange) ->
+  | SynMatchClause(whenExpr = None; range = patternRange) -> Range.rangeContainsPos patternRange pos
+  | SynMatchClause(whenExpr = Some guardExpr; range = patternRange) ->
     Range.rangeContainsPos (Range.unionRanges guardExpr.Range patternRange) pos
 
 let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: ParsedInput) =
   let inline getIfPosInRange range f =
     if Range.rangeContainsPos range pos then f () else None
 
-  let rec walkImplFileInput (ParsedImplFileInput (modules = moduleOrNamespaceList)) =
+  let rec walkImplFileInput (ParsedImplFileInput(contents = moduleOrNamespaceList)) =
     List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
 
-  and walkSynModuleOrNamespace (SynModuleOrNamespace (_, _, _, decls, _, _, _, range)) =
+  and walkSynModuleOrNamespace (SynModuleOrNamespace(decls = decls; range = range)) =
     getIfPosInRange range (fun () -> List.tryPick walkSynModuleDecl decls)
 
   and walkSynModuleDecl (decl: SynModuleDecl) =
     getIfPosInRange decl.Range (fun () ->
       match decl with
-      | SynModuleDecl.Exception (SynExceptionDefn (members = synMembers), _) ->
-        List.tryPick walkSynMemberDefn synMembers
-      | SynModuleDecl.Let (_isRecursive, bindings, _range) -> List.tryPick walkBinding bindings
-      | SynModuleDecl.ModuleAbbrev (_lhs, _rhs, _range) -> None
-      | SynModuleDecl.NamespaceFragment (fragment) -> walkSynModuleOrNamespace fragment
-      | SynModuleDecl.NestedModule (decls = modules) -> List.tryPick walkSynModuleDecl modules
-      | SynModuleDecl.Types (typeDefs, _range) -> List.tryPick walkSynTypeDefn typeDefs
-      | SynModuleDecl.Expr (expr = expr) -> walkExpr expr
+      | SynModuleDecl.Exception(SynExceptionDefn(members = synMembers), _) -> List.tryPick walkSynMemberDefn synMembers
+      | SynModuleDecl.Let(_isRecursive, bindings, _range) -> List.tryPick walkBinding bindings
+      | SynModuleDecl.ModuleAbbrev(_lhs, _rhs, _range) -> None
+      | SynModuleDecl.NamespaceFragment(fragment) -> walkSynModuleOrNamespace fragment
+      | SynModuleDecl.NestedModule(decls = modules) -> List.tryPick walkSynModuleDecl modules
+      | SynModuleDecl.Types(typeDefs, _range) -> List.tryPick walkSynTypeDefn typeDefs
+      | SynModuleDecl.Expr(expr = expr) -> walkExpr expr
       | SynModuleDecl.Attributes _
       | SynModuleDecl.HashDirective _
       | SynModuleDecl.Open _ -> None)
 
   and walkSynTypeDefn
-    (SynTypeDefn (typeRepr = representation; members = members; implicitConstructor = implicitCtor; range = range))
+    (SynTypeDefn(typeRepr = representation; members = members; implicitConstructor = implicitCtor; range = range))
     =
     getIfPosInRange range (fun () ->
       walkSynTypeDefnRepr representation
@@ -109,70 +109,71 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
   and walkSynTypeDefnRepr (typeDefnRepr: SynTypeDefnRepr) =
     getIfPosInRange typeDefnRepr.Range (fun () ->
       match typeDefnRepr with
-      | SynTypeDefnRepr.ObjectModel (_kind, members, _range) -> List.tryPick walkSynMemberDefn members
+      | SynTypeDefnRepr.ObjectModel(_kind, members, _range) -> List.tryPick walkSynMemberDefn members
       | SynTypeDefnRepr.Simple _
       | SynTypeDefnRepr.Exception _ -> None)
 
   and walkSynMemberDefn (memberDefn: SynMemberDefn) =
     getIfPosInRange memberDefn.Range (fun () ->
       match memberDefn with
-      | SynMemberDefn.AbstractSlot (_synValSig, _memberFlags, _range) -> None
-      | SynMemberDefn.AutoProperty (synExpr = expr) -> walkExpr expr
-      | SynMemberDefn.Interface (members = members) -> Option.bind (List.tryPick walkSynMemberDefn) members
-      | SynMemberDefn.Member (binding, _range) -> walkBinding binding
-      | SynMemberDefn.NestedType (typeDef, _access, _range) -> walkSynTypeDefn typeDef
-      | SynMemberDefn.ValField (_field, _range) -> None
-      | SynMemberDefn.LetBindings (bindings, _isStatic, _isRec, _range) -> List.tryPick walkBinding bindings
+      | SynMemberDefn.AbstractSlot(_synValSig, _memberFlags, _range, _) -> None
+      | SynMemberDefn.AutoProperty(synExpr = expr) -> walkExpr expr
+      | SynMemberDefn.Interface(members = members) -> Option.bind (List.tryPick walkSynMemberDefn) members
+      | SynMemberDefn.Member(binding, _range) -> walkBinding binding
+      | SynMemberDefn.NestedType(typeDef, _access, _range) -> walkSynTypeDefn typeDef
+      | SynMemberDefn.ValField(_field, _range) -> None
+      | SynMemberDefn.LetBindings(bindings, _isStatic, _isRec, _range) -> List.tryPick walkBinding bindings
+      | SynMemberDefn.GetSetMember(_get, _set, _range, trivia) -> None
       | SynMemberDefn.Open _
       | SynMemberDefn.ImplicitInherit _
       | SynMemberDefn.Inherit _
       | SynMemberDefn.ImplicitCtor _ -> None)
 
-  and walkBinding (SynBinding (expr = expr) as binding) =
+  and walkBinding (SynBinding(expr = expr) as binding) =
     getIfPosInRange binding.RangeOfBindingWithRhs (fun () -> walkExpr expr)
 
   and walkExpr expr =
     getIfPosInRange expr.Range (fun () ->
       match expr with
-      | SynExpr.Quote (synExpr1, _, synExpr2, _, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+      | SynExpr.Quote(synExpr1, _, synExpr2, _, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.Const (_synConst, _range) -> None
+      | SynExpr.Const(_synConst, _range) -> None
 
-      | SynExpr.Typed (synExpr, _, _)
-      | SynExpr.Paren (synExpr, _, _, _)
-      | SynExpr.New (_, _, synExpr, _)
-      | SynExpr.ArrayOrListComputed (_, synExpr, _)
-      | SynExpr.ComputationExpr (_, synExpr, _)
-      | SynExpr.Lambda (body = synExpr)
-      | SynExpr.Lazy (synExpr, _)
-      | SynExpr.Do (synExpr, _)
-      | SynExpr.Assert (synExpr, _) -> walkExpr synExpr
+      | SynExpr.Typed(synExpr, _, _)
+      | SynExpr.Paren(synExpr, _, _, _)
+      | SynExpr.New(_, _, synExpr, _)
+      | SynExpr.ArrayOrListComputed(_, synExpr, _)
+      | SynExpr.ComputationExpr(_, synExpr, _)
+      | SynExpr.Lambda(body = synExpr)
+      | SynExpr.Lazy(synExpr, _)
+      | SynExpr.Do(synExpr, _)
+      | SynExpr.Assert(synExpr, _) -> walkExpr synExpr
 
-      | SynExpr.Tuple (_, synExprList, _, _range)
-      | SynExpr.ArrayOrList (_, synExprList, _range) -> List.tryPick walkExpr synExprList
+      | SynExpr.Tuple(_, synExprList, _, _range)
+      | SynExpr.ArrayOrList(_, synExprList, _range) -> List.tryPick walkExpr synExprList
 
-      | SynExpr.Record (_inheritOpt, copyOpt, fields, _range) ->
+      | SynExpr.Record(_inheritOpt, copyOpt, fields, _range) ->
         let fieldExprList =
-          fields |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr)
+          fields |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
 
         match copyOpt with
-        | Some (copyExpr, _blockSeparator) -> List.tryPick walkExpr (copyExpr :: fieldExprList)
+        | Some(copyExpr, _blockSeparator) -> List.tryPick walkExpr (copyExpr :: fieldExprList)
         | None -> List.tryPick walkExpr fieldExprList
 
-      | SynExpr.ObjExpr (bindings = binds; extraImpls = ifaces) ->
+      | SynExpr.ObjExpr(bindings = binds; extraImpls = ifaces) ->
         List.tryPick walkBinding binds
         |> Option.orElseWith (fun _ -> List.tryPick walkSynInterfaceImpl ifaces)
 
-      | SynExpr.While (_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
+      | SynExpr.While(_sequencePointInfoForWhileLoop, synExpr1, synExpr2, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2 ]
-      | SynExpr.ForEach (enumExpr = synExpr1; bodyExpr = synExpr2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+      | SynExpr.ForEach(enumExpr = synExpr1; bodyExpr = synExpr2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.For (identBody = synExpr1; toBody = synExpr2; doBody = synExpr3) ->
+      | SynExpr.For(identBody = synExpr1; toBody = synExpr2; doBody = synExpr3) ->
         List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
 
-      | SynExpr.MatchLambda (isExnMatch, functionKeywordRange, synMatchClauseList, _, _wholeExprRange) as matchLambdaExpr ->
+      | SynExpr.MatchLambda(isExnMatch, functionKeywordRange, synMatchClauseList, _, _wholeExprRange) as matchLambdaExpr ->
         synMatchClauseList
-        |> List.tryPick (fun (SynMatchClause (resultExpr = e)) -> walkExpr e)
+        |> List.tryPick (fun (SynMatchClause(resultExpr = e)) -> walkExpr e)
         |> Option.orElseWith (fun () ->
           if isExnMatch then
             None
@@ -191,11 +192,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             else
               None)
 
-      | SynExpr.Match (matchDebugPoint = debugPoint; expr = synExpr; clauses = synMatchClauseList) as matchExpr ->
+      | SynExpr.Match(matchDebugPoint = debugPoint; expr = synExpr; clauses = synMatchClauseList) as matchExpr ->
         getIfPosInRange synExpr.Range (fun () -> walkExpr synExpr)
         |> Option.orElseWith (fun () ->
           synMatchClauseList
-          |> List.tryPick (fun (SynMatchClause (resultExpr = e)) -> walkExpr e))
+          |> List.tryPick (fun (SynMatchClause(resultExpr = e)) -> walkExpr e))
         |> Option.orElseWith (fun () ->
           let currentClause = List.tryFind (posIsInLhsOfClause pos) synMatchClauseList
 
@@ -214,64 +215,64 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
           else
             None)
 
-      | SynExpr.App (_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
+      | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.TypeApp (synExpr, _, _synTypeList, _commas, _, _, _range) -> walkExpr synExpr
+      | SynExpr.TypeApp(synExpr, _, _synTypeList, _commas, _, _, _range) -> walkExpr synExpr
 
-      | SynExpr.LetOrUse (body = synExpr; bindings = synBindingList) ->
+      | SynExpr.LetOrUse(body = synExpr; bindings = synBindingList) ->
         walkExpr synExpr
         |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 
-      | SynExpr.TryWith (tryExpr = synExpr) -> walkExpr synExpr
+      | SynExpr.TryWith(tryExpr = synExpr) -> walkExpr synExpr
 
-      | SynExpr.TryFinally (tryExpr = synExpr1; finallyExpr = synExpr2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+      | SynExpr.TryFinally(tryExpr = synExpr1; finallyExpr = synExpr2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
       | Sequentials exprs -> List.tryPick walkExpr exprs
 
-      | SynExpr.IfThenElse (ifExpr = synExpr1; thenExpr = synExpr2; elseExpr = synExprOpt) ->
+      | SynExpr.IfThenElse(ifExpr = synExpr1; thenExpr = synExpr2; elseExpr = synExprOpt) ->
         match synExprOpt with
         | Some synExpr3 -> List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
         | None -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.Ident (_ident) -> None
-      | SynExpr.LongIdent (_, _longIdent, _altNameRefCell, _range) -> None
+      | SynExpr.Ident(_ident) -> None
+      | SynExpr.LongIdent(_, _longIdent, _altNameRefCell, _range) -> None
 
-      | SynExpr.LongIdentSet (_longIdent, synExpr, _range) -> walkExpr synExpr
-      | SynExpr.DotGet (synExpr, _dotm, _longIdent, _range) -> walkExpr synExpr
+      | SynExpr.LongIdentSet(_longIdent, synExpr, _range) -> walkExpr synExpr
+      | SynExpr.DotGet(synExpr, _dotm, _longIdent, _range) -> walkExpr synExpr
 
-      | SynExpr.DotSet (synExpr1, _longIdent, synExpr2, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+      | SynExpr.DotSet(synExpr1, _longIdent, synExpr2, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.DotIndexedGet (synExpr, argList, _range, _range2) -> walkExpr argList
+      | SynExpr.DotIndexedGet(synExpr, argList, _range, _range2) -> walkExpr argList
 
-      | SynExpr.DotIndexedSet (synExpr1, argList, synExpr2, _, _range, _range2) ->
+      | SynExpr.DotIndexedSet(synExpr1, argList, synExpr2, _, _range, _range2) ->
         [ synExpr1; argList; synExpr2 ] |> List.tryPick walkExpr
 
-      | SynExpr.JoinIn (synExpr1, _range, synExpr2, _range2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
-      | SynExpr.NamedIndexedPropertySet (_longIdent, synExpr1, synExpr2, _range) ->
+      | SynExpr.JoinIn(synExpr1, _range, synExpr2, _range2) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
+      | SynExpr.NamedIndexedPropertySet(_longIdent, synExpr1, synExpr2, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.DotNamedIndexedPropertySet (synExpr1, _longIdent, synExpr2, synExpr3, _range) ->
+      | SynExpr.DotNamedIndexedPropertySet(synExpr1, _longIdent, synExpr2, synExpr3, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2; synExpr3 ]
 
-      | SynExpr.TypeTest (synExpr, _synType, _range)
-      | SynExpr.Upcast (synExpr, _synType, _range)
-      | SynExpr.Downcast (synExpr, _synType, _range) -> walkExpr synExpr
-      | SynExpr.InferredUpcast (synExpr, _range)
-      | SynExpr.InferredDowncast (synExpr, _range) -> walkExpr synExpr
-      | SynExpr.AddressOf (_, synExpr, _range, _range2) -> walkExpr synExpr
-      | SynExpr.TraitCall (_synTyparList, _synMemberSig, synExpr, _range) -> walkExpr synExpr
+      | SynExpr.TypeTest(synExpr, _synType, _range)
+      | SynExpr.Upcast(synExpr, _synType, _range)
+      | SynExpr.Downcast(synExpr, _synType, _range) -> walkExpr synExpr
+      | SynExpr.InferredUpcast(synExpr, _range)
+      | SynExpr.InferredDowncast(synExpr, _range) -> walkExpr synExpr
+      | SynExpr.AddressOf(_, synExpr, _range, _range2) -> walkExpr synExpr
+      | SynExpr.TraitCall(_synTyparList, _synMemberSig, synExpr, _range) -> walkExpr synExpr
 
-      | SynExpr.Null (_range)
-      | SynExpr.ImplicitZero (_range) -> None
+      | SynExpr.Null(_range)
+      | SynExpr.ImplicitZero(_range) -> None
 
-      | SynExpr.YieldOrReturn (_, synExpr, _range)
-      | SynExpr.YieldOrReturnFrom (_, synExpr, _range)
-      | SynExpr.DoBang (synExpr, _range) -> walkExpr synExpr
+      | SynExpr.YieldOrReturn(_, synExpr, _range)
+      | SynExpr.YieldOrReturnFrom(_, synExpr, _range)
+      | SynExpr.DoBang(synExpr, _range) -> walkExpr synExpr
 
-      | SynExpr.LetOrUseBang (rhs = synExpr1; andBangs = ands; body = synExpr2) ->
+      | SynExpr.LetOrUseBang(rhs = synExpr1; andBangs = ands; body = synExpr2) ->
         [ synExpr1
-          yield! ands |> List.map (fun (SynExprAndBang (body = body)) -> body)
+          yield! ands |> List.map (fun (SynExprAndBang(body = body)) -> body)
           synExpr2 ]
         |> List.tryPick walkExpr
 
@@ -279,14 +280,14 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.LibraryOnlyStaticOptimization _
       | SynExpr.LibraryOnlyUnionCaseFieldGet _
       | SynExpr.LibraryOnlyUnionCaseFieldSet _ -> None
-      | SynExpr.ArbitraryAfterError (_debugStr, _range) -> None
+      | SynExpr.ArbitraryAfterError(_debugStr, _range) -> None
 
-      | SynExpr.FromParseError (synExpr, _range)
-      | SynExpr.DiscardAfterMissingQualificationAfterDot (synExpr, _range) -> walkExpr synExpr
+      | SynExpr.FromParseError(synExpr, _range)
+      | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _range) -> walkExpr synExpr
 
       | _ -> None)
 
-  and walkSynInterfaceImpl (SynInterfaceImpl (bindings = synBindings)) = List.tryPick walkBinding synBindings
+  and walkSynInterfaceImpl (SynInterfaceImpl(bindings = synBindings)) = List.tryPick walkBinding synBindings
 
   match parsedInput with
   | ParsedInput.SigFile _input -> None
@@ -295,33 +296,34 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 let getWrittenCases (patMatchExpr: PatternMatchExpr) =
   let rec checkPattern pat =
     match pat with
-    | SynPat.Const (_const, _) -> false
+    | SynPat.Const(_const, _) -> false
     // TODO: figure out if these cases are supposed to happen or not
-    | SynPat.Or (_)
-    | SynPat.Ands (_, _)
-    | SynPat.LongIdent (_)
-    | SynPat.ArrayOrList (_, _, _)
-    | SynPat.Null (_)
-    | SynPat.InstanceMember (_, _, _, _, _)
-    | SynPat.IsInst (_, _)
-    | SynPat.QuoteExpr (_, _)
-    | SynPat.DeprecatedCharRange (_, _, _)
-    | SynPat.FromParseError (_, _) -> false
+    | SynPat.Or(_)
+    | SynPat.Ands(_, _)
+    | SynPat.LongIdent(_)
+    | SynPat.ArrayOrList(_, _, _)
+    | SynPat.Null(_)
+    | SynPat.InstanceMember(_, _, _, _, _)
+    | SynPat.IsInst(_, _)
+    | SynPat.QuoteExpr(_, _)
+    | SynPat.DeprecatedCharRange(_, _, _)
+    | SynPat.ListCons _
+    | SynPat.FromParseError(_, _) -> false
 
-    | SynPat.Tuple (_, innerPatList, _) -> List.forall checkPattern innerPatList
+    | SynPat.Tuple(_, innerPatList, _) -> List.forall checkPattern innerPatList
 
-    | SynPat.Record (recordInnerPatList, _) ->
+    | SynPat.Record(recordInnerPatList, _) ->
       recordInnerPatList
       |> List.map (fun (_, _, innerPat) -> innerPat)
       |> List.forall checkPattern
 
-    | SynPat.OptionalVal (_, _) -> true
-    | SynPat.Named (_)
-    | SynPat.Wild (_) -> true
-    | SynPat.Typed (innerPat, _, _)
-    | SynPat.Attrib (innerPat, _, _)
-    | SynPat.Paren (innerPat, _) -> checkPattern innerPat
-    | SynPat.As (lhsPat, rhsPat, _range) -> checkPattern lhsPat && checkPattern rhsPat
+    | SynPat.OptionalVal(_, _) -> true
+    | SynPat.Named(_)
+    | SynPat.Wild(_) -> true
+    | SynPat.Typed(innerPat, _, _)
+    | SynPat.Attrib(innerPat, _, _)
+    | SynPat.Paren(innerPat, _) -> checkPattern innerPat
+    | SynPat.As(lhsPat, rhsPat, _range) -> checkPattern lhsPat && checkPattern rhsPat
 
   let getIfArgsAreFree constructorArgs func =
     match constructorArgs with
@@ -330,7 +332,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         Some(func ())
       else
         None
-    | SynArgPats.NamePatPairs (namedPatList, _) ->
+    | SynArgPats.NamePatPairs(namedPatList, _, _) ->
       let patList = namedPatList |> List.unzip3 |> (fun (_, _, pat) -> pat)
 
       if List.forall checkPattern patList then
@@ -340,7 +342,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
   let rec getCasesInPattern (pat: SynPat) =
     match pat with
-    | SynPat.LongIdent (longDotId = LongIdentWithDots (unionCaseLongIdent, _); argPats = constructorArgs) ->
+    | SynPat.LongIdent(longDotId = SynLongIdent(id = unionCaseLongIdent); argPats = constructorArgs) ->
       // Get list of qualifiers, this can be checked for length later.
       let reversedIdents =
         unionCaseLongIdent |> List.map (fun id -> id.idText) |> List.rev
@@ -351,18 +353,18 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
         getIfArgsAreFree constructorArgs (fun () -> [ (name, quals |> List.rev) ])
         |> Option.defaultValue []
 
-    | SynPat.Or (lhsPat = left; rhsPat = right) -> (getCasesInPattern left) @ (getCasesInPattern right)
-    | SynPat.Ands (patList, _) ->
+    | SynPat.Or(lhsPat = left; rhsPat = right) -> (getCasesInPattern left) @ (getCasesInPattern right)
+    | SynPat.Ands(patList, _) ->
       patList
       |> List.map (getCasesInPattern >> Set.ofList)
       |> Set.intersectMany
       |> Set.toList
-    | SynPat.Paren (innerPat, _) -> getCasesInPattern innerPat
+    | SynPat.Paren(innerPat, _) -> getCasesInPattern innerPat
     | _ -> []
 
   let rec getCasesInClause (x: SynMatchClause) =
     match x with
-    | SynMatchClause (pat, None, _, _, _, _) -> getCasesInPattern pat
+    | SynMatchClause(pat, None, _, _, _, _) -> getCasesInPattern pat
     | _ -> []
 
   patMatchExpr.Clauses |> List.collect (getCasesInClause) |> Set.ofList
@@ -458,7 +460,7 @@ let tryFindInsertionParams (codeGenService: ICodeGenerationService) document (pa
       tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
 
     match barTokenOpt with
-    | Some (_, barTokenLPos) ->
+    | Some(_, barTokenLPos) ->
       { IndentColumn = barTokenLPos.Column
         InsertionPos = last.Range.End }
       |> Some
@@ -477,7 +479,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
     // In the case when there's nothing in the RHS of the arrow
     // FCS compiler apparently uses this particular AST representation
     // but with unitRange = empty
-    | SynMatchClause(resultExpr = SynExpr.Const (SynConst.Unit, unitRange)) ->
+    | SynMatchClause(resultExpr = SynExpr.Const(SynConst.Unit, unitRange)) ->
       let rhsExprExists =
         unitRange.StartLine <> unitRange.EndLine
         || unitRange.StartColumn <> unitRange.EndColumn
@@ -510,9 +512,9 @@ let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos d
         let! symbolUse = symbolUse
 
         match symbolUse.Symbol with
-        | SymbolPatterns.UnionCase (case) when case.ReturnType.HasTypeDefinition ->
+        | SymbolPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
           return Some case.ReturnType.TypeDefinition
-        | SymbolPatterns.FSharpEntity (entity, _, _) -> return Some entity
+        | SymbolPatterns.FSharpEntity(entity, _, _) -> return Some entity
         | _ -> return None
       }
 
@@ -520,8 +522,8 @@ let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos d
 
     let! realTypeDefinition =
       match superficialTypeDefinition with
-      | Some (AbbreviatedType (TypeWithDefinition typeDef)) when typeDef.IsFSharpUnion -> Some typeDef
-      | Some (UnionType (_)) -> superficialTypeDefinition
+      | Some(AbbreviatedType(TypeWithDefinition typeDef)) when typeDef.IsFSharpUnion -> Some typeDef
+      | Some(UnionType(_)) -> superficialTypeDefinition
       | _ -> None
 
     return patMatchExpr, realTypeDefinition, insertionParams

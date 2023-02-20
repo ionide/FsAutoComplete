@@ -11,9 +11,9 @@ open FSharp.Compiler.CodeAnalysis
 module internal SynExprAppLocationsImpl =
   let rec private searchSynArgExpr traverseSynExpr expr ranges =
     match expr with
-    | SynExpr.Const (SynConst.Unit, _) -> None, None
+    | SynExpr.Const(SynConst.Unit, _) -> None, None
 
-    | SynExpr.Paren (SynExpr.Tuple (_, exprs, _commas, _tupRange), _, _, _parenRange) ->
+    | SynExpr.Paren(SynExpr.Tuple(_, exprs, _commas, _tupRange), _, _, _parenRange) ->
       let rec loop (exprs: SynExpr list) ranges =
         match exprs with
         | [] -> ranges
@@ -22,11 +22,11 @@ module internal SynExprAppLocationsImpl =
       let res = loop exprs ranges
       Some(res), None
 
-    | SynExpr.Paren (SynExpr.Paren (_, _, _, _) as synExpr, _, _, _parenRange) ->
+    | SynExpr.Paren(SynExpr.Paren(_, _, _, _) as synExpr, _, _, _parenRange) ->
       let r, _cacheOpt = searchSynArgExpr traverseSynExpr synExpr ranges
       r, None
 
-    | SynExpr.Paren (SynExpr.App (_, _isInfix, _, _, _range), _, _, parenRange) -> Some(parenRange :: ranges), None
+    | SynExpr.Paren(SynExpr.App(_, _isInfix, _, _, _range), _, _, parenRange) -> Some(parenRange :: ranges), None
 
     | e ->
       let inner = traverseSynExpr e
@@ -42,10 +42,10 @@ module internal SynExprAppLocationsImpl =
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_path, traverseSynExpr, defaultTraverse, expr) =
             match expr with
-            | SynExpr.App (_exprAtomicFlag, _isInfix, funcExpr, argExpr, range) when Position.posEq pos range.Start ->
+            | SynExpr.App(_exprAtomicFlag, _isInfix, funcExpr, argExpr, range) when Position.posEq pos range.Start ->
               let isInfixFuncExpr =
                 match funcExpr with
-                | SynExpr.App (_, isInfix, _, _, _) -> isInfix
+                | SynExpr.App(_, isInfix, _, _, _) -> isInfix
                 | _ -> false
 
               if isInfixFuncExpr then
@@ -78,14 +78,14 @@ type FSharpParseFileResults with
 
             override __.VisitBinding(_, _, binding) =
               match binding with
-              | SynBinding (valData = valData; range = ((ContainsPos pos) as range)) ->
+              | SynBinding(valData = valData; range = ((ContainsPos pos) as range)) ->
                 let info = valData.SynValInfo.CurriedArgInfos
                 let mutable found = false
 
                 for group in info do
                   for arg in group do
                     match arg.Ident with
-                    | Some (IdentContainsPos pos) -> found <- true
+                    | Some(IdentContainsPos pos) -> found <- true
                     | _ -> ()
 
                 if found then Some range else None
@@ -98,11 +98,11 @@ type FSharpParseFileResults with
     /// reused pattern to find applications of => (a symptom of improper C# style lambdas)
     let (|InfixAppOfOpEqualsGreater|_|) =
       function
-      | SynExpr.App (ExprAtomicFlag.NonAtomic,
-                     false,
-                     SynExpr.App (ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _),
-                     actualLambdaBodyExpr,
-                     _) -> Some(actualParamListExpr, actualLambdaBodyExpr)
+      | SynExpr.App(ExprAtomicFlag.NonAtomic,
+                    false,
+                    SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, _),
+                    actualLambdaBodyExpr,
+                    _) -> Some(actualParamListExpr, actualLambdaBodyExpr)
       | _ -> None
 
 
@@ -110,13 +110,13 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.Paren ((InfixAppOfOpEqualsGreater (lambdaArgs, lambdaBody) as app), _, _, _) ->
+            | SynExpr.Paren((InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _, _) ->
               Some(app.Range, lambdaArgs.Range, lambdaBody.Range)
             | _ -> defaultTraverse expr
 
           member _.VisitBinding(_, defaultTraverse, binding) =
             match binding with
-            | SynBinding (kind = SynBindingKind.Normal; expr = InfixAppOfOpEqualsGreater (lambdaArgs, lambdaBody) as app) ->
+            | SynBinding(kind = SynBindingKind.Normal; expr = InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app) ->
               Some(app.Range, lambdaArgs.Range, lambdaBody.Range)
             | _ -> defaultTraverse binding }
 
@@ -129,7 +129,7 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.App (_, false, SynExpr.Ident funcIdent, expr, _) ->
+            | SynExpr.App(_, false, SynExpr.Ident funcIdent, expr, _) ->
               if
                 funcIdent.idText = "op_Dereference"
                 && Range.rangeContainsPos expr.Range expressionPos
@@ -147,7 +147,7 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.Record (_, _, _, range) when Range.rangeContainsPos range pos -> Some range
+            | SynExpr.Record(_, _, _, range) when Range.rangeContainsPos range pos -> Some range
             | _ -> defaultTraverse expr }
     )
 
@@ -158,8 +158,8 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member __.VisitExpr(_path, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.YieldOrReturn (_, expr, range)
-            | SynExpr.YieldOrReturnFrom (_, expr, range) when Range.rangeContainsPos range pos -> Some expr.Range
+            | SynExpr.YieldOrReturn(_, expr, range)
+            | SynExpr.YieldOrReturnFrom(_, expr, range) when Range.rangeContainsPos range pos -> Some expr.Range
             | _ -> defaultTraverse expr }
     )
 
@@ -172,7 +172,7 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.App (_, _, SynExpr.App (_, true, SynExpr.Ident ident, _, _), argExpr, _) when
+            | SynExpr.App(_, _, SynExpr.App(_, true, SynExpr.Ident ident, _, _), argExpr, _) when
               Range.rangeContainsPos argExpr.Range pos
               ->
               if ident.idText = "op_PipeRight" then Some(ident, 1)
@@ -191,10 +191,10 @@ type FSharpParseFileResults with
         { new SyntaxVisitorBase<_>() with
             member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
               match expr with
-              | SynExpr.TypeApp (_, _, _, _, _, _, range) when Range.rangeContainsPos range pos -> Some range
-              | SynExpr.App (_, _, _, SynExpr.ComputationExpr (_, expr, _), range) when Range.rangeContainsPos range pos ->
+              | SynExpr.TypeApp(_, _, _, _, _, _, range) when Range.rangeContainsPos range pos -> Some range
+              | SynExpr.App(_, _, _, SynExpr.ComputationExpr(_, expr, _), range) when Range.rangeContainsPos range pos ->
                 traverseSynExpr expr
-              | SynExpr.App (_, _, _, _, range) when Range.rangeContainsPos range pos -> Some range
+              | SynExpr.App(_, _, _, _, range) when Range.rangeContainsPos range pos -> Some range
               | _ -> defaultTraverse expr }
       )
 
@@ -206,28 +206,28 @@ type FSharpParseFileResults with
       match expr with
       | SynExpr.Ident ident -> Some ident.idRange
 
-      | SynExpr.LongIdent (_, _, _, range) -> Some range
+      | SynExpr.LongIdent(_, _, _, range) -> Some range
 
-      | SynExpr.Paren (expr, _, _, range) when Range.rangeContainsPos range pos ->
+      | SynExpr.Paren(expr, _, _, range) when Range.rangeContainsPos range pos ->
         getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-      | SynExpr.TypeApp (expr, _, _, _, _, _, _) -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+      | SynExpr.TypeApp(expr, _, _, _, _, _, _) -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-      | SynExpr.App (_, _, funcExpr, argExpr, _) ->
+      | SynExpr.App(_, _, funcExpr, argExpr, _) ->
         match argExpr with
-        | SynExpr.App (_, _, _, _, range) when Range.rangeContainsPos range pos ->
+        | SynExpr.App(_, _, _, _, range) when Range.rangeContainsPos range pos ->
           getIdentRangeForFuncExprInApp traverseSynExpr argExpr pos
 
         // Special case: `async { ... }` is actually a CompExpr inside of the argExpr of a SynExpr.App
-        | SynExpr.ComputationExpr (_, expr, range) when Range.rangeContainsPos range pos ->
+        | SynExpr.ComputationExpr(_, expr, range) when Range.rangeContainsPos range pos ->
           getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-        | SynExpr.Paren (expr, _, _, range) when Range.rangeContainsPos range pos ->
+        | SynExpr.Paren(expr, _, _, range) when Range.rangeContainsPos range pos ->
           getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
         | _ ->
           match funcExpr with
-          | SynExpr.App (_, true, _, _, _) when Range.rangeContainsPos argExpr.Range pos ->
+          | SynExpr.App(_, true, _, _, _) when Range.rangeContainsPos argExpr.Range pos ->
             // x |> List.map
             // Don't dive into the funcExpr (the operator expr)
             // because we dont want to offer sig help for that!
@@ -237,16 +237,16 @@ type FSharpParseFileResults with
             // of the identifier of the function we're after
             getIdentRangeForFuncExprInApp traverseSynExpr funcExpr pos
 
-      | SynExpr.LetOrUse (bindings = bindings; body = body; range = range) when Range.rangeContainsPos range pos ->
+      | SynExpr.LetOrUse(bindings = bindings; body = body; range = range) when Range.rangeContainsPos range pos ->
         let binding =
           bindings
           |> List.tryFind (fun x -> Range.rangeContainsPos x.RangeOfBindingWithRhs pos)
 
         match binding with
-        | Some (SynBinding (expr = expr)) -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
+        | Some(SynBinding(expr = expr)) -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
         | None -> getIdentRangeForFuncExprInApp traverseSynExpr body pos
 
-      | SynExpr.IfThenElse (ifExpr = ifExpr; thenExpr = thenExpr; elseExpr = elseExpr; range = range) when
+      | SynExpr.IfThenElse(ifExpr = ifExpr; thenExpr = thenExpr; elseExpr = elseExpr; range = range) when
         Range.rangeContainsPos range pos
         ->
         if Range.rangeContainsPos ifExpr.Range pos then
@@ -258,7 +258,7 @@ type FSharpParseFileResults with
           | None -> None
           | Some expr -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-      | SynExpr.Match (expr = expr; clauses = clauses; range = range) when Range.rangeContainsPos range pos ->
+      | SynExpr.Match(expr = expr; clauses = clauses; range = range) when Range.rangeContainsPos range pos ->
         if Range.rangeContainsPos expr.Range pos then
           getIdentRangeForFuncExprInApp traverseSynExpr expr pos
         else
@@ -269,7 +269,7 @@ type FSharpParseFileResults with
           | None -> None
           | Some clause ->
             match clause with
-            | SynMatchClause (whenExpr = whenExpr; resultExpr = resultExpr) ->
+            | SynMatchClause(whenExpr = whenExpr; resultExpr = resultExpr) ->
               match whenExpr with
               | None -> getIdentRangeForFuncExprInApp traverseSynExpr resultExpr pos
               | Some whenExpr ->
@@ -280,7 +280,7 @@ type FSharpParseFileResults with
 
 
       // Ex: C.M(x, y, ...) <--- We want to find where in the tupled application the call is being made
-      | SynExpr.Tuple (_, exprs, _, tupRange) when Range.rangeContainsPos tupRange pos ->
+      | SynExpr.Tuple(_, exprs, _, tupRange) when Range.rangeContainsPos tupRange pos ->
         let expr = exprs |> List.tryFind (fun expr -> Range.rangeContainsPos expr.Range pos)
 
         match expr with
@@ -288,16 +288,16 @@ type FSharpParseFileResults with
         | Some expr -> getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
       // Capture the body of a lambda, often nested in a call to a collection function
-      | SynExpr.Lambda (body = body) when Range.rangeContainsPos body.Range pos ->
+      | SynExpr.Lambda(body = body) when Range.rangeContainsPos body.Range pos ->
         getIdentRangeForFuncExprInApp traverseSynExpr body pos
 
-      | SynExpr.Do (expr, range) when Range.rangeContainsPos range pos ->
+      | SynExpr.Do(expr, range) when Range.rangeContainsPos range pos ->
         getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-      | SynExpr.Assert (expr, range) when Range.rangeContainsPos range pos ->
+      | SynExpr.Assert(expr, range) when Range.rangeContainsPos range pos ->
         getIdentRangeForFuncExprInApp traverseSynExpr expr pos
 
-      | SynExpr.ArbitraryAfterError (_debugStr, range) when Range.rangeContainsPos range pos -> Some range
+      | SynExpr.ArbitraryAfterError(_debugStr, range) when Range.rangeContainsPos range pos -> Some range
 
       | expr -> traverseSynExpr expr |> Option.map (fun expr -> expr)
 
@@ -308,9 +308,9 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
             match expr with
-            | SynExpr.TypeApp (expr, _, _, _, _, _, range) when Range.rangeContainsPos range pos ->
+            | SynExpr.TypeApp(expr, _, _, _, _, _, range) when Range.rangeContainsPos range pos ->
               getIdentRangeForFuncExprInApp traverseSynExpr expr pos
-            | SynExpr.App (_, _, _funcExpr, _, range) as app when Range.rangeContainsPos range pos ->
+            | SynExpr.App(_, _, _funcExpr, _, range) as app when Range.rangeContainsPos range pos ->
               getIdentRangeForFuncExprInApp traverseSynExpr app pos
             | _ -> defaultTraverse expr }
     )
@@ -327,7 +327,7 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.App (_, false, SynExpr.Ident funcIdent, expr, _) ->
+            | SynExpr.App(_, false, SynExpr.Ident funcIdent, expr, _) ->
               if
                 funcIdent.idText = "op_Dereference"
                 && Range.rangeContainsPos expr.Range expressionPos
@@ -346,7 +346,7 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.InterpolatedString (range = range) when Range.rangeContainsPos range pos -> Some range
+            | SynExpr.InterpolatedString(range = range) when Range.rangeContainsPos range pos -> Some range
             | _ -> defaultTraverse expr }
     )
 
@@ -354,7 +354,7 @@ module SyntaxTreeOps =
   open FSharp.Compiler.Syntax
 
   let rec synExprContainsError inpExpr =
-    let rec walkBind (SynBinding (expr = expr)) = walkExpr expr
+    let rec walkBind (SynBinding(expr = expr)) = walkExpr expr
 
     and walkExprs es = es |> List.exists walkExpr
 
@@ -362,7 +362,7 @@ module SyntaxTreeOps =
 
     and walkMatchClauses cl =
       cl
-      |> List.exists (fun (SynMatchClause (whenExpr = whenExpr; resultExpr = resultExpr)) ->
+      |> List.exists (fun (SynMatchClause(whenExpr = whenExpr; resultExpr = resultExpr)) ->
         walkExprOpt whenExpr || walkExpr resultExpr)
 
     and walkExprOpt eOpt = eOpt |> Option.exists walkExpr
@@ -380,114 +380,118 @@ module SyntaxTreeOps =
       | SynExpr.Null _
       | SynExpr.Ident _
       | SynExpr.ImplicitZero _
+      | SynExpr.Typar _
       | SynExpr.Const _ -> false
 
-      | SynExpr.TypeTest (e, _, _)
-      | SynExpr.Upcast (e, _, _)
-      | SynExpr.AddressOf (_, e, _, _)
-      | SynExpr.ComputationExpr (_, e, _)
-      | SynExpr.ArrayOrListComputed (_, e, _)
-      | SynExpr.Typed (e, _, _)
-      | SynExpr.FromParseError (e, _)
-      | SynExpr.Do (e, _)
-      | SynExpr.Assert (e, _)
-      | SynExpr.DotGet (e, _, _, _)
-      | SynExpr.LongIdentSet (_, e, _)
-      | SynExpr.New (_, _, e, _)
-      | SynExpr.TypeApp (e, _, _, _, _, _, _)
-      | SynExpr.LibraryOnlyUnionCaseFieldGet (e, _, _, _)
-      | SynExpr.Downcast (e, _, _)
-      | SynExpr.InferredUpcast (e, _)
-      | SynExpr.InferredDowncast (e, _)
-      | SynExpr.Lazy (e, _)
-      | SynExpr.TraitCall (_, _, e, _)
-      | SynExpr.YieldOrReturn (_, e, _)
-      | SynExpr.YieldOrReturnFrom (_, e, _)
-      | SynExpr.DoBang (e, _)
-      | SynExpr.Fixed (e, _)
-      | SynExpr.Paren (e, _, _, _) -> walkExpr e
+      | SynExpr.TypeTest(e, _, _)
+      | SynExpr.Upcast(e, _, _)
+      | SynExpr.AddressOf(_, e, _, _)
+      | SynExpr.ComputationExpr(_, e, _)
+      | SynExpr.ArrayOrListComputed(_, e, _)
+      | SynExpr.Typed(e, _, _)
+      | SynExpr.FromParseError(e, _)
+      | SynExpr.Do(e, _)
+      | SynExpr.Assert(e, _)
+      | SynExpr.DotGet(e, _, _, _)
+      | SynExpr.LongIdentSet(_, e, _)
+      | SynExpr.New(_, _, e, _)
+      | SynExpr.TypeApp(e, _, _, _, _, _, _)
+      | SynExpr.LibraryOnlyUnionCaseFieldGet(e, _, _, _)
+      | SynExpr.Downcast(e, _, _)
+      | SynExpr.InferredUpcast(e, _)
+      | SynExpr.InferredDowncast(e, _)
+      | SynExpr.Lazy(e, _)
+      | SynExpr.TraitCall(_, _, e, _)
+      | SynExpr.YieldOrReturn(_, e, _)
+      | SynExpr.YieldOrReturnFrom(_, e, _)
+      | SynExpr.DoBang(e, _)
+      | SynExpr.Fixed(e, _)
+      | SynExpr.Paren(e, _, _, _) -> walkExpr e
 
-      | SynExpr.NamedIndexedPropertySet (_, e1, e2, _)
-      | SynExpr.DotSet (e1, _, e2, _)
-      | SynExpr.Set (e1, e2, _)
-      | SynExpr.LibraryOnlyUnionCaseFieldSet (e1, _, _, e2, _)
-      | SynExpr.JoinIn (e1, _, e2, _)
-      | SynExpr.App (_, _, e1, e2, _) -> walkExpr e1 || walkExpr e2
+      | SynExpr.NamedIndexedPropertySet(_, e1, e2, _)
+      | SynExpr.DotSet(e1, _, e2, _)
+      | SynExpr.Set(e1, e2, _)
+      | SynExpr.LibraryOnlyUnionCaseFieldSet(e1, _, _, e2, _)
+      | SynExpr.JoinIn(e1, _, e2, _)
+      | SynExpr.App(_, _, e1, e2, _) -> walkExpr e1 || walkExpr e2
 
-      | SynExpr.ArrayOrList (_, es, _)
-      | SynExpr.Tuple (_, es, _, _) -> walkExprs es
+      | SynExpr.ArrayOrList(_, es, _)
+      | SynExpr.Tuple(_, es, _, _) -> walkExprs es
 
-      | SynExpr.AnonRecd (copyInfo = copyInfo; recordFields = recordFields) ->
+      | SynExpr.AnonRecd(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
-         | Some (e, _) -> walkExpr e
+         | Some(e, _) -> walkExpr e
          | None -> false)
         || walkExprs (recordFields |> List.map (fun (ident, range, expr) -> expr))
 
-      | SynExpr.Record (copyInfo = copyInfo; recordFields = recordFields) ->
+      | SynExpr.Record(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
-         | Some (e, _) -> walkExpr e
+         | Some(e, _) -> walkExpr e
          | None -> false)
         || let flds =
-             recordFields |> List.choose (fun (SynExprRecordField (expr = expr)) -> expr) in
+             recordFields |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr) in
+
            walkExprs flds
 
-      | SynExpr.ObjExpr (bindings = bindings; extraImpls = extraImpls) ->
+      | SynExpr.ObjExpr(bindings = bindings; extraImpls = extraImpls) ->
         walkBinds bindings
         || walkBinds
-             [ for (SynInterfaceImpl (bindings = bindings)) in extraImpls do
-                 yield! bindings ]
+          [ for (SynInterfaceImpl(bindings = bindings)) in extraImpls do
+              yield! bindings ]
 
-      | SynExpr.ForEach (enumExpr = e1; bodyExpr = e2)
-      | SynExpr.While (whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
+      | SynExpr.ForEach(enumExpr = e1; bodyExpr = e2)
+      | SynExpr.While(whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
 
-      | SynExpr.For (identBody = e1; toBody = e2; doBody = e3) -> walkExpr e1 || walkExpr e2 || walkExpr e3
+      | SynExpr.For(identBody = e1; toBody = e2; doBody = e3) -> walkExpr e1 || walkExpr e2 || walkExpr e3
 
-      | SynExpr.MatchLambda (matchClauses = cl) -> walkMatchClauses cl
+      | SynExpr.MatchLambda(matchClauses = cl) -> walkMatchClauses cl
 
-      | SynExpr.Lambda (body = body) -> walkExpr body
+      | SynExpr.Lambda(body = body) -> walkExpr body
 
-      | SynExpr.Match (expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
+      | SynExpr.Match(expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
 
-      | SynExpr.LetOrUse (bindings = bs; body = e) -> walkBinds bs || walkExpr e
+      | SynExpr.LetOrUse(bindings = bs; body = e) -> walkBinds bs || walkExpr e
 
-      | SynExpr.TryWith (tryExpr = e; withCases = cl) -> walkExpr e || walkMatchClauses cl
+      | SynExpr.TryWith(tryExpr = e; withCases = cl) -> walkExpr e || walkMatchClauses cl
 
-      | SynExpr.TryFinally (tryExpr = e1; finallyExpr = e2) -> walkExpr e1 || walkExpr e2
+      | SynExpr.TryFinally(tryExpr = e1; finallyExpr = e2) -> walkExpr e1 || walkExpr e2
 
-      | SynExpr.Sequential (_, _, e1, e2, _) -> walkExpr e1 || walkExpr e2
+      | SynExpr.Sequential(_, _, e1, e2, _) -> walkExpr e1 || walkExpr e2
 
-      | SynExpr.SequentialOrImplicitYield (_, e1, e2, _, _) -> walkExpr e1 || walkExpr e2
+      | SynExpr.SequentialOrImplicitYield(_, e1, e2, _, _) -> walkExpr e1 || walkExpr e2
 
-      | SynExpr.IfThenElse (ifExpr = e1; thenExpr = e2; elseExpr = e3opt) ->
+      | SynExpr.IfThenElse(ifExpr = e1; thenExpr = e2; elseExpr = e3opt) ->
         walkExpr e1 || walkExpr e2 || walkExprOpt e3opt
 
-      | SynExpr.DotIndexedGet (e1, es, _, _) -> walkExpr e1 || walkExpr es
+      | SynExpr.DotIndexedGet(e1, es, _, _) -> walkExpr e1 || walkExpr es
 
-      | SynExpr.DotIndexedSet (e1, es, e2, _, _, _) -> walkExpr e1 || walkExpr es || walkExpr e2
+      | SynExpr.DotIndexedSet(e1, es, e2, _, _, _) -> walkExpr e1 || walkExpr es || walkExpr e2
 
-      | SynExpr.DotNamedIndexedPropertySet (e1, _, e2, e3, _) -> walkExpr e1 || walkExpr e2 || walkExpr e3
+      | SynExpr.DotNamedIndexedPropertySet(e1, _, e2, e3, _) -> walkExpr e1 || walkExpr e2 || walkExpr e3
 
-      | SynExpr.MatchBang (expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
+      | SynExpr.MatchBang(expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
 
-      | SynExpr.LetOrUseBang (rhs = e1; body = e2; andBangs = es) ->
+      | SynExpr.LetOrUseBang(rhs = e1; body = e2; andBangs = es) ->
         walkExpr e1
         || walkExprs
-             [ for (SynExprAndBang (body = e)) in es do
-                 yield e ]
+          [ for (SynExprAndBang(body = e)) in es do
+              yield e ]
         || walkExpr e2
 
-      | SynExpr.InterpolatedString (parts, _, _m) ->
+      | SynExpr.InterpolatedString(parts, _, _m) ->
         walkExprs (
           parts
           |> List.choose (function
             | SynInterpolatedStringPart.String _ -> None
-            | SynInterpolatedStringPart.FillExpr (x, _) -> Some x)
+            | SynInterpolatedStringPart.FillExpr(x, _) -> Some x)
         )
-      | SynExpr.IndexRange (expr1, opm, expr2, range1, range2, range3) ->
+      | SynExpr.IndexRange(expr1, opm, expr2, range1, range2, range3) ->
         Option.map walkExpr expr1
         |> Option.orElseWith (fun _ -> Option.map walkExpr expr2)
         |> Option.defaultValue false
-      | SynExpr.IndexFromEnd (expr, range) -> walkExpr expr
-      | SynExpr.DebugPoint (innerExpr = expr) -> walkExpr expr
+      | SynExpr.IndexFromEnd(expr, range) -> walkExpr expr
+      | SynExpr.DebugPoint(innerExpr = expr) -> walkExpr expr
+      | SynExpr.Dynamic(funcExpr = funcExpr; argExpr = argExpr) -> walkExpr funcExpr || walkExpr argExpr
+
 
     walkExpr inpExpr

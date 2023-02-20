@@ -19,32 +19,6 @@
       "internalConsoleOptions": "openOnSessionStart"
     },
     {
-      "name": "Specific LSP tests",
-      "type": "coreclr",
-      "request": "launch",
-      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/net6.0/FsAutoComplete.Tests.Lsp.dll",
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "stopAtEntry": false,
-      "justMyCode": false,
-      "symbolOptions": {
-        "searchPaths": [],
-        "searchMicrosoftSymbolServer": true,
-        "searchNuGetOrgSymbolServer": true
-      },
-      "sourceLinkOptions": {
-        "*": {
-          "enabled": true
-        }
-      },
-      "enableStepFiltering": false,
-      "args": [
-        "--debug",
-        "--filter",
-        "FSAC.lsp.Ionide WorkspaceLoader.Go to definition tests.Script GoTo Tests.Go-to-definition on first char of identifier works"
-      ]
-    },
-    {
       "name": ".NET Core Attach",
       "type": "coreclr",
       "request": "attach",
@@ -111,7 +85,7 @@
         "FSharpLspServer",
         "AdaptiveLspServer"
       ],
-      "default": "FSharpLspServer",
+      "default": "AdaptiveLspServer",
       "type": "pickString"
     },
     {

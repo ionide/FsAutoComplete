@@ -25,7 +25,7 @@ let private variableHasAccessibility (ast: ParsedInput) (pos: Position) =
     { new SyntaxVisitorBase<_>() with
         member _.VisitPat(_, defaultTraverse, pat) =
           match pat with
-          | SynPat.Named (accessibility = Some _; range = range) when Range.rangeContainsPos range pos ->
+          | SynPat.Named(accessibility = Some _; range = range) when Range.rangeContainsPos range pos ->
             // `SynAccess` in FCS version currently used in FSAC doesn't contain its range
             // -> no easy way to get range with accessibility
             // -> instead of returning range with accessibility, just info if there's accessibility

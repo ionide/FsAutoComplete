@@ -14,19 +14,19 @@ type AbstractClassData =
 
   member x.AbstractTypeIdentRange =
     match x with
-    | ObjExpr (baseTy, _, _)
-    | ExplicitImpl (baseTy, _, _) -> baseTy.Range
+    | ObjExpr(baseTy, _, _)
+    | ExplicitImpl(baseTy, _, _) -> baseTy.Range
 
   member x.TypeParameters =
     match x with
-    | ObjExpr (t, _, _)
-    | ExplicitImpl (t, _, _) -> expandTypeParameters t
+    | ObjExpr(t, _, _)
+    | ExplicitImpl(t, _, _) -> expandTypeParameters t
 
 /// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
-let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range, trivia)) =
+let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, trivia)) =
   let reprMembers =
     match repr with
-    | SynTypeDefnRepr.ObjectModel (_, members, _) -> members
+    | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
     | _ -> []
 
   let allMembers = reprMembers @ (Option.toList implicitCtor) @ members
@@ -34,7 +34,7 @@ let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range,
   let inheritMember =
     allMembers
     |> List.tryPick (function
-      | SynMemberDefn.ImplicitInherit (inheritType, inheritArgs, alias, range) -> Some(inheritType)
+      | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType)
       | _ -> None)
 
   let otherMembers =
@@ -43,8 +43,8 @@ let private walkTypeDefn (SynTypeDefn (info, repr, members, implicitCtor, range,
     |> List.filter (function
       | SynMemberDefn.ImplicitCtor _
       | SynMemberDefn.ImplicitInherit _ -> false
-      | SynMemberDefn.Member (SynBinding(valData = SynValData (Some ({ MemberKind = SynMemberKind.Constructor }), _, _)),
-                              _) -> false
+      | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
+        false
       | _ -> true)
 
   match inheritMember with
@@ -68,13 +68,13 @@ let private tryFindAbstractClassExprInParsedInput
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(path, traverseExpr, defaultTraverse, expr) =
           match expr with
-          | SynExpr.ObjExpr (baseTy, constructorArgs, withKeyword, bindings, members, extraImpls, newExprRange, range) ->
+          | SynExpr.ObjExpr(baseTy, constructorArgs, withKeyword, bindings, members, extraImpls, newExprRange, range) ->
             Some(AbstractClassData.ObjExpr(baseTy, bindings, range))
           | _ -> defaultTraverse expr
 
         override _.VisitModuleDecl(_, defaultTraverse, decl) =
           match decl with
-          | SynModuleDecl.Types (types, m) -> List.tryPick walkTypeDefn types
+          | SynModuleDecl.Types(types, m) -> List.tryPick walkTypeDefn types
           | _ -> defaultTraverse decl }
   )
 
@@ -103,14 +103,14 @@ let getAbstractClassIdentifier (abstractClassData: AbstractClassData) tokens =
 
 let getMemberNameAndRanges (abstractClassData) =
   match abstractClassData with
-  | AbstractClassData.ExplicitImpl (ty, members, _) ->
+  | AbstractClassData.ExplicitImpl(ty, members, _) ->
     members
     |> Seq.choose (function
-      | (SynMemberDefn.Member (binding, _)) -> Some binding
+      | (SynMemberDefn.Member(binding, _)) -> Some binding
       | _ -> None)
     |> Seq.choose (|MemberNameAndRange|_|)
     |> Seq.toList
-  | AbstractClassData.ObjExpr (_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
+  | AbstractClassData.ObjExpr(_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
 
 /// Try to find the start column, so we know what the base indentation should be
 let inferStartColumn
@@ -129,7 +129,7 @@ let inferStartColumn
     | AbstractClassData.ExplicitImpl _ ->
       // 'interface ISomething with' is often in a new line, we use the indentation of that line
       getLineIdent lineStr + indentSize
-    | AbstractClassData.ObjExpr (_, _, newExprRange) ->
+    | AbstractClassData.ObjExpr(_, _, newExprRange) ->
       match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
       | Some tokens ->
         tokens
@@ -188,7 +188,7 @@ let writeAbstractClassStub
         match abstractClassData with
         | AbstractClassData.ObjExpr _ ->
           findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
-        | AbstractClassData.ExplicitImpl (_, _, safeInsertPosition) -> Some(false, safeInsertPosition)
+        | AbstractClassData.ExplicitImpl(_, _, safeInsertPosition) -> Some(false, safeInsertPosition)
       | None -> None
 
     let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
@@ -222,7 +222,7 @@ let writeAbstractClassStub
       return! None
     else
       match insertInfo with
-      | Some (shouldAppendWith, insertPosition) ->
+      | Some(shouldAppendWith, insertPosition) ->
         if shouldAppendWith then
           return! Some(insertPosition, " with" + generatedString)
         else

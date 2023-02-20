@@ -42,8 +42,12 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
         let! line =
           getLineText
             lines
-            { Start = { diagnostic.Range.Start with Character = 0 }
-              End = { diagnostic.Range.End with Character = lineLen } }
+            { Start =
+                { diagnostic.Range.Start with
+                    Character = 0 }
+              End =
+                { diagnostic.Range.End with
+                    Character = lineLen } }
 
         match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
         | Some lexSym ->

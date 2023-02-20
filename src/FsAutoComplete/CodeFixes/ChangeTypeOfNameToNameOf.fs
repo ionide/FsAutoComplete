@@ -17,9 +17,9 @@ type FSharpParseFileResults with
       { new SyntaxVisitorBase<_>() with
           member _.VisitExpr(_path, _, defaultTraverse, expr) =
             match expr with
-            | SynExpr.DotGet (expr, _, _, range) ->
+            | SynExpr.DotGet(expr, _, _, range) ->
               match expr with
-              | SynExpr.TypeApp (SynExpr.Ident (ident), _, typeArgs, _, _, _, _) ->
+              | SynExpr.TypeApp(SynExpr.Ident(ident), _, typeArgs, _, _, _, _) ->
                 let onlyOneTypeArg =
                   match typeArgs with
                   | [] -> false

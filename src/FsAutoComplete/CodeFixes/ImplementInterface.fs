@@ -20,9 +20,9 @@ let private tryFindInterfaceDeclarationInObjectExpression (pos: Position) (ast: 
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(_, _, defaultTraverse, expr) =
           match expr with
-          | SynExpr.ObjExpr (objType = ty; bindings = binds; extraImpls = ifaces) ->
+          | SynExpr.ObjExpr(objType = ty; bindings = binds; extraImpls = ifaces) ->
             ifaces
-            |> List.tryPick (fun (SynInterfaceImpl (interfaceTy = ty; bindings = binds; range = range)) ->
+            |> List.tryPick (fun (SynInterfaceImpl(interfaceTy = ty; bindings = binds; range = range)) ->
               if Range.rangeContainsPos range pos then
                 Some(InterfaceData.ObjExpr(ty, binds))
               else
@@ -50,7 +50,7 @@ let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
         member _.VisitExpr(_, _, defaultTraverse, expr) =
           match expr with
           // main interface
-          | SynExpr.ObjExpr (objType = ty; withKeyword = withRange; newExprRange = startingAtNewRange) when
+          | SynExpr.ObjExpr(objType = ty; withKeyword = withRange; newExprRange = startingAtNewRange) when
             Range.rangeContainsPos ty.Range pos
             ->
             // { new IDisposable with }
@@ -58,10 +58,10 @@ let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
             let start = startingAtNewRange.Start
             Some(start, withRange)
           // secondary interface
-          | SynExpr.ObjExpr (extraImpls = ifaces) ->
+          | SynExpr.ObjExpr(extraImpls = ifaces) ->
             ifaces
             |> List.tryPick
-              (fun (SynInterfaceImpl (interfaceTy = ty; withKeyword = withRange; range = startingAtInterfaceRange)) ->
+              (fun (SynInterfaceImpl(interfaceTy = ty; withKeyword = withRange; range = startingAtInterfaceRange)) ->
                 if Range.rangeContainsPos ty.Range pos then
                   //   { new IDisposable with
                   //       member this.Dispose() = ()
@@ -77,17 +77,17 @@ let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
 
         member _.VisitModuleDecl(_, defaultTraverse, synModuleDecl) =
           match synModuleDecl with
-          | SynModuleDecl.Types (typeDefns, _) ->
+          | SynModuleDecl.Types(typeDefns, _) ->
             let typeDefn =
               typeDefns
               |> List.tryFind (fun typeDef -> Range.rangeContainsPos typeDef.Range pos)
 
             match typeDefn with
-            | Some (SynTypeDefn (typeRepr = typeRepr; members = members)) ->
+            | Some(SynTypeDefn(typeRepr = typeRepr; members = members)) ->
               let tryFindInMemberDefns (members: SynMemberDefns) =
                 members
                 |> List.tryPick (function
-                  | SynMemberDefn.Interface (interfaceType = ty; withKeyword = withRange; range = range) when
+                  | SynMemberDefn.Interface(interfaceType = ty; withKeyword = withRange; range = range) when
                     Range.rangeContainsPos ty.Range pos
                     ->
                     // interface IDisposable with
@@ -97,7 +97,7 @@ let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
                   | _ -> None)
 
               match typeRepr with
-              | SynTypeDefnRepr.ObjectModel (members = members) ->
+              | SynTypeDefnRepr.ObjectModel(members = members) ->
                 // in class (-> in typeRepr)
                 tryFindInMemberDefns members
               | _ -> None
@@ -127,20 +127,31 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
 
   let lastExistingMember =
     match interfaceData with
-    | InterfaceData.Interface (_, None) -> None
-    | InterfaceData.Interface (_, Some memberDefns) ->
+    | InterfaceData.Interface(_, None) -> None
+    | InterfaceData.Interface(_, Some memberDefns) ->
       memberDefns
       |> List.choose (function
-        | SynMemberDefn.Member (memberDefn = binding) -> Some binding
+        | SynMemberDefn.Member(memberDefn = binding)
+        | SynMemberDefn.GetSetMember(memberDefnForGet = None; memberDefnForSet = Some binding)
+        | SynMemberDefn.GetSetMember(memberDefnForGet = Some binding; memberDefnForSet = None) -> Some binding
+        | SynMemberDefn.GetSetMember(
+            memberDefnForGet = Some(SynBinding(range = getRange) as getBinding)
+            memberDefnForSet = Some(SynBinding(range = setRange) as setBinding)) ->
+          if getRange.StartLine < setRange.StartLine then
+            Some setBinding
+          else
+            Some getBinding
         | _ -> None)
       |> List.tryLast
-    | InterfaceData.ObjExpr (_, bindings) -> bindings |> List.tryLast
+    | InterfaceData.ObjExpr(_, bindings) -> bindings |> List.tryLast
 
   match lastExistingMember with
-  | Some (SynBinding (attributes = attributes
-                      valData = SynValData (memberFlags = memberFlags)
-                      headPat = headPat
-                      expr = expr)) ->
+  | Some(SynBinding(
+      attributes = attributes
+      valData = SynValData(memberFlags = memberFlags)
+      headPat = headPat
+      expr = expr
+      trivia = trivia)) ->
     // align with existing member
     // insert after last member
 
@@ -184,30 +195,10 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
       attributes
       |> List.tryHead
       |> Option.map (fun attr -> attr.Range.StartColumn)
-      |> Option.orElseWith (fun _ ->
-        // leftmost `member` or `override` (and just to be sure: `default`, `abstract` or `static`)
-        match memberFlags with
-        | Some memberFlags ->
-          let trivia = memberFlags.Trivia
-
-          [ trivia.StaticRange
-            trivia.MemberRange
-            trivia.OverrideRange
-            trivia.AbstractRange
-            trivia.DefaultRange ]
-          |> List.choose id
-          |> List.map (fun r -> r.StartColumn)
-          // List.tryMin
-          |> List.fold
-               (fun m c ->
-                 match m with
-                 | None -> Some c
-                 | Some m -> min c m |> Some)
-               None
-        | None -> None)
+      |> Option.orElseWith (fun _ -> Some trivia.LeadingKeyword.Range.StartColumn)
       |> Option.defaultValue
-           // fallback: start of head pat (should not happen -> always `member`)
-           headPat.Range.StartColumn
+        // fallback: start of head pat (should not happen -> always `member`)
+        headPat.Range.StartColumn
 
     let insertPos = expr.Range.End
 
@@ -221,7 +212,7 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
     // insert after `with` or identifier
     match tryFindInterfaceStartAndWith interfaceData.Range.End ast with
     | None -> None
-    | Some (startPos, withRange) ->
+    | Some(startPos, withRange) ->
       let startCol = startPos.Column + indentationSize
 
       let insertPos =
@@ -271,8 +262,8 @@ let fix
       /// End of Interface identifier
       let ifacePos =
         match interfaceData with
-        | InterfaceData.ObjExpr (ty, _) -> ty.Range.End
-        | InterfaceData.Interface (ty, _) -> ty.Range.End
+        | InterfaceData.ObjExpr(ty, _) -> ty.Range.End
+        | InterfaceData.Interface(ty, _) -> ty.Range.End
       // line might be different -> update
       // (for example when `{` not on same line as main interface name)
       let! line =
@@ -373,9 +364,13 @@ let fix
                    | Some edit -> edit
                    | None -> () |] }
 
-          return
+          let edits =
             [ getFix titleWithTypeAnnotation (getMainEdit true)
-              getFix titleWithoutTypeAnnotation (getMainEdit false) ]
+              // TODO: reenable when https://github.com/dotnet/fsharp/issues/14698 is fixed and shipped
+              // getFix titleWithoutTypeAnnotation (getMainEdit false)
+              ]
+
+          return edits
         else
           return []
       | _ -> return []

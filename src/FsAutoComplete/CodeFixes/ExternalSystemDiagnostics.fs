@@ -19,7 +19,7 @@ let private mapExternalDiagnostic diagnosticType =
     | None -> AsyncResult.retn []
     | Some fixes ->
       match fixes with
-      | Payload (fixes: list<TextEdit>) ->
+      | Payload(fixes: list<TextEdit>) ->
         AsyncResult.retn
           [ { SourceDiagnostic = Some diagnostic
               File = codeActionParams.TextDocument

@@ -14,16 +14,16 @@ let title = "Replace C#-style lambda with F# lambda"
 let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
   let (|Ident|_|) ofName =
     function
-    | SynExpr.Ident ident when ident.idText = ofName -> Some()
+    | SynExpr.LongIdent(longDotId = SynLongIdent(id = [ ident ])) when ident.idText = ofName -> Some()
     | _ -> None
 
   let (|InfixAppOfOpEqualsGreater|_|) =
     function
-    | SynExpr.App (ExprAtomicFlag.NonAtomic,
-                   false,
-                   SynExpr.App (ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, range),
-                   actualLambdaBodyExpr,
-                   _) ->
+    | SynExpr.App(ExprAtomicFlag.NonAtomic,
+                  false,
+                  SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, range),
+                  actualLambdaBodyExpr,
+                  _) ->
       let opEnd = range.End
       let opStart = Position.mkPos (range.End.Line) (range.End.Column - 2)
       let opRange = Range.mkRange range.FileName opStart opEnd
@@ -39,12 +39,12 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(_, _, defaultTraverse, expr) =
           match expr with
-          | SynExpr.Paren (InfixAppOfOpEqualsGreater (argsRange, opRange), _, _, _) -> Some(argsRange, opRange)
+          | SynExpr.Paren(InfixAppOfOpEqualsGreater(argsRange, opRange), _, _, _) -> Some(argsRange, opRange)
           | _ -> defaultTraverse expr
 
         member _.VisitBinding(_path, defaultTraverse, binding) =
           match binding with
-          | SynBinding (kind = SynBindingKind.Normal; expr = InfixAppOfOpEqualsGreater (argsRange, opRange)) ->
+          | SynBinding(kind = SynBindingKind.Normal; expr = InfixAppOfOpEqualsGreater(argsRange, opRange)) ->
             Some(argsRange, opRange)
           | _ -> defaultTraverse binding }
   )
@@ -62,7 +62,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         let! (tyRes, _, lines) = getParseResultsForFile fileName fcsPos
 
         match tryRangeOfParenEnclosingOpEqualsGreaterUsage tyRes.GetAST fcsPos with
-        | Some (argsRange, opRange) ->
+        | Some(argsRange, opRange) ->
           return
             [ { Title = title
                 File = codeActionParams.TextDocument

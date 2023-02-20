@@ -17,7 +17,7 @@ let private tryGetRangeOfDeref input derefPos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(_, _, defaultTraverse, expr) =
           match expr with
-          | SynExpr.App (_, false, SynExpr.Ident funcIdent, expr, _) ->
+          | SynExpr.App(_, false, SynExpr.LongIdent(longDotId = SynLongIdent(id = [ funcIdent ])), expr, _) ->
             if
               funcIdent.idText = "op_Dereference"
               && rangeContainsPos funcIdent.idRange derefPos

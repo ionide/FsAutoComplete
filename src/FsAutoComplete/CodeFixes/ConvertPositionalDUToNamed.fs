@@ -33,14 +33,14 @@ type ParseAndCheckResults with
   member x.TryGetPositionalUnionPattern(pos: FcsPos) =
     let rec (|UnionNameAndPatterns|_|) =
       function
-      | SynPat.LongIdent (longDotId = ident
-                          argPats = SynArgPats.Pats [ SynPat.Paren (pat = SynPat.Tuple (elementPats = duFieldPatterns)
-                                                                    range = parenRange) ]) ->
+      | SynPat.LongIdent(
+          longDotId = ident
+          argPats = SynArgPats.Pats [ SynPat.Paren(pat = SynPat.Tuple(elementPats = duFieldPatterns); range = parenRange) ]) ->
         Some(ident, duFieldPatterns, parenRange)
-      | SynPat.LongIdent (longDotId = ident
-                          argPats = SynArgPats.Pats [ SynPat.Paren (pat = singleDUFieldPattern; range = parenRange) ]) ->
+      | SynPat.LongIdent(
+          longDotId = ident; argPats = SynArgPats.Pats [ SynPat.Paren(pat = singleDUFieldPattern; range = parenRange) ]) ->
         Some(ident, [ singleDUFieldPattern ], parenRange)
-      | SynPat.Paren(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
+      | SynPat.Paren(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
         Some(ident, duFieldPatterns, parenRange)
       | _ -> None
 
@@ -49,7 +49,7 @@ type ParseAndCheckResults with
           member x.VisitBinding(path, defaultTraverse, binding) =
             match binding with
             // DU case with multiple
-            | SynBinding(headPat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
+            | SynBinding(headPat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
               Some(ident, duFieldPatterns, parenRange)
             | _ -> defaultTraverse binding
 
@@ -57,7 +57,7 @@ type ParseAndCheckResults with
           // TODO: reevaluate after https://github.com/dotnet/fsharp/pull/12837 merges
           member x.VisitExpr(path, traverse, defaultTraverse, expr) =
             match expr with
-            | SynExpr.Match (expr = argExpr; clauses = clauses) ->
+            | SynExpr.Match(expr = argExpr; clauses = clauses) ->
               let path = SyntaxNode.SynExpr argExpr :: path
 
               match x.VisitExpr(path, traverse, defaultTraverse, argExpr) with
@@ -65,14 +65,14 @@ type ParseAndCheckResults with
               | None ->
                 clauses
                 |> List.tryPick (function
-                  | SynMatchClause(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
+                  | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
                     Some(ident, duFieldPatterns, parenRange)
                   | _ -> None)
             | _ -> defaultTraverse expr
 
           member x.VisitMatchClause(path, defaultTraverse, matchClause) =
             match matchClause with
-            | SynMatchClause(pat = UnionNameAndPatterns (ident, duFieldPatterns, parenRange)) ->
+            | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
               Some(ident, duFieldPatterns, parenRange)
             | _ -> defaultTraverse matchClause }
 
@@ -167,7 +167,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         match (duFields, allFieldNames) with
         | MatchedFields pairs -> pairs |> List.collect createEdit |> List.toArray |> Ok
 
-        | UnmatchedFields (pairs, leftover) ->
+        | UnmatchedFields(pairs, leftover) ->
           result {
             let! endPos =
               dec sourceText (fcsPosToLsp parenRange.End)
