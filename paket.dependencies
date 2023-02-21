@@ -9,7 +9,7 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 
-github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
+github TheAngryByrd/FsLibLog:64f118ae8df2f2944ef69758052cb3b148b87e79 src/FsLibLog/FsLibLog.fs
 github TheAngryByrd/FsOpenTelemetry src/FsOpenTelemetry/FsOpenTelemetry.fs
 
 nuget Fantomas.Client

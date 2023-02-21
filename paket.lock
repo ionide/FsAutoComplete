@@ -374,7 +374,7 @@ NUGET
       System.Collections.Immutable (>= 6.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
 GITHUB
   remote: TheAngryByrd/FsLibLog
-    src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
+    src/FsLibLog/FsLibLog.fs (64f118ae8df2f2944ef69758052cb3b148b87e79)
   remote: TheAngryByrd/FsOpenTelemetry
     src/FsOpenTelemetry/FsOpenTelemetry.fs (3e2c3a836fec05ef1621ec37ef57246f487c72c5)
 GROUP Build
