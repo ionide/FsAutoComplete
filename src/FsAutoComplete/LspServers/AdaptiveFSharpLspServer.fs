@@ -4426,12 +4426,13 @@ module AdaptiveFSharpLspServer =
           None
       | _ -> None
 
-    { new JsonRpc(handler) with
+    let strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
+
+    { new JsonRpc(handler, ActivityTracingStrategy = strategy) with
         member this.IsFatalException(ex: Exception) =
           match ex with
           | HandleableException -> false
           | _ -> true }
-
   let startCore toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
