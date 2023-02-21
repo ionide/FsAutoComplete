@@ -2060,7 +2060,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                                 Arguments = None } }
                   )
 
-              | Ok (_, uses) ->
+              | Ok(_, uses) ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =

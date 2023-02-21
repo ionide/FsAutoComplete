@@ -787,8 +787,8 @@ module Commands =
       | scope ->
         let projectsToCheck =
           match scope with
-          | Some (SymbolDeclarationLocation.Projects (projects (*isLocalForProject=*) , true)) -> projects
-          | Some (SymbolDeclarationLocation.Projects (projects (*isLocalForProject=*) , false)) ->
+          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> projects
+          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
             [ for project in projects do
                 yield project
 
@@ -796,7 +796,7 @@ module Commands =
                   project.ReferencedProjects
                   |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
             |> List.distinctBy (fun x -> x.ProjectFileName)
-          | _ (*None*)  ->
+          | _ (*None*) ->
             // symbol is declared external -> look through all F# projects
             // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
             getAllProjectOptions ()
@@ -859,11 +859,10 @@ module Commands =
           |> Async.Catch
           |> Async.map (Result.ofChoice >> Result.mapError string >> Result.bind id)
           |> AsyncResult.teeError (fun e ->
-              commandsLogger.info (
-                Log.setMessage "tryFindReferencesInFile failed: {error}"
-                >> Log.addContextDestructured "error" e
-              )
-          )
+            commandsLogger.info (
+              Log.setMessage "tryFindReferencesInFile failed: {error}"
+              >> Log.addContextDestructured "error" e
+            ))
 
         let iterProject (project: FSharpProjectOptions) =
           asyncResult {
@@ -908,14 +907,9 @@ module Commands =
 
         // `IsIdentifierName` doesn't work with backticks
         // -> only check if no backticks
-        let newBacktickedName =
-          newName
-          |> PrettyNaming.NormalizeIdentifierBackticks
-        if
-          newBacktickedName.StartsWith "``"
-          &&
-          newBacktickedName.EndsWith "``"
-        then
+        let newBacktickedName = newName |> PrettyNaming.NormalizeIdentifierBackticks
+
+        if newBacktickedName.StartsWith "``" && newBacktickedName.EndsWith "``" then
           return newBacktickedName
         elif PrettyNaming.IsIdentifierName newName then
           return newName
@@ -1962,7 +1956,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           async {
             match state.TryGetFileCheckerOptionsWithLines(file) with
             | Error _ -> return [||]
-            | Ok (opts, source) ->
+            | Ok(opts, source) ->
               match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
               | None -> return [||]
               | Some tyRes ->

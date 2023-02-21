@@ -3304,7 +3304,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                                 Arguments = None } }
                   )
 
-              | Ok (_, uses) ->
+              | Ok(_, uses) ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =

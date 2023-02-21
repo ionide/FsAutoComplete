@@ -21,7 +21,10 @@ let getDeclarationLocation
   ) : SymbolDeclarationLocation option =
 
   // `symbolUse.IsPrivateToFile` throws exception when no `DeclarationLocation`
-  if symbolUse.Symbol.DeclarationLocation |> Option.isSome && symbolUse.IsPrivateToFile then
+  if
+    symbolUse.Symbol.DeclarationLocation |> Option.isSome
+    && symbolUse.IsPrivateToFile
+  then
     Some SymbolDeclarationLocation.CurrentDocument
   else
     let isSymbolLocalForProject = symbolUse.Symbol.IsInternalToProject
