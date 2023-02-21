@@ -822,3 +822,26 @@ type FSharpSymbol with
     | :? FSharpStaticParameter as s -> s.DeclarationLocation
     | :? FSharpParameter as p -> p.DeclarationLocation
     | _ -> failwith $"cannot fetch DefinitionRange for unknown FSharpSymbol subtype {x.GetType().FullName}"
+
+module Tracing =
+
+  open System.Diagnostics
+  open FsOpenTelemetry
+
+  module SemanticConventions =
+    [<Literal>]
+    let sourceCodePath = "fsac.sourceCodePath"
+
+    let setTagSourceCodePath filePath (a: Activity) =
+      a.SetTagSafe(sourceCodePath, filePath) |> ignore
+
+    [<Literal>]
+    let projectFilePath = "fsac.projectFilePath"
+
+    let setTagProjectFilePath filePath (a: Activity) =
+      a.SetTagSafe(projectFilePath, filePath) |> ignore
+
+  [<Literal>]
+  let serviceName = "FsAutoComplete"
+
+  let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)

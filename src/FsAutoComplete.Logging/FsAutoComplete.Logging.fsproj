@@ -1,10 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\paket-files\TheAngryByrd\FsOpenTelemetry\src\FsOpenTelemetry\FsOpenTelemetry.fs">
+      <Paket>True</Paket>
+      <Link>paket-files/FsOpenTelemetry.fs</Link>
+    </Compile>
     <Compile Include="..\..\paket-files\TheAngryByrd\FsLibLog\src\FsLibLog\FsLibLog.fs">
       <Paket>True</Paket>
       <Link>paket-files/FsLibLog.fs</Link>

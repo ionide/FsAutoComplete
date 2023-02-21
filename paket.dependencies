@@ -8,7 +8,9 @@ source https://api.nuget.org/v3/index.json
 #source: ./libs
 storage: none
 
+
 github TheAngryByrd/FsLibLog:f81cba440bf0476bb4e2262b57a067a0d6ab78a7 src/FsLibLog/FsLibLog.fs
+github TheAngryByrd/FsOpenTelemetry src/FsOpenTelemetry/FsOpenTelemetry.fs
 
 nuget Fantomas.Client
 nuget FSharp.Compiler.Service
@@ -52,6 +54,7 @@ nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol
 nuget Microsoft.Extensions.Caching.Memory
+nuget OpenTelemetry.Exporter.Zipkin
 
 group Build
   source https://api.nuget.org/v3/index.json
