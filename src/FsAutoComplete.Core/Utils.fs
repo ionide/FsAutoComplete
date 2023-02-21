@@ -847,28 +847,32 @@ module Tracing =
 
   let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
 
-  type StreamJsonRpcTracingStrategy (activitySource : ActivitySource) =
+  type StreamJsonRpcTracingStrategy(activitySource: ActivitySource) =
     interface IActivityTracingStrategy with
-        member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest): IDisposable =
+      member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
 
-          let a = activitySource.StartActivity(request.Method)
-          a
-            .SetTagSafe("rpc.system", "jsonrpc")
-            .SetTagSafe("rpc.jsonrpc.argumentNames",  String.Join(',', request.ArgumentNames))
-            .SetTagSafe("rpc.jsonrpc.isNotification", request.IsNotification)
-            .SetTagSafe("rpc.jsonrpc.IsResponseExpected", request.IsResponseExpected)
-            .SetTagSafe("rpc.jsonrpc.version", request.Version)
-            .SetTagSafe("rpc.jsonrpc.request_id", request.RequestId)
-            .SetTagSafe("rpc.method", request.Method)
-            |> ignore
+        let a = activitySource.StartActivity(request.Method)
 
-          a.TraceStateString <- request.TraceState
-          if request.TraceParent <> null then
-            a.SetParentId(request.TraceParent) |> ignore
-          a
+        a
+          .SetTagSafe("rpc.system", "jsonrpc")
+          .SetTagSafe("rpc.jsonrpc.argumentNames", String.Join(',', request.ArgumentNames))
+          .SetTagSafe("rpc.jsonrpc.isNotification", request.IsNotification)
+          .SetTagSafe("rpc.jsonrpc.IsResponseExpected", request.IsResponseExpected)
+          .SetTagSafe("rpc.jsonrpc.version", request.Version)
+          .SetTagSafe("rpc.jsonrpc.request_id", request.RequestId)
+          .SetTagSafe("rpc.method", request.Method)
+        |> ignore
 
-        member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest): unit =
-            if Activity.Current <> null && Activity.Current.IdFormat = ActivityIdFormat.W3C then
-              request.TraceParent <- Activity.Current.Id
-              request.TraceState <- Activity.Current.TraceStateString
-            ()
+        a.TraceStateString <- request.TraceState
+
+        if request.TraceParent <> null then
+          a.SetParentId(request.TraceParent) |> ignore
+
+        a
+
+      member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest) : unit =
+        if Activity.Current <> null && Activity.Current.IdFormat = ActivityIdFormat.W3C then
+          request.TraceParent <- Activity.Current.Id
+          request.TraceState <- Activity.Current.TraceStateString
+
+        ()

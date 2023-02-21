@@ -1138,8 +1138,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
       use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
-      trace |> Tracing.SemanticConventions.setTagSourceCodePath (UMX.untag file.Lines.FileName)
-      trace |> Tracing.SemanticConventions.setTagProjectFilePath (opts.ProjectFileName)
+
+      trace
+      |> Tracing.SemanticConventions.setTagSourceCodePath (UMX.untag file.Lines.FileName)
+
+      trace
+      |> Tracing.SemanticConventions.setTagProjectFilePath (opts.ProjectFileName)
+
       try
         logger.info (
           Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
@@ -1221,14 +1226,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     async {
       use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
       trace |> Tracing.SemanticConventions.setTagSourceCodePath (UMX.untag filePath)
-      trace |> Tracing.SemanticConventions.setTagProjectFilePath (opts.ProjectFileName)
+
+      trace
+      |> Tracing.SemanticConventions.setTagProjectFilePath (opts.ProjectFileName)
+
       try
-        logger.info (Log.setMessage "Forced Check : {file}" >> Log.addContextDestructured "file" filePath)
+        logger.info (
+          Log.setMessage "Forced Check : {file}"
+          >> Log.addContextDestructured "file" filePath
+        )
+
         let checker = checker |> AVal.force
         let config = config |> AVal.force
 
         match forceFindOpenFileOrRead filePath with
-        | Ok (fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1323,12 +1335,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AVal.force
     |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
-  let forceGetTypeCheckResults (filePath : string<LocalPath>) =
+  let forceGetTypeCheckResults (filePath: string<LocalPath>) =
     getTypeCheckResults (filePath)
     |> AVal.force
     |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
-  let forceGetTypeCheckResultsStale (filePath : string<LocalPath>) =
+  let forceGetTypeCheckResultsStale (filePath: string<LocalPath>) =
     aval {
       let! checker = checker
 
@@ -1643,7 +1655,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     Seq.toList allDependents
 
-  let bypassAdaptiveAndCheckDepenenciesForFile (filePath : string<LocalPath>) =
+  let bypassAdaptiveAndCheckDepenenciesForFile (filePath: string<LocalPath>) =
     async {
       use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
       trace |> Tracing.SemanticConventions.setTagSourceCodePath (UMX.untag filePath)
@@ -1671,7 +1683,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let checksToPerform =
         let innerChecks =
           Array.concat [| dependentFiles; dependentProjects |]
-          |> Array.filter (fun (_, file) -> file.Contains "AssemblyInfo.fs" |> not && file.Contains "AssemblyAttributes.fs" |> not)
+          |> Array.filter (fun (_, file) ->
+            file.Contains "AssemblyInfo.fs" |> not
+            && file.Contains "AssemblyAttributes.fs" |> not)
 
         let checksToPerformLength = innerChecks.Length
 
@@ -1723,8 +1737,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       getProjectOptionsForFile file |> AVal.force
 
     let getProjectOptionsForFsproj file =
-      forceLoadProjects ()
-      |> Seq.tryFind (fun x -> x.ProjectFileName = file)
+      forceLoadProjects () |> Seq.tryFind (fun x -> x.ProjectFileName = file)
 
 
     let getDeclarationLocation (symUse, text) =
@@ -1920,6 +1933,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("InitializeParams", p) |> ignore
+
         try
           logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p)
 
@@ -2007,6 +2021,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("InitializedParams", p) |> ignore
+
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
           // Starts getting project options to cache
@@ -2026,8 +2041,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) =
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
+
         try
           trace.SetTagSafe("DidOpenTextDocumentParams", p) |> ignore
+
           logger.info (
             Log.setMessage "TextDocumentDidOpen Request: {parms}"
             >> Log.addContextDestructured "parms" p
@@ -2046,6 +2063,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return ()
         with e ->
           trace.RecordExceptions(e, false) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDidOpen Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2059,6 +2077,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DidCloseTextDocumentParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentDidClose Request: {parms}"
@@ -2083,8 +2102,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
 
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
+
         try
           trace.SetTagSafe("DidChangeTextDocumentParams", p) |> ignore
+
           logger.info (
             Log.setMessage "TextDocumentDidChange Request: {parms}"
             >> Log.addContextDestructured "parms" p
@@ -2101,6 +2122,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
         with e ->
           trace.RecordExceptions(e, false) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDidChange Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2113,8 +2135,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override __.TextDocumentDidSave(p: DidSaveTextDocumentParams) =
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
+
         try
           trace.SetTagSafe("DidSaveTextDocumentParams", p) |> ignore
+
           logger.info (
             Log.setMessage "TextDocumentDidSave Request: {parms}"
             >> Log.addContextDestructured "parms" p
@@ -2149,6 +2173,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
         with e ->
           trace.RecordExceptions(e, false) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDidSave Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2163,6 +2188,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       <| asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("CompletionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentCompletion Request: {parms}"
@@ -2358,6 +2384,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       <| asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("CompletionItem", ci) |> ignore
+
         try
           logger.info (
             Log.setMessage "CompletionItemResolve Request: {parms}"
@@ -2387,6 +2414,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("SignatureHelpParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
@@ -2449,6 +2477,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentHover Request: {parms}"
@@ -2532,6 +2561,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("RenameParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentRename Request: {parms}"
@@ -2588,6 +2618,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentDefinition Request: {parms}"
@@ -2615,6 +2646,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentTypeDefinition Request: {parms}"
@@ -2642,6 +2674,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("ReferenceParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentReferences Request: {parms}"
@@ -2684,6 +2717,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentDocumentHighlight Request: {parms}"
@@ -2718,6 +2752,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentImplementation Request: {parms}"
@@ -2781,6 +2816,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DocumentSymbolParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentDocumentSymbol Request: {parms}"
@@ -2816,6 +2852,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("WorkspaceSymbolParams", symbolRequest) |> ignore
+
         try
           logger.info (
             Log.setMessage "WorkspaceSymbol Request: {parms}"
@@ -2851,6 +2888,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DocumentFormattingParams", p) |> ignore
+
         try
           let doc = p.TextDocument
           let fileName = doc.GetFilePath() |> Utils.normalizePath
@@ -2890,6 +2928,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DocumentRangeFormattingParams", p) |> ignore
+
         try
           let doc = p.TextDocument
           let fileName = doc.GetFilePath() |> Utils.normalizePath
@@ -2941,6 +2980,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("CodeActionParams", codeActionParams) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentCodeAction Request: {parms}"
@@ -3002,6 +3042,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("CodeLensParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentCodeLens Request: {parms}"
@@ -3206,6 +3247,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DidChangeWatchedFilesParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {parms}"
@@ -3230,6 +3272,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DidChangeConfigurationParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}"
@@ -3253,6 +3296,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("FoldingRangeParams", rangeP) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentFoldingRange Request: {parms}"
@@ -3284,6 +3328,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("SelectionRangeParams", selectionRangeP) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentSelectionRange Request: {parms}"
@@ -3327,6 +3372,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("SemanticTokensParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentSemanticTokensFull request: {parms}"
@@ -3352,6 +3398,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("SemanticTokensRangeParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentSemanticTokensRange request: {parms}"
@@ -3376,6 +3423,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("InlayHintParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentInlayHint Request: {parms}"
@@ -3478,6 +3526,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("InlineValueParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "TextDocumentInlineValue Request: {parms}"
@@ -3686,6 +3735,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpSignature Request: {parms}"
@@ -3714,6 +3764,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpSignatureData Request: {parms}"
@@ -3748,6 +3799,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("OptionallyVersionedTextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
@@ -3793,6 +3845,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("ProjectParms", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpLineLense Request: {parms}"
@@ -3822,6 +3875,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("param", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpCompilerLocation Request: {parms}"
@@ -3853,6 +3907,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("WorkspaceLoadParms", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpWorkspaceLoad Request: {parms}"
@@ -3885,6 +3940,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("WorkspacePeekRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpWorkspacePeek Request: {parms}"
@@ -3918,6 +3974,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("ProjectParms", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpProject Request: {parms}"
@@ -3968,6 +4025,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetNewListRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDotnetNewList Request: {parms}"
@@ -3990,6 +4048,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetNewRunRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDotnetNewRun Request: {parms}"
@@ -4015,6 +4074,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetProjectRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDotnetAddProject Request: {parms}"
@@ -4038,6 +4098,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetProjectRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDotnetRemoveProject Request: {parms}"
@@ -4061,6 +4122,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetProjectRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDotnetSlnAdd Request: {parms}"
@@ -4084,6 +4146,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpHelp Request: {parms}"
@@ -4110,6 +4173,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("TextDocumentPositionParams", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDocumentation Request: {parms}"
@@ -4137,6 +4201,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DocumentationForSymbolReuqest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpDocumentationSymbol Request: {parms}"
@@ -4188,6 +4253,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("FSharpPipelineHintRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FSharpPipelineHints Request: {parms}"
@@ -4213,6 +4279,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFileRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjMoveFileUp Request: {parms}"
@@ -4240,6 +4307,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFileRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjMoveFileDown Request: {parms}"
@@ -4267,6 +4335,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFile2Request", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjAddFileAbove Request: {parms}"
@@ -4293,6 +4362,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFile2Request", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjAddFileBelow Request: {parms}"
@@ -4320,6 +4390,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFileRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjAddFile Request: {parms}"
@@ -4343,6 +4414,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFileRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjRemoveFile Request: {parms}"
@@ -4370,6 +4442,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncResult {
         use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
         trace.SetTagSafe("DotnetFileRequest", p) |> ignore
+
         try
           logger.info (
             Log.setMessage "FsProjAddExistingFile Request: {parms}"
@@ -4433,6 +4506,7 @@ module AdaptiveFSharpLspServer =
           match ex with
           | HandleableException -> false
           | _ -> true }
+
   let startCore toolsPath workspaceLoaderFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()

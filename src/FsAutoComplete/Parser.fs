@@ -21,6 +21,7 @@ module Parser =
   open System.Diagnostics
 
   let mutable tracerProvider = Unchecked.defaultof<_>
+
   [<Struct>]
   type Pos = { Line: int; Column: int }
 
@@ -181,20 +182,25 @@ module Parser =
       let fcsServiceName = "fsc"
       let fcsProfileName = "fsc_with_env_stats"
       let version = FsAutoComplete.Utils.Version.info().Version
+
       tracerProvider <-
-        Sdk.CreateTracerProviderBuilder()
-                    .AddSource(serviceName, fcsServiceName, fcsProfileName)
-                    .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion  = version))
-                    .AddZipkinExporter()
-                    .Build()
+        Sdk
+          .CreateTracerProviderBuilder()
+          .AddSource(serviceName, fcsServiceName, fcsProfileName)
+          .SetResourceBuilder(
+            ResourceBuilder
+              .CreateDefault()
+              .AddService(serviceName = serviceName, serviceVersion = version)
+          )
+          .AddZipkinExporter()
+          .Build()
 
       // use source = new ActivitySource(FsAutoComplete.Core.Tracing.serviceName)
       // let mutable sumthing = 0
       // for x in [1..1000] do
       //   for y in [1..1000] do
       //     sumthing <- x + y
-      next.Invoke(ctx)
-    )
+      next.Invoke(ctx))
 
   let configureLogging =
     Invocation.InvocationMiddleware(fun ctx next ->
