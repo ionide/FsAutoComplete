@@ -376,7 +376,7 @@ GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
   remote: TheAngryByrd/FsOpenTelemetry
-    src/FsOpenTelemetry/FsOpenTelemetry.fs (9fb8a3132b65068084d8601f9f28f6daf897c216)
+    src/FsOpenTelemetry/FsOpenTelemetry.fs (3e2c3a836fec05ef1621ec37ef57246f487c72c5)
 GROUP Build
 STORAGE: NONE
 RESTRICTION: || (== net6.0) (== net7.0)
