@@ -858,14 +858,12 @@ module Commands =
           }
           |> Async.Catch
           |> Async.map (Result.ofChoice >> Result.mapError string >> Result.bind id)
-          |> Async.map (fun x ->
-            match x with
-            | Ok () -> ()
-            | Error e ->
+          |> AsyncResult.teeError (fun e ->
               commandsLogger.info (
                 Log.setMessage "tryFindReferencesInFile failed: {error}"
                 >> Log.addContextDestructured "error" e
-              ))
+              )
+          )
 
         let iterProject (project: FSharpProjectOptions) =
           asyncResult {
