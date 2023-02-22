@@ -1057,9 +1057,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     AMap.union loses wins
 
   let allProjectOptions' =
-    allProjectOptions
-    |> AMap.toASetValues
-    |> ASet.collect (ASet.ofAVal)
+    allProjectOptions |> AMap.toASetValues |> ASet.collect (ASet.ofAVal)
 
 
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
@@ -1788,7 +1786,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
       async {
         let checker = checker |> AVal.force
-        if File.Exists (UMX.untag file) then
+
+        if File.Exists(UMX.untag file) then
           // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
           return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
         else
@@ -1802,10 +1801,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       }
 
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      forceGetProjectOptions file
-      |> Option.ofResult
+      forceGetProjectOptions file |> Option.ofResult
 
-    let getAllProjectOptions () : _ seq = 
+    let getAllProjectOptions () : _ seq =
       allProjectOptions'.Content |> AVal.force :> _
 
     Commands.symbolUseWorkspace
