@@ -856,19 +856,24 @@ module Commands =
                   dict.TryAdd(file, ranges) |> ignore
                   return Ok()
           }
-          |> Async.Catch
-          |> Async.map (Result.ofChoice >> Result.mapError string >> Result.bind id)
-          |> AsyncResult.teeError (fun e ->
-            commandsLogger.info (
-              Log.setMessage "tryFindReferencesInFile failed: {error}"
-              >> Log.addContextDestructured "error" e
-            ))
+          |> AsyncResult.catch string
+          |> Async.map (function
+            | Ok() -> Ok()
+            | Error e ->
+              commandsLogger.info (
+                Log.setMessage "tryFindReferencesInFile failed: {error}"
+                >> Log.addContextDestructured "error" e
+              )
+
+              if errorOnFailureToFixRange then Error e else Ok())
 
         let iterProject (project: FSharpProjectOptions) =
           asyncResult {
             //Enhancement: do in parallel?
             for file in project.SourceFiles do
               let file = UMX.tag file
+              // early return iff `Error`
+              // (which can only happen iff `errorOnFailureToFixRange`. otherwise errors are ignored and the loop continues)
               do! tryFindReferencesInFile (file, project)
           }
 
