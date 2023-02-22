@@ -10,6 +10,14 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
 open FSharp.Compiler.Symbols
 
+
+/// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+let dispose (d: #IDisposable) = d.Dispose()
+
+/// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources asynchronously.</summary>
+/// <returns>A task that represents the asynchronous dispose operation.</returns>
+let disposeAsync (d: #IAsyncDisposable) = d.DisposeAsync()
+
 module Map =
   /// Combine two maps of identical types by starting with the first map and overlaying the second one.
   /// Because map updates shadow, any keys in the second map will have priority.
@@ -147,6 +155,7 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 
   { FSharpParsingOptions.Default with
       SourceFiles = files }
+
 
 [<RequireQualifiedAccess>]
 module Option =
@@ -845,30 +854,33 @@ module Tracing =
   [<Literal>]
   let serviceName = "FsAutoComplete"
 
+  [<Literal>]
+  let fscServiceName = "fsc"
+
   let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
 
   type StreamJsonRpcTracingStrategy(activitySource: ActivitySource) =
     interface IActivityTracingStrategy with
       member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
 
-        let a = activitySource.StartActivity(request.Method)
+        let activity = activitySource.StartActivity(request.Method)
 
-        a
+        activity
           .SetTagSafe("rpc.system", "jsonrpc")
           .SetTagSafe("rpc.jsonrpc.argumentNames", String.Join(',', request.ArgumentNames))
-          .SetTagSafe("rpc.jsonrpc.isNotification", request.IsNotification)
-          .SetTagSafe("rpc.jsonrpc.IsResponseExpected", request.IsResponseExpected)
+          .SetTagSafe("rpc.jsonrpc.is_notification", request.IsNotification)
+          .SetTagSafe("rpc.jsonrpc.is_response_expected", request.IsResponseExpected)
           .SetTagSafe("rpc.jsonrpc.version", request.Version)
           .SetTagSafe("rpc.jsonrpc.request_id", request.RequestId)
           .SetTagSafe("rpc.method", request.Method)
         |> ignore
 
-        a.TraceStateString <- request.TraceState
+        activity.TraceStateString <- request.TraceState
 
         if request.TraceParent <> null then
-          a.SetParentId(request.TraceParent) |> ignore
+          activity.SetParentId(request.TraceParent) |> ignore
 
-        a
+        activity
 
       member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest) : unit =
         if Activity.Current <> null && Activity.Current.IdFormat = ActivityIdFormat.W3C then

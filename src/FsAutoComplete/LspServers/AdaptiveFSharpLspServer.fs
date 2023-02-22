@@ -308,6 +308,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
 
 
+  do disposables.Add <| new ProgressListener(lspClient)
+
   do
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) ->
@@ -1154,12 +1156,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         )
 
         let! ct = Async.CancellationToken
-        do! semaphore.WaitAsync(ct) |> Async.AwaitTask
+        // do! semaphore.WaitAsync(ct) |> Async.AwaitTask
 
-        use pgl = new ProgressListener(lspClient)
         use progressReport = new ServerProgressReport(lspClient)
-
-        use _ = ct.Register(fun () -> pgl.Dispose())
 
         let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
         do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
@@ -1720,7 +1719,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           percentage = percentage 0 checksToPerform.Length
         )
 
-      do! Async.Parallel(checksToPerform, 2) |> Async.Ignore<unit array>
+      let maxConcurrency = 3
+      // Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+      do! Async.Parallel(checksToPerform, int maxConcurrency) |> Async.Ignore<unit array>
 
     }
 

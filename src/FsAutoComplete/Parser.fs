@@ -195,11 +195,6 @@ module Parser =
           .AddZipkinExporter()
           .Build()
 
-      // use source = new ActivitySource(FsAutoComplete.Core.Tracing.serviceName)
-      // let mutable sumthing = 0
-      // for x in [1..1000] do
-      //   for y in [1..1000] do
-      //     sumthing <- x + y
       next.Invoke(ctx))
 
   let configureLogging =
