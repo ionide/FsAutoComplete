@@ -1056,6 +1056,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let loses = sourceFileToProjectOptions |> AMap.map (fun k v -> AVal.constant v)
     AMap.union loses wins
 
+  let allProjectOptions' =
+    allProjectOptions
+    |> AMap.toASetValues
+    |> ASet.collect (ASet.ofAVal)
+
+
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
     aval {
       match! allProjectOptions |> AMap.tryFindA filePath with
@@ -1780,15 +1786,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     =
 
     let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-      let checker = checker |> AVal.force
-      checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+      async {
+        let checker = checker |> AVal.force
+        if File.Exists (UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          match forceGetRecentTypeCheckResults file with
+          | Error _ -> return [||]
+          | Ok tyRes ->
+            let! ct = Async.CancellationToken
+            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+            return usages |> Seq.map (fun u -> u.Range)
+      }
 
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      loadedProjectOptions
-      |> AVal.force
-      |> List.tryFind (fun x -> x.ProjectFileName = UMX.untag file)
+      forceGetProjectOptions file
+      |> Option.ofResult
 
-    let getAllProjectOptions () : _ seq = loadedProjectOptions |> AVal.force :> _
+    let getAllProjectOptions () : _ seq = 
+      allProjectOptions'.Content |> AVal.force :> _
 
     Commands.symbolUseWorkspace
       getDeclarationLocation
