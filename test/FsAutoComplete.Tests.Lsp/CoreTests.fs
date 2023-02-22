@@ -313,7 +313,7 @@ let tooltipTests state =
             5
             (concatLines [ "val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int"; "   -> unit" ])
           // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
-          verifySignature 30 12 (concatLines [ "val funcWithTupleParam:"; "   : int *"; "   : int"; "   -> int * int" ])
+          verifySignature 30 12 (concatLines [ "val funcWithTupleParam:"; "      int *"; "      int"; "   -> int * int" ])
           // verify formatting of struct tuple args in parameter tooltips.
           verifySignature
             32
