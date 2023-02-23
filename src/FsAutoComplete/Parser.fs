@@ -192,7 +192,7 @@ module Parser =
               .CreateDefault()
               .AddService(serviceName = serviceName, serviceVersion = version)
           )
-          .AddZipkinExporter()
+          .AddOtlpExporter()
           .Build()
 
       next.Invoke(ctx))

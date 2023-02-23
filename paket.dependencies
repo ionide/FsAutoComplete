@@ -54,7 +54,7 @@ nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol
 nuget Microsoft.Extensions.Caching.Memory
-nuget OpenTelemetry.Exporter.Zipkin
+nuget OpenTelemetry.Exporter.OpenTelemetryProtocol
 
 group Build
   source https://api.nuget.org/v3/index.json

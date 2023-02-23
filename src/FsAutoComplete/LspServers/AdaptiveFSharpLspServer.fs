@@ -307,7 +307,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
 
-
   do disposables.Add <| new ProgressListener(lspClient)
 
   do
@@ -1223,11 +1222,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   /// Bypass Adaptive checking and tell the checker to check a file
   let bypassAdaptiveTypeCheck (filePath: string<LocalPath>) opts =
     async {
-      use trace = fsacActivitySource.StartActivityForTypeAndFunc(thisType)
-      trace |> Tracing.SemanticConventions.setTagSourceCodePath (UMX.untag filePath)
-
-      trace
-      |> Tracing.SemanticConventions.setTagProjectFilePath (opts.ProjectFileName)
 
       try
         logger.info (
