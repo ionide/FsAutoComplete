@@ -278,7 +278,10 @@ module SignatureFormatter =
 
     let formatName indent padding (parameter: FSharpParameter) =
       let name = safeParameterName parameter
-      indent + name.PadRight padding + ":"
+
+      match name with
+      | "" -> indent + "  ".PadRight padding
+      | _ -> indent + name.PadRight padding + ":"
 
     let isDelegate =
       match func.EnclosingEntitySafe with

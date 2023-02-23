@@ -127,14 +127,14 @@ let documentSymbolTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some (U2.First res)) ->
+          | Result.Ok(Some(U2.First res)) ->
             Expect.equal res.Length 15 "Document Symbol has all symbols"
 
             Expect.exists
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok (Some (U2.Second res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+          | Result.Ok(Some(U2.Second res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =
@@ -163,9 +163,9 @@ let foldingTests state =
             server.TextDocumentFoldingRange({ TextDocument = { Uri = Path.FilePathToUri libraryPath } })
 
           match rangeResponse with
-          | Ok (Some (ranges)) ->
+          | Ok(Some(ranges)) ->
             Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
-          | Ok (None) -> failtestf "No ranges found in file, problem parsing?"
+          | Ok(None) -> failtestf "No ranges found in file, problem parsing?"
           | LspResult.Error e -> failtestf "Error from range LSP call: %A" e
         }) ]
 
@@ -198,7 +198,7 @@ let tooltipTests state =
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
       match! waitForParseResultsForFile "Script.fsx" events with
-      | Ok () -> () // all good, no parsing/checking errors
+      | Ok() -> () // all good, no parsing/checking errors
       | Core.Result.Error errors -> failtestf "Errors while parsing script %s: %A" scriptPath errors
 
       return server, scriptPath
@@ -216,7 +216,7 @@ let tooltipTests state =
             Position = { Line = line; Character = character } }
 
         match! server.TextDocumentHover pos with
-        | Ok (Some (Signature signature)) ->
+        | Ok(Some(Signature signature)) ->
           Expect.equal signature expectedSignature (sprintf "Should have a signature of '%s'" expectedSignature)
         | Ok response -> failtestf "Should have gotten signature but got %A" response
         | Result.Error errors -> failtestf "Error while getting signature: %A" errors
@@ -237,14 +237,20 @@ let tooltipTests state =
             Position = { Line = line; Character = character } }
 
         match! server.TextDocumentHover pos with
-        | Ok (Some (Description description)) ->
+        | Ok(Some(Description description)) ->
           Expect.equal description expectedDescription (sprintf "Should have a description of '%s'" expectedDescription)
         | Ok response -> failtestf "Should have gotten description but got %A" response
         | Result.Error errors -> failtestf "Error while getting description: %A" errors
       })
-  let verifyDescription line character expectedDescription = verifyDescriptionImpl testCaseAsync line character expectedDescription
-  let pverifyDescription reason line character expectedDescription = verifyDescriptionImpl ptestCaseAsync line character expectedDescription
-  let fverifyDescription  line character expectedDescription = verifyDescriptionImpl ftestCaseAsync line character expectedDescription
+
+  let verifyDescription line character expectedDescription =
+    verifyDescriptionImpl testCaseAsync line character expectedDescription
+
+  let pverifyDescription reason line character expectedDescription =
+    verifyDescriptionImpl ptestCaseAsync line character expectedDescription
+
+  let fverifyDescription line character expectedDescription =
+    verifyDescriptionImpl ftestCaseAsync line character expectedDescription
 
   testSequenced
   <| testList
@@ -313,7 +319,10 @@ let tooltipTests state =
             5
             (concatLines [ "val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int"; "   -> unit" ])
           // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
-          verifySignature 30 12 (concatLines [ "val funcWithTupleParam:"; "   : int *"; "   : int"; "   -> int * int" ])
+          verifySignature
+            30
+            12
+            (concatLines [ "val funcWithTupleParam:"; "      int *"; "      int"; "   -> int * int" ])
           // verify formatting of struct tuple args in parameter tooltips.
           verifySignature
             32
@@ -352,14 +361,10 @@ let tooltipTests state =
             48
             28
             (concatLines
-              [
-                  "static member Start:"
-                  "   body             : (MailboxProcessor<string> -> Async<unit>) *"
-                  "   cancellationToken: option<System.Threading.CancellationToken>"
-                  "                   -> MailboxProcessor<string>"
-              ]
-            )
-        ] ]
+              [ "static member Start:"
+                "   body             : (MailboxProcessor<string> -> Async<unit>) *"
+                "   cancellationToken: option<System.Threading.CancellationToken>"
+                "                   -> MailboxProcessor<string>" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
