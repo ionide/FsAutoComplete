@@ -226,13 +226,14 @@ type ProgressListener(lspClient: FSharpLspClient) =
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =
-      task {
+      async {
         if not isDisposed then
           isDisposed <- true
           dispose listener
 
           for (a, p) in inflightEvents.Values do
-            do! disposeAsync p
+            do! (disposeAsync p).AsTask() |> Async.AwaitTask
             inflightEvents.TryRemove(a.Id) |> ignore
       }
+      |> Async.StartImmediateAsTask
       |> ValueTask
