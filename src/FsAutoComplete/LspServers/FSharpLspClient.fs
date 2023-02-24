@@ -145,10 +145,31 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 open System.Diagnostics.Tracing
 open System.Collections.Concurrent
 open System.Diagnostics
+open Ionide.ProjInfo.Logging
 
 
 /// listener for the the events generated from the fsc ActivitySource
 type ProgressListener(lspClient: FSharpLspClient) =
+
+  let isOneOf list string = list |> List.exists (fun f -> f string)
+
+
+  let strContains (substring: string) (str: string) = str.Contains(substring)
+
+  let interestingActivities =
+    [
+
+      strContains "BoundModel."
+      strContains "IncrementalBuild."
+      strContains "CheckDeclarations."
+      strContains "ParseAndCheckInputs."
+      strContains "BackgroundCompiler."
+      strContains "IncrementalBuildSyntaxTree."
+      strContains "ParseAndCheckFile."
+      strContains "ParseAndCheckInputs."
+      strContains "CheckDeclarations." ]
+
+  let logger = LogProvider.getLoggerByName "Compiler"
 
   let mutable isDisposed = false
 
@@ -156,9 +177,34 @@ type ProgressListener(lspClient: FSharpLspClient) =
     ConcurrentDictionary<_, System.Diagnostics.Activity * ServerProgressReport>()
 
   let isStopped (activity: Activity) =
-    // giving this 5 seconds to report something, otherwise assume it's a dead activity
-    (DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(5.)
-    && activity.Duration = TimeSpan.Zero
+#if NET6_0
+    false
+#else
+    activity.IsStopped
+#endif
+    // giving this 1 seconds to report something, otherwise assume it's a dead activity
+    || ((DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(1.)
+        && activity.Duration = TimeSpan.Zero)
+
+  let getTagItemSafe key (a: Activity) = a.GetTagItem key |> Option.ofObj
+
+  let getFileName =
+    getTagItemSafe Tracing.SemanticConventions.FCS.fileName
+    >> Option.map string
+    >> Option.map IO.Path.GetFileName
+    >> Option.defaultValue String.Empty
+
+  let getProject =
+    getTagItemSafe Tracing.SemanticConventions.FCS.project
+    >> Option.map string
+    >> Option.map IO.Path.GetFileName
+    >> Option.defaultValue String.Empty
+
+
+  let getUserOpName =
+    getTagItemSafe Tracing.SemanticConventions.FCS.userOpName
+    >> Option.map string
+    >> Option.defaultValue String.Empty
 
   let mbp =
     MailboxProcessor.Start(fun inbox ->
@@ -172,8 +218,9 @@ type ProgressListener(lspClient: FSharpLspClient) =
               inflightEvents.TryRemove(a.Id) |> ignore
             else
               // FSC doesn't start their spans with tags so we have to see if it's been added later https://github.com/dotnet/fsharp/issues/14776
-              let fileName = a.GetTagItem "fileName" |> string
-              do! p.Report(message = fileName)
+              let fileName = getFileName a
+              let userOpName = getUserOpName a
+              do! p.Report(message = $"{fileName} - {userOpName}")
 
           match! inbox.TryReceive(250) with
           | None ->
@@ -183,15 +230,35 @@ type ProgressListener(lspClient: FSharpLspClient) =
 
             match action with
             | "start" ->
-              if activity.DisplayName = "BoundModel.TypeCheck" && not (isStopped activity) then
+              let fileName = getFileName activity
+              let userOpName = getUserOpName activity
+
+              logger.debug (
+                Log.setMessageI
+                  $"Started : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName}"
+              )
+
+              if
+                activity.DisplayName |> isOneOf interestingActivities
+                && not (isStopped activity)
+              then
                 let progressReport = new ServerProgressReport(lspClient)
 
                 if inflightEvents.TryAdd(activity.Id, (activity, progressReport)) then
 
-                  do! progressReport.Begin($"Dependent Typecheck {activity.DisplayName}")
+                  do! progressReport.Begin($"{activity.DisplayName}")
 
             | "stop" ->
-              if activity.DisplayName = "BoundModel.TypeCheck" then
+              let fileName = getFileName activity
+              let userOpName = getUserOpName activity
+              let duration = activity.Duration.ToString()
+
+              logger.debug (
+                Log.setMessageI
+                  $"Finished : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName} - took {duration:duration}"
+              )
+
+              if activity.DisplayName |> isOneOf interestingActivities then
                 match inflightEvents.TryRemove(activity.Id) with
                 | true, (old, progressReport) -> do! progressReport.End()
                 | _ -> ()
@@ -226,6 +293,7 @@ type ProgressListener(lspClient: FSharpLspClient) =
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =
+      // was getting a compile error for the statemachine in CI to `task`
       async {
         if not isDisposed then
           isDisposed <- true

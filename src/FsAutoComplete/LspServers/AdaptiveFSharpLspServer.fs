@@ -1136,10 +1136,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
     async {
-      let tags = [
-        SemanticConventions.fsac_sourceCodePath, box(UMX.untag file.Lines.FileName)
-        SemanticConventions.projectFilePath, box(opts.ProjectFileName)
-      ]
+      let tags =
+        [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Lines.FileName)
+          SemanticConventions.projectFilePath, box (opts.ProjectFileName) ]
+
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
 
@@ -1640,7 +1640,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let bypassAdaptiveAndCheckDepenenciesForFile (filePath: string<LocalPath>) =
     async {
-      let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath)]
+      let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath) ]
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
       let dependentFiles = getDependentFilesForFile filePath
 
@@ -1770,8 +1770,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit[]
     ) : Async<LspResult<option<_>>> =
     asyncResult {
-      let tags = [SemanticConventions.fsac_sourceCodePath, box fileName]
+      let tags = [ SemanticConventions.fsac_sourceCodePath, box fileName ]
       use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
       try
 
 
@@ -1904,7 +1905,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError "Fantomas install not found."
         | (FormatDocumentResponse.Error ex) -> return! LspResult.internalError ex
       with e ->
-        trace.RecordExceptions(e) |> ignore
+        trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
         logger.error (Log.setMessage "HandleFormatting Request Errored {p}" >> Log.addExn e)
         return! LspResult.internalError (string e)
     }
@@ -1917,7 +1918,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override _.Initialize(p: InitializeParams) =
       asyncResult {
-        let tags = ["InitializeParams", box p]
+        let tags = [ "InitializeParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1994,7 +1995,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Capabilities = defaultSettings }
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "Initialize Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2006,7 +2008,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.Initialized(p: InitializedParams) =
       async {
-        let tags = ["InitializedParams", box p]
+        let tags = [ "InitializedParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2017,7 +2019,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
         with e ->
 
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "Initialized Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2029,7 +2032,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentDidOpen(p: DidOpenTextDocumentParams) =
       async {
-        let tags = ["InitializedParams", box p]
+        let tags = [ "InitializedParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2052,7 +2055,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             forceGetTypeCheckResults filePath |> ignore
             return ()
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
           logger.error (
             Log.setMessage "TextDocumentDidOpen Request Errored {p}"
@@ -2065,7 +2068,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentDidClose(p: DidCloseTextDocumentParams) =
       async {
-        let tags = ["DidCloseTextDocumentParams", box p]
+        let tags = [ "DidCloseTextDocumentParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2079,7 +2082,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDidClose Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2091,8 +2095,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentDidChange(p: DidChangeTextDocumentParams) =
       async {
-        let tags = ["DidChangeTextDocumentParams", box p]
+        let tags = [ "DidChangeTextDocumentParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
         try
           logger.info (
             Log.setMessage "TextDocumentDidChange Request: {parms}"
@@ -2109,7 +2114,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return ()
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
           logger.error (
             Log.setMessage "TextDocumentDidChange Request Errored {p}"
@@ -2122,7 +2127,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentDidSave(p: DidSaveTextDocumentParams) =
       async {
-        let tags = ["DidSaveTextDocumentParams", box p]
+        let tags = [ "DidSaveTextDocumentParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2160,7 +2165,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return ()
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
           logger.error (
             Log.setMessage "TextDocumentDidSave Request Errored {p}"
@@ -2173,7 +2178,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentCompletion(p: CompletionParams) =
       asyncResult {
-        let tags = ["CompletionParams", box p]
+        let tags = [ "CompletionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2294,7 +2299,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   success (Some completionList)
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentCompletion Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2370,7 +2376,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
       asyncResult {
-        let tags = ["CompletionItem", box ci]
+        let tags = [ "CompletionItem", box ci ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2389,7 +2395,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> success
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "CompletionItemResolve Request Errored {p}"
             >> Log.addContextDestructured "p" ci
@@ -2401,7 +2408,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentSignatureHelp(p: SignatureHelpParams) =
       asyncResult {
-        let tags = ["SignatureHelpParams", box p]
+        let tags = [ "SignatureHelpParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2453,7 +2460,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             return! success (Some res)
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
             >> Log.addContextDestructured "parms" p
@@ -2465,7 +2473,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2539,7 +2547,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             logger.error (Log.setMessage "Failed with {error}" >> Log.addContext "error" e)
             return! LspResult.internalError e
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentHover Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2551,7 +2560,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentRename(p: RenameParams) =
       asyncResult {
-        let tags = ["RenameParams", box p]
+        let tags = [ "RenameParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2597,7 +2606,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let clientCapabilities = clientCapabilities |> AVal.force |> Option.get
           return WorkspaceEdit.Create(documentChanges, clientCapabilities) |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentRename Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2609,7 +2619,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentDefinition(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2626,7 +2636,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
           return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDefinition Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2638,7 +2649,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2655,7 +2666,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
           return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentTypeDefinition Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2667,7 +2679,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentReferences(p: ReferenceParams) =
       asyncResult {
-        let tags = ["ReferenceParams", box p]
+        let tags = [ "ReferenceParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2699,7 +2711,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> Seq.toArray
               |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentReferences Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2711,7 +2724,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2734,7 +2747,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Kind = None })
             |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDocumentHighlight Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2747,7 +2761,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentImplementation(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2800,7 +2814,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           | [| single |] -> return Some(GotoResult.Single single)
           | multiple -> return Some(GotoResult.Multiple multiple)
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentImplementation Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2812,7 +2827,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentDocumentSymbol(p: DocumentSymbolParams) =
       asyncResult {
-        let tags = ["DocumentSymbolParams", box p]
+        let tags = [ "DocumentSymbolParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2836,7 +2851,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> Some
           | None -> return! LspResult.internalError $"No declarations for {fn}"
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentDocumentSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2849,7 +2865,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) =
       asyncResult {
-        let tags = ["WorkspaceSymbolParams", box symbolRequest]
+        let tags = [ "WorkspaceSymbolParams", box symbolRequest ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2874,7 +2890,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return res
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "WorkspaceSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" symbolRequest
@@ -2886,7 +2903,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentFormatting(p: DocumentFormattingParams) =
       asyncResult {
-        let tags = ["DocumentFormattingParams", box p]
+        let tags = [ "DocumentFormattingParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2915,7 +2932,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return! x.HandleFormatting(fileName, action, handlerFormattedDoc, (fun (_, _, _) -> [||]))
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentFormatting Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2927,7 +2945,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
       asyncResult {
-        let tags = ["DocumentRangeFormattingParams", box p]
+        let tags = [ "DocumentRangeFormattingParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -2967,7 +2985,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return! x.HandleFormatting(fileName, action, (fun (_, _) -> [||]), handlerFormattedRangeDoc)
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentRangeFormatting Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -2980,7 +2999,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
       asyncResult {
-        let tags = ["CodeActionParams", box codeActionParams]
+        let tags = [ "CodeActionParams", box codeActionParams ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3031,7 +3050,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               |> List.toArray
               |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentCodeAction Request Errored {p}"
             >> Log.addContextDestructured "p" codeActionParams
@@ -3043,7 +3063,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentCodeLens(p: CodeLensParams) =
       asyncResult {
-        let tags = ["CodeLensParams", box p]
+        let tags = [ "CodeLensParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3068,7 +3088,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             return Some res
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentCodeLens Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3088,7 +3109,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let handler (f) (arg: CodeLens) : Async<LspResult<CodeLens>> =
         asyncResult {
 
-          let tags = ["CodeLens", box p]
+          let tags = [ "CodeLens", box p ]
           use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
           let pos = protocolPosToPos arg.Range.Start
@@ -3136,7 +3157,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
               return codeLens
           with e ->
-            trace.RecordExceptions(e) |> ignore
+            trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
             logger.error (
               Log.setMessage "CodeLensResolve - Operation failed on {file}"
               >> Log.addContextDestructured "file" filePath
@@ -3252,7 +3274,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override __.WorkspaceDidChangeWatchedFiles(p: DidChangeWatchedFilesParams) =
       async {
 
-        let tags = ["DidChangeWatchedFilesParams", box p]
+        let tags = [ "DidChangeWatchedFilesParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3268,7 +3290,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             ())
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "WorkspaceDidChangeWatchedFiles Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3278,7 +3301,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) =
       async {
-        let tags = ["DidChangeConfigurationParams", box p]
+        let tags = [ "DidChangeConfigurationParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3293,7 +3316,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           updateConfig c
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "WorkspaceDidChangeConfiguration Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3303,7 +3327,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
       asyncResult {
-        let tags = ["FoldingRangeParams", box rangeP]
+        let tags = [ "FoldingRangeParams", box rangeP ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3324,7 +3348,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! scopes = Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
           return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentFoldingRange Request Errored {p}"
             >> Log.addContextDestructured "p" rangeP
@@ -3336,7 +3361,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
       asyncResult {
-        let tags = ["SelectionRangeParams", box selectionRangeP]
+        let tags = [ "SelectionRangeParams", box selectionRangeP ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3369,7 +3394,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return ranges |> List.choose mkSelectionRanges |> Some
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentSelectionRange Request Errored {p}"
             >> Log.addContextDestructured "p" selectionRangeP
@@ -3381,7 +3407,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> =
       asyncResult {
-        let tags = ["SemanticTokensParams", box p]
+        let tags = [ "SemanticTokensParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3394,7 +3420,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! x.handleSemanticTokens fn None
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentSemanticTokensFull Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3408,7 +3435,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentSemanticTokensRange(p: SemanticTokensRangeParams) : AsyncLspResult<SemanticTokens option> =
       asyncResult {
-        let tags = ["SemanticTokensRangeParams", box p]
+        let tags = [ "SemanticTokensRangeParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3421,7 +3448,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let fcsRange = protocolRangeToRange (UMX.untag fn) p.Range
           return! x.handleSemanticTokens fn (Some fcsRange)
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentSemanticTokensRange Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3433,7 +3461,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
       asyncResult {
-        let tags = ["InlayHintParams", box p]
+        let tags = [ "InlayHintParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3525,7 +3553,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return (Some hints)
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentInlayHint Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3537,7 +3566,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.TextDocumentInlineValue(p: InlineValueParams) =
       asyncResult {
-        let tags = ["InlineValueParams", box p]
+        let tags = [ "InlineValueParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3566,7 +3595,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return hints
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "TextDocumentInlineValue Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3748,7 +3778,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     override x.FSharpSignature(p: TextDocumentPositionParams) =
       asyncResult {
 
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3766,7 +3796,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpSignature Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3778,7 +3809,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.FSharpSignatureData(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3801,7 +3832,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpSignatureData Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3814,7 +3846,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.FSharpDocumentationGenerator(p: OptionallyVersionedTextDocumentPositionParams) =
       asyncResult {
-        let tags = ["OptionallyVersionedTextDocumentPositionParams", box p]
+        let tags = [ "OptionallyVersionedTextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3849,7 +3881,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return ()
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDocumentationGenerator Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3861,7 +3894,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpLineLense(p: ProjectParms) =
       asyncResult {
-        let tags = ["ProjectParms", box p]
+        let tags = [ "ProjectParms", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3880,7 +3913,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpLineLense Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3912,7 +3946,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   msbuild
                   (sdk |> Option.map (fun (di: DirectoryInfo) -> di.FullName)) }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpCompilerLocation Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3924,7 +3959,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) =
       asyncResult {
-        let tags = ["WorkspaceLoadParms", box p]
+        let tags = [ "WorkspaceLoadParms", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3944,7 +3979,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpWorkspaceLoad Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3958,7 +3994,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpWorkspacePeek(p: WorkspacePeekRequest) =
       asyncResult {
-        let tags = ["WorkspacePeekRequest", box p]
+        let tags = [ "WorkspacePeekRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -3981,7 +4017,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return! res
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpWorkspacePeek Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -3993,7 +4030,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpProject(p: ProjectParms) =
       asyncResult {
-        let tags = ["ProjectParms", box p]
+        let tags = [ "ProjectParms", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4024,7 +4061,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return! Helpers.notImplemented
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpWorkspacePeek Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4045,7 +4083,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpDotnetNewList(p: DotnetNewListRequest) =
       asyncResult {
-        let tags = ["DotnetNewListRequest", box p]
+        let tags = [ "DotnetNewListRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4057,7 +4095,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! funcs = Commands.DotnetNewList() |> AsyncResult.ofCoreResponse
           return { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDotnetNewList Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4069,7 +4108,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpDotnetNewRun(p: DotnetNewRunRequest) =
       asyncResult {
-        let tags = ["DotnetNewRunRequest", box p]
+        let tags = [ "DotnetNewRunRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4084,7 +4123,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDotnetNewRun Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4096,7 +4136,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpDotnetAddProject(p: DotnetProjectRequest) =
       asyncResult {
-        let tags = ["DotnetProjectRequest", box p]
+        let tags = [ "DotnetProjectRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4109,7 +4149,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDotnetAddProject Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4121,7 +4162,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpDotnetRemoveProject(p: DotnetProjectRequest) =
       asyncResult {
-        let tags = ["DotnetProjectRequest", box p]
+        let tags = [ "DotnetProjectRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4134,7 +4175,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDotnetRemoveProject Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4146,7 +4188,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FSharpDotnetSlnAdd(p: DotnetProjectRequest) =
       asyncResult {
-        let tags = ["DotnetProjectRequest", box p]
+        let tags = [ "DotnetProjectRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4159,7 +4201,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDotnetSlnAdd Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4171,7 +4214,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.FSharpHelp(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4187,7 +4230,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! t = Commands.Help tyRes pos lineStr |> Result.ofCoreResponse
           return { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpHelp Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4199,7 +4243,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.FSharpDocumentation(p: TextDocumentPositionParams) =
       asyncResult {
-        let tags = ["TextDocumentPositionParams", box p]
+        let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4216,7 +4260,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! t = Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse
           return { Content = CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson t }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDocumentation Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4228,7 +4273,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
       asyncResult {
-        let tags = ["DocumentationForSymbolReuqest", box p]
+        let tags = [ "DocumentationForSymbolReuqest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4261,7 +4306,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   xmldoc
                   (signature, footer, cn) }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpDocumentationSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4275,6 +4321,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       async {
 
         use trace = fsacActivitySource.StartActivityForType(thisType)
+
         logger.info (
           Log.setMessage "LoadAnalyzers Request: {parms}"
           >> Log.addContextDestructured "parms" path
@@ -4282,20 +4329,21 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         try
           // since the analyzer state handling code is in `updateConfig`, re-trigger it here
-          transact <| fun () ->
+          transact
+          <| fun () ->
             config.MarkOutdated()
             updateConfig config.Value
 
           return LspResult.success ()
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
           Loggers.analyzers.error (Log.setMessage "Loading failed" >> Log.addExn e)
           return LspResult.success ()
       }
 
     override x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
       asyncResult {
-        let tags =  ["FSharpPipelineHintRequest", box p]
+        let tags = [ "FSharpPipelineHintRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4310,7 +4358,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FSharpPipelineHints Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4322,7 +4371,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FsProjMoveFileUp(p: DotnetFileRequest) =
       asyncResult {
-        let tags =  ["DotnetFileRequest", box p]
+        let tags = [ "DotnetFileRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4338,7 +4387,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjMoveFileUp Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4351,7 +4401,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FsProjMoveFileDown(p: DotnetFileRequest) =
       asyncResult {
-        let tags =  ["DotnetFileRequest", box p]
+        let tags = [ "DotnetFileRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4367,7 +4417,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjMoveFileDown Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4380,7 +4431,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FsProjAddFileAbove(p: DotnetFile2Request) =
       asyncResult {
-        let tags =  ["DotnetFile2Request", box p]
+        let tags = [ "DotnetFile2Request", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4396,7 +4447,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjAddFileAbove Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4408,8 +4460,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FsProjAddFileBelow(p: DotnetFile2Request) =
       asyncResult {
-        let tags =  ["DotnetFile2Request", box p]
+        let tags = [ "DotnetFile2Request", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
         try
           logger.info (
             Log.setMessage "FsProjAddFileBelow Request: {parms}"
@@ -4423,7 +4476,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjAddFileBelow Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4436,7 +4490,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override __.FsProjAddFile(p: DotnetFileRequest) =
       asyncResult {
-        let tags =  ["DotnetFileRequest", box p]
+        let tags = [ "DotnetFileRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4449,7 +4503,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjAddFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4461,7 +4516,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override _.FsProjRemoveFile(p: DotnetFileRequest) =
       asyncResult {
-        let tags =  ["DotnetFileRequest", box p]
+        let tags = [ "DotnetFileRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4478,7 +4533,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjRemoveFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4490,7 +4546,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     override _.FsProjAddExistingFile(p: DotnetFileRequest) =
       asyncResult {
-        let tags =  ["DotnetFileRequest", box p]
+        let tags = [ "DotnetFileRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -4506,7 +4562,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           forceLoadProjects () |> ignore
           return { Content = "" }
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "FsProjAddExistingFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
@@ -4521,8 +4578,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     member this.WorkDoneProgessCancel(token: ProgressToken) : Async<unit> =
       async {
 
-        let tags =  ["ProgressToken", box token]
+        let tags = [ "ProgressToken", box token ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
         try
           logger.info (
             Log.setMessage "WorkDoneProgessCancel Request: {parms}"
@@ -4530,7 +4588,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
         with e ->
-          trace.RecordExceptions(e) |> ignore
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
           logger.error (
             Log.setMessage "WorkDoneProgessCancel Request Errored {p}"
             >> Log.addContextDestructured "token" token

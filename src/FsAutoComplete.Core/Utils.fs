@@ -839,17 +839,25 @@ module Tracing =
   open StreamJsonRpc
 
   module SemanticConventions =
-    [<Literal>]
-    let sourceCodePath = "fsac.sourceCodePath"
 
-    let setTagSourceCodePath filePath (a: Activity) =
-      a.SetTagSafe(sourceCodePath, filePath) |> ignore
+    module FCS =
+      [<Literal>]
+      let fileName = "fileName"
+
+      [<Literal>]
+      let project = "project"
+
+      [<Literal>]
+      let qualifiedNameOfFile = "qualifiedNameOfFile"
+
+      [<Literal>]
+      let userOpName = "userOpName"
+
+    [<Literal>]
+    let fsac_sourceCodePath = "fsac.sourceCodePath"
 
     [<Literal>]
     let projectFilePath = "fsac.projectFilePath"
-
-    let setTagProjectFilePath filePath (a: Activity) =
-      a.SetTagSafe(projectFilePath, filePath) |> ignore
 
   [<Literal>]
   let serviceName = "FsAutoComplete"
