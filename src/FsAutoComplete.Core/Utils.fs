@@ -867,6 +867,13 @@ module Tracing =
 
   let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
 
+  /// <summary>
+  /// StreamJsonRpcTracingStrategy participates in and propagates trace context in  vs-streamjsonrpc
+  /// </summary>
+  ///
+  /// <remarks>
+  /// <see href="https://github.com/microsoft/vs-streamjsonrpc/blob/main/doc/tracecontext.md"> vs-streamjsonrpc tracecontext documentation</see>
+  /// </remarks>
   type StreamJsonRpcTracingStrategy(activitySource: ActivitySource) =
     interface IActivityTracingStrategy with
       member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
