@@ -1259,7 +1259,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         return
           { InitializeResult.Default with
-              Capabilities = Helpers.defaultServerCapabilities }
+              Capabilities =
+                { Helpers.defaultServerCapabilities with
+                    InlineValueProvider = inlineValueToggle } }
           |> success
       }
 
