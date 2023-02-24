@@ -839,7 +839,9 @@ module Tracing =
   open StreamJsonRpc
 
   module SemanticConventions =
-
+    /// <remarks>
+    /// <see href="https://github.com/dotnet/fsharp/blob/c68285b00e2f53607d836aa0a11ab21abd556842/src/Compiler/Utilities/Activity.fs#L13"> From F# compiler</see>
+    /// </remarks>
     module FCS =
       [<Literal>]
       let fileName = "fileName"
@@ -862,6 +864,9 @@ module Tracing =
   [<Literal>]
   let serviceName = "FsAutoComplete"
 
+  /// <remarks>
+  /// <see href="https://github.com/dotnet/fsharp/blob/c68285b00e2f53607d836aa0a11ab21abd556842/src/Compiler/Utilities/Activity.fs#L43"> From F# compiler</see>
+  /// </remarks>
   [<Literal>]
   let fscServiceName = "fsc"
 
