@@ -433,7 +433,8 @@ module Commands =
           formatDocumentAsync
             { SourceCode = currentCode
               FilePath = filePath
-              Config = None }
+              Config = None
+              Cursor = None }
 
         match fantomasResponse with
         | { Code = 1; Content = Some code } ->
