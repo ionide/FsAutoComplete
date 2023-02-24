@@ -837,6 +837,7 @@ module Tracing =
   open System.Diagnostics
   open FsOpenTelemetry
   open StreamJsonRpc
+  open System.Collections.Generic
 
   module SemanticConventions =
     /// <remarks>
@@ -882,20 +883,20 @@ module Tracing =
   type StreamJsonRpcTracingStrategy(activitySource: ActivitySource) =
     interface IActivityTracingStrategy with
       member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
+        let tags =
+          [
+            "rpc.system", box "jsonrpc"
+            "rpc.jsonrpc.is_notification", box request.IsNotification
+            "rpc.jsonrpc.is_response_expected", box request.IsResponseExpected
+            "rpc.jsonrpc.version", box request.Version
+            "rpc.jsonrpc.request_id", box request.RequestId
+            "rpc.method", box request.Method
+          ]
+          |> Seq.map KeyValuePair
 
-        let activity = activitySource.StartActivity(request.Method)
-
-        activity
-          .SetTagSafe("rpc.system", "jsonrpc")
-          .SetTagSafe("rpc.jsonrpc.argumentNames", String.Join(',', request.ArgumentNames))
-          .SetTagSafe("rpc.jsonrpc.is_notification", request.IsNotification)
-          .SetTagSafe("rpc.jsonrpc.is_response_expected", request.IsResponseExpected)
-          .SetTagSafe("rpc.jsonrpc.version", request.Version)
-          .SetTagSafe("rpc.jsonrpc.request_id", request.RequestId)
-          .SetTagSafe("rpc.method", request.Method)
-        |> ignore
-
-        activity.TraceStateString <- request.TraceState
+        let activity = activitySource.StartActivity(ActivityKind.Server, name = request.Method, tags = tags)
+        if activity <> null then
+          activity.TraceStateString <- request.TraceState
 
         if request.TraceParent <> null then
           activity.SetParentId(request.TraceParent) |> ignore
