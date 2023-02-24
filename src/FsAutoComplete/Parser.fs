@@ -179,14 +179,12 @@ module Parser =
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
       let serviceName = FsAutoComplete.Utils.Tracing.serviceName
-      let fcsServiceName = "fsc"
-      let fcsProfileName = "fsc_with_env_stats"
       let version = FsAutoComplete.Utils.Version.info().Version
 
       tracerProvider <-
         Sdk
           .CreateTracerProviderBuilder()
-          .AddSource(serviceName, fcsServiceName, fcsProfileName)
+          .AddSource(serviceName, Tracing.fscServiceName)
           .SetResourceBuilder(
             ResourceBuilder
               .CreateDefault()
