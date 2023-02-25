@@ -525,6 +525,9 @@ module List =
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
+  /// Concatenates all the elements of a string array, using the specified separator between each element.
+  let inline join (separator: string) (items: string seq) = String.Join(separator, items)
+
   let inline toCharArray (str: string) = str.ToCharArray()
 
   let lowerCaseFirstChar (str: string) =
@@ -898,8 +901,8 @@ module Tracing =
         if activity <> null then
           activity.TraceStateString <- request.TraceState
 
-        if request.TraceParent <> null then
-          activity.SetParentId(request.TraceParent) |> ignore
+          if request.TraceParent <> null then
+            activity.SetParentId(request.TraceParent) |> ignore
 
         activity
 

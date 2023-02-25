@@ -160,19 +160,6 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
   let strContains (substring: string) (str: string) = str.Contains(substring)
 
   let interestingActivities = traceNamespace |> Array.map strContains
-  // [
-  //   strEquals "BoundModel.TypeCheck"
-  //   strContains "BackgroundCompiler."
-  //   // strContains "BoundModel."
-  //   // strContains "IncrementalBuild."
-  //   // strContains "CheckDeclarations."
-  //   // strContains "ParseAndCheckInputs."
-  //   // strContains "BackgroundCompiler."
-  //   // strContains "IncrementalBuildSyntaxTree."
-  //   // strContains "ParseAndCheckFile."
-  //   // strContains "ParseAndCheckInputs."
-  //   // strContains "CheckDeclarations."
-  // ]
 
   let logger = LogProvider.getLoggerByName "Compiler"
 
@@ -182,15 +169,12 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
     ConcurrentDictionary<_, System.Diagnostics.Activity * ServerProgressReport>()
 
   let isStopped (activity: Activity) =
-#if NET6_0
-    false
-    ||
-#else
+#if NET7_0_OR_GREATER
     activity.IsStopped
     ||
 #endif
-    // giving this 1 seconds to report something, otherwise assume it's a dead activity
-    ((DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(5.)
+    // giving this 2 seconds to report something, otherwise assume it's a dead activity
+    ((DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(2.)
      && activity.Duration = TimeSpan.Zero)
 
   let getTagItemSafe key (a: Activity) = a.GetTagItem key |> Option.ofObj
@@ -224,8 +208,10 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
               inflightEvents.TryRemove(a.Id) |> ignore
             else
               // FSC doesn't start their spans with tags so we have to see if it's been added later https://github.com/dotnet/fsharp/issues/14776
-              let message = String.Join(" - ", [ getFileName a; getProject a; getUserOpName a ])
-
+              let message =
+                [ getFileName a; getProject a; getUserOpName a ]
+                |> List.filter (String.IsNullOrEmpty >> not)
+                |> String.join " - "
 
               do! p.Report(message = message)
 
@@ -240,10 +226,10 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
               let fileName = getFileName activity
               let userOpName = getUserOpName activity
 
-              // logger.debug (
-              //   Log.setMessageI
-              //     $"Started : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName}"
-              // )
+              logger.trace (
+                Log.setMessageI
+                  $"Started : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName}"
+              )
 
               if
                 activity.DisplayName |> isOneOf interestingActivities
@@ -260,10 +246,10 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
               let userOpName = getUserOpName activity
               let duration = activity.Duration.ToString()
 
-              // logger.debug (
-              //   Log.setMessageI
-              //     $"Finished : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName} - took {duration:duration}"
-              // )
+              logger.trace (
+                Log.setMessageI
+                  $"Finished : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName} - took {duration:duration}"
+              )
 
               if activity.DisplayName |> isOneOf interestingActivities then
                 match inflightEvents.TryRemove(activity.Id) with
