@@ -132,6 +132,7 @@ module Parser =
         let workspaceLoaderFactory =
           fun toolsPath props ->
             let props = Map.merge ProjectLoader.globalProperties props |> Map.toList
+
             if projectGraphEnabled then
               Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, props)
             else
@@ -192,6 +193,7 @@ module Parser =
       if ctx.ParseResult.GetValueForOption otelTracingOption then
         let serviceName = FsAutoComplete.Utils.Tracing.serviceName
         let version = FsAutoComplete.Utils.Version.info().Version
+
         tracerProvider <-
           Sdk
             .CreateTracerProviderBuilder()

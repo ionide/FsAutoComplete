@@ -509,22 +509,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: Map<string, string> -> IWorkspaceL
 
     file |> addAValLogging logMsg
 
-  let loaderFactory = cval<Map<string, string> -> Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
+  let loaderFactory =
+    cval<Map<string, string> -> Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
+
   let loader =
     aval {
       let! loaderFactory = loaderFactory
       and! config = config
 
-      let props =
-        config.BuildOptions.MsBuildProperties
-        |> Array.choose(fun s ->
-          match s.Split("=") |> Array.toList with
-          | head::shoulders::_ -> Some(head,shoulders)
-          | _ -> None
-        )
-        |> Map.ofArray
-
-      return loaderFactory props
+      return loaderFactory config.BuildOptions.MsBuildProperties
     }
 
 

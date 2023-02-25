@@ -610,7 +610,7 @@ type NotificationsDto =
     TraceNamespaces: string array option }
 
 type BuildOptionsDto =
-  { MsBuildProperties: string array option }
+  { MsBuildProperties: Dictionary<string, string> option }
 
 type DebugDto =
   { DontCheckRelatedFiles: bool option
@@ -729,17 +729,22 @@ type FSACConfig =
 
   member this.AddDto(dto: FSACDto) =
     { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount }
-type BuildOptions =
-  { MsBuildProperties: string array }
 
-  static member Default = { MsBuildProperties = [||] }
+type BuildOptions =
+  { MsBuildProperties: Map<string, string> }
+
+  static member Default = { MsBuildProperties = Map.empty }
 
   static member FromDto(dto: BuildOptionsDto) : BuildOptions =
-    { MsBuildProperties = defaultArg dto.MsBuildProperties BuildOptions.Default.MsBuildProperties }
+    let props = dto.MsBuildProperties |> Option.map (Seq.map (|KeyValue|) >> Map.ofSeq)
+
+    { MsBuildProperties = defaultArg props BuildOptions.Default.MsBuildProperties }
 
 
   member this.AddDto(dto: BuildOptionsDto) : BuildOptions =
-    { MsBuildProperties = defaultArg dto.MsBuildProperties this.MsBuildProperties }
+    let props = dto.MsBuildProperties |> Option.map (Seq.map (|KeyValue|) >> Map.ofSeq)
+
+    { MsBuildProperties = defaultArg props this.MsBuildProperties }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool
