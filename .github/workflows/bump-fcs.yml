@@ -14,6 +14,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: nightly
+          # using a custom token instead of GITHUB_TOKEN allows other workflows to trigger as a result of the push
+          token: ${{ secrets.FCS_NIGHTLY_UPDATE_TOKEN }}
       - name: configure .NET
         uses: actions/setup-dotnet@v2
       - name: restore tools
