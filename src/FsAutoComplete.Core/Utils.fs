@@ -10,6 +10,14 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
 open FSharp.Compiler.Symbols
 
+
+/// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+let dispose (d: #IDisposable) = d.Dispose()
+
+/// <summary>Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources asynchronously.</summary>
+/// <returns>A task that represents the asynchronous dispose operation.</returns>
+let disposeAsync (d: #IAsyncDisposable) = d.DisposeAsync()
+
 module Map =
   /// Combine two maps of identical types by starting with the first map and overlaying the second one.
   /// Because map updates shadow, any keys in the second map will have priority.
@@ -147,6 +155,7 @@ let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
 
   { FSharpParsingOptions.Default with
       SourceFiles = files }
+
 
 [<RequireQualifiedAccess>]
 module Option =
@@ -516,6 +525,9 @@ module List =
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
+  /// Concatenates all the elements of a string array, using the specified separator between each element.
+  let inline join (separator: string) (items: string seq) = String.Join(separator, items)
+
   let inline toCharArray (str: string) = str.ToCharArray()
 
   let lowerCaseFirstChar (str: string) =
@@ -822,3 +834,81 @@ type FSharpSymbol with
     | :? FSharpStaticParameter as s -> s.DeclarationLocation
     | :? FSharpParameter as p -> p.DeclarationLocation
     | _ -> failwith $"cannot fetch DefinitionRange for unknown FSharpSymbol subtype {x.GetType().FullName}"
+
+module Tracing =
+
+  open System.Diagnostics
+  open FsOpenTelemetry
+  open StreamJsonRpc
+  open System.Collections.Generic
+
+  module SemanticConventions =
+    /// <remarks>
+    /// <see href="https://github.com/dotnet/fsharp/blob/c68285b00e2f53607d836aa0a11ab21abd556842/src/Compiler/Utilities/Activity.fs#L13"> From F# compiler</see>
+    /// </remarks>
+    module FCS =
+      [<Literal>]
+      let fileName = "fileName"
+
+      [<Literal>]
+      let project = "project"
+
+      [<Literal>]
+      let qualifiedNameOfFile = "qualifiedNameOfFile"
+
+      [<Literal>]
+      let userOpName = "userOpName"
+
+    [<Literal>]
+    let fsac_sourceCodePath = "fsac.sourceCodePath"
+
+    [<Literal>]
+    let projectFilePath = "fsac.projectFilePath"
+
+  [<Literal>]
+  let serviceName = "FsAutoComplete"
+
+  /// <remarks>
+  /// <see href="https://github.com/dotnet/fsharp/blob/c68285b00e2f53607d836aa0a11ab21abd556842/src/Compiler/Utilities/Activity.fs#L43"> From F# compiler</see>
+  /// </remarks>
+  [<Literal>]
+  let fscServiceName = "fsc"
+
+  let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
+
+  /// <summary>
+  /// StreamJsonRpcTracingStrategy participates in and propagates trace context in  vs-streamjsonrpc
+  /// </summary>
+  ///
+  /// <remarks>
+  /// <see href="https://github.com/microsoft/vs-streamjsonrpc/blob/main/doc/tracecontext.md"> vs-streamjsonrpc tracecontext documentation</see>
+  /// </remarks>
+  type StreamJsonRpcTracingStrategy(activitySource: ActivitySource) =
+    interface IActivityTracingStrategy with
+      member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
+        let tags =
+          [ "rpc.system", box "jsonrpc"
+            "rpc.jsonrpc.is_notification", box request.IsNotification
+            "rpc.jsonrpc.is_response_expected", box request.IsResponseExpected
+            "rpc.jsonrpc.version", box request.Version
+            "rpc.jsonrpc.request_id", box request.RequestId
+            "rpc.method", box request.Method ]
+          |> Seq.map KeyValuePair
+
+        let activity =
+          activitySource.StartActivity(ActivityKind.Server, name = request.Method, tags = tags)
+
+        if activity <> null then
+          activity.TraceStateString <- request.TraceState
+
+          if request.TraceParent <> null then
+            activity.SetParentId(request.TraceParent) |> ignore
+
+        activity
+
+      member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest) : unit =
+        if Activity.Current <> null && Activity.Current.IdFormat = ActivityIdFormat.W3C then
+          request.TraceParent <- Activity.Current.Id
+          request.TraceState <- Activity.Current.TraceStateString
+
+        ()

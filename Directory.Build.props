@@ -4,7 +4,7 @@
     <Title>FsAutoComplete</Title>
     <Product>FsAutoComplete</Product>
     <PackageLicenseExpression Condition=" '$(PackAsTool)' != 'true' ">Apache-2.0</PackageLicenseExpression>
-    <NoWarn>3186</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
+    <NoWarn>3186,0042</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
   </PropertyGroup>
