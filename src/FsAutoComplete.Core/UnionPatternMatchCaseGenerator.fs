@@ -283,7 +283,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.ArbitraryAfterError(_debugStr, _range) -> None
 
       | SynExpr.FromParseError(synExpr, _range)
-      | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _range) -> walkExpr synExpr
+      | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _, _range) -> walkExpr synExpr
 
       | _ -> None)
 

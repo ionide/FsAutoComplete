@@ -418,7 +418,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.LibraryOnlyUnionCaseFieldSet(_, longId, _, _, r) -> addIfInside r
     | SynExpr.ArbitraryAfterError(debugStr, r) -> addIfInside r
     | SynExpr.FromParseError(expr, r) -> addIfInside r
-    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, r) -> addIfInside r
+    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, _, r) -> addIfInside r
     | SynExpr.Fixed(expr, r) -> addIfInside r
     | SynExpr.InterpolatedString(parts, kind, r) ->
       addIfInside r
