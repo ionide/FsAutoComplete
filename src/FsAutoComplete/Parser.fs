@@ -188,7 +188,7 @@ module Parser =
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
 
-      if ctx.ParseResult.GetValue otelTracingOption then
+      if ctx.ParseResult.GetValueForOption otelTracingOption then
         let serviceName = FsAutoComplete.Utils.Tracing.serviceName
         let version = FsAutoComplete.Utils.Version.info().Version
 
