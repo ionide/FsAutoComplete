@@ -2953,7 +2953,7 @@ module FSharpLspServer =
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
     let regularServer lspClient =
-      let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
+      let state = State.Initial toolsPath stateStorageDir (fun toolsPath -> workspaceLoaderFactory toolsPath Map.empty)
       let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
       FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
       new FSharpLspServer(state, lspClient) :> IFSharpLspServer

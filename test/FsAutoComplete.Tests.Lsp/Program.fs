@@ -32,7 +32,9 @@ Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
   [
-    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    "Ionide WorkspaceLoader", (fun toolpath props ->
+      let props = FsAutoComplete.Utils.Map.merge FsAutoComplete.Core.ProjectLoader.globalProperties props |> Map.toList
+      WorkspaceLoader.Create(toolpath, props))
     // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
   ]
 
@@ -195,9 +197,12 @@ let main args =
     args
     |> Array.windowed 2
     |> Array.tryPick (function
-      | [| "--loader"; "ionide" |] as args -> Some(args, [ "Ionide WorkspaceLoader", WorkspaceLoader.Create ])
+      | [| "--loader"; "ionide" |] as args ->
+        let (name, factory) = loaders |> Seq.find(fun (k,v) -> k = "Ionide WorkspaceLoader")
+        Some(args, [ name, factory ])
       | [| "--loader"; "graph" |] as args ->
-        Some(args, [ "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create ])
+        let (name, factory) = loaders |> Seq.find(fun (k,v) -> k = "MSBuild Project Graph WorkspaceLoader")
+        Some(args, [ name, factory ])
       | _ -> None)
     |> Option.defaultValue ([||], loaders)
 
