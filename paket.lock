@@ -319,8 +319,8 @@ NUGET
       FSharp.Core (>= 4.6.2) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
       System.Collections.Immutable (>= 6.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
   remote: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
-    FSharp.Compiler.Service (43.7.300-preview.23123.3)
-      FSharp.Core (7.0.300-beta.23123.3)
+    FSharp.Compiler.Service (43.7.300-preview.23124.3)
+      FSharp.Core (7.0.300-beta.23124.3)
       System.Buffers (>= 4.5.1)
       System.Collections.Immutable (>= 6.0)
       System.Diagnostics.DiagnosticSource (>= 6.0)
@@ -328,7 +328,7 @@ NUGET
       System.Reflection.Emit (>= 4.7)
       System.Reflection.Metadata (>= 6.0)
       System.Runtime.CompilerServices.Unsafe (>= 6.0)
-    FSharp.Core (7.0.300-beta.23123.3) - content: none
+    FSharp.Core (7.0.300-beta.23124.3) - content: none
 GITHUB
   remote: TheAngryByrd/FsLibLog
     src/FsLibLog/FsLibLog.fs (f81cba440bf0476bb4e2262b57a067a0d6ab78a7)
