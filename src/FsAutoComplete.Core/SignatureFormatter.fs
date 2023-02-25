@@ -173,7 +173,7 @@ module SignatureFormatter =
           if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
             formatFSharpType displayContext unionField.FieldType
           else
-            unionField.Name ++ ":" ++ (formatFSharpType displayContext unionField.FieldType))
+            unionField.Name + ":" ++ (formatFSharpType displayContext unionField.FieldType))
         |> String.concat " * "
 
       unionCase.DisplayName + " of " + typeList

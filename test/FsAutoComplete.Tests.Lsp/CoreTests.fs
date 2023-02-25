@@ -364,7 +364,8 @@ let tooltipTests state =
               [ "static member Start:"
                 "   body             : (MailboxProcessor<string> -> Async<unit>) *"
                 "   cancellationToken: option<System.Threading.CancellationToken>"
-                "                   -> MailboxProcessor<string>" ]) ] ]
+                "                   -> MailboxProcessor<string>" ])
+          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

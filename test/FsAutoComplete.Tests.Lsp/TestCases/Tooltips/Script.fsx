@@ -49,3 +49,7 @@ let mailbox =
   MailboxProcessor<string>.Start(
     fun _ -> async.Return()
   )
+
+type DiscUnionWithCaseOfLabeledTuple =
+    | Case1
+    | Case2 of string * newlineBefore: bool * newlineAfter: bool
