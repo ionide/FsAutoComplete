@@ -884,17 +884,17 @@ module Tracing =
     interface IActivityTracingStrategy with
       member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
         let tags =
-          [
-            "rpc.system", box "jsonrpc"
+          [ "rpc.system", box "jsonrpc"
             "rpc.jsonrpc.is_notification", box request.IsNotification
             "rpc.jsonrpc.is_response_expected", box request.IsResponseExpected
             "rpc.jsonrpc.version", box request.Version
             "rpc.jsonrpc.request_id", box request.RequestId
-            "rpc.method", box request.Method
-          ]
+            "rpc.method", box request.Method ]
           |> Seq.map KeyValuePair
 
-        let activity = activitySource.StartActivity(ActivityKind.Server, name = request.Method, tags = tags)
+        let activity =
+          activitySource.StartActivity(ActivityKind.Server, name = request.Method, tags = tags)
+
         if activity <> null then
           activity.TraceStateString <- request.TraceState
 

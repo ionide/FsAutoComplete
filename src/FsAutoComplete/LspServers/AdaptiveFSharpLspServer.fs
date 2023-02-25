@@ -196,6 +196,16 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   /// in the future
   let selectProject projs = projs |> List.tryHead
 
+  let mutable traceNotifications: ProgressListener option = None
+
+  let replaceTraceNotification shouldTrace traceNamespaces =
+    traceNotifications |> Option.iter dispose
+
+    if shouldTrace then
+      traceNotifications <- Some(new ProgressListener(lspClient, traceNamespaces))
+    else
+      traceNotifications <- None
+
   let mutableConfigChanges =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
 
@@ -203,6 +213,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let! config = config
       and! checker = checker
       and! rootPath = rootPath
+
+      replaceTraceNotification config.Notifications.Trace config.Notifications.TraceNamespaces
 
       checker.SetFSIAdditionalArguments
         [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument
@@ -306,8 +318,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     Event<FSharpParseFileResults * FSharpProjectOptions * CancellationToken>()
 
   let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
-
-  do disposables.Add <| new ProgressListener(lspClient)
 
   do
     disposables.Add
@@ -1703,8 +1713,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           percentage = percentage 0 checksToPerform.Length
         )
 
-      let maxConcurrency = 3
-      // Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+      let maxConcurrency =
+        Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+
       do! Async.Parallel(checksToPerform, int maxConcurrency) |> Async.Ignore<unit array>
 
     }

@@ -149,25 +149,30 @@ open Ionide.ProjInfo.Logging
 
 
 /// listener for the the events generated from the fsc ActivitySource
-type ProgressListener(lspClient: FSharpLspClient) =
+type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
-  let isOneOf list string = list |> List.exists (fun f -> f string)
+  let isOneOf list string =
+    list |> Array.exists (fun f -> f string)
 
+  let strEquals (other: string) (this: string) =
+    this.Equals(other, StringComparison.InvariantCultureIgnoreCase)
 
   let strContains (substring: string) (str: string) = str.Contains(substring)
 
-  let interestingActivities =
-    [
-
-      strContains "BoundModel."
-      strContains "IncrementalBuild."
-      strContains "CheckDeclarations."
-      strContains "ParseAndCheckInputs."
-      strContains "BackgroundCompiler."
-      strContains "IncrementalBuildSyntaxTree."
-      strContains "ParseAndCheckFile."
-      strContains "ParseAndCheckInputs."
-      strContains "CheckDeclarations." ]
+  let interestingActivities = traceNamespace |> Array.map strContains
+  // [
+  //   strEquals "BoundModel.TypeCheck"
+  //   strContains "BackgroundCompiler."
+  //   // strContains "BoundModel."
+  //   // strContains "IncrementalBuild."
+  //   // strContains "CheckDeclarations."
+  //   // strContains "ParseAndCheckInputs."
+  //   // strContains "BackgroundCompiler."
+  //   // strContains "IncrementalBuildSyntaxTree."
+  //   // strContains "ParseAndCheckFile."
+  //   // strContains "ParseAndCheckInputs."
+  //   // strContains "CheckDeclarations."
+  // ]
 
   let logger = LogProvider.getLoggerByName "Compiler"
 
@@ -179,12 +184,14 @@ type ProgressListener(lspClient: FSharpLspClient) =
   let isStopped (activity: Activity) =
 #if NET6_0
     false
+    ||
 #else
     activity.IsStopped
+    ||
 #endif
     // giving this 1 seconds to report something, otherwise assume it's a dead activity
-    || ((DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(1.)
-        && activity.Duration = TimeSpan.Zero)
+    ((DateTime.UtcNow - activity.StartTimeUtc) > TimeSpan.FromSeconds(5.)
+     && activity.Duration = TimeSpan.Zero)
 
   let getTagItemSafe key (a: Activity) = a.GetTagItem key |> Option.ofObj
 
@@ -199,7 +206,6 @@ type ProgressListener(lspClient: FSharpLspClient) =
     >> Option.map string
     >> Option.map IO.Path.GetFileName
     >> Option.defaultValue String.Empty
-
 
   let getUserOpName =
     getTagItemSafe Tracing.SemanticConventions.FCS.userOpName
@@ -218,9 +224,10 @@ type ProgressListener(lspClient: FSharpLspClient) =
               inflightEvents.TryRemove(a.Id) |> ignore
             else
               // FSC doesn't start their spans with tags so we have to see if it's been added later https://github.com/dotnet/fsharp/issues/14776
-              let fileName = getFileName a
-              let userOpName = getUserOpName a
-              do! p.Report(message = $"{fileName} - {userOpName}")
+              let message = String.Join(" - ", [ getFileName a; getProject a; getUserOpName a ])
+
+
+              do! p.Report(message = message)
 
           match! inbox.TryReceive(250) with
           | None ->
@@ -233,10 +240,10 @@ type ProgressListener(lspClient: FSharpLspClient) =
               let fileName = getFileName activity
               let userOpName = getUserOpName activity
 
-              logger.debug (
-                Log.setMessageI
-                  $"Started : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName}"
-              )
+              // logger.debug (
+              //   Log.setMessageI
+              //     $"Started : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName}"
+              // )
 
               if
                 activity.DisplayName |> isOneOf interestingActivities
@@ -253,10 +260,10 @@ type ProgressListener(lspClient: FSharpLspClient) =
               let userOpName = getUserOpName activity
               let duration = activity.Duration.ToString()
 
-              logger.debug (
-                Log.setMessageI
-                  $"Finished : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName} - took {duration:duration}"
-              )
+              // logger.debug (
+              //   Log.setMessageI
+              //     $"Finished : {activity.DisplayName:DisplayName} - {userOpName:UserOpName} - {fileName:fileName} - took {duration:duration}"
+              // )
 
               if activity.DisplayName |> isOneOf interestingActivities then
                 match inflightEvents.TryRemove(activity.Id) with

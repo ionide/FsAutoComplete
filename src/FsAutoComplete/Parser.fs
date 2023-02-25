@@ -22,6 +22,8 @@ module Parser =
 
   let mutable tracerProvider = Unchecked.defaultof<_>
 
+
+
   [<Struct>]
   type Pos = { Line: int; Column: int }
 
@@ -95,6 +97,12 @@ module Parser =
       "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
     )
 
+  let otelTracingOption =
+    Option<bool>(
+      "--otel-exporter-enabled",
+      "Enabled OpenTelemetry exporter. See https://opentelemetry.io/docs/reference/specification/protocol/exporter/ for environment variables to configure for the exporter."
+    )
+
   let stateLocationOption =
     Option<DirectoryInfo>(
       "--state-directory",
@@ -115,6 +123,7 @@ module Parser =
     rootCommand.AddOption adaptiveLspServerOption
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
+    rootCommand.AddOption otelTracingOption
 
 
 
@@ -178,20 +187,22 @@ module Parser =
 
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
-      let serviceName = FsAutoComplete.Utils.Tracing.serviceName
-      let version = FsAutoComplete.Utils.Version.info().Version
 
-      tracerProvider <-
-        Sdk
-          .CreateTracerProviderBuilder()
-          .AddSource(serviceName, Tracing.fscServiceName)
-          .SetResourceBuilder(
-            ResourceBuilder
-              .CreateDefault()
-              .AddService(serviceName = serviceName, serviceVersion = version)
-          )
-          .AddOtlpExporter()
-          .Build()
+      if ctx.ParseResult.HasOption otelTracingOption then
+        let serviceName = FsAutoComplete.Utils.Tracing.serviceName
+        let version = FsAutoComplete.Utils.Version.info().Version
+
+        tracerProvider <-
+          Sdk
+            .CreateTracerProviderBuilder()
+            .AddSource(serviceName, Tracing.fscServiceName)
+            .SetResourceBuilder(
+              ResourceBuilder
+                .CreateDefault()
+                .AddService(serviceName = serviceName, serviceVersion = version)
+            )
+            .AddOtlpExporter()
+            .Build()
 
       next.Invoke(ctx))
 
