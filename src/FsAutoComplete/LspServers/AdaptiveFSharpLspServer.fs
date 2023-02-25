@@ -1972,7 +1972,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                   Helpers.defaultServerCapabilities.TextDocumentSync
                   |> Option.map (fun x ->
                     { x with
-                        Change = Some TextDocumentSyncKind.Incremental }) }
+                        Change = Some TextDocumentSyncKind.Incremental })
+                InlineValueProvider = inlineValueToggle }
 
           return
             { InitializeResult.Default with

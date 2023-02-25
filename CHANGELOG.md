@@ -1,12 +1,28 @@
 # Changelog
 
+## [0.59.0] - 2023-02-20
+
+### Added
+
+* [Support for F# 7](https://github.com/fsharp/fsautocomplete/pull/1043)
+  * Note that as a side effect of this, some codefixes have been temporarily disabled. We'll be working on re-enabling them in the near future in conjuntions with the F# team.
+
+### Changed
+
+* [`fsharp/piplineHint` is now powered by the LSP InlineValues functionality](https://github.com/fsharp/fsautocomplete/pull/1042) (thanks @kaashyapan!)
+* [Test fixes and enhancements for Adaptive mode](https://github.com/fsharp/fsautocomplete/pull/1053) (thanks @theangrybyrd!)
+
 ## [0.58.5] - 2023-02-04
+
+### Added
 
 * Add textDocument/inlineValue from LSP 3.17
 * InlineValue config option to shadow PipelineHint config option
 * Fix inlayHints for typed params #1046
 
 ## [0.58.4] - 2023-02-04
+
+### Added
 
 * Fix crash due to missing dependency on Microsoft.Extensions.Caching.Memory
 

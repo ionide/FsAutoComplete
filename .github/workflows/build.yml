@@ -5,7 +5,13 @@ on:
     branches:
       - main
       - nightly
+    paths-ignore:
+      - ".github"
+      - ".vscode"
   pull_request:
+    paths-ignore:
+      - ".github"
+      - ".vscode"
 
 jobs:
   build:

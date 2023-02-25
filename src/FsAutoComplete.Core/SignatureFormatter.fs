@@ -173,7 +173,7 @@ module SignatureFormatter =
           if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
             formatFSharpType displayContext unionField.FieldType
           else
-            unionField.Name ++ ":" ++ (formatFSharpType displayContext unionField.FieldType))
+            unionField.Name + ":" ++ (formatFSharpType displayContext unionField.FieldType))
         |> String.concat " * "
 
       unionCase.DisplayName + " of " + typeList
@@ -278,7 +278,10 @@ module SignatureFormatter =
 
     let formatName indent padding (parameter: FSharpParameter) =
       let name = safeParameterName parameter
-      indent + name.PadRight padding + ":"
+
+      match name with
+      | "" -> indent + "  ".PadRight padding
+      | _ -> indent + name.PadRight padding + ":"
 
     let isDelegate =
       match func.EnclosingEntitySafe with
@@ -535,8 +538,8 @@ module SignatureFormatter =
       | _ -> None
 
     match constraints with
-    | Some constraints -> prefix ++ name ++ ":" ++ constraints
-    | None -> prefix ++ name ++ ":" ++ retType
+    | Some constraints -> prefix ++ name + ":" ++ constraints
+    | None -> prefix ++ name + ":" ++ retType
 
   let getFieldSignature displayContext (field: FSharpField) =
     let retType = formatFSharpType displayContext field.FieldType
