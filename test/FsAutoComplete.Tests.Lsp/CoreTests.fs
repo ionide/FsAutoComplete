@@ -265,11 +265,11 @@ let tooltipTests state =
               ""
               "Used to associate, or bind, a name to a value or function."
               "" ] // `let` keyword
-          verifySignature 0 4 "val arrayOfTuples : (int * int) array" // verify that even the first letter of the tooltip triggers correctly
-          verifySignature 0 5 "val arrayOfTuples : (int * int) array" // inner positions trigger
-          verifySignature 1 5 "val listOfTuples : list<int * int>" // verify we default to prefix-generics style
-          verifySignature 2 5 "val listOfStructTuples : list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
-          verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip : float" // verify we strip <MeasureOne> measure annotations
+          verifySignature 0 4 "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
+          verifySignature 0 5 "val arrayOfTuples: (int * int) array" // inner positions trigger
+          verifySignature 1 5 "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
+          verifySignature 2 5 "val listOfStructTuples: list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
+          verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip: float" // verify we strip <MeasureOne> measure annotations
           verifyDescription
             4
             4
@@ -310,9 +310,9 @@ let tooltipTests state =
               "**Returns**"
               ""
               "" ]
-          verifySignature 14 5 "val nestedTuples : int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
-          verifySignature 15 5 "val nestedStructTuples : int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
-          verifySignature 21 9 "val speed : float<m/s>" // verify we nicely-render measure annotations
+          verifySignature 14 5 "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
+          verifySignature 15 5 "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
+          verifySignature 21 9 "val speed: float<m/s>" // verify we nicely-render measure annotations
           // verify formatting of function-parameters to values. NOTE: we want to wrap them in parens for user clarity eventually.
           verifySignature
             26

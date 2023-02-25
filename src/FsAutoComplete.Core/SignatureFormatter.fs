@@ -538,8 +538,8 @@ module SignatureFormatter =
       | _ -> None
 
     match constraints with
-    | Some constraints -> prefix ++ name ++ ":" ++ constraints
-    | None -> prefix ++ name ++ ":" ++ retType
+    | Some constraints -> prefix ++ name + ":" ++ constraints
+    | None -> prefix ++ name + ":" ++ retType
 
   let getFieldSignature displayContext (field: FSharpField) =
     let retType = formatFSharpType displayContext field.FieldType
