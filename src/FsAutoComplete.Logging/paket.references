@@ -1,6 +1,7 @@
 FSharp.Core
 
 File: FsLibLog.fs
+File: FsOpenTelemetry.fs
 
 Microsoft.NETFramework.ReferenceAssemblies
 Ionide.KeepAChangelog.Tasks

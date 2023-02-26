@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.59.1] - 2023-02-26
+
+### Added
+
+* [Support for logging traces to a configured OpenTelemetry collector endpoint](https://github.com/fsharp/fsautocomplete/pull/1060) (thanks @theangrybyrd!)
+  * to use this, set the CLI argument `--otel-exporter-enabled`, and set the `OTEL_EXPORTER_OTLP_ENDPOINT` the the URL of a reachable collector before launching the app
+  * then, send the `fsharp.notifications.trace` configuration set to `true`, and the  fsharp.notifications.traceNamespaces` configuration set to an array of string patterns for namespaces of activities to match on.
+
+### Changed
+
+* [Updated the built-in Fantomas client to 0.9.0](https://github.com/fsharp/fsautocomplete/pull/1043) (thanks @nojaf!)
+* Brought tooltips using signatures into line with the design guidelines (thanks @dawedawe!)
+  * https://github.com/fsharp/fsautocomplete/pull/1061
+  * https://github.com/fsharp/fsautocomplete/pull/1063
+  * https://github.com/fsharp/fsautocomplete/pull/1064
+* Flow through the `InlineValuesProvider` configuration as expected, to light up LSP support for inline values.
+
 ## [0.59.0] - 2023-02-20
 
 ### Added

@@ -600,6 +600,10 @@ type InlineValueDto =
   { Enabled: bool option
     Prefix: string option }
 
+type NotificationsDto =
+  { Trace: bool option
+    TraceNamespaces: string array option }
+
 type DebugDto =
   { DontCheckRelatedFiles: bool option
     CheckFileDebouncerTimeout: int option
@@ -643,6 +647,7 @@ type FSharpConfigDto =
     CodeLenses: CodeLensConfigDto option
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
+    Notifications: NotificationsDto option
     Debug: DebugDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto }
@@ -672,6 +677,23 @@ type InlineValuesConfig =
   static member Default =
     { Enabled = Some true
       Prefix = Some "//" }
+
+type NotificationsConfig =
+  { Trace: bool
+    TraceNamespaces: string array }
+
+  static member Default =
+    { Trace = false
+      TraceNamespaces = [||] }
+
+  static member FromDto(dto: NotificationsDto) : NotificationsConfig =
+    { Trace = defaultArg dto.Trace NotificationsConfig.Default.Trace
+      TraceNamespaces = defaultArg dto.TraceNamespaces NotificationsConfig.Default.TraceNamespaces }
+
+
+  member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
+    { Trace = defaultArg dto.Trace this.Trace
+      TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool
@@ -722,6 +744,7 @@ type FSharpConfig =
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
+    Notifications: NotificationsConfig
     Debug: DebugConfig }
 
   static member Default: FSharpConfig =
@@ -761,6 +784,7 @@ type FSharpConfig =
       CodeLenses = CodeLensConfig.Default
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
+      Notifications = NotificationsConfig.Default
       Debug = DebugConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
@@ -825,7 +849,10 @@ type FSharpConfig =
         | Some ivDto ->
           { Enabled = ivDto.Enabled |> Option.defaultValue true |> Some
             Prefix = ivDto.Prefix |> Option.defaultValue "//" |> Some }
-
+      Notifications =
+        dto.Notifications
+        |> Option.map NotificationsConfig.FromDto
+        |> Option.defaultValue NotificationsConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default
@@ -908,6 +935,10 @@ type FSharpConfig =
       InlineValues =
         { Enabled = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Enabled)) x.InlineValues.Enabled
           Prefix = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Prefix)) x.InlineValues.Prefix }
+      Notifications =
+        dto.Notifications
+        |> Option.map x.Notifications.AddDto
+        |> Option.defaultValue NotificationsConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default
