@@ -22,7 +22,17 @@ jobs:
         run: dotnet tool restore
       - name: bump FCS
         run: dotnet paket update FSharp.Compiler.Service
+      - name: check if there are changes
+        id: check
+        run: |
+          git diff --exit-code
+          if [ $? -eq 0 ]; then
+            echo "::set-output name=changed::false"
+          else
+            echo "::set-output name=changed::true"
+          fi
       - name: commit changes
+        if: steps.check.outputs.changed
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
