@@ -1725,45 +1725,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
   let getDeclarationLocation (symbolUse, text) =
-
     let getProjectOptions file =
       getProjectOptionsForFile file |> AVal.force |> selectProject
 
     let projectsThatContainFile file =
       getProjectOptionsForFile file |> AVal.force
-
-    let getDependentProjectsOfProjects ps =
-      let projectSnapshot = loadedProjectOptions |> AVal.force
-
-    let getProjectOptionsForFsproj file =
-      forceLoadProjects () |> Seq.tryFind (fun x -> x.ProjectFileName = file)
-
-      let currentPass = ResizeArray()
-      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-      let mutable continueAlong = true
-
-      while continueAlong do
-        let dependents =
-          projectSnapshot
-          |> Seq.filter (fun p ->
-            p.ReferencedProjects
-            |> Seq.exists (fun r ->
-              match r.ProjectFilePath with
-              | None -> false
-              | Some p -> currentPass.Contains(p)))
-
-        if Seq.isEmpty dependents then
-          continueAlong <- false
-          currentPass.Clear()
-        else
-          for d in dependents do
-            allDependents.Add d |> ignore<bool>
-
-          currentPass.Clear()
-          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-      Seq.toList allDependents
 
     SymbolLocation.getDeclarationLocation (
       symbolUse,
