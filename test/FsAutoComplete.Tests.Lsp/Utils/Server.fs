@@ -299,20 +299,20 @@ module Document =
       )
       let tcs = TaskCompletionSource<_>()
 
-      doc
-      |> diagnosticsStream
-      |> Observable.takeUntilOther (
+      use _ =
         doc
-        // `fsharp/documentAnalyzed` signals all checks & analyzers done
-        |> analyzedStream
-        |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
-        // wait for late diagnostics
-        |> Observable.delay waitForLateDiagnosticsDelay
-      )
-      |> Observable.bufferSpan (timeout)
-      // |> Observable.timeoutSpan timeout
-      |> Observable.subscribe(fun x -> tcs.SetResult x)
-      |> ignore
+        |> diagnosticsStream
+        |> Observable.takeUntilOther (
+          doc
+          // `fsharp/documentAnalyzed` signals all checks & analyzers done
+          |> analyzedStream
+          |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
+          // wait for late diagnostics
+          |> Observable.delay waitForLateDiagnosticsDelay
+        )
+        |> Observable.bufferSpan (timeout)
+        // |> Observable.timeoutSpan timeout
+        |> Observable.subscribe(fun x -> tcs.SetResult x)
 
       let! result = tcs.Task |> Async.AwaitTask
 

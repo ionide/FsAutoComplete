@@ -19,7 +19,12 @@ let getDeclarationLocation
     getDependentProjectsOfProjects
   // state: State
   ) : SymbolDeclarationLocation option =
-  if symbolUse.IsPrivateToFile then
+
+  // `symbolUse.IsPrivateToFile` throws exception when no `DeclarationLocation`
+  if
+    symbolUse.Symbol.DeclarationLocation |> Option.isSome
+    && symbolUse.IsPrivateToFile
+  then
     Some SymbolDeclarationLocation.CurrentDocument
   else
     let isSymbolLocalForProject = symbolUse.Symbol.IsInternalToProject
@@ -51,13 +56,14 @@ let getDeclarationLocation
         getProjectOptions (taggedFilePath)
         |> Option.map (fun p -> SymbolDeclarationLocation.Projects([ p ], isSymbolLocalForProject))
       else
-        let projectsThatContainFile = projectsThatContainFile (taggedFilePath)
+        match projectsThatContainFile (taggedFilePath) with
+        | [] -> None
+        | projectsThatContainFile ->
+          let projectsThatDependOnContainingProjects =
+            getDependentProjectsOfProjects projectsThatContainFile
 
-        let projectsThatDependOnContainingProjects =
-          getDependentProjectsOfProjects projectsThatContainFile
-
-        match projectsThatDependOnContainingProjects with
-        | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
-        | projects ->
-          Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
+          match projectsThatDependOnContainingProjects with
+          | [] -> Some(SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))
+          | projects ->
+            Some(SymbolDeclarationLocation.Projects(projectsThatContainFile @ projects, isSymbolLocalForProject))
     | None -> None

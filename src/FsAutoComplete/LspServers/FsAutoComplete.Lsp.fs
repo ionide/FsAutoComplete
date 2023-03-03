@@ -30,6 +30,9 @@ open Fantomas.Client.LSPFantomasService
 open FSharp.Compiler.Text.Position
 
 open FsAutoComplete.Lsp
+open Ionide.LanguageServerProtocol.Types.AsyncLspResult
+open Ionide.LanguageServerProtocol.Types.LspResult
+open StreamJsonRpc
 
 
 type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
@@ -952,14 +955,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       Helpers.notImplemented
 
-    override x.TextDocumentPrepareRename p =
-      logger.info (
-        Log.setMessage "TextDocumentOnPrepareRename Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
     override x.TextDocumentSemanticTokensFullDelta p =
       logger.info (
         Log.setMessage "TextDocumentSemanticTokensFullDelta Request: {parms}"
@@ -1593,6 +1588,22 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             async.Return(success (Some response))
           | _ -> async.Return(success None))
 
+    override x.TextDocumentPrepareRename p =
+      logger.info (
+        Log.setMessage "TextDocumentOnPrepareRename Request: {parms}"
+        >> Log.addContextDestructured "parms" p
+      )
+
+      p
+      |> x.positionHandler (fun p pos tyRes lineStr lines ->
+        asyncResult {
+          let! (_, _, range) =
+            commands.RenameSymbolRange(pos, tyRes, lineStr, lines)
+            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+
+          return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
+        })
+
     override x.TextDocumentRename(p: RenameParams) =
       logger.info (
         Log.setMessage "TextDocumentRename Request: {parms}"
@@ -1602,30 +1613,29 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! documentsAndRanges =
+          // validate name and surround with backticks if necessary
+          let! newName =
+            Commands.adjustRenameSymbolNewName pos lineStr lines tyRes p.NewName
+            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+
+          let! ranges =
             commands.RenameSymbol(pos, tyRes, lineStr, lines)
-            |> Async.Catch
-            |> Async.map (function
-              | Choice1Of2 v -> v
-              | Choice2Of2 err -> Error err.Message)
-            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
           let documentChanges =
-            documentsAndRanges
-            |> Seq.map (fun (namedText, symbols) ->
+            ranges
+            |> Seq.map (fun kvp ->
               let edits =
-                let newName =
-                  p.NewName |> FSharp.Compiler.Syntax.PrettyNaming.NormalizeIdentifierBackticks
-
-                symbols
-                |> Seq.map (fun sym ->
-                  let range = fcsRangeToLsp sym
+                kvp.Value
+                |> Array.map (fun range ->
+                  let range = fcsRangeToLsp range
                   { Range = range; NewText = newName })
-                |> Array.ofSeq
+
+              let file: string<LocalPath> = kvp.Key
 
               { TextDocument =
-                  { Uri = Path.FilePathToUri(UMX.untag namedText.FileName)
-                    Version = commands.TryGetFileVersion namedText.FileName }
+                  { Uri = Path.FilePathToUri(UMX.untag file)
+                    Version = commands.TryGetFileVersion file }
                 Edits = edits })
             |> Array.ofSeq
 
@@ -1681,23 +1691,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! usages =
-            commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
+          let! (_, usages) =
+            commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, true, true, false)
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-          match usages with
-          | Choice1Of2(decls, usages) ->
-            return
-              Seq.append decls.Values usages.Values
-              |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
-              |> Seq.toArray
-              |> Some
-          | Choice2Of2 combinedRanges ->
-            return
-              combinedRanges.Values
-              |> Seq.collect (fun kvp -> kvp |> Array.map fcsRangeToLspLocation)
-              |> Seq.toArray
-              |> Some
+          let references =
+            usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
+
+          return Some references
         })
 
     override x.TextDocumentDocumentHighlight(p) =
@@ -2037,17 +2038,18 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
                 return { p with Command = Some cmd } |> Some |> success
             else
-              let! res = commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes)
+              let! uses =
+                commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes (*includeDeclarations:*) , false, true, false)
 
-              let res =
-                match res with
-                | Core.Result.Error msg ->
-                  logger.error (
-                    Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
-                    >> Log.addContextDestructured "file" file
-                    >> Log.addContextDestructured "error" msg
-                  )
+              match uses with
+              | Error msg ->
+                logger.error (
+                  Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
+                  >> Log.addContextDestructured "file" file
+                  >> Log.addContextDestructured "error" msg
+                )
 
+                return
                   success (
                     Some
                       { p with
@@ -2057,42 +2059,21 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                                 Command = ""
                                 Arguments = None } }
                   )
-                | Ok res ->
-                  match res with
-                  | Choice1Of2(_, uses) ->
-                    let allUses = uses.Values |> Array.concat
 
-                    let cmd =
-                      if allUses.Length = 0 then
-                        { Title = "0 References"
-                          Command = ""
-                          Arguments = None }
-                      else
-                        { Title = $"%d{allUses.Length} References"
-                          Command = "fsharp.showReferences"
-                          Arguments = writePayload (file, pos, allUses) }
+              | Ok(_, uses) ->
+                let allUses = uses.Values |> Array.concat
 
-                    { p with Command = Some cmd } |> Some |> success
-                  | Choice2Of2 mixedUsages ->
-                    // mixedUsages will contain the declaration, so we need to do a bit of work here
-                    let allUses = mixedUsages.Values |> Array.concat
+                let cmd =
+                  if Array.isEmpty allUses then
+                    { Title = "0 References"
+                      Command = ""
+                      Arguments = None }
+                  else
+                    { Title = $"%d{allUses.Length} References"
+                      Command = "fsharp.showReferences"
+                      Arguments = writePayload (file, pos, allUses) }
 
-                    let cmd =
-                      if allUses.Length <= 1 then
-                        // 1 reference means that it's only the declaration, so it's actually 0 references
-                        { Title = "0 References"
-                          Command = ""
-                          Arguments = None }
-                      else
-                        // multiple references means that the declaration _and_ the references are all present.
-                        // this is kind of a pain, so for now at least, we just return all of them
-                        { Title = $"%d{allUses.Length - 1} References"
-                          Command = "fsharp.showReferences"
-                          Arguments = writePayload (file, pos, allUses) }
-
-                    { p with Command = Some cmd } |> Some |> success
-
-              return res
+                return { p with Command = Some cmd } |> Some |> success
           })
         p
 

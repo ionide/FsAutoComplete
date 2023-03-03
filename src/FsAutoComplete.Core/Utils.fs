@@ -9,6 +9,7 @@ open System
 open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
 open FSharp.Compiler.Symbols
+open System.Runtime.CompilerServices
 
 
 /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
@@ -180,6 +181,11 @@ module Result =
     match o with
     | Some x -> Ok x
     | None -> Error(recover ())
+
+  let inline ofVOption recover o =
+    match o with
+    | ValueSome x -> Ok x
+    | ValueNone -> Error(recover ())
 
   /// ensure the condition is true before continuing
   let inline guard condition errorValue =
@@ -588,6 +594,27 @@ module String =
     match s.IndexOf splitter with
     | -1 -> NoMatch
     | n -> Split(s.[0 .. n - 1], s.Substring(n + 1))
+
+[<Extension>]
+type ReadOnlySpanExtensions =
+  /// Note: empty string -> 1 line
+  [<Extension>]
+  static member CountLines(text: ReadOnlySpan<char>) =
+    let mutable count = 0
+
+    for _ in text.EnumerateLines() do
+      count <- count + 1
+
+    count
+
+  [<Extension>]
+  static member LastLine(text: ReadOnlySpan<char>) =
+    let mutable line = ReadOnlySpan.Empty
+
+    for current in text.EnumerateLines() do
+      line <- current
+
+    line
 
 type ConcurrentDictionary<'key, 'value> with
 
