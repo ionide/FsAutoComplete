@@ -867,21 +867,25 @@ module Commands =
 
               if errorOnFailureToFixRange then Error e else Ok())
 
-        let iterProject (project: FSharpProjectOptions) =
-          asyncResult {
-            //Enhancement: do in parallel?
-            for file in project.SourceFiles do
-              let file = UMX.tag file
-              // early return iff `Error`
-              // (which can only happen iff `errorOnFailureToFixRange`. otherwise errors are ignored and the loop continues)
-              do! tryFindReferencesInFile (file, project)
-          }
-
         let iterProjects (projects: FSharpProjectOptions seq) =
-          asyncResult {
+          // should:
+          // * check files in parallel
+          // * stop when error occurs
+          // -> `Async.Choice`: executes in parallel, returns first `Some`
+          // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
+          [
             for project in projects do
-              do! iterProject project
-          }
+              for file in project.SourceFiles do
+                let file = UMX.tag file
+                async {
+                  match! tryFindReferencesInFile (file, project) with
+                  | Ok _ -> return None
+                  | Error err -> return Some err
+
+                }
+          ]
+          |> Async.Choice
+          |> Async.map (function | None -> Ok () | Some err -> Error err)
 
         do! iterProjects projectsToCheck
 
