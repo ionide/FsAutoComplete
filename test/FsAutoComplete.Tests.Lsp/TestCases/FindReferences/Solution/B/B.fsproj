@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="MyModule1.fs" />
+    <Compile Include="WorkingModule.fs" />
+    <Compile Include="MyModule3.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\A\A.fsproj" />
+  </ItemGroup>
+
+</Project>

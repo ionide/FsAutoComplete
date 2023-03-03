@@ -65,7 +65,8 @@ let lspTests =
         for (lspName, lspFactory) in lspServers do
           testList
             $"{loaderName}.{lspName}"
-            [ Templates.tests ()
+            [ 
+              Templates.tests ()
               let createServer () =
                 lspFactory toolsPath workspaceLoaderFactory
 
@@ -79,7 +80,6 @@ let lspTests =
               documentSymbolTest createServer
               Completion.autocompleteTest createServer
               Completion.autoOpenTests createServer
-              Rename.tests createServer
               foldingTests createServer
               tooltipTests createServer
               Highlighting.tests createServer
@@ -101,7 +101,10 @@ let lspTests =
               CodeFixTests.Tests.tests createServer
               Completion.tests createServer
               GoTo.tests createServer
+
               FindReferences.tests createServer
+              Rename.tests createServer
+
               InfoPanelTests.docFormattingTest createServer
               DetectUnitTests.tests createServer
               XmlDocumentationGeneration.tests createServer
@@ -110,16 +113,22 @@ let lspTests =
               UnusedDeclarationsTests.tests createServer
 
               ] ]
+      
+/// Tests that do not require a LSP server
+let generalTests = testList "general" [
+  testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+  InlayHintTests.explicitTypeInfoTests
+
+  FindReferences.tryFixupRangeTests
+]
 
 [<Tests>]
 let tests =
   testList
     "FSAC"
     [
-      testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
-      InlayHintTests.explicitTypeInfoTests
-
-      lspTests
+      generalTests
+      lspTests 
     ]
 
 
@@ -128,30 +137,25 @@ let main args =
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
-  let parseLogLevel args =
-    let debugMarker = "--debug"
+  let parseLogLevel (args: string[]) =
     let logMarker = "--log="
 
     let logLevel =
-      if args |> Array.contains "--debug" then
-        Logging.LogLevel.Verbose
-      else
-        match
-          args
-          |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
-          |> Option.map (fun log -> log.Substring(logMarker.Length))
-        with
-        | Some ("warn" | "warning") -> Logging.LogLevel.Warn
-        | Some "error" -> Logging.LogLevel.Error
-        | Some "fatal" -> Logging.LogLevel.Fatal
-        | Some "info" -> Logging.LogLevel.Info
-        | Some "verbose" -> Logging.LogLevel.Verbose
-        | Some "debug" -> Logging.LogLevel.Debug
-        | _ -> Logging.LogLevel.Info
+      match
+        args
+        |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+        |> Option.map (fun log -> log.Substring(logMarker.Length))
+      with
+      | Some ("warn" | "warning") -> Logging.LogLevel.Warn
+      | Some "error" -> Logging.LogLevel.Error
+      | Some "fatal" -> Logging.LogLevel.Fatal
+      | Some "info" -> Logging.LogLevel.Info
+      | Some "verbose" -> Logging.LogLevel.Verbose
+      | Some "debug" -> Logging.LogLevel.Debug
+      | _ -> Logging.LogLevel.Info
 
     let args =
       args
-      |> Array.except [ debugMarker ]
       |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
 
     logLevel, args
