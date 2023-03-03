@@ -873,19 +873,20 @@ module Commands =
           // * stop when error occurs
           // -> `Async.Choice`: executes in parallel, returns first `Some`
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
-          [
-            for project in projects do
+          [ for project in projects do
               for file in project.SourceFiles do
                 let file = UMX.tag file
+
                 async {
                   match! tryFindReferencesInFile (file, project) with
                   | Ok _ -> return None
                   | Error err -> return Some err
 
-                }
-          ]
+                } ]
           |> Async.Choice
-          |> Async.map (function | None -> Ok () | Some err -> Error err)
+          |> Async.map (function
+            | None -> Ok()
+            | Some err -> Error err)
 
         do! iterProjects projectsToCheck
 
