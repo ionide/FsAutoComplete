@@ -245,7 +245,12 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
     option {
       let! np = x.PrevPos pos
-      return np, x.GetCharUnsafe np
+      let! prevLineLength = x.GetLineLength(np)
+
+      if np.Column < 1 || prevLineLength < np.Column then
+        return! x.TryGetPrevChar(np)
+      else
+        return np, x.GetCharUnsafe np
     }
 
   /// split the TotalRange of this document at the range specified.

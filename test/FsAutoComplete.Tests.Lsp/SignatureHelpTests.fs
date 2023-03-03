@@ -199,7 +199,11 @@ let issuesTests server =
         Expect.equal
           sigText
           "val count: x: int -> int"
-          "Should have no backticks because signatures are only ever rendered in `code` form") ]
+          "Should have no backticks because signatures are only ever rendered in `code` form")
+      testCaseAsync "issue #1040" // IndexOutOfRangeException
+        <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs ->
+          Expect.isSome sigs "Should have sigs"
+        ) ]
 
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server ->
