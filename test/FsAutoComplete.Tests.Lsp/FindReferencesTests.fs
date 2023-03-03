@@ -289,7 +289,12 @@ let private solutionTests state =
         for file in files do
           let relativePath = Path.GetRelativePath(path, file)
           let! (doc, _) = server |> Server.openDocument relativePath
-          do! doc |> Document.close
+          // keep script files open:
+          // Unlike `FsharpLspServer`, AdaptiveLspServer doesn't keep closed scripts in cache
+          // -> cannot find references inside closed script files
+          // see https://github.com/fsharp/FsAutoComplete/pull/1037#issuecomment-1440016138
+          // do! doc |> Document.close
+          ()
         scriptFilesLoaded <- true
     }
     testCaseAsync "open script files" (async {
