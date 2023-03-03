@@ -819,7 +819,7 @@ module Commands =
           else
             symbol |> Symbol.getIsDeclaration
 
-        let dict = Dictionary()
+        let dict = ConcurrentDictionary()
 
         /// Adds References of `symbol` in `file` to `dict`
         ///
