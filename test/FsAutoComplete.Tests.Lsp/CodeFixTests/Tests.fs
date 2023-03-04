@@ -627,6 +627,82 @@ let private convertPositionalDUToNamedTests state =
         """
   ])
 
+let private convertTripleSlashCommentToXmlTaggedDocTests state =
+  serverTestList (nameof ConvertTripleSlashCommentToXmlTaggedDoc) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle ConvertTripleSlashCommentToXmlTaggedDoc.title
+    testCaseAsync "single line comment over top level function" <|
+      CodeFix.check server
+        """
+        /// $0line          1
+        let f () = ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>line          1</summary>
+        let f () = ()
+        """
+    testCaseAsync "multiline comments over top level function" <|
+      CodeFix.check server
+        """
+        /// $0line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        let f () = ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        /// </summary>
+        let f () = ()
+        """
+    testCaseAsync "multiline comments over nested function" <|
+      CodeFix.check server
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        let g () =
+                /// line          1
+                /// line  2
+                /// line   $03
+                /// line    4
+                let f x = x * x
+                ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        let g () =
+                /// <summary>
+                /// line          1
+                /// line  2
+                /// line   3
+                /// line    4
+                /// </summary>
+                let f x = x * x
+                ()
+        """
+    testCaseAsync "is not applicable to existing xml tag comment" <|
+      CodeFix.checkNotApplicable server
+        """
+        /// <summary>
+        /// foo$0
+        /// ...
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+  ])
+
 let private generateAbstractClassStubTests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
   serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
@@ -1656,6 +1732,7 @@ let tests state = testList "CodeFix-tests" [
   convertDoubleEqualsToSingleEqualsTests state
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
+  convertTripleSlashCommentToXmlTaggedDocTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
