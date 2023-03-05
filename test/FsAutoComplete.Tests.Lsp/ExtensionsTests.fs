@@ -380,7 +380,7 @@ let signatureTests state =
             Position = { Line = line; Character = character } }
 
         match! server.FSharpSignature pos with
-        | Ok { Content = content } ->
+        | Ok (Some { Content = content }) ->
           let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>> (content)
           Expect.equal r.Kind "typesig" "Should have a kind of 'typesig'"
 
@@ -388,6 +388,7 @@ let signatureTests state =
             r.Data
             expectedSignature
             (sprintf "Should have a signature of '%s' at character %d" expectedSignature character)
+        | Ok None -> failtestf "No signature found at character %d" character
         | Result.Error errors -> failtestf "Error while getting signature: %A" errors
       }
 

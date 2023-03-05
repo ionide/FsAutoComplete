@@ -58,9 +58,10 @@ type DocumentEdit =
 module private Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
-    | CoreResponse.Res a -> Ok a
-    | CoreResponse.ErrorRes msg
-    | CoreResponse.InfoRes msg -> Error msg
+    | CoreResponse.Res a -> Ok(Some a)
+    | CoreResponse.InfoRes _ -> Ok None
+    | CoreResponse.ErrorRes msg -> Error msg
+
 
 module AsyncResult =
 
@@ -1894,47 +1895,50 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       let indentLength = lineStr.Length - trimmed.Length
       let indentString = String.replicate indentLength " "
 
-      let! (_, memberParameters, genericParameters) =
-        Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+      match! Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse with
+      | None -> return None
+      | Some(_, memberParameters, genericParameters) ->
 
-      let summarySection = "/// <summary></summary>"
 
-      let parameterSection (name, _type) =
-        $"/// <param name=\"%s{name}\"></param>"
+        let summarySection = "/// <summary></summary>"
 
-      let genericArg name =
-        $"/// <typeparam name=\"'%s{name}\"></typeparam>"
+        let parameterSection (name, _type) =
+          $"/// <param name=\"%s{name}\"></param>"
 
-      let returnsSection = "/// <returns></returns>"
+        let genericArg name =
+          $"/// <typeparam name=\"'%s{name}\"></typeparam>"
 
-      let formattedXmlDoc =
-        seq {
-          yield summarySection
+        let returnsSection = "/// <returns></returns>"
 
-          match memberParameters with
-          | [] -> ()
-          | parameters ->
-            yield!
-              parameters
-              |> List.concat
-              |> List.mapi (fun _index parameter -> parameterSection parameter)
+        let formattedXmlDoc =
+          seq {
+            yield summarySection
 
-          match genericParameters with
-          | [] -> ()
-          | generics -> yield! generics |> List.mapi (fun _index generic -> genericArg generic)
+            match memberParameters with
+            | [] -> ()
+            | parameters ->
+              yield!
+                parameters
+                |> List.concat
+                |> List.mapi (fun _index parameter -> parameterSection parameter)
 
-          yield returnsSection
-        }
-        |> Seq.map (fun s -> indentString + s)
-        |> String.concat Environment.NewLine
-        |> fun s -> s + Environment.NewLine // need a newline at the very end
+            match genericParameters with
+            | [] -> ()
+            | generics -> yield! generics |> List.mapi (fun _index generic -> genericArg generic)
 
-      // always insert at the start of the line, because we've prepended the indent to the start of the summary section
-      let insertPosition = Position.mkPos triggerPosition.Line 0
+            yield returnsSection
+          }
+          |> Seq.map (fun s -> indentString + s)
+          |> String.concat Environment.NewLine
+          |> fun s -> s + Environment.NewLine // need a newline at the very end
 
-      return
-        { InsertPosition = insertPosition
-          InsertText = formattedXmlDoc }
+        // always insert at the start of the line, because we've prepended the indent to the start of the summary section
+        let insertPosition = Position.mkPos triggerPosition.Line 0
+
+        return
+          Some
+            { InsertPosition = insertPosition
+              InsertText = formattedXmlDoc }
     }
 
   member private x.GetDeclarationLocation(symbolUse, text) =

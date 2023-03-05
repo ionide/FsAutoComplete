@@ -2434,7 +2434,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             | Some insertText ->
               helpText insertText
               |> Result.ofCoreResponse
-              |> Result.fold (mapHelpText ci) (fun _ -> ci)
+              |> Result.fold
+                (function
+                | None -> ci
+                | Some text -> mapHelpText ci text)
+                (fun _ -> ci)
               |> success
 
         with e ->
@@ -2863,17 +2867,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
             |> AsyncResult.ofCoreResponse
 
+          match res with
+          | None -> return None
+          | Some res ->
+            let ranges: FSharp.Compiler.Text.Range[] =
+              match res with
+              | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
 
-          let ranges: FSharp.Compiler.Text.Range[] =
-            match res with
-            | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+            let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
-          let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
-
-          match mappedRanges with
-          | [||] -> return None
-          | [| single |] -> return Some(GotoResult.Single single)
-          | multiple -> return Some(GotoResult.Multiple multiple)
+            match mappedRanges with
+            | [||] -> return None
+            | [| single |] -> return Some(GotoResult.Single single)
+            | multiple -> return Some(GotoResult.Multiple multiple)
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -3826,7 +3832,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
           let! tip = Commands.typesig tyRes pos lineStr |> Result.ofCoreResponse
 
-          return { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
+          return
+            tip
+            |> Option.map (fun tip -> { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip })
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -3861,7 +3869,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! (typ, parms, generics) = tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
 
           return
-            { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+            Some
+              { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -3893,24 +3902,27 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
-          let! { InsertPosition = insertPos
-                 InsertText = text } =
+          match!
             Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
             |> AsyncResult.ofStringErr
+          with
+          | None -> return ()
+          | Some { InsertPosition = insertPos
+                   InsertText = text } ->
 
-          let edit: ApplyWorkspaceEditParams =
-            { Label = Some "Generate Xml Documentation"
-              Edit =
-                { DocumentChanges =
-                    Some
-                      [| { TextDocument = p.TextDocument
-                           Edits =
-                             [| { Range = fcsPosToProtocolRange insertPos
-                                  NewText = text } |] } |]
-                  Changes = None } }
+            let edit: ApplyWorkspaceEditParams =
+              { Label = Some "Generate Xml Documentation"
+                Edit =
+                  { DocumentChanges =
+                      Some
+                        [| { TextDocument = p.TextDocument
+                             Edits =
+                               [| { Range = fcsPosToProtocolRange insertPos
+                                    NewText = text } |] } |]
+                    Changes = None } }
 
-          let! _ = lspClient.WorkspaceApplyEdit edit
-          return ()
+            let! _ = lspClient.WorkspaceApplyEdit edit
+            return ()
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -3924,7 +3936,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError (string e)
       }
 
-    override __.FSharpLineLense(p: ProjectParms) =
+    override __.FSharpLineLens(p: ProjectParms) =
       asyncResult {
         let tags = [ "ProjectParms", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -3942,46 +3954,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           | Some decls ->
             let decls = decls |> Array.map (fun d -> d, fn)
 
-            return { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
+            return Some { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
           logger.error (
             Log.setMessage "FSharpLineLense Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
-
-          return! LspResult.internalError (string e)
-      }
-
-    override __.FSharpCompilerLocation(p: obj) =
-      asyncResult {
-        use trace = fsacActivitySource.StartActivityForType(thisType)
-
-        try
-          logger.info (
-            Log.setMessage "FSharpCompilerLocation Request: {parms}"
-            >> Log.addContextDestructured "parms" p
-          )
-
-          let checker = checker |> AVal.force
-          let! (fsc, fsi, msbuild, sdk) = Commands.CompilerLocation checker |> Result.ofCoreResponse
-
-          return
-            { Content =
-                CommandResponse.compilerLocation
-                  FsAutoComplete.JsonSerializer.writeJson
-                  fsc
-                  fsi
-                  msbuild
-                  (sdk |> Option.map (fun (di: DirectoryInfo) -> di.FullName)) }
-        with e ->
-          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
-
-          logger.error (
-            Log.setMessage "FSharpCompilerLocation Request Errored {p}"
             >> Log.addContextDestructured "p" p
             >> Log.addExn e
           )
@@ -4124,8 +4103,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          let! funcs = Commands.DotnetNewList() |> AsyncResult.ofCoreResponse
-          return { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
+          match! Commands.DotnetNewList() |> AsyncResult.ofCoreResponse with
+          | Some funcs ->
+            return Some { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
+          | None -> return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4152,8 +4133,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.DotnetNewRun p.Template p.Name p.Output []
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore // mapping unit option to unit
 
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4177,9 +4159,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          do! Commands.DotnetAddProject p.Target p.Reference |> AsyncResult.ofCoreResponse
+          do!
+            Commands.DotnetAddProject p.Target p.Reference
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore // mapping unit option to unit
+
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4203,9 +4189,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          do! Commands.DotnetRemoveProject p.Target p.Reference |> AsyncResult.ofCoreResponse
+          do!
+            Commands.DotnetRemoveProject p.Target p.Reference
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
+
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4229,9 +4219,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          do! Commands.DotnetSlnAdd p.Target p.Reference |> AsyncResult.ofCoreResponse
+          do!
+            Commands.DotnetSlnAdd p.Target p.Reference
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
+
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4259,8 +4253,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! (namedText) = forceFindOpenFileOrRead filePath |> Result.ofStringErr
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
-          let! t = Commands.Help tyRes pos lineStr |> Result.ofCoreResponse
-          return { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+
+          match! Commands.Help tyRes pos lineStr |> Result.ofCoreResponse with
+          | Some t -> return Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+          | None -> return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4289,8 +4285,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! lineStr = namedText.Lines |> tryGetLineStr pos |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
           lastFSharpDocumentationTypeCheck <- Some tyRes
-          let! t = Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse
-          return { Content = CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson t }
+
+          match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
+          | Some t ->
+            return Some { Content = CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson t }
+          | None -> return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4319,24 +4318,28 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Result.ofOption (fun () -> $"No typecheck results from FSharpDocumentation")
             |> Result.ofStringErr
 
-          let! (xml, assembly, doc, signature, footer, cn) =
+          match!
             Commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly
             |> Result.ofCoreResponse
+          with
+          | None -> return None
+          | Some(xml, assembly, doc, signature, footer, cn) ->
 
-          let xmldoc =
-            match doc with
-            | FSharpXmlDoc.None -> [||]
-            | FSharpXmlDoc.FromXmlFile _ -> [||]
-            | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
+            let xmldoc =
+              match doc with
+              | FSharpXmlDoc.None -> [||]
+              | FSharpXmlDoc.FromXmlFile _ -> [||]
+              | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
 
-          return
-            { Content =
-                CommandResponse.formattedDocumentationForSymbol
-                  FsAutoComplete.JsonSerializer.writeJson
-                  xml
-                  assembly
-                  xmldoc
-                  (signature, footer, cn) }
+            return
+              { Content =
+                  CommandResponse.formattedDocumentationForSymbol
+                    FsAutoComplete.JsonSerializer.writeJson
+                    xml
+                    assembly
+                    xmldoc
+                    (signature, footer, cn) }
+              |> Some
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4386,9 +4389,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
           let! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
-          let! res = Commands.pipelineHints forceFindSourceText tyRes |> Result.ofCoreResponse
 
-          return { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+          match! Commands.pipelineHints forceFindSourceText tyRes |> Result.ofCoreResponse with
+          | None -> return None
+          | Some res ->
+            return Some { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4415,9 +4420,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.FsProjMoveFileUp p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
 
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4445,9 +4451,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.FsProjMoveFileDown p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
 
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4475,9 +4482,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.addFileAbove p.FsProj p.FileVirtualPath p.NewFile
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
 
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4504,9 +4512,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.addFileBelow p.FsProj p.FileVirtualPath p.NewFile
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
 
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4531,9 +4540,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             >> Log.addContextDestructured "parms" p
           )
 
-          do! Commands.addFile p.FsProj p.FileVirtualPath |> AsyncResult.ofCoreResponse
+          do!
+            Commands.addFile p.FsProj p.FileVirtualPath
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
+
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4558,12 +4571,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let fullPath = Path.Combine(Path.GetDirectoryName p.FsProj, p.FileVirtualPath)
-          do! Commands.removeFile p.FsProj p.FileVirtualPath |> AsyncResult.ofCoreResponse
+
+          do!
+            Commands.removeFile p.FsProj p.FileVirtualPath
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
+
           forceLoadProjects () |> ignore
           let fileUri = Path.FilePathToUri fullPath
           diagnosticCollections.ClearFor fileUri
 
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4590,9 +4608,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           do!
             Commands.addExistingFile p.FsProj p.FileVirtualPath
             |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
 
           forceLoadProjects () |> ignore
-          return { Content = "" }
+          return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -4666,8 +4685,7 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
       |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
       |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
-      |> Map.add "fsharp/lineLens" (serverRequestHandling (fun s p -> s.FSharpLineLense(p)))
-      |> Map.add "fsharp/compilerLocation" (serverRequestHandling (fun s p -> s.FSharpCompilerLocation(p)))
+      |> Map.add "fsharp/lineLens" (serverRequestHandling (fun s p -> s.FSharpLineLens(p)))
       |> Map.add "fsharp/workspaceLoad" (serverRequestHandling (fun s p -> s.FSharpWorkspaceLoad(p)))
       |> Map.add "fsharp/workspacePeek" (serverRequestHandling (fun s p -> s.FSharpWorkspacePeek(p)))
       |> Map.add "fsharp/project" (serverRequestHandling (fun s p -> s.FSharpProject(p)))
