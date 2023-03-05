@@ -83,7 +83,7 @@ let private wrapInSummary indentation comments =
 
 let private generateParamsXmlDoc indentation (parms: (string * string) list list) =
   let paramXml (name, _type) =
-    $"{indentation}/// <param name=\"%s{name}\"></param>"
+    $"%s{indentation}/// <param name=\"%s{name}\"></param>"
 
   match parms with
   | [] -> ""
@@ -92,6 +92,20 @@ let private generateParamsXmlDoc indentation (parms: (string * string) list list
     |> List.concat
     |> List.map (fun parameter -> paramXml parameter)
     |> String.concat Environment.NewLine
+
+let private generateGenericParamsXmlDoc indentation parms =
+  let genericArgXml name =
+        $"%s{indentation}/// <typeparam name=\"'%s{name}\"></typeparam>"
+
+  match parms with
+  | [] -> ""
+  | parameters ->
+    parameters
+    |> List.map (fun parameter -> genericArgXml parameter)
+    |> String.concat Environment.NewLine
+
+let private generateReturnsXmlDoc indentation =
+  $"%s{indentation}/// <returns></returns>"
 
 let private isFixApplicable (topPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
   let line = sourceText.GetLine topPos
@@ -125,7 +139,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         let lastLineIdx = topPos.Line + origCommentContents.Length - 1
         let endRange = rangeToDeleteFullLine lastLineIdx sourceText
 
-        let signatureXmlDoc =
+        let parms, genericParms =
           match tryGetBindingRange parseAndCheck.GetAST (endRange.Start |> protocolPosToPos) with
           | Some bindingRange ->
             let lStr = sourceText.GetLine bindingRange.Start |> Option.map LineStr
@@ -135,15 +149,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
               let signatureData = parseAndCheck.TryGetSignatureData bindingRange.Start s
 
               match signatureData with
-              | Ok(_, lst1, _) -> generateParamsXmlDoc indentation lst1
-              | Error _ -> ""
-            | _ -> ""
-          | None -> ""
+              | Ok(_, parms, genericParms) -> parms, genericParms
+              | Error _ -> List.empty, List.empty
+            | _ -> List.empty, List.empty
+          | None -> List.empty, List.empty
 
         let xmlDoc =
-          match signatureXmlDoc with
-          | "" -> summaryXmlDoc
-          | yyy -> summaryXmlDoc + Environment.NewLine + yyy
+          seq {
+            yield summaryXmlDoc
+            yield generateParamsXmlDoc indentation parms
+            yield generateGenericParamsXmlDoc indentation genericParms
+            if not (List.isEmpty parms) then
+              yield generateReturnsXmlDoc indentation
+          }
+          |> Seq.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
+          |> String.concat Environment.NewLine
 
         let range =
           { Start = startRange

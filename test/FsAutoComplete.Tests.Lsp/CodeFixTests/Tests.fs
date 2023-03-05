@@ -641,6 +641,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         """
         /// <summary>line          1</summary>
         /// <param name=""></param>
+        /// <returns></returns>
         let f () = ()
         """
     testCaseAsync "multiline comments over top level function" <|
@@ -650,7 +651,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         /// line  2
         /// line   3
         /// line    4
-        let f a b = a + b
+        let f a b c = a + b
         """
         Diagnostics.acceptAll
         selectCodeFix
@@ -663,7 +664,10 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         /// </summary>
         /// <param name="a"></param>
         /// <param name="b"></param>
-        let f a b = a + b
+        /// <param name="c"></param>
+        /// <typeparam name="'a"></typeparam>
+        /// <returns></returns>
+        let f a b c = a + b
         """
     testCaseAsync "multiline comments over nested function" <|
       CodeFix.check server
@@ -694,6 +698,26 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
                 /// </summary>
                 let f x = x * x
                 ()
+        """
+    testCaseAsync "multiline comments over recod type" <|
+      CodeFix.check server
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        $0/// line    4
+        type MyRecord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        /// </summary>
+        type MyRecord = { Foo: int }
         """
     testCaseAsync "is not applicable to existing xml tag comment" <|
       CodeFix.checkNotApplicable server
