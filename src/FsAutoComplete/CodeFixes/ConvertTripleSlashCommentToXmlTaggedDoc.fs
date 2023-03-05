@@ -95,7 +95,7 @@ let private generateParamsXmlDoc indentation (parms: (string * string) list list
 
 let private generateGenericParamsXmlDoc indentation parms =
   let genericArgXml name =
-        $"%s{indentation}/// <typeparam name=\"'%s{name}\"></typeparam>"
+    $"%s{indentation}/// <typeparam name=\"'%s{name}\"></typeparam>"
 
   match parms with
   | [] -> ""
@@ -159,6 +159,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
             yield summaryXmlDoc
             yield generateParamsXmlDoc indentation parms
             yield generateGenericParamsXmlDoc indentation genericParms
+
             if not (List.isEmpty parms) then
               yield generateReturnsXmlDoc indentation
           }
