@@ -7,8 +7,35 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open System.Text.RegularExpressions
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text.Range
+open System
 
 let title = "Convert '///' comment to XML-tagged doc comment"
+
+// ToDo: make this work for inner bindings
+let private tryGetBindingRange input derefPos =
+  SyntaxTraversal.Traverse(
+    derefPos,
+    input,
+    { new SyntaxVisitorBase<FSharp.Compiler.Text.Range>() with
+        member _.VisitBinding(path, defaultTraverse: (SynBinding -> FSharp.Compiler.Text.Range option), synBinding) =
+          match synBinding with
+          | SynBinding(accessibility,
+                       kind,
+                       isInline,
+                       isMutable,
+                       attributes,
+                       xmlDoc,
+                       valData,
+                       headPat,
+                       returnInfo,
+                       expr,
+                       range,
+                       debugPoint,
+                       trivia) as b when rangeContainsPos range derefPos -> Some b.RangeOfHeadPattern
+          | _ -> defaultTraverse synBinding }
+  )
 
 let rec private goToTop (currentPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
   let prev = currentPos.DecLine()
@@ -42,19 +69,29 @@ let private collectTrippleSlashComments (currentPos: FSharp.Compiler.Text.Positi
 
   loop currentPos List.empty
 
-let private wrapInSummary indent comments =
-  let indentation = String.replicate indent " "
-
+let private wrapInSummary indentation comments =
   match comments with
   | [] -> $"{indentation}/// <summary></summary>"
-  | [ c ] -> $"{indentation}/// <summary>{c}</summary>"
+  | [ c ] -> $"{indentation}/// <summary>%s{c}</summary>"
   | cs ->
     seq {
-      yield $"{indentation}/// <summary>{System.Environment.NewLine}"
-      yield! cs |> List.map (fun s -> $"{indentation}/// {s}{System.Environment.NewLine}")
-      yield $"{indentation}/// </summary>"
+      yield $"{indentation}/// <summary>{Environment.NewLine}"
+      yield! cs |> List.map (fun s -> $"%s{indentation}/// %s{s}{Environment.NewLine}")
+      yield $"%s{indentation}/// </summary>"
     }
     |> String.concat ""
+
+let private generateParamsXmlDoc indentation (parms: (string * string) list list) =
+  let paramXml (name, _type) =
+    $"{indentation}/// <param name=\"%s{name}\"></param>"
+
+  match parms with
+  | [] -> ""
+  | parameters ->
+    parameters
+    |> List.concat
+    |> List.map (fun parameter -> paramXml parameter)
+    |> String.concat Environment.NewLine
 
 let private isFixApplicable (topPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
   let line = sourceText.GetLine topPos
@@ -70,7 +107,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
-      let! (_, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
+      let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
       let topPos = goToTop fcsPos sourceText
       let showFix = isFixApplicable topPos sourceText
 
@@ -78,7 +115,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
       | true ->
         let origCommentContents = collectTrippleSlashComments topPos sourceText
         let indent = lineStr.IndexOf("///")
-        let summaryXmlDoc = origCommentContents |> wrapInSummary indent
+        let indentation = String.replicate indent " "
+        let summaryXmlDoc = origCommentContents |> wrapInSummary indentation
 
         let startRange =
           { Line = topPos.Line - 1
@@ -87,13 +125,31 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         let lastLineIdx = topPos.Line + origCommentContents.Length - 1
         let endRange = rangeToDeleteFullLine lastLineIdx sourceText
 
+        let signatureXmlDoc =
+          match tryGetBindingRange parseAndCheck.GetAST (endRange.Start |> protocolPosToPos) with
+          | Some bindingRange ->
+            let lStr = sourceText.GetLine bindingRange.Start |> Option.map LineStr
+
+            match lStr with
+            | Some s ->
+              let signatureData = parseAndCheck.TryGetSignatureData bindingRange.Start s
+
+              match signatureData with
+              | Ok(_, lst1, _) -> generateParamsXmlDoc indentation lst1
+              | Error _ -> ""
+            | _ -> ""
+          | None -> ""
+
+        let xmlDoc =
+          match signatureXmlDoc with
+          | "" -> summaryXmlDoc
+          | yyy -> summaryXmlDoc + Environment.NewLine + yyy
+
         let range =
           { Start = startRange
             End = endRange.Start }
 
-        let e =
-          { Range = range
-            NewText = summaryXmlDoc }
+        let e = { Range = range; NewText = xmlDoc }
 
         return
           [ { Edits = [| e |]

@@ -640,6 +640,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         selectCodeFix
         """
         /// <summary>line          1</summary>
+        /// <param name=""></param>
         let f () = ()
         """
     testCaseAsync "multiline comments over top level function" <|
@@ -649,7 +650,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         /// line  2
         /// line   3
         /// line    4
-        let f () = ()
+        let f a b = a + b
         """
         Diagnostics.acceptAll
         selectCodeFix
@@ -660,7 +661,9 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         /// line   3
         /// line    4
         /// </summary>
-        let f () = ()
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        let f a b = a + b
         """
     testCaseAsync "multiline comments over nested function" <|
       CodeFix.check server
