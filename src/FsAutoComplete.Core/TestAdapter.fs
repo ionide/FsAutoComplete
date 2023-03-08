@@ -4,18 +4,13 @@ module FsAutoComplete.TestAdapter
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 
-type ModuleType =
-  | NoneModule
-  | Module
-  | ModuleWithSuffix
-
 type TestAdapterEntry<'range> =
   { Name: string
     Range: 'range
     Childs: ResizeArray<TestAdapterEntry<'range>>
     Id: int
     List: bool
-    ModuleType: ModuleType
+    ModuleType: string
     Type: string }
 
 [<Literal>]
@@ -26,6 +21,15 @@ let private NUnitType = "NUnit"
 
 [<Literal>]
 let private XUnitType = "XUnit"
+
+[<Literal>]
+let private NoneModuleType = "NoneModuleType"
+
+[<Literal>]
+let private ModuleType = "ModuleType"
+
+[<Literal>]
+let private ModuleWithSuffixType = "ModuleWithSuffixType"
 
 let rec private (|Sequentials|_|) =
   function
@@ -92,7 +96,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
-            ModuleType = NoneModule
+            ModuleType = NoneModuleType
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -110,7 +114,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = false
-            ModuleType = NoneModule
+            ModuleType = NoneModuleType
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -139,7 +143,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = false
-            ModuleType = NoneModule
+            ModuleType = NoneModuleType
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -217,7 +221,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
-      ModuleType = NoneModule
+      ModuleType = NoneModuleType
       Type = "" }
 
   match ast with
@@ -274,7 +278,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
-        ModuleType = NoneModule
+        ModuleType = NoneModuleType
         Type = NUnitType }
 
     parent.Childs.Add entry
@@ -303,7 +307,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
           Childs = ResizeArray()
           Id = ident
           List = false
-          ModuleType = NoneModule
+          ModuleType = NoneModuleType
           Type = NUnitType }
 
       parent.Childs.Add entry
@@ -332,7 +336,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo(longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if Set.contains name typeNames then ModuleWithSuffix else Module
+        let moduleType = if Set.contains name typeNames then ModuleWithSuffixType else ModuleType
         ident <- ident + 1
 
         let entry =
@@ -358,7 +362,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     Seq.iter
       (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r; kind = kind)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if kind.IsModule then Module else NoneModule
+        let moduleType = if kind.IsModule then ModuleType else NoneModuleType
         ident <- ident + 1
 
         let entry =
@@ -383,7 +387,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
-      ModuleType = NoneModule
+      ModuleType = NoneModuleType
       Type = "" }
 
   match ast with
@@ -435,7 +439,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
-        ModuleType = NoneModule
+        ModuleType = NoneModuleType
         Type = XUnitType }
 
     parent.Childs.Add entry
@@ -464,7 +468,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
           Childs = ResizeArray()
           Id = ident
           List = false
-          ModuleType = NoneModule
+          ModuleType = NoneModuleType
           Type = XUnitType }
 
       parent.Childs.Add entry
@@ -493,7 +497,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo(longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if Set.contains name typeNames then ModuleWithSuffix else Module
+        let moduleType = if Set.contains name typeNames then ModuleWithSuffixType else ModuleType
         ident <- ident + 1
 
         let entry =
@@ -519,7 +523,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     Seq.iter
       (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r; kind = kind)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if kind.IsModule then Module else NoneModule
+        let moduleType = if kind.IsModule then ModuleType else NoneModuleType
         ident <- ident + 1
 
         let entry =
@@ -544,7 +548,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
-      ModuleType = NoneModule
+      ModuleType = NoneModuleType
       Type = "" }
 
   match ast with
