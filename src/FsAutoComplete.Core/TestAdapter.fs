@@ -10,6 +10,7 @@ type TestAdapterEntry<'range> =
     Childs: ResizeArray<TestAdapterEntry<'range>>
     Id: int
     List: bool
+    IsModule: bool
     Type: string }
 
 [<Literal>]
@@ -86,6 +87,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
+            IsModule = false
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -103,6 +105,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = false
+            IsModule = false
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -131,6 +134,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = false
+            IsModule = false
             Type = ExpectoType }
 
         parent.Childs.Add entry
@@ -208,6 +212,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
+      IsModule = false
       Type = "" }
 
   match ast with
@@ -264,6 +269,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
+        IsModule = false
         Type = NUnitType }
 
     parent.Childs.Add entry
@@ -292,6 +298,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
           Childs = ResizeArray()
           Id = ident
           List = false
+          IsModule = false
           Type = NUnitType }
 
       parent.Childs.Add entry
@@ -313,6 +320,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
+            IsModule = true
             Type = NUnitType }
 
         parent.Childs.Add entry
@@ -327,7 +335,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
 
   let visitModulesAndNamespaces parent modulesOrNss =
     Seq.iter
-      (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r)) ->
+      (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r; kind = kind)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
 
@@ -337,6 +345,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
+            IsModule = kind.IsModule
             Type = NUnitType }
 
         parent.Childs.Add entry
@@ -352,6 +361,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
+      IsModule = false
       Type = "" }
 
   match ast with
@@ -403,6 +413,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
+        IsModule = false
         Type = XUnitType }
 
     parent.Childs.Add entry
@@ -431,9 +442,8 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
           Childs = ResizeArray()
           Id = ident
           List = false
-          Type = XUnitType
-
-        }
+          IsModule = false
+          Type = XUnitType }
 
       parent.Childs.Add entry
 
@@ -454,6 +464,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
+            IsModule = true
             Type = XUnitType }
 
         parent.Childs.Add entry
@@ -468,7 +479,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
 
   let visitModulesAndNamespaces parent modulesOrNss =
     Seq.iter
-      (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r)) ->
+      (fun (SynModuleOrNamespace(longId = ids; decls = decls; range = r; kind = kind)) ->
         let name = String.concat "." [ for i in ids -> i.idText ]
         ident <- ident + 1
 
@@ -478,6 +489,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
             Childs = ResizeArray()
             Id = ident
             List = true
+            IsModule = kind.IsModule
             Type = XUnitType }
 
         parent.Childs.Add entry
@@ -493,6 +505,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       Childs = ResizeArray()
       Id = -1
       List = false
+      IsModule = false
       Type = "" }
 
   match ast with
