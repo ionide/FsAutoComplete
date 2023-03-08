@@ -219,7 +219,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
           | None ->
             // if we don't get an event in 250 ms just loop again so we can analyze inflightEvents
             ()
-          | Some(action, activity: Activity, reply: AsyncReplyChannel<unit>) ->
+          | Some(action, activity: Activity) ->
 
             match action with
             | "start" ->
@@ -258,17 +258,14 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
             | _ -> ()
 
-            reply.Reply()
       })
 
 
   let shouldListenTo (act: ActivitySource) = act.Name = Tracing.fscServiceName
 
-  let activityStarted (act: Activity) =
-    mbp.PostAndReply(fun reply -> "start", act, reply)
+  let activityStarted (act: Activity) = mbp.Post("start", act)
 
-  let activityStopped (act: Activity) =
-    mbp.PostAndReply(fun reply -> "stop", act, reply)
+  let activityStopped (act: Activity) = mbp.Post("stop", act)
 
   let listener =
     new ActivityListener(
