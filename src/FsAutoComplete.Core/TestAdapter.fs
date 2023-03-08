@@ -23,13 +23,13 @@ let private NUnitType = "NUnit"
 let private XUnitType = "XUnit"
 
 [<Literal>]
-let private NoneModuleType = "NoneModuleType"
+let private NoneModuleType = "NoneModule"
 
 [<Literal>]
-let private ModuleType = "ModuleType"
+let private ModuleType = "Module"
 
 [<Literal>]
-let private ModuleWithSuffixType = "ModuleWithSuffixType"
+let private ModuleWithSuffixType = "ModuleWithSuffix"
 
 let rec private (|Sequentials|_|) =
   function
