@@ -31,12 +31,20 @@ let tests state =
         (async {
           let! testNotification = geTestNotification "NUnitTests" "UnitTest1.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 nunit test"
+
+          Expect.equal testNotification.Tests[0].Childs[1].Childs[0].Name "Inner" "Expect nested module to be named Inner"
+          Expect.equal testNotification.Tests[0].Childs[1].Childs[0].ModuleType "Module" "Expect nested module to be a module type"
         })
       testCaseAsync
         "Find xunit test"
         (async {
           let! testNotification = geTestNotification "XUnitTests" "Tests.fs"
-          Expect.hasLength testNotification.Tests 1 "Expected to have found 1 xunit test"
+          Expect.hasLength testNotification.Tests 1 "Expected to have found 1 xunit test list"
+          Expect.equal testNotification.Tests[0].ModuleType "Module" "Expected top list to be module"
+
+          Expect.hasLength testNotification.Tests[0].Childs 3 "Expected to have found 3 child tests of top test"
+          Expect.equal testNotification.Tests[0].Childs[0].ModuleType "NoneModule" "Expect My test to be none module type"
+          Expect.equal testNotification.Tests[0].Childs[2].ModuleType "ModuleWithSuffix" "Expect Clashing test to be a module with suffix"
         })
       testCaseAsync
         "Find expecto tests"
