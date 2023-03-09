@@ -315,17 +315,17 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
   let rec visitDeclarations (parent: TestAdapterEntry<range>) decls =
     let typeNames =
       decls
-      |> List.fold (fun types declaration ->
-        match declaration with
-        | SynModuleDecl.Types(typeDefns, _) ->
-          typeDefns
-          |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
-            let (SynComponentInfo(longId = ids)) = ci
-            String.concat "." [ for i in ids -> i.idText ]
-          )
-          |> List.append types
-        | _ -> types
-      ) ([])
+      |> List.fold
+        (fun types declaration ->
+          match declaration with
+          | SynModuleDecl.Types(typeDefns, _) ->
+            typeDefns
+            |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
+              let (SynComponentInfo(longId = ids)) = ci
+              String.concat "." [ for i in ids -> i.idText ])
+            |> List.append types
+          | _ -> types)
+        ([])
       |> Set.ofList
 
     for declaration in decls do
@@ -336,7 +336,13 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo(longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if Set.contains name typeNames then ModuleWithSuffixType else ModuleType
+
+        let moduleType =
+          if Set.contains name typeNames then
+            ModuleWithSuffixType
+          else
+            ModuleType
+
         ident <- ident + 1
 
         let entry =
@@ -476,17 +482,17 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
   let rec visitDeclarations (parent: TestAdapterEntry<range>) decls =
     let typeNames =
       decls
-      |> List.fold (fun types declaration ->
-        match declaration with
-        | SynModuleDecl.Types(typeDefns, _) ->
-          typeDefns
-          |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
-            let (SynComponentInfo(longId = ids)) = ci
-            String.concat "." [ for i in ids -> i.idText ]
-          )
-          |> List.append types
-        | _ -> types
-      ) ([])
+      |> List.fold
+        (fun types declaration ->
+          match declaration with
+          | SynModuleDecl.Types(typeDefns, _) ->
+            typeDefns
+            |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
+              let (SynComponentInfo(longId = ids)) = ci
+              String.concat "." [ for i in ids -> i.idText ])
+            |> List.append types
+          | _ -> types)
+        ([])
       |> Set.ofList
 
     for declaration in decls do
@@ -497,7 +503,13 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
         let (SynComponentInfo(longId = ids; range = r)) = ci
         let name = String.concat "." [ for i in ids -> i.idText ]
-        let moduleType = if Set.contains name typeNames then ModuleWithSuffixType else ModuleType
+
+        let moduleType =
+          if Set.contains name typeNames then
+            ModuleWithSuffixType
+          else
+            ModuleType
+
         ident <- ident + 1
 
         let entry =
