@@ -88,8 +88,7 @@ let private isAstElemWithPreXmlDoc input pos =
           | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
           | _ -> None
 
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
-    }
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr }
   )
 
 let private collectCommentContents
