@@ -1,75 +1,128 @@
 module FsAutoComplete.CodeFix.ConvertTripleSlashCommentToXmlTaggedDoc
 
 open FsToolkit.ErrorHandling
-open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open System.Text.RegularExpressions
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text.Range
+open FSharp.Compiler.Xml
 open System
 
 let title = "Convert '///' comment to XML-tagged doc comment"
 
-// ToDo: make this work for inner bindings
-let private tryGetBindingRange input derefPos =
+let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Position) (xmlDoc: PreXmlDoc) =
+  let d = xmlDoc.ToXmlDoc(false, None)
+
+  if rangeContainsPos d.Range pos then
+    let summaryPresent =
+      d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
+
+    not xmlDoc.IsEmpty && not summaryPresent
+  else
+    false
+
+let private isAstElemWithPreXmlDoc input pos =
   SyntaxTraversal.Traverse(
-    derefPos,
+    pos,
     input,
-    { new SyntaxVisitorBase<FSharp.Compiler.Text.Range>() with
-        member _.VisitBinding(path, defaultTraverse: (SynBinding -> FSharp.Compiler.Text.Range option), synBinding) =
+    { new SyntaxVisitorBase<_>() with
+        member _.VisitBinding(_, defaultTraverse, synBinding) =
           match synBinding with
-          | SynBinding(accessibility,
-                       kind,
-                       isInline,
-                       isMutable,
-                       attributes,
-                       xmlDoc,
-                       valData,
-                       headPat,
-                       returnInfo,
-                       expr,
-                       range,
-                       debugPoint,
-                       trivia) as b when rangeContainsPos range derefPos -> Some b.RangeOfHeadPattern
-          | _ -> defaultTraverse synBinding }
+          | SynBinding(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+          | _ -> defaultTraverse synBinding
+
+        member _.VisitComponentInfo(_, synComponentInfo) =
+          match synComponentInfo with
+          | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+          | _ -> None
+
+        member _.VisitInheritSynMemberDefn(_, _, _, _, members, _) =
+          let isInLine c =
+            match c with
+            // ToDo not working
+            | SynMemberDefn.AutoProperty(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
+              Some xmlDoc
+            | SynMemberDefn.ImplicitCtor(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
+              Some xmlDoc
+            | _ -> None
+
+          members |> List.tryPick isInLine
+
+        member _.VisitRecordDefn(_, fields, _) =
+          let isInLine c =
+            match c with
+            | SynField(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+            | _ -> None
+
+          fields |> List.tryPick isInLine
+
+        member _.VisitUnionDefn(_, cases, _) =
+          let isInLine c =
+            match c with
+            | SynUnionCase(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+            | _ -> None
+
+          cases |> List.tryPick isInLine
+
+        member _.VisitEnumDefn(_, cases, _) =
+          let isInLine b =
+            match b with
+            | SynEnumCase(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+            | _ -> None
+
+          cases |> List.tryPick isInLine
+
+        member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
+          let isInLine b =
+            match b with
+            | SynBinding(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+            | _ -> defaultTraverse b
+
+          bindings |> List.tryPick isInLine
+
+        // ToDo not working
+        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
+          match synModuleOrNamespace with
+          | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+          | _ -> None
+
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+    }
   )
 
-let rec private goToTop (currentPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
-  let prev = currentPos.DecLine()
-
-  match sourceText.GetLine prev with
-  | None -> currentPos
-  | Some prevLine ->
-    if prevLine.TrimStart().StartsWith("///") then
-      goToTop prev sourceText
+let private collectCommentContents
+  (startPos: FSharp.Compiler.Text.Position)
+  (endPos: FSharp.Compiler.Text.Position)
+  (sourceText: NamedText)
+  =
+  let rec loop (p: FSharp.Compiler.Text.Position) acc =
+    if p.Line > endPos.Line then
+      acc
     else
-      currentPos
+      let currentLine = sourceText.GetLine p
 
-let private collectTrippleSlashComments (currentPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
-  let rec loop p acc =
-    let currentLine = sourceText.GetLine p
+      match currentLine with
+      | None -> acc
+      | Some line ->
+        let idx = line.IndexOf("///")
 
-    match currentLine with
-    | None -> acc
-    | Some line ->
-      let idx = line.IndexOf("///")
+        if idx >= 0 then
+          let existingComment = line.TrimStart().Substring(3).TrimStart()
+          let acc = acc @ [ existingComment ]
 
-      if idx >= 0 then
-        let existingComment = line.TrimStart().Substring(3).TrimStart()
-        let acc' = acc @ [ existingComment ]
+          match sourceText.NextLine p with
+          | None -> acc
+          | Some nextLinePos -> loop nextLinePos acc
+        else
+          acc
 
-        match sourceText.NextLine p with
-        | None -> acc'
-        | Some nextLinePos -> loop nextLinePos acc'
-      else
-        acc
+  loop startPos List.empty
 
-  loop currentPos List.empty
+let private wrapInSummary indent comments =
+  let indentation = String.replicate indent " "
 
-let private wrapInSummary indentation comments =
   match comments with
   | [] -> $"{indentation}/// <summary></summary>"
   | [ c ] -> $"{indentation}/// <summary>%s{c}</summary>"
@@ -81,96 +134,35 @@ let private wrapInSummary indentation comments =
     }
     |> String.concat ""
 
-let private generateParamsXmlDoc indentation (parms: (string * string) list list) =
-  let paramXml (name, _type) =
-    $"%s{indentation}/// <param name=\"%s{name}\"></param>"
-
-  match parms with
-  | [] -> ""
-  | parameters ->
-    parameters
-    |> List.concat
-    |> List.map (fun parameter -> paramXml parameter)
-    |> String.concat Environment.NewLine
-
-let private generateGenericParamsXmlDoc indentation parms =
-  let genericArgXml name =
-    $"%s{indentation}/// <typeparam name=\"'%s{name}\"></typeparam>"
-
-  match parms with
-  | [] -> ""
-  | parameters ->
-    parameters
-    |> List.map (fun parameter -> genericArgXml parameter)
-    |> String.concat Environment.NewLine
-
-let private generateReturnsXmlDoc indentation =
-  $"%s{indentation}/// <returns></returns>"
-
-let private isFixApplicable (topPos: FSharp.Compiler.Text.Position) (sourceText: NamedText) =
-  let line = sourceText.GetLine topPos
-  let regex = Regex(@"\s*///\s*<")
-
-  match line with
-  | Some s when regex.IsMatch(s) -> false
-  | Some s when s.TrimStart().StartsWith("///") -> true
-  | _ -> false
-
 let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
   fun codeActionParams ->
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
-      let topPos = goToTop fcsPos sourceText
-      let showFix = isFixApplicable topPos sourceText
+      let showFix = isAstElemWithPreXmlDoc parseAndCheck.GetAST fcsPos
 
       match showFix with
-      | true ->
-        let origCommentContents = collectTrippleSlashComments topPos sourceText
+      | Some xmlDoc ->
+        let d = xmlDoc.ToXmlDoc(false, None)
+
+        let origCommentContents =
+          collectCommentContents d.Range.Start d.Range.End sourceText
+
         let indent = lineStr.IndexOf("///")
-        let indentation = String.replicate indent " "
-        let summaryXmlDoc = origCommentContents |> wrapInSummary indentation
-
-        let startRange =
-          { Line = topPos.Line - 1
-            Character = 0 }
-
-        let lastLineIdx = topPos.Line + origCommentContents.Length - 1
-        let endRange = rangeToDeleteFullLine lastLineIdx sourceText
-
-        let parms, genericParms =
-          match tryGetBindingRange parseAndCheck.GetAST (endRange.Start |> protocolPosToPos) with
-          | Some bindingRange ->
-            let lStr = sourceText.GetLine bindingRange.Start |> Option.map LineStr
-
-            match lStr with
-            | Some s ->
-              let signatureData = parseAndCheck.TryGetSignatureData bindingRange.Start s
-
-              match signatureData with
-              | Ok(_, parms, genericParms) -> parms, genericParms
-              | Error _ -> List.empty, List.empty
-            | _ -> List.empty, List.empty
-          | None -> List.empty, List.empty
-
-        let xmlDoc =
-          seq {
-            yield summaryXmlDoc
-            yield generateParamsXmlDoc indentation parms
-            yield generateGenericParamsXmlDoc indentation genericParms
-
-            if not (List.isEmpty parms) then
-              yield generateReturnsXmlDoc indentation
-          }
-          |> Seq.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
-          |> String.concat Environment.NewLine
+        let summaryXmlDoc = wrapInSummary indent origCommentContents
 
         let range =
-          { Start = startRange
-            End = endRange.Start }
+          { Start =
+              { Character = 0
+                Line = d.Range.Start.Line - 1 } // LSP is 0-based
+            End =
+              { Character = d.Range.End.Column
+                Line = d.Range.End.Line - 1 } }
 
-        let e = { Range = range; NewText = xmlDoc }
+        let e =
+          { Range = range
+            NewText = summaryXmlDoc }
 
         return
           [ { Edits = [| e |]
@@ -178,5 +170,5 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
               Title = title
               SourceDiagnostic = None
               Kind = FixKind.Refactor } ]
-      | false -> return []
+      | None -> return []
     }
