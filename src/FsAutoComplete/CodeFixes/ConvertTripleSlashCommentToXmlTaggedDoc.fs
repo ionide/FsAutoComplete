@@ -73,8 +73,7 @@ let private isLowerAstElemWithPreXmlDoc input pos =
 
           bindings |> List.tryPick isInLine
 
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr // needed for nested let bindings
-    }
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
   )
 
 let private isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos =
