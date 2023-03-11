@@ -29,6 +29,9 @@ let private NoneModuleType = "NoneModule"
 let private ModuleType = "Module"
 
 [<Literal>]
+let private TypeInModule = "TypeInModule"
+
+[<Literal>]
 let private ModuleWithSuffixType = "ModuleWithSuffix"
 
 let rec private (|Sequentials|_|) =
@@ -270,6 +273,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo(longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
+    let moduleType = if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then TypeInModule else NoneModuleType
     ident <- ident + 1
 
     let entry =
@@ -278,7 +282,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
-        ModuleType = NoneModuleType
+        ModuleType = moduleType
         Type = NUnitType }
 
     parent.Childs.Add entry
@@ -437,6 +441,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo(longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
+    let moduleType = if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then TypeInModule else NoneModuleType
     ident <- ident + 1
 
     let entry =
@@ -445,7 +450,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         Childs = ResizeArray()
         Id = ident
         List = true
-        ModuleType = NoneModuleType
+        ModuleType = moduleType
         Type = XUnitType }
 
     parent.Childs.Add entry

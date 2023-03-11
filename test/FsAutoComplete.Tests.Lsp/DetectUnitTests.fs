@@ -34,6 +34,9 @@ let tests state =
 
           Expect.equal testNotification.Tests[0].Childs[1].Childs[0].Name "Inner" "Expect nested module to be named Inner"
           Expect.equal testNotification.Tests[0].Childs[1].Childs[0].ModuleType "Module" "Expect nested module to be a module type"
+
+          Expect.equal testNotification.Tests[0].Childs[1].Childs[1].Name "InnerClass" "Expect nested module to be named Inner"
+          Expect.equal testNotification.Tests[0].Childs[1].Childs[1].ModuleType "TypeInModule" "Expect nested module to be a module type"
         })
       testCaseAsync
         "Find xunit test"

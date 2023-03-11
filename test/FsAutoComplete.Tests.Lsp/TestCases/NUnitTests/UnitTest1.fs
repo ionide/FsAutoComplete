@@ -15,3 +15,8 @@ module Outer =
         [<TestCase (0)>]
         let Test2 (i: int) =
             Assert.Pass()
+
+    type InnerClass() =
+        [<Test>]
+        member this.Test1 () =
+            Assert.Pass()
