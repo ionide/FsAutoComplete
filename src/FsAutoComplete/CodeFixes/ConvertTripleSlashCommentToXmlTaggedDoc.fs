@@ -85,17 +85,8 @@ let private isLowerAstElemWithPreXmlDoc input pos =
 
           bindings |> List.tryPick isInLine
 
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
-
-        member _.VisitImplicitInherit(_, defaultTraverse, _, synArgs, _) = defaultTraverse synArgs
-
-        member _.VisitType(_, defaultTraverse, synType) = defaultTraverse synType
-
-        member _.VisitMatchClause(_, defaultTraverse, matchClause) = defaultTraverse matchClause
-
-        member _.VisitModuleDecl(_, defaultTraverse, synModuleDecl) = defaultTraverse synModuleDecl
-
-        member _.VisitPat(_, defaultTraverse, synPat) = defaultTraverse synPat }
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr // needed for nested let bindings
+    }
   )
 
 let private isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos =
