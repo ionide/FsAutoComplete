@@ -13,15 +13,18 @@ open System
 let title = "Convert '///' comment to XML-tagged doc comment"
 
 let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Position) (xmlDoc: PreXmlDoc) =
-  let d = xmlDoc.ToXmlDoc(false, None)
+  let containsPosAndNoSummaryPresent (xd: PreXmlDoc) =
+    let d = xd.ToXmlDoc(false, None)
 
-  if rangeContainsPos d.Range pos then
-    let summaryPresent =
-      d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
+    if rangeContainsPos d.Range pos then
+      let summaryPresent =
+        d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
 
-    not xmlDoc.IsEmpty && not summaryPresent
-  else
-    false
+      not summaryPresent
+    else
+      false
+
+  not xmlDoc.IsEmpty && containsPosAndNoSummaryPresent xmlDoc
 
 let private isLowerAstElemWithPreXmlDoc input pos =
   SyntaxTraversal.Traverse(
