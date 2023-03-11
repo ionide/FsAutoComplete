@@ -40,7 +40,7 @@ let docFormattingTest state =
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
-          | Result.Ok (As ([ [ model: FsAutoComplete.CommandResponse.DocumentationDescription ] ])) ->
+          | Result.Ok (Some(As ([ [ model: FsAutoComplete.CommandResponse.DocumentationDescription ] ]))) ->
             Expect.stringContains model.Signature "'Key, 'U" "Formatted doc contains both params separated by (, )"
           | Result.Ok _ -> failtest "couldn't parse doc as the json type we expected"
         })
@@ -57,7 +57,7 @@ let docFormattingTest state =
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
-          | Result.Ok (As ([ [ model: FsAutoComplete.CommandResponse.DocumentationDescription ] ])) ->
+          | Result.Ok (Some (As ([ [ model: FsAutoComplete.CommandResponse.DocumentationDescription ] ]))) ->
             Expect.stringContains model.Signature "'T1 * 'T2 * 'T3" "Formatted doc contains 3 params separated by ( * )"
           | Result.Ok _ -> failtest "couldn't parse doc as the json type we expected"
         }) ]
