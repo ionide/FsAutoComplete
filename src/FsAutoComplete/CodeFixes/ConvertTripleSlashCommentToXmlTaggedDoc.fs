@@ -23,7 +23,7 @@ let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Po
   else
     false
 
-let private isAstElemWithPreXmlDoc input pos =
+let private isLowerAstElemWithPreXmlDoc input pos =
   SyntaxTraversal.Traverse(
     pos,
     input,
@@ -82,12 +82,6 @@ let private isAstElemWithPreXmlDoc input pos =
 
           bindings |> List.tryPick isInLine
 
-        // ToDo not working for nested modules
-        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
-          match synModuleOrNamespace with
-          | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-          | _ -> None
-
         member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
 
         member _.VisitImplicitInherit(_, defaultTraverse, _, synArgs, _) = defaultTraverse synArgs
@@ -100,6 +94,36 @@ let private isAstElemWithPreXmlDoc input pos =
 
         member _.VisitPat(_, defaultTraverse, synPat) = defaultTraverse synPat }
   )
+
+let private isModuleOrNamespaceWithPreXmlDoc input pos =
+  SyntaxTraversal.Traverse(
+    pos,
+    input,
+    { new SyntaxVisitorBase<_>() with
+
+        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
+          match synModuleOrNamespace with
+          | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
+          | SynModuleOrNamespace(decls = decls) ->
+
+            let rec findNested decls =
+              decls
+              |> List.tryPick (fun d ->
+                match d with
+                | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
+                  match moduleInfo with
+                  | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
+                    Some xmlDoc
+                  | _ -> findNested decls
+                | _ -> None)
+
+            findNested decls }
+  )
+
+let private isAstElemWithPreXmlDoc input pos =
+  match isLowerAstElemWithPreXmlDoc input pos with
+  | Some xml -> Some xml
+  | _ -> isModuleOrNamespaceWithPreXmlDoc input pos
 
 let private collectCommentContents
   (startPos: FSharp.Compiler.Text.Position)

@@ -890,6 +890,30 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         module M
           let f x = x
         """
+      
+      testCaseAsync "multiline comment over nested module"
+      <| CodeFix.check
+        server
+        """
+        module M
+          module MyNestedModule =
+              /// Line 1 on$0 MyNestedNestedModule
+              /// Line 2 on MyNestedNestedModule
+              module MyNestedNestedModule =
+                let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module M
+          module MyNestedModule =
+              /// <summary>
+              /// Line 1 on MyNestedNestedModule
+              /// Line 2 on MyNestedNestedModule
+              /// </summary>
+              module MyNestedNestedModule =
+                let x = 3
+        """
 
       testCaseAsync "is not applicable to existing xml tag comment"
       <| CodeFix.checkNotApplicable
