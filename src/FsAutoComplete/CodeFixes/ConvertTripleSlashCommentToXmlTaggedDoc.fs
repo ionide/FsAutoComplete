@@ -41,18 +41,6 @@ let private isLowerAstElemWithPreXmlDoc input pos =
           | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
           | _ -> None
 
-        member _.VisitInheritSynMemberDefn(_, _, _, _, members, _) =
-          let isInLine c =
-            match c with
-            // ToDo not working
-            | SynMemberDefn.AutoProperty(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
-              Some xmlDoc
-            | SynMemberDefn.ImplicitCtor(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
-              Some xmlDoc
-            | _ -> None
-
-          members |> List.tryPick isInLine
-
         member _.VisitRecordDefn(_, fields, _) =
           let isInLine c =
             match c with
