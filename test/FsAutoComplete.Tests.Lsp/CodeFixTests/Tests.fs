@@ -870,6 +870,26 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
           /// </summary>
           new() = MyClass()
         """
+
+      testCaseAsync "multiline comment over autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// line 1 on autoproperty
+          /// li$0ne 2 on autoproperty
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary>
+          /// line 1 on autoproperty
+          /// line 2 on autoproperty
+          /// </summary>
+          member val Name = "" with get, set
+        """
       
       testCaseAsync "multiline comment over named module"
       <| CodeFix.check

@@ -95,7 +95,7 @@ let private isLowerAstElemWithPreXmlDoc input pos =
         member _.VisitPat(_, defaultTraverse, synPat) = defaultTraverse synPat }
   )
 
-let private isModuleOrNamespaceWithPreXmlDoc input pos =
+let private isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos =
   SyntaxTraversal.Traverse(
     pos,
     input,
@@ -115,6 +115,20 @@ let private isModuleOrNamespaceWithPreXmlDoc input pos =
                   | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
                     Some xmlDoc
                   | _ -> findNested decls
+                | SynModuleDecl.Types(typeDefns = typeDefns) ->
+                  typeDefns
+                  |> List.tryPick (fun td ->
+                    match td with
+                    | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
+                      members
+                      |> List.tryPick (fun m ->
+                        match m with
+                        | SynMemberDefn.AutoProperty(xmlDoc = xmlDoc) when
+                          containsPosAndNotEmptyAndNotElaborated pos xmlDoc
+                          ->
+                          Some xmlDoc
+                        | _ -> None)
+                    | _ -> None)
                 | _ -> None)
 
             findNested decls }
@@ -123,7 +137,7 @@ let private isModuleOrNamespaceWithPreXmlDoc input pos =
 let private isAstElemWithPreXmlDoc input pos =
   match isLowerAstElemWithPreXmlDoc input pos with
   | Some xml -> Some xml
-  | _ -> isModuleOrNamespaceWithPreXmlDoc input pos
+  | _ -> isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos
 
 let private collectCommentContents
   (startPos: FSharp.Compiler.Text.Position)
@@ -186,12 +200,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         let summaryXmlDoc = wrapInSummary indent origCommentContents
 
         let range =
-          { Start =
-              { Character = 0
-                Line = d.Range.Start.Line - 1 } // LSP is 0-based
-            End =
-              { Character = d.Range.End.Column
-                Line = d.Range.End.Line - 1 } }
+          { Start = fcsPosToLsp (d.Range.Start.WithColumn 0)
+            End = fcsPosToLsp (d.Range.End) }
 
         let e =
           { Range = range
