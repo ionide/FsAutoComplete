@@ -273,7 +273,13 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo(longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
-    let moduleType = if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then TypeInModule else NoneModuleType
+
+    let moduleType =
+      if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then
+        TypeInModule
+      else
+        NoneModuleType
+
     ident <- ident + 1
 
     let entry =
@@ -441,7 +447,13 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
     let (SynComponentInfo(longId = ids; range = r)) = ci
     let name = String.concat "." [ for i in ids -> i.idText ]
-    let moduleType = if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then TypeInModule else NoneModuleType
+
+    let moduleType =
+      if parent.ModuleType = ModuleType || parent.ModuleType = ModuleWithSuffixType then
+        TypeInModule
+      else
+        NoneModuleType
+
     ident <- ident + 1
 
     let entry =
