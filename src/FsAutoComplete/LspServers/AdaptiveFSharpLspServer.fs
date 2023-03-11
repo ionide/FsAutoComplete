@@ -582,6 +582,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 List = r.List
                 Name = r.Name
                 Type = r.Type
+                ModuleType = r.ModuleType
                 Range = fcsRangeToLsp r.Range
                 Childs = ResizeArray(r.Childs |> Seq.map map) }
 
