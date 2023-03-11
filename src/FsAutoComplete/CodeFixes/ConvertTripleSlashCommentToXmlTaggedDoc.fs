@@ -82,13 +82,23 @@ let private isAstElemWithPreXmlDoc input pos =
 
           bindings |> List.tryPick isInLine
 
-        // ToDo not working
+        // ToDo not working for nested modules
         member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
           match synModuleOrNamespace with
           | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
           | _ -> None
 
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr }
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+
+        member _.VisitImplicitInherit(_, defaultTraverse, _, synArgs, _) = defaultTraverse synArgs
+
+        member _.VisitType(_, defaultTraverse, synType) = defaultTraverse synType
+
+        member _.VisitMatchClause(_, defaultTraverse, matchClause) = defaultTraverse matchClause
+
+        member _.VisitModuleDecl(_, defaultTraverse, synModuleDecl) = defaultTraverse synModuleDecl
+
+        member _.VisitPat(_, defaultTraverse, synPat) = defaultTraverse synPat }
   )
 
 let private collectCommentContents

@@ -851,6 +851,46 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
           member val Name = "" with get, set
         """
 
+      testCaseAsync "multiline comment over member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// on new 1
+          $0/// on new 2
+          new() = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary>
+          /// on new 1
+          /// on new 2
+          /// </summary>
+          new() = MyClass()
+        """
+      
+      testCaseAsync "multiline comment over named module"
+      <| CodeFix.check
+        server
+        """
+        $0/// On named module 1
+        /// On named module 2
+        module M
+          let f x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// On named module 1
+        /// On named module 2
+        /// </summary>
+        module M
+          let f x = x
+        """
+
       testCaseAsync "is not applicable to existing xml tag comment"
       <| CodeFix.checkNotApplicable
         server
