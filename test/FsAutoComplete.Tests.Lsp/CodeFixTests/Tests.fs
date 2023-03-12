@@ -627,6 +627,325 @@ let private convertPositionalDUToNamedTests state =
         """
   ])
 
+let private convertTripleSlashCommentToXmlTaggedDocTests state =
+  serverTestList (nameof ConvertTripleSlashCommentToXmlTaggedDoc) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle ConvertTripleSlashCommentToXmlTaggedDoc.title
+
+      testCaseAsync "single line comment over top level function"
+      <| CodeFix.check
+        server
+        """
+        /// $0line          1
+        let f () = ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>line          1</summary>
+        let f () = ()
+        """
+
+      testCaseAsync "multiline comments over top level function"
+      <| CodeFix.check
+        server
+        """
+        /// $0line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        let f a b c = a + b
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        /// </summary>
+        let f a b c = a + b
+        """
+
+      testCaseAsync "multiline comments over nested function"
+      <| CodeFix.check
+        server
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        let g () =
+                /// line          1
+                /// line  2
+                /// line   $03
+                /// line    4
+                let f x = x * x
+                ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        let g () =
+                /// <summary>
+                /// line          1
+                /// line  2
+                /// line   3
+                /// line    4
+                /// </summary>
+                let f x = x * x
+                ()
+        """
+
+      testCaseAsync "single line comment over use"
+      <| CodeFix.check
+        server
+        """
+        let f a b _ =
+            /// line on use$0
+            use r = new System.IO.BinaryReader(null)
+            
+            a + b
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let f a b _ =
+            /// <summary>line on use</summary>
+            use r = new System.IO.BinaryReader(null)
+            
+            a + b
+        """
+
+      testCaseAsync "multiline comments over record type"
+      <| CodeFix.check
+        server
+        """
+        /// line          1
+        /// line  2
+        /// line   3
+        $0/// line    4
+        type MyRecord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line          1
+        /// line  2
+        /// line   3
+        /// line    4
+        /// </summary>
+        type MyRecord = { Foo: int }
+        """
+
+      testCaseAsync "multiline comments over discriminated union type"
+      <| CodeFix.check
+        server
+        """
+        /// line 1 on DU
+        /// $0line 2 on DU
+        /// line 3 on DU
+        type DiscUnionTest =
+          /// line 1 on Field 1
+          /// line 2 on Field 1
+          | Field1
+          /// line 1 on Field 2
+          /// line 2 on Field 2
+          | Field2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line 1 on DU
+        /// line 2 on DU
+        /// line 3 on DU
+        /// </summary>
+        type DiscUnionTest =
+          /// line 1 on Field 1
+          /// line 2 on Field 1
+          | Field1
+          /// line 1 on Field 2
+          /// line 2 on Field 2
+          | Field2
+        """
+
+      testCaseAsync "multiline comments over discriminated union field"
+      <| CodeFix.check
+        server
+        """
+        /// line 1 on DU
+        /// line 2 on DU
+        /// line 3 on DU
+        type DiscUnionTest =
+          /// line 1 on Field 1
+          /// line 2 on Field 1
+          | Field1
+          /// line 1 $0on Field 2
+          /// line 2 on Field 2
+          | Field2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// line 1 on DU
+        /// line 2 on DU
+        /// line 3 on DU
+        type DiscUnionTest =
+          /// line 1 on Field 1
+          /// line 2 on Field 1
+          | Field1
+          /// <summary>
+          /// line 1 on Field 2
+          /// line 2 on Field 2
+          /// </summary>
+          | Field2
+        """
+
+      testCaseAsync "multiline comments over enum"
+      <| CodeFix.check
+        server
+        """
+        $0/// line 1 on enum
+        /// line 2 on enum
+        type myEnum =
+        | value1 = 1
+        | value2 = 2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// line 1 on enum
+        /// line 2 on enum
+        /// </summary>
+        type myEnum =
+        | value1 = 1
+        | value2 = 2
+        """
+
+      testCaseAsync "multiline comment over class"
+      <| CodeFix.check
+        server
+        """
+        //$0/ On Class 1
+        /// On Class 2
+        type MyClass() =
+          /// On member 1
+          /// On member 2
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// On Class 1
+        /// On Class 2
+        /// </summary>
+        type MyClass() =
+          /// On member 1
+          /// On member 2
+          member val Name = "" with get, set
+        """
+
+      testCaseAsync "multiline comment over member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// on new 1
+          $0/// on new 2
+          new() = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary>
+          /// on new 1
+          /// on new 2
+          /// </summary>
+          new() = MyClass()
+        """
+
+      testCaseAsync "multiline comment over autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// line 1 on autoproperty
+          /// li$0ne 2 on autoproperty
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary>
+          /// line 1 on autoproperty
+          /// line 2 on autoproperty
+          /// </summary>
+          member val Name = "" with get, set
+        """
+      
+      testCaseAsync "multiline comment over named module"
+      <| CodeFix.check
+        server
+        """
+        $0/// On named module 1
+        /// On named module 2
+        module M
+          let f x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// On named module 1
+        /// On named module 2
+        /// </summary>
+        module M
+          let f x = x
+        """
+      
+      testCaseAsync "multiline comment over nested module"
+      <| CodeFix.check
+        server
+        """
+        module M
+          module MyNestedModule =
+              /// Line 1 on$0 MyNestedNestedModule
+              /// Line 2 on MyNestedNestedModule
+              module MyNestedNestedModule =
+                let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module M
+          module MyNestedModule =
+              /// <summary>
+              /// Line 1 on MyNestedNestedModule
+              /// Line 2 on MyNestedNestedModule
+              /// </summary>
+              module MyNestedNestedModule =
+                let x = 3
+        """
+
+      testCaseAsync "is not applicable to existing xml tag comment"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        /// <summary>
+        /// foo$0
+        /// ...
+        """
+        Diagnostics.acceptAll
+        selectCodeFix ])
+
 let private generateAbstractClassStubTests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
   serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
@@ -1656,6 +1975,7 @@ let tests state = testList "CodeFix-tests" [
   convertDoubleEqualsToSingleEqualsTests state
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
+  convertTripleSlashCommentToXmlTaggedDocTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
