@@ -24,6 +24,7 @@ open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Text.Range
 open FsAutoComplete.FCSPatches
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Syntax.SyntaxTraversal
@@ -65,14 +66,18 @@ type ParseAndCheckResults with
               | None ->
                 clauses
                 |> List.tryPick (function
-                  | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
+                  | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) when
+                    rangeContainsPos parenRange pos
+                    ->
                     Some(ident, duFieldPatterns, parenRange)
                   | _ -> None)
             | _ -> defaultTraverse expr
 
           member x.VisitMatchClause(path, defaultTraverse, matchClause) =
             match matchClause with
-            | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
+            | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) when
+              rangeContainsPos parenRange pos
+              ->
               Some(ident, duFieldPatterns, parenRange)
             | _ -> defaultTraverse matchClause }
 
