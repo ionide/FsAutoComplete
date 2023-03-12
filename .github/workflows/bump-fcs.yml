@@ -23,6 +23,7 @@ jobs:
       - name: bump FCS
         run: dotnet paket update FSharp.Compiler.Service
       - name: check if there are changes
+        continue-on-error: true # nonzero exit codes are expected if there are changes
         id: check
         run: |
           git diff --exit-code

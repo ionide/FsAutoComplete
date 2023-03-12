@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.59.2] - 2023-03-12
+
+### Added
+
+* [A new codefix that converts 'bare' ///-comments to full XML documentation comments](https://github.com/fsharp/fsautocomplete/pull/1068) (thanks @dawedawe!)
+
+### Changed
+
+* [Enhancements to Find All References and Rename operations](https://github.com/fsharp/fsautocomplete/pull/1037) (thanks @BooksBaum and @theangrybyrd!)
+* [Internal errors no longer report as LSP protocol errors](https://github.com/fsharp/fsautocomplete/pull/1069)
+* [TestAdapterEntry items now include module information as well](https://github.com/fsharp/fsautocomplete/pull/1071) (thanks @kojo12228!)
+
+### Fixed
+
+* [IndexOutOfRange issue in signatureHelp](https://github.com/fsharp/fsautocomplete/pull/1067) (thanks @vain0x!)
+* [ThreadPool exhaustion issue with ProgressListener](https://github.com/fsharp/fsautocomplete/pull/1070) (thanks @theangrybyrd!)
+* [The 'convert positional DU usage to named patterns' codefix now works with multiple match clauses in the same pattern](https://github.com/fsharp/fsautocomplete/pull/1073) (thanks @dawedawe!)
+
 ## [0.59.1] - 2023-02-26
 
 ### Added

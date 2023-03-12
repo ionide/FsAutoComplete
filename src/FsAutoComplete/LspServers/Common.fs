@@ -30,18 +30,15 @@ open FSharp.Compiler.Symbols
 open Fantomas.Client.Contracts
 open Fantomas.Client.LSPFantomasService
 
-
-
-
 module Result =
   let ofStringErr r =
     r |> Result.mapError JsonRpc.Error.InternalErrorMessage
 
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
-    | CoreResponse.Res a -> Ok a
-    | CoreResponse.ErrorRes msg
-    | CoreResponse.InfoRes msg -> Error(JsonRpc.Error.InternalErrorMessage msg)
+    | CoreResponse.Res a -> Ok(Some a)
+    | CoreResponse.ErrorRes msg -> Error(JsonRpc.Error.InternalErrorMessage msg)
+    | CoreResponse.InfoRes _ -> Ok None
 
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) = ar |> Async.map Result.ofCoreResponse
