@@ -157,6 +157,26 @@ module Commands =
         return CoreResponse.ErrorRes ex.Message
     }
 
+  let renameFile (fsprojPath: string) (oldFileVirtualPath: string) (newFileName: string) =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let oldFilePath = Path.Combine(dir, oldFileVirtualPath)
+        let oldFileInfo = FileInfo(oldFilePath)
+
+        let newFilePath = Path.Combine(oldFileInfo.Directory.FullName, newFileName)
+
+        File.Move(oldFilePath, newFilePath)
+
+        let newVirtPath =
+          Path.Combine(Path.GetDirectoryName oldFileVirtualPath, newFileName)
+
+        FsProjEditor.renameFile fsprojPath oldFileVirtualPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
   let removeFile fsprojPath fileVirtPath =
     async {
       FsProjEditor.removeFile fsprojPath fileVirtPath
@@ -1478,6 +1498,29 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
         FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+        return CoreResponse.Res()
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  member _.FsProjRenameFile (fsprojPath: string) (oldFileVirtualPath: string) (newFileName: string) =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let oldFilePath = Path.Combine(dir, oldFileVirtualPath)
+        let oldFileInfo = FileInfo(oldFilePath)
+
+        let newFilePath = Path.Combine(oldFileInfo.Directory.FullName, newFileName)
+
+        File.Move(oldFilePath, newFilePath)
+
+        let newVirtPath =
+          Path.Combine(Path.GetDirectoryName oldFileVirtualPath, newFileName)
+
+        FsProjEditor.renameFile fsprojPath oldFileVirtualPath newVirtPath
+
+        // Clear diagnostics for the old file
+        state.RemoveProjectOptions(normalizePath oldFilePath)
         return CoreResponse.Res()
       with ex ->
         return CoreResponse.ErrorRes ex.Message

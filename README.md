@@ -152,6 +152,7 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 * `fsproj/addFile` - accepts `DotnetFileRequest`, create the file if needed and add it to the project if not already present
 * `fsproj/addExistingFile` - accepts `DotnetFileRequest`, add existing file to a project if not already present
 * `fsproj/removeFile` - accepts `DotnetFileRequest`, remove the file from the project
+* `fsproj/renameFile` - accepts `DotnetRenameFileRequest`, rename the file from the project
 
 ### Supported LSP notifications
 

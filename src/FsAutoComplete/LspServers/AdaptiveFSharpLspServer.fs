@@ -4530,6 +4530,36 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError (string e)
       }
 
+    override __.FsProjRenameFile(p: DotnetRenameFileRequest) =
+      asyncResult {
+        let tags = [ "DotnetRenameFileRequest", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "FsProjRenameFile Request: {parms}"
+            >> Log.addContextDestructured "parms" p
+          )
+
+          do!
+            Commands.renameFile p.FsProj p.OldFileVirtualPath p.NewFileName
+            |> AsyncResult.ofCoreResponse
+            |> AsyncResult.map ignore
+
+          forceLoadProjects () |> ignore
+          return None
+        with e ->
+          trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
+
+          logger.error (
+            Log.setMessage "FsProjRenameFile Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+            >> Log.addExn e
+          )
+
+          return! LspResult.internalError (string e)
+      }
+
 
     override __.FsProjAddFile(p: DotnetFileRequest) =
       asyncResult {
@@ -4709,6 +4739,7 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
       |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
+      |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
     let adaptiveServer lspClient =

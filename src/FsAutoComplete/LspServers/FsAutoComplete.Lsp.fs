@@ -2527,6 +2527,24 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         return res
       }
 
+    override __.FsProjRenameFile(p: DotnetRenameFileRequest) =
+      async {
+        logger.info (
+          Log.setMessage "FsProjRenameFile Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+
+        let! res = commands.FsProjRenameFile p.FsProj p.OldFileVirtualPath p.NewFileName
+
+        let res =
+          match res with
+          | CoreResponse.InfoRes msg -> success None
+          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+          | CoreResponse.Res(_) -> success None
+
+        return res
+      }
+
     override __.FsProjAddFile(p: DotnetFileRequest) =
       async {
         logger.info (
@@ -2902,6 +2920,7 @@ module FSharpLspServer =
       |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
       |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
+      |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
     let regularServer lspClient =
