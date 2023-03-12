@@ -573,6 +573,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
+        | A(_, 23) -> ()
         | A(a$0, b) -> ()
         """
         Diagnostics.acceptAll
@@ -581,6 +582,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
+        | A(_, 23) -> ()
         | A(a = a; b = b;) -> ()
         """
     testCaseAsync "in parenthesized match" <|
@@ -589,6 +591,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
+        | (A(_, 23)) -> ()
         | (A(a$0, b)) -> ()
         """
         Diagnostics.acceptAll
@@ -597,6 +600,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
+        | (A(_, 23)) -> ()
         | (A(a = a; b = b;)) -> ()
         """
     testCaseAsync "when there is one new field on the DU" <|
