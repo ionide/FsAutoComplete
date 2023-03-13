@@ -107,8 +107,11 @@ module Commands =
 
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
-        FsProjEditor.addFile fsprojPath fileVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFile fsprojPath fileVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -129,8 +132,12 @@ module Commands =
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -151,8 +158,11 @@ module Commands =
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -165,8 +175,11 @@ module Commands =
 
   let addExistingFile fsprojPath fileVirtPath =
     async {
-      FsProjEditor.addExistingFile fsprojPath fileVirtPath
-      return CoreResponse.Res()
+      let result = FsProjEditor.addExistingFile fsprojPath fileVirtPath
+
+      match result with
+      | Ok() -> return CoreResponse.Res()
+      | Error msg -> return CoreResponse.ErrorRes msg
     }
 
   let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
@@ -1455,8 +1468,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -1477,8 +1494,11 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -1496,16 +1516,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
-        FsProjEditor.addFile fsprojPath fileVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFile fsprojPath fileVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddExistingFile (fsprojPath: string) (fileVirtPath: string) =
     async {
-      FsProjEditor.addExistingFile fsprojPath fileVirtPath
-      return CoreResponse.Res()
+      let result = FsProjEditor.addExistingFile fsprojPath fileVirtPath
+
+      match result with
+      | Ok() -> return CoreResponse.Res()
+      | Error msg -> return CoreResponse.ErrorRes msg
     }
 
   member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) (fullPath: string) =
