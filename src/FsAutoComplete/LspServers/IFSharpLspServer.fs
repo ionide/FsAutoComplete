@@ -42,6 +42,7 @@ type IFSharpLspServer =
   abstract FsProjMoveFileDown: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjAddFileAbove: DotnetFile2Request -> Async<LspResult<PlainNotification option>>
   abstract FsProjAddFileBelow: DotnetFile2Request -> Async<LspResult<PlainNotification option>>
+  abstract FsProjRenameFile: DotnetRenameFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjAddFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjRemoveFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjAddExistingFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>

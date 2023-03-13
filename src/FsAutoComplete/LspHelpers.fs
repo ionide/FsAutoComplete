@@ -581,6 +581,11 @@ type DotnetFile2Request =
     FileVirtualPath: string
     NewFile: string }
 
+type DotnetRenameFileRequest =
+  { FsProj: string
+    OldFileVirtualPath: string
+    NewFileName: string }
+
 type FSharpLiterateRequest =
   { TextDocument: TextDocumentIdentifier }
 
