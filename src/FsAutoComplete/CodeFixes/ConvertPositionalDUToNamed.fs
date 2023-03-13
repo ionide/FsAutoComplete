@@ -146,10 +146,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
       let notInsidePatterns =
         let ranges = duFields |> List.map (fun f -> f.Range)
 
-        fun (pos: FSharp.Compiler.Text.Position) ->
-          ranges
-          |> List.forall (fun r -> not (FSharp.Compiler.Text.Range.rangeContainsPos r pos))
+        let rangeContainsPosLeftEdgeExclusive (r: FSharp.Compiler.Text.Range) p =
+          let r' = r.WithStart(r.Start.WithColumn(r.Start.Column + 1))
+          rangeContainsPos r' p
 
+        fun (pos: FSharp.Compiler.Text.Position) ->
+          ranges |> List.forall (fun r -> not (rangeContainsPosLeftEdgeExclusive r pos))
 
       let commasBetweenFields =
         toPosSeq (parenRange, sourceText)

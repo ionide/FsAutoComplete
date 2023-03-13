@@ -629,6 +629,18 @@ let private convertPositionalDUToNamedTests state =
         type U = U of aValue: int * boolean: int * char: char * dec: decimal * element: int
         let (U(aValue = a; boolean = b; char = _; dec = _; element = _;)) = failwith "..."
         """
+    testCaseAsync "when the existing pattern isn't formatted well" <|
+      CodeFix.check server
+        """
+        type A = A of a: int * b: bool * c: bool * d: bool
+        let (A($0a,b, c,     d)) = A(1, true, false, false)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type A = A of a: int * b: bool * c: bool * d: bool
+        let (A(a = a;b = b; c = c;     d = d;)) = A(1, true, false, false)
+        """
   ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
