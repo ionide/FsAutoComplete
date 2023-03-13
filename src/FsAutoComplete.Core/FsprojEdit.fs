@@ -118,14 +118,6 @@ module FsProjEditor =
     node.Attributes["Include"].InnerText <- newFileName
     xdoc.Save fsprojPath
 
-  let renameFile (fsprojPath: string) (oldFileName: string) (newFileName: string) =
-    let xdoc = System.Xml.XmlDocument()
-    xdoc.Load fsprojPath
-    let xpath = sprintf "//Compile[@Include='%s']" oldFileName
-    let node = xdoc.SelectSingleNode(xpath)
-    node.Attributes["Include"].InnerText <- newFileName
-    xdoc.Save fsprojPath
-
   let addFile (fsprojPath: string) (newFileName: string) =
     let xdoc = System.Xml.XmlDocument()
     xdoc.Load fsprojPath
