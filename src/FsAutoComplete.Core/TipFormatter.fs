@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -163,18 +163,45 @@ module private Format =
 
             | None -> "forceNoHighlight"
 
+          // We need to trim the end of the text because the
+          // user write XML comments with a space between the '///'
+          // and the '<code>' tag. Then it mess up identifation of new lines
+          // at the end of the code snippet.
+          // Example:
+          // /// <code>
+          // ///   var x = 1;
+          // /// </code>
+          //    ^ This space is the one we need to remove
+          let innerText = innerText.TrimEnd()
+
+          // Try to detect how the code snippet is formatted
+          // so render the markdown code block the best way
+          // by avoid empty lines at the beginning or the end
           let formattedText =
-            if innerText.Contains("\n") then
+            match innerText.StartsWith("\n"), innerText.EndsWith("\n") with
+            | true, true ->
+              sprintf "```%s%s```" lang innerText
+            | true, false ->
+              sprintf "```%s%s\n```" lang innerText
+            | false, true ->
+              sprintf "```%s\n%s```" lang innerText
+            | false, false ->
+              sprintf "```%s\n%s\n```" lang innerText
 
-              if innerText.StartsWith("\n") then
+          Some formattedText
 
-                sprintf "```%s%s\n```" lang innerText
+    }
+    |> applyFormatter
 
-              else
-                sprintf "```%s\n%s\n```" lang innerText
+  let private example =
+    { TagName = "example"
+      Formatter =
+        function
+        | VoidElement _ -> None
 
-            else
-              sprintf "`%s`" innerText
+        | NonVoidElement(innerText, _) ->
+          let formattedText =
+            Section.addSection "Example" innerText
 
           Some formattedText
 
@@ -668,6 +695,7 @@ module private Format =
     |> removeInvalidOrBlock
     // Start the transformation process
     |> paragraph
+    |> example
     |> block
     |> codeInline
     |> codeBlock
