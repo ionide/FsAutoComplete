@@ -201,7 +201,12 @@ module private Format =
 
         | NonVoidElement(innerText, _) ->
           let formattedText =
-            Section.addSection "Example" innerText
+            nl + nl
+            // This try to keep a visual consistency and indicate that this
+            // "Example section" is part of it parent section (summary, remarks, etc.)
+            + """Example:"""
+            + nl + nl
+            + innerText
 
           Some formattedText
 
