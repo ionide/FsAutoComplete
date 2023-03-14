@@ -14,7 +14,10 @@ open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
+open System.Reactive
+open System.Reactive.Linq
 
+open FSharp.Control.Reactive
 open FsToolkit.ErrorHandling
 open FsOpenTelemetry
 open FsAutoComplete.Utils.Tracing
@@ -129,6 +132,17 @@ module AVal =
           result }
     :> aval<_>
 
+  /// <summary>
+  /// Creates observables from adaptive values
+  /// </summary>
+  module Observable =
+    /// <summary>
+    /// Creates an observable with the given object that will be executed whenever the object gets marked out-of-date. Note that it does not trigger when the object is currently out-of-date.
+    /// </summary>
+    /// <param name="aval">The aval to get out-of-date information from.</param>
+    /// <returns>An observable</returns>
+    let onWeakMarking (aval: #aval<_>) =
+      Observable.Create(fun (obs: IObserver<unit>) -> aval.AddWeakMarkingCallback(obs.OnNext))
 
 module ASet =
   /// Creates an amap with the keys from the set and the values given by mapping and
@@ -180,7 +194,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let thisType = typeof<AdaptiveFSharpLspServer>
 
-  let disposables = new System.Reactive.Disposables.CompositeDisposable()
+  let disposables = new Disposables.CompositeDisposable()
 
   let rootPath = cval<string option> None
 
@@ -811,7 +825,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return options |> List.map fst
     }
 
+  /// <summary>
+  /// Evaluates the adaptive value <see cref='F:loadedProjectOptions '/> and returns its current value.
+  /// This should not be used inside the adaptive evaluation of other AdaptiveObjects since it does not track dependencies.
+  /// </summary>
+  /// <returns>A list of FSharpProjectOptions</returns>
   let forceLoadProjects () = loadedProjectOptions |> AVal.force
+
+  do
+    // Reload Projects with some debouncing if `loadedProjectOptions` is out of date.
+    AVal.Observable.onWeakMarking loadedProjectOptions
+    |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
+    |> Observable.observeOn Concurrency.NewThreadScheduler.Default
+    |> Observable.subscribe (forceLoadProjects >> ignore)
+    |> disposables.Add
 
 
   let sourceFileToProjectOptions =
@@ -1242,7 +1269,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   /// Bypass Adaptive checking and tell the checker to check a file
   let bypassAdaptiveTypeCheck (filePath: string<LocalPath>) opts =
     async {
-
       try
         logger.info (
           Log.setMessage "Forced Check : {file}"
@@ -2085,9 +2111,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
-          // Starts getting project options to cache
           forceLoadProjects () |> ignore
-
           return ()
         with e ->
 
@@ -4097,8 +4121,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 |> HashSet.single
                 |> WorkspaceChosen.Projs)
 
-          forceLoadProjects () |> ignore
-
           return! Helpers.notImplemented
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4193,7 +4215,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore // mapping unit option to unit
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4223,7 +4244,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4253,7 +4273,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4451,7 +4470,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4482,7 +4500,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4513,7 +4530,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4543,7 +4559,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4573,7 +4588,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4604,7 +4618,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4636,7 +4649,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           let fileUri = Path.FilePathToUri fullPath
           diagnosticCollections.ClearFor fileUri
 
@@ -4669,7 +4681,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
