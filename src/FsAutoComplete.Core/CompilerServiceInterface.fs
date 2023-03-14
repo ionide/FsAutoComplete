@@ -17,7 +17,7 @@ open FsToolkit.ErrorHandling
 
 type Version = int
 
-type FSharpCompilerServiceChecker(hasAnalyzers) =
+type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
@@ -36,7 +36,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   // This is used to hold previous check results for autocompletion.
   // We can't seem to rely on the checker for previous cached versions
   let memoryCache () =
-    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(200L)))
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(typecheckCacheSize)))
 
   let mutable lastCheckResults: IMemoryCache = memoryCache ()
 

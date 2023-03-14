@@ -189,7 +189,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
-  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
+  let checker =
+    config
+    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount)
+    |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
   /// This is extracted to make it easier to do some type of customized select
