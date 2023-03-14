@@ -36,7 +36,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   // This is used to hold previous check results for autocompletion.
   // We can't seem to rely on the checker for previous cached versions
   let memoryCache () =
-    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(2000L)))
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(200L)))
 
   let mutable lastCheckResults: IMemoryCache = memoryCache ()
 
@@ -258,8 +258,24 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     let path = UMX.untag fn
     checker.ParseFile(path, source, fpo)
 
-  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: ISourceText, options) =
+  /// <summary>Parse and check a source code file, returning a handle to the results</summary>
+  /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
+  /// <param name="version">An integer that can be used to indicate the version of the file. This will be returned by TryGetRecentCheckResultsForFile when looking up the file</param>
+  /// <param name="source">The source for the file.</param>
+  /// <param name="options">The options for the project or script.</param>
+  /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
+  /// <remarks>Note: all files except the one being checked are read from the FileSystem API</remarks>
+  /// <returns>Result of ParseAndCheckResults</returns>
+  member __.ParseAndCheckFileInProject
+    (
+      filePath: string<LocalPath>,
+      version,
+      source: ISourceText,
+      options,
+      ?shouldCache: bool
+    ) =
     asyncResult {
+      let shouldCache = defaultArg shouldCache false
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
       checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
@@ -289,16 +305,26 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
           let r = ParseAndCheckResults(p, c, entityCache)
 
-          let ops =
-            MemoryCacheEntryOptions()
-              .SetSize(1)
-              .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
+          if shouldCache then
+            let ops =
+              MemoryCacheEntryOptions()
+                .SetSize(1)
+                .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
-          return lastCheckResults.Set(filePath, r, ops)
+            return lastCheckResults.Set(filePath, r, ops)
+          else
+            return r
       with ex ->
         return! ResultOrString.Error(ex.ToString())
     }
 
+  /// <summary>
+  /// This is use primary for Autocompletions. The problem with trying to use TryGetRecentCheckResultsForFile is that it will return None
+  /// if there isn't a GetHashCode that matches the SourceText passed in.  This a problem particularly for Autocompletions because we'd have to wait for a typecheck
+  /// on every keystroke which can prove slow.  For autocompletions, it's ok to rely on cached typechecks as files above generally don't change mid type.
+  /// </summary>
+  /// <param name="file">The path of the file to get cached type check results for.</param>
+  /// <returns>Cached typecheck results</returns>
   member _.TryGetLastCheckResultForFile(file: string<LocalPath>) =
     let opName = sprintf "TryGetLastCheckResultForFile - %A" file
 
