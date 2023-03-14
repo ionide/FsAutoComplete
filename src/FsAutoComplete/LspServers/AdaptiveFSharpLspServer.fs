@@ -189,7 +189,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
-  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
+  let checker =
+    config
+    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount)
+    |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
   /// This is extracted to make it easier to do some type of customized select
@@ -1148,12 +1151,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Version = version } }
     }
 
-
-  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
+  /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
+  /// <param name="checker">The FSharpCompilerServiceChecker.</param>
+  /// <param name="file">The name of the file in the project whose source to find a typecheck.</param>
+  /// <param name="options">The options for the project or script.</param>
+  /// <param name="config">The FSharpConfig.</param>
+  /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
+  /// <returns></returns>
+  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) options config shouldCache =
     async {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Lines.FileName)
-          SemanticConventions.projectFilePath, box (opts.ProjectFileName) ]
+          SemanticConventions.projectFilePath, box (options.ProjectFileName) ]
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1178,7 +1187,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       cts.CancelAfter(TimeSpan.FromSeconds(60.))
 
       let! result =
-        checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
+        checker.ParseAndCheckFileInProject(
+          file.Lines.FileName,
+          (file.Lines.GetHashCode()),
+          file.Lines,
+          options,
+          shouldCache = shouldCache
+        )
         |> Async.withCancellation cts.Token
         |> Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
 
@@ -1204,7 +1219,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         Async.Start(
           async {
 
-            fileParsed.Trigger(parseAndCheck.GetParseResults, opts, ct)
+            fileParsed.Trigger(parseAndCheck.GetParseResults, options, ct)
             fileChecked.Trigger(parseAndCheck, file, ct)
             let checkErrors = parseAndCheck.GetParseResults.Diagnostics
             let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
@@ -1238,7 +1253,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let config = config |> AVal.force
 
         match forceFindOpenFileOrRead filePath with
-        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+        // Don't cache for autocompletions as we really only want to cache "Opened" files.
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config false |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1304,7 +1320,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return!
               Debug.measure $"parseAndCheckFile - {file}"
               <| fun () ->
-                parseAndCheckFile checker info opts config
+                parseAndCheckFile checker info opts config true
                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
           }
 
@@ -1338,6 +1354,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AVal.force
     |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
+  /// <summary>
+  /// This will attempt to get typecheck results in this order
+  ///
+  /// 1. From our internal typecheck cache
+  /// 2. From checker.TryGetRecentCheckResultsForFile
+  /// 3. Failing both, will type check the file.
+  ///
+  /// Additionally, it will start typechecking the file in the background to force latest results on the next request.
+  /// </summary>
+  /// <param name="filePath">The name of the file in the project whose source to find a typecheck.</param>
+  /// <returns>A Result of ParseAndCheckResults</returns>
   let forceGetTypeCheckResultsStale (filePath: string<LocalPath>) =
     aval {
       let! checker = checker
