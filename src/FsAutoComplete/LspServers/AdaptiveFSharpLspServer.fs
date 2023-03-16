@@ -1055,6 +1055,35 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
 
+  /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
+  let parseAllFiles () =
+    aval {
+      let! projects = loadedProjectOptions
+      and! checker = checker
+
+      return
+        projects
+        |> Array.ofList
+        |> Array.Parallel.collect (fun p ->
+          let parseOpts = Utils.projectOptionsToParseOptions p
+          p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
+        |> Array.Parallel.choose (fun (opts, parseOpts, fileName) ->
+          let fileName = %fileName
+          let file = forceFindOpenFileOrRead fileName
+
+          file
+          |> Result.toOption
+          |> Option.map (fun file ->
+            async {
+              let! parseResult = checker.ParseFile(fileName, file.Lines, parseOpts)
+              let! ct = Async.CancellationToken
+              fileParsed.Trigger(parseResult, opts, ct)
+              return parseResult
+            }))
+        |> Async.parallel75
+
+    }
+
   let forceFindSourceText filePath =
     forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
 
@@ -1779,7 +1808,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let maxConcurrency =
         Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
-      do! Async.Parallel(checksToPerform, int maxConcurrency) |> Async.Ignore<unit array>
+      do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
 
     }
 
@@ -2115,7 +2144,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
-          forceLoadProjects () |> ignore
+          let! _ = parseAllFiles () |> AVal.force
           return ()
         with e ->
 
@@ -4045,7 +4074,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> HashSet.ofArray
 
           transact (fun () -> workspacePaths.Value <- (WorkspaceChosen.Projs projs))
-          forceLoadProjects () |> ignore
+          let! _ = parseAllFiles () |> AVal.force
 
           return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }
 

@@ -144,6 +144,14 @@ module Async =
   let inline logCancelled e =
     logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
+  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
+  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
+  let parallel75 computations =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+
+    Async.Parallel(computations, int maxConcurrency)
+
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
     async {
       let! ct2 = Async.CancellationToken
