@@ -16,6 +16,7 @@ open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
 open System.Reactive
 open System.Reactive.Linq
+open FsAutoComplete.Adaptive
 
 open FSharp.Control.Reactive
 open FsToolkit.ErrorHandling
@@ -39,143 +40,6 @@ open FsAutoComplete.LspHelpers
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Collections.Concurrent
 
-[<AutoOpen>]
-module AdaptiveExtensions =
-  type ChangeableHashMap<'Key, 'Value> with
-
-    /// <summary>
-    /// Adds the given key and calls the adder function if no previous key exists.
-    /// Otherwise calls updater with the current key/value and returns a new value to be set.
-    /// Returns true when the map changed.
-    /// </summary>
-    member x.AddOrUpdate(key, adder, updater) =
-      match x.TryGetValue key with
-      | None -> x.Add(key, adder key)
-      | Some v -> x.Add(key, updater key v)
-
-    /// <summary>
-    /// Adds the given key and calls the adder function if no previous key exists.
-    /// Otherwise calls updater with the current key/value but does not override existing value in the map.
-    /// This is useful when the 'Value is itself a changeable value like a cval, aset, amap which should be changed
-    /// but the parent container doesn't need to know about those changes itself.
-    /// </summary>
-    member x.AddOrElse(key, adder, updater) =
-      match x.TryGetValue key with
-      | None -> x.Add(key, adder key) |> ignore
-      | Some v -> updater key v
-
-
-module Utils =
-  let cheapEqual (a: 'T) (b: 'T) =
-    ShallowEqualityComparer<'T>.Instance.Equals(a, b)
-
-/// <summary>
-/// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
-/// </summary>
-type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable>
-  (mapping: 'T1 -> ('T2 * 'Disposable), input: aval<'T1>) =
-  inherit AVal.AbstractVal<'T2>()
-
-  let mutable cache: ValueOption<struct ('T1 * 'T2 * 'Disposable)> = ValueNone
-
-  override x.Compute(token: AdaptiveToken) =
-    let i = input.GetValue token
-
-    match cache with
-    | ValueSome(struct (a, b, _)) when Utils.cheapEqual a i -> b
-    | ValueSome(struct (a, b, c)) ->
-      (c :> IDisposable).Dispose()
-      let (b, c) = mapping i
-      cache <- ValueSome(struct (i, b, c))
-      b
-    | ValueNone ->
-      let (b, c) = mapping i
-      cache <- ValueSome(struct (i, b, c))
-      b
-
-module AVal =
-  let mapOption f = AVal.map (Option.map f)
-
-  /// <summary>
-  /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
-  /// </summary>
-  let mapDisposableTuple mapper value =
-    MapDisposableTupleVal(mapper, value) :> aval<_>
-
-  /// <summary>
-  /// Calls a mapping function which creates additional dependencies to be tracked.
-  /// </summary>
-  let mapWithAdditionalDependenies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
-    let mutable lastDeps = HashSet.empty
-
-    { new AVal.AbstractVal<'b>() with
-        member x.Compute(token: AdaptiveToken) =
-          let input = value.GetValue token
-
-          // re-evaluate the mapping based on the (possibly new input)
-          let result, deps = mapping input
-
-          // compute the change in the additional dependencies and adjust the graph accordingly
-          let newDeps = HashSet.ofSeq deps
-
-          for op in HashSet.computeDelta lastDeps newDeps do
-            match op with
-            | Add(_, d) ->
-              // the new dependency needs to be evaluated with our token, s.t. we depend on it in the future
-              d.GetValueUntyped token |> ignore
-            | Rem(_, d) ->
-              // we no longer need to depend on the old dependency so we can remove ourselves from its outputs
-              lock d.Outputs (fun () -> d.Outputs.Remove x) |> ignore
-
-          lastDeps <- newDeps
-
-          result }
-    :> aval<_>
-
-  /// <summary>
-  /// Creates observables from adaptive values
-  /// </summary>
-  module Observable =
-    /// <summary>
-    /// Creates an observable with the given object that will be executed whenever the object gets marked out-of-date. Note that it does not trigger when the object is currently out-of-date.
-    /// </summary>
-    /// <param name="aval">The aval to get out-of-date information from.</param>
-    /// <returns>An observable</returns>
-    let onWeakMarking (aval: #aval<_>) =
-      Observable.Create(fun (obs: IObserver<unit>) -> aval.AddWeakMarkingCallback(obs.OnNext))
-
-module ASet =
-  /// Creates an amap with the keys from the set and the values given by mapping and
-  /// adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAtoAMap mapper src =
-    src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
-
-module AMap =
-  /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindAndFlatten (key: 'Key) (map: amap<'Key, aval<option<'Value>>>) =
-    aval {
-      match! AMap.tryFind key map with
-      | Some x -> return! x
-      | None -> return None
-    }
-
-  /// Adaptively looks up the given key in the map and binds the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindA (key: 'Key) (map: amap<'Key, #aval<'Value>>) =
-    aval {
-      match! AMap.tryFind key map with
-      | Some v ->
-        let! v2 = v
-        return Some v2
-      | None -> return None
-    }
-
-  /// Adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAVal
-    (mapper: 'Key -> 'InValue -> aval<'OutValue>)
-    (map: #amap<'Key, #aval<'InValue>>)
-    : amap<'Key, aval<'OutValue>> =
-    map |> AMap.map (fun k v -> AVal.bind (mapper k) v)
-
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
   | Sln of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
@@ -187,7 +51,7 @@ type WorkspaceChosen =
 type AdaptiveWorkspaceChosen =
   | Sln of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Directory of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Projs of aval<HashMap<string<LocalPath>, DateTime>>
+  | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
 type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient) =
@@ -637,14 +501,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let cb = aval.AddMarkingCallback(cb)
     aval |> AVal.mapDisposableTuple (fun x -> x, cb)
 
-  let projectFileChanges (filePath: string<LocalPath>) =
+  let projectFileChanges project (filePath: string<LocalPath>) =
     let file = getLastUTCChangeForFile filePath
 
     let logMsg () =
-      logger.info (
-        Log.setMessage "Loading projects because of {delta}"
-        >> Log.addContextDestructured "delta" filePath
-      )
+      logger.info (Log.setMessageI $"Loading {project:project} because of {filePath:filePath}")
 
     file |> addAValLogging logMsg
 
@@ -669,12 +530,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let workspacePaths: ChangeableValue<WorkspaceChosen> =
     cval WorkspaceChosen.NotChosen
 
+  let noopDisposable =
+    { new IDisposable with
+        member this.Dispose() : unit = () }
+
   let adaptiveWorkspacePaths =
     workspacePaths
     |> AVal.map (fun wsp ->
       match wsp with
-      | WorkspaceChosen.Sln v -> projectFileChanges v |> AdaptiveWorkspaceChosen.Sln
-      | WorkspaceChosen.Directory d -> failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory
+      | WorkspaceChosen.Sln v -> projectFileChanges v v |> AdaptiveWorkspaceChosen.Sln, noopDisposable
+      | WorkspaceChosen.Directory d ->
+        failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory, noopDisposable
       | WorkspaceChosen.Projs projs ->
         let projChanges =
           projs
@@ -688,14 +554,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               >> Log.addContextDestructured "delta" delta
             ))
 
-        projChanges
-        |> AMap.toAVal
-        |> AVal.mapDisposableTuple (fun x -> x, cb)
-        |> AdaptiveWorkspaceChosen.Projs
+        projChanges |> AdaptiveWorkspaceChosen.Projs, cb
 
-      | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen
+      | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen, noopDisposable
 
     )
+    |> AVal.mapDisposableTuple (id)
 
   let clientCapabilities = cval<ClientCapabilities option> None
 
@@ -703,6 +567,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     clientCapabilities |> AVal.map (glyphToCompletionKindGenerator)
 
   let glyphToSymbolKind = clientCapabilities |> AVal.map glyphToSymbolKindGenerator
+
+  let tryFindProp name (props: list<Types.Property>) =
+    match props |> Seq.tryFind (fun x -> x.Name = name) with
+    | Some v -> v.Value |> Option.ofObj
+    | None -> None
+
+  let (|ProjectAssetsFile|_|) (props: list<Types.Property>) = tryFindProp "ProjectAssetsFile" props
+
+  let (|BaseIntermediateOutputPath|_|) (props: list<Types.Property>) =
+    tryFindProp "BaseIntermediateOutputPath" props
+
+  let (|MSBuildAllProjects|_|) (props: list<Types.Property>) =
+    tryFindProp "MSBuildAllProjects" props
+    |> Option.map (fun v -> v.Split(';', StringSplitOptions.RemoveEmptyEntries))
 
   let loadedProjectOptions =
     aval {
@@ -718,7 +596,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         let! projectOptions =
           projects
-          |> AVal.mapWithAdditionalDependenies (fun projects ->
+          |> AMap.mapWithAdditionalDependenies (fun projects ->
 
             projects
             |> Seq.iter (fun (proj: string<LocalPath>, _) ->
@@ -743,32 +621,36 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 >> Log.addContextDestructured "path" p.Properties
               )
 
-            let additionalDependencies =
+            let additionalDependencies (p: Types.ProjectOptions) =
+              [ let projectFileChanges = projectFileChanges p.ProjectFileName
 
+                match p.Properties with
+                | ProjectAssetsFile v -> yield projectFileChanges (UMX.tag v)
+                | _ -> ()
+
+                let objPath = (|BaseIntermediateOutputPath|_|) p.Properties
+
+                let isWithinObjFolder (file: string) =
+                  match objPath with
+                  | None -> true // if no obj folder provided assume we should track this file
+                  | Some objPath -> file.Contains(objPath)
+
+                match p.Properties with
+                | MSBuildAllProjects v ->
+                  yield!
+                    v
+                    |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
+                    |> Array.map (UMX.tag >> projectFileChanges)
+                | _ -> () ]
+
+            HashMap.ofList
               [ for p in projectOptions do
-                  match p.Properties |> Seq.tryFind (fun x -> x.Name = "ProjectAssetsFile") with
-                  | Some v -> yield projectFileChanges (UMX.tag v.Value)
-                  | None -> ()
+                  %p.ProjectFileName, (p, additionalDependencies p) ]
 
-                  let objPath =
-                    p.Properties
-                    |> Seq.tryFind (fun x -> x.Name = "BaseIntermediateOutputPath")
-                    |> Option.map (fun v -> v.Value)
+          )
+          |> AMap.toAVal
+          |> AVal.map HashMap.toValueList
 
-                  let isWithinObjFolder (file: string) =
-                    match objPath with
-                    | None -> true // if no obj folder provided assume we should track this file
-                    | Some objPath -> file.Contains(objPath)
-
-                  match p.Properties |> Seq.tryFind (fun x -> x.Name = "MSBuildAllProjects") with
-                  | Some v ->
-                    yield!
-                      v.Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                      |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
-                      |> Array.map (UMX.tag >> projectFileChanges)
-                  | None -> () ]
-
-            projectOptions, additionalDependencies)
 
         and! checker = checker
         checker.ClearCaches() // if we got new projects assume we're gonna need to clear caches
