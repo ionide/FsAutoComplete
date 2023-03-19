@@ -2774,14 +2774,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
-          let! (symbol, uses) = tyRes.TryGetSymbolUseAndUsages pos lineStr |> Result.ofStringErr
-
-          return
-            uses
-            |> Array.map (fun s ->
-              { DocumentHighlight.Range = fcsRangeToLsp s.Range
-                Kind = None })
-            |> Some
+          match
+            tyRes.TryGetSymbolUseAndUsages pos lineStr
+            |> Result.bimap CoreResponse.Res CoreResponse.InfoRes
+          with
+          | CoreResponse.InfoRes msg -> return None
+          | CoreResponse.ErrorRes msg -> return! LspResult.internalError msg
+          | CoreResponse.Res(symbol, uses) ->
+            return
+              uses
+              |> Array.map (fun s ->
+                { DocumentHighlight.Range = fcsRangeToLsp s.Range
+                  Kind = None })
+              |> Some
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
