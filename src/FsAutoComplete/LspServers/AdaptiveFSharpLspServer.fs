@@ -950,7 +950,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let parseOpts = Utils.projectOptionsToParseOptions p
           p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
         |> Array.Parallel.choose (fun (opts, parseOpts, fileName) ->
-          let fileName =  UMX.tag fileName
+          let fileName = UMX.tag fileName
           let file = forceFindOpenFileOrRead fileName
 
           file
