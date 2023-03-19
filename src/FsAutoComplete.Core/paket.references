@@ -7,6 +7,7 @@ System.Configuration.ConfigurationManager
 FSharp.UMX
 FsToolkit.ErrorHandling
 Fantomas.Client
+FSharp.Data.Adaptive
 
 Ionide.ProjInfo.ProjectSystem
 System.Reflection.Metadata
