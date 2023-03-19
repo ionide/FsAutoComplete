@@ -616,7 +616,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         ()
       }
-      |> Async.RunSynchronouslyWithCT ct
+      |> fun work -> Async.StartImmediate(work, ct)
     with :? OperationCanceledException as e ->
       ()
 
@@ -731,7 +731,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             use progressReport = new ServerProgressReport(lspClient)
 
             progressReport.Begin($"Loading {projects.Count} Projects")
-            |> Async.RunSynchronously
+            |> Async.StartImmediate
 
             let projectOptions =
               loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
@@ -1042,8 +1042,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
   do
+    let filesystemShim file =
+      // GetLastWriteTimeShim gets called _alot_ and when we do checks on save we use Async.Parallel for type checking.
+      // Adaptive uses lots of locks under the covers, so many threads can get blocked waiting for data.
+      // We know we don't store anything other than Fsharp type files in open files so this so we shouldn't hit any locks
+      // when F# compiler asks for DLL timestamps
+      if Utils.isFileWithFSharp %file then
+        forceFindOpenFile file
+      else
+        None
+
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
-      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, forceFindOpenFile)
+      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
 
   let forceFindSourceText filePath =
     forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
@@ -1208,11 +1218,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
       do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
 
-
-      // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
-      use cts = new CancellationTokenSource()
-      cts.CancelAfter(TimeSpan.FromSeconds(60.))
-
       let! result =
         checker.ParseAndCheckFileInProject(
           file.Lines.FileName,
@@ -1221,7 +1226,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           options,
           shouldCache = shouldCache
         )
-        |> Async.withCancellation cts.Token
         |> Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
 
       do! progressReport.End($"Typechecked {file.Lines.FileName}")

@@ -139,7 +139,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 
   interface IDisposable with
     member x.Dispose() =
-      (x :> IAsyncDisposable).DisposeAsync().GetAwaiter().GetResult()
+      (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
 open System.Diagnostics.Tracing
@@ -279,7 +279,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
   interface IDisposable with
     member this.Dispose() : unit =
-      (this :> IAsyncDisposable).DisposeAsync().GetAwaiter().GetResult()
+      (this :> IAsyncDisposable).DisposeAsync() |> ignore
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =
