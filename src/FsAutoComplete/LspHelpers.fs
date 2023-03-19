@@ -663,7 +663,7 @@ type FSharpConfigDto =
     Notifications: NotificationsDto option
     Debug: DebugDto option }
 
-type FSharpConfigRequest = { FSharp: FSharpConfigDto }
+type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
 type CodeLensConfig =
   { Signature: {| Enabled: bool |}
