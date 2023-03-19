@@ -1960,9 +1960,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             | None -> p.RootPath
 
           let projs =
-            match actualRootPath with
-            | None -> []
-            | Some actualRootPath ->
+            match p.RootPath, c.AutomaticWorkspaceInit with
+            | None, _
+            | _, false -> workspacePaths |> AVal.force
+            | Some actualRootPath, true ->
               let peeks =
                 WorkspacePeek.peek
                   actualRootPath
@@ -1986,13 +1987,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
               | _ -> []
               |> List.map (Utils.normalizePath)
+              |> HashSet.ofList
+              |> WorkspaceChosen.Projs
 
           transact (fun () ->
             rootPath.Value <- actualRootPath
             clientCapabilities.Value <- p.Capabilities
             lspClient.ClientCapabilities <- p.Capabilities
             updateConfig c
-            workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
+            workspacePaths.Value <- projs)
 
           let defaultSettings =
             { Helpers.defaultServerCapabilities with
