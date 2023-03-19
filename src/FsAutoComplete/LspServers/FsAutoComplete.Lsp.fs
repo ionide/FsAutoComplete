@@ -2106,13 +2106,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" dto
         )
 
-        let c = config.AddDto dto.FSharp
-        updateConfig c
+        dto.FSharp
+        |> Option.iter (fun fsharpConfig ->
+          let c = config.AddDto fsharpConfig
+          updateConfig c
 
-        logger.info (
-          Log.setMessage "Workspace configuration changed"
-          >> Log.addContextDestructured "config" c
-        )
+          logger.info (
+            Log.setMessage "Workspace configuration changed"
+            >> Log.addContextDestructured "config" c
+          ))
 
         return ()
       }

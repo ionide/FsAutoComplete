@@ -3410,9 +3410,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
-          let c = config |> AVal.force
-          let c = c.AddDto dto.FSharp
-          updateConfig c
+
+          dto.FSharp
+          |> Option.iter (fun fsharpConfig ->
+            let c = config |> AVal.force
+            let c = c.AddDto fsharpConfig
+            updateConfig c)
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
