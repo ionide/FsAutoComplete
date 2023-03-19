@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.59.4] - 2023-03-19
+
+### Fixed
+
+* [The Adaptive Server no longer sends errors for `textDocument/documentHighlight` calls that there is no symbol information for](https://github.com/fsharp/FsAutoComplete/pull/1075) (Thanks @haodeon!)
+
 ## [0.59.3] - 2023-03-19
 
 ### Added
