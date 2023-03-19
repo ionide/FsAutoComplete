@@ -81,9 +81,18 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
           if mfv.IsMemberThisValue then
             return [ mkReplaceFix diagnostic.Range ]
           elif mfv.IsValue then
-            return
-              [ tryMkValueReplaceFix diagnostic.Range; tryMkPrefixFix diagnostic.Range ]
-              |> List.choose id
+            let symbolText =
+              lines.GetText symbolUse.Range
+              |> function
+                | Ok r -> r
+                | Error _ -> ""
+
+            if symbolText <> "_" then
+              return
+                [ tryMkValueReplaceFix diagnostic.Range; tryMkPrefixFix diagnostic.Range ]
+                |> List.choose id
+            else
+              return []
           else
             return []
         | _ -> return []
