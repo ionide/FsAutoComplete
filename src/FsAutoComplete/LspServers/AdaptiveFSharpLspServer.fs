@@ -14,7 +14,11 @@ open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
+open System.Reactive
+open System.Reactive.Linq
+open FsAutoComplete.Adaptive
 
+open FSharp.Control.Reactive
 open FsToolkit.ErrorHandling
 open FsOpenTelemetry
 open FsAutoComplete.Utils.Tracing
@@ -36,132 +40,6 @@ open FsAutoComplete.LspHelpers
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Collections.Concurrent
 
-[<AutoOpen>]
-module AdaptiveExtensions =
-  type ChangeableHashMap<'Key, 'Value> with
-
-    /// <summary>
-    /// Adds the given key and calls the adder function if no previous key exists.
-    /// Otherwise calls updater with the current key/value and returns a new value to be set.
-    /// Returns true when the map changed.
-    /// </summary>
-    member x.AddOrUpdate(key, adder, updater) =
-      match x.TryGetValue key with
-      | None -> x.Add(key, adder key)
-      | Some v -> x.Add(key, updater key v)
-
-    /// <summary>
-    /// Adds the given key and calls the adder function if no previous key exists.
-    /// Otherwise calls updater with the current key/value but does not override existing value in the map.
-    /// This is useful when the 'Value is itself a changeable value like a cval, aset, amap which should be changed
-    /// but the parent container doesn't need to know about those changes itself.
-    /// </summary>
-    member x.AddOrElse(key, adder, updater) =
-      match x.TryGetValue key with
-      | None -> x.Add(key, adder key) |> ignore
-      | Some v -> updater key v
-
-
-module Utils =
-  let cheapEqual (a: 'T) (b: 'T) =
-    ShallowEqualityComparer<'T>.Instance.Equals(a, b)
-
-/// <summary>
-/// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
-/// </summary>
-type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable>
-  (mapping: 'T1 -> ('T2 * 'Disposable), input: aval<'T1>) =
-  inherit AVal.AbstractVal<'T2>()
-
-  let mutable cache: ValueOption<struct ('T1 * 'T2 * 'Disposable)> = ValueNone
-
-  override x.Compute(token: AdaptiveToken) =
-    let i = input.GetValue token
-
-    match cache with
-    | ValueSome(struct (a, b, _)) when Utils.cheapEqual a i -> b
-    | ValueSome(struct (a, b, c)) ->
-      (c :> IDisposable).Dispose()
-      let (b, c) = mapping i
-      cache <- ValueSome(struct (i, b, c))
-      b
-    | ValueNone ->
-      let (b, c) = mapping i
-      cache <- ValueSome(struct (i, b, c))
-      b
-
-module AVal =
-  let mapOption f = AVal.map (Option.map f)
-
-  /// <summary>
-  /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
-  /// </summary>
-  let mapDisposableTuple mapper value =
-    MapDisposableTupleVal(mapper, value) :> aval<_>
-
-  /// <summary>
-  /// Calls a mapping function which creates additional dependencies to be tracked.
-  /// </summary>
-  let mapWithAdditionalDependenies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
-    let mutable lastDeps = HashSet.empty
-
-    { new AVal.AbstractVal<'b>() with
-        member x.Compute(token: AdaptiveToken) =
-          let input = value.GetValue token
-
-          // re-evaluate the mapping based on the (possibly new input)
-          let result, deps = mapping input
-
-          // compute the change in the additional dependencies and adjust the graph accordingly
-          let newDeps = HashSet.ofSeq deps
-
-          for op in HashSet.computeDelta lastDeps newDeps do
-            match op with
-            | Add(_, d) ->
-              // the new dependency needs to be evaluated with our token, s.t. we depend on it in the future
-              d.GetValueUntyped token |> ignore
-            | Rem(_, d) ->
-              // we no longer need to depend on the old dependency so we can remove ourselves from its outputs
-              lock d.Outputs (fun () -> d.Outputs.Remove x) |> ignore
-
-          lastDeps <- newDeps
-
-          result }
-    :> aval<_>
-
-
-module ASet =
-  /// Creates an amap with the keys from the set and the values given by mapping and
-  /// adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAtoAMap mapper src =
-    src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
-
-module AMap =
-  /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindAndFlatten (key: 'Key) (map: amap<'Key, aval<option<'Value>>>) =
-    aval {
-      match! AMap.tryFind key map with
-      | Some x -> return! x
-      | None -> return None
-    }
-
-  /// Adaptively looks up the given key in the map and binds the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindA (key: 'Key) (map: amap<'Key, #aval<'Value>>) =
-    aval {
-      match! AMap.tryFind key map with
-      | Some v ->
-        let! v2 = v
-        return Some v2
-      | None -> return None
-    }
-
-  /// Adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAVal
-    (mapper: 'Key -> 'InValue -> aval<'OutValue>)
-    (map: #amap<'Key, #aval<'InValue>>)
-    : amap<'Key, aval<'OutValue>> =
-    map |> AMap.map (fun k v -> AVal.bind (mapper k) v)
-
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
   | Sln of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
@@ -173,14 +51,14 @@ type WorkspaceChosen =
 type AdaptiveWorkspaceChosen =
   | Sln of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Directory of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Projs of aval<HashMap<string<LocalPath>, DateTime>>
+  | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
 type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient) =
 
   let thisType = typeof<AdaptiveFSharpLspServer>
 
-  let disposables = new System.Reactive.Disposables.CompositeDisposable()
+  let disposables = new Disposables.CompositeDisposable()
 
   let rootPath = cval<string option> None
 
@@ -189,7 +67,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
-  let checker = analyzersEnabled |> AVal.map (FSharpCompilerServiceChecker)
+  let checker =
+    config
+    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount)
+    |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
   /// This is extracted to make it easier to do some type of customized select
@@ -599,7 +480,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         ()
       }
-      |> Async.RunSynchronouslyWithCT ct
+      |> fun work -> Async.StartImmediate(work, ct)
     with :? OperationCanceledException as e ->
       ()
 
@@ -620,14 +501,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let cb = aval.AddMarkingCallback(cb)
     aval |> AVal.mapDisposableTuple (fun x -> x, cb)
 
-  let projectFileChanges (filePath: string<LocalPath>) =
+  let projectFileChanges project (filePath: string<LocalPath>) =
     let file = getLastUTCChangeForFile filePath
 
     let logMsg () =
-      logger.info (
-        Log.setMessage "Loading projects because of {delta}"
-        >> Log.addContextDestructured "delta" filePath
-      )
+      logger.info (Log.setMessageI $"Loading {project:project} because of {filePath:filePath}")
 
     file |> addAValLogging logMsg
 
@@ -652,12 +530,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let workspacePaths: ChangeableValue<WorkspaceChosen> =
     cval WorkspaceChosen.NotChosen
 
+  let noopDisposable =
+    { new IDisposable with
+        member this.Dispose() : unit = () }
+
   let adaptiveWorkspacePaths =
     workspacePaths
     |> AVal.map (fun wsp ->
       match wsp with
-      | WorkspaceChosen.Sln v -> projectFileChanges v |> AdaptiveWorkspaceChosen.Sln
-      | WorkspaceChosen.Directory d -> failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory
+      | WorkspaceChosen.Sln v -> projectFileChanges v v |> AdaptiveWorkspaceChosen.Sln, noopDisposable
+      | WorkspaceChosen.Directory d ->
+        failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory, noopDisposable
       | WorkspaceChosen.Projs projs ->
         let projChanges =
           projs
@@ -671,14 +554,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               >> Log.addContextDestructured "delta" delta
             ))
 
-        projChanges
-        |> AMap.toAVal
-        |> AVal.mapDisposableTuple (fun x -> x, cb)
-        |> AdaptiveWorkspaceChosen.Projs
+        projChanges |> AdaptiveWorkspaceChosen.Projs, cb
 
-      | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen
+      | WorkspaceChosen.NotChosen -> AdaptiveWorkspaceChosen.NotChosen, noopDisposable
 
     )
+    |> AVal.mapDisposableTuple (id)
 
   let clientCapabilities = cval<ClientCapabilities option> None
 
@@ -686,6 +567,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     clientCapabilities |> AVal.map (glyphToCompletionKindGenerator)
 
   let glyphToSymbolKind = clientCapabilities |> AVal.map glyphToSymbolKindGenerator
+
+  let tryFindProp name (props: list<Types.Property>) =
+    match props |> Seq.tryFind (fun x -> x.Name = name) with
+    | Some v -> v.Value |> Option.ofObj
+    | None -> None
+
+  let (|ProjectAssetsFile|_|) (props: list<Types.Property>) = tryFindProp "ProjectAssetsFile" props
+
+  let (|BaseIntermediateOutputPath|_|) (props: list<Types.Property>) =
+    tryFindProp "BaseIntermediateOutputPath" props
+
+  let (|MSBuildAllProjects|_|) (props: list<Types.Property>) =
+    tryFindProp "MSBuildAllProjects" props
+    |> Option.map (fun v -> v.Split(';', StringSplitOptions.RemoveEmptyEntries))
 
   let loadedProjectOptions =
     aval {
@@ -701,7 +596,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         let! projectOptions =
           projects
-          |> AVal.mapWithAdditionalDependenies (fun projects ->
+          |> AMap.mapWithAdditionalDependenies (fun projects ->
 
             projects
             |> Seq.iter (fun (proj: string<LocalPath>, _) ->
@@ -714,7 +609,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             use progressReport = new ServerProgressReport(lspClient)
 
             progressReport.Begin($"Loading {projects.Count} Projects")
-            |> Async.RunSynchronously
+            |> Async.StartImmediate
 
             let projectOptions =
               loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
@@ -726,32 +621,36 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 >> Log.addContextDestructured "path" p.Properties
               )
 
-            let additionalDependencies =
+            let additionalDependencies (p: Types.ProjectOptions) =
+              [ let projectFileChanges = projectFileChanges p.ProjectFileName
 
+                match p.Properties with
+                | ProjectAssetsFile v -> yield projectFileChanges (UMX.tag v)
+                | _ -> ()
+
+                let objPath = (|BaseIntermediateOutputPath|_|) p.Properties
+
+                let isWithinObjFolder (file: string) =
+                  match objPath with
+                  | None -> true // if no obj folder provided assume we should track this file
+                  | Some objPath -> file.Contains(objPath)
+
+                match p.Properties with
+                | MSBuildAllProjects v ->
+                  yield!
+                    v
+                    |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
+                    |> Array.map (UMX.tag >> projectFileChanges)
+                | _ -> () ]
+
+            HashMap.ofList
               [ for p in projectOptions do
-                  match p.Properties |> Seq.tryFind (fun x -> x.Name = "ProjectAssetsFile") with
-                  | Some v -> yield projectFileChanges (UMX.tag v.Value)
-                  | None -> ()
+                  UMX.tag p.ProjectFileName, (p, additionalDependencies p) ]
 
-                  let objPath =
-                    p.Properties
-                    |> Seq.tryFind (fun x -> x.Name = "BaseIntermediateOutputPath")
-                    |> Option.map (fun v -> v.Value)
+          )
+          |> AMap.toAVal
+          |> AVal.map HashMap.toValueList
 
-                  let isWithinObjFolder (file: string) =
-                    match objPath with
-                    | None -> true // if no obj folder provided assume we should track this file
-                    | Some objPath -> file.Contains(objPath)
-
-                  match p.Properties |> Seq.tryFind (fun x -> x.Name = "MSBuildAllProjects") with
-                  | Some v ->
-                    yield!
-                      v.Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                      |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
-                      |> Array.map (UMX.tag >> projectFileChanges)
-                  | None -> () ]
-
-            projectOptions, additionalDependencies)
 
         and! checker = checker
         checker.ClearCaches() // if we got new projects assume we're gonna need to clear caches
@@ -808,7 +707,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         return options |> List.map fst
     }
 
+  /// <summary>
+  /// Evaluates the adaptive value <see cref='F:loadedProjectOptions '/> and returns its current value.
+  /// This should not be used inside the adaptive evaluation of other AdaptiveObjects since it does not track dependencies.
+  /// </summary>
+  /// <returns>A list of FSharpProjectOptions</returns>
   let forceLoadProjects () = loadedProjectOptions |> AVal.force
+
+  do
+    // Reload Projects with some debouncing if `loadedProjectOptions` is out of date.
+    AVal.Observable.onWeakMarking loadedProjectOptions
+    |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
+    |> Observable.observeOn Concurrency.NewThreadScheduler.Default
+    |> Observable.subscribe (forceLoadProjects >> ignore)
+    |> disposables.Add
 
 
   let sourceFileToProjectOptions =
@@ -1012,8 +924,47 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
   do
+    let filesystemShim file =
+      // GetLastWriteTimeShim gets called _alot_ and when we do checks on save we use Async.Parallel for type checking.
+      // Adaptive uses lots of locks under the covers, so many threads can get blocked waiting for data.
+      // We know we don't store anything other than Fsharp type files in open files so this so we shouldn't hit any locks
+      // when F# compiler asks for DLL timestamps
+      if Utils.isFileWithFSharp %file then
+        forceFindOpenFile file
+      else
+        None
+
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
-      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, forceFindOpenFile)
+      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
+
+  /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
+  let parseAllFiles () =
+    aval {
+      let! projects = loadedProjectOptions
+      and! checker = checker
+
+      return
+        projects
+        |> Array.ofList
+        |> Array.Parallel.collect (fun p ->
+          let parseOpts = Utils.projectOptionsToParseOptions p
+          p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
+        |> Array.Parallel.choose (fun (opts, parseOpts, fileName) ->
+          let fileName = UMX.tag fileName
+          let file = forceFindOpenFileOrRead fileName
+
+          file
+          |> Result.toOption
+          |> Option.map (fun file ->
+            async {
+              let! parseResult = checker.ParseFile(fileName, file.Lines, parseOpts)
+              let! ct = Async.CancellationToken
+              fileParsed.Trigger(parseResult, opts, ct)
+              return parseResult
+            }))
+        |> Async.parallel75
+
+    }
 
   let forceFindSourceText filePath =
     forceFindOpenFileOrRead filePath |> Result.map (fun f -> f.Lines)
@@ -1148,12 +1099,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 Version = version } }
     }
 
-
-  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) opts config =
+  /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
+  /// <param name="checker">The FSharpCompilerServiceChecker.</param>
+  /// <param name="file">The name of the file in the project whose source to find a typecheck.</param>
+  /// <param name="options">The options for the project or script.</param>
+  /// <param name="config">The FSharpConfig.</param>
+  /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
+  /// <returns></returns>
+  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) options config shouldCache =
     async {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Lines.FileName)
-          SemanticConventions.projectFilePath, box (opts.ProjectFileName) ]
+          SemanticConventions.projectFilePath, box (options.ProjectFileName) ]
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1172,14 +1129,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let simpleName = Path.GetFileName(UMX.untag file.Lines.FileName)
       do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Lines.FileName}")
 
-
-      // HACK: Insurance for a bug where FCS invalidates graph nodes incorrectly and seems to typecheck forever
-      use cts = new CancellationTokenSource()
-      cts.CancelAfter(TimeSpan.FromSeconds(60.))
-
       let! result =
-        checker.ParseAndCheckFileInProject(file.Lines.FileName, (file.Lines.GetHashCode()), file.Lines, opts)
-        |> Async.withCancellation cts.Token
+        checker.ParseAndCheckFileInProject(
+          file.Lines.FileName,
+          (file.Lines.GetHashCode()),
+          file.Lines,
+          options,
+          shouldCache = shouldCache
+        )
         |> Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Lines.FileName}"
 
       do! progressReport.End($"Typechecked {file.Lines.FileName}")
@@ -1204,7 +1161,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         Async.Start(
           async {
 
-            fileParsed.Trigger(parseAndCheck.GetParseResults, opts, ct)
+            fileParsed.Trigger(parseAndCheck.GetParseResults, options, ct)
             fileChecked.Trigger(parseAndCheck, file, ct)
             let checkErrors = parseAndCheck.GetParseResults.Diagnostics
             let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
@@ -1227,7 +1184,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   /// Bypass Adaptive checking and tell the checker to check a file
   let bypassAdaptiveTypeCheck (filePath: string<LocalPath>) opts =
     async {
-
       try
         logger.info (
           Log.setMessage "Forced Check : {file}"
@@ -1238,7 +1194,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let config = config |> AVal.force
 
         match forceFindOpenFileOrRead filePath with
-        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config |> Async.Ignore
+        // Don't cache for autocompletions as we really only want to cache "Opened" files.
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config false |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1304,7 +1261,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return!
               Debug.measure $"parseAndCheckFile - {file}"
               <| fun () ->
-                parseAndCheckFile checker info opts config
+                parseAndCheckFile checker info opts config true
                 |> Async.RunSynchronouslyWithCTSafe(fun () -> cts.Token)
           }
 
@@ -1338,6 +1295,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AVal.force
     |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
 
+  /// <summary>
+  /// This will attempt to get typecheck results in this order
+  ///
+  /// 1. From our internal typecheck cache
+  /// 2. From checker.TryGetRecentCheckResultsForFile
+  /// 3. Failing both, will type check the file.
+  ///
+  /// Additionally, it will start typechecking the file in the background to force latest results on the next request.
+  /// </summary>
+  /// <param name="filePath">The name of the file in the project whose source to find a typecheck.</param>
+  /// <returns>A Result of ParseAndCheckResults</returns>
   let forceGetTypeCheckResultsStale (filePath: string<LocalPath>) =
     aval {
       let! checker = checker
@@ -1722,7 +1690,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       let maxConcurrency =
         Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
-      do! Async.Parallel(checksToPerform, int maxConcurrency) |> Async.Ignore<unit array>
+      do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
 
     }
 
@@ -1992,9 +1960,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             | None -> p.RootPath
 
           let projs =
-            match actualRootPath with
-            | None -> []
-            | Some actualRootPath ->
+            match p.RootPath, c.AutomaticWorkspaceInit with
+            | None, _
+            | _, false -> workspacePaths |> AVal.force
+            | Some actualRootPath, true ->
               let peeks =
                 WorkspacePeek.peek
                   actualRootPath
@@ -2018,13 +1987,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
               | _ -> []
               |> List.map (Utils.normalizePath)
+              |> HashSet.ofList
+              |> WorkspaceChosen.Projs
 
           transact (fun () ->
             rootPath.Value <- actualRootPath
             clientCapabilities.Value <- p.Capabilities
             lspClient.ClientCapabilities <- p.Capabilities
             updateConfig c
-            workspacePaths.Value <- WorkspaceChosen.Projs(HashSet.ofList projs))
+            workspacePaths.Value <- projs)
 
           let defaultSettings =
             { Helpers.defaultServerCapabilities with
@@ -2058,9 +2029,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
-          // Starts getting project options to cache
-          forceLoadProjects () |> ignore
-
+          let! _ = parseAllFiles () |> AVal.force
           return ()
         with e ->
 
@@ -2805,14 +2774,19 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> Result.ofStringErr
 
-          let! (symbol, uses) = tyRes.TryGetSymbolUseAndUsages pos lineStr |> Result.ofStringErr
-
-          return
-            uses
-            |> Array.map (fun s ->
-              { DocumentHighlight.Range = fcsRangeToLsp s.Range
-                Kind = None })
-            |> Some
+          match
+            tyRes.TryGetSymbolUseAndUsages pos lineStr
+            |> Result.bimap CoreResponse.Res CoreResponse.InfoRes
+          with
+          | CoreResponse.InfoRes msg -> return None
+          | CoreResponse.ErrorRes msg -> return! LspResult.internalError msg
+          | CoreResponse.Res(symbol, uses) ->
+            return
+              uses
+              |> Array.map (fun s ->
+                { DocumentHighlight.Range = fcsRangeToLsp s.Range
+                  Kind = None })
+              |> Some
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
 
@@ -3359,9 +3333,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           )
 
           let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
-          let c = config |> AVal.force
-          let c = c.AddDto dto.FSharp
-          updateConfig c
+
+          dto.FSharp
+          |> Option.iter (fun fsharpConfig ->
+            let c = config |> AVal.force
+            let c = c.AddDto fsharpConfig
+            updateConfig c)
 
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -3987,7 +3964,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> HashSet.ofArray
 
           transact (fun () -> workspacePaths.Value <- (WorkspaceChosen.Projs projs))
-          forceLoadProjects () |> ignore
+          let! _ = parseAllFiles () |> AVal.force
 
           return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }
 
@@ -4069,8 +4046,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                 |> Utils.normalizePath
                 |> HashSet.single
                 |> WorkspaceChosen.Projs)
-
-          forceLoadProjects () |> ignore
 
           return! Helpers.notImplemented
         with e ->
@@ -4166,7 +4141,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore // mapping unit option to unit
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4196,7 +4170,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4226,7 +4199,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4424,7 +4396,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4455,7 +4426,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4486,7 +4456,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4516,7 +4485,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4546,7 +4514,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4577,7 +4544,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4609,7 +4575,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           let fileUri = Path.FilePathToUri fullPath
           diagnosticCollections.ClearFor fileUri
 
@@ -4642,7 +4607,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> AsyncResult.ofCoreResponse
             |> AsyncResult.map ignore
 
-          forceLoadProjects () |> ignore
           return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.59.4] - 2023-03-19
+
+### Fixed
+
+* [The Adaptive Server no longer sends errors for `textDocument/documentHighlight` calls that there is no symbol information for](https://github.com/fsharp/FsAutoComplete/pull/1075) (Thanks @haodeon!)
+
+## [0.59.3] - 2023-03-19
+
+### Added
+
+* [A new command called `fsproj/renameFile` for renaming a file in the context of a particular project](https://github.com/fsharp/FsAutoComplete/pull/1075) (thanks @MangelMaxime!)
+
+### Fixed
+
+* [Only add a file once to a given project](https://github.com/fsharp/FsAutoComplete/pull/1076) (Thanks @MangelMaxime!)
+* [Reduce memory consumption of the compiler typecheck cache](https://github.com/fsharp/FsAutoComplete/pull/1077) (thanks @theangrybyrd!)
+  * To change the amount of typechecks kept by the compiler, change the `FSharp.fsac.cachedTypecheckCount` config value
+* [Adaptive server now only reloads specific projects that changed, rather than the entire workspace](https://github.com/fsharp/FsAutoComplete/pull/1079) (Thanks @TheAngryByrd!)
+* [Don't trigger the 'Replace prefix with _' codefix on _ matches](https://github.com/fsharp/FsAutoComplete/pull/1083) (Thanks @dawedawe!)
+* [Handle `workspace/didChangeConfiguration` requests that don't provide an `FSharp` config property](https://github.com/fsharp/FsAutoComplete/pull/1084) (thanks @razzmatazz!)
+* [Some threadpool exhaustion fixes due to blocking threads](https://github.com/fsharp/FsAutoComplete/pull/1080) (Thanks @TheAngyrByrd!)
+* [Fix Adaptive server to lazily load projects specified instead of loading all projects in the workspace](https://github.com/fsharp/FsAutoComplete/pull/1082) (Thanks @TheAngryByrd!)
+
 ## [0.59.2] - 2023-03-12
 
 ### Added

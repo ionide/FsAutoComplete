@@ -615,6 +615,13 @@ type DebugDto =
     LogDurationBetweenCheckFiles: bool option
     LogCheckFileDuration: bool option }
 
+
+type FSACDto =
+  {
+    /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
+    CachedTypeCheckCount: int64 option
+  }
+
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
@@ -652,10 +659,11 @@ type FSharpConfigDto =
     CodeLenses: CodeLensConfigDto option
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
+    Fsac: FSACDto option
     Notifications: NotificationsDto option
     Debug: DebugDto option }
 
-type FSharpConfigRequest = { FSharp: FSharpConfigDto }
+type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
 type CodeLensConfig =
   { Signature: {| Enabled: bool |}
@@ -692,13 +700,30 @@ type NotificationsConfig =
       TraceNamespaces = [||] }
 
   static member FromDto(dto: NotificationsDto) : NotificationsConfig =
-    { Trace = defaultArg dto.Trace NotificationsConfig.Default.Trace
-      TraceNamespaces = defaultArg dto.TraceNamespaces NotificationsConfig.Default.TraceNamespaces }
+    let defaultConfig = NotificationsConfig.Default
+
+    { Trace = defaultArg dto.Trace defaultConfig.Trace
+      TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces }
 
 
   member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
     { Trace = defaultArg dto.Trace this.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces }
+
+type FSACConfig =
+  {
+    /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
+    CachedTypeCheckCount: int64
+  }
+
+  static member Default = { CachedTypeCheckCount = 200L }
+
+  static member FromDto(dto: FSACDto) =
+    let defaultConfig = FSACConfig.Default
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount }
+
+  member this.AddDto(dto: FSACDto) =
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool
@@ -750,6 +775,7 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
+    Fsac: FSACConfig
     Debug: DebugConfig }
 
   static member Default: FSharpConfig =
@@ -790,6 +816,7 @@ type FSharpConfig =
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
       Notifications = NotificationsConfig.Default
+      Fsac = FSACConfig.Default
       Debug = DebugConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
@@ -858,6 +885,10 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map NotificationsConfig.FromDto
         |> Option.defaultValue NotificationsConfig.Default
+      Fsac =
+        dto.Fsac
+        |> Option.map FSACConfig.FromDto
+        |> Option.defaultValue FSACConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default
@@ -944,6 +975,7 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map x.Notifications.AddDto
         |> Option.defaultValue NotificationsConfig.Default
+      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default

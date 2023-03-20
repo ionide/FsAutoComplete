@@ -1698,6 +1698,22 @@ let private renameUnusedValue state =
         """
         (Diagnostics.acceptAll)
         selectPrefix
+
+    testCaseAsync "prefix doesn't trigger for _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0_ = 6
+        """
+        (Diagnostics.acceptAll)
+        selectPrefix
+
+    testCaseAsync "replace doesn't trigger for _" <|
+      CodeFix.checkNotApplicable server
+        """
+        let $0_ = 6
+        """
+        (Diagnostics.acceptAll)
+        selectReplace
   ])
 
 let private replaceWithSuggestionTests state =

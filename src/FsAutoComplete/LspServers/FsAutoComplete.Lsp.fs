@@ -44,7 +44,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false), state, false, rootPath)
+    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -478,7 +478,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let oldDisposables = commandDisposables
 
       let newCommands =
-        new Commands(FSharpCompilerServiceChecker(hasAnalyzersNow), state, hasAnalyzersNow, rootPath)
+        new Commands(
+          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
+          state,
+          hasAnalyzersNow,
+          rootPath
+        )
 
       commands <- newCommands
       commandDisposables <- ResizeArray()
@@ -2101,13 +2106,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" dto
         )
 
-        let c = config.AddDto dto.FSharp
-        updateConfig c
+        dto.FSharp
+        |> Option.iter (fun fsharpConfig ->
+          let c = config.AddDto fsharpConfig
+          updateConfig c
 
-        logger.info (
-          Log.setMessage "Workspace configuration changed"
-          >> Log.addContextDestructured "config" c
-        )
+          logger.info (
+            Log.setMessage "Workspace configuration changed"
+            >> Log.addContextDestructured "config" c
+          ))
 
         return ()
       }

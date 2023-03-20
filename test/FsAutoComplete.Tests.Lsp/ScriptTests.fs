@@ -75,7 +75,7 @@ let scriptEvictionTests state =
 
               let configChange: DidChangeConfigurationParams =
                 let config: FSharpConfigRequest =
-                  { FSharp = { defaultConfigDto with FSIExtraParameters = Some [| "--nowarn:760" |] } }
+                  { FSharp = Some { defaultConfigDto with FSIExtraParameters = Some [| "--nowarn:760" |] } }
 
                 { Settings = Server.serialize config }
 
