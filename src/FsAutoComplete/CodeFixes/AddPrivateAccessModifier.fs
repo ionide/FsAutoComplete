@@ -10,6 +10,37 @@ open FSharp.Compiler.Text.Range
 
 let title = "add private access modifier"
 
+let private isLetInsideObjectModel input pos =
+  SyntaxTraversal.Traverse(
+    pos,
+    input,
+    { new SyntaxVisitorBase<_>() with
+        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
+
+          let rec tryFind (decls: SynModuleDecl list) =
+            decls
+            |> List.tryPick (fun d ->
+              match d with
+              | SynModuleDecl.Let(range = range) when rangeContainsPos range pos -> None
+              | SynModuleDecl.Types(typeDefns = typeDefns) ->
+                typeDefns
+                |> List.tryPick (fun td ->
+                  match td with
+                  | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
+                    members
+                    |> List.tryPick (fun m ->
+                      match m with
+                      | SynMemberDefn.LetBindings(range = range) when rangeContainsPos range pos -> Some()
+                      | _ -> None)
+                  | _ -> None)
+              | SynModuleDecl.NestedModule(decls = nestedDecls) as m -> tryFind nestedDecls
+              | _ -> None)
+
+          match synModuleOrNamespace with
+          | SynModuleOrNamespace(decls = decls) as s -> tryFind decls }
+  )
+  |> Option.isSome
+
 let private getRangeToEdit input pos =
   let tryPickContainingRange (path: SyntaxVisitorPath) pos =
     path
@@ -21,13 +52,13 @@ let private getRangeToEdit input pos =
       | SyntaxNode.SynModuleOrNamespace m when rangeContainsPos m.Range pos -> Some m.Range
       | _ -> None)
 
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
+  let visitor =
     { new SyntaxVisitorBase<_>() with
         member _.VisitBinding(path, _, synBinding) =
           match synBinding with
-          | SynBinding(headPat = headPat) as s when rangeContainsPos s.RangeOfHeadPattern pos ->
+          | SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s when
+            rangeContainsPos s.RangeOfHeadPattern pos
+            ->
             match headPat with
             | SynPat.Named(accessibility = None)
             | SynPat.LongIdent(accessibility = None) ->
@@ -38,7 +69,11 @@ let private getRangeToEdit input pos =
               | _ -> None
             | _ -> None
           | _ -> None }
-  )
+
+  if isLetInsideObjectModel input pos then
+    None
+  else
+    SyntaxTraversal.Traverse(pos, input, visitor)
 
 type SymbolUseWorkspace =
   bool

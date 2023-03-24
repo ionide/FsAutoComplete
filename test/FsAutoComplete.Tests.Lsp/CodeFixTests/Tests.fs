@@ -712,7 +712,7 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      testCaseAsync "addprivate is not offered for function with outside reference"
+      testCaseAsync "addprivate is not offered for function with reference outside its declaring module"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -726,9 +726,43 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+      
+      testCaseAsync "addprivate is not offered for member with reference outside its declaring class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.$0X = 10
 
+        let myInst = MyClass()
+        myInst.X |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
 
-
+      testCaseAsync "addprivate is not offered for let bindings inside a class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let $0f x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "addprivate works for class member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member _.$0X = 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          member private _.X = 10
+        """
     ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
