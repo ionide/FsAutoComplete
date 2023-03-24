@@ -8,7 +8,7 @@ open FsAutoComplete.LspHelpers
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text.Range
 
-let title = "add private access modifier"
+let title = "Add private access modifier"
 
 let private isLetInsideObjectModel input pos =
   SyntaxTraversal.Traverse(
@@ -88,7 +88,6 @@ type SymbolUseWorkspace =
 
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
-  (getRangeText: GetRangeText)
   (symbolUseWorkspace: SymbolUseWorkspace)
   : CodeFix =
   fun codeActionParams ->
