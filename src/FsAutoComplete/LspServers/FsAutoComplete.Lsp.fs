@@ -1117,7 +1117,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
 
         let tryGetProjectOptions =
-          commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
+          commands.TryGetFileCheckerOptionsWithLines >> Result.map fst >> Async.singleton
 
         let implementInterfaceConfig () : ImplementInterface.Config =
           { ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
@@ -1326,7 +1326,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.fold id (fun _ -> NamedText(filePath, ""))
+          |> Result.bimap id (fun _ -> NamedText(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)

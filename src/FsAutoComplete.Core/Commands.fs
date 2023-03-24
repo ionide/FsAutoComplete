@@ -531,11 +531,12 @@ module Commands =
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
-          let opts = getProjectOptions tyRes.FileName
+          let! opts = getProjectOptions tyRes.FileName
           let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          let! symbols = getUsesOfSymbol (tyRes.FileName, getAllProjects (), sym.Symbol)
+          let! projs = getAllProjects ()
+          let! symbols = getUsesOfSymbol (tyRes.FileName, projs, sym.Symbol)
           let symbols = filterSymbols symbols
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
@@ -677,7 +678,7 @@ module Commands =
 
       return CoreResponse.Res hints
     }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+    |> Result.bimap id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
   let calculateNamespaceInsert
     currentAst
@@ -760,11 +761,11 @@ module Commands =
   ///     * When exact ranges are required
   ///       -> for "Rename"
   let symbolUseWorkspace
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> FSharpProjectOptions option)
-    (getAllProjectOptions: unit -> FSharpProjectOptions seq)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -797,7 +798,7 @@ module Commands =
           |> Seq.toArray
           |> Ok
 
-      let declLoc = getDeclarationLocation (symbolUse, text)
+      let! declLoc = getDeclarationLocation (symbolUse, text)
 
       match declLoc with
       // local symbol -> all uses are inside `text`
@@ -819,23 +820,35 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck =
-          match scope with
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> projects
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
-            [ for project in projects do
-                yield project
+        let projectsToCheck: Async<FSharpProjectOptions list> =
+          async {
+            match scope with
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
+              let output = ResizeArray<_>()
 
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-          | _ (*None*) ->
-            // symbol is declared external -> look through all F# projects
-            // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
-            getAllProjectOptions ()
-            |> Seq.distinctBy (fun x -> x.ProjectFileName)
-            |> Seq.toList
+              for project in projects do
+                output.Add(project)
+
+                for r in project.ReferencedProjects do
+                  match! tryGetProjectOptionsForFsproj (UMX.tag r.OutputFile) with
+                  | Some v -> output.Add(v)
+                  | None -> ()
+
+              return output |> Seq.toList |> List.distinctBy (fun x -> x.ProjectFileName)
+            // [ for project in projects do
+            //     yield project
+
+            //     yield!
+            //       project.ReferencedProjects
+            //       |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+            // |> List.distinctBy (fun x -> x.ProjectFileName)
+            | _ (*None*) ->
+              // symbol is declared external -> look through all F# projects
+              // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
+              let! allOptions = getAllProjectOptions ()
+              return allOptions |> Seq.distinctBy (fun x -> x.ProjectFileName) |> Seq.toList
+          }
 
         let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
           match tryGetFileSource file with
@@ -922,10 +935,12 @@ module Commands =
             | None -> Ok()
             | Some err -> Error err)
 
-        do! iterProjects projectsToCheck
+        let! projects = projectsToCheck
+        do! iterProjects projects
 
         return (symbol, dict)
     }
+
 
   /// Puts `newName` into backticks if necessary.
   ///
@@ -972,7 +987,7 @@ module Commands =
   /// Rename for Active Pattern Cases is disabled:
   /// `SymbolUseWorkspace` returns ranges for ALL Cases of that Active Pattern instead of just the single case
   let renameSymbolRange
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (includeBackticks: bool)
     pos
     lineStr
@@ -987,7 +1002,7 @@ module Commands =
       let! _ =
         // None: external symbol -> not under our control -> cannot rename
         getDeclarationLocation (symbolUse, text)
-        |> Result.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
+        |> AsyncResult.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
 
       do!
         match symbolUse with
@@ -2014,8 +2029,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     SymbolLocation.getDeclarationLocation (
       symbolUse,
       text,
-      state.GetProjectOptions,
-      state.ProjectController.ProjectsThatContainFile,
+      state.GetProjectOptions >> Async.singleton,
+      state.ProjectController.ProjectsThatContainFile >> Async.singleton,
       state.ProjectController.GetDependentProjectsOfProjects
     )
 
@@ -2052,9 +2067,10 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
         state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
+        |> Async.singleton
 
       let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd
+        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
 
       return!
         Commands.symbolUseWorkspace
@@ -2086,13 +2102,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    let getProjectOptions filePath = state.GetProjectOptions' filePath
+    let getProjectOptions filePath =
+      state.GetProjectOptions' filePath |> Async.singleton
 
     let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
       checker.GetUsesOfSymbol(filePath, opts, sym)
 
     let getAllProjects () =
-      state.FSharpProjectOptions |> Seq.toList
+      state.FSharpProjectOptions |> Seq.toList |> Async.singleton
 
     Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
