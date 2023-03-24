@@ -1419,66 +1419,66 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     Seq.toList allDependents
 
   let getDeclarationLocation (symbolUse, text) =
-      let getProjectOptions file =
-        getProjectOptionsForFile file |> AVal.force |> selectProject
+    let getProjectOptions file =
+      getProjectOptionsForFile file |> AVal.force |> selectProject
 
-      let projectsThatContainFile file =
-        getProjectOptionsForFile file |> AVal.force
+    let projectsThatContainFile file =
+      getProjectOptionsForFile file |> AVal.force
 
-      SymbolLocation.getDeclarationLocation (
-        symbolUse,
-        text,
-        getProjectOptions,
-        projectsThatContainFile,
-        getDependentProjectsOfProjects
-      )
+    SymbolLocation.getDeclarationLocation (
+      symbolUse,
+      text,
+      getProjectOptions,
+      projectsThatContainFile,
+      getDependentProjectsOfProjects
+    )
 
   let symbolUseWorkspace
-      (includeDeclarations: bool)
-      (includeBackticks: bool)
-      (errorOnFailureToFixRange: bool)
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    text
+    tyRes
+    =
+
+    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
+      async {
+        let checker = checker |> AVal.force
+
+        if File.Exists(UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          match forceGetRecentTypeCheckResults file with
+          | Error _ -> return [||]
+          | Ok tyRes ->
+            let! ct = Async.CancellationToken
+            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+            return usages |> Seq.map (fun u -> u.Range)
+      }
+
+    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
+      forceGetProjectOptions file |> Option.ofResult
+
+    let getAllProjectOptions () : _ seq =
+      allProjectOptions'.Content |> AVal.force :> _
+
+    Commands.symbolUseWorkspace
+      getDeclarationLocation
+      findReferencesForSymbolInFile
+      forceFindSourceText
+      tryGetProjectOptionsForFsproj
+      getAllProjectOptions
+      includeDeclarations
+      includeBackticks
+      errorOnFailureToFixRange
       pos
       lineStr
       text
       tyRes
-      =
-
-      let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-        async {
-          let checker = checker |> AVal.force
-
-          if File.Exists(UMX.untag file) then
-            // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-            return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-          else
-            // untitled script files
-            match forceGetRecentTypeCheckResults file with
-            | Error _ -> return [||]
-            | Ok tyRes ->
-              let! ct = Async.CancellationToken
-              let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-              return usages |> Seq.map (fun u -> u.Range)
-        }
-
-      let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-        forceGetProjectOptions file |> Option.ofResult
-
-      let getAllProjectOptions () : _ seq =
-        allProjectOptions'.Content |> AVal.force :> _
-
-      Commands.symbolUseWorkspace
-        getDeclarationLocation
-        findReferencesForSymbolInFile
-        forceFindSourceText
-        tryGetProjectOptionsForFsproj
-        getAllProjectOptions
-        includeDeclarations
-        includeBackticks
-        errorOnFailureToFixRange
-        pos
-        lineStr
-        text
-        tyRes
 
 
   let codefixes =
@@ -1533,7 +1533,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let writeAbstractClassStub =
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
-    
+
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
         tryFindAbstractClassExprInBufferAtPos
@@ -1686,7 +1686,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> Array.map (fun sourceFile -> proj, sourceFile))
     |> Array.distinct
 
-  
+
   let bypassAdaptiveAndCheckDepenenciesForFile (filePath: string<LocalPath>) =
     async {
       let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath) ]
@@ -1761,7 +1761,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
 
 
-  
+
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : LspResult<SemanticTokens option> =
     result {
 
