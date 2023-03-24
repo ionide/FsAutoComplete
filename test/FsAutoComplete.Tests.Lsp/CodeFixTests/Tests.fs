@@ -643,6 +643,59 @@ let private convertPositionalDUToNamedTests state =
         """
   ])
 
+let private addPrivateAccessModifierTests state =
+  serverTestList (nameof AddPrivateAccessModifier) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
+
+      testCaseAsync "addprivate works for simle function"
+      <| CodeFix.check
+        server
+        """
+        let f$0 x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let private f x = x * x
+        """
+      
+      testCaseAsync "addprivate works for simle identifier"
+      <| CodeFix.check
+        server
+        """
+        let x$0 = 23
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let private x = 23
+        """
+
+      testCaseAsync "addprivate is not offered for already private functions"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        let private f$0 x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "addprivate is not offered for function with outside reference"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module MyModule =
+
+            let helper x = x + 10
+
+            let $0f x = helper x
+
+        MyModule.f 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+    ])
+
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
   serverTestList (nameof ConvertTripleSlashCommentToXmlTaggedDoc) state defaultConfigDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ConvertTripleSlashCommentToXmlTaggedDoc.title
@@ -2008,6 +2061,7 @@ let tests state = testList "CodeFix-tests" [
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
   convertTripleSlashCommentToXmlTaggedDocTests state
+  addPrivateAccessModifierTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
