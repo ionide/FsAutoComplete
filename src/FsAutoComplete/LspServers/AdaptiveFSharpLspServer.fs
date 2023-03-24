@@ -1418,7 +1418,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     Seq.toList allDependents
 
-
   let getDeclarationLocation (symbolUse, text) =
       let getProjectOptions file =
         getProjectOptionsForFile file |> AVal.force |> selectProject
@@ -1535,7 +1534,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
     
-
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
         tryFindAbstractClassExprInBufferAtPos

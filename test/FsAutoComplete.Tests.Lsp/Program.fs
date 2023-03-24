@@ -131,6 +131,7 @@ let tests =
       lspTests 
     ]
 
+
 [<EntryPoint>]
 let main args =
   let outputTemplate =
