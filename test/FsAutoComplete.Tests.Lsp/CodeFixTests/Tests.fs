@@ -647,7 +647,7 @@ let private addPrivateAccessModifierTests state =
   serverTestList (nameof AddPrivateAccessModifier) state defaultConfigDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
 
-      testCaseAsync "addprivate works for simle function"
+      testCaseAsync "addprivate works for simple function"
       <| CodeFix.check
         server
         """
@@ -659,7 +659,7 @@ let private addPrivateAccessModifierTests state =
         let private f x = x * x
         """
       
-      testCaseAsync "addprivate works for simle identifier"
+      testCaseAsync "addprivate works for simple identifier"
       <| CodeFix.check
         server
         """
@@ -669,6 +669,38 @@ let private addPrivateAccessModifierTests state =
         selectCodeFix
         """
         let private x = 23
+        """
+
+      testCaseAsync "addprivate works for simple identifier used in other private function"
+      <| CodeFix.check
+        server
+        """
+        module PMod =
+          let xx$0x = 10
+
+          module PMod2 =
+            let insidePMod2 = 23
+
+          let private a = 23
+
+          let private g z =
+            let sF y = y + xxx
+            z
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module PMod =
+          let private xxx = 10
+
+          module PMod2 =
+            let insidePMod2 = 23
+
+          let private a = 23
+
+          let private g z =
+            let sF y = y + xxx
+            z
         """
 
       testCaseAsync "addprivate is not offered for already private functions"
@@ -694,6 +726,9 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+
+
+
     ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =

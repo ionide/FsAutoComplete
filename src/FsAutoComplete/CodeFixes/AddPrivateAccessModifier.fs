@@ -11,6 +11,16 @@ open FSharp.Compiler.Text.Range
 let title = "add private access modifier"
 
 let private getRangeToEdit input pos =
+  let tryPickContainingRange (path: SyntaxVisitorPath) pos =
+    path
+    |> Seq.skip 1
+    |> Seq.tryPick (fun p ->
+      match p with
+      | SyntaxNode.SynTypeDefn m when rangeContainsPos m.Range pos -> Some m.Range
+      | SyntaxNode.SynModule m when rangeContainsPos m.Range pos -> Some m.Range
+      | SyntaxNode.SynModuleOrNamespace m when rangeContainsPos m.Range pos -> Some m.Range
+      | _ -> None)
+
   SyntaxTraversal.Traverse(
     pos,
     input,
@@ -21,15 +31,11 @@ let private getRangeToEdit input pos =
             match headPat with
             | SynPat.Named(accessibility = None)
             | SynPat.LongIdent(accessibility = None) ->
-              let r =
-                path
-                |> Seq.rev
-                |> Seq.tryPick (fun p ->
-                  match p with
-                  | SyntaxNode.SynModule m -> Some m
-                  | _ -> None)
+              let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
-              Some((s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start), r)
+              match tryPickContainingRange path pos with
+              | Some r -> Some(editRange, r)
+              | _ -> None
             | _ -> None
           | _ -> None }
   )
@@ -55,14 +61,13 @@ let fix
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
-      let rangeAndPath = getRangeToEdit parseAndCheck.GetAST fcsPos
+      let editRangeAndDeclRange = getRangeToEdit parseAndCheck.GetAST fcsPos
 
-      match rangeAndPath with
-      | Some(r, Some path) ->
+      match editRangeAndDeclRange with
+      | Some(r, declRange) ->
 
-        let! (s, uses) = symbolUseWorkspace false true false r.Start lineStr sourceText parseAndCheck
+        let! (_, uses) = symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
         let useRanges = uses.Values |> Array.concat
-        let declRange = path.Range
 
         let usedOutsideOfDecl =
           useRanges
