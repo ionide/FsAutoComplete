@@ -130,7 +130,6 @@ let tests =
       generalTests
       lspTests 
     ]
-  |> Test.filter defaultConfig.joinWith.asString (fun z -> (defaultConfig.joinWith.format z).Contains "addprivate" )
 
 [<EntryPoint>]
 let main args =
