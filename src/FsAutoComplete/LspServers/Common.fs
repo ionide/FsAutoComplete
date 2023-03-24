@@ -194,6 +194,9 @@ module Async =
 
   let StartWithCT ct work = Async.Start(work, ct)
 
+  let startImmediateAsTask ct work =
+    Async.StartImmediateAsTask(work, ct)
+
   let RunSynchronouslyWithCT ct work =
     Async.RunSynchronously(work, cancellationToken = ct)
 

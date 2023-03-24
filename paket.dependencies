@@ -34,7 +34,8 @@ nuget Serilog.Sinks.Async
 nuget Destructurama.FSharp
 nuget FSharp.UMX
 nuget FSharp.Formatting
-nuget FsToolkit.ErrorHandling
+nuget FsToolkit.ErrorHandling.TaskResult
+nuget IcedTasks
 nuget FSharpx.Async
 nuget CliWrap
 nuget System.CommandLine prerelease

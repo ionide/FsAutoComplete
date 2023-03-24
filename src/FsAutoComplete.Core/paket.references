@@ -5,9 +5,10 @@ ICSharpCode.Decompiler
 Microsoft.SourceLink.GitHub
 System.Configuration.ConfigurationManager
 FSharp.UMX
-FsToolkit.ErrorHandling
+FsToolkit.ErrorHandling.TaskResult
 Fantomas.Client
 FSharp.Data.Adaptive
+IcedTasks
 
 Ionide.ProjInfo.ProjectSystem
 System.Reflection.Metadata

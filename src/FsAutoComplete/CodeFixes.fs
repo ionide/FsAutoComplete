@@ -28,7 +28,8 @@ module Types =
       -> FSharp.Compiler.Text.Position
       -> Async<ResultOrString<ParseAndCheckResults * string * NamedText>>
 
-  type GetProjectOptionsForFile = string<LocalPath> -> ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>
+  type GetProjectOptionsForFile =
+    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
 
   [<RequireQualifiedAccess>]
   type FixKind =
