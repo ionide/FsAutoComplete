@@ -936,7 +936,7 @@ let private addPrivateAccessModifierTests state =
         with
           member private _.Foo x = x
         """
-      
+
       testCaseAsync "add private is not offered for Record type definition" // ref finding might not show us type inferred usages
       <| CodeFix.checkNotApplicable
         server
@@ -1052,6 +1052,30 @@ let private addPrivateAccessModifierTests state =
               let foofoo = 10
     
         M.N.foofoo |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for type abbreviation"
+      <| CodeFix.check
+        server
+        """
+        type My$0Int = int
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type private MyInt = int
+        """
+
+      testCaseAsync "add private is not offered for type abbreviation with reference outside its declaring module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module M =
+          type My$0Int = int
+        
+        let x: M.MyInt = 23
         """
         Diagnostics.acceptAll
         selectCodeFix

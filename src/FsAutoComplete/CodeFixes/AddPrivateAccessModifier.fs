@@ -70,12 +70,17 @@ let private getRangesAndPlacement input pos =
     |> Option.isSome
 
   let tryGetDeclContainingRange (path: SyntaxVisitorPath) pos =
+    let skip =
+      match path with
+      | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel _)) :: _ -> 0 // keep containing range of ctor decl to class range
+      | _ -> 1
+
     path
-    |> Seq.skip 1
+    |> Seq.skip skip
     |> Seq.tryPick (fun p ->
       match p with
       | SyntaxNode.SynTypeDefn m when rangeContainsPos m.Range pos -> Some m.Range
-      | SyntaxNode.SynModule m when rangeContainsPos m.Range pos -> Some m.Range
+      | SyntaxNode.SynModule(SynModuleDecl.NestedModule(range = r)) when rangeContainsPos r pos -> Some r
       | SyntaxNode.SynModuleOrNamespace m when rangeContainsPos m.Range pos -> Some m.Range
       | _ -> None)
 
@@ -83,6 +88,7 @@ let private getRangesAndPlacement input pos =
     decls
     |> List.tryPick (fun d ->
       match d with
+      // Nested Module
       | SynModuleDecl.NestedModule(
           moduleInfo = SynComponentInfo(attributes = attributes; longId = longId; accessibility = None)
           trivia = { ModuleKeyword = Some r }) as m when longIdentContainsPos longId pos ->
@@ -103,6 +109,7 @@ let private getRangesAndPlacement input pos =
         typeDefns
         |> List.tryPick (fun td ->
           match td with
+          // Class Type
           | SynTypeDefn(
               typeInfo = SynComponentInfo(longId = longId; accessibility = None; range = r)
               typeRepr = SynTypeDefnRepr.ObjectModel _) as t when longIdentContainsPos longId pos ->
@@ -112,8 +119,9 @@ let private getRangesAndPlacement input pos =
             match tryGetDeclContainingRange path pos with
             | Some r -> Some(editRange, r, Before)
             | _ -> None
-          | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) as d ->
-            let path = SyntaxNode.SynTypeDefn d :: path
+          // AutoProperty
+          | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) as t ->
+            let path = SyntaxNode.SynTypeDefn t :: path
 
             members
             |> List.tryPick (fun m ->
@@ -130,6 +138,18 @@ let private getRangesAndPlacement input pos =
                 | Some r -> Some(editRange, r, After)
                 | _ -> None
               | _ -> None)
+          // Type Abbreviation
+          | SynTypeDefn(
+              typeInfo = SynComponentInfo(accessibility = None; range = r)
+              typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _)) as t when
+            rangeContainsPos r pos
+            ->
+            let editRange = r.WithEnd r.Start
+            let path = SyntaxNode.SynTypeDefn t :: path
+
+            match tryGetDeclContainingRange path pos with
+            | Some r -> Some(editRange, r, Before)
+            | _ -> None
           | _ -> None)
       | _ -> None)
 
@@ -137,6 +157,7 @@ let private getRangesAndPlacement input pos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitBinding(path, _, synBinding) =
           match synBinding with
+          // explicit Ctor
           | SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor }))) -> None
           | SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s when
             rangeContainsPos s.RangeOfHeadPattern pos
