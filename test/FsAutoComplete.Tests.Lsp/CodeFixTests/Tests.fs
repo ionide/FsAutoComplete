@@ -753,7 +753,7 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      testCaseAsync "add private is not offered for member when caret is on parameter"
+      testCaseAsync "add private is not offered for class member when caret is on parameter"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -813,18 +813,164 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+
+      testCaseAsync "add private is not offered for member with reference outside its declaring DU"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.F$0oo x = x
+
+        let x = MyDiscUnion.Case1
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring DU when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member $0_.Foo x = x
+
+        let x = MyDiscUnion.Case1
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for DU member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.Foo $0x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for DU member"
+      <| CodeFix.check
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.Fo$0o x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member private _.Foo x = x
+        """
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring Record"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.F$0oo x = x
+
+        let x = { Field1 = 23; Field2 = "bla" }
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring Record when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _$0.Foo x = x
+
+        let x = { Field1 = 23; Field2 = "bla" }
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for Record member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.Foo $0x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for Record member"
+      <| CodeFix.check
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.Fo$0o x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member private _.Foo x = x
+        """
+      
+      testCaseAsync "add private works for top level module"
+      <| CodeFix.check
+        server
+        """
+        module [<System.Obsolete>] rec M$0
+
+          module Sub = ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module [<System.Obsolete>] private rec M
+
+          module Sub = ()
+        """
       
       testCaseAsync "add private works for module"
       <| CodeFix.check
         server
         """
-        module M$0 =
+        module [<System.Obsolete>] rec M$0 =
           ()
         """
         Diagnostics.acceptAll
         selectCodeFix
         """
-        module private M =
+        module [<System.Obsolete>] private rec M =
           ()
         """
 

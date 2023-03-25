@@ -57,8 +57,14 @@ let private isLetInsideObjectModel input pos =
   )
   |> Option.isSome
 
-let private getRangeToEdit input pos =
-  let tryPickContainingRange (path: SyntaxVisitorPath) pos =
+let private getRangesAndPlacement input pos =
+
+  let getEditRangeForModule (attributes: SynAttributes) (moduleKeywordRange: FSharp.Compiler.Text.Range) posLine =
+    match List.tryLast attributes with
+    | Some a when a.Range.EndLine = posLine -> a.Range.WithStart a.Range.End
+    | _ -> moduleKeywordRange.WithStart moduleKeywordRange.End
+
+  let tryGetDeclContainingRange (path: SyntaxVisitorPath) pos =
     path
     |> Seq.skip 1
     |> Seq.tryPick (fun p ->
@@ -73,15 +79,16 @@ let private getRangeToEdit input pos =
     |> List.tryPick (fun d ->
       match d with
       | SynModuleDecl.NestedModule(
-          moduleInfo = SynComponentInfo(longId = longId; accessibility = None); trivia = { ModuleKeyword = Some r }) as m when
+          moduleInfo = SynComponentInfo(attributes = attributes; longId = longId; accessibility = None)
+          trivia = { ModuleKeyword = Some r }) as m when
         longId
         |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
         |> Option.isSome
         ->
-        let editRange = r.WithStart r.End
+        let editRange = getEditRangeForModule attributes r pos.Line
         let path = (SyntaxNode.SynModule m) :: path
 
-        match tryPickContainingRange path pos with
+        match tryGetDeclContainingRange path pos with
         | Some r -> Some(editRange, r, After)
         | _ -> None
       | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) as m ->
@@ -109,7 +116,7 @@ let private getRangeToEdit input pos =
 
                 let path = SyntaxNode.SynMemberDefn a :: path
 
-                match tryPickContainingRange path pos with
+                match tryGetDeclContainingRange path pos with
                 | Some r -> Some(editRange, r, After)
                 | _ -> None
               | _ -> None)
@@ -137,13 +144,13 @@ let private getRangeToEdit input pos =
               else
                 let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
-                match tryPickContainingRange path pos with
+                match tryGetDeclContainingRange path pos with
                 | Some r -> Some(editRange, r, Before)
                 | _ -> None
             | SynPat.Named(accessibility = None; isThisVal = false) ->
               let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
-              match tryPickContainingRange path pos with
+              match tryGetDeclContainingRange path pos with
               | Some r -> Some(editRange, r, Before)
               | _ -> None
             | _ -> None
@@ -153,17 +160,21 @@ let private getRangeToEdit input pos =
           match synModuleOrNamespace with
           | SynModuleOrNamespace(
               longId = longId
+              attribs = attribs
               accessibility = None
-              trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) when
+              trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) as mOrN when
             longId
             |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
             |> Option.isSome
             ->
-            let editRange = r.WithStart r.End
+            let editRange = getEditRangeForModule attribs r pos.Line
 
-            match tryPickContainingRange path pos with
-            | Some r -> Some(editRange, r, After)
-            | _ -> None
+            if path.Length = 0 then // Top level module
+              Some(editRange, mOrN.Range, After)
+            else
+              match tryGetDeclContainingRange path pos with
+              | Some r -> Some(editRange, r, After)
+              | _ -> None
           | SynModuleOrNamespace(decls = decls) as mOrN ->
             let path = SyntaxNode.SynModuleOrNamespace mOrN :: path
             findNested path decls }
@@ -179,9 +190,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: Sy
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
-      let editRangeAndDeclRange = getRangeToEdit parseAndCheck.GetAST fcsPos
+      let rangesAndPlacement = getRangesAndPlacement parseAndCheck.GetAST fcsPos
 
-      match editRangeAndDeclRange with
+      match rangesAndPlacement with
       | Some(editRange, declRange, placement) ->
 
         let! (_, uses) = symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
