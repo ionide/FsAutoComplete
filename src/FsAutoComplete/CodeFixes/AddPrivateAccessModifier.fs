@@ -64,6 +64,11 @@ let private getRangesAndPlacement input pos =
     | Some a when a.Range.EndLine = posLine -> a.Range.WithStart a.Range.End
     | _ -> moduleKeywordRange.WithStart moduleKeywordRange.End
 
+  let longIdentContainsPos (longIdent: LongIdent) (pos: FSharp.Compiler.Text.pos) =
+    longIdent
+    |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
+    |> Option.isSome
+
   let tryGetDeclContainingRange (path: SyntaxVisitorPath) pos =
     path
     |> Seq.skip 1
@@ -80,11 +85,7 @@ let private getRangesAndPlacement input pos =
       match d with
       | SynModuleDecl.NestedModule(
           moduleInfo = SynComponentInfo(attributes = attributes; longId = longId; accessibility = None)
-          trivia = { ModuleKeyword = Some r }) as m when
-        longId
-        |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
-        |> Option.isSome
-        ->
+          trivia = { ModuleKeyword = Some r }) as m when longIdentContainsPos longId pos ->
         let editRange = getEditRangeForModule attributes r pos.Line
         let path = (SyntaxNode.SynModule m) :: path
 
@@ -102,6 +103,15 @@ let private getRangesAndPlacement input pos =
         typeDefns
         |> List.tryPick (fun td ->
           match td with
+          | SynTypeDefn(typeInfo = SynComponentInfo(longId = longId; accessibility = None; range = r)) as t when
+            longIdentContainsPos longId pos
+            ->
+            let editRange = r.WithEnd r.Start
+            let path = SyntaxNode.SynTypeDefn t :: path
+
+            match tryGetDeclContainingRange path pos with
+            | Some r -> Some(editRange, r, Before)
+            | _ -> None
           | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) as d ->
             let path = SyntaxNode.SynTypeDefn d :: path
 
@@ -163,9 +173,7 @@ let private getRangesAndPlacement input pos =
               attribs = attribs
               accessibility = None
               trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) as mOrN when
-            longId
-            |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
-            |> Option.isSome
+            longIdentContainsPos longId pos
             ->
             let editRange = getEditRangeForModule attribs r pos.Line
 

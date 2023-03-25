@@ -727,6 +727,20 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
       
+      testCaseAsync "add private works for class type definition"
+      <| CodeFix.check
+        server
+        """
+        type [<System.Obsolete>] MyCla$0ss() =
+          member _.X = 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type [<System.Obsolete>] private MyClass() =
+          member _.X = 10
+        """
+
       testCaseAsync "add private is not offered for member with reference outside its declaring class"
       <| CodeFix.checkNotApplicable
         server
@@ -814,6 +828,22 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
+      testCaseAsync "add private works for DU type definition"
+      <| CodeFix.check
+        server
+        """
+        type [<System.Obsolete>] MyDi$0scUnion =
+        | Case1
+        | Case2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type [<System.Obsolete>] private MyDiscUnion =
+        | Case1
+        | Case2
+        """
+
       testCaseAsync "add private is not offered for member with reference outside its declaring DU"
       <| CodeFix.checkNotApplicable
         server
@@ -877,6 +907,22 @@ let private addPrivateAccessModifierTests state =
         | Case2
         with
           member private _.Foo x = x
+        """
+      
+      testCaseAsync "add private works for Record definition"
+      <| CodeFix.check
+        server
+        """
+        type [<System.Obsolete>] My$0Record =
+          { Field1: int
+            Field2: string }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type [<System.Obsolete>] private MyRecord =
+          { Field1: int
+            Field2: string }
         """
       
       testCaseAsync "add private is not offered for member with reference outside its declaring Record"
