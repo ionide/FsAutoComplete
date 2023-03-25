@@ -26,37 +26,6 @@ type private Placement =
   | Before
   | After
 
-let private isLetInsideObjectModel input pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
-
-          let rec tryFind (decls: SynModuleDecl list) =
-            decls
-            |> List.tryPick (fun d ->
-              match d with
-              | SynModuleDecl.Let(range = range) when rangeContainsPos range pos -> None
-              | SynModuleDecl.Types(typeDefns = typeDefns) ->
-                typeDefns
-                |> List.tryPick (fun td ->
-                  match td with
-                  | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
-                    members
-                    |> List.tryPick (fun m ->
-                      match m with
-                      | SynMemberDefn.LetBindings(range = range) when rangeContainsPos range pos -> Some()
-                      | _ -> None)
-                  | _ -> None)
-              | SynModuleDecl.NestedModule(decls = nestedDecls) as m -> tryFind nestedDecls
-              | _ -> None)
-
-          match synModuleOrNamespace with
-          | SynModuleOrNamespace(decls = decls) as s -> tryFind decls }
-  )
-  |> Option.isSome
-
 let private getRangesAndPlacement input pos =
 
   let getEditRangeForModule (attributes: SynAttributes) (moduleKeywordRange: FSharp.Compiler.Text.Range) posLine =
@@ -68,6 +37,17 @@ let private getRangesAndPlacement input pos =
     longIdent
     |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
     |> Option.isSome
+
+  let isLetInsideObjectModel (path: SyntaxVisitorPath) pos =
+    path
+    |> List.exists (function
+      | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _))) ->
+        members
+        |> List.exists (fun m ->
+          match m with
+          | SynMemberDefn.LetBindings(range = range) when rangeContainsPos range pos -> true
+          | _ -> false)
+      | _ -> false)
 
   let tryGetDeclContainingRange (path: SyntaxVisitorPath) pos =
     let skip =
@@ -159,31 +139,35 @@ let private getRangesAndPlacement input pos =
           match synBinding with
           // explicit Ctor
           | SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor }))) -> None
+          // let bindings, members
           | SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s when
             rangeContainsPos s.RangeOfHeadPattern pos
             ->
-            match headPat with
-            | SynPat.LongIdent(longDotId = longDotId; accessibility = None) ->
-              let posValidInSynLongIdent =
-                longDotId.LongIdent
-                |> List.skip (if longDotId.LongIdent.Length > 1 then 1 else 0)
-                |> List.exists (fun i -> rangeContainsPos i.idRange pos)
+            if isLetInsideObjectModel path pos then
+              None
+            else
+              match headPat with
+              | SynPat.LongIdent(longDotId = longDotId; accessibility = None) ->
+                let posValidInSynLongIdent =
+                  longDotId.LongIdent
+                  |> List.skip (if longDotId.LongIdent.Length > 1 then 1 else 0)
+                  |> List.exists (fun i -> rangeContainsPos i.idRange pos)
 
-              if not posValidInSynLongIdent then
-                None
-              else
+                if not posValidInSynLongIdent then
+                  None
+                else
+                  let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
+
+                  match tryGetDeclContainingRange path pos with
+                  | Some r -> Some(editRange, r, Before)
+                  | _ -> None
+              | SynPat.Named(accessibility = None; isThisVal = false) ->
                 let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
                 match tryGetDeclContainingRange path pos with
                 | Some r -> Some(editRange, r, Before)
                 | _ -> None
-            | SynPat.Named(accessibility = None; isThisVal = false) ->
-              let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
-
-              match tryGetDeclContainingRange path pos with
-              | Some r -> Some(editRange, r, Before)
               | _ -> None
-            | _ -> None
           | _ -> None
 
         member _.VisitModuleOrNamespace(path, synModuleOrNamespace) =
@@ -207,10 +191,7 @@ let private getRangesAndPlacement input pos =
             let path = SyntaxNode.SynModuleOrNamespace mOrN :: path
             findNested path decls }
 
-  if isLetInsideObjectModel input pos then
-    None
-  else
-    SyntaxTraversal.Traverse(pos, input, visitor)
+  SyntaxTraversal.Traverse(pos, input, visitor)
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: SymbolUseWorkspace) : CodeFix =
   fun codeActionParams ->
