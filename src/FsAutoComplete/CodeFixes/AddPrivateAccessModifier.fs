@@ -103,9 +103,9 @@ let private getRangesAndPlacement input pos =
         typeDefns
         |> List.tryPick (fun td ->
           match td with
-          | SynTypeDefn(typeInfo = SynComponentInfo(longId = longId; accessibility = None; range = r)) as t when
-            longIdentContainsPos longId pos
-            ->
+          | SynTypeDefn(
+              typeInfo = SynComponentInfo(longId = longId; accessibility = None; range = r)
+              typeRepr = SynTypeDefnRepr.ObjectModel _) as t when longIdentContainsPos longId pos ->
             let editRange = r.WithEnd r.Start
             let path = SyntaxNode.SynTypeDefn t :: path
 
@@ -137,19 +137,18 @@ let private getRangesAndPlacement input pos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitBinding(path, _, synBinding) =
           match synBinding with
+          | SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor }))) -> None
           | SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s when
             rangeContainsPos s.RangeOfHeadPattern pos
             ->
             match headPat with
-            | SynPat.LongIdent(longDotId = longDotId; accessibility = None; argPats = synArgPats) ->
-              let posInArgs =
-                synArgPats.Patterns |> List.exists (fun p -> rangeContainsPos p.Range pos)
+            | SynPat.LongIdent(longDotId = longDotId; accessibility = None) ->
+              let posValidInSynLongIdent =
+                longDotId.LongIdent
+                |> List.skip (if longDotId.LongIdent.Length > 1 then 1 else 0)
+                |> List.exists (fun i -> rangeContainsPos i.idRange pos)
 
-              let posInFirstIdent =
-                longDotId.LongIdent.Length > 1
-                && rangeContainsPos longDotId.LongIdent[0].idRange pos
-
-              if posInArgs || posInFirstIdent then
+              if not posValidInSynLongIdent then
                 None
               else
                 let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start

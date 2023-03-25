@@ -740,6 +740,29 @@ let private addPrivateAccessModifierTests state =
         type [<System.Obsolete>] private MyClass() =
           member _.X = 10
         """
+      
+      testCaseAsync "add private is not offered for class type definition with reference"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyCla$0ss() =
+          member _.X = 10
+
+        let _ = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for explicit ctor" // ref finding might not show us usages
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyC(x: int) =
+          ne$0w() =
+            MyC(23)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
 
       testCaseAsync "add private is not offered for member with reference outside its declaring class"
       <| CodeFix.checkNotApplicable
@@ -763,6 +786,16 @@ let private addPrivateAccessModifierTests state =
 
         let myInst = MyClass()
         myInst.X |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for member when caret is in SynTypArDecl"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyC() =
+          member _.X<'T$0> a = a
         """
         Diagnostics.acceptAll
         selectCodeFix
@@ -828,8 +861,8 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      testCaseAsync "add private works for DU type definition"
-      <| CodeFix.check
+      testCaseAsync "add private is not offered for DU type definition" // ref finding might not show us type inferred usages
+      <| CodeFix.checkNotApplicable
         server
         """
         type [<System.Obsolete>] MyDi$0scUnion =
@@ -838,12 +871,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-        """
-        type [<System.Obsolete>] private MyDiscUnion =
-        | Case1
-        | Case2
-        """
-
+        
       testCaseAsync "add private is not offered for member with reference outside its declaring DU"
       <| CodeFix.checkNotApplicable
         server
@@ -909,8 +937,8 @@ let private addPrivateAccessModifierTests state =
           member private _.Foo x = x
         """
       
-      testCaseAsync "add private works for Record definition"
-      <| CodeFix.check
+      testCaseAsync "add private is not offered for Record type definition" // ref finding might not show us type inferred usages
+      <| CodeFix.checkNotApplicable
         server
         """
         type [<System.Obsolete>] My$0Record =
@@ -919,11 +947,6 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-        """
-        type [<System.Obsolete>] private MyRecord =
-          { Field1: int
-            Field2: string }
-        """
       
       testCaseAsync "add private is not offered for member with reference outside its declaring Record"
       <| CodeFix.checkNotApplicable
