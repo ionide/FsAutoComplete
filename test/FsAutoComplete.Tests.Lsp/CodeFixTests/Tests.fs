@@ -647,7 +647,7 @@ let private addPrivateAccessModifierTests state =
   serverTestList (nameof AddPrivateAccessModifier) state defaultConfigDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
 
-      testCaseAsync "addprivate works for simple function"
+      testCaseAsync "add private works for simple function"
       <| CodeFix.check
         server
         """
@@ -659,7 +659,7 @@ let private addPrivateAccessModifierTests state =
         let private f x = x * x
         """
       
-      testCaseAsync "addprivate works for simple identifier"
+      testCaseAsync "add private works for simple identifier"
       <| CodeFix.check
         server
         """
@@ -671,7 +671,7 @@ let private addPrivateAccessModifierTests state =
         let private x = 23
         """
 
-      testCaseAsync "addprivate works for simple identifier used in other private function"
+      testCaseAsync "add private works for simple identifier used in other private function"
       <| CodeFix.check
         server
         """
@@ -703,7 +703,7 @@ let private addPrivateAccessModifierTests state =
             z
         """
 
-      testCaseAsync "addprivate is not offered for already private functions"
+      testCaseAsync "add private is not offered for already private functions"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -712,7 +712,7 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      testCaseAsync "addprivate is not offered for function with reference outside its declaring module"
+      testCaseAsync "add private is not offered for function with reference outside its declaring module"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -727,7 +727,7 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
       
-      testCaseAsync "addprivate is not offered for member with reference outside its declaring class"
+      testCaseAsync "add private is not offered for member with reference outside its declaring class"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -739,8 +739,31 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring class when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _$0.X = 10
 
-      testCaseAsync "addprivate is not offered for let bindings inside a class"
+        let myInst = MyClass()
+        myInst.X |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.Func x$0 = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for let bindings inside a class"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -750,7 +773,7 @@ let private addPrivateAccessModifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
       
-      testCaseAsync "addprivate works for class member"
+      testCaseAsync "add private works for class member"
       <| CodeFix.check
         server
         """
@@ -763,6 +786,60 @@ let private addPrivateAccessModifierTests state =
         type MyClass() =
           member private _.X = 10
         """
+
+      testCaseAsync "add private works for autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member val Name$0 = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          member val private Name = "" with get, set
+        """
+
+      testCaseAsync "add private is not offered for autoproperty with references outside its class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member val Name$0 = "" with get, set
+        
+        let myInst = MyClass()
+        myInst.Name |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private works for module"
+      <| CodeFix.check
+        server
+        """
+        module M$0 =
+          ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module private M =
+          ()
+        """
+
+      testCaseAsync "add private is not offered for module with references outside its declaring module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module M =
+          module N$0 =
+              let foofoo = 10
+    
+        M.N.foofoo |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
     ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
