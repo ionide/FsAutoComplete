@@ -912,6 +912,9 @@ module Tracing =
 
   let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
 
+  let recordException (e: exn) (trace: Activity) =
+    trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore<Activity>
+
   /// <summary>
   /// StreamJsonRpcTracingStrategy participates in and propagates trace context in  vs-streamjsonrpc
   /// </summary>

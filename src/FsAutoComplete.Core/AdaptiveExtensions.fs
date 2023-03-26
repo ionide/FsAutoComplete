@@ -441,6 +441,24 @@ module AsyncAVal =
   //     )
   //     :> asyncaval<_>
 
+
+  // let ofAsync (value : Async<'a>) =
+  //     ConstantVal (
+  //         let cts = new CancellationTokenSource ()
+  //         let cancel () =
+  //             cts.Cancel()
+  //             cts.Dispose()
+  //         let real = task {
+  //             try
+  //                 return! Async.StartImmediateAsTask(value, cts.Token)
+  //             finally
+  //                 cts.Dispose()
+  //         }
+  //         AdaptiveCancellableTask(cancel, real)
+  //     )
+  //     :> asyncaval<_>
+
+
   let ofAVal (value: aval<'a>) =
     if value.IsConstant then
       ConstantVal(Task.FromResult(AVal.force value)) :> asyncaval<_>
@@ -480,31 +498,7 @@ module AsyncAVal =
 
 
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =
-    let mutable cache: option<RefCountingTaskCreator<'b>> = None
-
-    { new AbstractVal<'b>() with
-        member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
-            let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
-                  let! ct = CancellableTask.getCancellationToken ()
-                  let it = input.GetValue t
-                  let s = ct.Register(fun () -> it.Cancel())
-
-                  try
-                    let! i = it
-                    return mapping i ct
-                  finally
-                    s.Dispose()
-                }
-              )
-
-            cache <- Some ref
-            ref.New()
-          else
-            cache.Value.New() }
-    :> asyncaval<_>
+    map (fun a ct -> Task.FromResult(mapping a ct)) input
 
   let map2 (mapping: 'a -> 'b -> CancellationToken -> Task<'c>) (ca: asyncaval<'a>) (cb: asyncaval<'b>) =
     let mutable cache: option<RefCountingTaskCreator<'c>> = None
@@ -528,7 +522,7 @@ module AsyncAVal =
                   try
                     let! va = ta
                     let! vb = tb
-                    return! mapping va vb ct
+                    return! mapping va vb
                   finally
                     s.Dispose()
                 }
@@ -633,6 +627,10 @@ type AsyncAValBuilder() =
   member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> CancellationToken -> Task<'T2>) =
     AsyncAVal.map mapping value
 
+
+  // member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 * CancellationToken -> Task<'T2>) =
+  //   AsyncAVal.map (fun data ctok -> mapping(data,ctok)) value
+
   member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> Task<'T2>) =
     AsyncAVal.map (fun data _ -> mapping data) value
 
@@ -644,6 +642,12 @@ type AsyncAValBuilder() =
 
   member inline x.Bind(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> CancellationToken -> asyncaval<'T2>) =
     AsyncAVal.bind (mapping) value
+
+  // member inline x.Bind(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 * CancellationToken -> asyncaval<'T2>) =
+  //   AsyncAVal.bind (fun data ctok -> mapping(data,ctok)) value
+
+
+
 
   member inline x.Bind(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> asyncaval<'T2>) =
     AsyncAVal.bind (fun data _ -> mapping data) value
@@ -668,15 +672,17 @@ module AsyncAValBuilderExtensions =
 
     member inline x.Source(value: aval<'T>) = AsyncAVal.ofAVal value
     member inline x.Source(value: Task<'T>) = AsyncAVal.ofTask value
-    member inline x.Source(value: AdaptiveCancellableTask<'T>) = AsyncAVal.ofCancelableTask value
+    // member inline x.Source(value: AdaptiveCancellableTask<'T>) = AsyncAVal.ofCancelableTask value
     // member inline x.Source(value : CancellableTask<'T>) = AsyncAVal.ofCancellableTask value
 
     member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> CancellationToken -> 'T2) =
-      AsyncAVal.map (fun data ctok -> mapping data ctok |> Task.FromResult) value
+      AsyncAVal.mapSync (fun data ctok -> mapping data ctok) value
 
     member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> 'T2) =
-      AsyncAVal.map (fun data ctok -> mapping data |> Task.FromResult) value
+      AsyncAVal.mapSync (fun data ctok -> mapping data) value
 
+// member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping:  'T1 * CancellationToken -> 'T2) =
+//   AsyncAVal.mapSync (fun data ctok -> mapping(data, ctok)) value
 // member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> (CancellationToken * 'T2)) =
 //   AsyncAVal.map (fun data ct -> mapping data ct |> Task.FromResult) value
 
