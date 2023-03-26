@@ -1347,7 +1347,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     openFilesToCheckedFilesResults
     |> AMap.map (fun k v ->
       v
-      |> AsyncAVal.mapOption (fun c -> c.GetParseResults.GetNavigationItems().Declarations))
+      |> AsyncAVal.mapOption (fun c _ -> c.GetParseResults.GetNavigationItems().Declarations))
 
   let getAllDeclarations () =
     async {
