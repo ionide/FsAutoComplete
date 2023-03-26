@@ -36,7 +36,9 @@ type ParseAndCheckResults with
       function
       | SynPat.LongIdent(
           longDotId = ident
-          argPats = SynArgPats.Pats [ SynPat.Paren(pat = SynPat.Tuple(elementPats = duFieldPatterns); range = parenRange) ]) ->
+          argPats = SynArgPats.Pats [ SynPat.Paren(pat = SynPat.Tuple(elementPats = duFieldPatterns); range = parenRange) ]) when
+        rangeContainsPos parenRange pos
+        ->
         Some(ident, duFieldPatterns, parenRange)
       | SynPat.LongIdent(
           longDotId = ident; argPats = SynArgPats.Pats [ SynPat.Paren(pat = singleDUFieldPattern; range = parenRange) ]) when
