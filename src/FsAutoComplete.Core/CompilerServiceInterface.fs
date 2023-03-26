@@ -424,7 +424,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
           project,
           symbol,
           canInvalidateProject = false,
-          fastCheck = true,
+          // fastCheck = true,
           userOpName = "find references"
         )
     }
