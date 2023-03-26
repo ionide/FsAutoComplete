@@ -165,6 +165,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
 
       let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
 
+      do! Async.SwitchToNewThread()
+
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
           UMX.untag file,
@@ -189,6 +191,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
 
       let allFlags =
         Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+
+      do! Async.SwitchToNewThread()
 
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
@@ -257,6 +261,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
       checkerLogger.info (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
 
       let path = UMX.untag fn
+      do! Async.SwitchToNewThread()
       return! checker.ParseFile(path, source, fpo)
     }
 
@@ -286,6 +291,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
       let path = UMX.untag filePath
 
       try
+        do! Async.SwitchToNewThread()
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
@@ -380,6 +386,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
         >> Log.addContextDestructured "file" file
       )
 
+      do! Async.SwitchToNewThread()
+
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some(opts, []) ->
@@ -391,28 +399,35 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
           opts :: dependentProjects
           |> List.map (fun (opts) ->
             async {
+              do! Async.SwitchToNewThread()
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return res.GetUsesOfSymbol symbol
             })
-          |> Async.Parallel
+          |> Async.parallel75
 
         return res |> Array.concat
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
-    checkerLogger.info (
-      Log.setMessage "FindReferencesForSymbolInFile - {file}"
-      >> Log.addContextDestructured "file" file
-    )
+    async {
+      checkerLogger.info (
+        Log.setMessage "FindReferencesForSymbolInFile - {file}"
+        >> Log.addContextDestructured "file" file
+      )
 
-    checker.FindBackgroundReferencesInFile(
-      file,
-      project,
-      symbol,
-      canInvalidateProject = false,
-      userOpName = "find references"
-    )
+      do! Async.SwitchToNewThread()
+
+      return!
+        checker.FindBackgroundReferencesInFile(
+          file,
+          project,
+          symbol,
+          canInvalidateProject = false,
+          fastCheck = true,
+          userOpName = "find references"
+        )
+    }
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {
@@ -421,6 +436,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
         >> Log.addContextDestructured "file" fileName
       )
 
+      do! Async.SwitchToNewThread()
       let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
       return parseResult.GetNavigationItems().Declarations
     }

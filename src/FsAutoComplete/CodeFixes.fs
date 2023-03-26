@@ -17,11 +17,12 @@ type FcsPos = FSharp.Compiler.Text.Position
 module LspTypes = Ionide.LanguageServerProtocol.Types
 
 module Types =
+
   type IsEnabled = unit -> bool
 
-  type GetRangeText = string<LocalPath> -> LspTypes.Range -> ResultOrString<string>
-  type GetFileLines = string<LocalPath> -> ResultOrString<NamedText>
-  type GetLineText = NamedText -> LspTypes.Range -> Result<string, string>
+  type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
+  type GetFileLines = string<LocalPath> -> Async<ResultOrString<NamedText>>
+  type GetLineText = NamedText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
@@ -49,10 +50,20 @@ module Types =
   type CodeAction with
 
     static member OfFix getFileVersion clientCapabilities (fix: Fix) =
-      let filePath = fix.File.GetFilePath() |> Utils.normalizePath
-      let fileVersion = getFileVersion filePath
+      async {
+        let filePath = fix.File.GetFilePath() |> Utils.normalizePath
+        let! fileVersion = getFileVersion filePath
 
-      CodeAction.OfDiagnostic fix.File fileVersion fix.Title fix.SourceDiagnostic fix.Edits fix.Kind clientCapabilities
+        return
+          CodeAction.OfDiagnostic
+            fix.File
+            fileVersion
+            fix.Title
+            fix.SourceDiagnostic
+            fix.Edits
+            fix.Kind
+            clientCapabilities
+      }
 
     static member OfDiagnostic
       (fileUri)

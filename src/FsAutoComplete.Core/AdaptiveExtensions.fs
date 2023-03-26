@@ -437,7 +437,7 @@ module AsyncAVal =
   //             finally
   //                 cts.Dispose()
   //         }
-  //         CancelableTask(cancel, real)
+  //         AdaptiveCancellableTask(cancel, real)
   //     )
   //     :> asyncaval<_>
 
@@ -460,14 +460,15 @@ module AsyncAVal =
             let ref =
               RefCountingTaskCreator(
                 cancellableTask {
-                  // let! ct = CancellableTask.getCancellationToken ()
+                  let! ct = CancellableTask.getCancellationToken ()
                   let it = input.GetValue t
-                  // let s = ct.Register(fun () -> it.Cancel())
-                  // try
-                  let! i = it
-                  return! mapping i
-                // finally
-                //     s.Dispose()
+                  let s = ct.Register(fun () -> it.Cancel())
+
+                  try
+                    let! i = it
+                    return! mapping i
+                  finally
+                    s.Dispose()
                 }
               )
 
@@ -670,29 +671,35 @@ module AsyncAValBuilderExtensions =
     member inline x.Source(value: AdaptiveCancellableTask<'T>) = AsyncAVal.ofCancelableTask value
     // member inline x.Source(value : CancellableTask<'T>) = AsyncAVal.ofCancellableTask value
 
+    member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> CancellationToken -> 'T2) =
+      AsyncAVal.map (fun data ctok -> mapping data ctok |> Task.FromResult) value
+
     member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> 'T2) =
-      AsyncAVal.map (fun data _ -> mapping data |> Task.FromResult) value
+      AsyncAVal.map (fun data ctok -> mapping data |> Task.FromResult) value
+
+// member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> (CancellationToken * 'T2)) =
+//   AsyncAVal.map (fun data ct -> mapping data ct |> Task.FromResult) value
 
 
 
 
 module AMapAsync =
 
-  let mapAsyncAVal
+  let mapAVal
     (mapper: 'Key -> 'InValue -> CancellationToken -> asyncaval<'OutValue>)
     (map: #amap<'Key, #aval<'InValue>>)
     : amap<'Key, asyncaval<'OutValue>> =
     map |> AMap.map (fun k v -> v |> AsyncAVal.ofAVal |> AsyncAVal.bind (mapper k))
 
 
-  let mapAsyncAVal2
+  let mapAsyncAVal
     (mapper: 'Key -> 'InValue -> CancellationToken -> asyncaval<'OutValue>)
     (map: #amap<'Key, #asyncaval<'InValue>>)
     : amap<'Key, asyncaval<'OutValue>> =
     map |> AMap.map (fun k v -> v |> AsyncAVal.bind (mapper k))
 
   /// Adaptively looks up the given key in the map and binds the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindAsyncAval (key: 'Key) (map: amap<'Key, #asyncaval<'Value>>) =
+  let tryFindA (key: 'Key) (map: amap<'Key, #asyncaval<'Value>>) =
     asyncAVal {
       match! AMap.tryFind key map with
       | Some v ->
@@ -703,7 +710,7 @@ module AMapAsync =
 
 
   /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
-  let tryFindAsyncAndFlatten (key: 'Key) (map: amap<'Key, asyncaval<option<'Value>>>) =
+  let tryFindAndFlatten (key: 'Key) (map: amap<'Key, asyncaval<option<'Value>>>) =
     asyncAVal {
       match! AMap.tryFind key map with
       | Some x -> return! x

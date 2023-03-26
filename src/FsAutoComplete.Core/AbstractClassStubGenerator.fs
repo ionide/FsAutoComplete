@@ -6,6 +6,7 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Tokenization
 open FsAutoComplete.Logging
+open FsToolkit.ErrorHandling
 
 
 type AbstractClassData =
@@ -122,26 +123,29 @@ let inferStartColumn
   (abstractClassData: AbstractClassData)
   (indentSize: int)
   =
-  match getMemberNameAndRanges abstractClassData with
-  | (_, range) :: _ -> getLineIdent (lines.GetLineString(range.StartLine - 1))
-  | [] ->
-    match abstractClassData with
-    | AbstractClassData.ExplicitImpl _ ->
-      // 'interface ISomething with' is often in a new line, we use the indentation of that line
-      getLineIdent lineStr + indentSize
-    | AbstractClassData.ObjExpr(_, _, newExprRange) ->
-      match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
-      | Some tokens ->
-        tokens
-        |> List.tryPick (fun (t: FSharpTokenInfo) ->
-          if t.CharClass = FSharpTokenCharKind.Keyword && t.TokenName = "NEW" then
-            // We round to nearest so the generated code will align on the indentation guides
-            findGreaterMultiple (t.LeftColumn + indentSize) indentSize |> Some
-          else
-            None)
-        // There is no reference point, we indent the content at the start column of the interface
-        |> Option.defaultValue newExprRange.StartColumn
-      | None -> newExprRange.StartColumn
+  async {
+    match getMemberNameAndRanges abstractClassData with
+    | (_, range) :: _ -> return getLineIdent (lines.GetLineString(range.StartLine - 1))
+    | [] ->
+      match abstractClassData with
+      | AbstractClassData.ExplicitImpl _ ->
+        // 'interface ISomething with' is often in a new line, we use the indentation of that line
+        return getLineIdent lineStr + indentSize
+      | AbstractClassData.ObjExpr(_, _, newExprRange) ->
+        match! codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
+        | Some tokens ->
+          return
+            tokens
+            |> List.tryPick (fun (t: FSharpTokenInfo) ->
+              if t.CharClass = FSharpTokenCharKind.Keyword && t.TokenName = "NEW" then
+                // We round to nearest so the generated code will align on the indentation guides
+                findGreaterMultiple (t.LeftColumn + indentSize) indentSize |> Some
+              else
+                None)
+            // There is no reference point, we indent the content at the start column of the interface
+            |> Option.defaultValue newExprRange.StartColumn
+        | None -> return newExprRange.StartColumn
+  }
 
 /// Try to write any missing members of the given abstract type at the given location.
 /// If the destination type isn't an abstract class, or if there are no missing members to implement,
@@ -154,7 +158,7 @@ let writeAbstractClassStub
   (lineStr: string)
   (abstractClassData: AbstractClassData)
   =
-  asyncMaybe {
+  asyncOption {
     let pos =
       Position.mkPos
         abstractClassData.AbstractTypeIdentRange.Start.Line
@@ -164,7 +168,7 @@ let writeAbstractClassStub
     let! usage = usages
 
     let! (displayContext, entity) =
-      asyncMaybe {
+      asyncOption {
         // need the enclosing entity because we're always looking at a ctor, which isn't an Entity, but a MemberOrFunctionOrValue
         match usage.Symbol with
         | :? FSharpMemberOrFunctionOrValue as v ->
@@ -177,19 +181,22 @@ let writeAbstractClassStub
       }
 
     let getMemberByLocation (name, range: Range) =
-      asyncMaybe {
+      asyncOption {
         let pos = Position.fromZ (range.StartLine - 1) (range.StartColumn + 1)
         return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(pos.Line, pos.Column, lineStr, [])
       }
 
     let insertInfo =
-      match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
-      | Some tokens ->
-        match abstractClassData with
-        | AbstractClassData.ObjExpr _ ->
-          findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
-        | AbstractClassData.ExplicitImpl(_, _, safeInsertPosition) -> Some(false, safeInsertPosition)
-      | None -> None
+      asyncOption {
+        let! tokens = codeGenServer.TokenizeLine(doc.FullName, pos.Line)
+
+        return
+          match abstractClassData with
+          | AbstractClassData.ObjExpr _ ->
+            findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
+          | AbstractClassData.ExplicitImpl(_, _, safeInsertPosition) -> Some(false, safeInsertPosition)
+
+      }
 
     let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
 
@@ -197,31 +204,35 @@ let writeAbstractClassStub
       getImplementedMemberSignatures getMemberByLocation displayContext desiredMemberNamesWithRanges
       |> Async.map Some
 
-    let generatedString =
-      let formattedString =
-        formatMembersAt
-          (inferStartColumn codeGenServer pos doc lines lineStr abstractClassData 4) // 4 here correspond to the indent size
-          4 // Should we make it a setting from the IDE ?
-          abstractClassData.TypeParameters
-          "$objectIdent"
-          "$methodBody"
-          displayContext
-          implementedSignatures
-          entity
-          getAbstractNonVirtualMembers
-          true // Always generate the verbose version of the code
+    let! generatedString =
+      async {
+        let! start = (inferStartColumn codeGenServer pos doc lines lineStr abstractClassData 4) // 4 here correspond to the indent size
 
-      // If we are in a object expression, we remove the last new line, so the `}` stay on the same line
-      match abstractClassData with
-      | AbstractClassData.ExplicitImpl _ -> formattedString
-      | AbstractClassData.ObjExpr _ -> formattedString.TrimEnd('\n')
+        let formattedString =
+          formatMembersAt
+            start
+            4 // Should we make it a setting from the IDE ?
+            abstractClassData.TypeParameters
+            "$objectIdent"
+            "$methodBody"
+            displayContext
+            implementedSignatures
+            entity
+            getAbstractNonVirtualMembers
+            true // Always generate the verbose version of the code
+
+        // If we are in a object expression, we remove the last new line, so the `}` stay on the same line
+        match abstractClassData with
+        | AbstractClassData.ExplicitImpl _ -> return formattedString
+        | AbstractClassData.ObjExpr _ -> return formattedString.TrimEnd('\n')
+      }
 
     // If generatedString is empty it means nothing is missing to the abstract class
     // So we return None, in order to not show a "Falsy Hint"
     if System.String.IsNullOrEmpty generatedString then
       return! None
     else
-      match insertInfo with
+      match! insertInfo with
       | Some(shouldAppendWith, insertPosition) ->
         if shouldAppendWith then
           return! Some(insertPosition, " with" + generatedString)
