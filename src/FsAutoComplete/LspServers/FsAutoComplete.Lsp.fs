@@ -68,7 +68,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           commands.CheckSimplifiedNames filePath ]
 
     async {
-      do! analyzers |> Async.Parallel |> Async.Ignore<unit[]>
+      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
 
       do!
         lspClient.NotifyDocumentAnalyzed
@@ -1105,14 +1105,18 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           | Some false -> None
           | None -> None
 
-        let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getFileLines =
+          commands.TryGetFileCheckerOptionsWithLines >> Result.map snd >> Async.singleton
 
         let getLineText (lines: NamedText) (range: Ionide.LanguageServerProtocol.Types.Range) =
           lines.GetText(protocolRangeToRange (UMX.untag lines.FileName) range)
+          |> Async.singleton
 
         let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
-          getFileLines fileName
-          |> Result.bind (fun lines -> lines.GetText(protocolRangeToRange (UMX.untag fileName) range))
+          asyncResult {
+            let! lines = getFileLines fileName
+            return! lines.GetText(protocolRangeToRange (UMX.untag fileName) range)
+          }
 
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
 
@@ -1917,7 +1921,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 with e ->
                   return Ok []
               })
-            |> Async.Parallel
+            |> Async.parallel75
 
           let! fixes = fixes
           let (actions: Fix list[], errors: string[]) = Array.partitionResults fixes
@@ -1936,14 +1940,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           match actions with
           | [] -> return None
           | actions ->
-            return
+            let! fixes =
               actions
-              |> List.map (
-                CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value
-                >> U2.Second
-              )
-              |> List.toArray
-              |> Some
+              |> List.map (CodeAction.OfFix (commands.TryGetFileVersion >> Async.singleton) clientCapabilities.Value)
+              |> Async.parallel75
+
+            return Some(fixes |> Array.map U2.Second)
         }
 
     override __.TextDocumentCodeLens(p: CodeLensParams) =
@@ -2873,14 +2875,16 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       p.TextDocument
       |> x.fileHandler (fun fn tyRes lines ->
-        match commands.PipelineHints tyRes with
-        | CoreResponse.InfoRes msg -> async.Return(success None)
-        | CoreResponse.ErrorRes msg -> AsyncLspResult.internalError msg
-        | CoreResponse.Res(res) ->
-          { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
-          |> Some
-          |> success
-          |> async.Return)
+        async {
+          match! commands.PipelineHints tyRes with
+          | CoreResponse.InfoRes msg -> return! async.Return(success None)
+          | CoreResponse.ErrorRes msg -> return! AsyncLspResult.internalError msg
+          | CoreResponse.Res(res) ->
+            return
+              { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+              |> Some
+              |> success
+        })
 
     override x.TextDocumentInlineValue(p: InlineValueParams) : AsyncLspResult<InlineValue[] option> =
       logger.info (

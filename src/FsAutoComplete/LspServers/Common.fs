@@ -150,13 +150,6 @@ module Async =
   let inline logCancelled e =
     logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
-  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
-  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
-  let parallel75 computations =
-    let maxConcurrency =
-      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
-
-    Async.Parallel(computations, int maxConcurrency)
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
     async {
@@ -194,22 +187,7 @@ module Async =
 
   let StartWithCT ct work = Async.Start(work, ct)
 
-  let startImmediateAsTask ct work =
-    Async.StartImmediateAsTask(work, ct)
-
-  let RunSynchronouslyWithCT ct work =
-    Async.RunSynchronously(work, cancellationToken = ct)
-
-  let RunSynchronouslyWithCTSafe ct work =
-    try
-      work |> RunSynchronouslyWithCT(ct ()) |> Some
-    with
-    | :? OperationCanceledException as e ->
-      logCancelled e
-      None
-    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
-      logCancelled e
-      None
+  let startImmediateAsTask ct work = Async.StartImmediateAsTask(work, ct)
 
 [<AutoOpen>]
 module ObservableExtensions =
