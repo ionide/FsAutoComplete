@@ -292,13 +292,19 @@ module AMap =
 
     batchRecalcDirty mapping map
 
-
+/// <summary>
+/// A task creator that caches the task and cancels it when no longer needed.
+/// </summary>
+/// <remarks>
+/// Since the task can be references multiple times in the dependency graph, it is important to cancel it only after there are no more references to it.
+/// </remarks>
 type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) =
 
   let mutable refCount = 0
   let mutable cache: option<Task<'a>> = None
   let mutable cancel: CancellationTokenSource = null
 
+  /// <summary>Decrements the reference count and cancels the CancellationTokenSource if there are no more references.</summary>
   member private x.RemoveRef() =
     lock x (fun () ->
       if refCount = 1 then
@@ -310,6 +316,7 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
       else
         refCount <- refCount - 1)
 
+  /// <summary>Creates a new task based on the creation function from the constructor.  If a task has already been created, returns a cached version of the inflight task.</summary>
   member x.New() =
     lock x (fun () ->
       match cache with
@@ -323,7 +330,12 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
         refCount <- refCount + 1
         AdaptiveCancellableTask(x.RemoveRef, task))
 
-
+/// <summary>
+/// Represents a task that can be cancelled.
+/// </summary>
+/// <remarks>
+/// Upon cancellation, it will run the cancel function passed in and set cancellation for the task completion source.
+/// </remarks>
 and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
   let cts = new CancellationTokenSource()
 
@@ -333,10 +345,7 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
     else
       let tcs = new TaskCompletionSource<'a>()
 
-      let s =
-        cts.Token.Register(fun () -> tcs.TrySetCanceled() |> ignore
-
-        )
+      let s = cts.Token.Register(fun () -> tcs.TrySetCanceled() |> ignore)
 
       real.ContinueWith(fun (t: Task<'a>) ->
         s.Dispose()
@@ -348,10 +357,13 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
 
       tcs.Task
 
+  /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
   member x.Cancel() =
     cancel ()
     cts.Cancel()
 
+  /// <summary>The output of the passed in task to the constructor.</summary>
+  /// <returns></returns>
   member x.Task = output
 
 type asyncaval<'a> =
@@ -359,6 +371,7 @@ type asyncaval<'a> =
   abstract GetValue: AdaptiveToken -> AdaptiveCancellableTask<'a>
 
 module CancellableTask =
+  /// <summary>Converts AdaptiveCancellableTask to a CancellableTask.</summary>
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
     fun (ctok: CancellationToken) ->
       task {
@@ -367,6 +380,7 @@ module CancellableTask =
       }
 
 module Async =
+  /// <summary>Converts AdaptiveCancellableTask to an Async.</summary>
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
     async {
       let! ctok = Async.CancellationToken
@@ -379,27 +393,52 @@ module Extensions =
 
   type IcedTasks.CancellableTasks.CancellableTaskBuilderBase with
 
+    /// <summary>Allows implicit conversion of a AdaptiveCancellableTask to a CancellableTask in a cancellableTask CE.</summary>
     member inline x.Source(ct: AdaptiveCancellableTask<_>) =
       fun ctok -> (CancellableTask.ofAdaptiveCancellableTask ct ctok).GetAwaiter()
 
 
 module AsyncAVal =
 
+  /// <summary>
+  /// Evaluates the given adaptive value and returns a Task containing the value.
+  /// This should not be used inside the adaptive evaluation
+  /// of other AdaptiveObjects since it does not track dependencies.
+  /// </summary>
+  /// <remarks>
+  /// This follows Task semantics and is already running.
+  /// </remarks>
   let force (value: asyncaval<_>) = value.GetValue(AdaptiveToken.Top)
 
+  /// <summary>
+  /// Evaluates the given adaptive value and returns an Async containing the value.
+  /// This should not be used inside the adaptive evaluation
+  /// of other AdaptiveObjects since it does not track dependencies.
+  /// </summary>
+  /// <remarks>
+  /// This follows Async semantics and is not already running.
+  /// </remarks>
   let forceAsync (value: asyncaval<_>) =
     async {
       let ct = value.GetValue(AdaptiveToken.Top)
       return! Async.ofAdaptiveCancellableTask ct
     }
 
-
+  /// <summary>
+  /// Evaluates the given adaptive value and returns a CancellableTask containing the value.
+  /// This should not be used inside the adaptive evaluation
+  /// of other AdaptiveObjects since it does not track dependencies.
+  /// </summary>
+  /// <remarks>
+  /// This follows CancellableTask semantics and is not already running.
+  /// </remarks>
   let forceCancellableTask (value: asyncaval<_>) =
     cancellableTask {
       let ct = value.GetValue(AdaptiveToken.Top)
       return! ct
     }
 
+  /// A constant value that results in a Task.
   type ConstantVal<'a>(value: AdaptiveCancellableTask<'a>) =
     inherit ConstantObject()
 
@@ -408,6 +447,9 @@ module AsyncAVal =
     interface asyncaval<'a> with
       member x.GetValue _ = value
 
+  /// <summary>
+  /// Base class for standard Async Adaptive Values.
+  /// </summary>
   [<AbstractClass>]
   type AbstractVal<'a>() =
     inherit AdaptiveObject()
@@ -418,12 +460,18 @@ module AsyncAVal =
     interface asyncaval<'a> with
       member x.GetValue t = x.GetValue t
 
+  /// <summary>
+  /// Creates a constant async adaptive value always holding the given value.
+  /// </summary>
   let constant (value: 'a) =
     ConstantVal(Task.FromResult value) :> asyncaval<_>
 
+  /// <summary>
+  /// Creates a constant async adaptive value always holding the task.
+  /// </summary>
   let ofTask (value: Task<'a>) = ConstantVal(value) :> asyncaval<_>
 
-  let ofCancelableTask (value: AdaptiveCancellableTask<'a>) = ConstantVal(value) :> asyncaval<_>
+  // let ofCancelableTask (value: AdaptiveCancellableTask<'a>) = ConstantVal(value) :> asyncaval<_>
 
   // let ofCancellableTask (value : CancellableTask<'a>) =
   //     ConstantVal (
@@ -459,6 +507,9 @@ module AsyncAVal =
   //     :> asyncaval<_>
 
 
+  /// <summary>
+  /// Creates an async adaptive value evaluation the given value.
+  /// </summary>
   let ofAVal (value: aval<'a>) =
     if value.IsConstant then
       ConstantVal(Task.FromResult(AVal.force value)) :> asyncaval<_>
@@ -469,6 +520,11 @@ module AsyncAVal =
             AdaptiveCancellableTask(id, real) }
       :> asyncaval<_>
 
+
+  /// <summary>
+  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// adaptive inputs.
+  /// </summary>
   let map (mapping: 'a -> CancellationToken -> Task<'b>) (input: asyncaval<'a>) =
     let mutable cache: option<RefCountingTaskCreator<'b>> = None
 
@@ -497,9 +553,18 @@ module AsyncAVal =
     :> asyncaval<_>
 
 
+
+  /// <summary>
+  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// adaptive inputs.
+  /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =
     map (fun a ct -> Task.FromResult(mapping a ct)) input
 
+  /// <summary>
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
+  /// adaptive inputs.
+  /// </summary>
   let map2 (mapping: 'a -> 'b -> CancellationToken -> Task<'c>) (ca: asyncaval<'a>) (cb: asyncaval<'b>) =
     let mutable cache: option<RefCountingTaskCreator<'c>> = None
 
@@ -534,6 +599,9 @@ module AsyncAVal =
             cache.Value.New() }
     :> asyncaval<_>
 
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
+  /// input and adaptively depends on the resulting adaptive value.
+  /// The resulting adaptive value  will hold the latest value of the asyncaval<_> returned by mapping.
   let bind (mapping: 'a -> CancellationToken -> asyncaval<'b>) (value: asyncaval<'a>) =
     let mutable cache: option<_> = None
     let mutable innerCache: option<_> = None
@@ -613,13 +681,22 @@ module AsyncAVal =
     }
     :> asyncaval<_>
 
-  let mapOption f =
-    mapSync (fun data _ -> data |> Option.map f)
+
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
+  /// optional adaptive inputs.
+  let mapOption f (value: asyncaval<'a option>) : asyncaval<'b option> =
+    mapSync (fun data ctok -> data |> Option.map (fun d -> f d ctok)) value
 
 type AsyncAValBuilder() =
 
   member inline x.MergeSources(v1: asyncaval<'T1>, v2: asyncaval<'T2>) =
-    AsyncAVal.map2 (fun a b _ -> Task.FromResult(a, b)) v1 v2
+    (v1, v2)
+    ||> AsyncAVal.map2 (fun a b ctok ->
+      if ctok.IsCancellationRequested then
+        Task.FromCanceled<_>(ctok)
+      else
+        Task.FromResult(a, b))
+
 
   // member inline x.MergeSources3(v1 : aval<'T1>, v2 : aval<'T2>, v3 : aval<'T3>) =
   //     AVal.map3 (fun a b c -> a,b,c) v1 v2 v3
@@ -691,6 +768,9 @@ module AsyncAValBuilderExtensions =
 
 module AMapAsync =
 
+  /// <summary>
+  /// Adaptively maps over the given map lifting the value in the map to be an asyncaval.
+  /// </summary>
   let mapAVal
     (mapper: 'Key -> 'InValue -> CancellationToken -> asyncaval<'OutValue>)
     (map: #amap<'Key, #aval<'InValue>>)
@@ -698,6 +778,9 @@ module AMapAsync =
     map |> AMap.map (fun k v -> v |> AsyncAVal.ofAVal |> AsyncAVal.bind (mapper k))
 
 
+  /// <summary>
+  /// Adaptively maps over the given map.
+  /// </summary>
   let mapAsyncAVal
     (mapper: 'Key -> 'InValue -> CancellationToken -> asyncaval<'OutValue>)
     (map: #amap<'Key, #asyncaval<'InValue>>)
