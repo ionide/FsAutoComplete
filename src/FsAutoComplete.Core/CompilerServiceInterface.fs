@@ -256,13 +256,21 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
-  member __.ParseFile(fn: string<LocalPath>, source, fpo) =
+  /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
+  /// <param name="filePath"> The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="source">The source to be parsed.</param>
+  /// <param name="options">Parsing options for the project or script.</param>
+  /// <returns></returns>
+  member __.ParseFile(filePath: string<LocalPath>, source: ISourceText, options: FSharpParsingOptions) =
     async {
-      checkerLogger.info (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
+      checkerLogger.info (
+        Log.setMessage "ParseFile - {file}"
+        >> Log.addContextDestructured "file" filePath
+      )
 
-      let path = UMX.untag fn
+      let path = UMX.untag filePath
       do! Async.SwitchToNewThread()
-      return! checker.ParseFile(path, source, fpo)
+      return! checker.ParseFile(path, source, options)
     }
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
