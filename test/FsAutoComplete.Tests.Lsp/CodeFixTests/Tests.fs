@@ -573,7 +573,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | A(_, 23) -> ()
+        | A(_, false) -> ()
         | A(a$0, b) -> ()
         """
         Diagnostics.acceptAll
@@ -582,7 +582,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | A(_, 23) -> ()
+        | A(_, false) -> ()
         | A(a = a; b = b;) -> ()
         """
     testCaseAsync "in parenthesized match" <|
@@ -591,7 +591,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | (A(_, 23)) -> ()
+        | (A(_, false)) -> ()
         | (A(a$0, b)) -> ()
         """
         Diagnostics.acceptAll
@@ -600,7 +600,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | (A(_, 23)) -> ()
+        | (A(_, false)) -> ()
         | (A(a = a; b = b;)) -> ()
         """
     testCaseAsync "when there is one new field on the DU" <|
@@ -640,6 +640,58 @@ let private convertPositionalDUToNamedTests state =
         """
         type A = A of a: int * b: bool * c: bool * d: bool
         let (A(a = a;b = b; c = c;     d = d;)) = A(1, true, false, false)
+        """
+
+    testCaseAsync "when there are multiple SynLongIdent Pats" <|
+      CodeFix.check server
+        """
+        type MyDiscUnion = Case1 of field1: int * field2: int
+
+        type MyC() =
+
+          let x = Case1 (1, 2)
+
+          member _.Func2 () =
+            match x with
+            | Case1(3$0, 4) -> ()
+            | _ -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion = Case1 of field1: int * field2: int
+
+        type MyC() =
+
+          let x = Case1 (1, 2)
+
+          member _.Func2 () =
+            match x with
+            | Case1(field1 = 3; field2 = 4;) -> ()
+            | _ -> ()
+        """
+      
+    testCaseAsync "when surrounding function takes union parameter" <|
+      CodeFix.check server
+        """
+        type MyDiscUnion = X of field1: int * field2: int
+
+        let f () =
+          let x = X (1, 2)
+          match x with
+          | X(32$0, 23) -> ()
+          | _ -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion = X of field1: int * field2: int
+
+        let f () =
+          let x = X (1, 2)
+          match x with
+          | X(field1 = 32; field2 = 23;) -> ()
+          | _ -> ()
         """
   ])
 
