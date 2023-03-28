@@ -229,7 +229,6 @@ module Async =
       Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
     Async.Parallel(computations, int maxConcurrency)
-  // Async.Parallel(computations)
 
   [<RequireQualifiedAccess>]
   module Array =

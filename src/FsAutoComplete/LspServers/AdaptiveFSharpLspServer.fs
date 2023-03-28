@@ -289,6 +289,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
     try
       async {
+
         try
           match n with
           | NotificationEvent.FileParsed fn ->
@@ -935,34 +936,44 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
 
+  /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
+  /// <param name="checker">The FSharpCompilerServiceChecker.</param>
+  /// <param name="source">The source to be parsed.</param>
+  /// <param name="parseOpts">Parsing options for the project or script</param>
+  /// <param name="options">The options for the project or script.</param>
+  /// <returns></returns>
+  let parseFile (checker: FSharpCompilerServiceChecker) (source: VolatileFile) parseOpts options =
+    async {
+      let! result = checker.ParseFile(source.FileName, source.Lines, parseOpts)
+
+      let! ct = Async.CancellationToken
+      fileParsed.Trigger(result, options, ct)
+      return result
+    }
+
+
   /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
   let parseAllFiles () =
     asyncAVal {
       let! projects = loadedProjectOptions
       and! (checker: FSharpCompilerServiceChecker) = checker
 
-
       return
-        fun (ct: CancellationToken) ->
-          projects
-          |> Array.ofList
-          |> Array.Parallel.collect (fun p ->
-            let parseOpts = Utils.projectOptionsToParseOptions p
-            p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
-          |> Array.Parallel.map (fun (opts, parseOpts, fileName) ->
-            let fileName = UMX.tag fileName
+        projects
+        |> Array.ofList
+        |> Array.Parallel.collect (fun p ->
+          let parseOpts = Utils.projectOptionsToParseOptions p
+          p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
+        |> Array.Parallel.map (fun (opts, parseOpts, fileName) ->
+          let fileName = UMX.tag fileName
 
-            asyncResult {
-              let! file = forceFindOpenFileOrRead fileName
-              let! parseResult = checker.ParseFile(fileName, file.Lines, parseOpts)
-              let! ct = Async.CancellationToken
-              fileParsed.Trigger(parseResult, opts, ct)
-              return parseResult
-            }
-            |> Async.map Result.toOption)
-          |> Async.parallel75
-          |> Async.map (Array.Parallel.choose id)
-          |> Async.startImmediateAsTask ct
+          asyncResult {
+            let! file = forceFindOpenFileOrRead fileName
+            return! parseFile checker file parseOpts opts
+          }
+          |> Async.map Result.toOption)
+        |> Async.parallel75
+        |> Async.map (Array.Parallel.choose id)
 
     }
 
@@ -990,7 +1001,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               opts |> scriptFileProjectOptions.Trigger
               return opts
             }
-          // return Unchecked.defaultof<_>
+
           return file, Option.toList projs
         else
           let! projs =
@@ -1049,7 +1060,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
-  let analyzeFile config (filePath: string<LocalPath>, version, source, tyRes: ParseAndCheckResults) =
+  let analyzeFile config (filePath: string<LocalPath>, version, source: NamedText, tyRes: ParseAndCheckResults) =
     let checkUnusedOpens =
       async {
         try
@@ -1079,7 +1090,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let checkSimplifiedNames =
       async {
         try
-          let getSourceLine lineNo = source.GetLineString(lineNo - 1)
+          let getSourceLine lineNo =
+            (source: ISourceText).GetLineString(lineNo - 1)
 
           let! ct = Async.CancellationToken
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
@@ -1109,6 +1121,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               { Uri = filePath |> Path.LocalPathToUri
                 Version = version } }
     }
+
 
   /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
@@ -1206,9 +1219,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
         match! forceFindOpenFileOrRead filePath with
         // Don't cache for autocompletions as we really only want to cache "Opened" files.
-        | Ok(fileInfo) ->
-          do! Async.SwitchToNewThread()
-          return! parseAndCheckFile checker fileInfo opts config false |> Async.Ignore
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config false |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1233,15 +1244,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
             let parseOpts = Utils.projectOptionsToParseOptions opts
 
-            let! result =
-              checker.ParseFile(file, info.Lines, parseOpts)
+            return!
+              parseFile checker info parseOpts opts
               |> Async.withCancellation cts.Token
-              |> fun work -> Async.StartImmediateAsTask(work, ctok)
-
-            fileParsed.Trigger(result, opts, cts.Token)
-            return result
+              |> Async.startImmediateAsTask ctok
           }
-
       })
 
 
@@ -1331,14 +1338,13 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
         |> async.Return
 
-      return!
+      return
         tryGetLastCheckResultForFile filePath
         |> AsyncResult.orElseWith (fun _ -> forceGetRecentTypeCheckResults filePath)
         |> AsyncResult.orElseWith (fun _ -> forceGetTypeCheckResults filePath)
         |> Async.map (fun r ->
           Async.Start(forceGetTypeCheckResults filePath |> Async.Ignore)
           r)
-        |> Async.StartImmediateAsTask
     }
     |> AsyncAVal.forceAsync
 
@@ -1515,7 +1521,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           |> Async.Parallel
 
         return set |> Array.collect (List.toArray)
-    }
+      }
 
 
     Commands.symbolUseWorkspace
@@ -1817,9 +1823,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           message = $"0/{checksToPerform.Length} remaining",
           percentage = percentage 0 checksToPerform.Length
         )
-
-      let maxConcurrency =
-        Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
       do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
 
@@ -4892,9 +4895,6 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
     let adaptiveServer lspClient =
-      // match System.Threading.ThreadPool.GetMinThreads() with
-      // | _, completionPortThreads ->
-      //   ThreadPool.SetMinThreads(System.Environment.ProcessorCount * 4, completionPortThreads) |> ignore
       let loader = workspaceLoaderFactory toolsPath
       new AdaptiveFSharpLspServer(loader, lspClient) :> IFSharpLspServer
 

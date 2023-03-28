@@ -172,7 +172,7 @@ module Conversions =
       not keep
 
     topLevel.Nested
-    |> Array.choose (fun n -> if shouldKeep n then Some(map n) else None)
+    |> Array.Parallel.choose (fun n -> if shouldKeep n then Some(map n) else None)
 
   let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
 
