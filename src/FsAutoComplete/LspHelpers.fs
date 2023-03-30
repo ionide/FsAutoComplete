@@ -839,7 +839,7 @@ type FSharpConfig =
       InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
       InterfaceStubGenerationMethodBody =
         defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
-      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier false  
+      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier false
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
