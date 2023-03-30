@@ -234,6 +234,7 @@ let defaultConfigDto: FSharpConfigDto =
     UnionCaseStubGenerationBody = None
     RecordStubGeneration = None
     RecordStubGenerationBody = None
+    AddPrivateAccessModifier = None
     UnusedOpensAnalyzer = None
     UnusedDeclarationsAnalyzer = None
     SimplifyNameAnalyzer = None

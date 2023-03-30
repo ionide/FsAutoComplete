@@ -644,7 +644,8 @@ let private convertPositionalDUToNamedTests state =
   ])
 
 let private addPrivateAccessModifierTests state =
-  serverTestList (nameof AddPrivateAccessModifier) state defaultConfigDto None (fun server ->
+  let config = { defaultConfigDto with AddPrivateAccessModifier = Some true }
+  serverTestList (nameof AddPrivateAccessModifier) state config None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
 
       testCaseAsync "add private works for simple function"
