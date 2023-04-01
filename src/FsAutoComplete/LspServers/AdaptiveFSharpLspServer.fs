@@ -20,7 +20,7 @@ open FsAutoComplete.Adaptive
 
 open FSharp.Control.Reactive
 open FsToolkit.ErrorHandling
-open FsOpenTelemetry
+open FsAutoComplete.Telemetry
 open FsAutoComplete.Utils.Tracing
 open FSharp.UMX
 

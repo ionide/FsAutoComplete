@@ -101,17 +101,6 @@ let init args =
       (fun p -> { p with Configuration = DotNet.BuildConfiguration.fromString configuration })
       "FsAutoComplete.sln")
 
-  Target.create "ReplaceFsLibLogNamespaces"
-  <| fun _ ->
-       let replacements =
-         [ "FsLibLog\\n", "FsAutoComplete.Logging\n"
-           "FsLibLog\\.", "FsAutoComplete.Logging" ]
-
-       replacements
-       |> List.iter (fun (``match``, replace) ->
-         (!! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs")
-         |> Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8)
-
   Target.create "EnsureRepoConfig" (fun _ ->
     // Configure custom git hooks
     // * Currently only used to ensure that code is formatted before pushing
@@ -184,13 +173,12 @@ let init args =
   "PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
   |> ignore<string>
 
-  "Restore" ==> "ReplaceFsLibLogNamespaces" ==> "Build" |> ignore<string>
+  "Restore" ==> "Build" |> ignore<string>
 
   "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
   |> ignore<string>
 
-  "ReplaceFsLibLogNamespaces"
-  ==> "LocalRelease"
+  "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
   |> ignore<string>
