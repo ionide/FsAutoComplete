@@ -1135,6 +1135,25 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
 
+        let symbolUseWorkspace
+          (includeDeclarations: bool)
+          (includeBackticks: bool)
+          (errorOnFailureToFixRange: bool)
+          pos
+          lineStr
+          text
+          tyRes
+          =
+          commands.SymbolUseWorkspace(
+            pos,
+            lineStr,
+            text,
+            tyRes,
+            includeDeclarations,
+            includeBackticks,
+            errorOnFailureToFixRange
+          )
+
         codefixes <-
           [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix getFileLines)
              Run.ifEnabled
@@ -1191,6 +1210,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
              ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
              ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
+             Run.ifEnabled
+               (fun _ -> config.AddPrivateAccessModifier)
+               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
 
