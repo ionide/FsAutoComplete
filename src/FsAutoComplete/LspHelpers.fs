@@ -638,6 +638,7 @@ type FSharpConfigDto =
     InterfaceStubGeneration: bool option
     InterfaceStubGenerationObjectIdentifier: string option
     InterfaceStubGenerationMethodBody: string option
+    AddPrivateAccessModifier: bool option
     UnusedOpensAnalyzer: bool option
     UnusedDeclarationsAnalyzer: bool option
     SimplifyNameAnalyzer: bool option
@@ -756,6 +757,7 @@ type FSharpConfig =
     InterfaceStubGeneration: bool
     InterfaceStubGenerationObjectIdentifier: string
     InterfaceStubGenerationMethodBody: string
+    AddPrivateAccessModifier: bool
     UnusedOpensAnalyzer: bool
     UnusedDeclarationsAnalyzer: bool
     SimplifyNameAnalyzer: bool
@@ -797,6 +799,7 @@ type FSharpConfig =
       InterfaceStubGeneration = false
       InterfaceStubGenerationObjectIdentifier = "this"
       InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
+      AddPrivateAccessModifier = false
       UnusedOpensAnalyzer = false
       UnusedDeclarationsAnalyzer = false
       SimplifyNameAnalyzer = false
@@ -836,6 +839,7 @@ type FSharpConfig =
       InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
       InterfaceStubGenerationMethodBody =
         defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
+      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier false
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
@@ -926,6 +930,7 @@ type FSharpConfig =
         defaultArg dto.InterfaceStubGenerationObjectIdentifier x.InterfaceStubGenerationObjectIdentifier
       InterfaceStubGenerationMethodBody =
         defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody
+      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier x.AddPrivateAccessModifier
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer

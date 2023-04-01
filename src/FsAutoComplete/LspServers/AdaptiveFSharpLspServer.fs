@@ -1386,6 +1386,101 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         member x.ParseFileInProject(file) =
           forceGetParseResults file |> Option.ofResult }
 
+  let getDependentProjectsOfProjects ps =
+    let projectSnapshot = forceLoadProjects ()
+
+    let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
+
+    let currentPass = ResizeArray()
+    currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+
+    let mutable continueAlong = true
+
+    while continueAlong do
+      let dependents =
+        projectSnapshot
+        |> Seq.filter (fun p ->
+          p.ReferencedProjects
+          |> Seq.exists (fun r ->
+            match r.ProjectFilePath with
+            | None -> false
+            | Some p -> currentPass.Contains(p)))
+
+      if Seq.isEmpty dependents then
+        continueAlong <- false
+        currentPass.Clear()
+      else
+        for d in dependents do
+          allDependents.Add d |> ignore<bool>
+
+        currentPass.Clear()
+        currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+
+    Seq.toList allDependents
+
+  let getDeclarationLocation (symbolUse, text) =
+    let getProjectOptions file =
+      getProjectOptionsForFile file |> AVal.force |> selectProject
+
+    let projectsThatContainFile file =
+      getProjectOptionsForFile file |> AVal.force
+
+    SymbolLocation.getDeclarationLocation (
+      symbolUse,
+      text,
+      getProjectOptions,
+      projectsThatContainFile,
+      getDependentProjectsOfProjects
+    )
+
+  let symbolUseWorkspace
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    text
+    tyRes
+    =
+
+    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
+      async {
+        let checker = checker |> AVal.force
+
+        if File.Exists(UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          match forceGetRecentTypeCheckResults file with
+          | Error _ -> return [||]
+          | Ok tyRes ->
+            let! ct = Async.CancellationToken
+            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+            return usages |> Seq.map (fun u -> u.Range)
+      }
+
+    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
+      forceGetProjectOptions file |> Option.ofResult
+
+    let getAllProjectOptions () : _ seq =
+      allProjectOptions'.Content |> AVal.force :> _
+
+    Commands.symbolUseWorkspace
+      getDeclarationLocation
+      findReferencesForSymbolInFile
+      forceFindSourceText
+      tryGetProjectOptionsForFsproj
+      getAllProjectOptions
+      includeDeclarations
+      includeBackticks
+      errorOnFailureToFixRange
+      pos
+      lineStr
+      text
+      tyRes
+
+
   let codefixes =
     let getFileLines = forceFindSourceText
 
@@ -1505,6 +1600,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
          ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
          GenerateXmlDocumentation.fix tryGetParseResultsForFile
+         Run.ifEnabled
+           (fun _ -> config.AddPrivateAccessModifier)
+           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile |])
 
@@ -1591,37 +1689,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       |> Array.map (fun sourceFile -> proj, sourceFile))
     |> Array.distinct
 
-  let getDependentProjectsOfProjects ps =
-    let projectSnapshot = forceLoadProjects ()
-
-    let allDependents = System.Collections.Generic.HashSet<FSharpProjectOptions>()
-
-    let currentPass = ResizeArray()
-    currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
-
-    let mutable continueAlong = true
-
-    while continueAlong do
-      let dependents =
-        projectSnapshot
-        |> Seq.filter (fun p ->
-          p.ReferencedProjects
-          |> Seq.exists (fun r ->
-            match r.ProjectFilePath with
-            | None -> false
-            | Some p -> currentPass.Contains(p)))
-
-      if Seq.isEmpty dependents then
-        continueAlong <- false
-        currentPass.Clear()
-      else
-        for d in dependents do
-          allDependents.Add d |> ignore<bool>
-
-        currentPass.Clear()
-        currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
-
-    Seq.toList allDependents
 
   let bypassAdaptiveAndCheckDepenenciesForFile (filePath: string<LocalPath>) =
     async {
@@ -1695,67 +1762,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     }
 
-  let getDeclarationLocation (symbolUse, text) =
-    let getProjectOptions file =
-      getProjectOptionsForFile file |> AVal.force |> selectProject
 
-    let projectsThatContainFile file =
-      getProjectOptionsForFile file |> AVal.force
 
-    SymbolLocation.getDeclarationLocation (
-      symbolUse,
-      text,
-      getProjectOptions,
-      projectsThatContainFile,
-      getDependentProjectsOfProjects
-    )
-
-  let symbolUseWorkspace
-    (includeDeclarations: bool)
-    (includeBackticks: bool)
-    (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
-    text
-    tyRes
-    =
-
-    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-      async {
-        let checker = checker |> AVal.force
-
-        if File.Exists(UMX.untag file) then
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-        else
-          // untitled script files
-          match forceGetRecentTypeCheckResults file with
-          | Error _ -> return [||]
-          | Ok tyRes ->
-            let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-            return usages |> Seq.map (fun u -> u.Range)
-      }
-
-    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      forceGetProjectOptions file |> Option.ofResult
-
-    let getAllProjectOptions () : _ seq =
-      allProjectOptions'.Content |> AVal.force :> _
-
-    Commands.symbolUseWorkspace
-      getDeclarationLocation
-      findReferencesForSymbolInFile
-      forceFindSourceText
-      tryGetProjectOptionsForFsproj
-      getAllProjectOptions
-      includeDeclarations
-      includeBackticks
-      errorOnFailureToFixRange
-      pos
-      lineStr
-      text
-      tyRes
 
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : LspResult<SemanticTokens option> =
     result {
