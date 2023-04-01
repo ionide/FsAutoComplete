@@ -865,7 +865,7 @@ type FSharpSymbol with
 module Tracing =
 
   open System.Diagnostics
-  open FsOpenTelemetry
+  open FsAutoComplete.Telemetry
   open StreamJsonRpc
   open System.Collections.Generic
 

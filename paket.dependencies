@@ -9,9 +9,6 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 
-github TheAngryByrd/FsLibLog:64f118ae8df2f2944ef69758052cb3b148b87e79 src/FsLibLog/FsLibLog.fs
-github TheAngryByrd/FsOpenTelemetry src/FsOpenTelemetry/FsOpenTelemetry.fs
-
 nuget Fantomas.Client
 nuget FSharp.Compiler.Service
 nuget Ionide.ProjInfo
