@@ -114,20 +114,29 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     )
     |> fst
 
-  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
-    let mailbox = getOrAddAgent fileUri
+  /// If false, no diagnostics will be collected or sent to the client
+  member val ClientSupportsDiagnostics = true with get, set
 
-    match values with
-    | [||] -> mailbox.Post(Clear kind)
-    | values -> mailbox.Post(Add(kind, values))
+  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
+    if x.ClientSupportsDiagnostics
+    then
+      let mailbox = getOrAddAgent fileUri
+
+      match values with
+      | [||] -> mailbox.Post(Clear kind)
+      | values -> mailbox.Post(Add(kind, values))
 
   member x.ClearFor(fileUri: DocumentUri) =
-    removeAgent fileUri
-    sendDiagnostics fileUri [||] |> Async.Start
+    if x.ClientSupportsDiagnostics
+    then
+      removeAgent fileUri
+      sendDiagnostics fileUri [||] |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
-    let mailbox = getOrAddAgent fileUri
-    mailbox.Post(Clear kind)
+    if x.ClientSupportsDiagnostics
+    then
+      let mailbox = getOrAddAgent fileUri
+      mailbox.Post(Clear kind)
 
   interface IDisposable with
     member x.Dispose() =

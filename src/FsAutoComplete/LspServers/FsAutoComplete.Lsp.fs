@@ -1080,6 +1080,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         clientCapabilities <- p.Capabilities
         lspClient.ClientCapabilities <- clientCapabilities
+        diagnosticCollections.ClientSupportsDiagnostics <-
+          match p.Capabilities with
+          | Some { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
+          | _ -> false
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
@@ -2893,6 +2897,18 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       (x :> ILspServer).Shutdown() |> Async.Start
 
     member this.WorkDoneProgessCancel(arg1: ProgressToken) : Async<unit> = failwith "Not Implemented"
+    member this.CallHierarchyIncomingCalls(arg1: CallHierarchyIncomingCallsParams): AsyncLspResult<CallHierarchyIncomingCall array option> =
+        failwith "Not Implemented"
+    member this.CallHierarchyOutgoingCalls(arg1: CallHierarchyOutgoingCallsParams): AsyncLspResult<CallHierarchyOutgoingCall array option> =
+        failwith "Not Implemented"
+    member this.TextDocumentPrepareCallHierarchy(arg1: CallHierarchyPrepareParams): AsyncLspResult<CallHierarchyItem array option> =
+        failwith "Not Implemented"
+    member this.TextDocumentPrepareTypeHierarchy(arg1: TypeHierarchyPrepareParams): AsyncLspResult<TypeHierarchyItem array option> =
+        failwith "Not Implemented"
+    member this.TypeHierarchySubtypes(arg1: TypeHierarchySubtypesParams): AsyncLspResult<TypeHierarchyItem array option> =
+        failwith "Not Implemented"
+    member this.TypeHierarchySupertypes(arg1: TypeHierarchySupertypesParams): AsyncLspResult<TypeHierarchyItem array option> =
+        failwith "Not Implemented"
 
 module FSharpLspServer =
 
