@@ -118,8 +118,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
   member val ClientSupportsDiagnostics = true with get, set
 
   member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
-    if x.ClientSupportsDiagnostics
-    then
+    if x.ClientSupportsDiagnostics then
       let mailbox = getOrAddAgent fileUri
 
       match values with
@@ -127,14 +126,12 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
       | values -> mailbox.Post(Add(kind, values))
 
   member x.ClearFor(fileUri: DocumentUri) =
-    if x.ClientSupportsDiagnostics
-    then
+    if x.ClientSupportsDiagnostics then
       removeAgent fileUri
       sendDiagnostics fileUri [||] |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
-    if x.ClientSupportsDiagnostics
-    then
+    if x.ClientSupportsDiagnostics then
       let mailbox = getOrAddAgent fileUri
       mailbox.Post(Clear kind)
 

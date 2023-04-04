@@ -188,12 +188,17 @@ module Parser =
 
   let warnOnUnknownOptions =
     Invocation.InvocationMiddleware(fun ctx next ->
-      if ctx.ParseResult.UnmatchedTokens = null || ctx.ParseResult.UnmatchedTokens.Count = 0
-      then next.Invoke(ctx)
-      else
-        ctx.Console.Error.Write($"""The following options were not recognized - please consider removing them: {String.Join(", ", ctx.ParseResult.UnmatchedTokens)}""")
+      if
+        ctx.ParseResult.UnmatchedTokens = null
+        || ctx.ParseResult.UnmatchedTokens.Count = 0
+      then
         next.Invoke(ctx)
-    )
+      else
+        ctx.Console.Error.Write(
+          $"""The following options were not recognized - please consider removing them: {String.Join(", ", ctx.ParseResult.UnmatchedTokens)}"""
+        )
+
+        next.Invoke(ctx))
 
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
