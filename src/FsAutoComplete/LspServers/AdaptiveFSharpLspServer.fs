@@ -65,7 +65,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let config = cval<FSharpConfig> FSharpConfig.Default
 
-
   let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
   let checker =
@@ -236,10 +235,80 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           >> Log.addException e
         ))
 
+  let builtInCompilerAnalyzers config (file: VolatileFile, tyRes: ParseAndCheckResults) =
+    let filePath = file.FileName
+    let source = file.Lines
+    let version = file.Version
+
+    let checkUnusedOpens =
+      async {
+        try
+          let! ct = Async.CancellationToken
+
+          let! unused =
+            UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
+
+          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)), ct)
+        with e ->
+          logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
+      }
+
+    let checkUnusedDeclarations =
+      async {
+        try
+          let! ct = Async.CancellationToken
+          let isScript = Utils.isAScript (UMX.untag filePath)
+          let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
+          let unused = unused |> Seq.toArray
+
+          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused), ct)
+        with e ->
+          logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
+      }
+
+    let checkSimplifiedNames =
+      async {
+        try
+          let getSourceLine lineNo =
+            (source: ISourceText).GetLineString(lineNo - 1)
+
+          let! ct = Async.CancellationToken
+          let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
+          let simplified = Array.ofSeq simplified
+          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified), ct)
+        with e ->
+          logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
+      }
+
+    let analyzers =
+      [
+        // if config.Linter then
+        //   commands.Lint filePath |> Async .Ignore
+        if config.UnusedOpensAnalyzer then
+          checkUnusedOpens
+        if config.UnusedDeclarationsAnalyzer then
+          checkUnusedDeclarations
+        if config.SimplifyNameAnalyzer then
+          checkSimplifiedNames ]
+
+    async {
+      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
+
+      do!
+        lspClient.NotifyDocumentAnalyzed
+          { TextDocument =
+              { Uri = filePath |> Path.LocalPathToUri
+                Version = version } }
+    }
+
+
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
       async {
+        let config = config |> AVal.force
+        do! builtInCompilerAnalyzers config (volatileFile, parseAndCheck)
+
         if analyzersEnabled |> AVal.force then
           let file = volatileFile.FileName
 
@@ -513,14 +582,12 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let loader = cval<Ionide.ProjInfo.IWorkspaceLoader> workspaceLoader
 
-
-
   let binlogConfig =
     aval {
-      let! config = config
+      let! generateBinLog = config |> AVal.map (fun c -> c.GenerateBinlog)
       and! rootPath = rootPath
 
-      match config.GenerateBinlog, rootPath with
+      match generateBinLog, rootPath with
       | _, None
       | false, _ -> return Ionide.ProjInfo.BinaryLogGeneration.Off
       | true, Some rootPath ->
@@ -767,10 +834,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       >> Log.addContextDestructured "version" v.Version
     )
 
-  let tee f x =
-    f x
-    x
-
   let openFilesWithChanges: amap<_, aval<VolatileFile>> =
     openFilesReadOnly
     |> AMap.map (fun filePath file ->
@@ -829,7 +892,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
                   text)
 
-          return (file) |> tee logTextChange
+          logTextChange file
+          return file
       })
 
 
@@ -1060,77 +1124,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let getAutoCompleteNamespacesByDeclName name =
     autoCompleteNamespaces |> AMap.tryFind name
 
-  let analyzeFile config (filePath: string<LocalPath>, version, source: NamedText, tyRes: ParseAndCheckResults) =
-    let checkUnusedOpens =
-      async {
-        try
-          let! ct = Async.CancellationToken
-
-          let! unused =
-            UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
-
-          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)), ct)
-        with e ->
-          logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
-      }
-
-    let checkUnusedDeclarations =
-      async {
-        try
-          let! ct = Async.CancellationToken
-          let isScript = Utils.isAScript (UMX.untag filePath)
-          let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
-          let unused = unused |> Seq.toArray
-
-          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused), ct)
-        with e ->
-          logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
-      }
-
-    let checkSimplifiedNames =
-      async {
-        try
-          let getSourceLine lineNo =
-            (source: ISourceText).GetLineString(lineNo - 1)
-
-          let! ct = Async.CancellationToken
-          let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
-          let simplified = Array.ofSeq simplified
-          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified), ct)
-        with e ->
-          logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
-      }
-
-    let analyzers =
-      [
-        // if config.Linter then
-        //   commands.Lint filePath |> Async .Ignore
-        if config.UnusedOpensAnalyzer then
-          checkUnusedOpens
-        if config.UnusedDeclarationsAnalyzer then
-          checkUnusedDeclarations
-        if config.SimplifyNameAnalyzer then
-          checkSimplifiedNames ]
-
-    async {
-      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
-
-      do!
-        lspClient.NotifyDocumentAnalyzed
-          { TextDocument =
-              { Uri = filePath |> Path.LocalPathToUri
-                Version = version } }
-    }
-
 
   /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
   /// <param name="file">The name of the file in the project whose source to find a typecheck.</param>
   /// <param name="options">The options for the project or script.</param>
-  /// <param name="config">The FSharpConfig.</param>
   /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
   /// <returns></returns>
-  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) options config shouldCache =
+  let parseAndCheckFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) options shouldCache =
     async {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Lines.FileName)
@@ -1200,7 +1201,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           ct
         )
 
-        Async.Start(analyzeFile config (file.Lines.FileName, file.Version, file.Lines, parseAndCheck), ct)
 
         return parseAndCheck
     }
@@ -1215,11 +1215,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         )
 
         let checker = checker |> AVal.force
-        let config = config |> AVal.force
 
         match! forceFindOpenFileOrRead filePath with
         // Don't cache for autocompletions as we really only want to cache "Opened" files.
-        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts config false |> Async.Ignore
+        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts false |> Async.Ignore
         | _ -> ()
       with e ->
 
@@ -1272,7 +1271,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       asyncAVal {
         let file = info.Lines.FileName
         let! checker = checker
-        and! config = config
 
         return!
           taskOption {
@@ -1280,7 +1278,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             and! cts = tryGetOpenFileToken file
 
             return!
-              parseAndCheckFile checker info opts config true
+              parseAndCheckFile checker info opts true
               |> Async.withCancellation cts.Token
               |> fun work -> Async.StartImmediateAsTask(work, ctok)
           }
@@ -1774,8 +1772,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       let mutable checksCompleted = 0
 
-      let progressToken = ProgressToken.Second(Guid.NewGuid().ToString())
-      do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore
+      // let progressToken = ProgressToken.Second(Guid.NewGuid().ToString())
+      // do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore<Result<_,_>>
       use progressReporter = new ServerProgressReport(lspClient)
 
       let percentage numerator denominator =
