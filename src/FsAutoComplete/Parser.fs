@@ -125,7 +125,8 @@ module Parser =
     rootCommand.AddOption stateLocationOption
     rootCommand.AddOption otelTracingOption
 
-
+    // for back-compat - we removed some options and this broke some clients.
+    rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
       Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
@@ -184,6 +185,15 @@ module Parser =
         Diagnostics.Debugger.Launch() |> ignore<bool>
 
       next.Invoke(ctx))
+
+  let warnOnUnknownOptions =
+    Invocation.InvocationMiddleware(fun ctx next ->
+      if ctx.ParseResult.UnmatchedTokens = null || ctx.ParseResult.UnmatchedTokens.Count = 0
+      then next.Invoke(ctx)
+      else
+        ctx.Console.Error.Write($"""The following options were not recognized - please consider removing them: {String.Join(", ", ctx.ParseResult.UnmatchedTokens)}""")
+        next.Invoke(ctx)
+    )
 
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
@@ -312,4 +322,5 @@ module Parser =
       .AddMiddleware(serilogFlush)
       .AddMiddleware(configureLogging)
       .AddMiddleware(configureOTel)
+      .AddMiddleware(warnOnUnknownOptions)
       .Build()
