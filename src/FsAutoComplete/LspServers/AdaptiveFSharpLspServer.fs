@@ -57,6 +57,8 @@ type AdaptiveWorkspaceChosen =
 
 type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient) =
 
+  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
+
   let thisType = typeof<AdaptiveFSharpLspServer>
 
   let disposables = new Disposables.CompositeDisposable()
@@ -64,8 +66,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let rootPath = cval<string option> None
 
   let config = cval<FSharpConfig> FSharpConfig.Default
-
-  let analyzersEnabled = config |> AVal.map (fun c -> c.EnableAnalyzers)
 
   let checker =
     config
@@ -79,7 +79,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let mutable traceNotifications: ProgressListener option = None
 
-  let replaceTraceNotification shouldTrace traceNamespaces =
+  /// <summary>Toggles trace notifications on or off.</summary>
+  /// <param name="shouldTrace">Determines if tracing should occur</param>
+  /// <param name="traceNamespaces">The namespaces to start tracing</param>
+  /// <returns></returns>
+  let toggleTraceNotification shouldTrace traceNamespaces =
     traceNotifications |> Option.iter dispose
 
     if shouldTrace then
@@ -87,86 +91,107 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     else
       traceNotifications <- None
 
-  let mutableConfigChanges =
+  /// <summary>Sets tje FSI arguments on the FSharpCompilerServiceChecker</summary>
+  /// <param name="checker"></param>
+  /// <param name="fsiCompilerToolLocations">Compiler tool locations</param>
+  /// <param name="fsiExtraParameters">Any extra parameters to pass to FSI</param>
+  let setFSIArgs
+    (checker: FSharpCompilerServiceChecker)
+    (fsiCompilerToolLocations: string array)
+    (fsiExtraParameters: seq<string>)
+    =
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
 
+    checker.SetFSIAdditionalArguments
+      [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
+         yield! fsiExtraParameters |]
+
+  /// <summary>Loads F# Analyzers from the configured directories</summary>
+  /// <param name="config">The FSharpConfig</param>
+  /// <param name="rootPath">The RootPath</param>
+  /// <returns></returns>
+  let loadAnalyzers (config: FSharpConfig) (rootPath: string option) =
+    if config.EnableAnalyzers then
+      Loggers.analyzers.info (Log.setMessageI $"Using analyzer roots of {config.AnalyzersPath:roots}")
+
+      config.AnalyzersPath
+      |> Array.iter (fun analyzerPath ->
+        match rootPath with
+        | None -> ()
+        | Some workspacePath ->
+          let dir =
+            if
+              System.IO.Path.IsPathRooted analyzerPath
+            // if analyzer is using absolute path, use it as is
+            then
+              analyzerPath
+            // otherwise, it is a relative path and should be combined with the workspace path
+            else
+              System.IO.Path.Combine(workspacePath, analyzerPath)
+
+          Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
+
+          let (dllCount, analyzerCount) = dir |> FSharp.Analyzers.SDK.Client.loadAnalyzers
+
+          Loggers.analyzers.info (
+            Log.setMessageI
+              $"From {analyzerPath:name}: {dllCount:dllNo} dlls including {analyzerCount:analyzersNo} analyzers"
+          ))
+
+    else
+      Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
+
+  /// <summary></summary>
+  /// <param name="checker">the FSharpCompilerServiceChecker</param>
+  /// <param name="dotnetRoot">The path to dotnet</param>
+  /// <param name="rootPath">The root path</param>
+  /// <returns></returns>
+  let setDotnetRoot (checker: FSharpCompilerServiceChecker) (dotnetRoot: string) (rootPath: string option) =
+    let di = DirectoryInfo dotnetRoot
+
+    if di.Exists then
+      let dotnetBinary =
+        if
+          System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(Runtime.InteropServices.OSPlatform.Windows)
+        then
+          FileInfo(Path.Combine(di.FullName, "dotnet.exe"))
+        else
+          FileInfo(Path.Combine(di.FullName, "dotnet"))
+
+      if dotnetBinary.Exists then
+        checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
+
+    else
+      // if we were mistakenly given the path to a dotnet binary
+      // then use the parent directory as the dotnet root instead
+      let fi = FileInfo(di.FullName)
+
+      if fi.Exists && (fi.Name = "dotnet" || fi.Name = "dotnet.exe") then
+        checker.SetDotnetRoot(fi, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
+
+  let configChanges =
     aval {
       let! config = config
       and! checker = checker
       and! rootPath = rootPath
 
-      replaceTraceNotification config.Notifications.Trace config.Notifications.TraceNamespaces
-
-      checker.SetFSIAdditionalArguments
-        [| yield! config.FSICompilerToolLocations |> Array.map toCompilerToolArgument
-           yield! config.FSIExtraParameters |]
-
-      if config.EnableAnalyzers then
-        Loggers.analyzers.info (
-          Log.setMessage "Using analyzer roots of {roots}"
-          >> Log.addContextDestructured "roots" config.AnalyzersPath
-        )
-
-        config.AnalyzersPath
-        |> Array.iter (fun analyzerPath ->
-          match rootPath with
-          | None -> ()
-          | Some workspacePath ->
-            let dir =
-              if
-                System.IO.Path.IsPathRooted analyzerPath
-              // if analyzer is using absolute path, use it as is
-              then
-                analyzerPath
-              // otherwise, it is a relative path and should be combined with the workspace path
-              else
-                System.IO.Path.Combine(workspacePath, analyzerPath)
-
-            Loggers.analyzers.info (
-              Log.setMessage "Loading analyzers from {dir}"
-              >> Log.addContextDestructured "dir" dir
-            )
-
-            let (n, m) = dir |> FSharp.Analyzers.SDK.Client.loadAnalyzers
-
-            Loggers.analyzers.info (
-              Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers"
-              >> Log.addContextDestructured "name" analyzerPath
-              >> Log.addContextDestructured "dllNo" n
-              >> Log.addContextDestructured "analyzersNo" m
-            ))
-
-      else
-        Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
-
-      let di = DirectoryInfo config.DotNetRoot
-
-      if di.Exists then
-        let dotnetBinary =
-          if
-            System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(Runtime.InteropServices.OSPlatform.Windows)
-          then
-            FileInfo(Path.Combine(di.FullName, "dotnet.exe"))
-          else
-            FileInfo(Path.Combine(di.FullName, "dotnet"))
-
-        if dotnetBinary.Exists then
-          checker.SetDotnetRoot(dotnetBinary, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
-
-      else
-        // if we were mistakenly given the path to a dotnet binary
-        // then use the parent directory as the dotnet root instead
-        let fi = FileInfo(di.FullName)
-
-        if fi.Exists && (fi.Name = "dotnet" || fi.Name = "dotnet.exe") then
-          checker.SetDotnetRoot(fi, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
-
-      return ()
+      return config, checker, rootPath
     }
 
-  let updateConfig c =
-    transact (fun () -> config.Value <- c)
-    mutableConfigChanges |> AVal.force
+  // Syncs config changes to the mutable world
+  do
+    AVal.Observable.onValueChangedWeak configChanges
+    |> Observable.subscribe (fun (config, checker, rootPath) ->
+      toggleTraceNotification config.Notifications.Trace config.Notifications.TraceNamespaces
+
+      setFSIArgs checker config.FSICompilerToolLocations config.FSIExtraParameters
+
+      loadAnalyzers config rootPath
+
+      setDotnetRoot checker config.DotNetRoot rootPath)
+    |> disposables.Add
+
+  let updateConfig c = transact (fun () -> config.Value <- c)
 
   let tfmConfig =
     config
@@ -176,14 +201,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       else
         FSIRefs.TFM.NetFx)
 
-  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
 
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
-    logger.info (
-      Log.setMessage "SendDiag for {file}: {diags} entries"
-      >> Log.addContextDestructured "file" uri
-      >> Log.addContextDestructured "diags" diags.Length
-    )
+    logger.info (Log.setMessageI $"SendDiag for {uri:file}: {diags.Length:diags} entries")
 
     { Uri = uri; Diagnostics = diags } |> lspClient.TextDocumentPublishDiagnostics
 
@@ -309,7 +329,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let config = config |> AVal.force
         do! builtInCompilerAnalyzers config (volatileFile, parseAndCheck)
 
-        if analyzersEnabled |> AVal.force then
+        if config.EnableAnalyzers then
           let file = volatileFile.FileName
 
           try
@@ -785,10 +805,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   do
     // Reload Projects with some debouncing if `loadedProjectOptions` is out of date.
-    AVal.Observable.onWeakMarking loadedProjectOptions
+    AVal.Observable.onOutOfDateWeak loadedProjectOptions
     |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
     |> Observable.observeOn Concurrency.NewThreadScheduler.Default
-    |> Observable.subscribe (forceLoadProjects >> ignore<list<FSharpProjectOptions>>)
+    |> Observable.subscribe (fun _ -> forceLoadProjects () |> ignore<list<FSharpProjectOptions>>)
     |> disposables.Add
 
 
@@ -1027,7 +1047,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> Array.ofList
         |> Array.Parallel.collect (fun p ->
           let parseOpts = Utils.projectOptionsToParseOptions p
-          p.SourceFiles |> Array.map (fun s -> p, parseOpts, s))
+          p.SourceFiles |> Array.Parallel.map (fun s -> p, parseOpts, s))
         |> Array.Parallel.map (fun (opts, parseOpts, fileName) ->
           let fileName = UMX.tag fileName
 
@@ -1037,8 +1057,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           }
           |> Async.map Result.toOption)
         |> Async.parallel75
-        |> Async.map (Array.Parallel.choose id)
-
     }
 
   let forceFindSourceText filePath =
@@ -1341,7 +1359,11 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> AsyncResult.orElseWith (fun _ -> forceGetRecentTypeCheckResults filePath)
         |> AsyncResult.orElseWith (fun _ -> forceGetTypeCheckResults filePath)
         |> Async.map (fun r ->
-          Async.Start(forceGetTypeCheckResults filePath |> Async.Ignore)
+          Async.Start(
+            forceGetTypeCheckResults filePath
+            |> Async.Ignore<Result<ParseAndCheckResults, string>>
+          )
+
           r)
     }
     |> AsyncAVal.forceAsync
@@ -1497,7 +1519,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
         else
           // untitled script files
-          match! forceGetRecentTypeCheckResults file with
+          match! forceGetTypeCheckResultsStale file with
           | Error _ -> return [||]
           | Ok tyRes ->
             let! ct = Async.CancellationToken
@@ -1507,20 +1529,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
       forceGetProjectOptions file |> Async.map Option.ofResult
-
-    let getAllProjectOptions () =
-      async {
-        let! set =
-          allProjectOptions
-          |> AMap.toASetValues
-          |> ASet.force
-          |> HashSet.toArray
-          |> Array.map (AsyncAVal.forceAsync)
-          |> Async.Parallel
-
-        return set |> Array.collect (List.toArray)
-      }
-
 
     Commands.symbolUseWorkspace
       getDeclarationLocation
@@ -1826,67 +1834,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
     }
 
-  let getDeclarationLocation (symbolUse, text) =
-    let getProjectOptions file =
-      getProjectOptionsForFile file |> AsyncAVal.forceAsync |> Async.map selectProject
-
-    let projectsThatContainFile file =
-      getProjectOptionsForFile file |> AsyncAVal.forceAsync
-
-    SymbolLocation.getDeclarationLocation (
-      symbolUse,
-      text,
-      getProjectOptions,
-      projectsThatContainFile,
-      getDependentProjectsOfProjects
-    )
-
-  let symbolUseWorkspace
-    (includeDeclarations: bool)
-    (includeBackticks: bool)
-    (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
-    text
-    tyRes
-    =
-
-    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-      async {
-        let checker = checker |> AVal.force
-
-        if File.Exists(UMX.untag file) then
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-        else
-          // untitled script files
-          match! forceGetRecentTypeCheckResults file with
-          | Error _ -> return [||]
-          | Ok tyRes ->
-            let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-            return usages |> Seq.map (fun u -> u.Range)
-      }
-
-    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      forceGetProjectOptions file |> Async.map Option.ofResult
-
-    let getAllProjectOptions () =
-      getAllProjectOptions () |> Async.map Array.toSeq
-
-    Commands.symbolUseWorkspace
-      getDeclarationLocation
-      findReferencesForSymbolInFile
-      forceFindSourceText
-      tryGetProjectOptionsForFsproj
-      getAllProjectOptions
-      includeDeclarations
-      includeBackticks
-      errorOnFailureToFixRange
-      pos
-      lineStr
-      text
-      tyRes
 
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : AsyncLspResult<SemanticTokens option> =
     asyncResult {
@@ -4776,7 +4723,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           return! LspResult.internalError (string e)
       }
 
-    override x.Dispose() = disposables.Dispose()
+    override x.Dispose() =
+      traceNotifications |> Option.iter (dispose)
+      disposables.Dispose()
 
     member this.WorkDoneProgessCancel(token: ProgressToken) : Async<unit> =
       async {

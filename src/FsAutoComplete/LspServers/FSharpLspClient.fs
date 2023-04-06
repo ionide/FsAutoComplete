@@ -148,7 +148,7 @@ open System.Diagnostics
 open Ionide.ProjInfo.Logging
 
 
-/// listener for the the events generated from the fsc ActivitySource
+/// <summary>listener for the the events generated from the fsc ActivitySource</summary>
 type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
   let isOneOf list string =
