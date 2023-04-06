@@ -110,9 +110,14 @@ module AVal =
     /// Creates an observable with the given object and will be executed whenever the object gets marked out-of-date. Note that it does not trigger when the object is currently out-of-date.
     /// </summary>
     /// <param name="aval">The aval to get out-of-date information from.</param>
-    /// <returns>An observable</returns>
-    let onWeakMarking (aval: #aval<_>) =
-      Observable.Create(fun (obs: IObserver<unit>) -> aval.AddWeakMarkingCallback(obs.OnNext))
+    let onOutOfDateWeak (aval: #aval<_>) =
+      Observable.Create(fun (obs: IObserver<_>) -> aval.AddWeakMarkingCallback(fun _ -> obs.OnNext aval))
+
+
+    /// <summary>Creates an observable on the aval that will be executed whenever the avals value changed.</summary>
+    /// <param name="aval">The aval to get out-of-date information from.</param>
+    let onValueChangedWeak (aval: #aval<_>) =
+      Observable.Create(fun (obs: IObserver<_>) -> aval.AddCallback(obs.OnNext))
 
 module ASet =
   /// Creates an amap with the keys from the set and the values given by mapping and
