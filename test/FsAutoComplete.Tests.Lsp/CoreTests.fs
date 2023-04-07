@@ -297,15 +297,9 @@ let tooltipTests state =
               ""
               "The formatted result."
               ""
-              "**Examples**"
-              ""
-              "See `Printf.sprintf` (link: ``Microsoft.FSharp.Core.PrintfModule.PrintFormatToStringThen``1``) for examples."
-              ""
               "**Generic Parameters**"
               ""
-              "* `'T` is `string`"
-              ""
-              "" ] // verify fancy descriptions for external library functions
+              "* `'T` is `string`" ] // verify fancy descriptions for external library functions
           verifyDescription
             13
             11
@@ -364,9 +358,7 @@ let tooltipTests state =
           verifyDescription
             45
             15
-            [ ""
-              ""
-              "**Generic Parameters**"
+            [ "**Generic Parameters**"
               ""
               "* `'a` is `int`"
               "* `'b` is `int`"
