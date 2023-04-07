@@ -1134,7 +1134,7 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
   let computeGenericParametersText (tooltipData: ToolTipElementData) =
     // If there are no generic parameters, don't display the section
     if tooltipData.TypeMapping.IsEmpty then
-      ""
+      None
     // If there are generic parameters, display the section
     else
       nl
@@ -1143,6 +1143,7 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
       + nl
       + nl
       + formatGenericParameters tooltipData.TypeMapping
+      |> Some
 
   tips
   // Render the first valid tooltip and return it
@@ -1156,13 +1157,20 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
 
           // Concatenate the doc comment and the generic parameters section
           let consolidatedDocCommentText =
-            docCommentText + nl + nl + computeGenericParametersText tooltipData
+            match computeGenericParametersText tooltipData with
+            | Some genericParametersText -> docCommentText + nl + nl + genericParametersText
+            | None -> docCommentText
 
           consolidatedDocCommentText, xmlDoc.HasTruncatedExamples
 
         | TryGetXmlDocMemberResult.None ->
           // Even if a symbol doesn't have a doc comment, it can still have generic parameters
-          computeGenericParametersText tooltipData, false
+          let docComment =
+            match computeGenericParametersText tooltipData with
+            | Some genericParametersText -> genericParametersText
+            | None -> ""
+
+          docComment, false
         | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT, false
 
       {| DocComment = docComment
