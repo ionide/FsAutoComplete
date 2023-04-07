@@ -176,7 +176,12 @@ let tooltipTests state =
   let (|Signature|_|) (hover: Hover) =
     match hover with
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
-                                    MarkedString.String newline
+                                    MarkedString.String docComment
+                                    MarkedString.String fullname
+                                    MarkedString.String assembly |] } -> Some tooltip
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
+                                    MarkedString.String docComment
+                                    MarkedString.String showDocumentationLink
                                     MarkedString.String fullname
                                     MarkedString.String assembly |] } -> Some tooltip
     | _ -> None
@@ -187,6 +192,11 @@ let tooltipTests state =
                                     MarkedString.String description |] } -> Some description
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
                                     MarkedString.String description
+                                    MarkedString.String fullname
+                                    MarkedString.String assembly |] } -> Some description
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
+                                    MarkedString.String description
+                                    MarkedString.String showDocumentationLink
                                     MarkedString.String fullname
                                     MarkedString.String assembly |] } -> Some description
     | _ -> None
