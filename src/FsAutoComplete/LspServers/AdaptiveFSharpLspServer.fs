@@ -2514,10 +2514,10 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           and! tyRes = forceGetTypeCheckResultsStale filePath |> Result.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
-          | Ok(Some(tip, signature, footer, typeDoc) as x) ->
+          | Ok(Some tooltipResult) ->
             logger.info (
               Log.setMessage "TryGetToolTipEnhanced : {parms}"
-              >> Log.addContextDestructured "parms" x
+              >> Log.addContextDestructured "parms" tooltipResult
             )
 
             let formatCommentStyle =
@@ -2530,41 +2530,51 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
               else
                 TipFormatter.FormatCommentStyle.Legacy
 
-            match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
-            | (sigCommentFooter :: _) :: _ ->
-              let signature, comment, footer = sigCommentFooter
+            match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
+            | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
-              let markStr lang (value: string) =
-                MarkedString.WithLanguage { Language = lang; Value = value }
+              // Display the signature as a code block
+              let signature =
+                tooltipResult.Signature
+                |> TipFormatter.prepareSignature
+                |> (fun content -> MarkedString.WithLanguage { Language = "fsharp"; Value = content })
 
-              let fsharpBlock (lines: string[]) =
-                lines |> String.concat Environment.NewLine |> markStr "fsharp"
+              // Display each footer line as a separate line
+              let footerLines =
+                tooltipResult.Footer
+                |> TipFormatter.prepareFooterLines
+                |> Array.map MarkedString.String
 
-              let sigContent =
-                let lines =
-                  signature.Split Environment.NewLine
-                  |> Array.filter (not << String.IsNullOrWhiteSpace)
-
-                match lines |> Array.splitAt (lines.Length - 1) with
-                | (h, [| StartsWith "Full name:" fullName |]) ->
-                  [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
-                | _ -> [| fsharpBlock lines |]
-
-
-              let commentContent = comment |> MarkedString.String
-
-              let footerContent =
-                footer.Split Environment.NewLine
-                |> Array.filter (not << String.IsNullOrWhiteSpace)
-                |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
-
+              let contents =
+                [| signature
+                   MarkedString.String tooltipInfo.DocComment
+                   match tooltipResult.SymbolInfo with
+                   | TryGetToolTipEnhancedResult.Keyword _ -> ()
+                   | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
+                     TipFormatter.renderShowDocumentationLink
+                       tooltipInfo.HasTruncatedExamples
+                       symbolInfo.XmlDocSig
+                       symbolInfo.Assembly
+                     |> MarkedString.String
+                   yield! footerLines |]
 
               let response =
-                { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
+                { Contents = MarkedStrings contents
                   Range = None }
 
               return (Some response)
-            | _ -> return None
+
+            | TipFormatter.TipFormatterResult.Error error ->
+              let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
+
+              let response =
+                { Contents = MarkedStrings contents
+                  Range = None }
+
+              return (Some response)
+
+            | TipFormatter.TipFormatterResult.None -> return None
+
           | Ok(None) ->
 
             return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
@@ -4269,8 +4279,17 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           lastFSharpDocumentationTypeCheck <- Some tyRes
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
-          | Some t ->
-            return Some { Content = CommandResponse.formattedDocumentation FsAutoComplete.JsonSerializer.writeJson t }
+          | Some(tip, xml, signature, footer, xmlKey) ->
+            return
+              Some
+                { Content =
+                    CommandResponse.formattedDocumentation
+                      JsonSerializer.writeJson
+                      {| Tip = tip
+                         XmlSig = xml
+                         Signature = signature
+                         Footer = footer
+                         XmlKey = xmlKey |} }
           | None -> return None
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
@@ -4305,22 +4324,18 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             |> Result.ofCoreResponse
           with
           | None -> return None
-          | Some(xml, assembly, doc, signature, footer, cn) ->
-
-            let xmldoc =
-              match doc with
-              | FSharpXmlDoc.None -> [||]
-              | FSharpXmlDoc.FromXmlFile _ -> [||]
-              | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
+          | Some(xml, assembly, xmlDoc, signature, footer, xmlKey) ->
 
             return
               { Content =
                   CommandResponse.formattedDocumentationForSymbol
-                    FsAutoComplete.JsonSerializer.writeJson
-                    xml
-                    assembly
-                    xmldoc
-                    (signature, footer, cn) }
+                    JsonSerializer.writeJson
+                    {| Xml = xml
+                       Assembly = assembly
+                       XmlDoc = xmlDoc
+                       Signature = signature
+                       Footer = footer
+                       XmlKey = xmlKey |} }
               |> Some
         with e ->
           trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore
