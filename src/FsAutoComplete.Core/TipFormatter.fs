@@ -1137,9 +1137,7 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
       None
     // If there are generic parameters, display the section
     else
-      nl
-      + nl
-      + "**Generic Parameters**"
+      "**Generic Parameters**"
       + nl
       + nl
       + formatGenericParameters tooltipData.TypeMapping
