@@ -1131,36 +1131,38 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
   // we are discarding the things we don't want earlier and only compute the
   // tooltip we want to display if we have the right data.
 
+  let computeGenericParametersText (tooltipData: ToolTipElementData) =
+    // If there are no generic parameters, don't display the section
+    if tooltipData.TypeMapping.IsEmpty then
+      ""
+    // If there are generic parameters, display the section
+    else
+      nl
+      + nl
+      + "**Generic Parameters**"
+      + nl
+      + nl
+      + formatGenericParameters tooltipData.TypeMapping
+
   tips
   // Render the first valid tooltip and return it
   |> List.tryPick (function
-    | ToolTipElement.Group(head :: _) ->
+    | ToolTipElement.Group(tooltipData :: _) ->
       let docComment, hasTruncatedExamples =
-        match tryGetXmlDocMember head.XmlDoc with
+        match tryGetXmlDocMember tooltipData.XmlDoc with
         | TryGetXmlDocMemberResult.Some xmlDoc ->
           // Format the doc comment
           let docCommentText = xmlDoc.FormatComment formatCommentStyle
 
-          // Handle generic parameters section
-          let genericParametersText =
-            // If there are no generic parameters, don't display the section
-            if head.TypeMapping.IsEmpty then
-              ""
-            // If there are generic parameters, display the section
-            else
-              nl
-              + nl
-              + "**Generic Parameters**"
-              + nl
-              + nl
-              + formatGenericParameters head.TypeMapping
-
           // Concatenate the doc comment and the generic parameters section
-          let consolidatedDocCommentText = docCommentText + nl + nl + genericParametersText
+          let consolidatedDocCommentText =
+            docCommentText + nl + nl + computeGenericParametersText tooltipData
 
           consolidatedDocCommentText, xmlDoc.HasTruncatedExamples
 
-        | TryGetXmlDocMemberResult.None -> "", false
+        | TryGetXmlDocMemberResult.None ->
+          // Even if a symbol doesn't have a doc comment, it can still have generic parameters
+          computeGenericParametersText tooltipData, false
         | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT, false
 
       {| DocComment = docComment
