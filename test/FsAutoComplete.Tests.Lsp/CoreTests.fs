@@ -303,7 +303,9 @@ let tooltipTests state =
               ""
               "**Generic Parameters**"
               ""
-              "* `'T` is `string`" ] // verify fancy descriptions for external library functions
+              "* `'T` is `string`"
+              ""
+              "" ] // verify fancy descriptions for external library functions
           verifyDescription
             13
             11
