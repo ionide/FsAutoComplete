@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Benchmarks.SourceText_LineChanges_Benchmarks-20230409-195412</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet=v0.13.5, OS=Windows 11 (10.0.22621.1413/22H2/2022Update/SunValley2)
+12th Gen Intel Core i9-12900F, 1 CPU, 24 logical and 16 physical cores
+.NET SDK=7.0.202
+  [Host]     : .NET 7.0.4 (7.0.423.11508), X64 RyuJIT AVX2 DEBUG
+  DefaultJob : .NET 7.0.4 (7.0.423.11508), X64 RyuJIT AVX2
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>                      Method</th><th> Mean</th><th>Error</th><th>StdDev</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Roslyn_Text_changeText</td><td>501.2 &mu;s</td><td>5.82 &mu;s</td><td>5.44 &mu;s</td><td>1.00</td><td>0.00</td><td>15.6250</td><td>0.9766</td><td>-</td><td>253.49 KB</td><td>1.00</td>
+</tr><tr><td>Lines1_forceOnce</td><td>904.3 &mu;s</td><td>17.79 &mu;s</td><td>21.85 &mu;s</td><td>1.81</td><td>0.05</td><td>57.6172</td><td>28.3203</td><td>0.9766</td><td>883.16 KB</td><td>3.48</td>
+</tr><tr><td>Lines2_forceOnce</td><td>883.4 &mu;s</td><td>15.67 &mu;s</td><td>14.66 &mu;s</td><td>1.76</td><td>0.03</td><td>56.6406</td><td>27.3438</td><td>-</td><td>879.03 KB</td><td>3.47</td>
+</tr><tr><td>Lines3_forceOnce</td><td>859.3 &mu;s</td><td>6.98 &mu;s</td><td>6.18 &mu;s</td><td>1.71</td><td>0.02</td><td>55.6641</td><td>27.3438</td><td>-</td><td>864.46 KB</td><td>3.41</td>
+</tr><tr><td>Lines4_forceOnce</td><td>894.9 &mu;s</td><td>16.80 &mu;s</td><td>14.89 &mu;s</td><td>1.79</td><td>0.04</td><td>57.6172</td><td>28.3203</td><td>0.9766</td><td>882.75 KB</td><td>3.48</td>
+</tr><tr><td>File2_Lines_forceOnce</td><td>491.3 &mu;s</td><td>7.73 &mu;s</td><td>6.85 &mu;s</td><td>0.98</td><td>0.01</td><td>31.2500</td><td>20.5078</td><td>-</td><td>481.88 KB</td><td>1.90</td>
+</tr><tr><td>Roslyn_Text_changeText_every10</td><td>529.8 &mu;s</td><td>3.66 &mu;s</td><td>3.42 &mu;s</td><td>1.06</td><td>0.01</td><td>18.5547</td><td>0.9766</td><td>-</td><td>288.14 KB</td><td>1.14</td>
+</tr><tr><td>Lines1_forceEvery10</td><td>4,999.7 &mu;s</td><td>68.33 &mu;s</td><td>63.91 &mu;s</td><td>9.98</td><td>0.16</td><td>343.7500</td><td>117.1875</td><td>7.8125</td><td>5369.79 KB</td><td>21.18</td>
+</tr><tr><td>Lines2_forceEvery10</td><td>4,906.1 &mu;s</td><td>31.33 &mu;s</td><td>27.78 &mu;s</td><td>9.79</td><td>0.13</td><td>343.7500</td><td>125.0000</td><td>7.8125</td><td>5366.69 KB</td><td>21.17</td>
+</tr><tr><td>Lines3_forceEvery10</td><td>4,667.6 &mu;s</td><td>70.83 &mu;s</td><td>66.25 &mu;s</td><td>9.31</td><td>0.14</td><td>335.9375</td><td>109.3750</td><td>-</td><td>5181.41 KB</td><td>20.44</td>
+</tr><tr><td>Lines4_forceEvery10</td><td>4,920.2 &mu;s</td><td>63.87 &mu;s</td><td>59.75 &mu;s</td><td>9.82</td><td>0.15</td><td>343.7500</td><td>117.1875</td><td>7.8125</td><td>5369.79 KB</td><td>21.18</td>
+</tr><tr><td>File2_Lines_forceEvery10</td><td>580.2 &mu;s</td><td>11.18 &mu;s</td><td>10.45 &mu;s</td><td>1.16</td><td>0.02</td><td>33.2031</td><td>21.4844</td><td>-</td><td>520.01 KB</td><td>2.05</td>
+</tr><tr><td>Roslyn_Text_changeText_everyUpdate</td><td>749.4 &mu;s</td><td>7.62 &mu;s</td><td>7.13 &mu;s</td><td>1.50</td><td>0.03</td><td>37.1094</td><td>1.9531</td><td>-</td><td>575.2 KB</td><td>2.27</td>
+</tr><tr><td>Lines1_forceEveryUpdate</td><td>6,301.7 &mu;s</td><td>125.06 &mu;s</td><td>243.92 &mu;s</td><td>12.28</td><td>0.31</td><td>671.8750</td><td>382.8125</td><td>15.6250</td><td>10311.22 KB</td><td>40.68</td>
+</tr><tr><td>Lines2_forceEveryUpdate</td><td>10,137.8 &mu;s</td><td>166.23 &mu;s</td><td>155.49 &mu;s</td><td>20.23</td><td>0.32</td><td>750.0000</td><td>406.2500</td><td>15.6250</td><td>11653.72 KB</td><td>45.97</td>
+</tr><tr><td>Lines3_forceEveryUpdate</td><td>37,383.0 &mu;s</td><td>715.41 &mu;s</td><td>702.62 &mu;s</td><td>74.63</td><td>1.18</td><td>2769.2308</td><td>538.4615</td><td>76.9231</td><td>43358.95 KB</td><td>171.05</td>
+</tr><tr><td>Lines4_forceEveryUpdate</td><td>6,460.2 &mu;s</td><td>128.06 &mu;s</td><td>157.27 &mu;s</td><td>12.87</td><td>0.35</td><td>671.8750</td><td>367.1875</td><td>15.6250</td><td>10302.61 KB</td><td>40.64</td>
+</tr><tr><td>File2_Lines_forceEveryUpdate</td><td>665.0 &mu;s</td><td>12.08 &mu;s</td><td>11.30 &mu;s</td><td>1.33</td><td>0.03</td><td>37.1094</td><td>21.4844</td><td>-</td><td>572.09 KB</td><td>2.26</td>
+</tr></tbody></table>
+</body>
+</html>

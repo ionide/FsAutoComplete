@@ -11,16 +11,20 @@ strategy: min
 lowest_matching: true
 
 
+nuget BenchmarkDotNet 0.13.5
+nuget CommunityToolkit.HighPerformance 8.1.0
 nuget Fantomas.Client >= 0.9
 nuget FSharp.Compiler.Service >= 43.7.300
 nuget Ionide.ProjInfo >= 0.61.3
 nuget Ionide.ProjInfo.FCS >= 0.61.3
 nuget Ionide.ProjInfo.ProjectSystem >= 0.61.3
 nuget Ionide.ProjInfo.Sln >= 0.61.3
+nuget LinkDotNet.StringBuilder 1.16.0
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
+nuget Microsoft.CodeAnalysis 4.5.0
 nuget Nuget.Frameworks copy_local: false
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler

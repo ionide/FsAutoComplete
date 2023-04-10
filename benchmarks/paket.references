@@ -1,0 +1,6 @@
+FSharp.Core
+BenchmarkDotNet
+Microsoft.CodeAnalysis
+FSharp.Data.Adaptive
+CommunityToolkit.HighPerformance
+LinkDotNet.StringBuilder
