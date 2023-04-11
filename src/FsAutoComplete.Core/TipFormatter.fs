@@ -1011,7 +1011,7 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
 
 [<Literal>]
 let private ERROR_WHILE_PARSING_DOC_COMMENT =
-  "An error occured when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found LSP output"
+  "An error occurred when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found in the LSP output"
 
 let private formatTaggedText (t: TaggedText) : string =
   match t.Tag with
