@@ -220,42 +220,36 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
 
+  let detectTests (parseResults: FSharpParseFileResults) (proj: FSharpProjectOptions) ct =
+    try
+      logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} started")
+
+      let fn = UMX.tag parseResults.FileName
+
+      let res =
+        if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
+          TestAdapter.getExpectoTests parseResults.ParseTree
+        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
+          TestAdapter.getNUnitTest parseResults.ParseTree
+        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+          TestAdapter.getXUnitTest parseResults.ParseTree
+        else
+          []
+
+      logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} - {res:res}")
+
+      notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct)
+    with e ->
+      logger.info (
+        Log.setMessageI $"Test Detection of {parseResults.FileName:file} failed"
+        >> Log.addExn e
+      )
+
   do
     disposables.Add
-    <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) ->
-      try
-        logger.info (
-          Log.setMessage "Test Detection of {file} started"
-          >> Log.addContextDestructured "file" parseResults.FileName
-        )
+    <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) -> detectTests parseResults proj ct)
 
-        let fn = UMX.tag parseResults.FileName
-
-        let res =
-          if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
-            TestAdapter.getExpectoTests parseResults.ParseTree
-          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
-            TestAdapter.getNUnitTest parseResults.ParseTree
-          elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
-            TestAdapter.getXUnitTest parseResults.ParseTree
-          else
-            []
-
-        logger.info (
-          Log.setMessage "Test Detection of {file} - {res}"
-          >> Log.addContextDestructured "file" parseResults.FileName
-          >> Log.addContextDestructured "res" res
-        )
-
-        notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct)
-      with e ->
-        logger.info (
-          Log.setMessage "Test Detection of {file} failed - {res}"
-          >> Log.addContextDestructured "file" parseResults.FileName
-          >> Log.addException e
-        ))
-
-  let builtInCompilerAnalyzers config (file: VolatileFile, tyRes: ParseAndCheckResults) =
+  let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
     let source = file.Lines
     let version = file.Version
@@ -322,55 +316,52 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     }
 
 
+  let runAnalyzers (config: FSharpConfig) (parseAndCheck: ParseAndCheckResults) (volatileFile: VolatileFile) =
+    async {
+      if config.EnableAnalyzers then
+        let file = volatileFile.FileName
+
+        try
+          Loggers.analyzers.info (
+            Log.setMessage "begin analysis of {file}"
+            >> Log.addContextDestructured "file" file
+          )
+
+          match parseAndCheck.GetCheckResults.ImplementationFile with
+          | Some tast ->
+            do! Async.SwitchToNewThread()
+
+            let res =
+              Commands.analyzerHandler (
+                file,
+                volatileFile.Lines.ToString().Split("\n"),
+                parseAndCheck.GetParseResults.ParseTree,
+                tast,
+                parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
+                parseAndCheck.GetAllEntities
+              )
+
+            let! ct = Async.CancellationToken
+            notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file), ct)
+
+            Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
+
+          | _ ->
+            Loggers.analyzers.info (Log.setMessageI $"missing components of {file:file} to run analyzers, skipped them")
+
+            ()
+        with ex ->
+          Loggers.analyzers.error (Log.setMessageI $"Run failed for {file:file}" >> Log.addExn ex)
+    }
+
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
       async {
         let config = config |> AVal.force
-        do! builtInCompilerAnalyzers config (volatileFile, parseAndCheck)
+        do! builtInCompilerAnalyzers config volatileFile parseAndCheck
+        do! runAnalyzers config parseAndCheck volatileFile
 
-        if config.EnableAnalyzers then
-          let file = volatileFile.FileName
-
-          try
-            Loggers.analyzers.info (
-              Log.setMessage "begin analysis of {file}"
-              >> Log.addContextDestructured "file" file
-            )
-
-            match parseAndCheck.GetCheckResults.ImplementationFile with
-            | Some tast ->
-
-              let res =
-                Commands.analyzerHandler (
-                  file,
-                  volatileFile.Lines.ToString().Split("\n"),
-                  parseAndCheck.GetParseResults.ParseTree,
-                  tast,
-                  parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
-                  parseAndCheck.GetAllEntities
-                )
-
-              notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file), ct)
-
-              Loggers.analyzers.info (
-                Log.setMessage "end analysis of {file}"
-                >> Log.addContextDestructured "file" file
-              )
-
-            | _ ->
-              Loggers.analyzers.info (
-                Log.setMessage "missing components of {file} to run analyzers, skipped them"
-                >> Log.addContextDestructured "file" file
-              )
-
-              ()
-          with ex ->
-            Loggers.analyzers.error (
-              Log.setMessage "Run failed for {file}"
-              >> Log.addContextDestructured "file" file
-              >> Log.addExn ex
-            )
       }
       |> Async.StartWithCT ct)
 
@@ -589,7 +580,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     |> AVal.map (fun writeTime -> filePath, writeTime)
 
   let addAValLogging cb (aval: aval<_>) =
-    let cb = aval.AddMarkingCallback(cb)
+    let cb = aval.AddWeakMarkingCallback(cb)
     aval |> AVal.mapDisposableTuple (fun x -> x, cb)
 
   let projectFileChanges project (filePath: string<LocalPath>) =
@@ -1360,8 +1351,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         |> AsyncResult.orElseWith (fun _ -> forceGetTypeCheckResults filePath)
         |> Async.map (fun r ->
           Async.Start(
-            forceGetTypeCheckResults filePath
-            |> Async.Ignore<Result<ParseAndCheckResults, string>>
+            async {
+              // This needs to be in a try catch as it can throw on cancellation which causes the server to crash
+              try
+                do!
+                  forceGetTypeCheckResults filePath
+                  |> Async.Ignore<Result<ParseAndCheckResults, string>>
+              with e ->
+                ()
+            }
           )
 
           r)
@@ -1780,8 +1778,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
       let mutable checksCompleted = 0
 
-      // let progressToken = ProgressToken.Second(Guid.NewGuid().ToString())
-      // do! lspClient.WorkDoneProgressCreate progressToken |> Async.Ignore<Result<_,_>>
       use progressReporter = new ServerProgressReport(lspClient)
 
       let percentage numerator denominator =
