@@ -1334,6 +1334,13 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             match change.Range with
             | None -> // replace entire content
               NamedText(filePath, change.Text)
+            | Some rangeToReplace when
+              rangeToReplace.Start.Line = 0
+              && rangeToReplace.Start.Character = 0
+              && rangeToReplace.End.Line = 0
+              && rangeToReplace.End.Character = 0
+              ->
+              NamedText(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice
               let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
