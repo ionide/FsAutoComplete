@@ -385,90 +385,93 @@ let tryFindBarTokenLPosInRange (codeGenService: ICodeGenerationService) (range: 
   tryFindTokenLPosInRange codeGenService range document (fun tokenInfo -> tokenInfo.TokenName = "BAR")
 
 let tryFindInsertionParams (codeGenService: ICodeGenerationService) document (patMatchExpr: PatternMatchExpr) =
-  match List.rev patMatchExpr.Clauses with
-  | [] ->
-    // Not possible normally
-    None
+  async {
+    match List.rev patMatchExpr.Clauses with
+    | [] ->
+      // Not possible normally
+      return None
 
-  | last :: _ ->
-    // Interesting cases:
-    //
-    // (1)
-    // match x with
-    // | Case1 -> () | Case2 -> ()
-    // <indent-here>
-    //
-    //
-    // (2)
-    // match x with
-    // Case1 -> () | Case2 -> ()
-    // <indent-here>
-    //
-    // (3)
-    // match x with
-    // | Case1 -> ()
-    //      | Case2 -> ()
-    //      <indent-here>
-    //
-    // (4)
-    // match x with
-    // | Case1 -> ()
-    //      |
-    //    Case2 -> ()
-    //    <indent-here>
-    //
-    // (5)
-    // match x with | Case1 -> () | Case2 -> ()
-    //              <indent-here>
+    | last :: _ ->
+      // Interesting cases:
+      //
+      // (1)
+      // match x with
+      // | Case1 -> () | Case2 -> ()
+      // <indent-here>
+      //
+      //
+      // (2)
+      // match x with
+      // Case1 -> () | Case2 -> ()
+      // <indent-here>
+      //
+      // (3)
+      // match x with
+      // | Case1 -> ()
+      //      | Case2 -> ()
+      //      <indent-here>
+      //
+      // (4)
+      // match x with
+      // | Case1 -> ()
+      //      |
+      //    Case2 -> ()
+      //    <indent-here>
+      //
+      // (5)
+      // match x with | Case1 -> () | Case2 -> ()
+      //              <indent-here>
 
-    // To know the indentation column,
-    // We want to find the first clause of the clauses that are on the same last line
-    // All clause f(i) start at line l(i)
-    // We want to 'f(k)' such that k = min { i >= k such that l(i) = l(k) }
-    // And l(k) = max { l(i) }
+      // To know the indentation column,
+      // We want to find the first clause of the clauses that are on the same last line
+      // All clause f(i) start at line l(i)
+      // We want to 'f(k)' such that k = min { i >= k such that l(i) = l(k) }
+      // And l(k) = max { l(i) }
 
-    // TODO: report this bug:
-    // when renaming it like this: ``list of (clause, line index)``
-    // FSI interactive bugs:
-    // error FS0192: internal error: binding null type in envBindTypeRef: list of (clause, line index)
-    let clauseAndLineIdxList =
-      [ for clause in patMatchExpr.Clauses do
-          yield clause, clause.Range.StartLine ]
+      // TODO: report this bug:
+      // when renaming it like this: ``list of (clause, line index)``
+      // FSI interactive bugs:
+      // error FS0192: internal error: binding null type in envBindTypeRef: list of (clause, line index)
+      let clauseAndLineIdxList =
+        [ for clause in patMatchExpr.Clauses do
+            yield clause, clause.Range.StartLine ]
 
-    // Get first of the clauses that are on the same last line
-    let lastLineIdx =
-      clauseAndLineIdxList |> List.map (fun (_, lineIdx) -> lineIdx) |> Seq.last
+      // Get first of the clauses that are on the same last line
+      let lastLineIdx =
+        clauseAndLineIdxList |> List.map (fun (_, lineIdx) -> lineIdx) |> Seq.last
 
-    let firstClauseOnLastLine =
-      clauseAndLineIdxList
-      |> List.find (fun (_, lineIdx) -> lineIdx = lastLineIdx)
-      |> fst
+      let firstClauseOnLastLine =
+        clauseAndLineIdxList
+        |> List.find (fun (_, lineIdx) -> lineIdx = lastLineIdx)
+        |> fst
 
-    // Find if this clause has a pipe before it on the same line as itself
-    let possibleBarLocationRange =
-      // Special case (5):
-      // 'match-with'/'function' is on the same line as the first clause
-      // on the last line
-      if patMatchExpr.MatchWithOrFunctionRange.EndLine = firstClauseOnLastLine.Range.StartLine then
-        Range.unionRanges patMatchExpr.MatchWithOrFunctionRange.EndRange firstClauseOnLastLine.Range.StartRange
-      else
-        let clause = firstClauseOnLastLine
-        let start = Position.mkPos clause.Range.StartLine 0
-        Range.mkRange clause.Range.FileName start clause.Range.Start
+      // Find if this clause has a pipe before it on the same line as itself
+      let possibleBarLocationRange =
+        // Special case (5):
+        // 'match-with'/'function' is on the same line as the first clause
+        // on the last line
+        if patMatchExpr.MatchWithOrFunctionRange.EndLine = firstClauseOnLastLine.Range.StartLine then
+          Range.unionRanges patMatchExpr.MatchWithOrFunctionRange.EndRange firstClauseOnLastLine.Range.StartRange
+        else
+          let clause = firstClauseOnLastLine
+          let start = Position.mkPos clause.Range.StartLine 0
+          Range.mkRange clause.Range.FileName start clause.Range.Start
 
-    let barTokenOpt =
-      tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
+      let! barTokenOpt = tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
 
-    match barTokenOpt with
-    | Some(_, barTokenLPos) ->
-      { IndentColumn = barTokenLPos.Column
-        InsertionPos = last.Range.End }
-      |> Some
+      match barTokenOpt with
+      | Some(_, barTokenLPos) ->
+        return
+          { IndentColumn = barTokenLPos.Column
+            InsertionPos = last.Range.End }
+          |> Some
 
-    | None ->
-      { IndentColumn = firstClauseOnLastLine.Range.StartColumn
-        InsertionPos = last.Range.End }
-      |> Some
+      | None ->
+        return
+          { IndentColumn = firstClauseOnLastLine.Range.StartColumn
+            InsertionPos = last.Range.End }
+          |> Some
+  }
 
 
 let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =

@@ -10,7 +10,7 @@ open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
-  let geTestNotification projectFolder fileName =
+  let getTestNotification projectFolder fileName =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", projectFolder)
       let! server, events = serverInitialize path defaultConfigDto state
@@ -24,12 +24,13 @@ let tests state =
     }
     |> Async.Cache
 
-  testList
+  testSequenced
+  <| testList
     "Find unit tests"
     [ testCaseAsync
         "Find nunit test"
         (async {
-          let! testNotification = geTestNotification "NUnitTests" "UnitTest1.fs"
+          let! testNotification = getTestNotification "NUnitTests" "UnitTest1.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 nunit test"
 
           Expect.equal testNotification.Tests[0].Childs[1].Childs[0].Name "Inner" "Expect nested module to be named Inner"
@@ -41,7 +42,7 @@ let tests state =
       testCaseAsync
         "Find xunit test"
         (async {
-          let! testNotification = geTestNotification "XUnitTests" "Tests.fs"
+          let! testNotification = getTestNotification "XUnitTests" "Tests.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 xunit test list"
           Expect.equal testNotification.Tests[0].ModuleType "Module" "Expected top list to be module"
 
@@ -52,7 +53,7 @@ let tests state =
       testCaseAsync
         "Find expecto tests"
         (async {
-          let! testNotification = geTestNotification "ExpectoTests" "Sample.fs"
+          let! testNotification = getTestNotification "ExpectoTests" "Sample.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 expecto test list"
           Expect.hasLength testNotification.Tests.[0].Childs 8 "Expected to have found 8 expecto tests"
         }) ]

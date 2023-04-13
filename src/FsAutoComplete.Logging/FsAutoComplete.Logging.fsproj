@@ -5,14 +5,8 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\paket-files\TheAngryByrd\FsOpenTelemetry\src\FsOpenTelemetry\FsOpenTelemetry.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/FsOpenTelemetry.fs</Link>
-    </Compile>
-    <Compile Include="..\..\paket-files\TheAngryByrd\FsLibLog\src\FsLibLog\FsLibLog.fs">
-      <Paket>True</Paket>
-      <Link>paket-files/FsLibLog.fs</Link>
-    </Compile>
+    <Compile Include="FsLibLog.fs" />
+    <Compile Include="FsOpenTelemetry.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

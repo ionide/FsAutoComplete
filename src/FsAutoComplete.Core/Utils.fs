@@ -222,6 +222,14 @@ module Async =
       // Start the workflow using a provided cancellation token
       Async.StartWithContinuations(work, cont, econt, ccont, cancellationToken = cancellationToken))
 
+  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
+  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
+  let parallel75 computations =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+
+    Async.Parallel(computations, int maxConcurrency)
+
   [<RequireQualifiedAccess>]
   module Array =
     /// Async implementation of Array.map.
@@ -865,7 +873,7 @@ type FSharpSymbol with
 module Tracing =
 
   open System.Diagnostics
-  open FsOpenTelemetry
+  open FsAutoComplete.Telemetry
   open StreamJsonRpc
   open System.Collections.Generic
 
@@ -902,6 +910,9 @@ module Tracing =
   let fscServiceName = "fsc"
 
   let fsacActivitySource = new ActivitySource(serviceName, Version.info().Version)
+
+  let recordException (e: exn) (trace: Activity) =
+    trace.SetStatusErrorSafe(e.Message).RecordExceptions(e) |> ignore<Activity>
 
   /// <summary>
   /// StreamJsonRpcTracingStrategy participates in and propagates trace context in  vs-streamjsonrpc

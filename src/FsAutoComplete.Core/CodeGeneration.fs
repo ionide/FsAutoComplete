@@ -19,18 +19,18 @@ type Line0
 type Line1
 
 type ICodeGenerationService =
-  abstract TokenizeLine: string<LocalPath> * int -> option<list<FSharpTokenInfo>>
-  abstract GetSymbolAtPosition: string<LocalPath> * Position -> option<LexerSymbol>
+  abstract TokenizeLine: string<LocalPath> * int -> Async<option<list<FSharpTokenInfo>>>
+  abstract GetSymbolAtPosition: string<LocalPath> * Position -> Async<option<LexerSymbol>>
 
   abstract GetSymbolAndUseAtPositionOfKind:
     string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
 
-  abstract ParseFileInProject: string<LocalPath> -> option<FSharpParseFileResults>
+  abstract ParseFileInProject: string<LocalPath> -> Async<option<FSharpParseFileResults>>
 
 type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
   interface ICodeGenerationService with
     override x.TokenizeLine(fileName, i) =
-      option {
+      asyncOption {
         let! text = state.TryGetFileSource fileName |> Option.ofResult
 
         try
@@ -41,13 +41,16 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       }
 
     override x.GetSymbolAtPosition(fileName, pos: Position) =
-      match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-      | ResultOrString.Error _ -> None
-      | ResultOrString.Ok(opts, lines, line) ->
-        try
-          Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-        with _ ->
-          None
+      asyncOption {
+        return!
+          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+          | ResultOrString.Error _ -> None
+          | ResultOrString.Ok(opts, lines, line) ->
+            try
+              Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+            with _ ->
+              None
+      }
 
     override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
       asyncMaybe {
@@ -65,14 +68,17 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       }
 
     override x.ParseFileInProject(fileName) =
-      match state.TryGetFileCheckerOptionsWithLines fileName with
-      | ResultOrString.Error _ -> None
-      | ResultOrString.Ok(opts, text) ->
-        try
-          checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-          |> Option.map (fun n -> n.GetParseResults)
-        with _ ->
-          None
+      async {
+        match state.TryGetFileCheckerOptionsWithLines fileName with
+        | ResultOrString.Error _ -> return None
+        | ResultOrString.Ok(opts, text) ->
+          try
+            return
+              checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
+              |> Option.map (fun n -> n.GetParseResults)
+          with _ ->
+            return None
+      }
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
@@ -121,49 +127,54 @@ module CodeGenerationUtils =
     (document: Document)
     (predicate: FSharpTokenInfo -> bool)
     =
-    // Normalize range
-    // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
-    // range end limit can exceed the end limit of the document
-    let range =
-      if range.EndLine > document.LineCount then
-        let newEndLine = document.LineCount
-        let newEndColumn = document.GetLineText1(document.LineCount).Length
-        let newEndPos = Position.mkPos newEndLine newEndColumn
+    async {
+      // Normalize range
+      // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
+      // range end limit can exceed the end limit of the document
+      let range =
+        if range.EndLine > document.LineCount then
+          let newEndLine = document.LineCount
+          let newEndColumn = document.GetLineText1(document.LineCount).Length
+          let newEndPos = Position.mkPos newEndLine newEndColumn
 
-        Range.mkRange range.FileName range.Start newEndPos
-      else
-        range
+          Range.mkRange range.FileName range.Start newEndPos
+        else
+          range
 
-    let lineIdxAndTokenSeq =
-      seq {
-        let lines =
+      let! lineIdxAndTokenSeq =
+        seq {
+          let lines =
+            if range.StartLine = range.EndLine then
+              [ range.StartLine ]
+            else
+              [ range.StartLine .. range.EndLine ]
+
+          for lineIdx in lines do
+            yield
+              codeGenService.TokenizeLine(document.FullName, lineIdx)
+              |> AsyncOption.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo))
+
+        }
+        |> Async.parallel75
+        |> Async.map (Array.Parallel.choose id)
+
+      let lineIdxAndTokenSeq = lineIdxAndTokenSeq |> Array.collect (List.toArray)
+
+      return
+        lineIdxAndTokenSeq
+        |> Seq.tryFind (fun (line1, tokenInfo) ->
           if range.StartLine = range.EndLine then
-            [ range.StartLine ]
+            tokenInfo.LeftColumn >= range.StartColumn
+            && tokenInfo.RightColumn < range.EndColumn
+            && predicate tokenInfo
+          elif range.StartLine = int line1 then
+            tokenInfo.LeftColumn >= range.StartColumn && predicate tokenInfo
+          elif int line1 = range.EndLine then
+            tokenInfo.RightColumn < range.EndColumn && predicate tokenInfo
           else
-            [ range.StartLine .. range.EndLine ]
-
-        for lineIdx in lines do
-          match
-            codeGenService.TokenizeLine(document.FullName, lineIdx)
-            |> Option.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo))
-          with
-          | Some xs -> yield! xs
-          | None -> ()
-      }
-
-    lineIdxAndTokenSeq
-    |> Seq.tryFind (fun (line1, tokenInfo) ->
-      if range.StartLine = range.EndLine then
-        tokenInfo.LeftColumn >= range.StartColumn
-        && tokenInfo.RightColumn < range.EndColumn
-        && predicate tokenInfo
-      elif range.StartLine = int line1 then
-        tokenInfo.LeftColumn >= range.StartColumn && predicate tokenInfo
-      elif int line1 = range.EndLine then
-        tokenInfo.RightColumn < range.EndColumn && predicate tokenInfo
-      else
-        predicate tokenInfo)
-    |> Option.map (fun (line1, tokenInfo) -> tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn))
+            predicate tokenInfo)
+        |> Option.map (fun (line1, tokenInfo) -> tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn))
+    }
 
   /// Represent environment where a captured identifier should be renamed
   type NamesWithIndices = Map<string, Set<int>>

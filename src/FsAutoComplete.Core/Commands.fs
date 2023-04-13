@@ -397,7 +397,7 @@ module Commands =
     }
 
   let formatSelection
-    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<NamedText, _>>)
     (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     (rangeToFormat: FormatSelectionRange)
@@ -454,7 +454,7 @@ module Commands =
     }
 
   let formatDocument
-    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<NamedText, _>>)
     (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     : Async<Result<FormatDocumentResponse, string>> =
@@ -531,11 +531,12 @@ module Commands =
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
-          let opts = getProjectOptions tyRes.FileName
+          let! opts = getProjectOptions tyRes.FileName
           let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          let! symbols = getUsesOfSymbol (tyRes.FileName, getAllProjects (), sym.Symbol)
+          let! projs = getAllProjects ()
+          let! symbols = getUsesOfSymbol (tyRes.FileName, projs, sym.Symbol)
           let symbols = filterSymbols symbols
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
@@ -617,8 +618,8 @@ module Commands =
     |> AsyncResult.foldResult id (fun _ -> [||])
 
 
-  let pipelineHints (tryGetFileSource: _ -> Result<NamedText, _>) (tyRes: ParseAndCheckResults) =
-    result {
+  let pipelineHints (tryGetFileSource: _ -> Async<Result<NamedText, _>>) (tyRes: ParseAndCheckResults) =
+    asyncResult {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
       let! contents = tryGetFileSource tyRes.FileName
 
@@ -677,7 +678,7 @@ module Commands =
 
       return CoreResponse.Res hints
     }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+    |> AsyncResult.bimap id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
   let calculateNamespaceInsert
     currentAst
@@ -760,11 +761,11 @@ module Commands =
   ///     * When exact ranges are required
   ///       -> for "Rename"
   let symbolUseWorkspace
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> FSharpProjectOptions option)
-    (getAllProjectOptions: unit -> FSharpProjectOptions seq)
+    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -797,7 +798,7 @@ module Commands =
           |> Seq.toArray
           |> Ok
 
-      let declLoc = getDeclarationLocation (symbolUse, text)
+      let! declLoc = getDeclarationLocation (symbolUse, text)
 
       match declLoc with
       // local symbol -> all uses are inside `text`
@@ -819,32 +820,46 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck =
-          match scope with
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> projects
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
-            [ for project in projects do
-                yield project
+        let projectsToCheck: Async<FSharpProjectOptions list> =
+          async {
+            match scope with
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
+              let output = ResizeArray<_>()
 
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-          | _ (*None*) ->
-            // symbol is declared external -> look through all F# projects
-            // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
-            getAllProjectOptions ()
-            |> Seq.distinctBy (fun x -> x.ProjectFileName)
-            |> Seq.toList
+              let! resolvedProjects =
+                [ for project in projects do
+                    yield Async.singleton (Some project)
+
+                    yield!
+                      project.ReferencedProjects
+                      |> Array.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                |> Async.parallel75
+
+
+              return
+                resolvedProjects
+                |> Array.choose id
+                |> Array.toList
+                |> List.distinctBy (fun x -> x.ProjectFileName)
+            | _ (*None*) ->
+              // symbol is declared external -> look through all F# projects
+              // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
+              let! allOptions = getAllProjectOptions ()
+              return allOptions |> Seq.distinctBy (fun x -> x.ProjectFileName) |> Seq.toList
+          }
 
         let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
-          match tryGetFileSource file with
-          | Error _ when errorOnFailureToFixRange -> Error $"Cannot get source of '{file}'"
-          | Error _ -> Ok ranges
-          | Ok text ->
-            tryAdjustRanges (text, ranges)
-            // Note: `Error` only possible when `errorOnFailureToFixRange`
-            |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+          async {
+            match! tryGetFileSource file with
+            | Error _ when errorOnFailureToFixRange -> return Error $"Cannot get source of '{file}'"
+            | Error _ -> return Ok ranges
+            | Ok text ->
+              return
+                tryAdjustRanges (text, ranges)
+                // Note: `Error` only possible when `errorOnFailureToFixRange`
+                |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+          }
 
         let isDeclLocation =
           if includeDeclarations then
@@ -879,7 +894,7 @@ module Commands =
               if references |> Array.isEmpty then
                 return Ok()
               else
-                let ranges = tryAdjustRanges (file, references)
+                let! ranges = tryAdjustRanges (file, references)
 
                 match ranges with
                 | Error msg when errorOnFailureToFixRange -> return Error msg
@@ -917,15 +932,18 @@ module Commands =
                   | Error err -> return Some err
 
                 } ]
-          |> Async.Choice
-          |> Async.map (function
-            | None -> Ok()
-            | Some err -> Error err)
+          |> Async.parallel75
+          |> Async.Ignore<_>
+        // |> Async.map (function
+        //   | None -> Ok()
+        //   | Some err -> Error err)
 
-        do! iterProjects projectsToCheck
+        let! projects = projectsToCheck
+        do! iterProjects projects
 
         return (symbol, dict)
     }
+
 
   /// Puts `newName` into backticks if necessary.
   ///
@@ -972,7 +990,7 @@ module Commands =
   /// Rename for Active Pattern Cases is disabled:
   /// `SymbolUseWorkspace` returns ranges for ALL Cases of that Active Pattern instead of just the single case
   let renameSymbolRange
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (includeBackticks: bool)
     pos
     lineStr
@@ -987,7 +1005,7 @@ module Commands =
       let! _ =
         // None: external symbol -> not under our control -> cannot rename
         getDeclarationLocation (symbolUse, text)
-        |> Result.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
+        |> AsyncResult.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
 
       do!
         match symbolUse with
@@ -2014,8 +2032,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     SymbolLocation.getDeclarationLocation (
       symbolUse,
       text,
-      state.GetProjectOptions,
-      state.ProjectController.ProjectsThatContainFile,
+      state.GetProjectOptions >> Async.singleton,
+      state.ProjectController.ProjectsThatContainFile >> Async.singleton,
       state.ProjectController.GetDependentProjectsOfProjects
     )
 
@@ -2048,13 +2066,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 return usages |> Seq.map (fun u -> u.Range)
           }
 
-      let tryGetFileSource symbolFile = state.TryGetFileSource symbolFile
+      let tryGetFileSource symbolFile =
+        state.TryGetFileSource symbolFile |> Async.singleton
 
       let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
         state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
+        |> Async.singleton
 
       let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd
+        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
 
       return!
         Commands.symbolUseWorkspace
@@ -2086,13 +2106,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    let getProjectOptions filePath = state.GetProjectOptions' filePath
+    let getProjectOptions filePath =
+      state.GetProjectOptions' filePath |> Async.singleton
 
     let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
       checker.GetUsesOfSymbol(filePath, opts, sym)
 
     let getAllProjects () =
-      state.FSharpProjectOptions |> Seq.toList
+      state.FSharpProjectOptions |> Seq.toList |> Async.singleton
 
     Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
@@ -2319,7 +2340,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.FormatDocument(file: string<LocalPath>) : Async<Result<FormatDocumentResponse, string>> =
     let tryGetFileCheckerOptionsWithLines file =
-      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd |> Async.singleton
 
     let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
     Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
@@ -2330,7 +2351,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       rangeToFormat: FormatSelectionRange
     ) : Async<Result<FormatDocumentResponse, string>> =
     let tryGetFileCheckerOptionsWithLines file =
-      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd |> Async.singleton
 
     let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
     Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
@@ -2381,7 +2402,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   static member InlineValues(contents: NamedText, tyRes: ParseAndCheckResults) = Commands.inlineValues contents tyRes
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
-    Commands.pipelineHints state.TryGetFileSource tyRes
+    Commands.pipelineHints (state.TryGetFileSource >> Async.singleton) tyRes
 
   interface IDisposable with
     member x.Dispose() =

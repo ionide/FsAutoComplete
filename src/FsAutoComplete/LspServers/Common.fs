@@ -114,20 +114,26 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     )
     |> fst
 
-  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
-    let mailbox = getOrAddAgent fileUri
+  /// If false, no diagnostics will be collected or sent to the client
+  member val ClientSupportsDiagnostics = true with get, set
 
-    match values with
-    | [||] -> mailbox.Post(Clear kind)
-    | values -> mailbox.Post(Add(kind, values))
+  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
+    if x.ClientSupportsDiagnostics then
+      let mailbox = getOrAddAgent fileUri
+
+      match values with
+      | [||] -> mailbox.Post(Clear kind)
+      | values -> mailbox.Post(Add(kind, values))
 
   member x.ClearFor(fileUri: DocumentUri) =
-    removeAgent fileUri
-    sendDiagnostics fileUri [||] |> Async.Start
+    if x.ClientSupportsDiagnostics then
+      removeAgent fileUri
+      sendDiagnostics fileUri [||] |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
-    let mailbox = getOrAddAgent fileUri
-    mailbox.Post(Clear kind)
+    if x.ClientSupportsDiagnostics then
+      let mailbox = getOrAddAgent fileUri
+      mailbox.Post(Clear kind)
 
   interface IDisposable with
     member x.Dispose() =
@@ -144,13 +150,6 @@ module Async =
   let inline logCancelled e =
     logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
-  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
-  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
-  let parallel75 computations =
-    let maxConcurrency =
-      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
-
-    Async.Parallel(computations, int maxConcurrency)
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
     async {
@@ -188,19 +187,7 @@ module Async =
 
   let StartWithCT ct work = Async.Start(work, ct)
 
-  let RunSynchronouslyWithCT ct work =
-    Async.RunSynchronously(work, cancellationToken = ct)
-
-  let RunSynchronouslyWithCTSafe ct work =
-    try
-      work |> RunSynchronouslyWithCT(ct ()) |> Some
-    with
-    | :? OperationCanceledException as e ->
-      logCancelled e
-      None
-    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
-      logCancelled e
-      None
+  let startImmediateAsTask ct work = Async.StartImmediateAsTask(work, ct)
 
 [<AutoOpen>]
 module ObservableExtensions =

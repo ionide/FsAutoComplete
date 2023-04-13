@@ -8,6 +8,7 @@ open FSharp.UMX
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Xml
+open FSharp.Compiler.Symbols
 
 module internal CompletionUtils =
   let getIcon (glyph: FSharpGlyph) =
@@ -170,15 +171,27 @@ module CommandResponse =
 
   type DocumentationDescription =
     { XmlKey: string
-      Constructors: string list
-      Fields: string list
-      Functions: string list
-      Interfaces: string list
-      Attributes: string list
-      Types: string list
+      Constructors: string array
+      Fields: string array
+      Functions: string array
+      Interfaces: string array
+      Attributes: string array
+      DeclaredTypes: string array
       Signature: string
       Comment: string
-      Footer: string }
+      FooterLines: string array }
+
+    static member CreateFromError(error: string) =
+      { XmlKey = ""
+        Constructors = [||]
+        Fields = [||]
+        Functions = [||]
+        Interfaces = [||]
+        Attributes = [||]
+        DeclaredTypes = [||]
+        FooterLines = [||]
+        Signature = "<Note>"
+        Comment = error }
 
   type CompilerLocationResponse =
     { Fsc: string option
@@ -544,67 +557,101 @@ module CommandResponse =
 
     serialize { Kind = "declarations"; Data = decls' }
 
-  let formattedDocumentation (serialize: Serializer) (tip, xmlSig, signature, footer, cn) =
-    let data =
-      match tip, xmlSig with
+  let formattedDocumentation
+    (serialize: Serializer)
+    (param:
+      {| Tip: ToolTipText option
+         XmlSig: (string * string) option
+         Signature: (string * DocumentationFormatter.EntityInfo)
+         Footer: string
+         XmlKey: string |})
+    =
+
+    let (signature, entity) = param.Signature
+
+    let createDocumentationDescription formattedDocComment =
+      { XmlKey = param.XmlKey
+        Constructors = entity.Constructors
+        Fields = entity.Fields
+        Functions = entity.Functions
+        Interfaces = entity.Interfaces
+        Attributes = entity.Attributes
+        DeclaredTypes = entity.DeclaredTypes
+        FooterLines = TipFormatter.prepareFooterLines param.Footer
+        Signature = TipFormatter.prepareSignature signature
+        Comment = formattedDocComment }
+
+    let data: DocumentationDescription =
+      match param.Tip, param.XmlSig with
       | Some tip, _ ->
-        TipFormatter.formatDocumentation tip signature footer cn
-        |> List.map (
-          List.map (fun (n, cns, fds, funcs, intf, attrs, ts, m, f, cn) ->
-            { XmlKey = cn
-              Constructors = cns |> Seq.toList
-              Fields = fds |> Seq.toList
-              Functions = funcs |> Seq.toList
-              Interfaces = intf |> Seq.toList
-              Attributes = attrs |> Seq.toList
-              Types = ts |> Seq.toList
-              Footer = f
-              Signature = n
-              Comment = m })
-        )
+        match TipFormatter.tryFormatDocumentationFromTooltip tip with
+        | TipFormatter.TipFormatterResult.Success formattedDocComment ->
+          createDocumentationDescription formattedDocComment
+
+        // The old behaviour never took into consideration a possible `None`
+        // It was using direct access into an array which would have thrown
+        // I decided to just return an empty string for now
+        | TipFormatter.TipFormatterResult.None -> createDocumentationDescription ""
+
+        | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
+
       | _, Some(xml, assembly) ->
-        TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn
-        |> List.map (
-          List.map (fun (n, cns, fds, funcs, intf, attrs, ts, m, f, cn) ->
-            { XmlKey = cn
-              Constructors = cns |> Seq.toList
-              Fields = fds |> Seq.toList
-              Functions = funcs |> Seq.toList
-              Interfaces = intf |> Seq.toList
-              Attributes = attrs |> Seq.toList
-              Types = ts |> Seq.toList
-              Footer = f
-              Signature = n
-              Comment = m })
-        )
+        match TipFormatter.tryFormatDocumentationFromXmlSig xml assembly with
+        | TipFormatter.TipFormatterResult.Success formattedDocComment ->
+          createDocumentationDescription formattedDocComment
+
+        // The old behaviour never took into consideration a possible `None`
+        // It was using direct access into an array which would have thrown
+        // I decided to just return an empty string for now
+        | TipFormatter.TipFormatterResult.None -> createDocumentationDescription ""
+
+        | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
+
       | _ -> failwith "Shouldn't happen"
 
     serialize
       { Kind = "formattedDocumentation"
         Data = data }
 
-  let formattedDocumentationForSymbol (serialize: Serializer) xml assembly (xmldoc: string[]) (signature, footer, cn) =
-    let data =
-      TipFormatter.formatDocumentationFromXmlSig xml assembly signature footer cn
-      |> List.map (
-        List.map (fun (n, cns, fds, funcs, intf, attrs, ts, m, f, cn) ->
-          let m =
-            if String.IsNullOrWhiteSpace m then
-              xmldoc |> String.concat Environment.NewLine
-            else
-              m
+  let formattedDocumentationForSymbol
+    (serialize: Serializer)
+    (param:
+      {| Xml: string
+         Assembly: string
+         XmlDoc: FSharpXmlDoc
+         Signature: (string * DocumentationFormatter.EntityInfo)
+         Footer: string
+         XmlKey: string |})
+    =
+    let (signature, entity) = param.Signature
 
-          { XmlKey = cn
-            Constructors = cns |> Seq.toList
-            Fields = fds |> Seq.toList
-            Functions = funcs |> Seq.toList
-            Interfaces = intf |> Seq.toList
-            Attributes = attrs |> Seq.toList
-            Types = ts |> Seq.toList
-            Footer = f
-            Signature = n
-            Comment = m })
-      )
+    let createDocumentationDescription formattedDocComment =
+      { XmlKey = param.XmlKey
+        Constructors = entity.Constructors
+        Fields = entity.Fields
+        Functions = entity.Functions
+        Interfaces = entity.Interfaces
+        Attributes = entity.Attributes
+        DeclaredTypes = entity.DeclaredTypes
+        FooterLines = TipFormatter.prepareFooterLines param.Footer
+        Signature = TipFormatter.prepareSignature signature
+        Comment = formattedDocComment }
+
+    let data: DocumentationDescription =
+      match TipFormatter.tryFormatDocumentationFromXmlSig param.Xml param.Assembly with
+      | TipFormatter.TipFormatterResult.Success formattedDocComment ->
+        createDocumentationDescription formattedDocComment
+
+      | TipFormatter.TipFormatterResult.None ->
+        match TipFormatter.formatDocumentationFromXmlDoc param.XmlDoc with
+        | TipFormatter.TipFormatterResult.Success formattedDocComment ->
+          createDocumentationDescription formattedDocComment
+
+        | TipFormatter.TipFormatterResult.None -> createDocumentationDescription ""
+
+        | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
+
+      | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
 
     serialize
       { Kind = "formattedDocumentation"

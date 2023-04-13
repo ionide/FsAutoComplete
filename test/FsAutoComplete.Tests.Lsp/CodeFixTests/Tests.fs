@@ -573,7 +573,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | A(_, 23) -> ()
+        | A(_, false) -> ()
         | A(a$0, b) -> ()
         """
         Diagnostics.acceptAll
@@ -582,7 +582,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | A(_, 23) -> ()
+        | A(_, false) -> ()
         | A(a = a; b = b;) -> ()
         """
     testCaseAsync "in parenthesized match" <|
@@ -591,7 +591,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | (A(_, 23)) -> ()
+        | (A(_, false)) -> ()
         | (A(a$0, b)) -> ()
         """
         Diagnostics.acceptAll
@@ -600,7 +600,7 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool
 
         match A(1, true) with
-        | (A(_, 23)) -> ()
+        | (A(_, false)) -> ()
         | (A(a = a; b = b;)) -> ()
         """
     testCaseAsync "when there is one new field on the DU" <|
@@ -641,7 +641,498 @@ let private convertPositionalDUToNamedTests state =
         type A = A of a: int * b: bool * c: bool * d: bool
         let (A(a = a;b = b; c = c;     d = d;)) = A(1, true, false, false)
         """
+
+    testCaseAsync "when there are multiple SynLongIdent Pats" <|
+      CodeFix.check server
+        """
+        type MyDiscUnion = Case1 of field1: int * field2: int
+
+        type MyC() =
+
+          let x = Case1 (1, 2)
+
+          member _.Func2 () =
+            match x with
+            | Case1(3$0, 4) -> ()
+            | _ -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion = Case1 of field1: int * field2: int
+
+        type MyC() =
+
+          let x = Case1 (1, 2)
+
+          member _.Func2 () =
+            match x with
+            | Case1(field1 = 3; field2 = 4;) -> ()
+            | _ -> ()
+        """
+      
+    testCaseAsync "when surrounding function takes union parameter" <|
+      CodeFix.check server
+        """
+        type MyDiscUnion = X of field1: int * field2: int
+
+        let f () =
+          let x = X (1, 2)
+          match x with
+          | X(32$0, 23) -> ()
+          | _ -> ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion = X of field1: int * field2: int
+
+        let f () =
+          let x = X (1, 2)
+          match x with
+          | X(field1 = 32; field2 = 23;) -> ()
+          | _ -> ()
+        """
   ])
+
+let private addPrivateAccessModifierTests state =
+  let config = { defaultConfigDto with AddPrivateAccessModifier = Some true }
+  serverTestList (nameof AddPrivateAccessModifier) state config None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
+
+      testCaseAsync "add private works for simple function"
+      <| CodeFix.check
+        server
+        """
+        let f$0 x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let private f x = x * x
+        """
+      
+      testCaseAsync "add private works for simple identifier"
+      <| CodeFix.check
+        server
+        """
+        let x$0 = 23
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let private x = 23
+        """
+
+      testCaseAsync "add private works for simple identifier used in other private function"
+      <| CodeFix.check
+        server
+        """
+        module PMod =
+          let xx$0x = 10
+
+          module PMod2 =
+            let insidePMod2 = 23
+
+          let private a = 23
+
+          let private g z =
+            let sF y = y + xxx
+            z
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module PMod =
+          let private xxx = 10
+
+          module PMod2 =
+            let insidePMod2 = 23
+
+          let private a = 23
+
+          let private g z =
+            let sF y = y + xxx
+            z
+        """
+
+      testCaseAsync "add private is not offered for already private functions"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        let private f$0 x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for function with reference outside its declaring module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module MyModule =
+
+            let helper x = x + 10
+
+            let $0f x = helper x
+
+        MyModule.f 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private works for class type definition"
+      <| CodeFix.check
+        server
+        """
+        type [<System.Obsolete>] MyCla$0ss() =
+          member _.X = 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type [<System.Obsolete>] private MyClass() =
+          member _.X = 10
+        """
+      
+      testCaseAsync "add private is not offered for class type definition with reference"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyCla$0ss() =
+          member _.X = 10
+
+        let _ = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for explicit ctor" // ref finding might not show us usages
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyC(x: int) =
+          ne$0w() =
+            MyC(23)
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for member with reference outside its declaring class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.$0X = 10
+
+        let myInst = MyClass()
+        myInst.X |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring class when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _$0.X = 10
+
+        let myInst = MyClass()
+        myInst.X |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for member when caret is in SynTypArDecl"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyC() =
+          member _.X<'T$0> a = a
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for class member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.Func x$0 = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for let bindings inside a class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let $0f x = x * x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private works for class member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member _.$0X = 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          member private _.X = 10
+        """
+
+      testCaseAsync "add private works for autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member val Name$0 = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          member val private Name = "" with get, set
+        """
+
+      testCaseAsync "add private is not offered for autoproperty with references outside its class"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member val Name$0 = "" with get, set
+        
+        let myInst = MyClass()
+        myInst.Name |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for DU type definition" // ref finding might not show us type inferred usages
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type [<System.Obsolete>] MyDi$0scUnion =
+        | Case1
+        | Case2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        
+      testCaseAsync "add private is not offered for member with reference outside its declaring DU"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.F$0oo x = x
+
+        let x = MyDiscUnion.Case1
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring DU when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member $0_.Foo x = x
+
+        let x = MyDiscUnion.Case1
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for DU member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.Foo $0x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for DU member"
+      <| CodeFix.check
+        server
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member _.Fo$0o x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyDiscUnion =
+        | Case1
+        | Case2
+        with
+          member private _.Foo x = x
+        """
+
+      testCaseAsync "add private is not offered for Record type definition" // ref finding might not show us type inferred usages
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type [<System.Obsolete>] My$0Record =
+          { Field1: int
+            Field2: string }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring Record"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.F$0oo x = x
+
+        let x = { Field1 = 23; Field2 = "bla" }
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+      
+      testCaseAsync "add private is not offered for member with reference outside its declaring Record when caret is on thisValue"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _$0.Foo x = x
+
+        let x = { Field1 = 23; Field2 = "bla" }
+        x.Foo 10
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private is not offered for Record member when caret is on parameter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.Foo $0x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for Record member"
+      <| CodeFix.check
+        server
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member _.Fo$0o x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyRecord =
+          { Field1: int
+            Field2: string }
+        with
+          member private _.Foo x = x
+        """
+      
+      testCaseAsync "add private works for top level module"
+      <| CodeFix.check
+        server
+        """
+        module [<System.Obsolete>] rec M$0
+
+          module Sub = ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module [<System.Obsolete>] private rec M
+
+          module Sub = ()
+        """
+      
+      testCaseAsync "add private works for module"
+      <| CodeFix.check
+        server
+        """
+        module [<System.Obsolete>] rec M$0 =
+          ()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module [<System.Obsolete>] private rec M =
+          ()
+        """
+
+      testCaseAsync "add private is not offered for module with references outside its declaring module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module M =
+          module N$0 =
+              let foofoo = 10
+    
+        M.N.foofoo |> ignore
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "add private works for type abbreviation"
+      <| CodeFix.check
+        server
+        """
+        type My$0Int = int
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type private MyInt = int
+        """
+
+      testCaseAsync "add private is not offered for type abbreviation with reference outside its declaring module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module M =
+          type My$0Int = int
+        
+        let x: M.MyInt = 23
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+    ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
   serverTestList (nameof ConvertTripleSlashCommentToXmlTaggedDoc) state defaultConfigDto None (fun server ->
@@ -2008,6 +2499,7 @@ let tests state = testList "CodeFix-tests" [
   convertInvalidRecordToAnonRecordTests state
   convertPositionalDUToNamedTests state
   convertTripleSlashCommentToXmlTaggedDocTests state
+  addPrivateAccessModifierTests state
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
