@@ -243,6 +243,8 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       walkType lhs
       walkType rhs
+    | SynType.FromParseError(r) ->
+      addIfInside r
 
   and walkClause (SynMatchClause(pat, e1, e2, r, _, _)) =
     addIfInside r
