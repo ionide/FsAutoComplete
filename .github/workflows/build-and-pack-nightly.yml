@@ -26,7 +26,9 @@ jobs:
           run: dotnet tool restore
 
         - name: Run Build
-          run: dotnet run --project build -t Release -p VersionSuffix="beta${{ steps.date.outputs.date }}"
+          run: dotnet run --project build -t Release
+          env:
+            VersionSuffix: "beta${{ steps.date.outputs.date }}"
 
         - name: Push packages
           run: dotnet nuget push bin/pkgs/fsautocomplete.*.nupkg --source https://nuget.pkg.github.com/fsharp/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
