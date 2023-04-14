@@ -18,6 +18,7 @@ let configuration = Environment.environVarOrDefault "configuration" "Release"
 let buildDir = "src" </> project </> "bin" </> "Debug"
 let buildReleaseDir = "src" </> project </> "bin" </> "Release"
 let pkgsDir = "bin" </> "pkgs"
+let toolsDir = "bin" </> "release_as_tool"
 let releaseArchiveNetCore = pkgsDir </> "fsautocomplete.netcore.zip"
 
 // Files to format
@@ -74,25 +75,24 @@ let init args =
            failwithf "Errors while generating coverage report: %A" r.Errors)
 
   Target.create "ReleaseArchive" (fun _ ->
-    Shell.cleanDirs [ "bin/pkgs" ]
-    Directory.ensure "bin/pkgs"
+    Directory.ensure pkgsDir
 
-    !!(sprintf "bin/release_as_tool/fsautocomplete.%s.nupkg" currentRelease.AssemblyVersion)
-    |> Shell.copy "bin/pkgs")
+    !!(toolsDir </> "fsautocomplete.*.nupkg")
+    |> Shell.copy pkgsDir)
 
   Target.create "LocalRelease" (fun _ ->
-    Directory.ensure "bin/release_as_tool"
-    Shell.cleanDirs [ "bin/release_as_tool" ]
+    Directory.ensure toolsDir
+    Shell.cleanDirs [ toolsDir ]
 
     DotNet.pack
       (fun p ->
         { p with
-            OutputPath = Some(__SOURCE_DIRECTORY__ </> ".." </> "bin/release_as_tool")
+            OutputPath = Some(__SOURCE_DIRECTORY__ </> ".." </> toolsDir)
             Configuration = DotNet.BuildConfiguration.fromString configuration
             MSBuildParams = { MSBuild.CliArguments.Create() with Properties = [ packAsToolProp ] } })
       "src/FsAutoComplete")
 
-  Target.create "Clean" (fun _ -> Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir ])
+  Target.create "Clean" (fun _ -> Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir; toolsDir ])
 
   Target.create "Restore" (fun _ -> DotNet.restore id "")
 
@@ -178,7 +178,8 @@ let init args =
   "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
   |> ignore<string>
 
-  "LocalRelease"
+  "Clean"
+  ==> "LocalRelease"
   ==> "ReleaseArchive"
   ==> "Release"
   |> ignore<string>
