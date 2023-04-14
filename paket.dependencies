@@ -52,8 +52,8 @@ nuget AltCover >= 8.3
 nuget GitHubActionsTestLogger >= 2.0
 nuget Ionide.LanguageServerProtocol >= 0.4.12
 nuget Microsoft.Extensions.Caching.Memory >= 6.0.0
-nuget OpenTelemetry.Api >= 1.3.2, < 1.4
-nuget OpenTelemetry.Exporter.OpenTelemetryProtocol >= 1.3.2, < 1.4 # 1.4 bumps to 7.0 versions of System.Diagnostics libs, so can't use it
+nuget OpenTelemetry.Api >= 1.3.2
+nuget OpenTelemetry.Exporter.OpenTelemetryProtocol >= 1.3.2 # 1.4 bumps to 7.0 versions of System.Diagnostics libs, so can't use it
 
 group Build
   source https://api.nuget.org/v3/index.json

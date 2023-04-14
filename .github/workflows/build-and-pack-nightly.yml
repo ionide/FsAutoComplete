@@ -1,0 +1,29 @@
+name: Build and pack nightly
+
+on:
+  push:
+      branches:
+        - nightly
+
+env:
+  BuildNet7: true
+
+jobs:
+    pack-nightly:
+      runs-on: ubuntu-latest
+
+      steps:
+        - uses: actions/checkout@v3
+
+        - name: Get date for version
+          id: date
+          run: echo "::set-output name=date::$(date +'%Y%m%d.%H%M')"
+
+        - name: Restore tools
+          run: dotnet tool restore
+
+        - name: Run Build
+          run: dotnet run --project build -t Release -p VersionSuffix="beta.${{ steps.date.outputs.date }}"
+
+        - name: Push packages
+          run: dotnet nuget push bin/pkgs/fsautocomplete.*.nupkg --source https://nuget.pkg.github.com/fsharp/index.json --api-key ${{ secrets.GITHUB_PACKAGES_KEY }}

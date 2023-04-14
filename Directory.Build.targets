@@ -1,0 +1,12 @@
+<Project>
+
+<Target Name="SupportPrereleaseVersion"
+    AfterTargets="SetVersionFromChangelog">
+    <PropertyGroup Condition="'$(VersionSuffix)' != ''">
+        <Version>$(Version)-$(VersionSuffix)</Version>
+        <PackageVersion>$(Version)</PackageVersion>
+    </PropertyGroup>
+</Target>
+
+
+</Project>
