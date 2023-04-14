@@ -18,6 +18,9 @@ jobs:
         - name: Get date for version
           id: date
           run: echo "::set-output name=date::$(date +'%Y%m%d%H%M')"
+        # setup .NET per the repo global.json
+        - name: Setup .NET
+          uses: actions/setup-dotnet@v2
 
         - name: Restore tools
           run: dotnet tool restore
