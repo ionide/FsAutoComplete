@@ -29,4 +29,4 @@ jobs:
           run: dotnet run --project build -t Release -p VersionSuffix="beta${{ steps.date.outputs.date }}"
 
         - name: Push packages
-          run: dotnet nuget push bin/pkgs/fsautocomplete.*.nupkg --source https://nuget.pkg.github.com/fsharp/index.json --api-key ${{ secrets.GITHUB_PACKAGES_KEY }}
+          run: dotnet nuget push bin/pkgs/fsautocomplete.*.nupkg --source https://nuget.pkg.github.com/fsharp/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
