@@ -1453,6 +1453,152 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         Diagnostics.acceptAll
         selectCodeFix ])
 
+let private generateXmlDocumentationTests state =
+  serverTestList (nameof GenerateXmlDocumentation) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle GenerateXmlDocumentation.title
+
+      testCaseAsync "documentation for function with two parameters"
+      <| CodeFix.check
+        server
+        """
+        let $0f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "documentation for use"
+      <| CodeFix.check
+        server
+        """
+        let f a b _ =
+          use $0r = new System.IO.BinaryReader(null)
+          
+          a + b
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let f a b _ =
+          /// <summary></summary>
+          /// <returns></returns>
+          use r = new System.IO.BinaryReader(null)
+          
+          a + b
+        """
+
+      testCaseAsync "not applicable for record type"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyRec$0ord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable for discriminated union type"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type Dis$0cUnionTest =
+          | Field1
+          | Field2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable for discriminated union case"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type DiscUnionTest =
+          | C$0ase1
+          | Case2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable on enum type"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type myE$0num =
+        | value1 = 1
+        | value2 = 2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable on class type"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyC$0lass() =
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "documentation on member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          n$0ew(x: int) = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary></summary>
+          /// <param name="x"></param>
+          /// <returns></returns>
+          new(x: int) = MyClass()
+        """
+
+      testCaseAsync "documentation on autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member val Na$0me = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary></summary>
+          /// <returns></returns>
+          member val Name = "" with get, set
+        """
+      
+      testCaseAsync "not applicable on named module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module $0M
+          let f x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        
+      testCaseAsync "not applicable on nested module"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        module M
+          module MyNestedMo$0dule =
+            let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix ])
+
 let private generateAbstractClassStubTests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
   serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
@@ -2503,6 +2649,7 @@ let tests state = testList "CodeFix-tests" [
   generateAbstractClassStubTests state
   generateRecordStubTests state
   generateUnionCasesTests state
+  generateXmlDocumentationTests state
   ImplementInterfaceTests.tests state
   makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state
