@@ -50,6 +50,9 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     || str.EndsWith "testCaseAsync"
     || str.EndsWith "ftestCaseAsync"
     || str.EndsWith "ptestCaseAsync"
+    || str.EndsWith "testCaseTask"
+    || str.EndsWith "ftestCaseTask"
+    || str.EndsWith "ptestCaseTask"
     || (str.EndsWith "test"
         && not (str.EndsWith "failtest")
         && not (str.EndsWith "skiptest"))
@@ -58,6 +61,9 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     || str.EndsWith "testAsync"
     || str.EndsWith "ftestAsync"
     || str.EndsWith "ptestAsync"
+    || str.EndsWith "testTask"
+    || str.EndsWith "ftestTask"
+    || str.EndsWith "ptestTask"
     || str.EndsWith "testProperty"
     || str.EndsWith "ptestProperty"
     || str.EndsWith "ftestProperty"
