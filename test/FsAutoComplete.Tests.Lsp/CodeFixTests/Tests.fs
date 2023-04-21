@@ -1493,17 +1493,21 @@ let private generateXmlDocumentationTests state =
           a + b
         """
 
-      testCaseAsync "not applicable for record type"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for record type"
+      <| CodeFix.check
         server
         """
         type MyRec$0ord = { Foo: int }
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary></summary>
+        type MyRecord = { Foo: int }
+        """
 
-      testCaseAsync "not applicable for discriminated union type"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for discriminated union type"
+      <| CodeFix.check
         server
         """
         type Dis$0cUnionTest =
@@ -1512,9 +1516,15 @@ let private generateXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary></summary>
+        type DiscUnionTest =
+          | Field1
+          | Field2
+        """
 
-      testCaseAsync "not applicable for discriminated union case"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for discriminated union case"
+      <| CodeFix.check
         server
         """
         type DiscUnionTest =
@@ -1523,9 +1533,15 @@ let private generateXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        type DiscUnionTest =
+          /// <summary></summary>
+          | Case1
+          | Case2
+        """
 
-      testCaseAsync "not applicable on enum type"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for enum type"
+      <| CodeFix.check
         server
         """
         type myE$0num =
@@ -1534,9 +1550,15 @@ let private generateXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary></summary>
+        type myEnum =
+        | value1 = 1
+        | value2 = 2
+        """
 
-      testCaseAsync "not applicable on class type"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for class type"
+      <| CodeFix.check
         server
         """
         type MyC$0lass() =
@@ -1544,8 +1566,13 @@ let private generateXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary></summary>
+        type MyClass() =
+          member val Name = "" with get, set
+        """
 
-      testCaseAsync "documentation on member"
+      testCaseAsync "documentation for member"
       <| CodeFix.check
         server
         """
@@ -1562,7 +1589,7 @@ let private generateXmlDocumentationTests state =
           new(x: int) = MyClass()
         """
 
-      testCaseAsync "documentation on autoproperty"
+      testCaseAsync "documentation for autoproperty"
       <| CodeFix.check
         server
         """
@@ -1578,8 +1605,8 @@ let private generateXmlDocumentationTests state =
           member val Name = "" with get, set
         """
       
-      testCaseAsync "not applicable on named module"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for named module"
+      <| CodeFix.check
         server
         """
         module $0M
@@ -1587,9 +1614,14 @@ let private generateXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary></summary>
+        module M
+          let f x = x
+        """
         
-      testCaseAsync "not applicable on nested module"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "documentation for nested module"
+      <| CodeFix.check
         server
         """
         module M
@@ -1597,7 +1629,13 @@ let private generateXmlDocumentationTests state =
             let x = 3
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+        """
+        module M
+          /// <summary></summary>
+          module MyNestedModule =
+            let x = 3
+        """ ])
 
 let private generateAbstractClassStubTests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
