@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.59.6] - 2023-04-21
+
+### Added
+
+* [A new codefix to add the 'private' access modifier to bindings and types](https://github.com/fsharp/fsautocomplete/pull/1089) (thanks @dawedawe!)
+
+### Fixed
+
+* [Make the 'convert to positional DU pattern' codefix work in more cases](https://github.com/fsharp/fsautocomplete/pull/1090) (thanks @dawedawe!)
+* [Handle text changes when they are empty in the classic LSP Server](https://github.com/fsharp/fsautocomplete/pull/1100) (thanks @augustfengd!)
+* [Detect Expecto's Task-based tests](https://github.com/fsharp/fsautocomplete/pull/1105) (thanks @ratsclub!)
+
+### Changed
+
+* [Update Ionide.ProjInfo to get more logging](https://github.com/fsharp/fsautocomplete/pull/1093) (thanks @theangrybyrd!)
+* [Update tooltips and Info Panel documentation](https://github.com/fsharp/fsautocomplete/pull/1099) (thanks @MaximeMangel!)
+* [Update the xml doc generation codefix to work in more places](https://github.com/fsharp/fsautocomplete/pull/1106) (thanks @dawedawe!)
+* [Make async more pervasive in the codebase and use AsyncAdaptive values in the Adaptive LSP](https://github.com/fsharp/FsAutoComplete/pull/1088) (thanks @theangrybyrd!)
+
+
 ## [0.59.5] - 2023-04-21
 
 ### Added
