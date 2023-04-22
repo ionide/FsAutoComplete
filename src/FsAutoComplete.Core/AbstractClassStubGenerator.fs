@@ -23,40 +23,54 @@ type AbstractClassData =
     | ObjExpr(t, _, _)
     | ExplicitImpl(t, _, _) -> expandTypeParameters t
 
+let private (|ExplicitCtor|_|) =
+  function
+  | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
+    Some()
+  | _ -> None
+
 /// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
 let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, trivia)) =
-  let reprMembers =
-    match repr with
-    | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
-    | _ -> []
+  option {
+    let reprMembers =
+      match repr with
+      | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
+      | _ -> []
 
-  let allMembers = reprMembers @ (Option.toList implicitCtor) @ members
+    let allMembers = reprMembers @ (Option.toList implicitCtor) @ members
 
-  let inheritMember =
-    allMembers
-    |> List.tryPick (function
-      | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType)
-      | _ -> None)
+    let! inheritType, inheritMemberRange = // this must exist for abstract types
+      allMembers
+      |> List.tryPick (function
+        | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType, range)
+        | _ -> None)
 
-  let otherMembers =
-    allMembers
-    // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
-    |> List.filter (function
-      | SynMemberDefn.ImplicitCtor _
-      | SynMemberDefn.ImplicitInherit _ -> false
-      | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
-        false
-      | _ -> true)
+    let furthestMemberToSkip, otherMembers =
+      ((inheritMemberRange, []), allMembers)
+      // find the last of the following kinds of members, as object-programming members must come after these
+      // * implicit/explicit constructors
+      // * `inherit` expressions
+      // * class-level `do`/`let` bindings (`do` bindings are actually `LetBindings` in the AST)
+      ||> List.fold (fun (m, otherMembers) memb ->
+        match memb with
+        | (SynMemberDefn.ImplicitCtor _ | ExplicitCtor | SynMemberDefn.ImplicitInherit _ | SynMemberDefn.LetBindings _) as possible ->
+          let c = Range.rangeOrder.Compare(m, possible.Range)
 
-  match inheritMember with
-  | Some inheritMember ->
+          let m' =
+            if c < 0 then m
+            else if c = 0 then m
+            else possible.Range
+
+          m', otherMembers
+        | otherMember -> m, otherMember :: otherMembers)
+
     let safeInsertPosition =
-      match otherMembers with
-      | [] -> Position.mkPos (inheritMember.Range.End.Line + 1) (inheritMember.Range.Start.Column + 2)
-      | x :: _ -> Position.mkPos (x.Range.End.Line - 1) (x.Range.Start.Column + 2)
+      Position.mkPos (furthestMemberToSkip.EndLine + 1) (inheritMemberRange.StartColumn + 2)
 
-    Some(AbstractClassData.ExplicitImpl(inheritMember, otherMembers, safeInsertPosition))
-  | _ -> None
+    let otherMembersInDeclarationOrder = otherMembers |> List.rev
+    return AbstractClassData.ExplicitImpl(inheritType, otherMembersInDeclarationOrder, safeInsertPosition)
+
+  }
 
 /// find the declaration of the abstract class being filled in at the given position
 let private tryFindAbstractClassExprInParsedInput
