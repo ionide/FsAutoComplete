@@ -430,7 +430,7 @@ module CodeGenerationUtils =
       if verboseMode then
         writer.Write(": {0}", returnType)
 
-      writer.Write(" = ", returnType)
+      writer.Write(" =")
 
       if verboseMode then
         writer.WriteLine("")
@@ -480,16 +480,16 @@ module CodeGenerationUtils =
       | "", _
       | "()", _ ->
         if verboseMode then
-          writer.WriteLine("and set (v: {0}): unit = ", retType)
+          writer.WriteLine("and set (v: {0}): unit =", retType)
         else
-          writer.Write("and set v = ")
+          writer.Write("and set v =")
       | args, namesWithIndices ->
         let valueArgName, _ = normalizeArgName namesWithIndices "v"
 
         if verboseMode then
-          writer.WriteLine("and set {0} ({1}: {2}): unit = ", args, valueArgName, retType)
+          writer.WriteLine("and set {0} ({1}: {2}): unit =", args, valueArgName, retType)
         else
-          writer.Write("and set {0} {1} = ", args, valueArgName)
+          writer.Write("and set {0} {1} =", args, valueArgName)
 
       writer |> writeImplementation
       writer.Unindent ctx.Indentation
@@ -520,7 +520,7 @@ module CodeGenerationUtils =
 
         match getParamArgs argInfos ctx v with
         | "", _
-        | "()", _ -> writer.WriteLine("with set (v: {0}): unit = ", retType)
+        | "()", _ -> writer.WriteLine("with set (v: {0}): unit =", retType)
         | args, namesWithIndices ->
           let valueArgName, _ = normalizeArgName namesWithIndices "v"
           writer.Write("with set {0} ({1}", args, valueArgName)
@@ -530,7 +530,7 @@ module CodeGenerationUtils =
           else
             writer.Write(")")
 
-          writer.Write(" = ")
+          writer.Write(" =")
 
           if verboseMode then
             writer.WriteLine("")
@@ -656,26 +656,27 @@ module CodeGenerationUtils =
       Some(last.idText, last.idRange)
     | _ -> None
 
-  // Get name and associated range of a member
-  // On merged properties (consisting both getters and setters), they have the same range values,
-  // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
-  let (|MemberNameAndRange|_|) =
+  /// Get name and associated range of a member
+  /// On merged properties (consisting both getters and setters), they have the same range values,
+  /// so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
+  /// We also get the range of the leading keyword to establish indent position
+  let (|MemberNamePlusRangeAndKeywordRange|_|) =
     function
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertyGet
       ->
       if name.StartsWith("get_") then
-        Some(name, range)
+        Some(name, range, trivia.LeadingKeyword.Range)
       else
-        Some("get_" + name, range)
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
+        Some("get_" + name, range, trivia.LeadingKeyword.Range)
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertySet
       ->
       if name.StartsWith("set_") then
-        Some(name, range)
+        Some(name, range, trivia.LeadingKeyword.Range)
       else
-        Some("set_" + name, range)
-    | SynBinding(headPat = LongIdentPattern(name, range)) -> Some(name, range)
+        Some("set_" + name, range, trivia.LeadingKeyword.Range)
+    | SynBinding(headPat = LongIdentPattern(name, range); trivia = trivia) -> Some(name, range, trivia.LeadingKeyword.Range)
     | _ -> None
 
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =
@@ -691,7 +692,7 @@ module CodeGenerationUtils =
   ///  (2) Check symbols of those members based on ranges
   ///  (3) If any symbol found, capture its member signature
   let getImplementedMemberSignatures
-    (getMemberByLocation: string * range -> Async<FSharpSymbolUse option>)
+    (getMemberByLocation: string * range * _ -> FSharpSymbolUse option)
     displayContext
     memberNamesAndRanges
     =
@@ -713,14 +714,11 @@ module CodeGenerationUtils =
         fail "Should only accept symbol uses of members."
         None
 
-    async {
-      let! symbolUses = memberNamesAndRanges |> List.toArray |> Async.Array.map getMemberByLocation
+    let symbolUses = memberNamesAndRanges |> List.map getMemberByLocation
 
-      return
-        symbolUses
-        |> Array.choose (Option.bind formatMemberSignature >> Option.map String.Concat)
-        |> Set.ofArray
-    }
+    symbolUses
+    |> List.choose (Option.bind formatMemberSignature >> Option.map String.Concat)
+    |> Set.ofList
 
   /// Check whether an entity is an interface or type abbreviation of an interface
   let rec isInterface (e: FSharpEntity) =

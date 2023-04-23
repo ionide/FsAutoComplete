@@ -239,17 +239,15 @@ module Commands =
     (lineStr: LineStr)
     =
     asyncResult {
-      let doc = docForText lines tyRes
-
       let! abstractClass =
-        tryFindAbstractClassExprInBufferAtPos objExprRange.Start doc
+        tryFindAbstractClassExprInBufferAtPos objExprRange.Start lines
         |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
 
-      let! (insertPosition, generatedCode) =
-        writeAbstractClassStub tyRes doc lines lineStr abstractClass
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
+      let! inserts =
+        writeAbstractClassStub tyRes lines lineStr abstractClass
+        |> AsyncResult.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class")
 
-      return CoreResponse.Res(generatedCode, insertPosition)
+      return CoreResponse.Res inserts
     }
 
   let getRecordStub
