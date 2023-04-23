@@ -28,8 +28,6 @@ let tests state =
         (Diagnostics.expectCode "365")
         selectCodeFix
     testCaseAsync "can generate abstract class stub" <|
-      // issue: Wants to insert text in line 13, column 12.
-      //        But Line 13 (line with `"""`) is empty -> no column 12
       CodeFix.check server
         """
         [<AbstractClass>]
@@ -68,9 +66,52 @@ let tests state =
           override this.Name: string =
               failwith "Not Implemented"
         ()"""
+    testCaseAsync "can generate abstract class stub with another member with attribute" <|
+      CodeFix.check server
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
+
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type $0Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          [<CompiledName("yo")>]
+          member x.Foo() = 1
+        ()"""
+        (Diagnostics.expectCode "365")
+        selectCodeFix
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
+
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+          override this.Name: string =
+              failwith "Not Implemented"
+
+          [<CompiledName("yo")>]
+          member x.Foo() = 1
+        ()"""
     testCaseAsync "can generate abstract class stub without trailing nl" <|
-      // issue: Wants to insert text in line 13, column 12.
-      //        But there's no line 13 (last line is line 12)
       CodeFix.check server
         """
         [<AbstractClass>]
@@ -110,7 +151,6 @@ let tests state =
               failwith "Not Implemented"
         ()"""
     testCaseAsync "inserts override in correct place" <|
-      // issue: inserts overrides after `let a = ...`, not before
       CodeFix.check server
         """
         [<AbstractClass>]
