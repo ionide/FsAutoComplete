@@ -1,13 +1,13 @@
 module FsAutoComplete.CodeFix.AddMissingXmlDocumentation
 
-open FsToolkit.ErrorHandling
-open FsAutoComplete.CodeFix.Types
-open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
+open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.LspHelpers
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Xml
+open FsToolkit.ErrorHandling
+open Ionide.LanguageServerProtocol.Types
 open System
 
 let title = "Add missing XML documentation"
@@ -29,52 +29,34 @@ let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: P
   else
     None
 
-let private isLetWithSummary input pos =
+let private tryGetCommentsAndSymbolPos input pos =
+
+  let handleSynBinding defaultTraverse (synBinding: SynBinding) =
+    let SynBinding(xmlDoc = xmlDoc; headPat = headPat) as s = synBinding
+    let doc = tryGetExistingXmlDoc pos xmlDoc
+
+    match doc with
+    | Some d ->
+      let r =
+        match headPat with
+        | SynPat.LongIdent(longDotId = longDotId) -> longDotId.Range.End
+        | _ -> s.RangeOfHeadPattern.Start // for use statements
+
+      Some(d, r)
+    | None -> defaultTraverse synBinding
+
   SyntaxTraversal.Traverse(
     pos,
     input,
     { new SyntaxVisitorBase<_>() with
+
         member _.VisitBinding(_, defaultTraverse, synBinding) =
-          match synBinding with
-          | SynBinding(xmlDoc = xmlDoc; headPat = headPat) as s ->
-            let doc = tryGetExistingXmlDoc pos xmlDoc
-
-            match doc with
-            | Some d ->
-              let r =
-                match headPat with
-                | SynPat.LongIdent(longDotId = longDotId) -> longDotId.Range.End
-                | _ -> s.RangeOfHeadPattern.Start
-
-              Some(d, r)
-            | None -> defaultTraverse synBinding
+          handleSynBinding defaultTraverse synBinding
 
         member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
-          let isInLine b =
-            match b with
-            | SynBinding(xmlDoc = xmlDoc; headPat = headPat) as s ->
-              let doc = tryGetExistingXmlDoc pos xmlDoc
+          bindings |> List.tryPick (handleSynBinding defaultTraverse)
 
-              match doc with
-              | Some d ->
-                let r =
-                  match headPat with
-                  | SynPat.LongIdent(longDotId = longDotId) -> longDotId.Range.End
-                  | _ -> s.RangeOfHeadPattern.Start
-
-                Some(d, r)
-              | None -> defaultTraverse b
-
-          bindings |> List.tryPick isInLine
-
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
-  )
-
-let private isAutoPropertyWithSummary input pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
+        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
 
         member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
           match synModuleOrNamespace with
@@ -107,11 +89,6 @@ let private isAutoPropertyWithSummary input pos =
 
             findNested decls }
   )
-
-let private tryGetCommentsAndSymbolPos input pos =
-  match isLetWithSummary input pos with
-  | Some x -> Some x
-  | _ -> isAutoPropertyWithSummary input pos
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
@@ -150,7 +127,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 yield!
                   parameters
                   |> List.concat
-                  |> List.filter (fun (parameter, _) -> comments |> Array.exists (fun c -> c.Contains($"<param name=\"{parameter}\">")) |> not)
+                  |> List.filter (fun (parameter, _) ->
+                    comments
+                    |> Array.exists (fun c -> c.Contains($"<param name=\"{parameter}\">"))
+                    |> not)
                   |> List.mapi (fun _index parameter -> parameterSection parameter)
 
               match genericParameters with
@@ -158,7 +138,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               | generics ->
                 yield!
                   generics
-                  |> List.filter (fun generic -> comments |> Array.exists (fun c -> c.Contains($"<typeparam name=\"'{generic}\">")) |> not)
+                  |> List.filter (fun generic ->
+                    comments
+                    |> Array.exists (fun c -> c.Contains($"<typeparam name=\"'{generic}\">"))
+                    |> not)
                   |> List.mapi (fun _index generic -> genericArg generic)
 
               if comments |> Array.exists (fun s -> s.Contains("<returns>")) then
@@ -173,7 +156,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 lines
                 |> Seq.map (fun s -> indentString + s)
                 |> String.concat Environment.NewLine
-                |> fun s -> Some (s + Environment.NewLine) // need a newline at the very end
+                |> fun s -> Some(s + Environment.NewLine) // need a newline at the very end
 
           match formattedXmlDoc with
           | Some text ->
