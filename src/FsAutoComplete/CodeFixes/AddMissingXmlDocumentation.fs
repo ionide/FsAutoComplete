@@ -120,67 +120,62 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           let trimmed = lineStr.TrimStart(' ')
           let indentLength = lineStr.Length - trimmed.Length
           let indentString = String.replicate indentLength " "
+          let docLines = List.ofArray docLines
 
           let withAdded =
             let indexForParams =
-              Array.FindLastIndex(docLines, (fun s -> s.Contains("</param>") || s.Contains("</summary>")))
+              docLines
+              |> List.tryFindIndexBack (fun s -> s.Contains("</param>") || s.Contains("</summary>"))
 
             let missingParams =
               match memberParameters with
-              | [] -> [||]
+              | [] -> []
               | parameters ->
                 parameters
                 |> List.concat
                 |> List.filter (fun (parameter, _) ->
                   docLines
-                  |> Array.exists (fun c -> c.Contains($"<param name=\"{parameter}\">"))
+                  |> List.exists (fun c -> c.Contains($"<param name=\"{parameter}\">"))
                   |> not)
                 |> List.mapi (fun _index parameter -> parameterSection parameter)
-                |> Array.ofList
 
-            if indexForParams = -1 then
-              Array.append docLines missingParams
-            else
-              let (before, after) = Array.splitAt (indexForParams + 1) docLines
-              Array.append before (Array.append missingParams after)
+            match indexForParams with
+            | None -> List.append docLines missingParams
+            | Some i -> List.insertManyAt (i + 1) missingParams docLines
 
           let withAdded =
             let indexForTypeParams =
-              Array.FindLastIndex(
-                withAdded,
-                (fun s -> s.Contains("</param>") || s.Contains("</typeparam>") || s.Contains("</summary>"))
-              )
+              withAdded
+              |> List.tryFindIndexBack (fun s ->
+                s.Contains("</param>") || s.Contains("</typeparam>") || s.Contains("</summary>"))
 
             let missingTypeParams =
               match genericParameters with
-              | [] -> [||]
+              | [] -> []
               | generics ->
                 generics
                 |> List.filter (fun generic ->
                   docLines
-                  |> Array.exists (fun c -> c.Contains($"<typeparam name=\"'{generic}\">"))
+                  |> List.exists (fun c -> c.Contains($"<typeparam name=\"'{generic}\">"))
                   |> not)
                 |> List.mapi (fun _index generic -> genericArg generic)
-                |> Array.ofList
 
-            if indexForTypeParams = -1 then
-              Array.append withAdded missingTypeParams
-            else
-              let (before, after) = Array.splitAt (indexForTypeParams + 1) withAdded
-              Array.append before (Array.append missingTypeParams after)
+            match indexForTypeParams with
+            | None -> List.append withAdded missingTypeParams
+            | Some i -> List.insertManyAt (i + 1) missingTypeParams withAdded
 
           let withAdded =
-            if withAdded |> Array.exists (fun s -> s.Contains("<returns>")) then
+            if withAdded |> List.exists (fun s -> s.Contains("<returns>")) then
               withAdded
             else
               let indexForReturns =
-                Array.FindLastIndex(
-                  withAdded,
-                  (fun s -> s.Contains("</param>") || s.Contains("</typeparam>") || s.Contains("</summary>"))
-                )
+                withAdded
+                |> List.tryFindIndexBack (fun s ->
+                  s.Contains("</param>") || s.Contains("</typeparam>") || s.Contains("</summary>"))
 
-              let (before, after) = Array.splitAt (indexForReturns + 1) withAdded
-              Array.append before (Array.append [| returnsSection |] after)
+              match indexForReturns with
+              | None -> List.append withAdded [ returnsSection ]
+              | Some i -> List.insertManyAt (i + 1) [ returnsSection ] withAdded
 
           let formattedXmlDoc =
             withAdded
