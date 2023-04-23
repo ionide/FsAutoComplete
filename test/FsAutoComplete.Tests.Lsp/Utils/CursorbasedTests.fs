@@ -114,7 +114,7 @@ module CodeFix =
     (beforeWithCursor: string)
     (validateDiagnostics: Diagnostic[] -> unit)
     (chooseFix: ChooseFix)
-    (expected: ExpectedResult)
+    (expected: unit -> ExpectedResult)
     = async {
       let (range, text) =
         beforeWithCursor
@@ -124,7 +124,7 @@ module CodeFix =
       let! (doc, diags) = server |> Server.createUntitledDocument text
       use doc = doc // ensure doc gets closed (disposed) after test
 
-      do! checkFixAt (doc, diags) (text, range) validateDiagnostics chooseFix expected
+      do! checkFixAt (doc, diags) (text, range) validateDiagnostics chooseFix (expected())
     }
 
   /// Checks a CodeFix (CodeAction) for validity.
@@ -170,7 +170,7 @@ module CodeFix =
       beforeWithCursor
       validateDiagnostics
       chooseFix
-      (After (expected |> Text.trimTripleQuotation))
+      (fun () -> After (expected |> Text.trimTripleQuotation))
 
   /// Note: Doesn't apply Fix! Just checks its existence!
   let checkApplicable
@@ -184,7 +184,7 @@ module CodeFix =
       beforeWithCursor
       validateDiagnostics
       chooseFix
-      Applicable
+      (fun () -> Applicable)
 
   let checkNotApplicable
     server
@@ -197,7 +197,7 @@ module CodeFix =
       beforeWithCursor
       validateDiagnostics
       chooseFix
-      NotApplicable
+      (fun () -> NotApplicable)
 
   let matching cond (fixes: CodeAction array) =
     fixes
@@ -248,11 +248,11 @@ module CodeFix =
       (beforeWithCursors: string)
       (validateDiagnostics: Diagnostic[] -> unit)
       (chooseFix: ChooseFix)
-      (expected: ExpectedResult)
+      (expected: unit -> ExpectedResult)
       =
       let (beforeWithoutCursor, poss) = beforeWithCursors |> Text.trimTripleQuotation |> Cursors.extract
       let ranges = poss |> List.map (fun p -> { Start = p; End = p })
-      checkFixAll name server beforeWithoutCursor ranges validateDiagnostics chooseFix expected
+      checkFixAll name server beforeWithoutCursor ranges validateDiagnostics chooseFix (expected())
 
   let testAllPositions
     name
@@ -268,7 +268,8 @@ module CodeFix =
       beforeWithCursors
       validateDiagnostics
       chooseFix
-      (After (expected |> Text.trimTripleQuotation))
+      (fun () -> After (expected |> Text.trimTripleQuotation))
+
   let testApplicableAllPositions
     name
     server
@@ -282,7 +283,7 @@ module CodeFix =
       beforeWithCursors
       validateDiagnostics
       chooseFix
-      Applicable
+      (fun () -> Applicable)
   let testNotApplicableAllPositions
     name
     server
@@ -296,4 +297,4 @@ module CodeFix =
       beforeWithCursors
       validateDiagnostics
       chooseFix
-      NotApplicable
+      (fun () -> NotApplicable)
