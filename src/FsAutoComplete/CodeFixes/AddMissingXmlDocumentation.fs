@@ -135,7 +135,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 |> List.concat
                 |> List.filter (fun (parameter, _) ->
                   docLines
-                  |> List.exists (fun c -> c.Contains($"<param name=\"{parameter}\">"))
+                  |> List.exists (fun c -> c.Contains($"<param name=\"%s{parameter}\">"))
                   |> not)
                 |> List.mapi (fun _index parameter -> parameterSection parameter)
 
@@ -156,7 +156,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 generics
                 |> List.filter (fun generic ->
                   docLines
-                  |> List.exists (fun c -> c.Contains($"<typeparam name=\"'{generic}\">"))
+                  |> List.exists (fun c -> c.Contains($"<typeparam name=\"'%s{generic}\">"))
                   |> not)
                 |> List.mapi (fun _index generic -> genericArg generic)
 
@@ -179,7 +179,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
           let formattedXmlDoc =
             withAdded
-            |> Seq.mapi (fun i s -> if i = 0 then $"///{s}" else $"{indentString}///{s}")
+            |> Seq.mapi (fun i s -> if i = 0 then $"///%s{s}" else $"%s{indentString}///%s{s}")
             |> String.concat Environment.NewLine
 
           if docLines.Length = withAdded.Length then
