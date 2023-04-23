@@ -1658,6 +1658,29 @@ let private addMissingXmlDocumentationTests state =
         let f x y = x + y
         """
 
+      testCaseAsync "missing params and returns for nested function with two parameters"
+      <| CodeFix.check
+        server
+        """
+        let f x y =
+          /// <summary>some comment$0</summary>
+          let g a b =
+            a + b
+          x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let f x y =
+          /// <summary>some comment</summary>
+          /// <param name=""></param>
+          /// <param name=""></param>
+          /// <returns></returns>
+          let g a b =
+            a + b
+          x + y
+        """
+
       testCaseAsync "missing single parameter for function with two parameters"
       <| CodeFix.check
         server
@@ -1672,8 +1695,8 @@ let private addMissingXmlDocumentationTests state =
         """
         /// <summary>some comment</summary>
         /// <param name="x"></param>
-        /// <returns></returns>
         /// <param name="y"></param>
+        /// <returns></returns>
         let f x y = x + y
         """
 
@@ -1693,9 +1716,9 @@ let private addMissingXmlDocumentationTests state =
         /// <summary>some comment</summary>
         /// <param name="x"></param>
         /// <param name="y"></param>
-        /// <returns></returns>
         /// <param name=""></param>
         /// <typeparam name="'a"></typeparam>
+        /// <returns></returns>
         let f x y _ = x + y
         """
 
