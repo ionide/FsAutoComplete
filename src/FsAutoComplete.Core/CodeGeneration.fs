@@ -573,21 +573,6 @@ module CodeGenerationUtils =
     | Some typ -> Some typ
     | None -> None
 
-  let (|EventFunctionType|_|) (typ: FSharpType) =
-    match typ with
-    | MemberFunctionType typ ->
-      if typ.IsFunctionType && typ.GenericArguments.Count = 2 then
-        let retType = typ.GenericArguments.[0]
-        let argType = typ.GenericArguments.[1]
-
-        if argType.GenericArguments.Count = 2 then
-          Some(argType.GenericArguments.[0], retType)
-        else
-          None
-      else
-        None
-    | _ -> None
-
   let removeWhitespace (str: string) = str.Replace(" ", "")
 
   /// Filter out duplicated interfaces in inheritance chain
@@ -605,19 +590,6 @@ module CodeGenerationUtils =
   /// eg: a property _also_ has the relevant get/set members, so we don't need them.
   let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) =
     m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
-
-  /// Get members in the decreasing order of inheritance chain
-  let getInterfaceMembers (e: FSharpEntity) =
-    seq {
-      for (iface, instantiations) in getInterfaces e do
-        yield!
-          iface.TryGetMembersFunctionsAndValues()
-          |> Seq.choose (fun m ->
-            if isSyntheticMember m then
-              None
-            else
-              Some(m, instantiations))
-    }
 
   let isAbstractNonVirtualMember (m: FSharpMemberOrFunctionOrValue) =
     // is an abstract member
@@ -644,9 +616,6 @@ module CodeGenerationUtils =
           else if isAbstractNonVirtualMember m then Some(m, Seq.empty)
           else None)
     }
-
-  /// Check whether an interface is empty
-  let hasNoInterfaceMember e = getInterfaceMembers e |> Seq.isEmpty
 
   let (|LongIdentPattern|_|) =
     function
@@ -725,54 +694,6 @@ module CodeGenerationUtils =
   let rec isInterface (e: FSharpEntity) =
     e.IsInterface
     || (e.IsFSharpAbbreviation && isInterface e.AbbreviatedType.TypeDefinition)
-
-  let findLastGreaterOperator (tokens: FSharpTokenInfo list) =
-    tokens
-    |> List.findBack (fun token -> token.CharClass = FSharpTokenCharKind.Operator && token.TokenName = "GREATER")
-
-  /// Return the greater multiple of `powerNumber` which is smaller than `value`
-  /// Ex: roundToNearest 14 4 -> 12
-  let findGreaterMultiple (value: int) (powerNumber: int) =
-    let mutable res = powerNumber
-
-    while res + powerNumber < value do
-      res <- res + powerNumber
-
-    res
-
-  let findLastPositionOfWithKeyword
-    (tokens: FSharpTokenInfo list)
-    (entity: FSharpEntity)
-    (pos: Position)
-    (entityAdvancer)
-    =
-    let endPosOfWidth =
-      tokens
-      |> List.tryPick (fun (t: FSharpTokenInfo) ->
-        if
-          t.CharClass = FSharpTokenCharKind.Keyword
-          && t.LeftColumn >= pos.Column
-          && t.TokenName = "WITH"
-        then
-          Some(Position.fromZ (pos.Line - 1) (t.RightColumn + 1))
-        else
-          None)
-
-    match endPosOfWidth with
-    // If we found the position of `with` keyword, return it as it will serve as a reference position for insertion
-    | Some pos -> Some(false, pos)
-    // `with` not found, so we need to find the end position of the interface identifer
-    | None ->
-      let position =
-        if entity.GenericParameters.Count = 0 then
-          let token = entityAdvancer tokens
-          Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
-        // Otherwise, returns the position after the last greater angle (>)
-        else
-          let token = findLastGreaterOperator tokens
-          Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
-
-      Some(true, position)
 
   let rec findLastIdentifier (tokens: FSharpTokenInfo list) (lastValidToken: FSharpTokenInfo) =
     match tokens with

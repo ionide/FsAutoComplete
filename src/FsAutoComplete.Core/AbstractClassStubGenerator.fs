@@ -4,8 +4,6 @@ open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Tokenization
-open FsAutoComplete.Logging
 open FsToolkit.ErrorHandling
 
 
@@ -200,6 +198,10 @@ let writeAbstractClassStub
 
     let start = inferStartColumn abstractClassData desiredMemberNamesWithRanges 4 // 4 here correspond to the indent size
 
+    // this entire file could potentially be replaced by something very much like
+    // FSharp.Compiler.EditorServices.InterfaceStubGenerator.FormatInterface, if the
+    // function to 'get the members we want to implement' was exposed somehow instead of being hard-coded
+    // to just interface lookups
     let formattedString =
       formatMembersAt
         start
