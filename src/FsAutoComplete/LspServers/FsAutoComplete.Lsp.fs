@@ -1220,6 +1220,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
              ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
              ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
+             GenerateXmlDocumentation.fix tryGetParseResultsForFile
              Run.ifEnabled
                (fun _ -> config.AddPrivateAccessModifier)
                (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
@@ -1337,6 +1338,13 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           ||> Array.fold (fun text change ->
             match change.Range with
             | None -> // replace entire content
+              NamedText(filePath, change.Text)
+            | Some rangeToReplace when
+              rangeToReplace.Start.Line = 0
+              && rangeToReplace.Start.Character = 0
+              && rangeToReplace.End.Line = 0
+              && rangeToReplace.End.Character = 0
+              ->
               NamedText(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice

@@ -670,7 +670,7 @@ let private convertPositionalDUToNamedTests state =
             | Case1(field1 = 3; field2 = 4;) -> ()
             | _ -> ()
         """
-      
+
     testCaseAsync "when surrounding function takes union parameter" <|
       CodeFix.check server
         """
@@ -711,7 +711,7 @@ let private addPrivateAccessModifierTests state =
         """
         let private f x = x * x
         """
-      
+
       testCaseAsync "add private works for simple identifier"
       <| CodeFix.check
         server
@@ -779,7 +779,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private works for class type definition"
       <| CodeFix.check
         server
@@ -793,7 +793,7 @@ let private addPrivateAccessModifierTests state =
         type [<System.Obsolete>] private MyClass() =
           member _.X = 10
         """
-      
+
       testCaseAsync "add private is not offered for class type definition with reference"
       <| CodeFix.checkNotApplicable
         server
@@ -805,7 +805,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private is not offered for explicit ctor" // ref finding might not show us usages
       <| CodeFix.checkNotApplicable
         server
@@ -829,7 +829,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private is not offered for member with reference outside its declaring class when caret is on thisValue"
       <| CodeFix.checkNotApplicable
         server
@@ -872,7 +872,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private works for class member"
       <| CodeFix.check
         server
@@ -907,7 +907,7 @@ let private addPrivateAccessModifierTests state =
         """
         type MyClass() =
           member val Name$0 = "" with get, set
-        
+
         let myInst = MyClass()
         myInst.Name |> ignore
         """
@@ -924,7 +924,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-        
+
       testCaseAsync "add private is not offered for member with reference outside its declaring DU"
       <| CodeFix.checkNotApplicable
         server
@@ -940,7 +940,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private is not offered for member with reference outside its declaring DU when caret is on thisValue"
       <| CodeFix.checkNotApplicable
         server
@@ -1000,7 +1000,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private is not offered for member with reference outside its declaring Record"
       <| CodeFix.checkNotApplicable
         server
@@ -1016,7 +1016,7 @@ let private addPrivateAccessModifierTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
-      
+
       testCaseAsync "add private is not offered for member with reference outside its declaring Record when caret is on thisValue"
       <| CodeFix.checkNotApplicable
         server
@@ -1065,7 +1065,7 @@ let private addPrivateAccessModifierTests state =
         with
           member private _.Foo x = x
         """
-      
+
       testCaseAsync "add private works for top level module"
       <| CodeFix.check
         server
@@ -1081,7 +1081,7 @@ let private addPrivateAccessModifierTests state =
 
           module Sub = ()
         """
-      
+
       testCaseAsync "add private works for module"
       <| CodeFix.check
         server
@@ -1103,7 +1103,7 @@ let private addPrivateAccessModifierTests state =
         module M =
           module N$0 =
               let foofoo = 10
-    
+
         M.N.foofoo |> ignore
         """
         Diagnostics.acceptAll
@@ -1127,7 +1127,7 @@ let private addPrivateAccessModifierTests state =
         """
         module M =
           type My$0Int = int
-        
+
         let x: M.MyInt = 23
         """
         Diagnostics.acceptAll
@@ -1213,7 +1213,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         let f a b _ =
             /// line on use$0
             use r = new System.IO.BinaryReader(null)
-            
+
             a + b
         """
         Diagnostics.acceptAll
@@ -1222,7 +1222,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         let f a b _ =
             /// <summary>line on use</summary>
             use r = new System.IO.BinaryReader(null)
-            
+
             a + b
         """
 
@@ -1397,7 +1397,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
           /// </summary>
           member val Name = "" with get, set
         """
-      
+
       testCaseAsync "multiline comment over named module"
       <| CodeFix.check
         server
@@ -1417,7 +1417,7 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         module M
           let f x = x
         """
-      
+
       testCaseAsync "multiline comment over nested module"
       <| CodeFix.check
         server
@@ -1453,191 +1453,189 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         Diagnostics.acceptAll
         selectCodeFix ])
 
-let private generateAbstractClassStubTests state =
-  let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
-  serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
-    let selectCodeFix = CodeFix.withTitle GenerateAbstractClassStub.title
-    testCaseAsync "can generate a derivative of a long ident - System.IO.Stream" <|
-      CodeFix.checkApplicable server
-        """
-        type My$0Stream() =
-          inherit System.IO.Stream()
-        """
-        (Diagnostics.expectCode "365")
-        selectCodeFix
-    testCaseAsync "can generate a derivative for a simple ident - Stream" <|
-      CodeFix.checkApplicable server
-        """
-        open System.IO
-        type My$0Stream2() =
-          inherit Stream()
-        """
-        (Diagnostics.expectCode "365")
-        selectCodeFix
-    ptestCaseAsync "can generate abstract class stub" <|
-      // issue: Wants to insert text in line 13, column 12.
-      //        But Line 13 (line with `"""`) is empty -> no column 12
-      CodeFix.check server
-        """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
+let private generateXmlDocumentationTests state =
+  serverTestList (nameof GenerateXmlDocumentation) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle GenerateXmlDocumentation.title
 
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type $0Square(x,y, sideLength) =
-          inherit Shape(x,y)
+      testCaseAsync "documentation for function with two parameters"
+      <| CodeFix.check
+        server
         """
-        (Diagnostics.expectCode "365")
+        let $0f x y = x + y
+        """
+        Diagnostics.acceptAll
         selectCodeFix
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
-
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type Square(x,y, sideLength) =
-          inherit Shape(x,y)
-
-          override this.Area: float =
-              failwith "Not Implemented"
-          override this.Name: string =
-              failwith "Not Implemented"
+        /// <summary></summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
         """
-    ptestCaseAsync "can generate abstract class stub without trailing nl" <|
-      // issue: Wants to insert text in line 13, column 12.
-      //        But there's no line 13 (last line is line 12)
-      CodeFix.check server
+
+      testCaseAsync "documentation for use"
+      <| CodeFix.check
+        server
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
+        let f a b _ =
+          use $0r = new System.IO.BinaryReader(null)
 
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type $0Square(x,y, sideLength) =
-          inherit Shape(x,y)"""
-        (Diagnostics.expectCode "365")
+          a + b
+        """
+        Diagnostics.acceptAll
         selectCodeFix
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
+        let f a b _ =
+          /// <summary></summary>
+          /// <returns></returns>
+          use r = new System.IO.BinaryReader(null)
 
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type Square(x,y, sideLength) =
-          inherit Shape(x,y)
-
-          override this.Area: float =
-              failwith "Not Implemented"
-          override this.Name: string =
-              failwith "Not Implemented"
+          a + b
         """
-    ptestCaseAsync "inserts override in correct place" <|
-      // issue: inserts overrides after `let a = ...`, not before
-      CodeFix.check server
+
+      testCaseAsync "documentation for record type"
+      <| CodeFix.check
+        server
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
-
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type $0Square(x,y, sideLength) =
-          inherit Shape(x,y)
-        let a = 0
+        type MyRec$0ord = { Foo: int }
         """
-        (Diagnostics.expectCode "365")
+        Diagnostics.acceptAll
         selectCodeFix
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
-
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type Square(x,y, sideLength) =
-          inherit Shape(x,y)
-
-          override this.Area: float =
-              failwith "Not Implemented"
-          override this.Name: string =
-              failwith "Not Implemented"
-        let a = 0
+        /// <summary></summary>
+        type MyRecord = { Foo: int }
         """
-    ptestCaseAsync "can generate abstract class stub with existing override" <|
-      // issue: Generates override for already existing member
-      CodeFix.check server
+
+      testCaseAsync "documentation for discriminated union type"
+      <| CodeFix.check
+        server
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
-
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type $0Square(x,y, sideLength) =
-          inherit Shape(x,y)
+        type Dis$0cUnionTest =
+          | Field1
+          | Field2
         """
-        (Diagnostics.expectCode "365")
+        Diagnostics.acceptAll
         selectCodeFix
         """
-        [<AbstractClass>]
-        type Shape(x0: float, y0: float) =
-          let mutable x, y = x0, y0
-
-          abstract Name : string with get
-          abstract Area : float with get
-
-          member _.Move dx dy =
-            x <- x + dx
-            y <- y + dy
-
-        type Square(x,y, sideLength) =
-          inherit Shape(x,y)
-
-          override this.Name = "Circle"
-
-          override this.Area: float =
-              failwith "Not Implemented"
+        /// <summary></summary>
+        type DiscUnionTest =
+          | Field1
+          | Field2
         """
-  ])
+
+      testCaseAsync "documentation for discriminated union case"
+      <| CodeFix.check
+        server
+        """
+        type DiscUnionTest =
+          | C$0ase1
+          | Case2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type DiscUnionTest =
+          /// <summary></summary>
+          | Case1
+          | Case2
+        """
+
+      testCaseAsync "documentation for enum type"
+      <| CodeFix.check
+        server
+        """
+        type myE$0num =
+        | value1 = 1
+        | value2 = 2
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        type myEnum =
+        | value1 = 1
+        | value2 = 2
+        """
+
+      testCaseAsync "documentation for class type"
+      <| CodeFix.check
+        server
+        """
+        type MyC$0lass() =
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        type MyClass() =
+          member val Name = "" with get, set
+        """
+
+      testCaseAsync "documentation for member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          n$0ew(x: int) = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary></summary>
+          /// <param name="x"></param>
+          /// <returns></returns>
+          new(x: int) = MyClass()
+        """
+
+      testCaseAsync "documentation for autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member val Na$0me = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary></summary>
+          /// <returns></returns>
+          member val Name = "" with get, set
+        """
+
+      testCaseAsync "documentation for named module"
+      <| CodeFix.check
+        server
+        """
+        module $0M
+          let f x = x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        module M
+          let f x = x
+        """
+
+      testCaseAsync "documentation for nested module"
+      <| CodeFix.check
+        server
+        """
+        module M
+          module MyNestedMo$0dule =
+            let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        module M
+          /// <summary></summary>
+          module MyNestedModule =
+            let x = 3
+        """ ])
 
 let private generateRecordStubTests state =
   let config =
@@ -2500,9 +2498,10 @@ let tests state = testList "CodeFix-tests" [
   convertPositionalDUToNamedTests state
   convertTripleSlashCommentToXmlTaggedDocTests state
   addPrivateAccessModifierTests state
-  generateAbstractClassStubTests state
+  GenerateAbstractClassStubTests.tests state
   generateRecordStubTests state
   generateUnionCasesTests state
+  generateXmlDocumentationTests state
   ImplementInterfaceTests.tests state
   makeDeclarationMutableTests state
   makeOuterBindingRecursiveTests state

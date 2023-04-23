@@ -1598,7 +1598,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let writeAbstractClassStub =
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
-
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
         tryFindAbstractClassExprInBufferAtPos
@@ -1664,6 +1663,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
          ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
          ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
+         GenerateXmlDocumentation.fix tryGetParseResultsForFile
          Run.ifEnabled
            (fun _ -> config.AddPrivateAccessModifier)
            (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)

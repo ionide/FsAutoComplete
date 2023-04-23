@@ -790,7 +790,7 @@ type FSharpConfig =
       Linter = false
       LinterConfig = None
       UnionCaseStubGeneration = false
-      UnionCaseStubGenerationBody = """failwith "Not Implemented" """
+      UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
       RecordStubGeneration = false
       RecordStubGenerationBody = "failwith \"Not Implemented\""
       AbstractClassStubGeneration = true
@@ -863,7 +863,7 @@ type FSharpConfig =
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
       AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
       AbstractClassStubGenerationMethodBody =
-        defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \Not Implemented\""
+        defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \"Not Implemented\""
       CodeLenses =
         match dto.CodeLenses with
         | None -> CodeLensConfig.Default
