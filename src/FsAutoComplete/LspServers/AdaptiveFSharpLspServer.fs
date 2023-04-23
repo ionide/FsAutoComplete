@@ -1661,6 +1661,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          AddTypeToIndeterminateValue.fix tryGetParseResultsForFile forceGetProjectOptions
          ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
          AddMissingInstanceMember.fix
+         AddMissingXmlDocumentation.fix tryGetParseResultsForFile
          AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
          ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
          ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
