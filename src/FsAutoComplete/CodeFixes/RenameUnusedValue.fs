@@ -25,8 +25,10 @@ let private accessibilityRange (ast: ParsedInput) (pos: Position) =
     { new SyntaxVisitorBase<_>() with
         member _.VisitPat(_, defaultTraverse, pat) =
           match pat with
-          | SynPat.Named(accessibility = Some (SynAccess.Private (range = accessRange)); range = range) when Range.rangeContainsPos range pos ->
-            Some (accessRange.WithEnd(accessRange.End.WithColumn(accessRange.End.Column + 1))) // add an additional column to remove the 'space' between private and identifier
+          | SynPat.Named(accessibility = Some(SynAccess.Private(range = accessRange)); range = range) when
+            Range.rangeContainsPos range pos
+            ->
+            Some(accessRange.WithEnd(accessRange.End.WithColumn(accessRange.End.Column + 1))) // add an additional column to remove the 'space' between private and identifier
           | _ -> defaultTraverse pat }
   )
 
@@ -38,7 +40,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
       let startPos = protocolPosToPos codeActionParams.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName startPos
 
-      let underscore range: Ionide.LanguageServerProtocol.Types.TextEdit = { Range = range; NewText = "_" }
+      let underscore range : Ionide.LanguageServerProtocol.Types.TextEdit = { Range = range; NewText = "_" }
+
       let mkFix title range =
         { SourceDiagnostic = Some diagnostic
           File = codeActionParams.TextDocument
@@ -51,7 +54,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
         | None -> mkFix titleReplace identRange
         | Some accessRange ->
           { mkFix titleReplace identRange with
-             Edits = [| underscore identRange; { Range = accessRange; NewText = "" } |]}
+              Edits = [| underscore identRange; { Range = accessRange; NewText = "" } |] }
 
       let tryMkPrefixFix range =
         match lines.GetText(protocolRangeToRange (UMX.untag fileName) range) with
@@ -61,7 +64,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
         | _ -> None
 
       let tryMkValueReplaceFix (range: Ionide.LanguageServerProtocol.Types.Range) =
-        mkReplaceFix range (accessibilityRange tyRes.GetAST startPos |> Option.map fcsRangeToLsp) |> Some
+        mkReplaceFix range (accessibilityRange tyRes.GetAST startPos |> Option.map fcsRangeToLsp)
+        |> Some
 
       // CodeFixes:
       // * Replace with _
