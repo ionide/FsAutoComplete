@@ -1598,7 +1598,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let writeAbstractClassStub =
       AbstractClassStubGenerator.writeAbstractClassStub codeGenServer
 
-
     let getAbstractClassStub tyRes objExprRange lines lineStr =
       Commands.getAbstractClassStub
         tryFindAbstractClassExprInBufferAtPos

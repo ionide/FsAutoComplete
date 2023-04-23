@@ -13,7 +13,7 @@ let title = "Generate abstract class members"
 /// a codefix that generates stubs for required override members in abstract types
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
-  (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
+  (genAbstractClassStub: _ -> _ -> _ -> _ -> Async<CoreResponse<FcsPos * string>>)
   (getTextReplacements: unit -> Map<string, string>)
   : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "365" ]) (fun diagnostic codeActionParams ->
@@ -28,7 +28,7 @@ let fix
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
 
       match! genAbstractClassStub tyRes fcsRange lines line with
-      | CoreResponse.Res(text, position) ->
+      | CoreResponse.Res(position, text) ->
         let replacements = getTextReplacements ()
 
         let replaced =
