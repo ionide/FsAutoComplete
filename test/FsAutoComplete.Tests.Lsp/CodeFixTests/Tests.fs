@@ -2108,7 +2108,7 @@ let private renameUnusedValue state =
         (Diagnostics.acceptAll)
         selectPrefix
 
-    ptestCaseAsync "replacing private variable with _ replaces private too" <|
+    testCaseAsync "replacing private variable with _ replaces private too" <|
       CodeFix.check server
         """
         let private $0value = 42
@@ -2118,9 +2118,8 @@ let private renameUnusedValue state =
         """
         let _ = 42
         """
-    //TODO: remove this test and enable prev test once FCS includes range for `SynAccess`
-    testCaseAsync "private variable cannot be replaces with _" <|
-      CodeFix.checkNotApplicable server
+    testCaseAsync "private variable can be replaces with _" <|
+      CodeFix.checkApplicable server
         """
         let private $0value = 42
         """
