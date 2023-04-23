@@ -676,7 +676,8 @@ module CodeGenerationUtils =
         Some(name, range, trivia.LeadingKeyword.Range)
       else
         Some("set_" + name, range, trivia.LeadingKeyword.Range)
-    | SynBinding(headPat = LongIdentPattern(name, range); trivia = trivia) -> Some(name, range, trivia.LeadingKeyword.Range)
+    | SynBinding(headPat = LongIdentPattern(name, range); trivia = trivia) ->
+      Some(name, range, trivia.LeadingKeyword.Range)
     | _ -> None
 
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =

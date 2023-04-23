@@ -10,18 +10,14 @@ open FsToolkit.ErrorHandling
 
 
 type AbstractClassData =
-  | ObjExpr of
-    baseTy: SynType *
-    bindings: SynBinding list *
-    newExpression: Range *
-    withKeyword: Range option
+  | ObjExpr of baseTy: SynType * bindings: SynBinding list * newExpression: Range * withKeyword: Range option
 
   | ExplicitImpl of
-      baseTy: SynType *
-      members: SynMemberDefn list *
-      /// the place where the inherit expression is declared - the codefix should insert
-      /// at an indent of .Start.Column, but insert a newline after .End
-      inheritExpressionRange: Range
+    baseTy: SynType *
+    members: SynMemberDefn list *
+    /// the place where the inherit expression is declared - the codefix should insert
+    /// at an indent of .Start.Column, but insert a newline after .End
+    inheritExpressionRange: Range
 
   member x.AbstractTypeIdentRange =
     match x with
@@ -66,9 +62,7 @@ let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, 
         | (SynMemberDefn.ImplicitCtor _ | ExplicitCtor | SynMemberDefn.ImplicitInherit _ | SynMemberDefn.LetBindings _) as possible ->
           let c = Range.rangeOrder.Compare(m, possible.Range)
 
-          let m' =
-            if c < 0 then possible.Range
-            else m
+          let m' = if c < 0 then possible.Range else m
 
           m', otherMembers
         | otherMember -> m, otherMember :: otherMembers)
@@ -134,7 +128,7 @@ let inferStartColumn
     leadingKeywordRange.StartColumn
   | [] ->
     match abstractClassData with
-    | AbstractClassData.ExplicitImpl (inheritExpressionRange = inheritRange) ->
+    | AbstractClassData.ExplicitImpl(inheritExpressionRange = inheritRange) ->
       // 'interface ISomething with' is often in a new line, we use the indentation of that line
       inheritRange.StartColumn
     | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = withKeyword; bindings = bindings) ->
@@ -146,13 +140,12 @@ let inferStartColumn
         newExpr.StartColumn + indentSize
       | Some keyword ->
         // if we have a keyword, if it's on the same line then we can do the same
-        if keyword.StartLine = newExpr.StartLine
-        then
+        if keyword.StartLine = newExpr.StartLine then
           newExpr.StartColumn + indentSize
+        else if keyword.StartColumn = newExpr.StartColumn then
+          keyword.StartColumn + indentSize
         else
-          if keyword.StartColumn = newExpr.StartColumn
-          then keyword.StartColumn + indentSize
-          else keyword.StartColumn
+          keyword.StartColumn
 
 /// Try to write any missing members of the given abstract type at the given location.
 /// If the destination type isn't an abstract class, or if there are no missing members to implement,
@@ -189,18 +182,16 @@ let writeAbstractClassStub
     let getMemberByLocation (name: string, range: Range, keywordRange: Range) =
       match doc.GetLine range.Start with
       | Some lineText ->
-        match
-          Lexer.getSymbol
-              range.Start.Line
-              range.Start.Column
-              lineText
-              SymbolLookupKind.ByLongIdent
-              [||] with
+        match Lexer.getSymbol range.Start.Line range.Start.Column lineText SymbolLookupKind.ByLongIdent [||] with
         | Some sym ->
-          checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(range.StartLine, range.EndColumn, lineText, sym.Text.Split('.') |> List.ofArray)
+          checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(
+            range.StartLine,
+            range.EndColumn,
+            lineText,
+            sym.Text.Split('.') |> List.ofArray
+          )
         | None -> None
-      | None ->
-        None
+      | None -> None
 
     let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
 
@@ -208,6 +199,7 @@ let writeAbstractClassStub
       getImplementedMemberSignatures getMemberByLocation displayContext desiredMemberNamesWithRanges
 
     let start = inferStartColumn abstractClassData desiredMemberNamesWithRanges 4 // 4 here correspond to the indent size
+
     let formattedString =
       formatMembersAt
         start
@@ -229,12 +221,10 @@ let writeAbstractClassStub
       return! None
     else
       match abstractClassData with
-      | AbstractClassData.ObjExpr( newExpression = newExpr; withKeyword = keyword) ->
+      | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = keyword) ->
         match keyword with
-        | None ->
-          return newExpr.End, " with\n" + generatedString
-        | Some k ->
-          return k.End, "\n" + generatedString
+        | None -> return newExpr.End, " with\n" + generatedString
+        | Some k -> return k.End, "\n" + generatedString
 
       | AbstractClassData.ExplicitImpl(_, _, inheritExpressionRange) ->
         return inheritExpressionRange.End, "\n" + generatedString
