@@ -1732,7 +1732,7 @@ let private addMissingXmlDocumentationTests state =
         Diagnostics.acceptAll
         selectCodeFix
         """
-        /// <summary> some comment</summary>
+        /// <summary>some comment</summary>
         /// <param name="x"></param>
         /// <param name="y"></param>
         /// <returns></returns>

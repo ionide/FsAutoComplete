@@ -25,7 +25,7 @@ let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: P
         let lines =
           match d.UnprocessedLines with
           | [||] -> [| " <summary></summary>" |]
-          | [| c |] -> [| $" <summary>%s{c}</summary>" |]
+          | [| c |] -> [| $" <summary>%s{c.Trim()}</summary>" |]
           | cs -> [| yield " <summary>"; yield! cs; yield " </summary>" |]
 
         Some(lines, d.Range)
