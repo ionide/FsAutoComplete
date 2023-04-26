@@ -1722,8 +1722,8 @@ let private addMissingXmlDocumentationTests state =
         let f x y _ = x + y
         """
 
-      testCaseAsync "not applicable for function without summary"
-      <| CodeFix.checkNotApplicable
+      testCaseAsync "wraps single line non-xml comment"
+      <| CodeFix.check
         server
         """
         /// some comment$0
@@ -1731,6 +1731,34 @@ let private addMissingXmlDocumentationTests state =
         """
         Diagnostics.acceptAll
         selectCodeFix
+        """
+        /// <summary> some comment</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "wraps multi line non-xml comment"
+      <| CodeFix.check
+        server
+        """
+        /// some comment here
+        /// some comment there$0
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// some comment here
+        /// some comment there
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
 
       testCaseAsync "missing returns for use"
       <| CodeFix.check
@@ -1739,7 +1767,7 @@ let private addMissingXmlDocumentationTests state =
         let f a b _ =
           /// <summary>$0</summary>
           use r = new System.IO.BinaryReader(null)
-          
+
           a + b
         """
         Diagnostics.acceptAll
@@ -1749,7 +1777,7 @@ let private addMissingXmlDocumentationTests state =
           /// <summary></summary>
           /// <returns></returns>
           use r = new System.IO.BinaryReader(null)
-          
+
           a + b
         """
 
@@ -1798,7 +1826,7 @@ let private addMissingXmlDocumentationTests state =
           /// <returns></returns>
           member val Name = "" with get, set
         """
-        
+
       testCaseAsync "not applicable for autoproperty with summary and returns"
       <| CodeFix.checkNotApplicable
         server

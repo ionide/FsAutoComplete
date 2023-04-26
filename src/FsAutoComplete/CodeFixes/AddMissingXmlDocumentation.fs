@@ -13,22 +13,27 @@ open System
 let title = "Add missing XML documentation"
 
 let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: PreXmlDoc) =
-  let containsPosAndSummaryPresent (xd: PreXmlDoc) =
+  let tryGetSummaryIfContainsPos (xd: PreXmlDoc) =
     let d = xd.ToXmlDoc(false, None)
 
     if rangeContainsPos d.Range pos then
-      let summaryPresent =
-        d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
-
-      if summaryPresent then
+      if Array.isEmpty d.UnprocessedLines then
+        None
+      elif d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>")) then
         Some(d.UnprocessedLines, d.Range)
       else
-        None
+        let lines =
+          match d.UnprocessedLines with
+          | [||] -> [| " <summary></summary>" |]
+          | [| c |] -> [| $" <summary>%s{c}</summary>" |]
+          | cs -> [| yield " <summary>"; yield! cs; yield " </summary>" |]
+
+        Some(lines, d.Range)
     else
       None
 
   if not xmlDoc.IsEmpty then
-    containsPosAndSummaryPresent xmlDoc
+    tryGetSummaryIfContainsPos xmlDoc
   else
     None
 
