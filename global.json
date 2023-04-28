@@ -1,5 +1,6 @@
 {
   "sdk": {
-    "version": "7.0.201"
+    "version": "7.0.400-preview.23226.4",
+    "allowPrerelease": true
   }
 }

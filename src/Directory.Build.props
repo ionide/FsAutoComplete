@@ -2,6 +2,7 @@
   <Import Project="..\Directory.Build.props" />
 
   <PropertyGroup>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <!-- suppress false positive warning FS2003 about invalid version of AssemblyInformationalVersionAttribute -->
     <NoWarn>$(NoWarn);FS2003</NoWarn>

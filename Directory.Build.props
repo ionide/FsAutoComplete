@@ -7,6 +7,9 @@
     <NoWarn>3186,0042</NoWarn><!-- circumvent an error with the fake dependencymanager for paket: https://github.com/dotnet/fsharp/issues/8678 -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
+    <!-- Yes we know 'times' is for test only, thanks FSC :) -->
+    <NoWarn>$(NoWarn);FS0075</NoWarn>
+    <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
   </PropertyGroup>
 
 </Project>
