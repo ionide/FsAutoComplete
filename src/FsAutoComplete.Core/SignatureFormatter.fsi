@@ -17,8 +17,6 @@ module SignatureFormatter =
     /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
     val internal (++): a: string -> b: string -> string
     val entityIsArray: entity: FSharpEntity -> bool
-    val private measureTypeNames: Set<string>
-    val private isMeasureType: t: FSharpEntity -> bool
     val formatFSharpType: context: FSharpDisplayContext -> typ: FSharpType -> string
 
     val formatGenericParameter:

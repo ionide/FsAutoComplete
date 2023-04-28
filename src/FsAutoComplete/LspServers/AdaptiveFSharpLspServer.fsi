@@ -1,0 +1,19 @@
+namespace FsAutoComplete.Lsp
+
+open Ionide.LanguageServerProtocol.Server
+open Ionide.ProjInfo
+open FsAutoComplete
+open FSharp.Compiler.CodeAnalysis
+
+type AdaptiveFSharpLspServer =
+    new: workspaceLoader: IWorkspaceLoader * lspClient: FSharpLspClient -> AdaptiveFSharpLspServer
+    interface IFSharpLspServer
+
+    member ScriptFileProjectOptions: IEvent<FSharpProjectOptions>
+
+module AdaptiveFSharpLspServer =
+    open System.Threading.Tasks
+    open StreamJsonRpc
+
+    val createRpc: handler: IJsonRpcMessageHandler -> JsonRpc
+    val startCore: toolsPath: 'a -> workspaceLoaderFactory: ('a -> #IWorkspaceLoader) -> LspCloseReason

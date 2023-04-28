@@ -203,7 +203,6 @@ module AsyncMaybe =
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Array =
-    val inline private checkNonNull: argName: string -> arg: 'a -> unit
     /// Optimized arrays equality. ~100x faster than `array1 = array2` on strings.
     /// ~2x faster for floats
     /// ~0.8x slower for ints
@@ -294,7 +293,6 @@ module Patterns =
 module Version =
     open System.Reflection
     type VersionInfo = { Version: string; GitSha: string }
-    val private informationalVersion: unit -> string
     val info: unit -> VersionInfo
 
 type Debounce<'a> =

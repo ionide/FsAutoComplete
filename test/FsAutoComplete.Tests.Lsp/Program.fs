@@ -65,7 +65,7 @@ let lspTests =
         for (lspName, lspFactory) in lspServers do
           testList
             $"{loaderName}.{lspName}"
-            [ 
+            [
               Templates.tests ()
               let createServer () =
                 lspFactory toolsPath workspaceLoaderFactory
@@ -113,7 +113,7 @@ let lspTests =
               UnusedDeclarationsTests.tests createServer
 
               ] ]
-      
+
 /// Tests that do not require a LSP server
 let generalTests = testList "general" [
   testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
@@ -128,7 +128,7 @@ let tests =
     "FSAC"
     [
       generalTests
-      lspTests 
+      lspTests
     ]
 
 
@@ -246,3 +246,5 @@ let main args =
          }
 
   runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
+
+

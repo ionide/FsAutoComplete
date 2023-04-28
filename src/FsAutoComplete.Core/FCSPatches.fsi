@@ -7,15 +7,6 @@ open FSharp.Compiler.Text
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.CodeAnalysis
 
-module internal SynExprAppLocationsImpl =
-    val private searchSynArgExpr:
-        traverseSynExpr: (SynExpr -> 'a option) ->
-        expr: SynExpr ->
-        ranges: range list ->
-            range list option * 'a option option
-
-    val getAllCurriedArgsAtPosition: pos: pos -> parseTree: ParsedInput -> range list option
-
 type FSharpParseFileResults with
 
     member IsPositionContainedInACurriedParameter: pos: pos -> bool

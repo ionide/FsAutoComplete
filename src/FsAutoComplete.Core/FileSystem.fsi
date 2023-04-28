@@ -143,15 +143,6 @@ module Symbol =
     val partitionIntoDeclarationsAndUsages: symbol: FSharpSymbol -> ranges: Range[] -> Range array * Range array
 
 module Tokenizer =
-    /// Extracts identifier by either looking at backticks or splitting at last `.`.
-    /// Removes leading paren too (from operator with Module name: `MyModule.(+++`)
-    ///
-    /// Note: doesn't handle operators containing `.`,
-    ///       but does handle strange Active Patterns (like with linebreak)
-    ///
-    ///
-    /// based on: `dotnet/fsharp` `Tokenizer.fixupSpan`
-    val private tryFixupRangeBySplittingAtDot: range: Range * text: NamedText * includeBackticks: bool -> Range voption
     /// Cleans `FSharpSymbolUse.Range` (and similar) to only contain main (= last) identifier
     /// * Removes leading Namespace, Module, Type: `System.String.IsNullOrEmpty` -> `IsNullOrEmpty`
     /// * Removes leftover open paren: `Microsoft.FSharp.Core.Operators.(+` -> `+`

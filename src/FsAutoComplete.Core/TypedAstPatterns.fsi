@@ -7,7 +7,6 @@ open FSharp.Compiler.Symbols
 /// Active patterns over `FSharpSymbolUse`.
 module SymbolUse =
     val (|ActivePatternCase|_|): symbol: FSharpSymbolUse -> FSharpActivePatternCase option
-    val private attributeSuffixLength: int
     val (|Entity|_|): symbol: FSharpSymbolUse -> (FSharpEntity * string list) option
     val (|Field|_|): symbol: FSharpSymbolUse -> FSharpField option
     val (|GenericParameter|_|): symbol: FSharpSymbolUse -> FSharpGenericParameter option
@@ -22,7 +21,6 @@ module SymbolUse =
     val (|Delegate|_|): (FSharpSymbolUse -> FSharpEntity option)
     val (|Event|_|): (FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option)
     val (|Property|_|): (FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option)
-    val inline private notCtorOrProp: symbol: FSharpMemberOrFunctionOrValue -> bool
     val (|Method|_|): symbolUse: FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option
     val (|Function|_|): symbolUse: FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option
     val (|Operator|_|): symbolUse: FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option
@@ -42,7 +40,6 @@ module SymbolUse =
 /// Active patterns over `FSharpSymbol`.
 [<AutoOpen>]
 module SymbolPatterns =
-    val private attributeSuffixLength: int
     val (|Entity|_|): symbol: FSharpSymbolUse -> (FSharpEntity * string list) option
     val (|EntityFromSymbol|_|): symbol: FSharpSymbol -> (FSharpEntity * string list) option
     val (|AbbreviatedType|_|): entity: FSharpEntity -> FSharpType option
@@ -86,7 +83,6 @@ module SymbolPatterns =
     val (|Function|_|): symbol: FSharpSymbol -> FSharpMemberOrFunctionOrValue option
     val (|ExtensionMember|_|): func: FSharpMemberOrFunctionOrValue -> unit option
     val (|Event|_|): func: FSharpMemberOrFunctionOrValue -> unit option
-    val inline private notCtorOrProp: symbol: FSharpMemberOrFunctionOrValue -> bool
     val (|Operator|_|): symbolUse: FSharpSymbol -> FSharpMemberOrFunctionOrValue option
     val (|Property|_|): (FSharpSymbol -> FSharpMemberOrFunctionOrValue option)
     val (|ClosureOrNestedFunction|_|): (FSharpSymbol -> FSharpMemberOrFunctionOrValue option)

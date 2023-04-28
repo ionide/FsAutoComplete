@@ -31,75 +31,9 @@ module private Format =
         { TagName: string
           Formatter: TagInfo -> string option }
 
-    val private extractTextFromQuote: quotedText: string -> string
     val extractMemberText: text: string -> string
-    val private getAttributes: attributes: Group -> Map<string, string>
     type AttrLookup = Map<string, string> -> Option<string>
-    val private cref: AttrLookup
-    val private langword: AttrLookup
-    val private href: AttrLookup
-    val private lang: AttrLookup
-    val private name: AttrLookup
-    val private applyFormatter: info: FormatterInfo -> text: string -> string
-    val private codeBlock: (string -> string)
-    val private example: (string -> string)
-    val private codeInline: (string -> string)
-    val private link: text: string -> uri: string -> string
-    val private code: text: string -> string
-    val private anchor: (string -> string)
-    val private paragraph: (string -> string)
-    val private block: (string -> string)
-    val private see: (string -> string)
-    val private xref: (string -> string)
-    val private paramRef: (string -> string)
-    val private typeParamRef: (string -> string)
-    val private fixPortableClassLibrary: text: string -> string
-    /// <summary>Handle Microsoft 'or' formatting blocks</summary>
-    /// <remarks>
-    /// <para>We don't use the formatter API here because we are not handling a "real XML element"</para>
-    /// <para>We don't use regex neither because I am not able to create one covering all the possible case</para>
-    /// <para>
-    /// There are 2 types of 'or' blocks:
-    ///
-    /// - Inlined: [...]  -or-  [...]  -or-  [...]
-    /// - Blocked:
-    /// [...]
-    /// -or-
-    /// [...]
-    /// -or-
-    /// [...]
-    /// </para>
-    /// <para>
-    /// This function can convert both styles. If an 'or' block is encounter the whole section will always result in a multiline output
-    /// </para>
-    /// <para>
-    /// If we pass any of the 2 previous example, it will generate the same Markdown string as a result (because they have the same number of 'or' section). The result will be:
-    /// </para>
-    /// <para>
-    /// >    [...]
-    ///
-    /// *or*
-    ///
-    /// >    [...]
-    ///
-    /// *or*
-    ///
-    /// >    [...]
-    /// </para>
-    /// </remarks>
-    val private handleMicrosoftOrList: text: string -> string
-    /// <summary>Remove all invalid 'or' block found</summary>
-    /// <remarks>
-    /// If an 'or' block is found between 2 elements then we remove it as we can't generate a valid markdown for it
-    ///
-    /// For example, <td> Some text -or- another text </td> cannot be converted into a multiline string
-    /// and so we prefer to remove the 'or' block instead of having some weird markdown artefacts
-    ///
-    /// For now, we only consider text between <td></td> to be invalid
-    /// We can add more in the future if needed, but I want to keep this as minimal as possible to avoid capturing false positive
-    /// </remarks>
-    val private removeInvalidOrBlock: text: string -> string
-    val private convertTable: (string -> string)
+
     type private Term = string
     type private Definition = string
 
@@ -119,14 +53,6 @@ module private Format =
         /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
         | Definitions of Term * Definition
 
-    val private itemListToStringAsMarkdownList: prefix: string -> item: ItemList -> string
-    val private list: (string -> string)
-    /// <summary>
-    /// Unescape XML special characters
-    ///
-    /// For example, this allows to print '>' in the tooltip instead of '&gt;'
-    /// </summary>
-    val private unescapeSpecialCharacters: text: string -> string
     val applyAll: text: string -> string
 
 [<RequireQualifiedAccess>]
@@ -145,12 +71,6 @@ type private XmlDocMember =
     member ToDocumentationString: unit -> string
     member FormatComment: formatStyle: FormatCommentStyle -> string
 
-val private readXmlDoc:
-    reader: XmlReader -> indentationSize: int -> acc: Map<string, XmlDocMember> -> Map<string, XmlDocMember>
-
-val private xmlDocCache: Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>
-val private getXmlDoc: dllFile: string -> Map<string, XmlDocMember> option
-
 [<RequireQualifiedAccess>]
 type private TryGetXmlDocMemberResult =
     | Some of XmlDocMember
@@ -163,16 +83,6 @@ type TipFormatterResult<'T> =
     | Error of string
     | None
 
-val private tryGetXmlDocMember: xmlDoc: FSharpXmlDoc -> TryGetXmlDocMemberResult
-
-[<Literal>]
-val private ERROR_WHILE_PARSING_DOC_COMMENT: string = "An error occurred when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found in the LSP output"
-
-val private formatTaggedText: t: TaggedText -> string
-val private formatUntaggedText: t: TaggedText -> string
-val private formatUntaggedTexts: (TaggedText array -> string)
-val private formatTaggedTexts: (TaggedText array -> string)
-val private formatGenericParameters: typeMappings: TaggedText[] list -> string
 /// CompletionItems are formatted with an unmodified signature since the signature portion of the
 /// item isn't markdown-compatible. The documentation shown however is markdown.
 val formatCompletionItemTip: ToolTipText -> string * string
@@ -181,12 +91,6 @@ val formatCompletionItemTip: ToolTipText -> string * string
 val formatPlainTip: ToolTipText -> string * string
 val prepareSignature: signatureText: string -> string
 val prepareFooterLines: footerText: string -> string array
-
-val private tryComputeTooltipInfo:
-    ToolTipText ->
-    formatCommentStyle: FormatCommentStyle ->
-        Result<{| DocComment: string
-                  HasTruncatedExamples: bool |}, string> option
 
 /// <summary>
 /// Try format the given tooltip with the requested style.

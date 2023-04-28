@@ -14,9 +14,6 @@ open FsToolkit.ErrorHandling
 
 [<AutoOpen>]
 module ProjInfoExtensions =
-    val private internalGetCSharpReferenceInfo: (FSharpReferencedProject -> (string * (unit -> DateTime) * obj) option)
-    val private internalGetProjectOptions: (FSharpReferencedProject -> FSharpProjectOptions option)
-
     type FSharpReferencedProject with
 
         member ProjectFilePath: string option

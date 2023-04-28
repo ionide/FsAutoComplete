@@ -14,7 +14,6 @@ module TypedAstUtils =
     val tryGetAttribute<'T> : attributes: seq<FSharpAttribute> -> FSharpAttribute option
     val hasModuleSuffixAttribute: entity: FSharpEntity -> bool
     val isOperator: name: string -> bool
-    val private UnnamedUnionFieldRegex: Regex
     val isUnnamedUnionCaseField: field: FSharpField -> bool
 
 [<AutoOpen>]
@@ -43,12 +42,6 @@ module TypedAstExtensionHelpers =
     type FSharpAssemblySignature with
 
         member TryGetEntities: unit -> seq<FSharpEntity>
-
-    /// Helper active pattern that prevents us from using catch-all match patterns if new types of FSharpSymbol
-    /// are defined.
-    val inline private (|MFV|Entity|GenericParameter|UnionCase|Field|Parameter|ActivePattern|):
-        s: FSharpSymbol ->
-            Choice<FSharpMemberOrFunctionOrValue, FSharpEntity, FSharpGenericParameter, FSharpUnionCase, FSharpField, FSharpParameter, FSharpActivePatternCase>
 
     type FSharpSymbol with
 

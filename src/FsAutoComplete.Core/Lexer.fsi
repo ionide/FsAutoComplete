@@ -39,28 +39,9 @@ module Lexer =
     val logger: ILog
     /// Return all tokens of current line
     val tokenizeLine: args: string[] -> lineStr: string -> FSharpTokenInfo list
-    val inline private isIdentifier: t: FSharpTokenInfo -> bool
-    val inline private isOperator: t: FSharpTokenInfo -> bool
-    val inline private isKeyword: t: FSharpTokenInfo -> bool
-    val inline private isPunctuation: t: FSharpTokenInfo -> bool
-
-    val inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|):
-        token: FSharpTokenInfo * lineStr: string -> Choice<unit, unit, unit, unit>
-
-    val private fixTokens: lineStr: string -> tokens: FSharpTokenInfo list -> DraftToken list
-
-    val private getSymbolFromTokens:
-        tokens: FSharpTokenInfo list ->
-        line: int ->
-        col: int ->
-        lineStr: string ->
-        lookupKind: SymbolLookupKind ->
-            LexerSymbol option
-
     val getSymbol:
         line: int -> col: int -> lineStr: string -> lookupKind: SymbolLookupKind -> args: string[] -> LexerSymbol option
 
-    val inline private tryGetLexerSymbolIslands: sym: LexerSymbol -> (int * string array) option
     val findIdents: col: int -> lineStr: string -> lookupType: SymbolLookupKind -> (int * string array) option
     val findLongIdents: col: int * lineStr: string -> (int * string array) option
     val findLongIdentsAndResidue: col: int * lineStr: string -> string list * string
