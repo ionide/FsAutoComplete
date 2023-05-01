@@ -12,17 +12,17 @@ open FSharp.Compiler.Text.Range
 val title: string
 
 type SymbolUseWorkspace =
-    bool
-        -> bool
-        -> bool
-        -> FSharp.Compiler.Text.Position
-        -> LineStr
-        -> NamedText
-        -> ParseAndCheckResults
-        -> Async<Result<FSharp.Compiler.Symbols.FSharpSymbol *
-        System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
+  bool
+    -> bool
+    -> bool
+    -> FSharp.Compiler.Text.Position
+    -> LineStr
+    -> NamedText
+    -> ParseAndCheckResults
+    -> Async<Result<FSharp.Compiler.Symbols.FSharpSymbol *
+    System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
 
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    symbolUseWorkspace: SymbolUseWorkspace ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  symbolUseWorkspace: SymbolUseWorkspace ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

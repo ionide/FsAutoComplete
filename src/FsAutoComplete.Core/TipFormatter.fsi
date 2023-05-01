@@ -15,73 +15,73 @@ val inline nl<'T> : string
 val logger: ILog
 
 module private Section =
-    val inline addSection: name: string -> content: string -> string
-    val fromKeyValueList: name: string -> content: list<KeyValuePair<string, string>> -> string
-    val fromOption: name: string -> content: string option -> string
-    val fromList: name: string -> content: string seq -> string
+  val inline addSection: name: string -> content: string -> string
+  val fromKeyValueList: name: string -> content: list<KeyValuePair<string, string>> -> string
+  val fromOption: name: string -> content: string option -> string
+  val fromList: name: string -> content: string seq -> string
 
 module private Format =
-    val tagPattern: tagName: string -> string
+  val tagPattern: tagName: string -> string
 
-    type TagInfo =
-        | VoidElement of attributes: Map<string, string>
-        | NonVoidElement of innerText: string * attributes: Map<string, string>
+  type TagInfo =
+    | VoidElement of attributes: Map<string, string>
+    | NonVoidElement of innerText: string * attributes: Map<string, string>
 
-    type FormatterInfo =
-        { TagName: string
-          Formatter: TagInfo -> string option }
+  type FormatterInfo =
+    { TagName: string
+      Formatter: TagInfo -> string option }
 
-    val extractMemberText: text: string -> string
-    type AttrLookup = Map<string, string> -> Option<string>
+  val extractMemberText: text: string -> string
+  type AttrLookup = Map<string, string> -> Option<string>
 
-    type private Term = string
-    type private Definition = string
+  type private Term = string
+  type private Definition = string
 
-    type private ListStyle =
-        | Bulleted
-        | Numbered
-        | Tablered
+  type private ListStyle =
+    | Bulleted
+    | Numbered
+    | Tablered
 
-    /// ItemList allow a permissive representation of an Item.
-    /// In theory, TermOnly should not exist but we added it so part of the documentation doesn't disappear
-    /// TODO: Allow direct text support without <description> and <term> tags
-    type private ItemList =
-        /// A list where the items are just contains in a <description> element
-        | DescriptionOnly of string
-        /// A list where the items are just contains in a <term> element
-        | TermOnly of string
-        /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
-        | Definitions of Term * Definition
+  /// ItemList allow a permissive representation of an Item.
+  /// In theory, TermOnly should not exist but we added it so part of the documentation doesn't disappear
+  /// TODO: Allow direct text support without <description> and <term> tags
+  type private ItemList =
+    /// A list where the items are just contains in a <description> element
+    | DescriptionOnly of string
+    /// A list where the items are just contains in a <term> element
+    | TermOnly of string
+    /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
+    | Definitions of Term * Definition
 
-    val applyAll: text: string -> string
+  val applyAll: text: string -> string
 
 [<RequireQualifiedAccess>]
 type FormatCommentStyle =
-    | Legacy
-    | FullEnhanced
-    | SummaryOnly
-    | Documentation
+  | Legacy
+  | FullEnhanced
+  | SummaryOnly
+  | Documentation
 
 type private XmlDocMember =
-    new: doc: XmlDocument * indentationSize: int * columnOffset: int -> XmlDocMember
-    override ToString: unit -> string
-    member ToSummaryOnlyString: unit -> string
-    member HasTruncatedExamples: bool
-    member ToFullEnhancedString: unit -> string
-    member ToDocumentationString: unit -> string
-    member FormatComment: formatStyle: FormatCommentStyle -> string
+  new: doc: XmlDocument * indentationSize: int * columnOffset: int -> XmlDocMember
+  override ToString: unit -> string
+  member ToSummaryOnlyString: unit -> string
+  member HasTruncatedExamples: bool
+  member ToFullEnhancedString: unit -> string
+  member ToDocumentationString: unit -> string
+  member FormatComment: formatStyle: FormatCommentStyle -> string
 
 [<RequireQualifiedAccess>]
 type private TryGetXmlDocMemberResult =
-    | Some of XmlDocMember
-    | None
-    | Error
+  | Some of XmlDocMember
+  | None
+  | Error
 
 [<RequireQualifiedAccess>]
 type TipFormatterResult<'T> =
-    | Success of 'T
-    | Error of string
-    | None
+  | Success of 'T
+  | Error of string
+  | None
 
 /// CompletionItems are formatted with an unmodified signature since the signature portion of the
 /// item isn't markdown-compatible. The documentation shown however is markdown.
@@ -106,10 +106,10 @@ val prepareFooterLines: footerText: string -> string array
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
 val tryFormatTipEnhanced:
-    toolTipText: ToolTipText ->
-    formatCommentStyle: FormatCommentStyle ->
-        TipFormatterResult<{| DocComment: string
-                              HasTruncatedExamples: bool |}>
+  toolTipText: ToolTipText ->
+  formatCommentStyle: FormatCommentStyle ->
+    TipFormatterResult<{| DocComment: string
+                          HasTruncatedExamples: bool |}>
 
 /// <summary>
 /// Generate the 'Show documentation' link for the tooltip.

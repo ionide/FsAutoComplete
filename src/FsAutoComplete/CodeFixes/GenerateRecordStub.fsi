@@ -10,7 +10,7 @@ val title: string
 
 /// a codefix that generates member stubs for a record declaration
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    genRecordStub: (ParseAndCheckResults -> FcsPos -> NamedText -> string -> Async<CoreResponse<string * FcsPos>>) ->
-    getTextReplacements: (unit -> Map<string, string>) ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  genRecordStub: (ParseAndCheckResults -> FcsPos -> NamedText -> string -> Async<CoreResponse<string * FcsPos>>) ->
+  getTextReplacements: (unit -> Map<string, string>) ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

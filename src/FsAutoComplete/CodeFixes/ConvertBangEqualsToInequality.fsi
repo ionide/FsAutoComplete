@@ -9,5 +9,5 @@ open FsAutoComplete.LspHelpers
 val title: string
 
 val fix:
-    getRangeText: GetRangeText ->
-        (Ionide.LanguageServerProtocol.Types.CodeActionParams -> Async<Result<Fix list, string>>)
+  getRangeText: GetRangeText ->
+    (Ionide.LanguageServerProtocol.Types.CodeActionParams -> Async<Result<Fix list, string>>)

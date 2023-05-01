@@ -12,8 +12,8 @@ val title: string
 
 /// a codefix that generates union cases for an incomplete match expression
 val fix:
-    getFileLines: GetFileLines ->
-    getParseResultsForFile: GetParseResultsForFile ->
-    generateCases: (ParseAndCheckResults -> FcsPos -> NamedText -> string -> Async<CoreResponse<string * FcsPos>>) ->
-    getTextReplacements: (unit -> Map<string, string>) ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getFileLines: GetFileLines ->
+  getParseResultsForFile: GetParseResultsForFile ->
+  generateCases: (ParseAndCheckResults -> FcsPos -> NamedText -> string -> Async<CoreResponse<string * FcsPos>>) ->
+  getTextReplacements: (unit -> Map<string, string>) ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

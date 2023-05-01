@@ -553,7 +553,7 @@ NUGET
       System.Security.Principal.Windows (>= 5.0)
     Microsoft.Win32.SystemEvents (6.0.1) - restriction: || (&& (== net6.0) (>= net472)) (&& (== net6.0) (>= net7.0)) (== net7.0)
     Mono.Posix.NETStandard (1.0)
-    MSBuild.StructuredLogger (2.1.768)
+    MSBuild.StructuredLogger (2.1.815)
       Microsoft.Build.Framework (>= 16.10)
       Microsoft.Build.Utilities.Core (>= 16.10)
     Newtonsoft.Json (13.0.1)

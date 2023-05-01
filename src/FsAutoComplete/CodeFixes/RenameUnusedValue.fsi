@@ -15,5 +15,5 @@ val titlePrefix: string
 
 /// a codefix that suggests prepending a _ to unused values
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-        (Ionide.LanguageServerProtocol.Types.CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+    (Ionide.LanguageServerProtocol.Types.CodeActionParams -> Async<Result<Fix list, string>>)

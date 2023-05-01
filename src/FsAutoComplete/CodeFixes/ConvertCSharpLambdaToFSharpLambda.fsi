@@ -10,7 +10,8 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
 val title: string
+
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    getLineText: GetLineText ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  getLineText: GetLineText ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

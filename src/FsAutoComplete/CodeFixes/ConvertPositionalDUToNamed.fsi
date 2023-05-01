@@ -26,6 +26,6 @@ open FsAutoComplete.LspHelpers
 val title: string
 
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    getRangeText: GetRangeText ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  getRangeText: GetRangeText ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

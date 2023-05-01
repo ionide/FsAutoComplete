@@ -12,16 +12,16 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
 type Config =
-    { ObjectIdentifier: string
-      MethodBody: string
-      IndentationSize: int }
+  { ObjectIdentifier: string
+    MethodBody: string
+    IndentationSize: int }
 
 val titleWithTypeAnnotation: string
 val titleWithoutTypeAnnotation: string
 
 /// codefix that generates members for an interface implementation
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    getProjectOptionsForFile: GetProjectOptionsForFile ->
-    config: (unit -> Config) ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  getProjectOptionsForFile: GetProjectOptionsForFile ->
+  config: (unit -> Config) ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

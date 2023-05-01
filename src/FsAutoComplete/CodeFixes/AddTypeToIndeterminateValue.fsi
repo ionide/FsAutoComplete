@@ -13,6 +13,6 @@ val title: string
 
 /// fix inderminate type errors by adding an explicit type to a value
 val fix:
-    getParseResultsForFile: GetParseResultsForFile ->
-    getProjectOptionsForFile: GetProjectOptionsForFile ->
-        (CodeActionParams -> Async<Result<Fix list, string>>)
+  getParseResultsForFile: GetParseResultsForFile ->
+  getProjectOptionsForFile: GetProjectOptionsForFile ->
+    (CodeActionParams -> Async<Result<Fix list, string>>)

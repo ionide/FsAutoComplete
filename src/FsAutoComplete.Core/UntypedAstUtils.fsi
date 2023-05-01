@@ -9,7 +9,7 @@ open FSharp.Control.Reactive.Observable
 
 type Range with
 
-    member inline IsEmpty: bool
+  member inline IsEmpty: bool
 
 type internal ShortIdent = string
 type internal Idents = ShortIdent[]
@@ -31,10 +31,10 @@ val (|AllSimplePats|): pats: SynSimplePats -> SynSimplePat list
 val internal getRangesAtPosition: input: ParsedInput -> r: Position -> Range list
 
 module Completion =
-    [<RequireQualifiedAccess>]
-    type Context =
-        | StringLiteral
-        | Unknown
-        | SynType
+  [<RequireQualifiedAccess>]
+  type Context =
+    | StringLiteral
+    | Unknown
+    | SynType
 
-    val atPos: pos: Position * ast: ParsedInput -> Context
+  val atPos: pos: Position * ast: ParsedInput -> Context
