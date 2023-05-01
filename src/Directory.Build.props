@@ -8,5 +8,8 @@
     <NoWarn>$(NoWarn);FS2003</NoWarn>
     <!-- We've got a prerelease dep on System.CommandLine, and NuGet doesn't like that. NuGet can be quiet in this instance. -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
+    <!-- Yes we know 'times' is for test only, thanks FSC :) -->
+    <NoWarn>$(NoWarn);FS0075</NoWarn>
+    <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
   </PropertyGroup>
 </Project>

@@ -8,6 +8,13 @@
     <IsTestProject>true</IsTestProject>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
+    <!-- enable graph-based checking. This can't go at the repo-level because when we test
+         in .net 6 the TestCases projects don't know about these flags -->
+    <!-- Yes we know 'times' is for test only, thanks FSC :) -->
+    <NoWarn>$(NoWarn);FS0075</NoWarn>
+    <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
+    <!-- end graph-based-checking options -->
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete/FsAutoComplete.fsproj">
