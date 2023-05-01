@@ -20,15 +20,25 @@
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers.fsi" />
     <Compile Include="Helpers.fs" />
+    <Compile Include="Utils/Utils.fsi" />
     <Compile Include="Utils/Utils.fs" />
+    <Compile Include="Utils/Utils.Tests.fsi" />
     <Compile Include="Utils/Utils.Tests.fs" />
+    <Compile Include="Utils/TextEdit.fsi" />
     <Compile Include="Utils/TextEdit.fs" />
+    <Compile Include="Utils/TextEdit.Tests.fsi" />
     <Compile Include="Utils/TextEdit.Tests.fs" />
+    <Compile Include="Utils/Server.fsi" />
     <Compile Include="Utils/Server.fs" />
+    <Compile Include="Utils/ServerTests.fsi" />
     <Compile Include="Utils/ServerTests.fs" />
+    <Compile Include="Utils/Server.Tests.fsi" />
     <Compile Include="Utils/Server.Tests.fs" />
+    <Compile Include="Utils/CursorbasedTests.fsi" />
     <Compile Include="Utils/CursorbasedTests.fs" />
+    <Compile Include="Utils/CursorbasedTests.Tests.fsi" />
     <Compile Include="Utils/CursorbasedTests.Tests.fs" />
     <Compile
         Include="*Tests.fs"
