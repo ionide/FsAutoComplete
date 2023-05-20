@@ -172,7 +172,7 @@ module Conversions =
       not keep
 
     topLevel.Nested
-    |> Array.choose (fun n -> if shouldKeep n then Some(map n) else None)
+    |> Array.Parallel.choose (fun n -> if shouldKeep n then Some(map n) else None)
 
   let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
 
@@ -581,6 +581,11 @@ type DotnetFile2Request =
     FileVirtualPath: string
     NewFile: string }
 
+type DotnetRenameFileRequest =
+  { FsProj: string
+    OldFileVirtualPath: string
+    NewFileName: string }
+
 type FSharpLiterateRequest =
   { TextDocument: TextDocumentIdentifier }
 
@@ -610,6 +615,13 @@ type DebugDto =
     LogDurationBetweenCheckFiles: bool option
     LogCheckFileDuration: bool option }
 
+
+type FSACDto =
+  {
+    /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
+    CachedTypeCheckCount: int64 option
+  }
+
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
@@ -626,6 +638,7 @@ type FSharpConfigDto =
     InterfaceStubGeneration: bool option
     InterfaceStubGenerationObjectIdentifier: string option
     InterfaceStubGenerationMethodBody: string option
+    AddPrivateAccessModifier: bool option
     UnusedOpensAnalyzer: bool option
     UnusedDeclarationsAnalyzer: bool option
     SimplifyNameAnalyzer: bool option
@@ -647,10 +660,11 @@ type FSharpConfigDto =
     CodeLenses: CodeLensConfigDto option
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
+    Fsac: FSACDto option
     Notifications: NotificationsDto option
     Debug: DebugDto option }
 
-type FSharpConfigRequest = { FSharp: FSharpConfigDto }
+type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
 type CodeLensConfig =
   { Signature: {| Enabled: bool |}
@@ -687,13 +701,30 @@ type NotificationsConfig =
       TraceNamespaces = [||] }
 
   static member FromDto(dto: NotificationsDto) : NotificationsConfig =
-    { Trace = defaultArg dto.Trace NotificationsConfig.Default.Trace
-      TraceNamespaces = defaultArg dto.TraceNamespaces NotificationsConfig.Default.TraceNamespaces }
+    let defaultConfig = NotificationsConfig.Default
+
+    { Trace = defaultArg dto.Trace defaultConfig.Trace
+      TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces }
 
 
   member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
     { Trace = defaultArg dto.Trace this.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces }
+
+type FSACConfig =
+  {
+    /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
+    CachedTypeCheckCount: int64
+  }
+
+  static member Default = { CachedTypeCheckCount = 200L }
+
+  static member FromDto(dto: FSACDto) =
+    let defaultConfig = FSACConfig.Default
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount }
+
+  member this.AddDto(dto: FSACDto) =
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool
@@ -726,6 +757,7 @@ type FSharpConfig =
     InterfaceStubGeneration: bool
     InterfaceStubGenerationObjectIdentifier: string
     InterfaceStubGenerationMethodBody: string
+    AddPrivateAccessModifier: bool
     UnusedOpensAnalyzer: bool
     UnusedDeclarationsAnalyzer: bool
     SimplifyNameAnalyzer: bool
@@ -745,6 +777,7 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
+    Fsac: FSACConfig
     Debug: DebugConfig }
 
   static member Default: FSharpConfig =
@@ -757,7 +790,7 @@ type FSharpConfig =
       Linter = false
       LinterConfig = None
       UnionCaseStubGeneration = false
-      UnionCaseStubGenerationBody = """failwith "Not Implemented" """
+      UnionCaseStubGenerationBody = "failwith \"Not Implemented\""
       RecordStubGeneration = false
       RecordStubGenerationBody = "failwith \"Not Implemented\""
       AbstractClassStubGeneration = true
@@ -766,6 +799,7 @@ type FSharpConfig =
       InterfaceStubGeneration = false
       InterfaceStubGenerationObjectIdentifier = "this"
       InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
+      AddPrivateAccessModifier = false
       UnusedOpensAnalyzer = false
       UnusedDeclarationsAnalyzer = false
       SimplifyNameAnalyzer = false
@@ -785,6 +819,7 @@ type FSharpConfig =
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
       Notifications = NotificationsConfig.Default
+      Fsac = FSACConfig.Default
       Debug = DebugConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
@@ -804,6 +839,7 @@ type FSharpConfig =
       InterfaceStubGenerationObjectIdentifier = defaultArg dto.InterfaceStubGenerationObjectIdentifier "this"
       InterfaceStubGenerationMethodBody =
         defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
+      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier false
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
@@ -827,7 +863,7 @@ type FSharpConfig =
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
       AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
       AbstractClassStubGenerationMethodBody =
-        defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \Not Implemented\""
+        defaultArg dto.AbstractClassStubGenerationMethodBody "failwith \"Not Implemented\""
       CodeLenses =
         match dto.CodeLenses with
         | None -> CodeLensConfig.Default
@@ -853,6 +889,10 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map NotificationsConfig.FromDto
         |> Option.defaultValue NotificationsConfig.Default
+      Fsac =
+        dto.Fsac
+        |> Option.map FSACConfig.FromDto
+        |> Option.defaultValue FSACConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default
@@ -890,6 +930,7 @@ type FSharpConfig =
         defaultArg dto.InterfaceStubGenerationObjectIdentifier x.InterfaceStubGenerationObjectIdentifier
       InterfaceStubGenerationMethodBody =
         defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody
+      AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier x.AddPrivateAccessModifier
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
@@ -939,6 +980,7 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map x.Notifications.AddDto
         |> Option.defaultValue NotificationsConfig.Default
+      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default
       Debug =
         match dto.Debug with
         | None -> DebugConfig.Default

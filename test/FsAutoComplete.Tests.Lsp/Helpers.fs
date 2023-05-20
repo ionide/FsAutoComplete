@@ -234,6 +234,7 @@ let defaultConfigDto: FSharpConfigDto =
     UnionCaseStubGenerationBody = None
     RecordStubGeneration = None
     RecordStubGenerationBody = None
+    AddPrivateAccessModifier = None
     UnusedOpensAnalyzer = None
     UnusedDeclarationsAnalyzer = None
     SimplifyNameAnalyzer = None
@@ -270,6 +271,7 @@ let defaultConfigDto: FSharpConfigDto =
         { Enabled = Some true
           Prefix = Some "//" }
     Notifications = None
+    Fsac = None
     Debug = None }
 
 let clientCaps: ClientCapabilities =
@@ -392,7 +394,7 @@ let clientCaps: ClientCapabilities =
         PrepareSupport = Some false }
 
     { Synchronization = Some syncCaps
-      PublishDiagnostics = diagCaps
+      PublishDiagnostics = Some diagCaps
       Completion = Some compCaps
       Hover = Some hoverCaps
       SignatureHelp = Some sigCaps
@@ -410,7 +412,9 @@ let clientCaps: ClientCapabilities =
       FoldingRange = Some foldingRangeCaps
       SelectionRange = Some dynCaps
       SemanticTokens = Some semanticTokensCaps
-      InlayHint = Some inlayHintCaps }
+      InlayHint = Some inlayHintCaps
+      CallHierarchy = None
+      TypeHierarchy = None }
       // InlineValue = Some inlineValueCaps }
 
 

@@ -1,5 +1,6 @@
 module Tests
 
+open System.Threading.Tasks
 open Expecto
 
 [<Tests>]
@@ -32,5 +33,14 @@ let tests =
 
     test "I am (should fail)" {
       "╰〳 ಠ 益 ಠೃ 〵╯" |> Expect.equal true false
+    }
+
+    testTask "simple task" {
+      do! Task.Delay 1
+      Expect.equal 1 1 "1=1"
+    }
+
+    testAsync "simple async" {
+      Expect.equal 4 (2+2) "2+2"
     }
   ]

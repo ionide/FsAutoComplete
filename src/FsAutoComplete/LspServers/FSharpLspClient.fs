@@ -139,7 +139,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 
   interface IDisposable with
     member x.Dispose() =
-      (x :> IAsyncDisposable).DisposeAsync().GetAwaiter().GetResult()
+      (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
 open System.Diagnostics.Tracing
@@ -148,7 +148,7 @@ open System.Diagnostics
 open Ionide.ProjInfo.Logging
 
 
-/// listener for the the events generated from the fsc ActivitySource
+/// <summary>listener for the the events generated from the fsc ActivitySource</summary>
 type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
   let isOneOf list string =
@@ -219,7 +219,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
           | None ->
             // if we don't get an event in 250 ms just loop again so we can analyze inflightEvents
             ()
-          | Some(action, activity: Activity, reply: AsyncReplyChannel<unit>) ->
+          | Some(action, activity: Activity) ->
 
             match action with
             | "start" ->
@@ -258,17 +258,14 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
             | _ -> ()
 
-            reply.Reply()
       })
 
 
   let shouldListenTo (act: ActivitySource) = act.Name = Tracing.fscServiceName
 
-  let activityStarted (act: Activity) =
-    mbp.PostAndReply(fun reply -> "start", act, reply)
+  let activityStarted (act: Activity) = mbp.Post("start", act)
 
-  let activityStopped (act: Activity) =
-    mbp.PostAndReply(fun reply -> "stop", act, reply)
+  let activityStopped (act: Activity) = mbp.Post("stop", act)
 
   let listener =
     new ActivityListener(
@@ -282,7 +279,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
   interface IDisposable with
     member this.Dispose() : unit =
-      (this :> IAsyncDisposable).DisposeAsync().GetAwaiter().GetResult()
+      (this :> IAsyncDisposable).DisposeAsync() |> ignore
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =

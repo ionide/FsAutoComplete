@@ -25,6 +25,7 @@ open System.Collections.Immutable
 open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text.Range
 
 
 [<RequireQualifiedAccess>]
@@ -58,9 +59,10 @@ type DocumentEdit =
 module private Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
-    | CoreResponse.Res a -> Ok a
-    | CoreResponse.ErrorRes msg
-    | CoreResponse.InfoRes msg -> Error msg
+    | CoreResponse.Res a -> Ok(Some a)
+    | CoreResponse.InfoRes _ -> Ok None
+    | CoreResponse.ErrorRes msg -> Error msg
+
 
 module AsyncResult =
 
@@ -106,8 +108,11 @@ module Commands =
 
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
-        FsProjEditor.addFile fsprojPath fileVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFile fsprojPath fileVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -128,8 +133,12 @@ module Commands =
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -150,7 +159,30 @@ module Commands =
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+        let result = FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  let renameFile (fsprojPath: string) (oldFileVirtualPath: string) (newFileName: string) =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let oldFilePath = Path.Combine(dir, oldFileVirtualPath)
+        let oldFileInfo = FileInfo(oldFilePath)
+
+        let newFilePath = Path.Combine(oldFileInfo.Directory.FullName, newFileName)
+
+        File.Move(oldFilePath, newFilePath)
+
+        let newVirtPath =
+          Path.Combine(Path.GetDirectoryName oldFileVirtualPath, newFileName)
+
+        FsProjEditor.renameFile fsprojPath oldFileVirtualPath newVirtPath
         return CoreResponse.Res()
       with ex ->
         return CoreResponse.ErrorRes ex.Message
@@ -164,8 +196,11 @@ module Commands =
 
   let addExistingFile fsprojPath fileVirtPath =
     async {
-      FsProjEditor.addExistingFile fsprojPath fileVirtPath
-      return CoreResponse.Res()
+      let result = FsProjEditor.addExistingFile fsprojPath fileVirtPath
+
+      match result with
+      | Ok() -> return CoreResponse.Res()
+      | Error msg -> return CoreResponse.ErrorRes msg
     }
 
   let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
@@ -204,17 +239,15 @@ module Commands =
     (lineStr: LineStr)
     =
     asyncResult {
-      let doc = docForText lines tyRes
-
       let! abstractClass =
-        tryFindAbstractClassExprInBufferAtPos objExprRange.Start doc
+        tryFindAbstractClassExprInBufferAtPos objExprRange.Start lines
         |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Abstract class at position not found"))
 
-      let! (insertPosition, generatedCode) =
-        writeAbstractClassStub tyRes doc lines lineStr abstractClass
-        |> Async.map (Result.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class"))
+      let! inserts =
+        writeAbstractClassStub tyRes lines lineStr abstractClass
+        |> AsyncResult.ofOption (fun _ -> CoreResponse.InfoRes "Didn't need to write an abstract class")
 
-      return CoreResponse.Res(generatedCode, insertPosition)
+      return CoreResponse.Res inserts
     }
 
   let getRecordStub
@@ -363,7 +396,7 @@ module Commands =
     }
 
   let formatSelection
-    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<NamedText, _>>)
     (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     (rangeToFormat: FormatSelectionRange)
@@ -420,7 +453,7 @@ module Commands =
     }
 
   let formatDocument
-    (tryGetFileCheckerOptionsWithLines: _ -> Result<NamedText, _>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<NamedText, _>>)
     (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     : Async<Result<FormatDocumentResponse, string>> =
@@ -497,11 +530,12 @@ module Commands =
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
-          let opts = getProjectOptions tyRes.FileName
+          let! opts = getProjectOptions tyRes.FileName
           let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
-          let! symbols = getUsesOfSymbol (tyRes.FileName, getAllProjects (), sym.Symbol)
+          let! projs = getAllProjects ()
+          let! symbols = getUsesOfSymbol (tyRes.FileName, projs, sym.Symbol)
           let symbols = filterSymbols symbols
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
       | Error e -> return CoreResponse.ErrorRes e
@@ -583,8 +617,8 @@ module Commands =
     |> AsyncResult.foldResult id (fun _ -> [||])
 
 
-  let pipelineHints (tryGetFileSource: _ -> Result<NamedText, _>) (tyRes: ParseAndCheckResults) =
-    result {
+  let pipelineHints (tryGetFileSource: _ -> Async<Result<NamedText, _>>) (tyRes: ParseAndCheckResults) =
+    asyncResult {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
       let! contents = tryGetFileSource tyRes.FileName
 
@@ -643,7 +677,7 @@ module Commands =
 
       return CoreResponse.Res hints
     }
-    |> Result.fold id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
+    |> AsyncResult.bimap id (fun _ -> CoreResponse.InfoRes "Couldn't find file content")
 
   let calculateNamespaceInsert
     currentAst
@@ -726,11 +760,11 @@ module Commands =
   ///     * When exact ranges are required
   ///       -> for "Rename"
   let symbolUseWorkspace
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> ResultOrString<NamedText>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> FSharpProjectOptions option)
-    (getAllProjectOptions: unit -> FSharpProjectOptions seq)
+    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -763,7 +797,7 @@ module Commands =
           |> Seq.toArray
           |> Ok
 
-      let declLoc = getDeclarationLocation (symbolUse, text)
+      let! declLoc = getDeclarationLocation (symbolUse, text)
 
       match declLoc with
       // local symbol -> all uses are inside `text`
@@ -785,32 +819,46 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck =
-          match scope with
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> projects
-          | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
-            [ for project in projects do
-                yield project
+        let projectsToCheck: Async<FSharpProjectOptions list> =
+          async {
+            match scope with
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
+            | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
+              let output = ResizeArray<_>()
 
-                yield!
-                  project.ReferencedProjects
-                  |> Array.choose (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
-            |> List.distinctBy (fun x -> x.ProjectFileName)
-          | _ (*None*) ->
-            // symbol is declared external -> look through all F# projects
-            // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
-            getAllProjectOptions ()
-            |> Seq.distinctBy (fun x -> x.ProjectFileName)
-            |> Seq.toList
+              let! resolvedProjects =
+                [ for project in projects do
+                    yield Async.singleton (Some project)
+
+                    yield!
+                      project.ReferencedProjects
+                      |> Array.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                |> Async.parallel75
+
+
+              return
+                resolvedProjects
+                |> Array.choose id
+                |> Array.toList
+                |> List.distinctBy (fun x -> x.ProjectFileName)
+            | _ (*None*) ->
+              // symbol is declared external -> look through all F# projects
+              // (each script (including untitled) has its own project -> scripts get checked too. But only once they are loaded (-> inside `state`))
+              let! allOptions = getAllProjectOptions ()
+              return allOptions |> Seq.distinctBy (fun x -> x.ProjectFileName) |> Seq.toList
+          }
 
         let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
-          match tryGetFileSource file with
-          | Error _ when errorOnFailureToFixRange -> Error $"Cannot get source of '{file}'"
-          | Error _ -> Ok ranges
-          | Ok text ->
-            tryAdjustRanges (text, ranges)
-            // Note: `Error` only possible when `errorOnFailureToFixRange`
-            |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+          async {
+            match! tryGetFileSource file with
+            | Error _ when errorOnFailureToFixRange -> return Error $"Cannot get source of '{file}'"
+            | Error _ -> return Ok ranges
+            | Ok text ->
+              return
+                tryAdjustRanges (text, ranges)
+                // Note: `Error` only possible when `errorOnFailureToFixRange`
+                |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+          }
 
         let isDeclLocation =
           if includeDeclarations then
@@ -845,7 +893,7 @@ module Commands =
               if references |> Array.isEmpty then
                 return Ok()
               else
-                let ranges = tryAdjustRanges (file, references)
+                let! ranges = tryAdjustRanges (file, references)
 
                 match ranges with
                 | Error msg when errorOnFailureToFixRange -> return Error msg
@@ -883,15 +931,18 @@ module Commands =
                   | Error err -> return Some err
 
                 } ]
-          |> Async.Choice
-          |> Async.map (function
-            | None -> Ok()
-            | Some err -> Error err)
+          |> Async.parallel75
+          |> Async.Ignore<_>
+        // |> Async.map (function
+        //   | None -> Ok()
+        //   | Some err -> Error err)
 
-        do! iterProjects projectsToCheck
+        let! projects = projectsToCheck
+        do! iterProjects projects
 
         return (symbol, dict)
     }
+
 
   /// Puts `newName` into backticks if necessary.
   ///
@@ -938,7 +989,7 @@ module Commands =
   /// Rename for Active Pattern Cases is disabled:
   /// `SymbolUseWorkspace` returns ranges for ALL Cases of that Active Pattern instead of just the single case
   let renameSymbolRange
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> SymbolDeclarationLocation option)
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (includeBackticks: bool)
     pos
     lineStr
@@ -953,7 +1004,7 @@ module Commands =
       let! _ =
         // None: external symbol -> not under our control -> cannot rename
         getDeclarationLocation (symbolUse, text)
-        |> Result.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
+        |> AsyncResult.ofOption (fun _ -> "Must be declared inside current workspace, but is external.")
 
       do!
         match symbolUse with
@@ -1454,8 +1505,12 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFileAbove fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
@@ -1476,7 +1531,33 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
         let newVirtPath = Path.Combine(virtPathDir, newFileName)
-        FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+        let result = FsProjEditor.addFileBelow fsprojPath fileVirtPath newVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
+      with ex ->
+        return CoreResponse.ErrorRes ex.Message
+    }
+
+  member _.FsProjRenameFile (fsprojPath: string) (oldFileVirtualPath: string) (newFileName: string) =
+    async {
+      try
+        let dir = Path.GetDirectoryName fsprojPath
+        let oldFilePath = Path.Combine(dir, oldFileVirtualPath)
+        let oldFileInfo = FileInfo(oldFilePath)
+
+        let newFilePath = Path.Combine(oldFileInfo.Directory.FullName, newFileName)
+
+        File.Move(oldFilePath, newFilePath)
+
+        let newVirtPath =
+          Path.Combine(Path.GetDirectoryName oldFileVirtualPath, newFileName)
+
+        FsProjEditor.renameFile fsprojPath oldFileVirtualPath newVirtPath
+
+        // Clear diagnostics for the old file
+        state.RemoveProjectOptions(normalizePath oldFilePath)
         return CoreResponse.Res()
       with ex ->
         return CoreResponse.ErrorRes ex.Message
@@ -1495,16 +1576,22 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
         (File.Open(newFilePath, FileMode.OpenOrCreate)).Close()
 
-        FsProjEditor.addFile fsprojPath fileVirtPath
-        return CoreResponse.Res()
+        let result = FsProjEditor.addFile fsprojPath fileVirtPath
+
+        match result with
+        | Ok() -> return CoreResponse.Res()
+        | Error msg -> return CoreResponse.ErrorRes msg
       with ex ->
         return CoreResponse.ErrorRes ex.Message
     }
 
   member _.FsProjAddExistingFile (fsprojPath: string) (fileVirtPath: string) =
     async {
-      FsProjEditor.addExistingFile fsprojPath fileVirtPath
-      return CoreResponse.Res()
+      let result = FsProjEditor.addExistingFile fsprojPath fileVirtPath
+
+      match result with
+      | Ok() -> return CoreResponse.Res()
+      | Error msg -> return CoreResponse.ErrorRes msg
     }
 
   member _.FsProjRemoveFile (fsprojPath: string) (fileVirtPath: string) (fullPath: string) =
@@ -1890,59 +1977,189 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   /// calculates the required indent and gives the position to insert the text.
   static member GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
     asyncResult {
+      let longIdentContainsPos (longIdent: LongIdent) (pos: FSharp.Compiler.Text.pos) =
+        longIdent
+        |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
+        |> Option.isSome
+
+      let isLowerAstElemWithEmptyPreXmlDoc input pos =
+        SyntaxTraversal.Traverse(
+          pos,
+          input,
+          { new SyntaxVisitorBase<_>() with
+              member _.VisitBinding(_, defaultTraverse, synBinding) =
+                match synBinding with
+                | SynBinding(xmlDoc = xmlDoc) as s when
+                  rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
+                  ->
+                  Some()
+                | _ -> defaultTraverse synBinding
+
+              member _.VisitComponentInfo(_, synComponentInfo) =
+                match synComponentInfo with
+                | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
+                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                  ->
+                  Some()
+                | _ -> None
+
+              member _.VisitRecordDefn(_, fields, _) =
+                let isInLine c =
+                  match c with
+                  | SynField(xmlDoc = xmlDoc; idOpt = Some ident) when
+                    rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
+                    ->
+                    Some()
+                  | _ -> None
+
+                fields |> List.tryPick isInLine
+
+              member _.VisitUnionDefn(_, cases, _) =
+                let isInLine c =
+                  match c with
+                  | SynUnionCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
+                    rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
+                    ->
+                    Some()
+                  | _ -> None
+
+                cases |> List.tryPick isInLine
+
+              member _.VisitEnumDefn(_, cases, _) =
+                let isInLine b =
+                  match b with
+                  | SynEnumCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
+                    rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
+                    ->
+                    Some()
+                  | _ -> None
+
+                cases |> List.tryPick isInLine
+
+              member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
+                let isInLine b =
+                  match b with
+                  | SynBinding(xmlDoc = xmlDoc) as s when
+                    rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
+                    ->
+                    Some()
+                  | _ -> defaultTraverse b
+
+                bindings |> List.tryPick isInLine
+
+              member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
+        )
+
+      let isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos =
+        SyntaxTraversal.Traverse(
+          pos,
+          input,
+          { new SyntaxVisitorBase<_>() with
+
+              member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
+                match synModuleOrNamespace with
+                | SynModuleOrNamespace(longId = longId; xmlDoc = xmlDoc) when
+                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                  ->
+                  Some()
+                | SynModuleOrNamespace(decls = decls) ->
+
+                  let rec findNested decls =
+                    decls
+                    |> List.tryPick (fun d ->
+                      match d with
+                      | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
+                        match moduleInfo with
+                        | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
+                          longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                          ->
+                          Some()
+                        | _ -> findNested decls
+                      | SynModuleDecl.Types(typeDefns = typeDefns) ->
+                        typeDefns
+                        |> List.tryPick (fun td ->
+                          match td with
+                          | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
+                            members
+                            |> List.tryPick (fun m ->
+                              match m with
+                              | SynMemberDefn.AutoProperty(ident = ident; xmlDoc = xmlDoc) when
+                                rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
+                                ->
+                                Some()
+                              | _ -> None)
+                          | _ -> None)
+                      | _ -> None)
+
+                  findNested decls }
+        )
+
+      let isAstElemWithEmptyPreXmlDoc input pos =
+        match isLowerAstElemWithEmptyPreXmlDoc input pos with
+        | Some xml -> Some xml
+        | _ -> isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos
+
       let trimmed = lineStr.TrimStart(' ')
       let indentLength = lineStr.Length - trimmed.Length
       let indentString = String.replicate indentLength " "
 
-      let! (_, memberParameters, genericParameters) =
-        Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
+      match isAstElemWithEmptyPreXmlDoc tyRes.GetAST triggerPosition with
+      | None -> return None
+      | Some() ->
 
-      let summarySection = "/// <summary></summary>"
+        let signatureData =
+          Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
 
-      let parameterSection (name, _type) =
-        $"/// <param name=\"%s{name}\"></param>"
+        let summarySection = "/// <summary></summary>"
 
-      let genericArg name =
-        $"/// <typeparam name=\"'%s{name}\"></typeparam>"
+        let parameterSection (name, _type) =
+          $"/// <param name=\"%s{name}\"></param>"
 
-      let returnsSection = "/// <returns></returns>"
+        let genericArg name =
+          $"/// <typeparam name=\"'%s{name}\"></typeparam>"
 
-      let formattedXmlDoc =
-        seq {
-          yield summarySection
+        let returnsSection = "/// <returns></returns>"
 
-          match memberParameters with
-          | [] -> ()
-          | parameters ->
-            yield!
-              parameters
-              |> List.concat
-              |> List.mapi (fun _index parameter -> parameterSection parameter)
+        let formattedXmlDoc =
+          seq {
+            yield summarySection
 
-          match genericParameters with
-          | [] -> ()
-          | generics -> yield! generics |> List.mapi (fun _index generic -> genericArg generic)
+            match signatureData with
+            | Ok(Some(_, memberParameters, genericParameters)) ->
+              match memberParameters with
+              | [] -> ()
+              | parameters ->
+                yield!
+                  parameters
+                  |> List.concat
+                  |> List.mapi (fun _index parameter -> parameterSection parameter)
 
-          yield returnsSection
-        }
-        |> Seq.map (fun s -> indentString + s)
-        |> String.concat Environment.NewLine
-        |> fun s -> s + Environment.NewLine // need a newline at the very end
+              match genericParameters with
+              | [] -> ()
+              | generics -> yield! generics |> List.mapi (fun _index generic -> genericArg generic)
 
-      // always insert at the start of the line, because we've prepended the indent to the start of the summary section
-      let insertPosition = Position.mkPos triggerPosition.Line 0
+              yield returnsSection
+            | _ -> ()
+          }
+          |> Seq.map (fun s -> indentString + s)
+          |> String.concat Environment.NewLine
+          |> fun s -> s + Environment.NewLine // need a newline at the very end
 
-      return
-        { InsertPosition = insertPosition
-          InsertText = formattedXmlDoc }
+        // always insert at the start of the line, because we've prepended the indent to the start of the summary section
+        let insertPosition = Position.mkPos triggerPosition.Line 0
+
+        return
+          Some
+            { InsertPosition = insertPosition
+              InsertText = formattedXmlDoc }
     }
 
   member private x.GetDeclarationLocation(symbolUse, text) =
     SymbolLocation.getDeclarationLocation (
       symbolUse,
       text,
-      state.GetProjectOptions,
-      state.ProjectController.ProjectsThatContainFile,
+      state.GetProjectOptions >> Async.singleton,
+      state.ProjectController.ProjectsThatContainFile >> Async.singleton,
       state.ProjectController.GetDependentProjectsOfProjects
     )
 
@@ -1975,13 +2192,15 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 return usages |> Seq.map (fun u -> u.Range)
           }
 
-      let tryGetFileSource symbolFile = state.TryGetFileSource symbolFile
+      let tryGetFileSource symbolFile =
+        state.TryGetFileSource symbolFile |> Async.singleton
 
       let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
         state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
+        |> Async.singleton
 
       let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd
+        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
 
       return!
         Commands.symbolUseWorkspace
@@ -2013,13 +2232,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    let getProjectOptions filePath = state.GetProjectOptions' filePath
+    let getProjectOptions filePath =
+      state.GetProjectOptions' filePath |> Async.singleton
 
     let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
       checker.GetUsesOfSymbol(filePath, opts, sym)
 
     let getAllProjects () =
-      state.FSharpProjectOptions |> Seq.toList
+      state.FSharpProjectOptions |> Seq.toList |> Async.singleton
 
     Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
@@ -2246,7 +2466,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member x.FormatDocument(file: string<LocalPath>) : Async<Result<FormatDocumentResponse, string>> =
     let tryGetFileCheckerOptionsWithLines file =
-      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd |> Async.singleton
 
     let formatDocumentAsync x = fantomasService.FormatDocumentAsync x
     Commands.formatDocument tryGetFileCheckerOptionsWithLines formatDocumentAsync file
@@ -2257,7 +2477,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       rangeToFormat: FormatSelectionRange
     ) : Async<Result<FormatDocumentResponse, string>> =
     let tryGetFileCheckerOptionsWithLines file =
-      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd
+      x.TryGetFileCheckerOptionsWithLines file |> Result.map snd |> Async.singleton
 
     let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
     Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync file rangeToFormat
@@ -2308,7 +2528,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
   static member InlineValues(contents: NamedText, tyRes: ParseAndCheckResults) = Commands.inlineValues contents tyRes
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
-    Commands.pipelineHints state.TryGetFileSource tyRes
+    Commands.pipelineHints (state.TryGetFileSource >> Async.singleton) tyRes
 
   interface IDisposable with
     member x.Dispose() =

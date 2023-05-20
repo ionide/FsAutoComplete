@@ -44,7 +44,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false), state, false, rootPath)
+    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -68,7 +68,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           commands.CheckSimplifiedNames filePath ]
 
     async {
-      do! analyzers |> Async.Parallel |> Async.Ignore<unit[]>
+      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
 
       do!
         lspClient.NotifyDocumentAnalyzed
@@ -368,6 +368,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             List = r.List
             Name = r.Name
             Type = r.Type
+            ModuleType = r.ModuleType
             Range = fcsRangeToLsp r.Range
             Childs = ResizeArray(r.Childs |> Seq.map map) }
 
@@ -477,7 +478,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       let oldDisposables = commandDisposables
 
       let newCommands =
-        new Commands(FSharpCompilerServiceChecker(hasAnalyzersNow), state, hasAnalyzersNow, rootPath)
+        new Commands(
+          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
+          state,
+          hasAnalyzersNow,
+          rootPath
+        )
 
       commands <- newCommands
       commandDisposables <- ResizeArray()
@@ -853,22 +859,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       | Error ex -> return LspResult.internalError ex
     }
 
-  member x.LineLensResolve(p) =
-    logger.info (
-      Log.setMessage "LineLensResolve Request: {parms}"
-      >> Log.addContextDestructured "parms" p
-    )
-
-    p
-    |> x.positionHandler (fun p pos tyRes lineStr lines ->
-      (match Commands.SignatureData tyRes pos lineStr with
-       | CoreResponse.InfoRes msg
-       | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-       | CoreResponse.Res(typ, parms, generics) ->
-         { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
-         |> success)
-      |> async.Return)
-
   member private x.handleSemanticTokens
     (getTokens: Async<CoreResponse<SemanticClassificationItem array> option>)
     : AsyncLspResult<SemanticTokens option> =
@@ -878,16 +868,19 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       | Some rangesAndHighlights ->
         let! rangesAndHighlights = rangesAndHighlights |> Result.ofCoreResponse
 
-
-        let lspTypedRanges =
-          rangesAndHighlights
-          |> Array.map (fun item ->
-            let ty, mods = ClassificationUtils.map item.Type
-            struct (fcsRangeToLsp item.Range, ty, mods))
-
-        match encodeSemanticHighlightRanges lspTypedRanges with
+        match rangesAndHighlights with
         | None -> return! success None
-        | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
+        | Some rangesAndHighlights ->
+
+          let lspTypedRanges =
+            rangesAndHighlights
+            |> Array.map (fun item ->
+              let ty, mods = ClassificationUtils.map item.Type
+              struct (fcsRangeToLsp item.Range, ty, mods))
+
+          match encodeSemanticHighlightRanges lspTypedRanges with
+          | None -> return! success None
+          | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
 
   member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
@@ -1087,6 +1080,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         clientCapabilities <- p.Capabilities
         lspClient.ClientCapabilities <- clientCapabilities
+
+        diagnosticCollections.ClientSupportsDiagnostics <-
+          match p.Capabilities with
+          | Some { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
+          | _ -> false
+
         glyphToCompletionKind <- glyphToCompletionKindGenerator clientCapabilities
         glyphToSymbolKind <- glyphToSymbolKindGenerator clientCapabilities
 
@@ -1106,19 +1105,23 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           | Some false -> None
           | None -> None
 
-        let getFileLines = commands.TryGetFileCheckerOptionsWithLines >> Result.map snd
+        let getFileLines =
+          commands.TryGetFileCheckerOptionsWithLines >> Result.map snd >> Async.singleton
 
         let getLineText (lines: NamedText) (range: Ionide.LanguageServerProtocol.Types.Range) =
           lines.GetText(protocolRangeToRange (UMX.untag lines.FileName) range)
+          |> Async.singleton
 
         let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
-          getFileLines fileName
-          |> Result.bind (fun lines -> lines.GetText(protocolRangeToRange (UMX.untag fileName) range))
+          asyncResult {
+            let! lines = getFileLines fileName
+            return! lines.GetText(protocolRangeToRange (UMX.untag fileName) range)
+          }
 
         let getProjectOptsAndLines = commands.TryGetFileCheckerOptionsWithLinesAndLineStr
 
         let tryGetProjectOptions =
-          commands.TryGetFileCheckerOptionsWithLines >> Result.map fst
+          commands.TryGetFileCheckerOptionsWithLines >> Result.map fst >> Async.singleton
 
         let implementInterfaceConfig () : ImplementInterface.Config =
           { ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
@@ -1141,6 +1144,25 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
               "$methodBody", config.AbstractClassStubGenerationMethodBody ]
 
         let getAbstractClassStubReplacements () = abstractClassStubReplacements ()
+
+        let symbolUseWorkspace
+          (includeDeclarations: bool)
+          (includeBackticks: bool)
+          (errorOnFailureToFixRange: bool)
+          pos
+          lineStr
+          text
+          tyRes
+          =
+          commands.SymbolUseWorkspace(
+            pos,
+            lineStr,
+            text,
+            tyRes,
+            includeDeclarations,
+            includeBackticks,
+            errorOnFailureToFixRange
+          )
 
         codefixes <-
           [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix getFileLines)
@@ -1195,8 +1217,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
              ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
              AddMissingInstanceMember.fix
+             AddMissingXmlDocumentation.fix tryGetParseResultsForFile
              AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
              ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
+             ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
+             GenerateXmlDocumentation.fix tryGetParseResultsForFile
+             Run.ifEnabled
+               (fun _ -> config.AddPrivateAccessModifier)
+               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
 
@@ -1304,13 +1332,20 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.fold id (fun _ -> NamedText(filePath, ""))
+          |> Result.bimap id (fun _ -> NamedText(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)
           ||> Array.fold (fun text change ->
             match change.Range with
             | None -> // replace entire content
+              NamedText(filePath, change.Text)
+            | Some rangeToReplace when
+              rangeToReplace.Start.Line = 0
+              && rangeToReplace.Start.Character = 0
+              && rangeToReplace.End.Line = 0
+              && rangeToReplace.End.Character = 0
+              ->
               NamedText(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice
@@ -1480,7 +1515,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let! res =
           commands.Helptext ci.InsertText.Value
           |> AsyncResult.ofCoreResponse
-          |> AsyncResult.foldResult (mapHelpText ci) (fun _ -> ci)
+          |> AsyncResult.foldResult
+            (function
+            | None -> ci
+            | Some text -> mapHelpText ci text)
+            (fun _ -> ci)
 
         return success res
       }
@@ -1540,10 +1579,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         match commands.ToolTip tyRes pos lineStr with
-        | CoreResponse.InfoRes msg
+        | CoreResponse.InfoRes msg -> async.Return(success None)
         | CoreResponse.ErrorRes msg -> LspResult.internalError msg |> async.Return
         | CoreResponse.Res None -> async.Return(success None)
-        | CoreResponse.Res(Some(tip, signature, footer, typeDoc)) ->
+        | CoreResponse.Res(Some tooltipResult) ->
           let formatCommentStyle =
             if config.TooltipMode = "full" then
               TipFormatter.FormatCommentStyle.FullEnhanced
@@ -1552,41 +1591,50 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             else
               TipFormatter.FormatCommentStyle.Legacy
 
-          match TipFormatter.formatTipEnhanced tip signature footer typeDoc formatCommentStyle with
-          | (sigCommentFooter :: _) :: _ ->
-            let signature, comment, footer = sigCommentFooter
+          match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
+          | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
-            let markStr lang (value: string) =
-              MarkedString.WithLanguage { Language = lang; Value = value }
+            // Display the signature as a code block
+            let signature =
+              tooltipResult.Signature
+              |> TipFormatter.prepareSignature
+              |> (fun content -> MarkedString.WithLanguage { Language = "fsharp"; Value = content })
 
-            let fsharpBlock (lines: string[]) =
-              lines |> String.concat Environment.NewLine |> markStr "fsharp"
+            // Display each footer line as a separate line
+            let footerLines =
+              tooltipResult.Footer
+              |> TipFormatter.prepareFooterLines
+              |> Array.map MarkedString.String
 
-            let sigContent =
-              let lines =
-                signature.Split Environment.NewLine
-                |> Array.filter (not << String.IsNullOrWhiteSpace)
-
-              match lines |> Array.splitAt (lines.Length - 1) with
-              | (h, [| StartsWith "Full name:" fullName |]) ->
-                [| yield fsharpBlock h; yield MarkedString.String("*" + fullName + "*") |]
-              | _ -> [| fsharpBlock lines |]
-
-
-            let commentContent = comment |> MarkedString.String
-
-            let footerContent =
-              footer.Split Environment.NewLine
-              |> Array.filter (not << String.IsNullOrWhiteSpace)
-              |> Array.map (fun n -> MarkedString.String("*" + n + "*"))
-
+            let contents =
+              [| signature
+                 MarkedString.String tooltipInfo.DocComment
+                 match tooltipResult.SymbolInfo with
+                 | TryGetToolTipEnhancedResult.Keyword _ -> ()
+                 | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
+                   TipFormatter.renderShowDocumentationLink
+                     tooltipInfo.HasTruncatedExamples
+                     symbolInfo.XmlDocSig
+                     symbolInfo.Assembly
+                   |> MarkedString.String
+                 yield! footerLines |]
 
             let response =
-              { Contents = MarkedStrings [| yield! sigContent; yield commentContent; yield! footerContent |]
+              { Contents = MarkedStrings contents
                 Range = None }
 
             async.Return(success (Some response))
-          | _ -> async.Return(success None))
+
+          | TipFormatter.TipFormatterResult.Error error ->
+            let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
+
+            let response =
+              { Contents = MarkedStrings contents
+                Range = None }
+
+            async.Return(success (Some response))
+
+          | TipFormatter.TipFormatterResult.None -> async.Return(success None))
 
     override x.TextDocumentPrepareRename p =
       logger.info (
@@ -1655,7 +1703,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
           let res =
             match res with
-            | CoreResponse.InfoRes msg
+            | CoreResponse.InfoRes msg -> success None
             | CoreResponse.ErrorRes msg -> LspResult.internalError msg
             | CoreResponse.Res r -> findDeclToLspLocation r |> GotoResult.Single |> Some |> success
 
@@ -1675,7 +1723,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
           let res =
             match res with
-            | CoreResponse.InfoRes msg
+            | CoreResponse.InfoRes msg -> success None
             | CoreResponse.ErrorRes msg -> LspResult.internalError msg
             | CoreResponse.Res r -> findDeclToLspLocation r |> GotoResult.Single |> Some |> success
 
@@ -1710,7 +1758,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         match commands.SymbolUse tyRes pos lineStr with
-        | CoreResponse.InfoRes msg
+        | CoreResponse.InfoRes msg -> async.Return(success None)
         | CoreResponse.ErrorRes msg -> async.Return(LspResult.internalError msg)
         | CoreResponse.Res(symbol, uses) ->
           uses
@@ -1736,7 +1784,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
           let ranges: FSharp.Compiler.Text.Range[] =
             match res with
-            | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+            | Some(LocationResponse.Use(_, uses)) -> uses |> Array.map (fun u -> u.Range)
+            | None -> [||]
 
           let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
@@ -1759,7 +1808,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
           | CoreResponse.Res decls ->
             decls
@@ -1785,7 +1834,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
           | CoreResponse.Res(decls) ->
             decls
@@ -1881,7 +1930,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 with e ->
                   return Ok []
               })
-            |> Async.Parallel
+            |> Async.parallel75
 
           let! fixes = fixes
           let (actions: Fix list[], errors: string[]) = Array.partitionResults fixes
@@ -1900,14 +1949,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           match actions with
           | [] -> return None
           | actions ->
-            return
+            let! fixes =
               actions
-              |> List.map (
-                CodeAction.OfFix commands.TryGetFileVersion clientCapabilities.Value
-                >> U2.Second
-              )
-              |> List.toArray
-              |> Some
+              |> List.map (CodeAction.OfFix (commands.TryGetFileVersion >> Async.singleton) clientCapabilities.Value)
+              |> Async.parallel75
+
+            return Some(fixes |> Array.map U2.Second)
         }
 
     override __.TextDocumentCodeLens(p: CodeLensParams) =
@@ -1919,21 +1966,25 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
 
-        let! decls =
+        let! declsAndPaths =
           commands.Declarations fn None (commands.TryGetFileVersion fn)
           |> AsyncResult.ofCoreResponse
-          |> AsyncResult.map (Array.map fst)
 
-        let res =
-          [| if config.LineLens.Enabled <> "replaceCodeLens" then
-               if config.CodeLenses.Signature.Enabled then
-                 yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
+        match declsAndPaths with
+        | None -> return None
+        | Some declsAndPaths ->
+          let decls = Array.map fst declsAndPaths
 
-               // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
-               if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
-                 yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
+          let res =
+            [| if config.LineLens.Enabled <> "replaceCodeLens" then
+                 if config.CodeLenses.Signature.Enabled then
+                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
 
-        return Some res
+                 // we have two options here because we're deprecating the EnableReferenceCodeLens one (namespacing, etc)
+                 if config.EnableReferenceCodeLens || config.CodeLenses.References.Enabled then
+                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
+
+          return Some res
       }
 
     override __.CodeLensResolve(p) =
@@ -2103,13 +2154,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           >> Log.addContextDestructured "parms" dto
         )
 
-        let c = config.AddDto dto.FSharp
-        updateConfig c
+        dto.FSharp
+        |> Option.iter (fun fsharpConfig ->
+          let c = config.AddDto fsharpConfig
+          updateConfig c
 
-        logger.info (
-          Log.setMessage "Workspace configuration changed"
-          >> Log.addContextDestructured "config" c
-        )
+          logger.info (
+            Log.setMessage "Workspace configuration changed"
+            >> Log.addContextDestructured "config" c
+          ))
 
         return ()
       }
@@ -2167,11 +2220,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           |> x.positionHandler (fun p pos tyRes lineStr lines ->
             async {
               match commands.Typesig tyRes pos lineStr with
-              | CoreResponse.InfoRes msg
+              | CoreResponse.InfoRes msg -> return success None
               | CoreResponse.ErrorRes msg -> return LspResult.internalError msg
               | CoreResponse.Res tip ->
                 return
                   { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip }
+                  |> Some
                   |> success
             })
       }
@@ -2220,10 +2274,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> handler (fun p pos tyRes lineStr ->
         (match Commands.SignatureData tyRes pos lineStr with
-         | CoreResponse.InfoRes msg
+         | CoreResponse.InfoRes msg -> success None
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
          | CoreResponse.Res(typ, parms, generics) ->
            { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+           |> Some
            |> success)
         |> async.Return)
 
@@ -2236,27 +2291,30 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! { InsertPosition = insertPos
-                 InsertText = text } =
+          match!
             Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
             |> AsyncResult.ofStringErr
+          with
+          | None -> return ()
+          | Some { InsertPosition = insertPos
+                   InsertText = text } ->
 
-          let edit: ApplyWorkspaceEditParams =
-            { Label = Some "Generate Xml Documentation"
-              Edit =
-                { DocumentChanges =
-                    Some
-                      [| { TextDocument = p.TextDocument
-                           Edits =
-                             [| { Range = fcsPosToProtocolRange insertPos
-                                  NewText = text } |] } |]
-                  Changes = None } }
+            let edit: ApplyWorkspaceEditParams =
+              { Label = Some "Generate Xml Documentation"
+                Edit =
+                  { DocumentChanges =
+                      Some
+                        [| { TextDocument = p.TextDocument
+                             Edits =
+                               [| { Range = fcsPosToProtocolRange insertPos
+                                    NewText = text } |] } |]
+                    Changes = None } }
 
-          let! response = lspClient.WorkspaceApplyEdit edit
-          return ()
+            let! response = lspClient.WorkspaceApplyEdit edit
+            return ()
         })
 
-    override __.FSharpLineLense(p) =
+    override __.FSharpLineLens(p) =
       async {
         logger.info (
           Log.setMessage "FSharpLineLense Request: {parms}"
@@ -2269,36 +2327,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
           | CoreResponse.Res(decls) ->
             { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
-            |> success
-
-        return res
-      }
-
-    override __.FSharpCompilerLocation(p) =
-      async {
-        logger.info (
-          Log.setMessage "FSharpCompilerLocation Request: {parms}"
-          >> Log.addContextDestructured "parms" p
-        )
-
-        let res = commands.CompilerLocation()
-
-        let res =
-          match res with
-          | CoreResponse.InfoRes msg
-          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(fsc, fsi, msbuild, sdk) ->
-            { Content =
-                CommandResponse.compilerLocation
-                  FsAutoComplete.JsonSerializer.writeJson
-                  fsc
-                  fsi
-                  msbuild
-                  (sdk |> Option.map (fun (di: DirectoryInfo) -> di.FullName)) }
+            |> Some
             |> success
 
         return res
@@ -2396,15 +2429,13 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let! res = Commands.DotnetNewList()
 
-        let res =
-          match res with
-          | CoreResponse.InfoRes msg
-          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(funcs) ->
-            { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
-            |> success
+        match res with
+        | CoreResponse.InfoRes msg -> return success None
+        | CoreResponse.ErrorRes msg -> return LspResult.internalError msg
+        | CoreResponse.Res(funcs) ->
+          return
+            success (Some { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs })
 
-        return res
       }
 
     override __.FSharpDotnetNewRun(p: DotnetNewRunRequest) =
@@ -2418,9 +2449,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2436,9 +2467,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2454,9 +2485,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2472,9 +2503,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2490,9 +2521,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2508,9 +2539,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2526,9 +2557,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2544,9 +2575,27 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
+
+        return res
+      }
+
+    override __.FsProjRenameFile(p: DotnetRenameFileRequest) =
+      async {
+        logger.info (
+          Log.setMessage "FsProjRenameFile Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+
+        let! res = commands.FsProjRenameFile p.FsProj p.OldFileVirtualPath p.NewFileName
+
+        let res =
+          match res with
+          | CoreResponse.InfoRes msg -> success None
+          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2562,9 +2611,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2580,9 +2629,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2603,9 +2652,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg
+          | CoreResponse.InfoRes msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-          | CoreResponse.Res(_) -> { Content = "" } |> success
+          | CoreResponse.Res(_) -> success None
 
         return res
       }
@@ -2619,10 +2668,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         (match Commands.Help tyRes pos lineStr with
-         | CoreResponse.InfoRes msg
+         | CoreResponse.InfoRes msg -> success None
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
          | CoreResponse.Res(t) ->
            { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+           |> Some
            |> success)
         |> async.Return)
 
@@ -2636,46 +2686,50 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         (match Commands.FormattedDocumentation tyRes pos lineStr with
-         | CoreResponse.InfoRes msg
+         | CoreResponse.InfoRes msg -> success None
          | CoreResponse.ErrorRes msg -> LspResult.internalError msg
-         | CoreResponse.Res(tip, xml, signature, footer, cm) ->
+         | CoreResponse.Res(tip, xml, signature, footer, xmlKey) ->
            let notification: PlainNotification =
              { Content =
                  CommandResponse.formattedDocumentation
-                   FsAutoComplete.JsonSerializer.writeJson
-                   (tip, xml, signature, footer, cm) }
+                   JsonSerializer.writeJson
+                   {| Tip = tip
+                      XmlSig = xml
+                      Signature = signature
+                      Footer = footer
+                      XmlKey = xmlKey |} }
 
-           success notification)
+           success (Some notification))
         |> async.Return)
 
     override x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
-      logger.info (
-        Log.setMessage "FSharpDocumentationSymbol Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+      async {
+        logger.info (
+          Log.setMessage "FSharpDocumentationSymbol Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
 
-      match commands.LastCheckResult with
-      | None -> AsyncLspResult.internalError "error"
-      | Some tyRes ->
-        match Commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly with
-        | (CoreResponse.InfoRes msg)
-        | (CoreResponse.ErrorRes msg) -> AsyncLspResult.internalError msg
-        | (CoreResponse.Res(xml, assembly, doc, signature, footer, cn)) ->
-          let xmldoc =
-            match doc with
-            | FSharpXmlDoc.None -> [||]
-            | FSharpXmlDoc.FromXmlFile _ -> [||]
-            | FSharpXmlDoc.FromXmlText d -> d.GetElaboratedXmlLines()
+        match commands.LastCheckResult with
+        | None -> return success None
+        | Some tyRes ->
+          match Commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly with
+          | (CoreResponse.InfoRes msg) -> return success None
+          | (CoreResponse.ErrorRes msg) -> return! AsyncLspResult.internalError msg
+          | (CoreResponse.Res(xml, assembly, xmlDoc, signature, footer, xmlKey)) ->
 
-          { Content =
-              CommandResponse.formattedDocumentationForSymbol
-                FsAutoComplete.JsonSerializer.writeJson
-                xml
-                assembly
-                xmldoc
-                (signature, footer, cn) }
-          |> success
-          |> async.Return
+            return
+              { Content =
+                  CommandResponse.formattedDocumentationForSymbol
+                    JsonSerializer.writeJson
+                    {| Xml = xml
+                       Assembly = assembly
+                       XmlDoc = xmlDoc
+                       Signature = signature
+                       Footer = footer
+                       XmlKey = xmlKey |} }
+              |> Some
+              |> success
+      }
 
     override __.LoadAnalyzers(path) =
       async {
@@ -2830,13 +2884,16 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
       p.TextDocument
       |> x.fileHandler (fun fn tyRes lines ->
-        match commands.PipelineHints tyRes with
-        | CoreResponse.InfoRes msg
-        | CoreResponse.ErrorRes msg -> AsyncLspResult.internalError msg
-        | CoreResponse.Res(res) ->
-          { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
-          |> success
-          |> async.Return)
+        async {
+          match! commands.PipelineHints tyRes with
+          | CoreResponse.InfoRes msg -> return! async.Return(success None)
+          | CoreResponse.ErrorRes msg -> return! AsyncLspResult.internalError msg
+          | CoreResponse.Res(res) ->
+            return
+              { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+              |> Some
+              |> success
+        })
 
     override x.TextDocumentInlineValue(p: InlineValueParams) : AsyncLspResult<InlineValue[] option> =
       logger.info (
@@ -2865,6 +2922,36 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       (x :> ILspServer).Shutdown() |> Async.Start
 
     member this.WorkDoneProgessCancel(arg1: ProgressToken) : Async<unit> = failwith "Not Implemented"
+
+    member this.CallHierarchyIncomingCalls
+      (arg1: CallHierarchyIncomingCallsParams)
+      : AsyncLspResult<CallHierarchyIncomingCall array option> =
+      failwith "Not Implemented"
+
+    member this.CallHierarchyOutgoingCalls
+      (arg1: CallHierarchyOutgoingCallsParams)
+      : AsyncLspResult<CallHierarchyOutgoingCall array option> =
+      failwith "Not Implemented"
+
+    member this.TextDocumentPrepareCallHierarchy
+      (arg1: CallHierarchyPrepareParams)
+      : AsyncLspResult<CallHierarchyItem array option> =
+      failwith "Not Implemented"
+
+    member this.TextDocumentPrepareTypeHierarchy
+      (arg1: TypeHierarchyPrepareParams)
+      : AsyncLspResult<TypeHierarchyItem array option> =
+      failwith "Not Implemented"
+
+    member this.TypeHierarchySubtypes
+      (arg1: TypeHierarchySubtypesParams)
+      : AsyncLspResult<TypeHierarchyItem array option> =
+      failwith "Not Implemented"
+
+    member this.TypeHierarchySupertypes
+      (arg1: TypeHierarchySupertypesParams)
+      : AsyncLspResult<TypeHierarchyItem array option> =
+      failwith "Not Implemented"
 
 module FSharpLspServer =
 
@@ -2899,8 +2986,7 @@ module FSharpLspServer =
       |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
       |> Map.add "fsharp/signatureData" (serverRequestHandling (fun s p -> s.FSharpSignatureData(p)))
       |> Map.add "fsharp/documentationGenerator" (serverRequestHandling (fun s p -> s.FSharpDocumentationGenerator(p)))
-      |> Map.add "fsharp/lineLens" (serverRequestHandling (fun s p -> s.FSharpLineLense(p)))
-      |> Map.add "fsharp/compilerLocation" (serverRequestHandling (fun s p -> s.FSharpCompilerLocation(p)))
+      |> Map.add "fsharp/lineLens" (serverRequestHandling (fun s p -> s.FSharpLineLens(p)))
       |> Map.add "fsharp/workspaceLoad" (serverRequestHandling (fun s p -> s.FSharpWorkspaceLoad(p)))
       |> Map.add "fsharp/workspacePeek" (serverRequestHandling (fun s p -> s.FSharpWorkspacePeek(p)))
       |> Map.add "fsharp/project" (serverRequestHandling (fun s p -> s.FSharpProject(p)))
@@ -2922,6 +3008,7 @@ module FSharpLspServer =
       |> Map.add "fsproj/addFileBelow" (serverRequestHandling (fun s p -> s.FsProjAddFileBelow(p)))
       |> Map.add "fsproj/addFile" (serverRequestHandling (fun s p -> s.FsProjAddFile(p)))
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
+      |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
 
     let regularServer lspClient =

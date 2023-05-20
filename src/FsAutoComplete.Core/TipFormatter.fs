@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------
 // (c) Tomas Petricek, http://tomasp.net/blog
 // --------------------------------------------------------------------------------------
 module FsAutoComplete.TipFormatter
@@ -12,6 +12,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 open FsAutoComplete.Logging
 open FSharp.Compiler.Text
+open Ionide.LanguageServerProtocol.Types
 
 let inline nl<'T> = Environment.NewLine
 
@@ -163,18 +164,48 @@ module private Format =
 
             | None -> "forceNoHighlight"
 
+          // We need to trim the end of the text because the
+          // user write XML comments with a space between the '///'
+          // and the '<code>' tag. Then it mess up identifation of new lines
+          // at the end of the code snippet.
+          // Example:
+          // /// <code>
+          // ///   var x = 1;
+          // /// </code>
+          //    ^ This space is the one we need to remove
+          let innerText = innerText.TrimEnd()
+
+          // Try to detect how the code snippet is formatted
+          // so render the markdown code block the best way
+          // by avoid empty lines at the beginning or the end
           let formattedText =
-            if innerText.Contains("\n") then
+            match innerText.StartsWith("\n"), innerText.EndsWith("\n") with
+            | true, true -> sprintf "```%s%s```" lang innerText
+            | true, false -> sprintf "```%s%s\n```" lang innerText
+            | false, true -> sprintf "```%s\n%s```" lang innerText
+            | false, false -> sprintf "```%s\n%s\n```" lang innerText
 
-              if innerText.StartsWith("\n") then
+          Some formattedText
 
-                sprintf "```%s%s\n```" lang innerText
+    }
+    |> applyFormatter
 
-              else
-                sprintf "```%s\n%s\n```" lang innerText
+  let private example =
+    { TagName = "example"
+      Formatter =
+        function
+        | VoidElement _ -> None
 
-            else
-              sprintf "`%s`" innerText
+        | NonVoidElement(innerText, _) ->
+          let formattedText =
+            nl
+            + nl
+            // This try to keep a visual consistency and indicate that this
+            // "Example section" is part of it parent section (summary, remarks, etc.)
+            + """Example:"""
+            + nl
+            + nl
+            + innerText
 
           Some formattedText
 
@@ -668,6 +699,7 @@ module private Format =
     |> removeInvalidOrBlock
     // Start the transformation process
     |> paragraph
+    |> example
     |> block
     |> codeInline
     |> codeBlock
@@ -681,6 +713,13 @@ module private Format =
     |> fixPortableClassLibrary
     |> handleMicrosoftOrList
     |> unescapeSpecialCharacters
+
+[<RequireQualifiedAccess>]
+type FormatCommentStyle =
+  | Legacy
+  | FullEnhanced
+  | SummaryOnly
+  | Documentation
 
 // TODO: Improve this parser. Is there any other XmlDoc parser available?
 type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: int) =
@@ -725,7 +764,17 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.tryHead
 
   let rawExamples =
-    doc.DocumentElement.GetElementsByTagName "example" |> Seq.cast<XmlNode>
+    doc.DocumentElement.GetElementsByTagName "example"
+    |> Seq.cast<XmlNode>
+    // We need to filter out the examples node that are children
+    // of another "main" node
+    // This is because if the example node is inside a "main" node
+    // then we render it in place.
+    // So we don't need to render it independently in the Examples section
+    |> Seq.filter (fun node ->
+      [ "summary"; "param"; "returns"; "exception"; "remarks"; "typeparam" ]
+      |> List.contains node.ParentNode.Name
+      |> not)
 
   let readNamedContentAsKvPair (key, content) =
     KeyValuePair(key, readContentForTooltip content)
@@ -770,6 +819,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     else
       "**Description**" + nl + nl + summary
 
+  member __.HasTruncatedExamples = examples |> Seq.isEmpty |> not
+
   member __.ToFullEnhancedString() =
     let content =
       summary
@@ -778,7 +829,6 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       + Section.fromKeyValueList "Parameters" parameters
       + Section.fromOption "Returns" returns
       + Section.fromKeyValueList "Exceptions" exceptions
-      + Section.fromList "Examples" examples
       + Section.fromList "See also" seeAlso
 
     // If we where unable to process the doc comment, then just output it as it is
@@ -800,6 +850,14 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     + Section.fromKeyValueList "Exceptions" exceptions
     + Section.fromList "Examples" examples
     + Section.fromList "See also" seeAlso
+
+  member this.FormatComment(formatStyle: FormatCommentStyle) =
+    match formatStyle with
+    | FormatCommentStyle.Legacy -> this.ToString()
+    | FormatCommentStyle.SummaryOnly -> this.ToSummaryOnlyString()
+    | FormatCommentStyle.FullEnhanced -> this.ToFullEnhancedString()
+    | FormatCommentStyle.Documentation -> this.ToDocumentationString()
+
 
 let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<string, XmlDocMember>) =
   let acc' =
@@ -887,23 +945,30 @@ let private getXmlDoc dllFile =
         xmlDocCache.AddOrUpdate(xmlFile, xmlDoc, (fun _ _ -> xmlDoc)) |> ignore
 
         Some xmlDoc
-      with ex ->
+      with _ ->
         None // TODO: Remove the empty map from cache to try again in the next request?
-
-[<RequireQualifiedAccess>]
-type FormatCommentStyle =
-  | Legacy
-  | FullEnhanced
-  | SummaryOnly
-  | Documentation
 
 // --------------------------------------------------------------------------------------
 // Formatting of tool-tip information displayed in F# IntelliSense
 // --------------------------------------------------------------------------------------
-let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: string option) =
-  match cmt with
-  | FSharpXmlDoc.FromXmlText xmldoc ->
-    try
+
+[<RequireQualifiedAccess>]
+type private TryGetXmlDocMemberResult =
+  | Some of XmlDocMember
+  | None
+  | Error
+
+[<RequireQualifiedAccess>]
+type TipFormatterResult<'T> =
+  | Success of 'T
+  | Error of string
+  | None
+
+let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
+  try
+    match xmlDoc with
+    | FSharpXmlDoc.FromXmlText xmldoc ->
+
       let document = xmldoc.GetXmlText()
       // We create a "fake" XML document in order to use the same parser for both libraries and user code
       let xml = sprintf "<fake>%s</fake>" document
@@ -927,49 +992,28 @@ let private buildFormatComment cmt (formatStyle: FormatCommentStyle) (typeDoc: s
 
       let xmlDoc = XmlDocMember(doc, indentationSize, 0)
 
-      match formatStyle with
-      | FormatCommentStyle.Legacy -> xmlDoc.ToString()
-      | FormatCommentStyle.SummaryOnly -> xmlDoc.ToSummaryOnlyString()
-      | FormatCommentStyle.FullEnhanced -> xmlDoc.ToFullEnhancedString()
-      | FormatCommentStyle.Documentation -> xmlDoc.ToDocumentationString()
+      TryGetXmlDocMemberResult.Some xmlDoc
 
-    with ex ->
-      logger.warn (
-        Log.setMessage "TipFormatter - Error while parsing the doc comment"
-        >> Log.addExn ex
-      )
+    | FSharpXmlDoc.FromXmlFile(dllFile, memberName) ->
+      match getXmlDoc dllFile with
+      | Some doc when doc.ContainsKey memberName -> TryGetXmlDocMemberResult.Some doc.[memberName]
 
-      sprintf
-        "An error occured when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found LSP output"
+      | _ -> TryGetXmlDocMemberResult.None
 
-  | FSharpXmlDoc.FromXmlFile(dllFile, memberName) ->
-    match getXmlDoc dllFile with
-    | Some doc when doc.ContainsKey memberName ->
-      let typeDoc =
-        match typeDoc with
-        | Some s when doc.ContainsKey s ->
-          match formatStyle with
-          | FormatCommentStyle.Legacy -> doc.[s].ToString()
-          | FormatCommentStyle.SummaryOnly -> doc.[s].ToSummaryOnlyString()
-          | FormatCommentStyle.FullEnhanced -> doc.[s].ToFullEnhancedString()
-          | FormatCommentStyle.Documentation -> doc.[s].ToDocumentationString()
-        | _ -> ""
+    | FSharpXmlDoc.None -> TryGetXmlDocMemberResult.None
+  with ex ->
+    logger.warn (
+      Log.setMessage "TipFormatter - Error while parsing the doc comment"
+      >> Log.addExn ex
+    )
 
-      match formatStyle with
-      | FormatCommentStyle.Legacy -> doc.[memberName].ToString() + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-      | FormatCommentStyle.SummaryOnly ->
-        doc.[memberName].ToSummaryOnlyString()
-        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-      | FormatCommentStyle.FullEnhanced ->
-        doc.[memberName].ToFullEnhancedString()
-        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-      | FormatCommentStyle.Documentation ->
-        doc.[memberName].ToDocumentationString()
-        + (if typeDoc <> "" then "\n\n" + typeDoc else "")
-    | _ -> ""
-  | _ -> ""
+    TryGetXmlDocMemberResult.Error
 
-let formatTaggedText (t: TaggedText) : string =
+[<Literal>]
+let private ERROR_WHILE_PARSING_DOC_COMMENT =
+  "An error occurred when parsing the doc comment, please check that your doc comment is valid.\n\nMore info can be found in the LSP output"
+
+let private formatTaggedText (t: TaggedText) : string =
   match t.Tag with
   | TextTag.ActivePatternResult
   | TextTag.UnionCase
@@ -1006,13 +1050,13 @@ let formatTaggedText (t: TaggedText) : string =
   | TextTag.Record
   | TextTag.TypeParameter -> $"`{t.Text}`"
 
-let formatUntaggedText (t: TaggedText) = t.Text
+let private formatUntaggedText (t: TaggedText) = t.Text
 
-let formatUntaggedTexts = Array.map formatUntaggedText >> String.concat ""
+let private formatUntaggedTexts = Array.map formatUntaggedText >> String.concat ""
 
-let formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
+let private formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
 
-let formatGenericParameters (typeMappings: TaggedText[] list) =
+let private formatGenericParameters (typeMappings: TaggedText[] list) =
   typeMappings
   |> List.map (fun typeMap -> $"* {formatTaggedTexts typeMap}")
   |> String.concat nl
@@ -1026,7 +1070,12 @@ let formatCompletionItemTip (ToolTipText tips) : (string * string) =
       let makeTooltip (tipElement: ToolTipElementData) =
         let header = formatUntaggedTexts tipElement.MainDescription
 
-        let body = buildFormatComment tipElement.XmlDoc FormatCommentStyle.Legacy None
+        let body =
+          match tryGetXmlDocMember tipElement.XmlDoc with
+          | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment(FormatCommentStyle.Legacy)
+          | TryGetXmlDocMemberResult.None -> ""
+          | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT
+
         header, body
 
       items |> List.tryHead |> Option.map makeTooltip
@@ -1042,82 +1091,199 @@ let formatPlainTip (ToolTipText tips) : (string * string) =
     | ToolTipElement.Group items ->
       let t = items |> Seq.head
       let signature = formatUntaggedTexts t.MainDescription
-      let description = buildFormatComment t.XmlDoc FormatCommentStyle.Legacy None
+
+      let description =
+        match tryGetXmlDocMember t.XmlDoc with
+        | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment(FormatCommentStyle.Legacy)
+        | TryGetXmlDocMemberResult.None -> ""
+        | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT
+
       Some(signature, description)
     | ToolTipElement.CompositionError(error) -> Some("<Note>", error)
     | _ -> Some("<Note>", "No signature data"))
 
-let formatTipEnhanced
-  (ToolTipText tips)
-  (signature: string)
-  (footer: string)
-  (typeDoc: string option)
-  (formatCommentStyle: FormatCommentStyle)
-  : (string * string * string) list list =
+let prepareSignature (signatureText: string) =
+  signatureText.Split Environment.NewLine
+  // Remove empty lines
+  |> Array.filter (not << String.IsNullOrWhiteSpace)
+  |> String.concat nl
+
+let prepareFooterLines (footerText: string) =
+  footerText.Split Environment.NewLine
+  // Remove empty lines
+  |> Array.filter (not << String.IsNullOrWhiteSpace)
+  // Mark each line as an individual string in italics
+  |> Array.map (fun n -> "*" + n + "*")
+
+
+let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: FormatCommentStyle) =
+
+  // Note: In the previous code, we were returning a `(string * string * string) list list`
+  // but always discarding the tooltip later if the list had more than one element
+  // and only using the first element of the inner list.
+  // More over, I don't know in which case we can have several elements in the
+  // `(ToolTipText tips)` parameter.
+  // So I can't test why we have list of list stuff, but like I said, we were
+  // discarding the tooltip if it had more than one element.
+  //
+  // The new code should do the same thing, as before but instead of
+  // computing the rendered tooltip, and discarding some of them afterwards,
+  // we are discarding the things we don't want earlier and only compute the
+  // tooltip we want to display if we have the right data.
+
+  let computeGenericParametersText (tooltipData: ToolTipElementData) =
+    // If there are no generic parameters, don't display the section
+    if tooltipData.TypeMapping.IsEmpty then
+      None
+    // If there are generic parameters, display the section
+    else
+      "**Generic Parameters**"
+      + nl
+      + nl
+      + formatGenericParameters tooltipData.TypeMapping
+      |> Some
+
   tips
-  |> List.choose (function
-    | ToolTipElement.Group items ->
-      Some(
-        items
-        |> List.map (fun i ->
-          let comment =
-            if i.TypeMapping.IsEmpty then
-              buildFormatComment i.XmlDoc formatCommentStyle typeDoc
-            else
-              buildFormatComment i.XmlDoc formatCommentStyle typeDoc
-              + nl
-              + nl
-              + "**Generic Parameters**"
-              + nl
-              + nl
-              + formatGenericParameters i.TypeMapping
+  // Render the first valid tooltip and return it
+  |> List.tryPick (function
+    | ToolTipElement.Group(tooltipData :: _) ->
+      let docComment, hasTruncatedExamples =
+        match tryGetXmlDocMember tooltipData.XmlDoc with
+        | TryGetXmlDocMemberResult.Some xmlDoc ->
+          // Format the doc comment
+          let docCommentText = xmlDoc.FormatComment formatCommentStyle
 
-          (signature, comment, footer))
-      )
-    | ToolTipElement.CompositionError(error) -> Some [ ("<Note>", error, "") ]
-    | _ -> None)
+          // Concatenate the doc comment and the generic parameters section
+          let consolidatedDocCommentText =
+            match computeGenericParametersText tooltipData with
+            | Some genericParametersText -> docCommentText + nl + nl + genericParametersText
+            | None -> docCommentText
 
-let formatDocumentation
-  (ToolTipText tips)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)):
-    string * (string[] * string[] * string[] * string[] * string[] * string[]))
-  (footer: string)
-  (cn: string)
-  =
-  tips
-  |> List.choose (function
-    | ToolTipElement.Group items ->
-      Some(
-        items
-        |> List.map (fun i ->
-          let comment =
-            if i.TypeMapping.IsEmpty then
-              buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
-            else
-              buildFormatComment i.XmlDoc FormatCommentStyle.Documentation None
-              + nl
-              + nl
-              + "**Generic Parameters**"
-              + nl
-              + nl
-              + formatGenericParameters i.TypeMapping
+          consolidatedDocCommentText, xmlDoc.HasTruncatedExamples
 
-          (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn))
-      )
-    | ToolTipElement.CompositionError(error) -> Some [ ("<Note>", [||], [||], [||], [||], [||], [||], error, "", "") ]
-    | _ -> None)
+        | TryGetXmlDocMemberResult.None ->
+          // Even if a symbol doesn't have a doc comment, it can still have generic parameters
+          let docComment =
+            match computeGenericParametersText tooltipData with
+            | Some genericParametersText -> genericParametersText
+            | None -> ""
 
-let formatDocumentationFromXmlSig
-  (xmlSig: string)
-  (assembly: string)
-  ((signature, (constructors, fields, functions, interfaces, attrs, ts)):
-    string * (string[] * string[] * string[] * string[] * string[] * string[]))
-  (footer: string)
-  (cn: string)
-  =
+          docComment, false
+        | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT, false
+
+      {| DocComment = docComment
+         HasTruncatedExamples = hasTruncatedExamples |}
+      |> Ok
+      |> Some
+
+    | ToolTipElement.CompositionError error -> error |> Error |> Some
+
+    | ToolTipElement.Group []
+    | ToolTipElement.None -> None)
+
+/// <summary>
+/// Try format the given tooltip with the requested style.
+/// </summary>
+/// <param name="toolTipText">Tooltip documentation to render in the middle</param>
+/// <param name="formatCommentStyle">Style of tooltip</param>
+/// <returns>
+/// - <c>TipFormatterResult.Success {| DocComment; HasTruncatedExamples |}</c> if the doc comment has been formatted
+///
+///   Where DocComment is the format tooltip and HasTruncatedExamples is true if examples have been truncated
+///
+/// - <c>TipFormatterResult.None</c> if the doc comment has not been found
+/// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
+/// </returns>
+let tryFormatTipEnhanced toolTipText (formatCommentStyle: FormatCommentStyle) =
+
+  match tryComputeTooltipInfo toolTipText formatCommentStyle with
+  | Some(Ok tooltipResult) -> TipFormatterResult.Success tooltipResult
+
+  | Some(Error error) -> TipFormatterResult.Error error
+
+  | None -> TipFormatterResult.None
+
+/// <summary>
+/// Generate the 'Show documentation' link for the tooltip.
+///
+/// The link is rendered differently depending on if examples
+/// have been truncated or not.
+/// </summary>
+/// <param name="hasTruncatedExamples"><c>true</c> if the examples have been truncated</param>
+/// <param name="xmlDocSig">XmlDocSignature in the format of <c>T:System.String.concat</c></param>
+/// <param name="assemblyName">Assembly name, example <c>FSharp.Core</c></param>
+/// <returns>Returns a string which represent the show documentation link</returns>
+let renderShowDocumentationLink (hasTruncatedExamples: bool) (xmlDocSig: string) (assemblyName: string) =
+
+  // TODO: Refactor this code, to avoid duplicate with DocumentationFormatter.fs
+  let content =
+    Uri.EscapeDataString(sprintf """[{ "XmlDocSig": "%s", "AssemblyName": "%s" }]""" xmlDocSig assemblyName)
+
+  let text =
+    if hasTruncatedExamples then
+      "Open the documentation to see the truncated examples"
+    else
+      "Open the documentation"
+
+  $"<a href='command:fsharp.showDocumentation?%s{content}'>%s{text}</a>"
+
+/// <summary>
+/// Try format the given tooltip as documentation.
+/// </summary>
+/// <param name="toolTipText">Tooltip to format</param>
+/// <returns>
+/// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
+/// - <c>TipFormatterResult.None</c> if the doc comment has not been found
+/// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
+/// </returns>
+let tryFormatDocumentationFromTooltip toolTipText =
+
+  match tryComputeTooltipInfo toolTipText FormatCommentStyle.Documentation with
+  | Some(Ok tooltipResult) -> TipFormatterResult.Success tooltipResult.DocComment
+
+  | Some(Error error) -> TipFormatterResult.Error error
+
+  | None -> TipFormatterResult.None
+
+/// <summary>
+/// Try format the doc comment based on the XmlSignature and the assembly name.
+/// </summary>
+/// <param name="xmlSig">
+/// XmlSignature used to identify the doc comment to format
+///
+/// Example: <c>T:System.String.concat</c>
+/// </param>
+/// <param name="assembly">
+/// Assembly name used to identify the doc comment to format
+///
+/// Example: <c>FSharp.Core</c>
+/// </param>
+/// <returns>
+/// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
+/// - <c>TipFormatterResult.None</c> if the doc comment has not been found
+/// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
+/// </returns>
+let tryFormatDocumentationFromXmlSig (xmlSig: string) (assembly: string) =
   let xmlDoc = FSharpXmlDoc.FromXmlFile(assembly, xmlSig)
-  let comment = buildFormatComment xmlDoc FormatCommentStyle.Documentation None
-  [ [ (signature, constructors, fields, functions, interfaces, attrs, ts, comment, footer, cn) ] ]
+
+  match tryGetXmlDocMember xmlDoc with
+  | TryGetXmlDocMemberResult.Some xmlDoc ->
+    let formattedComment = xmlDoc.FormatComment(FormatCommentStyle.Documentation)
+
+    TipFormatterResult.Success formattedComment
+
+  | TryGetXmlDocMemberResult.None -> TipFormatterResult.None
+  | TryGetXmlDocMemberResult.Error -> TipFormatterResult.Error ERROR_WHILE_PARSING_DOC_COMMENT
+
+let formatDocumentationFromXmlDoc xmlDoc =
+  match tryGetXmlDocMember xmlDoc with
+  | TryGetXmlDocMemberResult.Some xmlDoc ->
+    let formattedComment = xmlDoc.FormatComment(FormatCommentStyle.Documentation)
+
+    TipFormatterResult.Success formattedComment
+
+  | TryGetXmlDocMemberResult.None -> TipFormatterResult.None
+  | TryGetXmlDocMemberResult.Error -> TipFormatterResult.Error ERROR_WHILE_PARSING_DOC_COMMENT
 
 let extractSignature (ToolTipText tips) =
   let getSignature (t: TaggedText[]) =

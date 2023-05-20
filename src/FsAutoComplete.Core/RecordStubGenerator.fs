@@ -7,6 +7,7 @@ open FSharp.Compiler.Text
 open System.Diagnostics
 open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Symbols
+open FsToolkit.ErrorHandling
 
 // Algorithm
 // [x] Make sure '}' is the last token of the expression
@@ -220,7 +221,7 @@ let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos
 
 let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (document: Document) (expr: RecordExpr) =
 
-  maybe {
+  asyncOption {
     let! rangeWhereToLookForEnclosingRBrace =
       match expr.FieldExprList with
       | [] -> Some expr.Expr.Range
@@ -247,13 +248,15 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (
       tryFindTokenLPosInRange codeGenService rangeWhereToLookForEnclosingRBrace document (fun tokenInfo ->
         tokenInfo.TokenName = "RBRACE")
   }
-  |> Option.isSome
+  |> Async.map Option.isSome
 
 let tryFindStubInsertionParamsAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
-  asyncMaybe {
+  asyncOption {
     let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
 
-    if checkThatRecordExprEndsWithRBrace codeGenService document recordExpression then
+    let! endsWithBrace = checkThatRecordExprEndsWithRBrace codeGenService document recordExpression
+
+    if endsWithBrace then
       let! insertionPos = RecordStubsInsertionParams.TryCreateFromRecordExpression recordExpression
       return recordExpression, insertionPos
     else

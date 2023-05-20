@@ -9,6 +9,7 @@
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdaptiveExtensions.fs" />
     <Compile Include="Consts.fs" />
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fs" />

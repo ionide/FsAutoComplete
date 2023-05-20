@@ -22,6 +22,21 @@ type FindDeclarationResult =
   /// The declaration refers to a file.
   | File of string
 
+[<RequireQualifiedAccess>]
+module TryGetToolTipEnhancedResult =
+
+  type SymbolInfo =
+    | Keyword of string
+    | Symbol of
+      {| XmlDocSig: string
+         Assembly: string |}
+
+type TryGetToolTipEnhancedResult =
+  { ToolTipText: ToolTipText
+    Signature: string
+    Footer: string
+    SymbolInfo: TryGetToolTipEnhancedResult.SymbolInfo }
+
 type ParseAndCheckResults
   (parseResults: FSharpParseFileResults, checkResults: FSharpCheckFileResults, entityCache: EntityCache) =
 
@@ -320,7 +335,10 @@ type ParseAndCheckResults
         | _ -> ResultOrString.Error "No tooltip information"
       | _ -> Ok(tip)
 
-  member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) =
+  member x.TryGetToolTipEnhanced
+    (pos: Position)
+    (lineStr: LineStr)
+    : Result<option<TryGetToolTipEnhancedResult>, string> =
     let (|EmptyTooltip|_|) (ToolTipText elems) =
       match elems with
       | [] -> Some()
@@ -347,7 +365,13 @@ type ParseAndCheckResults
           match identIsland with
           | [ ident ] ->
             match KeywordList.keywordTooltips.TryGetValue ident with
-            | true, tip -> Ok(Some(tip, ident, "", None))
+            | true, tip ->
+              { ToolTipText = tip
+                Signature = ident
+                Footer = ""
+                SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
+              |> Some
+              |> Ok
             | _ -> Error "No tooltip information"
           | _ -> Error "No tooltip information"
         | _ ->
@@ -355,13 +379,24 @@ type ParseAndCheckResults
           | None -> Error "No tooltip information"
           | Some symbol ->
 
+            // Retrieve the FSharpSymbol instance so we can find the XmlDocSig
+            // This mimic, the behavior of the Info Panel on hover
+            // 1. If this is a concrete type it returns that type reference
+            // 2. If this a type alias, it returns the aliases type reference
+            let resolvedType = symbol.Symbol.GetAbbreviatedParent()
+
             match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
             | None -> Error "No tooltip information"
             | Some(signature, footer) ->
-              let typeDoc =
-                getTypeIfConstructor symbol.Symbol |> Option.map (fun n -> n.XmlDocSig)
-
-              Ok(Some(tip, signature, footer, typeDoc))
+              { ToolTipText = tip
+                Signature = signature
+                Footer = footer
+                SymbolInfo =
+                  TryGetToolTipEnhancedResult.Symbol
+                    {| XmlDocSig = resolvedType.XmlDocSig
+                       Assembly = symbol.Symbol.Assembly.SimpleName |} }
+              |> Some
+              |> Ok
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
@@ -380,7 +415,7 @@ type ParseAndCheckResults
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
-          | true, tip -> Ok(Some tip, None, (ident, (DocumentationFormatter.emptyTypeTip)), "", "")
+          | true, tip -> Ok(Some tip, None, (ident, DocumentationFormatter.EntityInfo.Empty), "", "")
           | _ -> Error "No tooltip information"
         | _ -> Error "No documentation information"
       | _ ->

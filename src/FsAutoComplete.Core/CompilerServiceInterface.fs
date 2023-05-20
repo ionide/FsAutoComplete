@@ -17,7 +17,7 @@ open FsToolkit.ErrorHandling
 
 type Version = int
 
-type FSharpCompilerServiceChecker(hasAnalyzers) =
+type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
@@ -36,7 +36,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
   // This is used to hold previous check results for autocompletion.
   // We can't seem to rely on the checker for previous cached versions
   let memoryCache () =
-    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(2000L)))
+    new MemoryCache(MemoryCacheOptions(SizeLimit = Nullable<_>(typecheckCacheSize)))
 
   let mutable lastCheckResults: IMemoryCache = memoryCache ()
 
@@ -165,6 +165,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
 
+      do! Async.SwitchToNewThread()
+
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
           UMX.untag file,
@@ -189,6 +191,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
       let allFlags =
         Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+
+      do! Async.SwitchToNewThread()
 
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
@@ -252,14 +256,41 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
-  member __.ParseFile(fn: string<LocalPath>, source, fpo) =
-    checkerLogger.info (Log.setMessage "ParseFile - {file}" >> Log.addContextDestructured "file" fn)
+  /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
+  /// <param name="filePath"> The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="source">The source to be parsed.</param>
+  /// <param name="options">Parsing options for the project or script.</param>
+  /// <returns></returns>
+  member __.ParseFile(filePath: string<LocalPath>, source: ISourceText, options: FSharpParsingOptions) =
+    async {
+      checkerLogger.info (
+        Log.setMessage "ParseFile - {file}"
+        >> Log.addContextDestructured "file" filePath
+      )
 
-    let path = UMX.untag fn
-    checker.ParseFile(path, source, fpo)
+      let path = UMX.untag filePath
+      do! Async.SwitchToNewThread()
+      return! checker.ParseFile(path, source, options)
+    }
 
-  member __.ParseAndCheckFileInProject(filePath: string<LocalPath>, version, source: ISourceText, options) =
+  /// <summary>Parse and check a source code file, returning a handle to the results</summary>
+  /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
+  /// <param name="version">An integer that can be used to indicate the version of the file. This will be returned by TryGetRecentCheckResultsForFile when looking up the file</param>
+  /// <param name="source">The source for the file.</param>
+  /// <param name="options">The options for the project or script.</param>
+  /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
+  /// <remarks>Note: all files except the one being checked are read from the FileSystem API</remarks>
+  /// <returns>Result of ParseAndCheckResults</returns>
+  member __.ParseAndCheckFileInProject
+    (
+      filePath: string<LocalPath>,
+      version,
+      source: ISourceText,
+      options,
+      ?shouldCache: bool
+    ) =
     asyncResult {
+      let shouldCache = defaultArg shouldCache false
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
       checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
@@ -268,6 +299,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
       let path = UMX.untag filePath
 
       try
+        do! Async.SwitchToNewThread()
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
@@ -289,16 +321,26 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
 
           let r = ParseAndCheckResults(p, c, entityCache)
 
-          let ops =
-            MemoryCacheEntryOptions()
-              .SetSize(1)
-              .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
+          if shouldCache then
+            let ops =
+              MemoryCacheEntryOptions()
+                .SetSize(1)
+                .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
-          return lastCheckResults.Set(filePath, r, ops)
+            return lastCheckResults.Set(filePath, r, ops)
+          else
+            return r
       with ex ->
         return! ResultOrString.Error(ex.ToString())
     }
 
+  /// <summary>
+  /// This is use primary for Autocompletions. The problem with trying to use TryGetRecentCheckResultsForFile is that it will return None
+  /// if there isn't a GetHashCode that matches the SourceText passed in.  This a problem particularly for Autocompletions because we'd have to wait for a typecheck
+  /// on every keystroke which can prove slow.  For autocompletions, it's ok to rely on cached typechecks as files above generally don't change mid type.
+  /// </summary>
+  /// <param name="file">The path of the file to get cached type check results for.</param>
+  /// <returns>Cached typecheck results</returns>
   member _.TryGetLastCheckResultForFile(file: string<LocalPath>) =
     let opName = sprintf "TryGetLastCheckResultForFile - %A" file
 
@@ -352,6 +394,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" file
       )
 
+      do! Async.SwitchToNewThread()
+
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some(opts, []) ->
@@ -363,28 +407,35 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
           opts :: dependentProjects
           |> List.map (fun (opts) ->
             async {
+              do! Async.SwitchToNewThread()
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return res.GetUsesOfSymbol symbol
             })
-          |> Async.Parallel
+          |> Async.parallel75
 
         return res |> Array.concat
     }
 
   member _.FindReferencesForSymbolInFile(file, project, symbol) =
-    checkerLogger.info (
-      Log.setMessage "FindReferencesForSymbolInFile - {file}"
-      >> Log.addContextDestructured "file" file
-    )
+    async {
+      checkerLogger.info (
+        Log.setMessage "FindReferencesForSymbolInFile - {file}"
+        >> Log.addContextDestructured "file" file
+      )
 
-    checker.FindBackgroundReferencesInFile(
-      file,
-      project,
-      symbol,
-      canInvalidateProject = false,
-      userOpName = "find references"
-    )
+      do! Async.SwitchToNewThread()
+
+      return!
+        checker.FindBackgroundReferencesInFile(
+          file,
+          project,
+          symbol,
+          canInvalidateProject = false,
+          // fastCheck = true,
+          userOpName = "find references"
+        )
+    }
 
   member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
     async {
@@ -393,6 +444,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers) =
         >> Log.addContextDestructured "file" fileName
       )
 
+      do! Async.SwitchToNewThread()
       let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
       return parseResult.GetNavigationItems().Declarations
     }

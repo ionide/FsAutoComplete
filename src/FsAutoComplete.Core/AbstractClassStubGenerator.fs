@@ -4,58 +4,71 @@ open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Tokenization
-open FsAutoComplete.Logging
+open FsToolkit.ErrorHandling
 
 
 type AbstractClassData =
-  | ObjExpr of baseTy: SynType * bindings: SynBinding list * overallRange: Range
-  | ExplicitImpl of baseTy: SynType * members: SynMemberDefn list * safeInsertPosition: Position
+  | ObjExpr of baseTy: SynType * bindings: SynBinding list * newExpression: Range * withKeyword: Range option
+
+  | ExplicitImpl of
+    baseTy: SynType *
+    members: SynMemberDefn list *
+    /// the place where the inherit expression is declared - the codefix should insert
+    /// at an indent of .Start.Column, but insert a newline after .End
+    inheritExpressionRange: Range
 
   member x.AbstractTypeIdentRange =
     match x with
-    | ObjExpr(baseTy, _, _)
-    | ExplicitImpl(baseTy, _, _) -> baseTy.Range
+    | ObjExpr(baseTy = baseTy)
+    | ExplicitImpl(baseTy = baseTy) -> baseTy.Range
 
   member x.TypeParameters =
     match x with
-    | ObjExpr(t, _, _)
-    | ExplicitImpl(t, _, _) -> expandTypeParameters t
+    | ObjExpr(baseTy = t)
+    | ExplicitImpl(baseTy = t) -> expandTypeParameters t
+
+let private (|ExplicitCtor|_|) =
+  function
+  | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
+    Some()
+  | _ -> None
 
 /// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
 let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, trivia)) =
-  let reprMembers =
-    match repr with
-    | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
-    | _ -> []
+  option {
+    let reprMembers =
+      match repr with
+      | SynTypeDefnRepr.ObjectModel(_, members, _) -> members // repr members already includes the implicit ctor if present
+      | _ -> Option.toList implicitCtor
 
-  let allMembers = reprMembers @ (Option.toList implicitCtor) @ members
+    let allMembers = reprMembers @ members
 
-  let inheritMember =
-    allMembers
-    |> List.tryPick (function
-      | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType)
-      | _ -> None)
+    let! inheritType, inheritMemberRange = // this must exist for abstract types
+      allMembers
+      |> List.tryPick (function
+        | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType, range)
+        | _ -> None)
 
-  let otherMembers =
-    allMembers
-    // filter out implicit/explicit constructors and inherit statements, as all members _must_ come after these
-    |> List.filter (function
-      | SynMemberDefn.ImplicitCtor _
-      | SynMemberDefn.ImplicitInherit _ -> false
-      | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
-        false
-      | _ -> true)
+    let furthestMemberToSkip, otherMembers =
+      ((inheritMemberRange, []), allMembers)
+      // find the last of the following kinds of members, as object-programming members must come after these
+      // * implicit/explicit constructors
+      // * `inherit` expressions
+      // * class-level `do`/`let` bindings (`do` bindings are actually `LetBindings` in the AST)
+      ||> List.fold (fun (m, otherMembers) memb ->
+        match memb with
+        | (SynMemberDefn.ImplicitCtor _ | ExplicitCtor | SynMemberDefn.ImplicitInherit _ | SynMemberDefn.LetBindings _) as possible ->
+          let c = Range.rangeOrder.Compare(m, possible.Range)
 
-  match inheritMember with
-  | Some inheritMember ->
-    let safeInsertPosition =
-      match otherMembers with
-      | [] -> Position.mkPos (inheritMember.Range.End.Line + 1) (inheritMember.Range.Start.Column + 2)
-      | x :: _ -> Position.mkPos (x.Range.End.Line - 1) (x.Range.Start.Column + 2)
+          let m' = if c < 0 then possible.Range else m
 
-    Some(AbstractClassData.ExplicitImpl(inheritMember, otherMembers, safeInsertPosition))
-  | _ -> None
+          m', otherMembers
+        | otherMember -> m, otherMember :: otherMembers)
+
+    let otherMembersInDeclarationOrder = otherMembers |> List.rev
+    return AbstractClassData.ExplicitImpl(inheritType, otherMembersInDeclarationOrder, furthestMemberToSkip)
+
+  }
 
 /// find the declaration of the abstract class being filled in at the given position
 let private tryFindAbstractClassExprInParsedInput
@@ -69,7 +82,7 @@ let private tryFindAbstractClassExprInParsedInput
         member _.VisitExpr(path, traverseExpr, defaultTraverse, expr) =
           match expr with
           | SynExpr.ObjExpr(baseTy, constructorArgs, withKeyword, bindings, members, extraImpls, newExprRange, range) ->
-            Some(AbstractClassData.ObjExpr(baseTy, bindings, range))
+            Some(AbstractClassData.ObjExpr(baseTy, bindings, newExprRange, withKeyword))
           | _ -> defaultTraverse expr
 
         override _.VisitModuleDecl(_, defaultTraverse, decl) =
@@ -83,65 +96,54 @@ let private tryFindAbstractClassExprInParsedInput
 let tryFindAbstractClassExprInBufferAtPos
   (codeGenService: ICodeGenerationService)
   (pos: Position)
-  (document: Document)
+  (document: NamedText)
   =
   asyncMaybe {
-    let! parseResults = codeGenService.ParseFileInProject(document.FullName)
+    let! parseResults = codeGenService.ParseFileInProject document.FileName
     return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
   }
 
-let getAbstractClassIdentifier (abstractClassData: AbstractClassData) tokens =
-  let newKeywordIndex =
-    match abstractClassData with
-    | AbstractClassData.ObjExpr _ ->
-      tokens
-      // Find the `new` keyword
-      |> List.findIndex (fun token -> token.CharClass = FSharpTokenCharKind.Keyword && token.TokenName = "NEW")
-    | _ -> failwith "don't call me with this bro"
-
-  findLastIdentifier tokens.[newKeywordIndex + 2 ..] tokens.[newKeywordIndex + 2]
-
 let getMemberNameAndRanges (abstractClassData) =
   match abstractClassData with
-  | AbstractClassData.ExplicitImpl(ty, members, _) ->
+  | AbstractClassData.ExplicitImpl(members = members) ->
     members
     |> Seq.choose (function
       | (SynMemberDefn.Member(binding, _)) -> Some binding
       | _ -> None)
-    |> Seq.choose (|MemberNameAndRange|_|)
+    |> Seq.choose (|MemberNamePlusRangeAndKeywordRange|_|)
     |> Seq.toList
-  | AbstractClassData.ObjExpr(_, bindings, _) -> List.choose (|MemberNameAndRange|_|) bindings
+  | AbstractClassData.ObjExpr(bindings = bindings) -> List.choose (|MemberNamePlusRangeAndKeywordRange|_|) bindings
 
 /// Try to find the start column, so we know what the base indentation should be
 let inferStartColumn
-  (codeGenServer: ICodeGenerationService)
-  (pos: Position)
-  (doc: Document)
-  (lines: ISourceText)
-  (lineStr: string)
   (abstractClassData: AbstractClassData)
+  (memberNamesAndRanges: (_ * _ * Range) list)
   (indentSize: int)
   =
-  match getMemberNameAndRanges abstractClassData with
-  | (_, range) :: _ -> getLineIdent (lines.GetLineString(range.StartLine - 1))
+  match memberNamesAndRanges with
+  | (_, _, leadingKeywordRange) :: _ ->
+    // if we have any members, then we can use the start of the leading keyword to give us the indent correctly
+    leadingKeywordRange.StartColumn
   | [] ->
     match abstractClassData with
-    | AbstractClassData.ExplicitImpl _ ->
+    | AbstractClassData.ExplicitImpl(inheritExpressionRange = inheritRange) ->
       // 'interface ISomething with' is often in a new line, we use the indentation of that line
-      getLineIdent lineStr + indentSize
-    | AbstractClassData.ObjExpr(_, _, newExprRange) ->
-      match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
-      | Some tokens ->
-        tokens
-        |> List.tryPick (fun (t: FSharpTokenInfo) ->
-          if t.CharClass = FSharpTokenCharKind.Keyword && t.TokenName = "NEW" then
-            // We round to nearest so the generated code will align on the indentation guides
-            findGreaterMultiple (t.LeftColumn + indentSize) indentSize |> Some
-          else
-            None)
-        // There is no reference point, we indent the content at the start column of the interface
-        |> Option.defaultValue newExprRange.StartColumn
-      | None -> newExprRange.StartColumn
+      inheritRange.StartColumn
+    | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = withKeyword; bindings = bindings) ->
+      // two cases here to consider:
+      // * has a with keyword on same line as newExpr
+      match withKeyword with
+      | None ->
+        // if no withKeyword, then we add an indent to the start of the new Expression to get our final indent
+        newExpr.StartColumn + indentSize
+      | Some keyword ->
+        // if we have a keyword, if it's on the same line then we can do the same
+        if keyword.StartLine = newExpr.StartLine then
+          newExpr.StartColumn + indentSize
+        else if keyword.StartColumn = newExpr.StartColumn then
+          keyword.StartColumn + indentSize
+        else
+          keyword.StartColumn
 
 /// Try to write any missing members of the given abstract type at the given location.
 /// If the destination type isn't an abstract class, or if there are no missing members to implement,
@@ -149,22 +151,21 @@ let inferStartColumn
 let writeAbstractClassStub
   (codeGenServer: ICodeGenerationService)
   (checkResultForFile: ParseAndCheckResults)
-  (doc: Document)
-  (lines: ISourceText)
+  (doc: NamedText)
   (lineStr: string)
   (abstractClassData: AbstractClassData)
   =
-  asyncMaybe {
+  asyncOption {
     let pos =
       Position.mkPos
         abstractClassData.AbstractTypeIdentRange.Start.Line
         (abstractClassData.AbstractTypeIdentRange.End.Column)
 
-    let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FullName, pos, SymbolKind.Ident)
+    let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FileName, pos, SymbolKind.Ident)
     let! usage = usages
 
     let! (displayContext, entity) =
-      asyncMaybe {
+      asyncOption {
         // need the enclosing entity because we're always looking at a ctor, which isn't an Entity, but a MemberOrFunctionOrValue
         match usage.Symbol with
         | :? FSharpMemberOrFunctionOrValue as v ->
@@ -176,60 +177,57 @@ let writeAbstractClassStub
         | _ -> return! None
       }
 
-    let getMemberByLocation (name, range: Range) =
-      asyncMaybe {
-        let pos = Position.fromZ (range.StartLine - 1) (range.StartColumn + 1)
-        return! checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(pos.Line, pos.Column, lineStr, [])
-      }
-
-    let insertInfo =
-      match codeGenServer.TokenizeLine(doc.FullName, pos.Line) with
-      | Some tokens ->
-        match abstractClassData with
-        | AbstractClassData.ObjExpr _ ->
-          findLastPositionOfWithKeyword tokens entity pos (getAbstractClassIdentifier abstractClassData)
-        | AbstractClassData.ExplicitImpl(_, _, safeInsertPosition) -> Some(false, safeInsertPosition)
+    let getMemberByLocation (name: string, range: Range, keywordRange: Range) =
+      match doc.GetLine range.Start with
+      | Some lineText ->
+        match Lexer.getSymbol range.Start.Line range.Start.Column lineText SymbolLookupKind.ByLongIdent [||] with
+        | Some sym ->
+          checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(
+            range.StartLine,
+            range.EndColumn,
+            lineText,
+            sym.Text.Split('.') |> List.ofArray
+          )
+        | None -> None
       | None -> None
 
     let desiredMemberNamesWithRanges = getMemberNameAndRanges abstractClassData
 
-    let! implementedSignatures =
+    let implementedSignatures =
       getImplementedMemberSignatures getMemberByLocation displayContext desiredMemberNamesWithRanges
-      |> Async.map Some
 
-    let generatedString =
-      let formattedString =
-        formatMembersAt
-          (inferStartColumn codeGenServer pos doc lines lineStr abstractClassData 4) // 4 here correspond to the indent size
-          4 // Should we make it a setting from the IDE ?
-          abstractClassData.TypeParameters
-          "$objectIdent"
-          "$methodBody"
-          displayContext
-          implementedSignatures
-          entity
-          getAbstractNonVirtualMembers
-          true // Always generate the verbose version of the code
+    let start = inferStartColumn abstractClassData desiredMemberNamesWithRanges 4 // 4 here correspond to the indent size
 
-      // If we are in a object expression, we remove the last new line, so the `}` stay on the same line
-      match abstractClassData with
-      | AbstractClassData.ExplicitImpl _ -> formattedString
-      | AbstractClassData.ObjExpr _ -> formattedString.TrimEnd('\n')
+    // this entire file could potentially be replaced by something very much like
+    // FSharp.Compiler.EditorServices.InterfaceStubGenerator.FormatInterface, if the
+    // function to 'get the members we want to implement' was exposed somehow instead of being hard-coded
+    // to just interface lookups
+    let formattedString =
+      formatMembersAt
+        start
+        4 // Should we make it a setting from the IDE ?
+        abstractClassData.TypeParameters
+        "$objectIdent"
+        "$methodBody"
+        displayContext
+        implementedSignatures
+        entity
+        getAbstractNonVirtualMembers
+        true // Always generate the verbose version of the code
+
+    let generatedString = formattedString.TrimEnd('\n')
 
     // If generatedString is empty it means nothing is missing to the abstract class
     // So we return None, in order to not show a "Falsy Hint"
     if System.String.IsNullOrEmpty generatedString then
       return! None
     else
-      match insertInfo with
-      | Some(shouldAppendWith, insertPosition) ->
-        if shouldAppendWith then
-          return! Some(insertPosition, " with" + generatedString)
-        else
-          return! Some(insertPosition, generatedString)
-      | None ->
-        // Unable to find an optimal insert position so return the position under the cursor
-        // By doing that we allow the user to copy/paste the code if the insertion break the code
-        // If we return None, then user would not benefit from abstract stub generation at all
-        return! Some(pos, generatedString)
+      match abstractClassData with
+      | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = keyword) ->
+        match keyword with
+        | None -> return newExpr.End, " with\n" + generatedString
+        | Some k -> return k.End, "\n" + generatedString
+
+      | AbstractClassData.ExplicitImpl(_, _, inheritExpressionRange) ->
+        return inheritExpressionRange.End, "\n" + generatedString
   }

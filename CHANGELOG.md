@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.59.6] - 2023-04-21
+
+### Added
+
+* [A new codefix to add the 'private' access modifier to bindings and types](https://github.com/fsharp/fsautocomplete/pull/1089) (thanks @dawedawe!)
+
+### Fixed
+
+* [Make the 'convert to positional DU pattern' codefix work in more cases](https://github.com/fsharp/fsautocomplete/pull/1090) (thanks @dawedawe!)
+* [Handle text changes when they are empty in the classic LSP Server](https://github.com/fsharp/fsautocomplete/pull/1100) (thanks @augustfengd!)
+* [Detect Expecto's Task-based tests](https://github.com/fsharp/fsautocomplete/pull/1105) (thanks @ratsclub!)
+
+### Changed
+
+* [Update Ionide.ProjInfo to get more logging](https://github.com/fsharp/fsautocomplete/pull/1093) (thanks @theangrybyrd!)
+* [Update tooltips and Info Panel documentation](https://github.com/fsharp/fsautocomplete/pull/1099) (thanks @MaximeMangel!)
+* [Update the xml doc generation codefix to work in more places](https://github.com/fsharp/fsautocomplete/pull/1106) (thanks @dawedawe!)
+* [Make async more pervasive in the codebase and use AsyncAdaptive values in the Adaptive LSP](https://github.com/fsharp/FsAutoComplete/pull/1088) (thanks @theangrybyrd!)
+
+
+## [0.59.5] - 2023-04-21
+
+### Added
+
+* [A new codefix to add the 'private' access modifier to bindings and types](https://github.com/fsharp/fsautocomplete/pull/1089) (thanks @dawedawe!)
+
+### Fixed
+
+* [Make the 'convert to positional DU pattern' codefix work in more cases](https://github.com/fsharp/fsautocomplete/pull/1090) (thanks @dawedawe!)
+* [Handle text changes when they are empty in the classic LSP Server](https://github.com/fsharp/fsautocomplete/pull/1100) (thanks @augustfengd!)
+* [Detect Expecto's Task-based tests](https://github.com/fsharp/fsautocomplete/pull/1105) (thanks @ratsclub!)
+
+### Changed
+
+* [Update Ionide.ProjInfo to get more logging](https://github.com/fsharp/fsautocomplete/pull/1093) (thanks @theangrybyrd!)
+* [Update tooltips and Info Panel documentation](https://github.com/fsharp/fsautocomplete/pull/1099) (thanks @MaximeMangel!)
+* [Update the xml doc generation codefix to work in more places](https://github.com/fsharp/fsautocomplete/pull/1106) (thanks @dawedawe!)
+* [Make async more pervasive in the codebase and use AsyncAdaptive values in the Adaptive LSP](https://github.com/fsharp/FsAutoComplete/pull/1088) (thanks @theangrybyrd!)
+
+## [0.59.4] - 2023-03-19
+
+### Fixed
+
+* [The Adaptive Server no longer sends errors for `textDocument/documentHighlight` calls that there is no symbol information for](https://github.com/fsharp/FsAutoComplete/pull/1075) (Thanks @haodeon!)
+
+## [0.59.3] - 2023-03-19
+
+### Added
+
+* [A new command called `fsproj/renameFile` for renaming a file in the context of a particular project](https://github.com/fsharp/FsAutoComplete/pull/1075) (thanks @MangelMaxime!)
+
+### Fixed
+
+* [Only add a file once to a given project](https://github.com/fsharp/FsAutoComplete/pull/1076) (Thanks @MangelMaxime!)
+* [Reduce memory consumption of the compiler typecheck cache](https://github.com/fsharp/FsAutoComplete/pull/1077) (thanks @theangrybyrd!)
+  * To change the amount of typechecks kept by the compiler, change the `FSharp.fsac.cachedTypecheckCount` config value
+* [Adaptive server now only reloads specific projects that changed, rather than the entire workspace](https://github.com/fsharp/FsAutoComplete/pull/1079) (Thanks @TheAngryByrd!)
+* [Don't trigger the 'Replace prefix with _' codefix on _ matches](https://github.com/fsharp/FsAutoComplete/pull/1083) (Thanks @dawedawe!)
+* [Handle `workspace/didChangeConfiguration` requests that don't provide an `FSharp` config property](https://github.com/fsharp/FsAutoComplete/pull/1084) (thanks @razzmatazz!)
+* [Some threadpool exhaustion fixes due to blocking threads](https://github.com/fsharp/FsAutoComplete/pull/1080) (Thanks @TheAngyrByrd!)
+* [Fix Adaptive server to lazily load projects specified instead of loading all projects in the workspace](https://github.com/fsharp/FsAutoComplete/pull/1082) (Thanks @TheAngryByrd!)
+
+## [0.59.2] - 2023-03-12
+
+### Added
+
+* [A new codefix that converts 'bare' ///-comments to full XML documentation comments](https://github.com/fsharp/fsautocomplete/pull/1068) (thanks @dawedawe!)
+
+### Changed
+
+* [Enhancements to Find All References and Rename operations](https://github.com/fsharp/fsautocomplete/pull/1037) (thanks @BooksBaum and @theangrybyrd!)
+* [Internal errors no longer report as LSP protocol errors](https://github.com/fsharp/fsautocomplete/pull/1069)
+* [TestAdapterEntry items now include module information as well](https://github.com/fsharp/fsautocomplete/pull/1071) (thanks @kojo12228!)
+
+### Fixed
+
+* [IndexOutOfRange issue in signatureHelp](https://github.com/fsharp/fsautocomplete/pull/1067) (thanks @vain0x!)
+* [ThreadPool exhaustion issue with ProgressListener](https://github.com/fsharp/fsautocomplete/pull/1070) (thanks @theangrybyrd!)
+* [The 'convert positional DU usage to named patterns' codefix now works with multiple match clauses in the same pattern](https://github.com/fsharp/fsautocomplete/pull/1073) (thanks @dawedawe!)
+
 ## [0.59.1] - 2023-02-26
 
 ### Added

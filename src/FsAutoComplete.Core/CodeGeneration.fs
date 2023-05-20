@@ -19,18 +19,18 @@ type Line0
 type Line1
 
 type ICodeGenerationService =
-  abstract TokenizeLine: string<LocalPath> * int -> option<list<FSharpTokenInfo>>
-  abstract GetSymbolAtPosition: string<LocalPath> * Position -> option<LexerSymbol>
+  abstract TokenizeLine: string<LocalPath> * int -> Async<option<list<FSharpTokenInfo>>>
+  abstract GetSymbolAtPosition: string<LocalPath> * Position -> Async<option<LexerSymbol>>
 
   abstract GetSymbolAndUseAtPositionOfKind:
     string<LocalPath> * Position * SymbolKind -> Async<option<LexerSymbol * option<FSharpSymbolUse>>>
 
-  abstract ParseFileInProject: string<LocalPath> -> option<FSharpParseFileResults>
+  abstract ParseFileInProject: string<LocalPath> -> Async<option<FSharpParseFileResults>>
 
 type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
   interface ICodeGenerationService with
     override x.TokenizeLine(fileName, i) =
-      option {
+      asyncOption {
         let! text = state.TryGetFileSource fileName |> Option.ofResult
 
         try
@@ -41,13 +41,16 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       }
 
     override x.GetSymbolAtPosition(fileName, pos: Position) =
-      match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-      | ResultOrString.Error _ -> None
-      | ResultOrString.Ok(opts, lines, line) ->
-        try
-          Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-        with _ ->
-          None
+      asyncOption {
+        return!
+          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
+          | ResultOrString.Error _ -> None
+          | ResultOrString.Ok(opts, lines, line) ->
+            try
+              Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+            with _ ->
+              None
+      }
 
     override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
       asyncMaybe {
@@ -65,14 +68,17 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       }
 
     override x.ParseFileInProject(fileName) =
-      match state.TryGetFileCheckerOptionsWithLines fileName with
-      | ResultOrString.Error _ -> None
-      | ResultOrString.Ok(opts, text) ->
-        try
-          checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-          |> Option.map (fun n -> n.GetParseResults)
-        with _ ->
-          None
+      async {
+        match state.TryGetFileCheckerOptionsWithLines fileName with
+        | ResultOrString.Error _ -> return None
+        | ResultOrString.Ok(opts, text) ->
+          try
+            return
+              checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
+              |> Option.map (fun n -> n.GetParseResults)
+          with _ ->
+            return None
+      }
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
@@ -121,49 +127,54 @@ module CodeGenerationUtils =
     (document: Document)
     (predicate: FSharpTokenInfo -> bool)
     =
-    // Normalize range
-    // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
-    // range end limit can exceed the end limit of the document
-    let range =
-      if range.EndLine > document.LineCount then
-        let newEndLine = document.LineCount
-        let newEndColumn = document.GetLineText1(document.LineCount).Length
-        let newEndPos = Position.mkPos newEndLine newEndColumn
+    async {
+      // Normalize range
+      // NOTE: FCS compiler sometimes returns an invalid range. In particular, the
+      // range end limit can exceed the end limit of the document
+      let range =
+        if range.EndLine > document.LineCount then
+          let newEndLine = document.LineCount
+          let newEndColumn = document.GetLineText1(document.LineCount).Length
+          let newEndPos = Position.mkPos newEndLine newEndColumn
 
-        Range.mkRange range.FileName range.Start newEndPos
-      else
-        range
+          Range.mkRange range.FileName range.Start newEndPos
+        else
+          range
 
-    let lineIdxAndTokenSeq =
-      seq {
-        let lines =
+      let! lineIdxAndTokenSeq =
+        seq {
+          let lines =
+            if range.StartLine = range.EndLine then
+              [ range.StartLine ]
+            else
+              [ range.StartLine .. range.EndLine ]
+
+          for lineIdx in lines do
+            yield
+              codeGenService.TokenizeLine(document.FullName, lineIdx)
+              |> AsyncOption.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo))
+
+        }
+        |> Async.parallel75
+        |> Async.map (Array.Parallel.choose id)
+
+      let lineIdxAndTokenSeq = lineIdxAndTokenSeq |> Array.collect (List.toArray)
+
+      return
+        lineIdxAndTokenSeq
+        |> Seq.tryFind (fun (line1, tokenInfo) ->
           if range.StartLine = range.EndLine then
-            [ range.StartLine ]
+            tokenInfo.LeftColumn >= range.StartColumn
+            && tokenInfo.RightColumn < range.EndColumn
+            && predicate tokenInfo
+          elif range.StartLine = int line1 then
+            tokenInfo.LeftColumn >= range.StartColumn && predicate tokenInfo
+          elif int line1 = range.EndLine then
+            tokenInfo.RightColumn < range.EndColumn && predicate tokenInfo
           else
-            [ range.StartLine .. range.EndLine ]
-
-        for lineIdx in lines do
-          match
-            codeGenService.TokenizeLine(document.FullName, lineIdx)
-            |> Option.map (List.map (fun tokenInfo -> lineIdx * 1<Line1>, tokenInfo))
-          with
-          | Some xs -> yield! xs
-          | None -> ()
-      }
-
-    lineIdxAndTokenSeq
-    |> Seq.tryFind (fun (line1, tokenInfo) ->
-      if range.StartLine = range.EndLine then
-        tokenInfo.LeftColumn >= range.StartColumn
-        && tokenInfo.RightColumn < range.EndColumn
-        && predicate tokenInfo
-      elif range.StartLine = int line1 then
-        tokenInfo.LeftColumn >= range.StartColumn && predicate tokenInfo
-      elif int line1 = range.EndLine then
-        tokenInfo.RightColumn < range.EndColumn && predicate tokenInfo
-      else
-        predicate tokenInfo)
-    |> Option.map (fun (line1, tokenInfo) -> tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn))
+            predicate tokenInfo)
+        |> Option.map (fun (line1, tokenInfo) -> tokenInfo, (Position.fromZ (int line1 - 1) tokenInfo.LeftColumn))
+    }
 
   /// Represent environment where a captured identifier should be renamed
   type NamesWithIndices = Map<string, Set<int>>
@@ -419,7 +430,7 @@ module CodeGenerationUtils =
       if verboseMode then
         writer.Write(": {0}", returnType)
 
-      writer.Write(" = ", returnType)
+      writer.Write(" =")
 
       if verboseMode then
         writer.WriteLine("")
@@ -469,16 +480,16 @@ module CodeGenerationUtils =
       | "", _
       | "()", _ ->
         if verboseMode then
-          writer.WriteLine("and set (v: {0}): unit = ", retType)
+          writer.WriteLine("and set (v: {0}): unit =", retType)
         else
-          writer.Write("and set v = ")
+          writer.Write("and set v =")
       | args, namesWithIndices ->
         let valueArgName, _ = normalizeArgName namesWithIndices "v"
 
         if verboseMode then
-          writer.WriteLine("and set {0} ({1}: {2}): unit = ", args, valueArgName, retType)
+          writer.WriteLine("and set {0} ({1}: {2}): unit =", args, valueArgName, retType)
         else
-          writer.Write("and set {0} {1} = ", args, valueArgName)
+          writer.Write("and set {0} {1} =", args, valueArgName)
 
       writer |> writeImplementation
       writer.Unindent ctx.Indentation
@@ -509,7 +520,7 @@ module CodeGenerationUtils =
 
         match getParamArgs argInfos ctx v with
         | "", _
-        | "()", _ -> writer.WriteLine("with set (v: {0}): unit = ", retType)
+        | "()", _ -> writer.WriteLine("with set (v: {0}): unit =", retType)
         | args, namesWithIndices ->
           let valueArgName, _ = normalizeArgName namesWithIndices "v"
           writer.Write("with set {0} ({1}", args, valueArgName)
@@ -519,7 +530,7 @@ module CodeGenerationUtils =
           else
             writer.Write(")")
 
-          writer.Write(" = ")
+          writer.Write(" =")
 
           if verboseMode then
             writer.WriteLine("")
@@ -562,21 +573,6 @@ module CodeGenerationUtils =
     | Some typ -> Some typ
     | None -> None
 
-  let (|EventFunctionType|_|) (typ: FSharpType) =
-    match typ with
-    | MemberFunctionType typ ->
-      if typ.IsFunctionType && typ.GenericArguments.Count = 2 then
-        let retType = typ.GenericArguments.[0]
-        let argType = typ.GenericArguments.[1]
-
-        if argType.GenericArguments.Count = 2 then
-          Some(argType.GenericArguments.[0], retType)
-        else
-          None
-      else
-        None
-    | _ -> None
-
   let removeWhitespace (str: string) = str.Replace(" ", "")
 
   /// Filter out duplicated interfaces in inheritance chain
@@ -594,19 +590,6 @@ module CodeGenerationUtils =
   /// eg: a property _also_ has the relevant get/set members, so we don't need them.
   let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) =
     m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
-
-  /// Get members in the decreasing order of inheritance chain
-  let getInterfaceMembers (e: FSharpEntity) =
-    seq {
-      for (iface, instantiations) in getInterfaces e do
-        yield!
-          iface.TryGetMembersFunctionsAndValues()
-          |> Seq.choose (fun m ->
-            if isSyntheticMember m then
-              None
-            else
-              Some(m, instantiations))
-    }
 
   let isAbstractNonVirtualMember (m: FSharpMemberOrFunctionOrValue) =
     // is an abstract member
@@ -634,9 +617,6 @@ module CodeGenerationUtils =
           else None)
     }
 
-  /// Check whether an interface is empty
-  let hasNoInterfaceMember e = getInterfaceMembers e |> Seq.isEmpty
-
   let (|LongIdentPattern|_|) =
     function
     | SynPat.LongIdent(longDotId = SynLongIdent(id = xs)) ->
@@ -645,26 +625,28 @@ module CodeGenerationUtils =
       Some(last.idText, last.idRange)
     | _ -> None
 
-  // Get name and associated range of a member
-  // On merged properties (consisting both getters and setters), they have the same range values,
-  // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
-  let (|MemberNameAndRange|_|) =
+  /// Get name and associated range of a member
+  /// On merged properties (consisting both getters and setters), they have the same range values,
+  /// so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
+  /// We also get the range of the leading keyword to establish indent position
+  let (|MemberNamePlusRangeAndKeywordRange|_|) =
     function
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertyGet
       ->
       if name.StartsWith("get_") then
-        Some(name, range)
+        Some(name, range, trivia.LeadingKeyword.Range)
       else
-        Some("get_" + name, range)
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range)) when
+        Some("get_" + name, range, trivia.LeadingKeyword.Range)
+    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertySet
       ->
       if name.StartsWith("set_") then
-        Some(name, range)
+        Some(name, range, trivia.LeadingKeyword.Range)
       else
-        Some("set_" + name, range)
-    | SynBinding(headPat = LongIdentPattern(name, range)) -> Some(name, range)
+        Some("set_" + name, range, trivia.LeadingKeyword.Range)
+    | SynBinding(headPat = LongIdentPattern(name, range); trivia = trivia) ->
+      Some(name, range, trivia.LeadingKeyword.Range)
     | _ -> None
 
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =
@@ -680,7 +662,7 @@ module CodeGenerationUtils =
   ///  (2) Check symbols of those members based on ranges
   ///  (3) If any symbol found, capture its member signature
   let getImplementedMemberSignatures
-    (getMemberByLocation: string * range -> Async<FSharpSymbolUse option>)
+    (getMemberByLocation: string * range * _ -> FSharpSymbolUse option)
     displayContext
     memberNamesAndRanges
     =
@@ -702,67 +684,16 @@ module CodeGenerationUtils =
         fail "Should only accept symbol uses of members."
         None
 
-    async {
-      let! symbolUses = memberNamesAndRanges |> List.toArray |> Async.Array.map getMemberByLocation
+    let symbolUses = memberNamesAndRanges |> List.map getMemberByLocation
 
-      return
-        symbolUses
-        |> Array.choose (Option.bind formatMemberSignature >> Option.map String.Concat)
-        |> Set.ofArray
-    }
+    symbolUses
+    |> List.choose (Option.bind formatMemberSignature >> Option.map String.Concat)
+    |> Set.ofList
 
   /// Check whether an entity is an interface or type abbreviation of an interface
   let rec isInterface (e: FSharpEntity) =
     e.IsInterface
     || (e.IsFSharpAbbreviation && isInterface e.AbbreviatedType.TypeDefinition)
-
-  let findLastGreaterOperator (tokens: FSharpTokenInfo list) =
-    tokens
-    |> List.findBack (fun token -> token.CharClass = FSharpTokenCharKind.Operator && token.TokenName = "GREATER")
-
-  /// Return the greater multiple of `powerNumber` which is smaller than `value`
-  /// Ex: roundToNearest 14 4 -> 12
-  let findGreaterMultiple (value: int) (powerNumber: int) =
-    let mutable res = powerNumber
-
-    while res + powerNumber < value do
-      res <- res + powerNumber
-
-    res
-
-  let findLastPositionOfWithKeyword
-    (tokens: FSharpTokenInfo list)
-    (entity: FSharpEntity)
-    (pos: Position)
-    (entityAdvancer)
-    =
-    let endPosOfWidth =
-      tokens
-      |> List.tryPick (fun (t: FSharpTokenInfo) ->
-        if
-          t.CharClass = FSharpTokenCharKind.Keyword
-          && t.LeftColumn >= pos.Column
-          && t.TokenName = "WITH"
-        then
-          Some(Position.fromZ (pos.Line - 1) (t.RightColumn + 1))
-        else
-          None)
-
-    match endPosOfWidth with
-    // If we found the position of `with` keyword, return it as it will serve as a reference position for insertion
-    | Some pos -> Some(false, pos)
-    // `with` not found, so we need to find the end position of the interface identifer
-    | None ->
-      let position =
-        if entity.GenericParameters.Count = 0 then
-          let token = entityAdvancer tokens
-          Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
-        // Otherwise, returns the position after the last greater angle (>)
-        else
-          let token = findLastGreaterOperator tokens
-          Position.fromZ (pos.Line - 1) (token.RightColumn + 1)
-
-      Some(true, position)
 
   let rec findLastIdentifier (tokens: FSharpTokenInfo list) (lastValidToken: FSharpTokenInfo) =
     match tokens with
