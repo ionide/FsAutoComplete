@@ -1637,6 +1637,208 @@ let private generateXmlDocumentationTests state =
             let x = 3
         """ ])
 
+let private addMissingXmlDocumentationTests state =
+  serverTestList (nameof AddMissingXmlDocumentation) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle AddMissingXmlDocumentation.title
+
+      testCaseAsync "missing params and returns for function with two parameters"
+      <| CodeFix.check
+        server
+        """
+        /// <summary>some comment$0</summary>
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>some comment</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "missing params and returns for nested function with two parameters"
+      <| CodeFix.check
+        server
+        """
+        let f x y =
+          /// <summary>some comment$0</summary>
+          let g a b =
+            a + b
+          x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let f x y =
+          /// <summary>some comment</summary>
+          /// <param name=""></param>
+          /// <param name=""></param>
+          /// <returns></returns>
+          let g a b =
+            a + b
+          x + y
+        """
+
+      testCaseAsync "missing single parameter for function with two parameters"
+      <| CodeFix.check
+        server
+        """
+        /// <summary>some comment$0</summary>
+        /// <param name="x"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>some comment</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "missing type parameter for function"
+      <| CodeFix.check
+        server
+        """
+        /// <summary>some comment$0</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y _ = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>some comment</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name=""></param>
+        /// <typeparam name="'a"></typeparam>
+        /// <returns></returns>
+        let f x y _ = x + y
+        """
+
+      testCaseAsync "wraps single line non-xml comment"
+      <| CodeFix.check
+        server
+        """
+        /// some comment$0
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>some comment</summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "wraps multi line non-xml comment"
+      <| CodeFix.check
+        server
+        """
+        /// some comment here
+        /// some comment there$0
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary>
+        /// some comment here
+        /// some comment there
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        let f x y = x + y
+        """
+
+      testCaseAsync "missing returns for use"
+      <| CodeFix.check
+        server
+        """
+        let f a b _ =
+          /// <summary>$0</summary>
+          use r = new System.IO.BinaryReader(null)
+
+          a + b
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let f a b _ =
+          /// <summary></summary>
+          /// <returns></returns>
+          use r = new System.IO.BinaryReader(null)
+
+          a + b
+        """
+
+      testCaseAsync "not applicable for type with summary"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        /// <summary>some comment$0</summary>
+        type MyClass() =
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "missing returns for member"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// <sum$0mary>some comment</summary>
+          new(x: int) = MyClass()
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary>some comment</summary>
+          /// <param name="x"></param>
+          /// <returns></returns>
+          new(x: int) = MyClass()
+        """
+
+      testCaseAsync "missing returns for autoproperty"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          /// <summary>$0</summary>
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          /// <summary></summary>
+          /// <returns></returns>
+          member val Name = "" with get, set
+        """
+
+      testCaseAsync "not applicable for autoproperty with summary and returns"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          /// <summary>$0</summary>
+          /// <returns></returns>
+          member val Name = "" with get, set
+        """
+        Diagnostics.acceptAll
+        selectCodeFix ])
+
 let private generateRecordStubTests state =
   let config =
     { defaultConfigDto with
@@ -2482,6 +2684,7 @@ let tests state = testList "CodeFix-tests" [
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
   addMissingRecKeywordTests state
+  addMissingXmlDocumentationTests state
   addNewKeywordToDisposableConstructorInvocationTests state
   addTypeToIndeterminateValueTests state
   changeDerefBangToValueTests state

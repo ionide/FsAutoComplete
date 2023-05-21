@@ -1,5 +1,5 @@
 {
-	"name": "F# (.NET Core 5.0)",
+	"name": "F# (.NET 7.0)",
 	"dockerFile": "Dockerfile",
 	"settings": {
 			"terminal.integrated.shell.linux": "/bin/bash",
