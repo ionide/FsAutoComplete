@@ -4,7 +4,7 @@ framework: netstandard2.0, netstandard2.1,  net6.0, net7.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
+#source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
 #source: ./libs
 storage: none
 strategy: min
@@ -12,7 +12,7 @@ lowest_matching: true
 
 
 nuget Fantomas.Client >= 0.9
-nuget FSharp.Compiler.Service >= 43.7.200
+nuget FSharp.Compiler.Service >= 43.7.300
 nuget Ionide.ProjInfo >= 0.61.3
 nuget Ionide.ProjInfo.FCS >= 0.61.3
 nuget Ionide.ProjInfo.ProjectSystem >= 0.61.3
