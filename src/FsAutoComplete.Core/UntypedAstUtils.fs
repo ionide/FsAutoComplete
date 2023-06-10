@@ -404,7 +404,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       walkMeasure m
     | SynExpr.Const(_, r) -> addIfInside r
-    | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r) -> addIfInside r
+    | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r, trivia) -> addIfInside r
     | SynExpr.Sequential(seqPoint, isTrueSeq, expr1, expr2, r) -> ()
     | SynExpr.Ident(_) -> ()
     | SynExpr.LongIdent(isOptional, longDotId, altNameRefCell, r) -> addIfInside r
@@ -418,7 +418,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.LibraryOnlyUnionCaseFieldSet(_, longId, _, _, r) -> addIfInside r
     | SynExpr.ArbitraryAfterError(debugStr, r) -> addIfInside r
     | SynExpr.FromParseError(expr, r) -> addIfInside r
-    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, r) -> addIfInside r
+    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, _, r) -> addIfInside r
     | SynExpr.Fixed(expr, r) -> addIfInside r
     | SynExpr.InterpolatedString(parts, kind, r) ->
       addIfInside r
@@ -527,7 +527,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynMemberDefn.Member(binding, r) ->
       addIfInside r
       walkBinding binding
-    | SynMemberDefn.ImplicitCtor(_, AllAttrs attrs, AllSimplePats pats, _, _, r) ->
+    | SynMemberDefn.ImplicitCtor(_, AllAttrs attrs, AllSimplePats pats, _, _, r, _) ->
       addIfInside r
       List.iter walkAttribute attrs
       List.iter walkSimplePat pats
