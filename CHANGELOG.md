@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.60.0] - 2023-06-14
+
+### Added
+
+* [A new codefix for generating missing parameters and return types for XML Documentation](https://github.com/fsharp/FsAutoComplete/pull/1108) (thanks @dawedawe!)
+
+### Fixed
+
+* [Abstract classes generation now handles members with attributes](https://github.com/fsharp/FsAutoComplete/pull/1107)
+
+### Changed
+
+* [The FSharp.Compiler.Services were updated to 43.7.300, matching the F# Compiler shipped in .NET 7.0.300](https://github.com/fsharp/FsAutoComplete/pull/1116) (thanks @TheAngryByrd!)
+
 ## [0.59.6] - 2023-04-21
 
 ### Added
