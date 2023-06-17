@@ -700,7 +700,7 @@ type AdaptiveFSharpLspServer
 
         let! projectOptions =
           projects
-          |> AMap.mapWithAdditionalDependenies (fun projects ->
+          |> AMap.mapWithAdditionalDependencies (fun projects ->
 
             projects
             |> Seq.iter (fun (proj: string<LocalPath>, _) ->
