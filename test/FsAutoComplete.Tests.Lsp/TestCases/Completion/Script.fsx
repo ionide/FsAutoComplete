@@ -11,3 +11,6 @@ let tail = List.
 type A = {
   Id : Lis
 }
+open System.IO
+Path.GetDirectoryName("foo").
+Path.GetDirectoryName("foo")

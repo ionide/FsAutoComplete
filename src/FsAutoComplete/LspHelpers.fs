@@ -18,6 +18,10 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
+module FcsPos =
+  let subtractColumn (pos: FcsPos) (column: int) =
+    FcsPos.mkPos pos.Line (pos.Column - column)
+
 [<AutoOpen>]
 module Conversions =
   module Lsp = Ionide.LanguageServerProtocol.Types
