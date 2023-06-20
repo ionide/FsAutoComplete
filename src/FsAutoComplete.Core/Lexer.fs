@@ -48,7 +48,15 @@ module Lexer =
       |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
       |> Seq.toList
 
-    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx", None)
+    let langVersion =
+      args
+      |> Array.tryPick (fun arg ->
+        if arg.StartsWith "--langversion:" then
+          Some(arg.[14..])
+        else
+          None)
+
+    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx", langVersion)
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
 
     let rec loop lexState acc =
