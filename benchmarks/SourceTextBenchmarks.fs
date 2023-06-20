@@ -204,9 +204,23 @@ open LinkDotNet.StringBuilder
 
 open FsAutoComplete.Adaptive
 module Helpers =
+  open FsAutoComplete.LspHelpers
+  open FSharp.UMX
+  open System.Collections.Generic
+
+  // let fileContents = "Hello"
+  let fileContents = IO.File.ReadAllText(@"C:\Users\jimmy\Repositories\public\TheAngryByrd\span-playground\Romeo and Juliet by William Shakespeare.txt")
+
+  // let fileContents = fileContents2
+
+  let initNamedText () =
+    FsAutoComplete.NamedText(UMX.tag "lol", fileContents)
+
+  let initRoslynSourceText () =
+    SourceText.From(fileContents)
 
   let initFile () =
-    let file1 = AdaptiveSourceText("foo.txt", initialText = "Hello")
+    let file1 = AdaptiveSourceText("foo.txt", initialText = fileContents)
 
     do transact(fun () ->
       file1.Changes.Add({ Change = "World"; Version = 1; LastTouched = DateTime.Now; Position = (5, 0) }) |> ignore
@@ -214,7 +228,7 @@ module Helpers =
     file1
 
   let initFile2 () =
-    let file2 = AdaptiveSourceText2("foo.txt", "Hello")
+    let file2 = AdaptiveSourceText2("foo.txt", fileContents)
     file2.ModifyText({ Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
     file2
 
@@ -239,225 +253,257 @@ module Helpers =
     let newText = sourceText.WithChanges([| TextChange(textSpan, text) |])
     newText
 
+  let addToSourceTextMany (sourceText : SourceText, spans : IEnumerable<Ionide.LanguageServerProtocol.Types.Range * string>) =
+    let textSpans = spans |> Seq.map (fun (range, text) -> TextChange(convertToTextSpan(sourceText, range), text)) |> Seq.toArray
+    let newText = sourceText.WithChanges(textSpans)
+    newText
+
+  let addToNamedText (namedText : FsAutoComplete.NamedText, range : Ionide.LanguageServerProtocol.Types.Range, text : string)  =
+    let range = protocolRangeToRange (UMX.untag namedText.FileName) range
+    match namedText.ModifyText(range, text) with | Ok x -> x | Error e -> failwith e
+
 open BenchmarkDotNet
 open BenchmarkDotNet.Attributes
 open Helpers
+open FSharp.UMX
+open BenchmarkDotNet.Jobs
 [<MemoryDiagnoser>]
+// [<SimpleJob(RuntimeMoniker.Net60)>]
+[<SimpleJob(RuntimeMoniker.Net70)>]
 type SourceText_LineChanges_Benchmarks ()=
 
-  let n = 100
+  [<Params(1, 15, 50, 100, 1000)>]
+  member val public N = 0 with get, set
 
+
+  // [<Benchmark(Baseline = true)>]
+  // member _.Roslyn_Text_changeText () =
+  //   let mutable file = SourceText.From(fileContents)
+  //   file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
+  //   for i in 1..this.N do
+  //     file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
+  //   file.Lines |> Seq.toArray |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines1_forceOnce () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //   file1.Lines |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.Lines2_forceOnce () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //   file1.Lines2 |> AList.force |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines3_forceOnce () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //   file1.Lines3 |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.Lines4_forceOnce () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //   file1.Lines4 |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.File2_Lines_forceOnce () =
+  //   let file1 = initFile2 ()
+  //   for i in 1..this.N do
+  //     addLine2 file1
+  //   file1.Lines |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.Roslyn_Text_changeText_every10 () =
+  //   let mutable file = SourceText.From(fileContents)
+  //   file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
+  //   for i in 1..this.N do
+  //     file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
+  //     if i % 10 = 0 then file.Lines |> Seq.toArray |> ignore
+  //   file.Lines |> Seq.toArray |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines1_forceEvery10 () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
+  //   file1.Lines |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.Lines2_forceEvery10 () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
+  //   file1.Lines2 |> AList.force |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines3_forceEvery10 () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
+  //   file1.Lines3 |> AList.force |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines4_forceEvery10 () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
+  //   file1.Lines4 |> AList.force |> ignore
+
+
+  // [<Benchmark>]
+  // member _.File2_Lines_forceEvery10 () =
+  //   let file1 = initFile2 ()
+  //   for i in 1..this.N do
+  //     addLine2 file1
+  //     if i % 10 = 0 then file1.Lines |> AList.force |> ignore
+  //   file1.Lines |> AList.force |> ignore
 
 
 
   [<Benchmark(Baseline = true)>]
-  member _.Roslyn_Text_changeText () =
-    let mutable file = SourceText.From("Hello")
-    file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
-    for i in 1..n do
-      file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
-    file.Lines |> Seq.toArray |> ignore
-
-  [<Benchmark>]
-  member _.Lines1_forceOnce () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-    file1.Lines |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.Lines2_forceOnce () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-    file1.Lines2 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.Lines3_forceOnce () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-    file1.Lines3 |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.Lines4_forceOnce () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-    file1.Lines4 |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.File2_Lines_forceOnce () =
-    let file1 = initFile2 ()
-    for i in 1..n do
-      addLine2 file1
-    file1.Lines |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.Roslyn_Text_changeText_every10 () =
-    let mutable file = SourceText.From("Hello")
-    file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
-    for i in 1..n do
-      file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
-      if i % 10 = 0 then file.Lines |> Seq.toArray |> ignore
-    file.Lines |> Seq.toArray |> ignore
-
-  [<Benchmark>]
-  member _.Lines1_forceEvery10 () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
-    file1.Lines |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.Lines2_forceEvery10 () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
-    file1.Lines2 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.Lines3_forceEvery10 () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
-    file1.Lines3 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.Lines4_forceEvery10 () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      if i % 10 = 0 then file1.Lines3 |> AList.force |> ignore
-    file1.Lines4 |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.File2_Lines_forceEvery10 () =
-    let file1 = initFile2 ()
-    for i in 1..n do
-      addLine2 file1
-      if i % 10 = 0 then file1.Lines |> AList.force |> ignore
-    file1.Lines |> AList.force |> ignore
-
-
-
-  [<Benchmark>]
-  member _.Roslyn_Text_changeText_everyUpdate () =
-    let mutable file = SourceText.From("Hello")
-    file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
-    for i in 1..n do
-      file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
+  member this.Named_Text_changeText_everyUpdate () =
+    let mutable file = initNamedText ()
+    file <- addToNamedText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
+    for i in 1..this.N do
+      file <- addToNamedText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
       file.Lines |> Seq.toArray |> ignore
 
   [<Benchmark>]
-  member _.Lines1_forceEveryUpdate () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      file1.Lines |> AList.force |> ignore
-
-
-  [<Benchmark>]
-  member _.Lines2_forceEveryUpdate () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      file1.Lines2 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.Lines3_forceEveryUpdate () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      file1.Lines3 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.Lines4_forceEveryUpdate () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      file1.Lines4 |> AList.force |> ignore
-
-  [<Benchmark>]
-  member _.File2_Lines_forceEveryUpdate() =
-    let file1 = initFile2 ()
-    for i in 1..n do
-      addLine2 file1
-      file1.Lines |> AList.force |> ignore
-
-
-[<MemoryDiagnoser>]
-type SourceText_TextChanges_Benchmarks ()=
-
-  let n = 100
-
-
-  [<Benchmark>]
-  member _.File1_Text_forceOnce () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-    file1.Text |> AVal.force |> ignore
-
-
-  [<Benchmark>]
-  member _.File2_Text_forceOnce () =
-    let file1 = initFile2 ()
-    for i in 1..n do
-      addLine2 file1
-    file1.Text |> AVal.force |> ignore
-
-
-  [<Benchmark(Baseline = true)>]
-  member _.Roslyn_Text_changeText () =
-    let mutable file = SourceText.From("Hello")
+  member this.Roslyn_Text_changeText_everyUpdate () =
+    let mutable file = initRoslynSourceText ()
     file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
-    for i in 1..n do
+    for i in 1..this.N do
       file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
-    file.ToString()
+      file.Lines |> Seq.toArray |> ignore
+
+  // [<Benchmark>]
+  // member this.Roslyn_Text_changeText_collected_everyUpdate () =
+  //   let mutable file = initRoslynSourceText ()
+  //   file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
+  //   let changes: seq<Ionide.LanguageServerProtocol.Types.Range * string> =
+  //     seq {
+  //       for i in 1..this.N do
+  //         yield { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL"
+  //       }
+  //   file <- addToSourceTextMany(file, changes)
+  //   file.Lines |> Seq.toArray |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines1_forceEveryUpdate () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     file1.Lines |> AList.force |> ignore
 
 
+  // [<Benchmark>]
+  // member _.Lines2_forceEveryUpdate () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     file1.Lines2 |> AList.force |> ignore
 
+  // [<Benchmark>]
+  // member _.Lines3_forceEveryUpdate () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     file1.Lines3 |> AList.force |> ignore
+
+  // [<Benchmark>]
+  // member _.Lines4_forceEveryUpdate () =
+  //   let file1 = initFile ()
+  //   for i in 1..this.N do
+  //     addLine file1
+  //     file1.Lines4 |> AList.force |> ignore
 
   [<Benchmark>]
-  member _.File1_Lines1_forceEvery10 () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      if i % 10 = 0 then file1.Text |> AVal.force |> ignore
-    file1.Text |> AVal.force |> ignore
-
-
-
-  [<Benchmark>]
-  member _.File2_Lines_forceEvery10 () =
+  member this.AdaptiveSourceText_bespoke_Lines_forceEveryUpdate() =
     let file1 = initFile2 ()
-    for i in 1..n do
+    for i in 1..this.N do
       addLine2 file1
-      if i % 10 = 0 then file1.Text |> AVal.force |> ignore
-    file1.Text |> AVal.force |> ignore
+      file1.Lines |> AList.force |> ignore
 
 
-  [<Benchmark>]
-  member _.File1_Lines1_forceEveryUpdate () =
-    let file1 = initFile ()
-    for i in 1..n do
-      addLine file1
-      file1.Text |> AVal.force |> ignore
+// [<MemoryDiagnoser>]
+// type SourceText_TextChanges_Benchmarks ()=
+
+//   let n = 100
 
 
-  [<Benchmark>]
-  member _.File2_Lines_forceEveryUpdate() =
-    let file1 = initFile2 ()
-    for i in 1..n do
-      addLine2 file1
-      file1.Text |> AVal.force |> ignore
+//   [<Benchmark>]
+//   member _.File1_Text_forceOnce () =
+//     let file1 = initFile ()
+//     for i in 1..this.N do
+//       addLine file1
+//     file1.Text |> AVal.force |> ignore
+
+
+//   [<Benchmark>]
+//   member _.File2_Text_forceOnce () =
+//     let file1 = initFile2 ()
+//     for i in 1..this.N do
+//       addLine2 file1
+//     file1.Text |> AVal.force |> ignore
+
+
+//   [<Benchmark(Baseline = true)>]
+//   member _.Roslyn_Text_changeText () =
+//     let mutable file = SourceText.From(fileContents)
+//     file <- addToSourceText(file, { Start = { Line = 0; Character = 5 }; End = { Line = 0; Character = 5 } }, "World")
+//     for i in 1..this.N do
+//       file <- addToSourceText(file, { Start = { Line = 0; Character = 10 }; End = { Line = 0; Character = 10 } }, "\nLOL")
+//     file.ToString()
+
+
+
+
+//   [<Benchmark>]
+//   member _.File1_Lines1_forceEvery10 () =
+//     let file1 = initFile ()
+//     for i in 1..this.N do
+//       addLine file1
+//       if i % 10 = 0 then file1.Text |> AVal.force |> ignore
+//     file1.Text |> AVal.force |> ignore
+
+
+
+//   [<Benchmark>]
+//   member _.File2_Lines_forceEvery10 () =
+//     let file1 = initFile2 ()
+//     for i in 1..this.N do
+//       addLine2 file1
+//       if i % 10 = 0 then file1.Text |> AVal.force |> ignore
+//     file1.Text |> AVal.force |> ignore
+
+
+//   [<Benchmark>]
+//   member _.File1_Lines1_forceEveryUpdate () =
+//     let file1 = initFile ()
+//     for i in 1..this.N do
+//       addLine file1
+//       file1.Text |> AVal.force |> ignore
+
+
+//   [<Benchmark>]
+//   member _.File2_Lines_forceEveryUpdate() =
+//     let file1 = initFile2 ()
+//     for i in 1..this.N do
+//       addLine2 file1
+//       file1.Text |> AVal.force |> ignore

@@ -123,7 +123,7 @@ let private isAstElemWithPreXmlDoc input pos =
 let private collectCommentContents
   (startPos: FSharp.Compiler.Text.Position)
   (endPos: FSharp.Compiler.Text.Position)
-  (sourceText: NamedText)
+  (sourceText: IFSACSourceText)
   =
   let rec loop (p: FSharp.Compiler.Text.Position) acc =
     if p.Line > endPos.Line then

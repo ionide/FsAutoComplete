@@ -1627,7 +1627,7 @@ let explicitTypeInfoTests =
 
   let getExplicitTypeInfo (pos: Position) (text: string) =
     async {
-      let text = NamedText(UMX.tag file, text)
+      let text = SourceText.Create(UMX.tag file, text)
       let! ast = getAst text
 
       let pos = protocolPosToPos pos

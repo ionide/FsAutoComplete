@@ -870,12 +870,13 @@ module String =
 
 type AdaptiveSourceText2 (path : string, text : string) =
 
-  let pool = StringPool.Shared
+  // let pool = StringPool.Shared
   let lines  =
     clist (
       let resizeArray = new ResizeArray<_>()
       for x in String.splitLines text do
-        resizeArray.Add <| cval (String.Concat(pool.GetOrAdd x.Line, pool.GetOrAdd x.Separator))
+        resizeArray.Add <| cval (String.Concat(x.Line, x.Separator))
+        // resizeArray.Add <| cval (String.Concat(pool.GetOrAdd x.Line, pool.GetOrAdd x.Separator))
         // resizeArray.Add <| cval (x.Line.ToString())
       resizeArray
     )
@@ -925,30 +926,36 @@ type AdaptiveSourceText2 (path : string, text : string) =
       | Some startLine, Some endLine ->
         let startLineSpan = (startLine |> AVal.force).AsSpan()
         if rangeReplaceSingleLine then
-          let endText =  pool.GetOrAdd(startLineSpan.Slice(endCharPosition))
+          // let endText =  pool.GetOrAdd(startLineSpan.Slice(endCharPosition))
+          let endText = startLineSpan.Slice(endCharPosition)
           if removeText then
 
             let startText = startLineSpan.Slice(0, startCharPosition)
             let endText = startLineSpan.Slice(endCharPosition)
-            let newText = String.Concat(pool.GetOrAdd(startText), pool.GetOrAdd(text), pool.GetOrAdd(endText))
+            // let newText = String.Concat(pool.GetOrAdd(startText), pool.GetOrAdd(text), pool.GetOrAdd(endText))
+            let newText = String.Concat(startText, text, endText)
             startLine.Value <- newText
           else
             let mutable offset = 0
             for next in String.splitLines text do // loop over new text's lines
-              let nextLine = pool.GetOrAdd(next.Line)
+              // let nextLine = pool.GetOrAdd(next.Line)
+              let nextLine = next.Line
               let hasNextLine = next.Separator.Length > 0
               if offset = 0 then // first line
                 let startText = startLineSpan.Slice(0, startCharPosition)
                 if hasNextLine then
-                  let separator = pool.GetOrAdd(next.Separator)
-                  let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, separator)
+                  // let separator = pool.GetOrAdd(next.Separator)
+                  // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, separator)
+                  let newLine = String.Concat(startText, nextLine, next.Separator)
                   startLine.Value <- newLine
                 else
-                  let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
+                  // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
+                  let newLine = String.Concat(startText, nextLine, endText)
                   startLine.Value <- newLine
               else
                 if hasNextLine then
-                  let separator = pool.GetOrAdd(next.Separator)
+                  // let separator = pool.GetOrAdd(next.Separator)
+                  let separator = next.Separator
                   let newLine = String.Concat(nextLine, separator)
                   lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
                 else
@@ -957,33 +964,39 @@ type AdaptiveSourceText2 (path : string, text : string) =
               offset <- offset + 1
         elif rangeReplaceMultiline then
           let endLineSpan = (endLine |> AVal.force).AsSpan()
-          let endText =  pool.GetOrAdd(endLineSpan.Slice(endCharPosition))
+          // let endText =  pool.GetOrAdd(endLineSpan.Slice(endCharPosition))
+          let endText = endLineSpan.Slice(endCharPosition)
           let mutable difference = (endLineNumber - startLineNumber)
-          // remove all lines in between includding end line
+          // remove all lines in between including end line
           while difference > 0 do
             lines.RemoveAt(startLineNumber + 1) |> ignore
             difference <- difference - 1
           if removeText then
             //update first line
-            startLine.Value <- String.Concat(pool.GetOrAdd(startLineSpan.Slice(0, startCharPosition)), pool.GetOrAdd(endLineSpan.Slice(endCharPosition)))
-
+            // startLine.Value <- String.Concat(pool.GetOrAdd(startLineSpan.Slice(0, startCharPosition)), pool.GetOrAdd(endLineSpan.Slice(endCharPosition)))
+            startLine.Value <- String.Concat(startLineSpan.Slice(0, startCharPosition), endLineSpan.Slice(endCharPosition))
           else
             let mutable offset = 0
             for next in String.splitLines text do // loop over new text's lines
-              let nextLine = pool.GetOrAdd(next.Line)
+              // let nextLine = pool.GetOrAdd(next.Line)
+              let nextLine = next.Line
               let hasNextLine = next.Separator.Length > 0
               if offset = 0 then // first line
                 let startText = startLineSpan.Slice(0, startCharPosition)
                 if hasNextLine then
-                  let separator = pool.GetOrAdd(next.Separator)
-                  let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, separator)
+                  // let separator = pool.GetOrAdd(next.Separator)
+                  let separator = next.Separator
+                  // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, separator)
+                  let newLine = String.Concat(startText, nextLine, separator)
                   startLine.Value <- newLine
                 else
-                  let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
+                  // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
+                  let newLine = String.Concat(startText, nextLine, endText)
                   startLine.Value <- newLine
               else
                 if hasNextLine then
-                  let separator = pool.GetOrAdd(next.Separator)
+                  // let separator = pool.GetOrAdd(next.Separator)
+                  let separator = next.Separator
                   let newLine = String.Concat(nextLine, separator)
                   lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
                 else

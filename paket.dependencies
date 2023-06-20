@@ -58,7 +58,7 @@ nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol >= 0.4.12
 nuget Microsoft.Extensions.Caching.Memory
 nuget OpenTelemetry.Exporter.OpenTelemetryProtocol >= 1.3.2
-
+nuget CommunityToolkit.HighPerformance
 
 
 
