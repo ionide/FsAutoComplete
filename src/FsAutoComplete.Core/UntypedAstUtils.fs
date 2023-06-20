@@ -50,8 +50,7 @@ let (|AllAttrs|) (attrs: SynAttributes) =
 let (|AllSimplePats|) (pats: SynSimplePats) =
   let rec loop acc pat =
     match pat with
-    | SynSimplePats.SimplePats(pats, _) -> acc @ pats
-    | SynSimplePats.Typed(pats, _, _) -> loop acc pats
+    | SynSimplePats.SimplePats(pats = pats) -> acc @ pats
 
   loop [] pats
 
@@ -122,7 +121,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
   and walkPat =
     function
-    | SynPat.Tuple(_, pats, r)
+    | SynPat.Tuple(elementPats = pats; range = r)
     | SynPat.ArrayOrList(_, pats, r)
     | SynPat.Ands(pats, r) ->
       addIfInside r
@@ -253,13 +252,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
 
   and walkSimplePats =
     function
-    | SynSimplePats.SimplePats(pats, r) ->
+    | SynSimplePats.SimplePats(pats = pats; range = r) ->
       addIfInside r
       List.iter walkSimplePat pats
-    | SynSimplePats.Typed(pats, ty, r) ->
-      addIfInside r
-      walkSimplePats pats
-      walkType ty
 
   and walkInterpolatedStringPart =
     function

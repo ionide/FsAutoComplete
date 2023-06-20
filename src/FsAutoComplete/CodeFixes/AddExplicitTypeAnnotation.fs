@@ -52,7 +52,6 @@ let private isPositionContainedInUntypedImplicitCtorParameter input pos =
                     | _ -> None
 
                   return! tryGetUntypedIdent pat
-                | _ -> return! None
               }
               |> Option.orElseWith (fun _ -> defaultTraverse decl)
             | _ -> defaultTraverse decl }
