@@ -310,7 +310,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynPat.ListCons _
     | SynPat.FromParseError(_, _) -> false
 
-    | SynPat.Tuple(_, innerPatList, _) -> List.forall checkPattern innerPatList
+    | SynPat.Tuple(elementPats = innerPatList) -> List.forall checkPattern innerPatList
 
     | SynPat.Record(recordInnerPatList, _) ->
       recordInnerPatList
