@@ -50,7 +50,7 @@ let private tryGetCommentsAndSymbolPos input pos =
         | SynPat.LongIdent(longDotId = longDotId) -> longDotId.Range.End
         | _ -> s.RangeOfHeadPattern.Start // for use statements
 
-      Some(docLines, docRange, symbolRange)
+      Some(docLines, docRange, symbolRange, false)
     | None -> defaultTraverse synBinding
 
   SyntaxTraversal.Traverse(
@@ -89,7 +89,7 @@ let private tryGetCommentsAndSymbolPos input pos =
                           let docAndDocRange = tryGetExistingXmlDoc pos xmlDoc
 
                           match docAndDocRange with
-                          | Some(docLines, docRange) -> Some(docLines, docRange, ident.idRange.End)
+                          | Some(docLines, docRange) -> Some(docLines, docRange, ident.idRange.End, true)
                           | _ -> None
                         | _ -> None)
                     | _ -> None)
@@ -115,7 +115,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let commentsAndPos = tryGetCommentsAndSymbolPos parseAndCheck.GetAST fcsPos
 
       match commentsAndPos with
-      | Some(docLines, docRange, symbolPos) ->
+      | Some(docLines, docRange, symbolPos, isAutoProperty) ->
         let lineStrOfSymbol = _sourceText.GetLine symbolPos |> Option.defaultValue ""
         let signatureData = parseAndCheck.TryGetSignatureData symbolPos lineStrOfSymbol
 
@@ -133,16 +133,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               |> List.tryFindIndexBack (fun s -> s.Contains("</param>") || s.Contains("</summary>"))
 
             let missingParams =
-              match memberParameters with
-              | [] -> []
-              | parameters ->
-                parameters
-                |> List.concat
-                |> List.filter (fun (parameter, _) ->
-                  docLines
-                  |> List.exists (fun c -> c.Contains($"<param name=\"%s{parameter}\">"))
-                  |> not)
-                |> List.mapi (fun _index parameter -> parameterSection parameter)
+              if isAutoProperty then
+                // An auto property has a setter symbol which takes a parameter.
+                // As the user didn't write this parameter, a missing parameter should not be returned.
+                []
+              else
+                match memberParameters with
+                | [] -> []
+                | parameters ->
+                  parameters
+                  |> List.concat
+                  |> List.filter (fun (parameter, _) ->
+                    docLines
+                    |> List.exists (fun c -> c.Contains($"<param name=\"%s{parameter}\">"))
+                    |> not)
+                  |> List.mapi (fun _index parameter -> parameterSection parameter)
 
             match indexForParams with
             | None -> List.append docLines missingParams
