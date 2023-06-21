@@ -436,8 +436,8 @@ module RoslynSourceText =
 
   let weakTable = ConditionalWeakTable<SourceText, IFSACSourceText>()
 
-  let create (fileName: string<LocalPath>, sourceText: SourceText) : IFSACSourceText =
-    let mutable sourceText = sourceText
+  let rec create (fileName: string<LocalPath>, sourceText: SourceText) : IFSACSourceText =
+    // let mutable sourceText = sourceText
 
     let walk (
         x : IFSACSourceText,
@@ -535,8 +535,6 @@ module RoslynSourceText =
             sourceText.Lines |> Seq.toArray |> Array.map (fun l -> l.ToString())
 
           member this.GetText(arg1: Range) : Result<string, string> =
-
-
             arg1 |> FCSRangeToTextSpan |> sourceText.GetSubText |> string |> Ok
 
           member x.GetLine(pos: Position) : string option =
@@ -620,8 +618,7 @@ module RoslynSourceText =
           member x.ModifyText(range: Range, text: string) : Result<IFSACSourceText, string> =
             let span = FCSRangeToTextSpan range
             let change = TextChange(span, text)
-            sourceText <- sourceText.WithChanges(change)
-            Ok x
+            Ok (create(fileName, sourceText.WithChanges(change)))
 
         interface ISourceText with
 
@@ -682,9 +679,16 @@ module RoslynSourceText =
 
 type SourceText =
   static member Create(fileName, text : string) : IFSACSourceText =
-
-    RoslynSourceText.create(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(text)))
+    // Why create a StringReader? SourceText.From(string) doesn't delegate to the LargeText implementation
+    // So this is a workaround. While the initial string hit gets on the Large Object Heap, if using CONSERVE_MEMORY,
+    // it should be cleaned up eventually
+    use t = new StringReader(text)
+    RoslynSourceText.create(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
     // NamedText(fileName, text)
+
+  static member Create(fileName, stream : Stream) =
+    // let lol = StringReader()
+    RoslynSourceText.create(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
 
 
 type VolatileFile =
@@ -698,7 +702,7 @@ type VolatileFile =
   member this.SetLines(lines) = { this with Lines = lines }
 
   /// <summary>Updates the Lines value with supplied text</summary>
-  member this.SetText(text) =
+  member this.SetText(text : string) =
     this.SetLines(SourceText.Create(this.Lines.FileName, text))
 
 
@@ -726,7 +730,7 @@ type VolatileFile =
       Touched = touched }
 
   /// <summary>Helper method to create a VolatileFile</summary>
-  static member Create(path, text, version, touched) =
+  static member Create(path, text : string, version, touched) =
     VolatileFile.Create(SourceText.Create(path, text), version, touched)
 
   /// <summary>Helper method to create a VolatileFile, attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow.</summary>

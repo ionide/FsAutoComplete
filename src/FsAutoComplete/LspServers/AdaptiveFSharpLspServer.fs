@@ -925,6 +925,31 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       // ignore if already cancelled
       ()
 
+  let cachedFileContents =
+    cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
+
+  let getCachedSourceFiles (file : string<LocalPath>) =
+
+    let inline getSourceFromFile untaggedFile = async {
+      do! Async.SwitchToNewThread()
+      use s = File.OpenRead(untaggedFile)
+      return SourceText.Create(UMX.tag untaggedFile, s)
+    }
+
+    let adder (file : string<LocalPath>) = asyncAVal {
+      let untaggedFile = UMX.untag file
+      let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc (untaggedFile)
+      let! lines = getSourceFromFile untaggedFile |> AsyncAVal.ofAsync
+
+      let file =
+              { Touched = lastWriteTime
+                Lines = lines
+                Version = None }
+      return file
+
+    }
+    cachedFileContents.GetOrAdd(file, adder)
+
 
   let resetCancellationToken filePath =
     let adder _ = new CancellationTokenSource()
@@ -961,6 +986,8 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
   let forceFindOpenFile filePath =
     findFileInOpenFiles filePath |> AVal.force
 
+
+
   let forceFindOpenFileOrRead file =
     asyncOption {
 
@@ -977,13 +1004,15 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let untagged = UMX.untag file
 
           if File.Exists untagged && isFileWithFSharp untagged then
-            let! change = File.ReadAllTextAsync untagged |> Async.AwaitTask
-            let lastWriteTime = File.GetLastWriteTimeUtc untagged
+            let! file = getCachedSourceFiles file |> AsyncAVal.forceAsync
+            // let change = File.OpenRead untagged
+            // // let! change = File.ReadAllTextAsync untagged |> Async.AwaitTask
+            // let lastWriteTime = File.GetLastWriteTimeUtc untagged
 
-            let file =
-              { Touched = lastWriteTime
-                Lines = SourceText.Create(file, change)
-                Version = None }
+            // let file =
+            //   { Touched = lastWriteTime
+            //     Lines = SourceText.Create(file, change)
+            //     Version = None }
 
             return file
           else

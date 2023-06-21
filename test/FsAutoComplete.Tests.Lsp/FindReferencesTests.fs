@@ -598,7 +598,7 @@ let tests state = testList "Find All References tests" [
 
 let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
   let checker = lazy (FSharpChecker.Create())
-  let getSymbolUses source cursor = async {
+  let getSymbolUses (source : string) cursor = async {
     let checker = checker.Value
     let file = "code.fsx"
     let path: string<LocalPath> = UMX.tag file

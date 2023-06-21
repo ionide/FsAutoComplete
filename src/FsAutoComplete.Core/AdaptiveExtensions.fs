@@ -32,6 +32,14 @@ module AdaptiveExtensions =
       | None -> x.Add(key, adder key) |> ignore
       | Some v -> updater key v
 
+    member x.GetOrAdd(key, adder: 'Key -> 'Value) : 'Value =
+      match x.TryGetValue key with
+      | Some x -> x
+      | None ->
+        let v = adder key
+        x.Add(key, v) |> ignore
+        v
+
 
 module Utils =
   let cheapEqual (a: 'T) (b: 'T) =
