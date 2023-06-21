@@ -40,6 +40,7 @@ open FsAutoComplete.LspHelpers
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Collections.Concurrent
 open System.Diagnostics
+open System.Text.RegularExpressions
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -251,16 +252,23 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
 
   let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
+    let filePathUntag = UMX.untag filePath
     let source = file.Lines
     let version = file.Version
+
+
+    let inline getSourceLine lineNo =
+      (source: ISourceText).GetLineString(lineNo - 1)
 
     let checkUnusedOpens =
       async {
         try
-          let! ct = Async.CancellationToken
+          use progress = new ServerProgressReport(lspClient)
+          do! progress.Begin("Checking unused opens...", message = filePathUntag)
 
-          let! unused =
-            UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
+          let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
+
+          let! ct = Async.CancellationToken
 
           notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)), ct)
         with e ->
@@ -270,11 +278,14 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let checkUnusedDeclarations =
       async {
         try
-          let! ct = Async.CancellationToken
-          let isScript = Utils.isAScript (UMX.untag filePath)
+          use progress = new ServerProgressReport(lspClient)
+          do! progress.Begin("Checking unused declarations...", message = filePathUntag)
+
+          let isScript = Utils.isAScript (filePathUntag)
           let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
           let unused = unused |> Seq.toArray
 
+          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
@@ -283,26 +294,35 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
     let checkSimplifiedNames =
       async {
         try
-          let getSourceLine lineNo =
-            (source: ISourceText).GetLineString(lineNo - 1)
+          use progress = new ServerProgressReport(lspClient)
+          do! progress.Begin("Checking simplifing of names...", message = filePathUntag)
 
-          let! ct = Async.CancellationToken
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
+          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified), ct)
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
       }
 
+    let inline isNotExcluded (exclusions: Regex array) =
+      exclusions |> Array.exists (fun r -> r.IsMatch filePathUntag) |> not
+
     let analyzers =
       [
         // if config.Linter then
         //   commands.Lint filePath |> Async .Ignore
-        if config.UnusedOpensAnalyzer then
+        if config.UnusedOpensAnalyzer && isNotExcluded config.UnusedOpensAnalyzerExclusions then
           checkUnusedOpens
-        if config.UnusedDeclarationsAnalyzer then
+        if
+          config.UnusedDeclarationsAnalyzer
+          && isNotExcluded config.UnusedDeclarationsAnalyzerExclusions
+        then
           checkUnusedDeclarations
-        if config.SimplifyNameAnalyzer then
+        if
+          config.SimplifyNameAnalyzer
+          && isNotExcluded config.SimplifyNameAnalyzerExclusions
+        then
           checkSimplifiedNames ]
 
     async {
@@ -322,6 +342,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
         let file = volatileFile.FileName
 
         try
+          use progress = new ServerProgressReport(lspClient)
+          do! progress.Begin("Running analyzers...", message = UMX.untag file)
+
           Loggers.analyzers.info (
             Log.setMessage "begin analysis of {file}"
             >> Log.addContextDestructured "file" file
