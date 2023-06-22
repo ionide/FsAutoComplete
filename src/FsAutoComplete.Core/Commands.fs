@@ -1992,7 +1992,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 | SynBinding(xmlDoc = xmlDoc) as s when
                   rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | _ -> defaultTraverse synBinding
 
               member _.VisitComponentInfo(_, synComponentInfo) =
@@ -2000,7 +2000,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | _ -> None
 
               member _.VisitRecordDefn(_, fields, _) =
@@ -2009,7 +2009,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   | SynField(xmlDoc = xmlDoc; idOpt = Some ident) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 fields |> List.tryPick isInLine
@@ -2020,7 +2020,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   | SynUnionCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2031,7 +2031,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   | SynEnumCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2042,7 +2042,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                   | SynBinding(xmlDoc = xmlDoc) as s when
                     rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> defaultTraverse b
 
                 bindings |> List.tryPick isInLine
@@ -2061,7 +2061,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 | SynModuleOrNamespace(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | SynModuleOrNamespace(decls = decls) ->
 
                   let rec findNested decls =
@@ -2073,7 +2073,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                         | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                           longIdentContainsPos longId pos && xmlDoc.IsEmpty
                           ->
-                          Some()
+                          Some false
                         | _ -> findNested decls
                       | SynModuleDecl.Types(typeDefns = typeDefns) ->
                         typeDefns
@@ -2086,7 +2086,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                               | SynMemberDefn.AutoProperty(ident = ident; xmlDoc = xmlDoc) when
                                 rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                                 ->
-                                Some()
+                                Some true
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
@@ -2096,7 +2096,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       let isAstElemWithEmptyPreXmlDoc input pos =
         match isLowerAstElemWithEmptyPreXmlDoc input pos with
-        | Some xml -> Some xml
+        | Some isAutoProperty -> Some isAutoProperty
         | _ -> isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos
 
       let trimmed = lineStr.TrimStart(' ')
@@ -2105,7 +2105,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       match isAstElemWithEmptyPreXmlDoc tyRes.GetAST triggerPosition with
       | None -> return None
-      | Some() ->
+      | Some isAutoProperty ->
 
         let signatureData =
           Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
@@ -2127,7 +2127,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
             match signatureData with
             | Ok(Some(_, memberParameters, genericParameters)) ->
               match memberParameters with
-              | [] -> ()
+              | []
+              | _ when isAutoProperty -> () // no parameter section for auto properties
               | parameters ->
                 yield!
                   parameters
