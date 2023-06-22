@@ -186,7 +186,7 @@ type State =
     x.ProjectController.GetProjectOptions(UMX.untag file)
     |> Option.map (fun opts ->
       x.Files.[file] <-
-        { Lines = text
+        { Source = text
           Touched = DateTime.Now
           Version = None }
 
@@ -218,7 +218,7 @@ type State =
 
   member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: IFSACSourceText, opts, version) =
     let fileState =
-      { Lines = text
+      { Source = text
         Touched = DateTime.Now
         Version = version }
 
@@ -227,7 +227,7 @@ type State =
 
   member x.AddFileText(file: string<LocalPath>, text: IFSACSourceText, version) =
     let fileState =
-      { Lines = text
+      { Source = text
         Touched = DateTime.Now
         Version = version }
 
@@ -265,8 +265,8 @@ type State =
     | Some(volFile) ->
 
       match x.ProjectController.GetProjectOptions((UMX.untag file)) with
-      | None -> Ok(State.FileWithoutProjectOptions(file), volFile.Lines)
-      | Some opts -> Ok(opts, volFile.Lines)
+      | None -> Ok(State.FileWithoutProjectOptions(file), volFile.Source)
+      | Some opts -> Ok(opts, volFile.Source)
 
   member x.TryGetFileCheckerOptionsWithSource
     (file: string<LocalPath>)
@@ -278,7 +278,7 @@ type State =
   member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<IFSACSourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error(sprintf "File '%s' not parsed" (UMX.untag file))
-    | Some f -> Ok f.Lines
+    | Some f -> Ok f.Source
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr
     (

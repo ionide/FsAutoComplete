@@ -123,7 +123,13 @@ let private getSignatureHelpForFunctionApplication
     | _ -> return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: IFSACSourceText, triggerChar) =
+let private getSignatureHelpForMethod
+  (
+    tyRes: ParseAndCheckResults,
+    caretPos: Position,
+    lines: IFSACSourceText,
+    triggerChar
+  ) =
   asyncMaybe {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId

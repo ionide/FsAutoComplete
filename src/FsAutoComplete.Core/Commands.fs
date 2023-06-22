@@ -217,8 +217,7 @@ module Commands =
 
       let! (text, ast) = getParseResultsForFile file
 
-      let ranges =
-        Structure.getOutliningRanges (text.Lines) ast.ParseTree
+      let ranges = Structure.getOutliningRanges (text.Lines) ast.ParseTree
 
       return ranges
     }
@@ -1155,7 +1154,7 @@ module Commands =
       [||]
 
 
-type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option) =
+type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option, sourceTextFactory : ISourceTextFactory) =
   let fileParsed = Event<FSharpParseFileResults>()
 
   let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()
@@ -1249,7 +1248,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
                 let res =
                   Commands.analyzerHandler (
                     file,
-                    fileData.Lines.ToString().Split("\n"),
+                    fileData.Source.ToString().Split("\n"),
                     parseAndCheck.GetParseResults.ParseTree,
                     tast,
                     parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
@@ -1337,14 +1336,14 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
         try
           let sourceOpt =
             match state.Files.TryFind file with
-            | Some f -> Some(f.Lines)
+            | Some f -> Some(f.Source)
             | None when File.Exists(UMX.untag file) ->
               let ctn = File.ReadAllText(UMX.untag file)
-              let text = SourceText.Create(file, ctn)
+              let text = sourceTextFactory.Create(file, ctn)
 
               state.Files.[file] <-
                 { Touched = DateTime.Now
-                  Lines = text
+                  Source = text
                   Version = None }
 
               Some text
@@ -1418,7 +1417,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
   member __.LastCheckResult = lastCheckResult
 
-  member __.SetFileContent(file: string<LocalPath>, lines: IFSACSourceText, version) = state.AddFileText(file, lines, version)
+  member __.SetFileContent(file: string<LocalPath>, lines: IFSACSourceText, version) =
+    state.AddFileText(file, lines, version)
 
   member private x.MapResultAsync
     (
@@ -1805,7 +1805,13 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
     |> Async.Sequential
     |> Async.map ignore<unit[]>
 
-  member private x.CheckFile(file, text: IFSACSourceText, version: int, projectOptions: FSharpProjectOptions) : Async<unit> =
+  member private x.CheckFile
+    (
+      file,
+      text: IFSACSourceText,
+      version: int,
+      projectOptions: FSharpProjectOptions
+    ) : Async<unit> =
     async {
       do x.CancelQueue file
       return! x.CheckCore(file, version, text, projectOptions)
@@ -1875,7 +1881,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           | None -> //Isn't in sync filled cache, we don't have result
             return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
           | Some(decl, pos, fn) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
-            let source = state.Files.TryFind fn |> Option.map (fun n -> n.Lines)
+            let source = state.Files.TryFind fn |> Option.map (fun n -> n.Source)
 
             match source with
             | None -> return CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
@@ -2525,7 +2531,8 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
     FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)
 
-  static member InlineValues(contents: IFSACSourceText, tyRes: ParseAndCheckResults) = Commands.inlineValues contents tyRes
+  static member InlineValues(contents: IFSACSourceText, tyRes: ParseAndCheckResults) =
+    Commands.inlineValues contents tyRes
 
   member __.PipelineHints(tyRes: ParseAndCheckResults) =
     Commands.pipelineHints (state.TryGetFileSource >> Async.singleton) tyRes

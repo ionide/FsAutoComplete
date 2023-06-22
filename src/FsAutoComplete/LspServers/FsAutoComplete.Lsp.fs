@@ -35,7 +35,7 @@ open Ionide.LanguageServerProtocol.Types.LspResult
 open StreamJsonRpc
 
 
-type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
+type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory : ISourceTextFactory) =
 
 
   let logger = LogProvider.getLoggerByName "LSP"
@@ -44,7 +44,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath)
+    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath, sourceTextFactory)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -482,7 +482,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
           state,
           hasAnalyzersNow,
-          rootPath
+          rootPath,
+          sourceTextFactory
         )
 
       commands <- newCommands
@@ -1298,7 +1299,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       async {
         let doc = p.TextDocument
         let filePath = doc.GetFilePath() |> Utils.normalizePath
-        let content = SourceText.Create(filePath, doc.Text)
+        let content = sourceTextFactory.Create(filePath, doc.Text)
 
         logger.info (
           Log.setMessage "TextDocumentDidOpen Request: {parms}"
@@ -1332,14 +1333,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.bimap id (fun _ -> SourceText.Create(filePath, ""))
+          |> Result.bimap id (fun _ -> sourceTextFactory.Create(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)
           ||> Array.fold (fun text change ->
             match change.Range with
             | None -> // replace entire content
-              SourceText.Create(filePath, change.Text)
+              sourceTextFactory.Create(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice
               let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
@@ -2970,7 +2971,7 @@ module FSharpLspServer =
           | HandleableException -> false
           | _ -> true }
 
-  let startCore toolsPath stateStorageDir workspaceLoaderFactory =
+  let startCore toolsPath stateStorageDir workspaceLoaderFactory sourceTextFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -3008,7 +3009,7 @@ module FSharpLspServer =
       let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
       let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
       FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-      new FSharpLspServer(state, lspClient) :> IFSharpLspServer
+      new FSharpLspServer(state, lspClient, sourceTextFactory) :> IFSharpLspServer
 
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient regularServer createRpc

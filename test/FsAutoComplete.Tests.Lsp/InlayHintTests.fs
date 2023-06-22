@@ -1600,7 +1600,7 @@ open FSharp.UMX
 open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
 
-let explicitTypeInfoTests =
+let explicitTypeInfoTests (sourceTextFactoryName, sourceTextFactory : ISourceTextFactory) =
   let file = "test.fsx"
   let checker = lazy (FSharpChecker.Create())
 
@@ -1627,7 +1627,7 @@ let explicitTypeInfoTests =
 
   let getExplicitTypeInfo (pos: Position) (text: string) =
     async {
-      let text = SourceText.Create(UMX.tag file, text)
+      let text = sourceTextFactory.Create(UMX.tag file, text)
       let! ast = getAst text
 
       let pos = protocolPosToPos pos
@@ -1772,7 +1772,7 @@ let explicitTypeInfoTests =
 
   testSequenced
   <| testList
-    "detect type and parens"
+    $"detect type and parens.{sourceTextFactoryName}"
     [ testList
         "Expr"
         [ testList

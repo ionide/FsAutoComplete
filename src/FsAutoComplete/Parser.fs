@@ -137,6 +137,8 @@ module Parser =
             else
               Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
 
+        let sourceTextFactory = new RoslynSourceTextFactory()
+
         let dotnetPath =
           if
             Environment.ProcessPath.EndsWith("dotnet")
@@ -152,9 +154,9 @@ module Parser =
 
         let lspFactory =
           if adaptiveLspEnabled then
-            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory
+            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
           else
-            fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory
+            fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory sourceTextFactory
 
         use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
 

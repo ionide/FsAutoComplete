@@ -829,8 +829,9 @@ module AMapAsync =
 
 open System.Runtime.CompilerServices
 open CommunityToolkit.HighPerformance.Buffers
+
 [<Struct; IsByRefLike>]
-type LineSplitEntry (line : ReadOnlySpan<char>, separator : ReadOnlySpan<char>) =
+type LineSplitEntry(line: ReadOnlySpan<char>, separator: ReadOnlySpan<char>) =
   member _.Line = line
   member _.Separator = separator
 
@@ -839,86 +840,83 @@ type LineSplitEntry (line : ReadOnlySpan<char>, separator : ReadOnlySpan<char>) 
 type LineSplitEnumerator =
 
   [<DefaultValue(false)>]
-  val mutable Current2 : LineSplitEntry
+  val mutable Current2: LineSplitEntry
 
-  val mutable remaining : ReadOnlySpan<char>
+  val mutable remaining: ReadOnlySpan<char>
 
-  new (v) = {
-    remaining = v
-  }
+  new(v) = { remaining = v }
 
   member this.Current = this.Current2
 
-  member this.GetEnumerator () = this
+  member this.GetEnumerator() = this
 
   member this.MoveNext() =
     let span = this.remaining
+
     if span.Length = 0 then
       false
     else
-    let index = span.IndexOfAny('\r', '\n')
-    if index = -1 then
-      this.remaining <- ReadOnlySpan<char>()
-      this.Current2 <- LineSplitEntry(span, ReadOnlySpan<char>())
-      true
-    else
-    if index < span.Length - 1 && span[index] = '\r' && span[index + 1] = '\n' then
-      this.Current2 <- LineSplitEntry(span.Slice(0, index) , span.Slice(index, 2))
-      this.remaining <- span.Slice(index + 2)
-      true
-    else
-      this.Current2 <- LineSplitEntry(span.Slice(0, index) , span.Slice(index, 1))
-      this.remaining <- span.Slice(index + 1)
-      true
+      let index = span.IndexOfAny('\r', '\n')
+
+      if index = -1 then
+        this.remaining <- ReadOnlySpan<char>()
+        this.Current2 <- LineSplitEntry(span, ReadOnlySpan<char>())
+        true
+      else if index < span.Length - 1 && span[index] = '\r' && span[index + 1] = '\n' then
+        this.Current2 <- LineSplitEntry(span.Slice(0, index), span.Slice(index, 2))
+        this.remaining <- span.Slice(index + 2)
+        true
+      else
+        this.Current2 <- LineSplitEntry(span.Slice(0, index), span.Slice(index, 1))
+        this.remaining <- span.Slice(index + 1)
+        true
 
 module String =
-  let inline splitLines (s : string) =
-    LineSplitEnumerator(s.AsSpan())
+  let inline splitLines (s: string) = LineSplitEnumerator(s.AsSpan())
 
 
-type AdaptiveSourceText2 (path : string, text : string) =
+type AdaptiveSourceText2(path: string, text: string) =
 
   // let pool = StringPool.Shared
-  let lines  =
+  let lines =
     clist (
       let resizeArray = new ResizeArray<_>()
+
       for x in String.splitLines text do
         resizeArray.Add <| cval (String.Concat(x.Line, x.Separator))
-        // resizeArray.Add <| cval (String.Concat(pool.GetOrAdd x.Line, pool.GetOrAdd x.Separator))
-        // resizeArray.Add <| cval (x.Line.ToString())
+      // resizeArray.Add <| cval (String.Concat(pool.GetOrAdd x.Line, pool.GetOrAdd x.Separator))
+      // resizeArray.Add <| cval (x.Line.ToString())
       resizeArray
     )
 
-    // clist [
-    //   for x in LineSplitEnumerator(text.AsSpan()) do
-    //     yield cval (x.Line.ToString())
-    // ]
-    // clist ( text.Split('\n')  |> Array.map cval)
+  // clist [
+  //   for x in LineSplitEnumerator(text.AsSpan()) do
+  //     yield cval (x.Line.ToString())
+  // ]
+  // clist ( text.Split('\n')  |> Array.map cval)
 
 
 
-  let linesReadOnly = lines |> AList.mapA(fun x -> x)
+  let linesReadOnly = lines |> AList.mapA (fun x -> x)
 
   let text =
     // AList.fold
     // (StringBuilder(), linesReadOnly)
     // ||> AList.foldHalfGroup (fun state next -> state.AppendLine next) (fun _ _ -> None)
     // |> AVal.map string
-    linesReadOnly
-    |> AList.toAVal
-    |> AVal.map(fun x ->
-        String.Concat x)
-      // let sb = ValueStringBuilder(Span(GC.AllocateUninitializedArray<char> (text.Length * 2)))
-      // for next in x do
-      //   sb.AppendLine next
-      // sb.ToString())
+    linesReadOnly |> AList.toAVal |> AVal.map (fun x -> String.Concat x)
+  // let sb = ValueStringBuilder(Span(GC.AllocateUninitializedArray<char> (text.Length * 2)))
+  // for next in x do
+  //   sb.AppendLine next
+  // sb.ToString())
 
   member x.Lines = linesReadOnly
 
   member x.Text = text
 
   member x.Path = path
-  member x.ModifyText(range : Ionide.LanguageServerProtocol.Types.Range, text : string) =
+
+  member x.ModifyText(range: Ionide.LanguageServerProtocol.Types.Range, text: string) =
     let startLineNumber = int range.Start.Line
     let startCharPosition = int range.Start.Character
     let endLineNumber = int range.End.Line
@@ -929,13 +927,17 @@ type AdaptiveSourceText2 (path : string, text : string) =
     let rangeReplaceMultiline = startLineNumber <> endLineNumber
     let rangeReplaceSingleLine = not rangeReplaceMultiline
     let removeText = text = ""
-    transact <| fun () ->
+
+    transact
+    <| fun () ->
       match startLineA, endLineA with
       | Some startLine, Some endLine ->
         let startLineSpan = (startLine |> AVal.force).AsSpan()
+
         if rangeReplaceSingleLine then
           // let endText =  pool.GetOrAdd(startLineSpan.Slice(endCharPosition))
           let endText = startLineSpan.Slice(endCharPosition)
+
           if removeText then
 
             let startText = startLineSpan.Slice(0, startCharPosition)
@@ -945,12 +947,15 @@ type AdaptiveSourceText2 (path : string, text : string) =
             startLine.Value <- newText
           else
             let mutable offset = 0
+
             for next in String.splitLines text do // loop over new text's lines
               // let nextLine = pool.GetOrAdd(next.Line)
               let nextLine = next.Line
               let hasNextLine = next.Separator.Length > 0
+
               if offset = 0 then // first line
                 let startText = startLineSpan.Slice(0, startCharPosition)
+
                 if hasNextLine then
                   // let separator = pool.GetOrAdd(next.Separator)
                   // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, separator)
@@ -960,15 +965,15 @@ type AdaptiveSourceText2 (path : string, text : string) =
                   // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
                   let newLine = String.Concat(startText, nextLine, endText)
                   startLine.Value <- newLine
+              else if hasNextLine then
+                // let separator = pool.GetOrAdd(next.Separator)
+                let separator = next.Separator
+                let newLine = String.Concat(nextLine, separator)
+                lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
               else
-                if hasNextLine then
-                  // let separator = pool.GetOrAdd(next.Separator)
-                  let separator = next.Separator
-                  let newLine = String.Concat(nextLine, separator)
-                  lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
-                else
-                  let newLine = String.Concat(nextLine, endText)
-                  lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
+                let newLine = String.Concat(nextLine, endText)
+                lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
+
               offset <- offset + 1
         elif rangeReplaceMultiline then
           let endLineSpan = (endLine |> AVal.force).AsSpan()
@@ -979,18 +984,23 @@ type AdaptiveSourceText2 (path : string, text : string) =
           while difference > 0 do
             lines.RemoveAt(startLineNumber + 1) |> ignore
             difference <- difference - 1
+
           if removeText then
             //update first line
             // startLine.Value <- String.Concat(pool.GetOrAdd(startLineSpan.Slice(0, startCharPosition)), pool.GetOrAdd(endLineSpan.Slice(endCharPosition)))
-            startLine.Value <- String.Concat(startLineSpan.Slice(0, startCharPosition), endLineSpan.Slice(endCharPosition))
+            startLine.Value <-
+              String.Concat(startLineSpan.Slice(0, startCharPosition), endLineSpan.Slice(endCharPosition))
           else
             let mutable offset = 0
+
             for next in String.splitLines text do // loop over new text's lines
               // let nextLine = pool.GetOrAdd(next.Line)
               let nextLine = next.Line
               let hasNextLine = next.Separator.Length > 0
+
               if offset = 0 then // first line
                 let startText = startLineSpan.Slice(0, startCharPosition)
+
                 if hasNextLine then
                   // let separator = pool.GetOrAdd(next.Separator)
                   let separator = next.Separator
@@ -1001,92 +1011,91 @@ type AdaptiveSourceText2 (path : string, text : string) =
                   // let newLine = String.Concat(pool.GetOrAdd(startText), nextLine, endText)
                   let newLine = String.Concat(startText, nextLine, endText)
                   startLine.Value <- newLine
+              else if hasNextLine then
+                // let separator = pool.GetOrAdd(next.Separator)
+                let separator = next.Separator
+                let newLine = String.Concat(nextLine, separator)
+                lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
               else
-                if hasNextLine then
-                  // let separator = pool.GetOrAdd(next.Separator)
-                  let separator = next.Separator
-                  let newLine = String.Concat(nextLine, separator)
-                  lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
-                else
-                  let newLine = String.Concat(nextLine, endText)
-                  lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
+                let newLine = String.Concat(nextLine, endText)
+                lines.InsertAt(startLineNumber + offset, cval newLine) |> ignore
+
               offset <- offset + 1
 
             ()
         else
           ()
 
-            // match dataToAdd with
-            // | ValueSome endText ->
-            //   let line = pool.GetOrAdd(endText)
-            //   lines.InsertAt(startLineNumber + offset, cval line) |> ignore
-            // | _ -> ()
+      // match dataToAdd with
+      // | ValueSome endText ->
+      //   let line = pool.GetOrAdd(endText)
+      //   lines.InsertAt(startLineNumber + offset, cval line) |> ignore
+      // | _ -> ()
       | _ -> ()
-    //   ()
-    //   // Replacing multiple lines, let's just clean anything in between these two
-    //   if rangeReplaceMultiline then
+//   ()
+//   // Replacing multiple lines, let's just clean anything in between these two
+//   if rangeReplaceMultiline then
 
-    //     match startLineA, endLineA with
-    //     | Some startLine, Some endline ->
-    //       let mutable difference = (endLineNumber - startLineNumber) - 1
-    //       // let offset =
-    //       while startLineNumber + difference >= endLineNumber do
-    //         lines.RemoveAt(startLineNumber + difference) |> ignore
-    //         difference <- difference + 1
-    //       ()
+//     match startLineA, endLineA with
+//     | Some startLine, Some endline ->
+//       let mutable difference = (endLineNumber - startLineNumber) - 1
+//       // let offset =
+//       while startLineNumber + difference >= endLineNumber do
+//         lines.RemoveAt(startLineNumber + difference) |> ignore
+//         difference <- difference + 1
+//       ()
 
 
 
-    //     | _ -> ()
-    //   // else
-    //   if text <> "" then
-    //     let mutable dataToAdd = ValueNone
-    //     for next in String.splitLines text do
-    //       let nextLine = pool.GetOrAdd(next.Line)
-    //       let hasNextLine = next.Separator.Length > 0
-    //       if offset = 0 then
-    //         match startLineA with
-    //         | Some startLine ->
-    //           let lineSpan = (startLine |> AVal.force).AsSpan()
-    //           let startText = lineSpan.Slice(0, startCharPosition)
-    //           let restOfLine = lineSpan.Slice(startCharPosition)
-    //           if hasNextLine then
-    //             startLine.Value <- String.Concat(pool.GetOrAdd(startText), nextLine, pool.GetOrAdd(next.Separator))
-    //             dataToAdd <- ValueSome (pool.GetOrAdd(restOfLine))
-    //           else
-    //             startLine.Value <- String.Concat(pool.GetOrAdd(startText), nextLine, pool.GetOrAdd(restOfLine))
+//     | _ -> ()
+//   // else
+//   if text <> "" then
+//     let mutable dataToAdd = ValueNone
+//     for next in String.splitLines text do
+//       let nextLine = pool.GetOrAdd(next.Line)
+//       let hasNextLine = next.Separator.Length > 0
+//       if offset = 0 then
+//         match startLineA with
+//         | Some startLine ->
+//           let lineSpan = (startLine |> AVal.force).AsSpan()
+//           let startText = lineSpan.Slice(0, startCharPosition)
+//           let restOfLine = lineSpan.Slice(startCharPosition)
+//           if hasNextLine then
+//             startLine.Value <- String.Concat(pool.GetOrAdd(startText), nextLine, pool.GetOrAdd(next.Separator))
+//             dataToAdd <- ValueSome (pool.GetOrAdd(restOfLine))
+//           else
+//             startLine.Value <- String.Concat(pool.GetOrAdd(startText), nextLine, pool.GetOrAdd(restOfLine))
 
-    //           ()
-    //         | _ ->
-    //           ()
-    //       else
-    //         lines.InsertAt (startLineNumber + offset, cval (nextLine)) |> ignore
-    //         // lines.InsertAt (startLine + offset, cval (nextLine.ToString())) |> ignore
+//           ()
+//         | _ ->
+//           ()
+//       else
+//         lines.InsertAt (startLineNumber + offset, cval (nextLine)) |> ignore
+//         // lines.InsertAt (startLine + offset, cval (nextLine.ToString())) |> ignore
 
-    //       offset <- offset + 1
+//       offset <- offset + 1
 
-    //     dataToAdd |> ValueOption.iter(fun x ->
-    //       match lines |> AList.tryAt (startLineNumber + offset - 1) |> AVal.force with
-    //       | Some line ->
-    //         let lineSpan = (line |> AVal.force).AsSpan()
-    //         line.Value <- String.Concat(pool.GetOrAdd(lineSpan), pool.GetOrAdd(x))
-    //       | None -> ()
-    //     )
-    //     if rangeReplaceMultiline then
-    //       endLineA |> Option.iter(fun x ->
-    //         let remaining = pool.GetOrAdd ((x |> AVal.force).AsSpan().Slice(endCharPosition))
-    //         // if remaining.Length > 0 then
-    //         x.Value <- remaining
-    //         // else
+//     dataToAdd |> ValueOption.iter(fun x ->
+//       match lines |> AList.tryAt (startLineNumber + offset - 1) |> AVal.force with
+//       | Some line ->
+//         let lineSpan = (line |> AVal.force).AsSpan()
+//         line.Value <- String.Concat(pool.GetOrAdd(lineSpan), pool.GetOrAdd(x))
+//       | None -> ()
+//     )
+//     if rangeReplaceMultiline then
+//       endLineA |> Option.iter(fun x ->
+//         let remaining = pool.GetOrAdd ((x |> AVal.force).AsSpan().Slice(endCharPosition))
+//         // if remaining.Length > 0 then
+//         x.Value <- remaining
+//         // else
 
-    //     )
-    //   else
-    //     match startLineA with
-    //     | Some line ->
-    //       let lineSpan = (line |> AVal.force).AsSpan()
-    //       let startText = lineSpan.Slice(0, startCharPosition)
-    //       let endText = lineSpan.Slice(endCharPosition)
-    //       let newText = String.Concat(pool.GetOrAdd(startText), pool.GetOrAdd(text), pool.GetOrAdd(endText))
-    //       line.Value <- newText
-    //     | None -> ()
-
+//     )
+//   else
+//     match startLineA with
+//     | Some line ->
+//       let lineSpan = (line |> AVal.force).AsSpan()
+//       let startText = lineSpan.Slice(0, startCharPosition)
+//       let endText = lineSpan.Slice(endCharPosition)
+//       let newText = String.Concat(pool.GetOrAdd(startText), pool.GetOrAdd(text), pool.GetOrAdd(endText))
+//       line.Value <- newText
+//     | None -> ()

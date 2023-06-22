@@ -596,13 +596,13 @@ let tests state = testList "Find All References tests" [
 ]
 
 
-let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
+let tryFixupRangeTests (sourceTextFactoryName, sourceTextFactory : ISourceTextFactory) = testList ($"{nameof Tokenizer.tryFixupRange}.{sourceTextFactoryName}") [
   let checker = lazy (FSharpChecker.Create())
   let getSymbolUses (source : string) cursor = async {
     let checker = checker.Value
     let file = "code.fsx"
     let path: string<LocalPath> = UMX.tag file
-    let source = SourceText.Create(path, source)
+    let source = sourceTextFactory.Create(path, source)
 
     let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source, assumeDotNetFramework=false)
     let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
