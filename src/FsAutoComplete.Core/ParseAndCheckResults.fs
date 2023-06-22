@@ -500,6 +500,13 @@ type ParseAndCheckResults
       let identIsland = Array.toList identIsland
       checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
+  member __.TryGetSymbolUses (pos: Position) (lineStr: LineStr) : FSharpSymbolUse list =
+    match Lexer.findLongIdents (pos.Column, lineStr) with
+    | None -> []
+    | Some(colu, identIsland) ->
+      let identIsland = Array.toList identIsland
+      checkResults.GetSymbolUsesAtLocation(pos.Line, colu, lineStr, identIsland)
+
   member x.TryGetSymbolUseAndUsages (pos: Position) (lineStr: LineStr) =
     let symboluse = x.TryGetSymbolUse pos lineStr
 
