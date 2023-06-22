@@ -19,8 +19,7 @@ type SymbolUseWorkspace =
     -> LineStr
     -> NamedText
     -> ParseAndCheckResults
-    -> Async<Result<FSharp.Compiler.Symbols.FSharpSymbol *
-    System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
+    -> Async<Result<System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
 
 type private Placement =
   | Before
@@ -204,7 +203,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: Sy
       match rangesAndPlacement with
       | Some(editRange, declRange, placement) ->
 
-        let! (_, uses) = symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
+        let! uses = symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
         let useRanges = uses.Values |> Array.concat
 
         let usedOutsideOfDecl =

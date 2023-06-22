@@ -741,25 +741,7 @@ module Commands =
           Position = pos
           Scope = ic.ScopeKind }))
 
-  /// * `includeDeclarations`:
-  ///   if `false` only returns usage locations and excludes declarations
-  ///   * Note: if `true` you can still separate usages and declarations from each other
-  ///     with `Symbol.partitionInfoDeclarationsAndUsages`
-  /// * `includeBackticks`:
-  ///   if `true` returns ranges including existing backticks, otherwise without:
-  ///   `let _ = ``my value`` + 42`
-  ///   * `true`: ` ``my value`` `
-  ///   * `false`: `my value`
-  /// * `errorOnFailureToFixRange`:
-  ///   Ranges returned by FCS don't just span the actual identifier, but include Namespace, Module, Type: `System.String.IsNullOrEmpty`
-  ///   These ranges gets adjusted to include just the concrete identifier (`IsNullOrEmpty`)
-  ///   * If `false` and range cannot be adjust, the original range gets used.
-  ///     * When results are more important than always exact range
-  ///       -> for "Find All References"
-  ///   * If `true`: Instead of using the source range, this function instead returns an Error
-  ///     * When exact ranges are required
-  ///       -> for "Rename"
-  let symbolUseWorkspace
+  let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
@@ -768,13 +750,11 @@ module Commands =
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
     (text: NamedText)
     (tyRes: ParseAndCheckResults)
+    (symbolUse: FSharpSymbolUse)
     : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
     asyncResult {
-      let! symbolUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No symbol")
       let symbol = symbolUse.Symbol
 
       let symbolNameCore = symbol.DisplayNameCore
@@ -943,6 +923,98 @@ module Commands =
         return (symbol, dict)
     }
 
+
+  /// * `includeDeclarations`:
+  ///   if `false` only returns usage locations and excludes declarations
+  ///   * Note: if `true` you can still separate usages and declarations from each other
+  ///     with `Symbol.partitionInfoDeclarationsAndUsages`
+  /// * `includeBackticks`:
+  ///   if `true` returns ranges including existing backticks, otherwise without:
+  ///   `let _ = ``my value`` + 42`
+  ///   * `true`: ` ``my value`` `
+  ///   * `false`: `my value`
+  /// * `errorOnFailureToFixRange`:
+  ///   Ranges returned by FCS don't just span the actual identifier, but include Namespace, Module, Type: `System.String.IsNullOrEmpty`
+  ///   These ranges gets adjusted to include just the concrete identifier (`IsNullOrEmpty`)
+  ///   * If `false` and range cannot be adjust, the original range gets used.
+  ///     * When results are more important than always exact range
+  ///       -> for "Find All References"
+  ///   * If `true`: Instead of using the source range, this function instead returns an Error
+  ///     * When exact ranges are required
+  ///       -> for "Rename"
+  let symbolUseWorkspace
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    (text: NamedText)
+    (tyRes: ParseAndCheckResults)
+    : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
+    asyncResult {
+      let! symbolUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No symbol")
+
+      return!
+        symbolUseWorkspaceAux
+          getDeclarationLocation
+          findReferencesForSymbolInFile
+          tryGetFileSource
+          tryGetProjectOptionsForFsproj
+          getAllProjectOptions
+          includeDeclarations
+          includeBackticks
+          errorOnFailureToFixRange
+          text
+          tyRes
+          symbolUse
+    }
+
+  let symbolUseWorkspace2
+    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    (text: NamedText)
+    (tyRes: ParseAndCheckResults)
+    : Async<Result<(IDictionary<string<LocalPath>, Range[]>), string>> =
+    asyncResult {
+      let multipleSymbols = tyRes.TryGetSymbolUses pos lineStr
+      let result = Dictionary<string<LocalPath>, Range[]>()
+
+      for symbolUse in multipleSymbols do
+        let! symbolResult =
+          symbolUseWorkspaceAux
+            getDeclarationLocation
+            findReferencesForSymbolInFile
+            tryGetFileSource
+            tryGetProjectOptionsForFsproj
+            getAllProjectOptions
+            includeDeclarations
+            includeBackticks
+            errorOnFailureToFixRange
+            text
+            tyRes
+            symbolUse
+
+        for KeyValue(k, v) in snd symbolResult do
+          if result.ContainsKey k then
+            result.[k] <- [| yield! result.[k]; yield! v |]
+          else
+            result.Add(k, v)
+
+      return result
+    }
 
   /// Puts `newName` into backticks if necessary.
   ///
@@ -2205,6 +2277,61 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
 
       return!
         Commands.symbolUseWorkspace
+          x.GetDeclarationLocation
+          findReferencesForSymbolInFile
+          tryGetFileSource
+          tryGetProjectOptionsForFsproj
+          getAllProjectOptions
+          includeDeclarations
+          includeBackticks
+          errorOnFailureToFixRange
+          pos
+          lineStr
+          text
+          tyRes
+    }
+
+  member x.SymbolUseWorkspace2
+    (
+      pos,
+      lineStr,
+      text: NamedText,
+      tyRes: ParseAndCheckResults,
+      includeDeclarations: bool,
+      includeBackticks: bool,
+      errorOnFailureToFixRange: bool
+    ) =
+    asyncResult {
+      let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
+        if File.Exists(UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          async {
+            match state.TryGetFileCheckerOptionsWithLines(file) with
+            | Error _ -> return [||]
+            | Ok(opts, source) ->
+              match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
+              | None -> return [||]
+              | Some tyRes ->
+                let! ct = Async.CancellationToken
+                let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+                return usages |> Seq.map (fun u -> u.Range)
+          }
+
+      let tryGetFileSource symbolFile =
+        state.TryGetFileSource symbolFile |> Async.singleton
+
+      let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
+        state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
+        |> Async.singleton
+
+      let getAllProjectOptions () =
+        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
+
+      return!
+        Commands.symbolUseWorkspace2
           x.GetDeclarationLocation
           findReferencesForSymbolInFile
           tryGetFileSource

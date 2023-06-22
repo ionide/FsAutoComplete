@@ -1164,6 +1164,25 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             errorOnFailureToFixRange
           )
 
+        let symbolUseWorkspace2
+          (includeDeclarations: bool)
+          (includeBackticks: bool)
+          (errorOnFailureToFixRange: bool)
+          pos
+          lineStr
+          text
+          tyRes
+          =
+          commands.SymbolUseWorkspace2(
+            pos,
+            lineStr,
+            text,
+            tyRes,
+            includeDeclarations,
+            includeBackticks,
+            errorOnFailureToFixRange
+          )
+
         codefixes <-
           [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix getFileLines)
              Run.ifEnabled
@@ -1224,7 +1243,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              GenerateXmlDocumentation.fix tryGetParseResultsForFile
              Run.ifEnabled
                (fun _ -> config.AddPrivateAccessModifier)
-               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
+               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace2)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
 
