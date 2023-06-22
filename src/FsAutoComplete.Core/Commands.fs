@@ -1154,7 +1154,14 @@ module Commands =
       [||]
 
 
-type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers: bool, rootPath: string option, sourceTextFactory : ISourceTextFactory) =
+type Commands
+  (
+    checker: FSharpCompilerServiceChecker,
+    state: State,
+    hasAnalyzers: bool,
+    rootPath: string option,
+    sourceTextFactory: ISourceTextFactory
+  ) =
   let fileParsed = Event<FSharpParseFileResults>()
 
   let fileChecked = Event<ParseAndCheckResults * string<LocalPath> * int>()

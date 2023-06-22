@@ -35,7 +35,7 @@ open Ionide.LanguageServerProtocol.Types.LspResult
 open StreamJsonRpc
 
 
-type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory : ISourceTextFactory) =
+type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
 
 
   let logger = LogProvider.getLoggerByName "LSP"

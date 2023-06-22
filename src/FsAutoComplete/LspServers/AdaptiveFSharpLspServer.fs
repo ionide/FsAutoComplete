@@ -56,7 +56,8 @@ type AdaptiveWorkspaceChosen =
   | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
-type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory : ISourceTextFactory) =
+type AdaptiveFSharpLspServer
+  (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
 
   let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
 
@@ -925,35 +926,37 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       // ignore if already cancelled
       ()
 
-  let cachedFileContents =
-    cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
+  let cachedFileContents = cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
 
-  let getCachedSourceFiles (localPath : string<LocalPath>) =
+  let getCachedSourceFiles (localPath: string<LocalPath>) =
     let untagged = UMX.untag localPath
+
     if not (File.Exists untagged && isFileWithFSharp untagged) then
       AsyncAVal.constant None
     else
-      let inline getSourceFromFile untaggedFile = async {
-        do! Async.SwitchToNewThread()
-        use s = File.OpenRead(untaggedFile)
-        return! sourceTextFactory.Create(localPath, s) |> Async.AwaitValueTask
-      }
+      let inline getSourceFromFile untaggedFile =
+        async {
+          do! Async.SwitchToNewThread()
+          use s = File.OpenRead(untaggedFile)
+          return! sourceTextFactory.Create(localPath, s) |> Async.AwaitValueTask
+        }
 
-      let adder (localPath : string<LocalPath>) = asyncAVal {
-        let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
-        let! source = getSourceFromFile untagged |> AsyncAVal.ofAsync
+      let adder (localPath: string<LocalPath>) =
+        asyncAVal {
+          let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
+          let! source = getSourceFromFile untagged |> AsyncAVal.ofAsync
 
-        let file =
-                { Touched = lastWriteTime
-                  Source = source
-                  Version = None }
-        return file
+          let file =
+            { Touched = lastWriteTime
+              Source = source
+              Version = None }
 
-      }
+          return file
 
-      transact <| fun () ->
-          cachedFileContents.GetOrAdd(localPath, adder)
-      |> AsyncAVal.mapSync(fun v _ -> Some v)
+        }
+
+      transact <| fun () -> cachedFileContents.GetOrAdd(localPath, adder)
+      |> AsyncAVal.mapSync (fun v _ -> Some v)
 
   let resetCancellationToken filePath =
     let adder _ = new CancellationTokenSource()
@@ -1026,7 +1029,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       // flattening openFilesWithChanges makes this check a lot quicker as it's not needing to recalculate each value.
 
       fileshimChanges |> AMap.force |> HashMap.tryFind file
-      // |> Option.orElseWith(fun () -> try (getCachedSourceFiles file |> AsyncAVal.force).Task.GetAwaiter().GetResult()  with _ -> None)
+    // |> Option.orElseWith(fun () -> try (getCachedSourceFiles file |> AsyncAVal.force).Task.GetAwaiter().GetResult()  with _ -> None)
 
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
@@ -2163,7 +2166,9 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             return ()
           else
             // We want to try to use the file system's datetime if available
-            let file = VolatileFile.Create(sourceTextFactory.Create(filePath, doc.Text), doc.Version)
+            let file =
+              VolatileFile.Create(sourceTextFactory.Create(filePath, doc.Text), doc.Version)
+
             updateOpenFiles file
             let! _ = forceGetTypeCheckResults filePath
             return ()
@@ -2256,14 +2261,20 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let file =
             option {
               let! oldFile = forceFindOpenFile filePath
-              let oldFile = p.Text |> Option.map(fun t -> sourceTextFactory.Create(oldFile.FileName, t)) |> Option.map (oldFile.SetSource) |> Option.defaultValue oldFile
+
+              let oldFile =
+                p.Text
+                |> Option.map (fun t -> sourceTextFactory.Create(oldFile.FileName, t))
+                |> Option.map (oldFile.SetSource)
+                |> Option.defaultValue oldFile
+
               return oldFile.UpdateTouched()
             }
             |> Option.defaultWith (fun () ->
               // Very unlikely to get here
               VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value))
 
-              )
+            )
 
           transact (fun () ->
             updateOpenFiles file

@@ -17,8 +17,8 @@ open OpenTelemetry.Resources
 open OpenTelemetry.Trace
 
 type SourceTextFactoryOptions =
-| NamedText = 0
-| RoslynSourceText = 1
+  | NamedText = 0
+  | RoslynSourceText = 1
 
 
 
@@ -106,7 +106,8 @@ module Parser =
   let sourceTextFactoryOption =
     Option<SourceTextFactoryOptions>(
       "--source-text-factory",
-      description = "Set the source text factory to use. NamedText is the default, and uses an old F# compiler's implementation. RoslynSourceText uses Roslyn's implementation.",
+      description =
+        "Set the source text factory to use. NamedText is the default, and uses an old F# compiler's implementation. RoslynSourceText uses Roslyn's implementation.",
       getDefaultValue = fun () -> SourceTextFactoryOptions.NamedText
     )
 
@@ -143,7 +144,7 @@ module Parser =
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
-      Func<_, _, _,_, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled sourceTextFactoryOption ->
+      Func<_, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled sourceTextFactoryOption ->
         let workspaceLoaderFactory =
           fun toolsPath ->
             if projectGraphEnabled then
@@ -151,7 +152,7 @@ module Parser =
             else
               Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
 
-        let sourceTextFactory : ISourceTextFactory =
+        let sourceTextFactory: ISourceTextFactory =
           match sourceTextFactoryOption with
           | SourceTextFactoryOptions.NamedText -> new NamedTextFactory()
           | SourceTextFactoryOptions.RoslynSourceText -> new RoslynSourceTextFactory()

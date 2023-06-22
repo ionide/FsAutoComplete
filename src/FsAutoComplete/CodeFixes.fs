@@ -239,6 +239,7 @@ module Navigation =
 
 
     lines.WalkForward(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
+
   let walkBackUntilCondition lines pos condition =
     walkBackUntilConditionWithTerminal lines pos condition (fun _ -> false)
 

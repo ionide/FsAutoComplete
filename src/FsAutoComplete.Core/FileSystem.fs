@@ -66,7 +66,7 @@ module RangeExtensions =
     member inline r.WithStart(start) = Range.mkRange r.FileName start r.End
     member inline r.WithEnd(fin) = Range.mkRange r.FileName r.Start fin
 
-    member inline range.ToRoslynTextSpan(sourceText : Microsoft.CodeAnalysis.Text.SourceText) =
+    member inline range.ToRoslynTextSpan(sourceText: Microsoft.CodeAnalysis.Text.SourceText) =
 
       let startPosition =
         sourceText.Lines.[max 0 (range.StartLine - 1)].Start + range.StartColumn
@@ -94,35 +94,39 @@ type IFSACSourceText =
   /// accessors instead
   abstract member Lines: string array
   /// Provides safe access to a substring of the file via FCS-provided Range
-  abstract member GetText: range:Range -> Result<string, string>
+  abstract member GetText: range: Range -> Result<string, string>
   /// Provides safe access to a line of the file via FCS-provided Position
-  abstract member GetLine: position:Position -> option<string>
+  abstract member GetLine: position: Position -> option<string>
   /// Provide safe access to the length of a line of the file via FCS-provided Position
-  abstract member GetLineLength: position:Position -> option<int>
-  abstract member GetCharUnsafe: position:Position -> char
+  abstract member GetLineLength: position: Position -> option<int>
+  abstract member GetCharUnsafe: position: Position -> char
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
-  abstract member TryGetChar: position:Position -> option<char>
+  abstract member TryGetChar: position: Position -> option<char>
   /// Provides safe incrementing of a lien in the file via FCS-provided Position
-  abstract member NextLine: position:Position -> option<Position>
+  abstract member NextLine: position: Position -> option<Position>
   /// Provides safe incrementing of a position in the file via FCS-provided Position
-  abstract member NextPos: position:Position -> option<Position>
+  abstract member NextPos: position: Position -> option<Position>
   /// Provides safe incrementing of positions in a file while returning the character at the new position.
   /// Intended use is for traversal loops.
-  abstract member TryGetNextChar: position:Position -> option<Position * char>
+  abstract member TryGetNextChar: position: Position -> option<Position * char>
   /// Provides safe decrementing of a position in the file via FCS-provided Position
-  abstract member PrevPos: position:Position -> option<Position>
+  abstract member PrevPos: position: Position -> option<Position>
   /// Provides safe decrementing of positions in a file while returning the character at the new position.
   /// Intended use is for traversal loops.
-  abstract member TryGetPrevChar: position:Position -> option<Position * char>
+  abstract member TryGetPrevChar: position: Position -> option<Position * char>
   /// create a new IFSACSourceText for this file with the given text inserted at the given range.
-  abstract member ModifyText: range:Range * text:string -> Result<IFSACSourceText, string>
+  abstract member ModifyText: range: Range * text: string -> Result<IFSACSourceText, string>
   /// Safe access to the char in a file by Position
   abstract Item: index: Position -> option<char> with get
   /// Safe access to the contents of a file by Range
   abstract Item: index: Range -> Result<string, string> with get
-  abstract member WalkForward: position:Position * terminal:(char -> bool) * condition:(char -> bool) -> option<Position>
-  abstract member WalkBackwards: position:Position * terminal:(char -> bool) * condition:(char -> bool) -> option<Position>
+
+  abstract member WalkForward:
+    position: Position * terminal: (char -> bool) * condition: (char -> bool) -> option<Position>
+
+  abstract member WalkBackwards:
+    position: Position * terminal: (char -> bool) * condition: (char -> bool) -> option<Position>
 
   inherit ISourceText
 
@@ -439,8 +443,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     member x.PrevPos p = x.PrevPos p
     member x.TryGetPrevChar p = x.TryGetPrevChar p
 
-    member x.ModifyText(r, t) =
-      x.ModifyText(r, t)
+    member x.ModifyText(r, t) = x.ModifyText(r, t)
 
     member x.Item
       with get (m: FSharp.Compiler.Text.Range) = x.Item m
@@ -471,8 +474,9 @@ module RoslynSourceText =
 
   let rec create (fileName: string<LocalPath>, sourceText: SourceText) : IFSACSourceText =
 
-    let walk (
-        x : IFSACSourceText,
+    let walk
+      (
+        x: IFSACSourceText,
         start: FSharp.Compiler.Text.Position,
         (posChange: FSharp.Compiler.Text.Position -> FSharp.Compiler.Text.Position option),
         terminal,
@@ -499,14 +503,14 @@ module RoslynSourceText =
       loop start
 
 
-    let inline totalLinesLength () =
-      sourceText.Lines |> Seq.length
+    let inline totalLinesLength () = sourceText.Lines |> Seq.length
 
     let sourceText =
       {
 
         new Object() with
           override _.ToString() = sourceText.ToString()
+
           override _.GetHashCode() =
             let checksum = sourceText.GetChecksum()
 
@@ -526,7 +530,6 @@ module RoslynSourceText =
             |> Hash.combine encodingHash
             |> Hash.combine contentsHash
             |> Hash.combine sourceText.Length
-
         interface IFSACSourceText with
 
           member x.Item
@@ -536,10 +539,10 @@ module RoslynSourceText =
             with get (index: Position): char option = x.TryGetChar(index)
 
           member x.WalkBackwards(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
-            walk(x, start, x.PrevPos, terminal, condition)
+            walk (x, start, x.PrevPos, terminal, condition)
 
           member x.WalkForward(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
-            walk(x, start, x.NextPos, terminal, condition)
+            walk (x, start, x.NextPos, terminal, condition)
 
           member x.String: string = sourceText.ToString()
           member x.FileName: string<LocalPath> = fileName
@@ -570,12 +573,12 @@ module RoslynSourceText =
             else
               Some((x :> ISourceText).GetLineString(pos.Line - 1).Length)
 
-          member x.GetCharUnsafe(pos: Position) : char =
-            x.GetLine(pos).Value[pos.Column - 1]
+          member x.GetCharUnsafe(pos: Position) : char = x.GetLine(pos).Value[pos.Column - 1]
 
           member x.TryGetChar(pos: Position) : char option =
             option {
               do! Option.guard (Range.rangeContainsPos (x.TotalRange) pos)
+
               if pos.Column = 0 then
                 return! None
               else
@@ -589,10 +592,10 @@ module RoslynSourceText =
             }
 
           member this.NextLine(pos: Position) : Position option =
-              if pos.Line < totalLinesLength () then
-                Position.mkPos (pos.Line + 1) 0 |> Some
-              else
-                None
+            if pos.Line < totalLinesLength () then
+              Position.mkPos (pos.Line + 1) 0 |> Some
+            else
+              None
 
           member x.NextPos(pos: Position) : Position option =
             option {
@@ -607,11 +610,12 @@ module RoslynSourceText =
               else
                 return Position.mkPos pos.Line (pos.Column + 1)
             }
+
           member x.TryGetNextChar(pos: Position) : (Position * char) option =
-              option {
-                let! np = x.NextPos pos
-                return np, x.GetCharUnsafe np
-              }
+            option {
+              let! np = x.NextPos pos
+              return np, x.GetCharUnsafe np
+            }
 
           member x.PrevPos(pos: Position) : Position option =
             option {
@@ -626,6 +630,7 @@ module RoslynSourceText =
               else
                 return! None
             }
+
           member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
             option {
               let! np = x.PrevPos pos
@@ -636,10 +641,12 @@ module RoslynSourceText =
               else
                 return np, x.GetCharUnsafe np
             }
+
           member x.ModifyText(range: Range, text: string) : Result<IFSACSourceText, string> =
             let span = range.ToRoslynTextSpan(sourceText)
             let change = TextChange(span, text)
-            Ok (create(fileName, sourceText.WithChanges(change)))
+            Ok(create (fileName, sourceText.WithChanges(change)))
+
 
         interface ISourceText with
 
@@ -694,35 +701,37 @@ module RoslynSourceText =
           member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
             sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
 
-        }
+          }
+
     sourceText
 
 type ISourceTextFactory =
-    abstract member Create : fileName:string<LocalPath> * text:string -> IFSACSourceText
-    abstract member Create : fileName:string<LocalPath> * stream:Stream -> ValueTask<IFSACSourceText>
+  abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
+  abstract member Create: fileName: string<LocalPath> * stream: Stream -> ValueTask<IFSACSourceText>
 
-type NamedTextFactory () =
+type NamedTextFactory() =
   interface ISourceTextFactory with
-      member this.Create(fileName: string<LocalPath>, text: string): IFSACSourceText =
-        NamedText(fileName, text)
-      member this.Create(fileName: string<LocalPath>, stream: Stream): ValueTask<IFSACSourceText> =
-        valueTask {
-          use reader = new StreamReader(stream)
-          let! text = reader.ReadToEndAsync()
-          return NamedText(fileName, text) :> IFSACSourceText
-        }
+    member this.Create(fileName: string<LocalPath>, text: string) : IFSACSourceText = NamedText(fileName, text)
 
-type RoslynSourceTextFactory () =
+    member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
+      valueTask {
+        use reader = new StreamReader(stream)
+        let! text = reader.ReadToEndAsync()
+        return NamedText(fileName, text) :> IFSACSourceText
+      }
+
+type RoslynSourceTextFactory() =
   interface ISourceTextFactory with
-      member this.Create(fileName: string<LocalPath>, text: string): IFSACSourceText =
-        // This uses a TextReader because the TextReader overload https://github.com/dotnet/roslyn/blob/6df76ec8b109c9460f7abccc3a310c7cdbd2975e/src/Compilers/Core/Portable/Text/SourceText.cs#L120-L139
-        // attempts to use the LargeText implementation for large strings. While the string is already allocated, if using CONSERVE_MEMORY, it should be cleaned up and compacted eventually.
-        use t = new StringReader(text)
-        RoslynSourceText.create(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
-      member this.Create(fileName: string<LocalPath>, stream: Stream): ValueTask<IFSACSourceText> =
-        // Maybe one day we'll have an async version for streams: https://github.com/dotnet/roslyn/issues/61489
-        RoslynSourceText.create(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
-        |> ValueTask.FromResult
+    member this.Create(fileName: string<LocalPath>, text: string) : IFSACSourceText =
+      // This uses a TextReader because the TextReader overload https://github.com/dotnet/roslyn/blob/6df76ec8b109c9460f7abccc3a310c7cdbd2975e/src/Compilers/Core/Portable/Text/SourceText.cs#L120-L139
+      // attempts to use the LargeText implementation for large strings. While the string is already allocated, if using CONSERVE_MEMORY, it should be cleaned up and compacted eventually.
+      use t = new StringReader(text)
+      RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
+
+    member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
+      // Maybe one day we'll have an async version for streams: https://github.com/dotnet/roslyn/issues/61489
+      RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
+      |> ValueTask.FromResult
 
 module File =
   let getLastWriteTimeOrDefaultNow (path: string) =
@@ -752,7 +761,7 @@ type VolatileFile =
 
 
   /// <summary>Helper method to create a VolatileFile</summary>
-  static member Create(source : IFSACSourceText, ?version: int, ?touched: DateTime) =
+  static member Create(source: IFSACSourceText, ?version: int, ?touched: DateTime) =
     let touched =
       match touched with
       | Some t -> t
@@ -850,6 +859,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
     member _.FileExistsShim f = actualFs.FileExistsShim f
     member _.GetCreationTimeShim p = actualFs.GetCreationTimeShim p
     member _.GetDirectoryNameShim p = actualFs.GetDirectoryNameShim p
+
     member _.GetFullFilePathInDirectoryShim dir f =
       actualFs.GetFullFilePathInDirectoryShim dir f
 
