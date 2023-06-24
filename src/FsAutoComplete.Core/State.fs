@@ -27,10 +27,9 @@ module ProjInfoExtensions =
         )
 
       if rCase.Name = "PEReference" then
-        let path: string = fields[0] :?> _
-        let getStamp: unit -> DateTime = fields[1] :?> _
-        let reader = fields[2]
-        Some(path, getStamp, reader)
+        let getStamp: unit -> DateTime = fields[0] :?> _
+        let reader = fields[1]
+        Some(getStamp, reader)
       else
         None
 
