@@ -332,7 +332,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     startRange, endRange
 
   /// create a new IFSACSourceText for this file with the given text inserted at the given range.
-  member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<IFSACSourceText, string> =
+  member x.ModifyText(m: FSharp.Compiler.Text.Range, text: string) : Result<NamedText, string> =
     result {
       let startRange, endRange = x.SplitAt(m)
       let! startText = x[startRange] |> Result.mapError (fun x -> $"startRange -> {x}")
@@ -442,8 +442,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     member x.TryGetNextChar p = x.TryGetNextChar p
     member x.PrevPos p = x.PrevPos p
     member x.TryGetPrevChar p = x.TryGetPrevChar p
-
-    member x.ModifyText(r, t) = x.ModifyText(r, t)
+    member x.ModifyText(r, t) = x.ModifyText(r, t) |> Result.map unbox
 
     member x.Item
       with get (m: FSharp.Compiler.Text.Range) = x.Item m
@@ -712,7 +711,6 @@ type ISourceTextFactory =
 type NamedTextFactory() =
   interface ISourceTextFactory with
     member this.Create(fileName: string<LocalPath>, text: string) : IFSACSourceText = NamedText(fileName, text)
-
     member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
       valueTask {
         use reader = new StreamReader(stream)
@@ -734,14 +732,15 @@ type RoslynSourceTextFactory() =
       |> ValueTask.FromResult
 
 module File =
-  let getLastWriteTimeOrDefaultNow (path: string) =
+  let getLastWriteTimeOrDefaultNow (path: string<LocalPath>) =
+    let path = UMX.untag path
     if File.Exists path then
       File.GetLastWriteTimeUtc path
     else
       DateTime.UtcNow
 
 type VolatileFile =
-  { Touched: DateTime
+  { LastTouched: DateTime
     Source: IFSACSourceText
     Version: int option }
 
@@ -751,13 +750,12 @@ type VolatileFile =
   member this.SetSource(source) = { this with Source = source }
 
   /// <summary>Updates the Touched value</summary>
-  member this.SetTouched touched = { this with Touched = touched }
+  member this.SetLastTouched touched = { this with LastTouched = touched }
 
   /// <summary>Updates the Touched value attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow. </summary>
   member this.UpdateTouched() =
-    let path = UMX.untag this.Source.FileName
-    let dt = File.getLastWriteTimeOrDefaultNow path
-    this.SetTouched dt
+    let dt = File.getLastWriteTimeOrDefaultNow this.Source.FileName
+    this.SetLastTouched dt
 
 
   /// <summary>Helper method to create a VolatileFile</summary>
@@ -765,11 +763,11 @@ type VolatileFile =
     let touched =
       match touched with
       | Some t -> t
-      | None -> File.getLastWriteTimeOrDefaultNow source.RawFileName
+      | None -> File.getLastWriteTimeOrDefaultNow source.FileName
 
     { Source = source
       Version = version
-      Touched = touched }
+      LastTouched = touched }
 
 type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
@@ -834,7 +832,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
         filename
         |> Utils.normalizePath
         |> tryFindFile
-        |> Option.map (fun f -> f.Touched)
+        |> Option.map (fun f -> f.LastTouched)
         |> Option.defaultWith (fun () -> actualFs.GetLastWriteTimeShim filename)
 
       // fsLogger.debug (

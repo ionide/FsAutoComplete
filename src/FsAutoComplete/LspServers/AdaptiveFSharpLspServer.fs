@@ -331,7 +331,7 @@ type AdaptiveFSharpLspServer
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
-            do! Async.SwitchToNewThread()
+            // do! Async.SwitchToNewThread()
 
             let res =
               Commands.analyzerHandler (
@@ -843,7 +843,7 @@ type AdaptiveFSharpLspServer
     logger.debug (
       Log.setMessage "TextChanged for file : {fileName} {touched} {version}"
       >> Log.addContextDestructured "fileName" v.FileName
-      >> Log.addContextDestructured "touched" v.Touched
+      >> Log.addContextDestructured "touched" v.LastTouched
       >> Log.addContextDestructured "version" v.Version
     )
 
@@ -936,7 +936,7 @@ type AdaptiveFSharpLspServer
     else
       let inline getSourceFromFile untaggedFile =
         async {
-          do! Async.SwitchToNewThread()
+          // do! Async.SwitchToNewThread()
           use s = File.OpenRead(untaggedFile)
           return! sourceTextFactory.Create(localPath, s) |> Async.AwaitValueTask
         }
@@ -947,7 +947,7 @@ type AdaptiveFSharpLspServer
           let! source = getSourceFromFile untagged |> AsyncAVal.ofAsync
 
           let file =
-            { Touched = lastWriteTime
+            { LastTouched = lastWriteTime
               Source = source
               Version = None }
 
@@ -993,8 +993,6 @@ type AdaptiveFSharpLspServer
   let forceFindOpenFile filePath =
     findFileInOpenFiles filePath |> AVal.force
 
-
-
   let forceFindOpenFileOrRead file =
     asyncOption {
 
@@ -1029,7 +1027,6 @@ type AdaptiveFSharpLspServer
       // flattening openFilesWithChanges makes this check a lot quicker as it's not needing to recalculate each value.
 
       fileshimChanges |> AMap.force |> HashMap.tryFind file
-    // |> Option.orElseWith(fun () -> try (getCachedSourceFiles file |> AsyncAVal.force).Task.GetAwaiter().GetResult()  with _ -> None)
 
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
@@ -1176,7 +1173,7 @@ type AdaptiveFSharpLspServer
         Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
         >> Log.addContextDestructured "file" file.Source.FileName
         >> Log.addContextDestructured "hash" (file.Source.GetHashCode())
-        >> Log.addContextDestructured "date" (file.Touched)
+        >> Log.addContextDestructured "date" (file.LastTouched)
       )
 
       let! ct = Async.CancellationToken

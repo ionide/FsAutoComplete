@@ -187,7 +187,7 @@ type State =
     |> Option.map (fun opts ->
       x.Files.[file] <-
         { Source = text
-          Touched = DateTime.Now
+          LastTouched = DateTime.Now
           Version = None }
 
       opts)
@@ -219,7 +219,7 @@ type State =
   member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: IFSACSourceText, opts, version) =
     let fileState =
       { Source = text
-        Touched = DateTime.Now
+        LastTouched = DateTime.Now
         Version = version }
 
     x.Files.[file] <- fileState
@@ -228,7 +228,7 @@ type State =
   member x.AddFileText(file: string<LocalPath>, text: IFSACSourceText, version) =
     let fileState =
       { Source = text
-        Touched = DateTime.Now
+        LastTouched = DateTime.Now
         Version = version }
 
     x.Files.[file] <- fileState

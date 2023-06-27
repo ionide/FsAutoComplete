@@ -541,7 +541,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let map (mapping: 'a -> CancellationToken -> Task<'b>) (input: asyncaval<'a>) =
@@ -573,7 +573,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapAsync (mapping: 'a -> Async<'b>) (input: asyncaval<'a>) =
@@ -605,7 +605,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =

@@ -1349,7 +1349,7 @@ type Commands
               let text = sourceTextFactory.Create(file, ctn)
 
               state.Files.[file] <-
-                { Touched = DateTime.Now
+                { LastTouched = DateTime.Now
                   Source = text
                   Version = None }
 
