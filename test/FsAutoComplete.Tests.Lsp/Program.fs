@@ -137,7 +137,6 @@ let tests =
     [
       generalTests
       lspTests
-      // AdaptiveSourceText.Tests.tests
     ]
 
 

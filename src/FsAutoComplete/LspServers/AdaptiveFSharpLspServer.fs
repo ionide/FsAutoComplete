@@ -331,7 +331,7 @@ type AdaptiveFSharpLspServer
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
-            // do! Async.SwitchToNewThread()
+            do! Async.SwitchToNewThread()
 
             let res =
               Commands.analyzerHandler (
@@ -928,36 +928,6 @@ type AdaptiveFSharpLspServer
 
   let cachedFileContents = cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
 
-  let getCachedSourceFiles (localPath: string<LocalPath>) =
-    let untagged = UMX.untag localPath
-
-    if not (File.Exists untagged && isFileWithFSharp untagged) then
-      AsyncAVal.constant None
-    else
-      let inline getSourceFromFile untaggedFile =
-        async {
-          // do! Async.SwitchToNewThread()
-          use s = File.OpenRead(untaggedFile)
-          return! sourceTextFactory.Create(localPath, s) |> Async.AwaitValueTask
-        }
-
-      let adder (localPath: string<LocalPath>) =
-        asyncAVal {
-          let! lastWriteTime = AdaptiveFile.GetLastWriteTimeUtc untagged
-          let! source = getSourceFromFile untagged |> AsyncAVal.ofAsync
-
-          let file =
-            { LastTouched = lastWriteTime
-              Source = source
-              Version = None }
-
-          return file
-
-        }
-
-      transact <| fun () -> cachedFileContents.GetOrAdd(localPath, adder)
-      |> AsyncAVal.mapSync (fun v _ -> Some v)
-
   let resetCancellationToken filePath =
     let adder _ = new CancellationTokenSource()
 
@@ -999,13 +969,21 @@ type AdaptiveFSharpLspServer
       match findFileInOpenFiles file |> AVal.force with
       | Some s -> return s
       | None ->
+        // TODO: Log how many times this kind area gets hit and possibly if this should be rethought
         try
           logger.debug (
             Log.setMessage "forceFindOpenFileOrRead else - {file}"
             >> Log.addContextDestructured "file" file
           )
 
-          return! getCachedSourceFiles file |> AsyncAVal.forceAsync
+          use s = File.OpenRead(UMX.untag file)
+          let! source = sourceTextFactory.Create(file, s) |> Async.AwaitValueTask
+
+          return
+            { LastTouched = File.getLastWriteTimeOrDefaultNow file
+              Source = source
+              Version = None }
+
         with e ->
           logger.warn (
             Log.setMessage "Could not read file {file}"

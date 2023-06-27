@@ -647,6 +647,7 @@ module RoslynSourceText =
             Ok(create (fileName, sourceText.WithChanges(change)))
 
 
+
         interface ISourceText with
 
           member _.Item
@@ -711,6 +712,7 @@ type ISourceTextFactory =
 type NamedTextFactory() =
   interface ISourceTextFactory with
     member this.Create(fileName: string<LocalPath>, text: string) : IFSACSourceText = NamedText(fileName, text)
+
     member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
       valueTask {
         use reader = new StreamReader(stream)
@@ -734,6 +736,7 @@ type RoslynSourceTextFactory() =
 module File =
   let getLastWriteTimeOrDefaultNow (path: string<LocalPath>) =
     let path = UMX.untag path
+
     if File.Exists path then
       File.GetLastWriteTimeUtc path
     else
