@@ -1605,6 +1605,43 @@ let private generateXmlDocumentationTests state =
           member val Name = "" with get, set
         """
 
+      testCaseAsync "not applicable for explicit getter and setter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.Name
+            with $0get () = "foo"
+            and set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable for explicit getter"
+
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.Name
+            with $0get () = "foo"
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable for explicit setter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.Name
+            with s$0et (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
       testCaseAsync "documentation for named module"
       <| CodeFix.check
         server
