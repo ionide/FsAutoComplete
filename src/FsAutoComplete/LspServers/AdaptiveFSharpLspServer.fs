@@ -2354,13 +2354,13 @@ type AdaptiveFSharpLspServer
                   | _ -> true
                   |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
 
-                // Set of characters that should do a full typecheck
-                let requiresFullTypeCheck = [ Some ']'; Some ')'; Some '}'; Some '>' ]
+                // Special characters like parentheses, brackets, etc. require a full type check
+                let isSpecialChar = Option.exists (Char.IsLetterOrDigit >> not)
 
                 let previousCharacter = volatileFile.Source.TryGetChar(FcsPos.subtractColumn pos 1)
 
                 let! typeCheckResults =
-                  if requiresFullTypeCheck |> Seq.contains (previousCharacter) then
+                  if isSpecialChar previousCharacter then
                     forceGetTypeCheckResults filePath
                   else
                     forceGetTypeCheckResultsStale filePath

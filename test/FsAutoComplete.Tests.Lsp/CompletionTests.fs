@@ -63,17 +63,22 @@ let tests state =
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
 
+
       testCaseAsync
         "simple completion for ending of a function call after text change"
         (async {
           let! server, path = server
+
+          let lineUnderTest = """Path.GetDirectoryName("foo")"""
+          let line = 15
+          let character = lineUnderTest.Length
 
           let textChange : DidChangeTextDocumentParams =
             {
               TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
               ContentChanges =  [|
                 {
-                  Range = Some { Start = { Line = 15; Character = 28 }; End = { Line = 15; Character = 28 } }
+                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
                   RangeLength = Some 0
                   Text = "."
                 }
@@ -84,7 +89,7 @@ let tests state =
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 15; Character = 29 } // the '.' in 'GetDirectoryName().'
+              Position = { Line = line; Character = character + 1 }
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -115,9 +120,13 @@ let tests state =
         (async {
           let! server, path = server
 
+          let lineUnderTest = """Path.GetDirectoryName("foo")."""
+          let line = 14
+          let character = lineUnderTest.Length
+
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 14; Character = 29 } // the '.' in 'GetDirectoryName().'
+              Position = { Line = line; Character = character } // the '.' in 'GetDirectoryName().'
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -138,6 +147,180 @@ let tests state =
               firstItem.Label
               "Chars"
               "first member should be Chars, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "simple completion for ending of a string after text change"
+        (async {
+          let! server, path = server
+
+          let line = 18
+          let lineUnderTest = "\"bareString\""
+          let character = lineUnderTest.Length
+
+          let textChange : DidChangeTextDocumentParams =
+            {
+              TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
+              ContentChanges =  [|
+                {
+                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
+                  RangeLength = Some 0
+                  Text = "."
+                }
+              |]
+            }
+
+          let! c = server.TextDocumentDidChange textChange |> Async.StartChild
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = line; Character = character + 1 }
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+          do! c
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.isLessThan
+              completions.Items.Length
+              100
+              "shouldn't have an incredibly huge completion list for a simple module completion"
+
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Chars"
+              "first member should be Chars, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "simple completion for ending of a string"
+        (async {
+          let! server, path = server
+
+          let line = 17
+          let lineUnderTest = """"bareString"."""
+          let character = lineUnderTest.Length
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = line; Character = character }
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.isLessThan
+              completions.Items.Length
+              100
+              "shouldn't have an incredibly huge completion list for a simple module completion"
+
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Chars"
+              "first member should be Chars, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "simple completion for ending of a list after text change"
+        (async {
+          let! server, path = server
+
+          let line = 21
+          let lineUnderTest = "[1;2;3]"
+          let character = lineUnderTest.Length
+
+          let textChange : DidChangeTextDocumentParams =
+            {
+              TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
+              ContentChanges =  [|
+                {
+                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
+                  RangeLength = Some 0
+                  Text = "."
+                }
+              |]
+            }
+
+          let! c = server.TextDocumentDidChange textChange |> Async.StartChild
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = line; Character = character + 1 }
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+          do! c
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.isLessThan
+              completions.Items.Length
+              100
+              "shouldn't have an incredibly huge completion list for a simple module completion"
+
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Head"
+              "first member should be Head, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "simple completion for ending of a list"
+        (async {
+          let! server, path = server
+
+          let line = 20
+          let lineUnderTest = "[1;2;3]."
+          let character = lineUnderTest.Length
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = line; Character = character }
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.isLessThan
+              completions.Items.Length
+              100
+              "shouldn't have an incredibly huge completion list for a simple module completion"
+
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Head"
+              "first member should be Head, since properties are preferred over functions"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
