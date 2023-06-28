@@ -955,38 +955,6 @@ module Commands =
     lineStr
     (text: NamedText)
     (tyRes: ParseAndCheckResults)
-    : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
-    asyncResult {
-      let! symbolUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No symbol")
-
-      return!
-        symbolUseWorkspaceAux
-          getDeclarationLocation
-          findReferencesForSymbolInFile
-          tryGetFileSource
-          tryGetProjectOptionsForFsproj
-          getAllProjectOptions
-          includeDeclarations
-          includeBackticks
-          errorOnFailureToFixRange
-          text
-          tyRes
-          symbolUse
-    }
-
-  let symbolUseWorkspace2
-    (getDeclarationLocation: FSharpSymbolUse * NamedText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<NamedText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
-    (includeDeclarations: bool)
-    (includeBackticks: bool)
-    (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
-    (text: NamedText)
-    (tyRes: ParseAndCheckResults)
     : Async<Result<(IDictionary<string<LocalPath>, Range[]>), string>> =
     asyncResult {
       let multipleSymbols = tyRes.TryGetSymbolUses pos lineStr
@@ -2291,61 +2259,6 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
           tyRes
     }
 
-  member x.SymbolUseWorkspace2
-    (
-      pos,
-      lineStr,
-      text: NamedText,
-      tyRes: ParseAndCheckResults,
-      includeDeclarations: bool,
-      includeBackticks: bool,
-      errorOnFailureToFixRange: bool
-    ) =
-    asyncResult {
-      let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-        if File.Exists(UMX.untag file) then
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-        else
-          // untitled script files
-          async {
-            match state.TryGetFileCheckerOptionsWithLines(file) with
-            | Error _ -> return [||]
-            | Ok(opts, source) ->
-              match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
-              | None -> return [||]
-              | Some tyRes ->
-                let! ct = Async.CancellationToken
-                let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-                return usages |> Seq.map (fun u -> u.Range)
-          }
-
-      let tryGetFileSource symbolFile =
-        state.TryGetFileSource symbolFile |> Async.singleton
-
-      let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
-        state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
-        |> Async.singleton
-
-      let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
-
-      return!
-        Commands.symbolUseWorkspace2
-          x.GetDeclarationLocation
-          findReferencesForSymbolInFile
-          tryGetFileSource
-          tryGetProjectOptionsForFsproj
-          getAllProjectOptions
-          includeDeclarations
-          includeBackticks
-          errorOnFailureToFixRange
-          pos
-          lineStr
-          text
-          tyRes
-    }
-
   member x.RenameSymbolRange(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: NamedText) =
     Commands.renameSymbolRange x.GetDeclarationLocation false pos lineStr text tyRes
 
@@ -2355,7 +2268,7 @@ type Commands(checker: FSharpCompilerServiceChecker, state: State, hasAnalyzers:
       // safety check: rename valid?
       let! _ = x.RenameSymbolRange(pos, tyRes, lineStr, text)
 
-      let! (_, usages) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
+      let! usages = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
       return usages
     }
 

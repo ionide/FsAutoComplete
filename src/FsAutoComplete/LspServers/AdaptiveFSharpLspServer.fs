@@ -1542,49 +1542,6 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
       text
       tyRes
 
-  let symbolUseWorkspace2
-    (includeDeclarations: bool)
-    (includeBackticks: bool)
-    (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
-    text
-    tyRes
-    =
-    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-      async {
-        let checker = checker |> AVal.force
-
-        if File.Exists(UMX.untag file) then
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-        else
-          // untitled script files
-          match! forceGetTypeCheckResultsStale file with
-          | Error _ -> return [||]
-          | Ok tyRes ->
-            let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-            return usages |> Seq.map (fun u -> u.Range)
-      }
-
-    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      forceGetProjectOptions file |> Async.map Option.ofResult
-
-    Commands.symbolUseWorkspace2
-      getDeclarationLocation
-      findReferencesForSymbolInFile
-      forceFindSourceText
-      tryGetProjectOptionsForFsproj
-      (getAllProjectOptions >> Async.map Array.toSeq)
-      includeDeclarations
-      includeBackticks
-      errorOnFailureToFixRange
-      pos
-      lineStr
-      text
-      tyRes
-
   let codefixes =
     let getFileLines = forceFindSourceText
 
@@ -1709,7 +1666,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
          GenerateXmlDocumentation.fix tryGetParseResultsForFile
          Run.ifEnabled
            (fun _ -> config.AddPrivateAccessModifier)
-           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace2)
+           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile |])
 
@@ -2753,7 +2710,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
             Commands.renameSymbolRange getDeclarationLocation false pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-          let! (_, ranges) =
+          let! ranges =
             symbolUseWorkspace true true true pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
@@ -2874,7 +2831,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
           let! lineStr = tryGetLineStr pos namedText.Lines |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let! (_, usages) =
+          let! usages =
             symbolUseWorkspace true true false pos lineStr namedText.Lines tyRes
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
@@ -3408,7 +3365,7 @@ type AdaptiveFSharpLspServer(workspaceLoader: IWorkspaceLoader, lspClient: FShar
                                 Arguments = None } }
                   )
 
-              | Ok(_, uses) ->
+              | Ok uses ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =

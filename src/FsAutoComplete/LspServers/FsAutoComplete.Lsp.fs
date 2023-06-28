@@ -1164,25 +1164,6 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             errorOnFailureToFixRange
           )
 
-        let symbolUseWorkspace2
-          (includeDeclarations: bool)
-          (includeBackticks: bool)
-          (errorOnFailureToFixRange: bool)
-          pos
-          lineStr
-          text
-          tyRes
-          =
-          commands.SymbolUseWorkspace2(
-            pos,
-            lineStr,
-            text,
-            tyRes,
-            includeDeclarations,
-            includeBackticks,
-            errorOnFailureToFixRange
-          )
-
         codefixes <-
           [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix getFileLines)
              Run.ifEnabled
@@ -1243,7 +1224,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              GenerateXmlDocumentation.fix tryGetParseResultsForFile
              Run.ifEnabled
                (fun _ -> config.AddPrivateAccessModifier)
-               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace2)
+               (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
 
@@ -1758,7 +1739,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! (_, usages) =
+          let! usages =
             commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, true, true, false)
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
@@ -2130,7 +2111,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                                 Arguments = None } }
                   )
 
-              | Ok(_, uses) ->
+              | Ok uses ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =
