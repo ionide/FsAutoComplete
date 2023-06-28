@@ -2002,10 +2002,14 @@ type Commands
           { new SyntaxVisitorBase<_>() with
               member _.VisitBinding(_, defaultTraverse, synBinding) =
                 match synBinding with
-                | SynBinding(xmlDoc = xmlDoc) as s when
+                | SynBinding(xmlDoc = xmlDoc; valData = valData) as s when
                   rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  match valData with
+                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
+                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
+                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
+                  | _ -> Some()
                 | _ -> defaultTraverse synBinding
 
               member _.VisitComponentInfo(_, synComponentInfo) =
