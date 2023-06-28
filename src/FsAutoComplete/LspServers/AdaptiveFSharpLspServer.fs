@@ -271,7 +271,6 @@ type AdaptiveFSharpLspServer
           let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
 
           let! ct = Async.CancellationToken
-
           notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray)), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
@@ -299,7 +298,6 @@ type AdaptiveFSharpLspServer
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin("Checking simplifing of names...", message = filePathUntag)
 
-          let! ct = Async.CancellationToken
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
           let! ct = Async.CancellationToken
@@ -1000,8 +998,9 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "file" file
           )
 
-          use s = File.OpenRead(UMX.untag file)
-          let! source = sourceTextFactory.Create(file, s) |> Async.AwaitValueTask
+          use s = File.openFileStreamForReadingAsync file
+
+          let! source = sourceTextFactory.Create(file, s) |> Async.AwaitCancellableValueTask
 
           return
             { LastTouched = File.getLastWriteTimeOrDefaultNow file

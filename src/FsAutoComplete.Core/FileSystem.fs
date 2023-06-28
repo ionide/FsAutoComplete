@@ -13,6 +13,19 @@ open FSharp.Compiler.IO
 open System.Threading.Tasks
 open IcedTasks
 
+
+module File =
+  let getLastWriteTimeOrDefaultNow (path: string<LocalPath>) =
+    let path = UMX.untag path
+
+    if File.Exists path then
+      File.GetLastWriteTimeUtc path
+    else
+      DateTime.UtcNow
+
+  let openFileStreamForReadingAsync (path: string<LocalPath>) =
+    new FileStream((UMX.untag path), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize = 4096, useAsync = true)
+
 [<AutoOpen>]
 module PositionExtensions =
   type FSharp.Compiler.Text.Position with
@@ -701,22 +714,26 @@ module RoslynSourceText =
           member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
             sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
 
-          }
+      }
 
     sourceText
 
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
-  abstract member Create: fileName: string<LocalPath> * stream: Stream -> ValueTask<IFSACSourceText>
+  abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
 
 type NamedTextFactory() =
   interface ISourceTextFactory with
     member this.Create(fileName: string<LocalPath>, text: string) : IFSACSourceText = NamedText(fileName, text)
 
-    member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
-      valueTask {
+    member this.Create(fileName: string<LocalPath>, stream: Stream) : CancellableValueTask<IFSACSourceText> =
+      cancellableValueTask {
         use reader = new StreamReader(stream)
+#if NET6_0
         let! text = reader.ReadToEndAsync()
+#else
+        let! text = fun ct -> reader.ReadToEndAsync(ct)
+#endif
         return NamedText(fileName, text) :> IFSACSourceText
       }
 
@@ -728,19 +745,13 @@ type RoslynSourceTextFactory() =
       use t = new StringReader(text)
       RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
 
-    member this.Create(fileName: string<LocalPath>, stream: Stream) : ValueTask<IFSACSourceText> =
-      // Maybe one day we'll have an async version for streams: https://github.com/dotnet/roslyn/issues/61489
-      RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
-      |> ValueTask.FromResult
+    member this.Create(fileName: string<LocalPath>, stream: Stream) : CancellableValueTask<IFSACSourceText> =
+      fun ct ->
+        ct.ThrowIfCancellationRequested()
+        // Maybe one day we'll have an async version for streams: https://github.com/dotnet/roslyn/issues/61489
+        RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
+        |> ValueTask.FromResult
 
-module File =
-  let getLastWriteTimeOrDefaultNow (path: string<LocalPath>) =
-    let path = UMX.untag path
-
-    if File.Exists path then
-      File.GetLastWriteTimeUtc path
-    else
-      DateTime.UtcNow
 
 type VolatileFile =
   { LastTouched: DateTime
