@@ -111,7 +111,7 @@ let private createWildCard endRange (duField: string) : TextEdit =
   let range = endRange
   { NewText = wildcard; Range = range }
 
-let private toPosSeq (range: FSharp.Compiler.Text.Range, text: NamedText) =
+let private toPosSeq (range: FSharp.Compiler.Text.Range, text: IFSACSourceText) =
   range.Start
   |> Seq.unfold (fun currentPos ->
     match text.NextPos currentPos with

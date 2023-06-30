@@ -21,13 +21,13 @@ module Types =
   type IsEnabled = unit -> bool
 
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
-  type GetFileLines = string<LocalPath> -> Async<ResultOrString<NamedText>>
-  type GetLineText = NamedText -> LspTypes.Range -> Async<Result<string, string>>
+  type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
+  type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
       -> FSharp.Compiler.Text.Position
-      -> Async<ResultOrString<ParseAndCheckResults * string * NamedText>>
+      -> Async<ResultOrString<ParseAndCheckResults * string * IFSACSourceText>>
 
   type GetProjectOptionsForFile =
     string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
@@ -197,10 +197,10 @@ module Navigation =
 
     fcsPos
 
-  let inc (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let inc (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
     lines.NextPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
-  let dec (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let dec (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
     lines.PrevPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
   let rec decMany lines pos count =
@@ -229,13 +229,14 @@ module Navigation =
       return pos
     }
 
-  let walkBackUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+  let walkBackUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
     lines.WalkBackwards(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
-  let walkForwardUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+  let walkForwardUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
+
 
     lines.WalkForward(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 

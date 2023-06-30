@@ -96,7 +96,7 @@ let private tryFindAbstractClassExprInParsedInput
 let tryFindAbstractClassExprInBufferAtPos
   (codeGenService: ICodeGenerationService)
   (pos: Position)
-  (document: NamedText)
+  (document: IFSACSourceText)
   =
   asyncMaybe {
     let! parseResults = codeGenService.ParseFileInProject document.FileName
@@ -151,7 +151,7 @@ let inferStartColumn
 let writeAbstractClassStub
   (codeGenServer: ICodeGenerationService)
   (checkResultForFile: ParseAndCheckResults)
-  (doc: NamedText)
+  (doc: IFSACSourceText)
   (lineStr: string)
   (abstractClassData: AbstractClassData)
   =

@@ -35,7 +35,7 @@ open Ionide.LanguageServerProtocol.Types.LspResult
 open StreamJsonRpc
 
 
-type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
+type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
 
 
   let logger = LogProvider.getLoggerByName "LSP"
@@ -44,7 +44,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath)
+    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath, sourceTextFactory)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -86,7 +86,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   /// `DateTime` instead of `Stopwatch`: stopwatch doesn't work with multiple simultaneous consumers
   let mutable lastCheckFile = DateTime.UtcNow
 
-  let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
+  let checkFile (filePath: string<LocalPath>, version: int, content: IFSACSourceText, isFirstOpen: bool) =
     asyncResult {
 
       let start =
@@ -482,7 +482,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
           state,
           hasAnalyzersNow,
-          rootPath
+          rootPath,
+          sourceTextFactory
         )
 
       commands <- newCommands
@@ -618,7 +619,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   ///Helper function for handling Position requests using **recent** type check results
   member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams>
-    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> NamedText -> AsyncLspResult<'a>)
+    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> IFSACSourceText -> AsyncLspResult<'a>)
     (arg: 'b)
     : AsyncLspResult<'a> =
     async {
@@ -671,7 +672,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
-    (f: string<LocalPath> -> ParseAndCheckResults -> NamedText -> AsyncLspResult<'a>)
+    (f: string<LocalPath> -> ParseAndCheckResults -> IFSACSourceText -> AsyncLspResult<'a>)
     (arg: TextDocumentIdentifier)
     : AsyncLspResult<'a> =
     async {
@@ -726,8 +727,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     (
       fileName: string<LocalPath>,
       action: unit -> Async<Result<FormatDocumentResponse, string>>,
-      handlerFormattedDoc: (NamedText * string) -> TextEdit[],
-      handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit[]
+      handlerFormattedDoc: (IFSACSourceText * string) -> TextEdit[],
+      handleFormattedRange: (IFSACSourceText * string * FormatSelectionRange) -> TextEdit[]
     ) =
     async {
       let! res = action ()
@@ -1108,7 +1109,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let getFileLines =
           commands.TryGetFileCheckerOptionsWithLines >> Result.map snd >> Async.singleton
 
-        let getLineText (lines: NamedText) (range: Ionide.LanguageServerProtocol.Types.Range) =
+        let getLineText (lines: IFSACSourceText) (range: Ionide.LanguageServerProtocol.Types.Range) =
           lines.GetText(protocolRangeToRange (UMX.untag lines.FileName) range)
           |> Async.singleton
 
@@ -1298,7 +1299,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       async {
         let doc = p.TextDocument
         let filePath = doc.GetFilePath() |> Utils.normalizePath
-        let content = NamedText(filePath, doc.Text)
+        let content = sourceTextFactory.Create(filePath, doc.Text)
 
         logger.info (
           Log.setMessage "TextDocumentDidOpen Request: {parms}"
@@ -1332,21 +1333,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.bimap id (fun _ -> NamedText(filePath, ""))
+          |> Result.bimap id (fun _ -> sourceTextFactory.Create(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)
           ||> Array.fold (fun text change ->
             match change.Range with
             | None -> // replace entire content
-              NamedText(filePath, change.Text)
-            | Some rangeToReplace when
-              rangeToReplace.Start.Line = 0
-              && rangeToReplace.Start.Character = 0
-              && rangeToReplace.End.Line = 0
-              && rangeToReplace.End.Character = 0
-              ->
-              NamedText(filePath, change.Text)
+              sourceTextFactory.Create(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice
               let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
@@ -1861,7 +1855,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         commands.FormatDocument fileName
 
-      let handlerFormattedDoc (lines: NamedText, formatted: string) =
+      let handlerFormattedDoc (lines: IFSACSourceText, formatted: string) =
         let range =
           let zero = { Line = 0; Character = 0 }
           let lastPos = lines.LastFilePosition
@@ -1893,7 +1887,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         commands.FormatSelection(fileName, range)
 
-      let handlerFormattedRangeDoc (lines: NamedText, formatted: string, range: FormatSelectionRange) =
+      let handlerFormattedRangeDoc (lines: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
         let range =
           { Start =
               { Line = range.StartLine - 1
@@ -2977,7 +2971,7 @@ module FSharpLspServer =
           | HandleableException -> false
           | _ -> true }
 
-  let startCore toolsPath stateStorageDir workspaceLoaderFactory =
+  let startCore toolsPath stateStorageDir workspaceLoaderFactory sourceTextFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -3015,7 +3009,7 @@ module FSharpLspServer =
       let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
       let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
       FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-      new FSharpLspServer(state, lspClient) :> IFSharpLspServer
+      new FSharpLspServer(state, lspClient, sourceTextFactory) :> IFSharpLspServer
 
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient regularServer createRpc

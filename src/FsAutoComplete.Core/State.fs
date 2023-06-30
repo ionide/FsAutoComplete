@@ -182,12 +182,12 @@ type State =
       ColorizationOutput = false
       WorkspaceStateDirectory = workspaceStateDir }
 
-  member x.RefreshCheckerOptions(file: string<LocalPath>, text: NamedText) : FSharpProjectOptions option =
+  member x.RefreshCheckerOptions(file: string<LocalPath>, text: IFSACSourceText) : FSharpProjectOptions option =
     x.ProjectController.GetProjectOptions(UMX.untag file)
     |> Option.map (fun opts ->
       x.Files.[file] <-
-        { Lines = text
-          Touched = DateTime.Now
+        { Source = text
+          LastTouched = DateTime.Now
           Version = None }
 
       opts)
@@ -216,19 +216,19 @@ type State =
 
   member x.SetLastCheckedVersion (file: string<LocalPath>) (version: int) = x.LastCheckedVersion.[file] <- version
 
-  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: NamedText, opts, version) =
+  member x.AddFileTextAndCheckerOptions(file: string<LocalPath>, text: IFSACSourceText, opts, version) =
     let fileState =
-      { Lines = text
-        Touched = DateTime.Now
+      { Source = text
+        LastTouched = DateTime.Now
         Version = version }
 
     x.Files.[file] <- fileState
     x.ProjectController.SetProjectOptions(UMX.untag file, opts)
 
-  member x.AddFileText(file: string<LocalPath>, text: NamedText, version) =
+  member x.AddFileText(file: string<LocalPath>, text: IFSACSourceText, version) =
     let fileState =
-      { Lines = text
-        Touched = DateTime.Now
+      { Source = text
+        LastTouched = DateTime.Now
         Version = version }
 
     x.Files.[file] <- fileState
@@ -259,32 +259,32 @@ type State =
 
   member x.TryGetFileCheckerOptionsWithLines
     (file: string<LocalPath>)
-    : ResultOrString<FSharpProjectOptions * NamedText> =
+    : ResultOrString<FSharpProjectOptions * IFSACSourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error(sprintf "File '%s' not parsed" (UMX.untag file))
     | Some(volFile) ->
 
       match x.ProjectController.GetProjectOptions((UMX.untag file)) with
-      | None -> Ok(State.FileWithoutProjectOptions(file), volFile.Lines)
-      | Some opts -> Ok(opts, volFile.Lines)
+      | None -> Ok(State.FileWithoutProjectOptions(file), volFile.Source)
+      | Some opts -> Ok(opts, volFile.Source)
 
   member x.TryGetFileCheckerOptionsWithSource
     (file: string<LocalPath>)
-    : ResultOrString<FSharpProjectOptions * NamedText> =
+    : ResultOrString<FSharpProjectOptions * IFSACSourceText> =
     match x.TryGetFileCheckerOptionsWithLines(file) with
     | ResultOrString.Error x -> ResultOrString.Error x
     | Ok(opts, lines) -> Ok(opts, lines)
 
-  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<NamedText> =
+  member x.TryGetFileSource(file: string<LocalPath>) : ResultOrString<IFSACSourceText> =
     match x.Files.TryFind(file) with
     | None -> ResultOrString.Error(sprintf "File '%s' not parsed" (UMX.untag file))
-    | Some f -> Ok f.Lines
+    | Some f -> Ok f.Source
 
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr
     (
       file: string<LocalPath>,
       pos: Position
-    ) : ResultOrString<FSharpProjectOptions * NamedText * LineStr> =
+    ) : ResultOrString<FSharpProjectOptions * IFSACSourceText * LineStr> =
     result {
       let! (opts, text) = x.TryGetFileCheckerOptionsWithLines(file)
 

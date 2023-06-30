@@ -31,7 +31,7 @@ let private getSignatureHelpForFunctionApplication
     tyRes: ParseAndCheckResults,
     caretPos: Position,
     endOfPreviousIdentPos: Position,
-    lines: NamedText
+    lines: IFSACSourceText
   ) : Async<SignatureHelpInfo option> =
   asyncMaybe {
     let! lineStr = lines.GetLine endOfPreviousIdentPos
@@ -123,7 +123,13 @@ let private getSignatureHelpForFunctionApplication
     | _ -> return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: NamedText, triggerChar) =
+let private getSignatureHelpForMethod
+  (
+    tyRes: ParseAndCheckResults,
+    caretPos: Position,
+    lines: IFSACSourceText,
+    triggerChar
+  ) =
   asyncMaybe {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
@@ -206,7 +212,7 @@ let getSignatureHelpFor
   (
     tyRes: ParseAndCheckResults,
     pos: Position,
-    lines: NamedText,
+    lines: IFSACSourceText,
     triggerChar,
     possibleSessionKind
   ) =

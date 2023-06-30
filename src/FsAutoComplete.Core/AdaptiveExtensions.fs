@@ -32,6 +32,14 @@ module AdaptiveExtensions =
       | None -> x.Add(key, adder key) |> ignore
       | Some v -> updater key v
 
+    member x.GetOrAdd(key, adder: 'Key -> 'Value) : 'Value =
+      match x.TryGetValue key with
+      | Some x -> x
+      | None ->
+        let v = adder key
+        x.Add(key, v) |> ignore
+        v
+
 
 module Utils =
   let cheapEqual (a: 'T) (b: 'T) =
@@ -533,7 +541,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let map (mapping: 'a -> CancellationToken -> Task<'b>) (input: asyncaval<'a>) =
@@ -565,7 +573,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapAsync (mapping: 'a -> Async<'b>) (input: asyncaval<'a>) =
@@ -597,7 +605,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =

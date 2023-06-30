@@ -16,7 +16,7 @@ open FsToolkit.ErrorHandling
 open FSharp.Compiler.CodeAnalysis
 open Helpers.Expecto.ShadowedTimeouts
 
-let private scriptTests state = 
+let private scriptTests state =
   testList "script"
     [ let server =
         async {
@@ -66,7 +66,7 @@ module private Cursor =
   let usageEnd = ">$"
   let defStart = "$D<"
   let defEnd = ">D$"
-  
+
 let private extractRanges (sourceWithCursors: string) =
   let (source, cursors) =
     sourceWithCursors
@@ -92,11 +92,11 @@ let private extractRanges (sourceWithCursors: string) =
     match cursors with
     | [] -> ranges
     | [(c,p)] -> failwith $"Lonely last cursor {c} at {p}"
-    | (c1,p1)::(c2,p2)::cursors when c1 = Cursor.usageStart && c2 = Cursor.usageEnd -> 
+    | (c1,p1)::(c2,p2)::cursors when c1 = Cursor.usageStart && c2 = Cursor.usageEnd ->
         let range = mkRange p1 p2
         let ranges = (range :: decls, usages)
         collectRanges cursors ranges
-    | (c1,p1)::(c2,p2) :: cursors when c1 = Cursor.defStart && c2 = Cursor.defEnd -> 
+    | (c1,p1)::(c2,p2) :: cursors when c1 = Cursor.defStart && c2 = Cursor.defEnd ->
         let range = mkRange p1 p2
         let ranges = (decls, range :: usages)
         collectRanges cursors ranges
@@ -115,7 +115,7 @@ let private mkLocation doc range =
   }
 /// mark locations in text
 /// -> differences gets highlighted in source instead of Location array
-/// 
+///
 /// Locations are marked with `〈...〉`
 let private markRanges (source: string) (locs: Location[]) =
   let ranges =
@@ -136,16 +136,16 @@ module Expect =
   /// * `true`: ranges of `actual` & `expected` must match exactly
   /// * `false`: ranges of `actual` must contain ranges of `expected` -> ranges in `actual` can cover a larger area
   ///     * Reason: ranges only get adjusted iff source file was loaded (into `state` in `Commands`).
-  ///           Because of background loading (& maybe changes in FSAC implementation) not always predictable what is and isn't loaded  
-  ///           -> Just check if correct range is covered  
-  ///     * Example: Find References for `map`: FCS returns range covering `List.map`.  
-  ///           That range gets reduced to just `map` iff source file is loaded (-> NamedText available).
-  ///           But if file not loaded range stays `List.map`.  
-  /// 
-  /// -> 
-  /// * Solution tests: multiple projects -> not everything loaded -> use `exact=false`  
+  ///           Because of background loading (& maybe changes in FSAC implementation) not always predictable what is and isn't loaded
+  ///           -> Just check if correct range is covered
+  ///     * Example: Find References for `map`: FCS returns range covering `List.map`.
+  ///           That range gets reduced to just `map` iff source file is loaded (-> IFSACSourceText available).
+  ///           But if file not loaded range stays `List.map`.
+  ///
+  /// ->
+  /// * Solution tests: multiple projects -> not everything loaded -> use `exact=false`
   ///     -> tests for: every reference found?
-  /// * untitled & range tests: in untitled doc -> loaded because passed to FSAC -> use `exact=true`  
+  /// * untitled & range tests: in untitled doc -> loaded because passed to FSAC -> use `exact=true`
   ///     -> tests for: correct range found?
   let locationsEqual (getSource: DocumentUri -> string) (exact: bool) (actual: Location[]) (expected: Location[]) =
     let inspect () =
@@ -198,31 +198,31 @@ module Expect =
         inspect ()
     else
       inspect ()
-    
+
 let private solutionTests state =
 
   let marker = "//>"
   /// Format of Locations in file `path`:
   /// In line after range:
   /// * Mark start of line with `//>`
-  /// * underline range (in prev line) with a char-sequence (like `^^^^^`)  
+  /// * underline range (in prev line) with a char-sequence (like `^^^^^`)
   /// * name after range marker (separated with single space from range) (name can contain spaces)
   ///   -> results are grouped by named
   ///  * no name: assigned empty string as name
-  /// 
+  ///
   /// Example:
   /// ```fsharp
   /// let foo bar =
   /// //>     ^^^ parameter
   ///     42 + bar
   /// //>      ^^^ parameter usage
-  /// let alpha beta = 
+  /// let alpha beta =
   /// //>       ^^^^ parameter
   ///     beta + 42
   /// //> ^^^^ parameter usage
   /// ```
   /// -> 4 locations, two `parameter` and two `parameter usage`
-  /// 
+  ///
   /// Note: it's currently not possible to get two (or more) ranges for a single line!
   let readReferences path =
     let lines = File.ReadAllLines path
@@ -234,7 +234,7 @@ let private solutionTests state =
         let splits = l.Split([|' '|], 2)
         let mark = splits[0]
         let ty = mark[0]
-        let range = 
+        let range =
           let col = line.IndexOf mark
           let length = mark.Length
           let line = i - 1  // marker is line AFTER actual range
@@ -249,7 +249,7 @@ let private solutionTests state =
             |> Path.LocalPathToUri
           Range = range
         }
-        let name = 
+        let name =
           if splits.Length > 1 then
             splits[1]
           else
@@ -263,12 +263,12 @@ let private solutionTests state =
         existing.Add loc |> ignore
     refs
 
-  let readAllReferences dir = 
+  let readAllReferences dir =
     // `.fs` & `.fsx`
     let files = Directory.GetFiles(dir, "*.fs*", SearchOption.AllDirectories)
     files
     |> Seq.map readReferences
-    |> Seq.map (fun dict -> 
+    |> Seq.map (fun dict ->
       dict
       |> Seq.map (fun kvp -> kvp.Key, kvp.Value)
     )
@@ -315,10 +315,10 @@ let private solutionTests state =
           do! assertScriptFilesLoaded
 
           let! (doc, _) =  doc
-          let cursor = 
+          let cursor =
             let cursor =
               r.Locations
-              |> Seq.filter (fun l -> l.Uri = doc.Uri) 
+              |> Seq.filter (fun l -> l.Uri = doc.Uri)
               |> Seq.minBy (fun l -> l.Range.Start)
             cursor.Range.Start
 
@@ -327,7 +327,7 @@ let private solutionTests state =
               Position = cursor
               Context = { IncludeDeclaration = true } }
           let! refs = doc.Server.Server.TextDocumentReferences request
-          let refs = 
+          let refs =
             refs
             |> Flip.Expect.wantOk "Should not fail"
             |> Flip.Expect.wantSome "Should return references"
@@ -337,7 +337,7 @@ let private solutionTests state =
           let getSource uri =
             let path = Path.FileUriToLocalPath uri
             File.ReadAllText path
-          
+
           Expect.locationsEqual getSource false refs expected
         })
     ])
@@ -349,7 +349,7 @@ let private untitledTests state =
   serverTestList "untitled" state defaultConfigDto None (fun server -> [
     testCaseAsync "can find external `Delay` in all open untitled docs" (async {
       // Note: Cursor MUST be in first source
-      let sources = 
+      let sources =
         [|
           """
           open System
@@ -358,13 +358,13 @@ let private untitledTests state =
             do! Task.$<De$0lay>$ (TimeSpan.MaxValue)
             do! Task.$<``Delay``>$ (TimeSpan.MaxValue)
             do! System.Threading.Tasks.Task.$<Delay>$ (TimeSpan.MaxValue)
-            do! 
+            do!
               System
                 .Threading
                 .Tasks
                 .Task
                 .$<Delay>$ (TimeSpan.MaxValue)
-          } 
+          }
           """
           """
           open System
@@ -395,11 +395,11 @@ let private untitledTests state =
             return doc
           })
         |> Async.Sequential
-      
-      let (cursorDoc, cursor) = 
+
+      let (cursorDoc, cursor) =
         let cursors =
           Array.zip docs sources
-          |> Array.choose (fun (doc, (_, cursors)) -> 
+          |> Array.choose (fun (doc, (_, cursors)) ->
             cursors.Cursor
             |> Option.map (fun cursor -> (doc, cursor))
           )
@@ -449,7 +449,7 @@ let private rangeTests state =
           Position = cursors.Cursor.Value
           Context = { IncludeDeclaration = true } }
       let! refs = doc.Server.Server.TextDocumentReferences request
-      let refs = 
+      let refs =
         refs
         |> Flip.Expect.wantOk "Should not fail"
         |> Flip.Expect.wantSome "Should return references"
@@ -472,7 +472,7 @@ let private rangeTests state =
         """
         module MyModule =
           let $D<va$0lue>D$ = 42
-        
+
         open MyModule
         let _ = $<value>$ + 42
         let _ = $<``value``>$ + 42
@@ -488,13 +488,13 @@ let private rangeTests state =
           do! Task.$<De$0lay>$ (TimeSpan.MaxValue)
           do! Task.$<``Delay``>$ (TimeSpan.MaxValue)
           do! System.Threading.Tasks.Task.$<Delay>$ (TimeSpan.MaxValue)
-          do! 
+          do!
             System
               .Threading
               .Tasks
               .Task
               .$<Delay>$ (TimeSpan.MaxValue)
-        } 
+        }
         """
     testCaseAsync "can get range of variable with required backticks" <|
       checkRanges server
@@ -578,7 +578,7 @@ let private rangeTests state =
           do! $<Ta$0sk>$.Delay(TimeSpan.MaxValue)
           do! $<Task>$.``Delay`` (TimeSpan.MaxValue)
           do! System.Threading.Tasks.$<Task>$.Delay (TimeSpan.MaxValue)
-          do! 
+          do!
             System
               .Threading
               .Tasks
@@ -596,13 +596,13 @@ let tests state = testList "Find All References tests" [
 ]
 
 
-let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
+let tryFixupRangeTests (sourceTextFactoryName, sourceTextFactory : ISourceTextFactory) = testList ($"{nameof Tokenizer.tryFixupRange}.{sourceTextFactoryName}") [
   let checker = lazy (FSharpChecker.Create())
-  let getSymbolUses source cursor = async {
+  let getSymbolUses (source : string) cursor = async {
     let checker = checker.Value
     let file = "code.fsx"
     let path: string<LocalPath> = UMX.tag file
-    let source = NamedText(path, source)
+    let source = sourceTextFactory.Create(path, source)
 
     let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source, assumeDotNetFramework=false)
     let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
@@ -655,7 +655,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           collectRanges cursors (range::ranges)
       | _ ->
           failtest $"Expected matching range pair '$<', '>$', but got: %A{cursors}"
-    let ranges = 
+    let ranges =
       collectRanges cursors []
 
     (source, cursor, ranges)
@@ -664,7 +664,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
     let (source, cursor, expected) = extractCursorAndRanges sourceWithCursorAndRanges
 
     let! (source, symbol, usages) = getSymbolUses source cursor
-    
+
     let symbolNameCore = symbol.DisplayNameCore
     let actual =
       usages
@@ -705,7 +705,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
       Expect.equal
         (markRanges actual)
         (markRanges expected)
-        "Should be correct ranges" 
+        "Should be correct ranges"
   }
 
   testCaseAsync "Active Pattern - simple" <|
@@ -835,7 +835,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           let _ = (  ``$<|Hello World|_|>$``   ) 42
 
           // linebreaks
-          let _r = 
+          let _r =
             (
               $<|
                 ``Hello World``
@@ -843,9 +843,9 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
                     _
                       |>$
                 ) 42
-          let _ = 
-            (  
-            ``$<|Hello World|_|>$``   
+          let _ =
+            (
+            ``$<|Hello World|_|>$``
               ) 42
 
         let _ = MyModule.($<|``Hello World``|_|>$) 42
@@ -858,7 +858,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
         // let _ = MyModule.(  ``|Hello World|_|``   ) 42
 
         // linebreaks
-        let _r = 
+        let _r =
           MyModule.(
             $<|
               ``Hello World``
@@ -867,9 +867,9 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
                     |>$
               ) 42
         // invalid
-        // let _ = 
-        //   MyModule.(  
-        //   ``|Hello World|_|``   
+        // let _ =
+        //   MyModule.(
+        //   ``|Hello World|_|``
         //     ) 42
         """
     testCaseAsync "Active Pattern - required backticks - with backticks" <|
@@ -886,7 +886,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           let _ = (  $<``|Hello World|_|``>$   ) 42
 
           // linebreaks
-          let _r = 
+          let _r =
             (
               $<|
                 ``Hello World``
@@ -894,9 +894,9 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
                     _
                       |>$
                 ) 42
-          let _ = 
-            (  
-            $<``|Hello World|_|``>$   
+          let _ =
+            (
+            $<``|Hello World|_|``>$
               ) 42
 
         let _ = MyModule.($<|``Hello World``|_|>$) 42
@@ -909,7 +909,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
         // let _ = MyModule.(  ``|Hello World|_|``   ) 42
 
         // linebreaks
-        let _r = 
+        let _r =
           MyModule.(
             $<|
               ``Hello World``
@@ -918,9 +918,9 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
                     |>$
               ) 42
         // invalid
-        // let _ = 
-        //   MyModule.(  
-        //   ``|Hello World|_|``   
+        // let _ =
+        //   MyModule.(
+        //   ``|Hello World|_|``
         //     ) 42
         """
 
@@ -928,7 +928,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
       check false
         """
         module MyModule =
-          let (|$<Even>$|Odd|) v = 
+          let (|$<Even>$|Odd|) v =
             if v % 2 = 0 then $<Even>$ else Odd
 
           do
@@ -955,7 +955,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
       check true
         """
         module MyModule =
-          let (|$<Even>$|Odd|) v = 
+          let (|$<Even>$|Odd|) v =
             if v % 2 = 0 then $<Even>$ else Odd
 
           do
@@ -981,12 +981,12 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
 
     testCaseAsync "Active Pattern Case - simple - at decl" <|
       // Somehow `FSharpSymbolUse.Symbol.DisplayNameCore` is empty -- but references correct Even symbol
-      // 
+      //
       // Why? Cannot reproduce with just FCS -> happens just in FSAC
       check false
         """
         module MyModule =
-          let (|$<Even>$|Odd|) v = 
+          let (|$<Even>$|Odd|) v =
             if v % 2 = 0 then $<Ev$0en>$ else Odd
 
           do
@@ -1013,7 +1013,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
       check true
         """
         module MyModule =
-          let (|$<Even>$|Odd|) v = 
+          let (|$<Even>$|Odd|) v =
             if v % 2 = 0 then $<Ev$0en>$ else Odd
 
           do
@@ -1036,13 +1036,13 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           | MyModule.$<``Even``>$ -> ()
           | MyModule.``Odd`` -> ()
         """
-    
+
     testCaseAsync "operator -.-" <|
       check false
         """
         module MyModule =
           let ($<-.->$) a b = a - b
-          
+
           let _ = 1 $<-$0.->$ 2
           let _ = ($<-.->$) 1 2
           // invalid:
@@ -1050,29 +1050,29 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           let _ = (
                     $<-.->$
                       ) 1 2
-          
+
         let _ = MyModule.($<-.->$) 1 2
 
         // linebreaks
-        let _ = 
+        let _ =
           MyModule
             .($<-.->$) 1 2
-        let _ = 
+        let _ =
           MyModule.
             ($<-.->$) 1 2
-        let _ = 
+        let _ =
           MyModule
             .(
                 $<-.->$
                   ) 1 2
-        let _ = 
+        let _ =
           MyModule
             .(
 
                 $<-.->$
 
                   ) 1 2
-        let _ = 
+        let _ =
           MyModule.
             (
               $<-.->$
@@ -1084,7 +1084,7 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
         """
         module MyModule =
           let ($<-.->$) a b = a - b
-          
+
           let _ = 1 $<-$0.->$ 2
           let _ = ($<-.->$) 1 2
           // invalid:
@@ -1092,29 +1092,29 @@ let tryFixupRangeTests = testList (nameof Tokenizer.tryFixupRange) [
           let _ = (
                     $<-.->$
                       ) 1 2
-          
+
         let _ = MyModule.($<-.->$) 1 2
 
         // linebreaks
-        let _ = 
+        let _ =
           MyModule
             .($<-.->$) 1 2
-        let _ = 
+        let _ =
           MyModule.
             ($<-.->$) 1 2
-        let _ = 
+        let _ =
           MyModule
             .(
                 $<-.->$
                   ) 1 2
-        let _ = 
+        let _ =
           MyModule
             .(
 
                 $<-.->$
 
                   ) 1 2
-        let _ = 
+        let _ =
           MyModule.
             (
               $<-.->$

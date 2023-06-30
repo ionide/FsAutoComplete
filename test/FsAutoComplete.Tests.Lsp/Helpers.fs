@@ -193,7 +193,7 @@ let record (cacher: Cacher<_>) =
     cacher.OnNext(name, payload)
     AsyncLspResult.success Unchecked.defaultof<_>
 
-let createServer (state: unit -> State) =
+let createServer (state: unit -> State) sourceTextFactory =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -206,10 +206,10 @@ let createServer (state: unit -> State) =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(innerState, client)
+  let server = new FSharpLspServer(innerState, client, sourceTextFactory)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
-let createAdaptiveServer (workspaceLoader) =
+let createAdaptiveServer workspaceLoader sourceTextFactory =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -219,7 +219,7 @@ let createAdaptiveServer (workspaceLoader) =
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client)
+  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
