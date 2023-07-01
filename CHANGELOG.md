@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.60.1] - 2023-07-01
+
+### Added
+
+* [A new set of settings for excluding files from built-in analyzers](https://github.com/fsharp/FsAutoComplete/pull/1120) (thanks @TheAngryByrd!)
+* [A new setting for choosing the ISourceText implementation, along with a Roslyn-based implementation](https://github.com/fsharp/FsAutoComplete/pull/1123) (thanks @TheAngryByrd!)
+* [The Generate Xml Doc codefix now works on properties with getters and setters](https://github.com/fsharp/FsAutoComplete/pull/1126) (thanks @dawedawe!)
+
 ## [0.60.0] - 2023-06-14
 
 ### Added
