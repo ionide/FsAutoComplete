@@ -2104,6 +2104,18 @@ type Commands
                                 rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                                 ->
                                 Some()
+                              | SynMemberDefn.GetSetMember(
+                                  memberDefnForGet = Some(SynBinding(
+                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
+                                ->
+                                Some()
+                              | SynMemberDefn.GetSetMember(
+                                  memberDefnForSet = Some(SynBinding(
+                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
+                                ->
+                                Some()
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
