@@ -1618,6 +1618,69 @@ let private generateXmlDocumentationTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
+      testCaseAsync "documentation on property with explicit getter and setter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with get () = "foo"
+            and set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <returns></returns>
+          member _.Name
+            with get () = "foo"
+            and set (x: string) = someField <- x
+        """
+
+      testCaseAsync "documentation on property with explicit getter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with get () = "foo"
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <returns></returns>
+          member _.Name
+            with get () = "foo"
+        """
+
+      testCaseAsync "documentation on property with explicit setter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <param name="x"></param>
+          /// <returns></returns>
+          member _.Name
+            with set (x: string) = someField <- x
+        """
+
       testCaseAsync "not applicable for explicit getter"
 
       <| CodeFix.checkNotApplicable
