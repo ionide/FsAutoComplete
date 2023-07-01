@@ -98,7 +98,7 @@ let tryFindAbstractClassExprInBufferAtPos
   (pos: Position)
   (document: IFSACSourceText)
   =
-  asyncMaybe {
+  asyncOption {
     let! parseResults = codeGenService.ParseFileInProject document.FileName
     return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
   }

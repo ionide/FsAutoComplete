@@ -556,7 +556,7 @@ let private rangeOfNamedPat (text: IFSACSourceText) (pat: SynPat) =
   match pat with
   | SynPat.Named(accessibility = None) -> pat.Range
   | SynPat.Named(ident = SynIdent(ident = ident); accessibility = Some(access)) ->
-    maybe {
+    option {
       let start = ident.idRange.Start
       let! line = text.GetLine start
 
@@ -706,7 +706,7 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
           //      * `let f2 = fun (Value v) -> v + 1`
           //        -> compiler generated `_arg1` in `args`,
           //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
-          maybe {
+          option {
             let! pat = pats |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
 
             let rec tryGetIdent pat =
@@ -861,7 +861,7 @@ let tryGetDetailedExplicitTypeInfo
   (text: IFSACSourceText, parseAndCheck: ParseAndCheckResults)
   (pos: Position)
   =
-  maybe {
+  option {
     let! line = text.GetLine pos
     let! symbolUse = parseAndCheck.TryGetSymbolUse pos line
 

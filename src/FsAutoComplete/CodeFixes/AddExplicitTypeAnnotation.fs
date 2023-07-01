@@ -30,7 +30,7 @@ let private isPositionContainedInUntypedImplicitCtorParameter input pos =
           member _.VisitModuleDecl(_, defaultTraverse, decl) =
             match decl with
             | SynModuleDecl.Types(typeDefns = typeDefns) ->
-              maybe {
+              option {
                 let! ctorArgs =
                   typeDefns
                   |> List.tryPick (function

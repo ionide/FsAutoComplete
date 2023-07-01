@@ -523,6 +523,8 @@ module RoslynSourceText =
         new Object() with
           override _.ToString() = sourceText.ToString()
 
+          override _.Equals(x) = sourceText.Equals(x)
+
           override _.GetHashCode() =
             let checksum = sourceText.GetChecksum()
 
