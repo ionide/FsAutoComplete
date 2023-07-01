@@ -700,7 +700,7 @@ type AdaptiveFSharpLspServer
 
         let! projectOptions =
           projects
-          |> AMap.mapWithAdditionalDependenies (fun projects ->
+          |> AMap.mapWithAdditionalDependencies (fun projects ->
 
             projects
             |> Seq.iter (fun (proj: string<LocalPath>, _) ->
@@ -2315,9 +2315,9 @@ type AdaptiveFSharpLspServer
 
           let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
 
-          let! lineStr2 = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
 
-          if lineStr2.StartsWith "#" then
+          if lineStr.StartsWith "#" then
             let completionList =
               { IsIncomplete = false
                 Items = KeywordList.hashSymbolCompletionItems }
@@ -2327,28 +2327,23 @@ type AdaptiveFSharpLspServer
           else
             let config = AVal.force config
 
-            let rec retryAsyncOption (delay: TimeSpan) timesLeft action =
+            let rec retryAsyncOption (delay: TimeSpan) timesLeft handleError action =
               async {
                 match! action with
                 | Ok x -> return Ok x
-                | Error _ when timesLeft >= 0 ->
+                | Error e when timesLeft >= 0 ->
+                  let nextAction = handleError e
                   do! Async.Sleep(delay)
-                  return! retryAsyncOption delay (timesLeft - 1) action
+                  return! retryAsyncOption delay (timesLeft - 1) handleError nextAction
                 | Error e -> return Error e
               }
 
-            let getCompletions =
+            let getCompletions forceGetTypeCheckResultsStale =
               asyncResult {
 
                 let! volatileFile = forceFindOpenFileOrRead filePath
                 let! lineStr = volatileFile.Source |> tryGetLineStr pos
-                and! typeCheckResults = forceGetTypeCheckResultsStale filePath
 
-                let getAllSymbols () =
-                  if config.ExternalAutocomplete then
-                    typeCheckResults.GetAllEntities true
-                  else
-                    []
                 // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
                 // This will require the trigger character to be at the place VSCode says it is
                 // Otherwise we'll fail here and our retry logic will come into place
@@ -2359,17 +2354,46 @@ type AdaptiveFSharpLspServer
                   | _ -> true
                   |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
 
+                // Special characters like parentheses, brackets, etc. require a full type check
+                let isSpecialChar = Option.exists (Char.IsLetterOrDigit >> not)
+
+                let previousCharacter = volatileFile.Source.TryGetChar(FcsPos.subtractColumn pos 1)
+
+                let! typeCheckResults =
+                  if isSpecialChar previousCharacter then
+                    forceGetTypeCheckResults filePath
+                  else
+                    forceGetTypeCheckResultsStale filePath
+
+                let getAllSymbols () =
+                  if config.ExternalAutocomplete then
+                    typeCheckResults.GetAllEntities true
+                  else
+                    []
 
                 let! (decls, residue, shouldKeywords) =
                   Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
                     typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols
                     |> AsyncResult.ofOption (fun () -> "No TryGetCompletions results"))
 
+                do! Result.requireNotEmpty "Should not have empty completions" decls
+
                 return Some(decls, residue, shouldKeywords, typeCheckResults, getAllSymbols, volatileFile)
               }
 
+            let handleError e =
+              match e with
+              | "Should not have empty completions" ->
+                // If we don't get any completions, assume we need to wait for a full typecheck
+                getCompletions forceGetTypeCheckResults
+              | _ -> getCompletions forceGetTypeCheckResultsStale
+
             match!
-              retryAsyncOption (TimeSpan.FromMilliseconds(10.)) 100 getCompletions
+              retryAsyncOption
+                (TimeSpan.FromMilliseconds(15.))
+                100
+                handleError
+                (getCompletions forceGetTypeCheckResultsStale)
               |> AsyncResult.ofStringErr
             with
             | None -> return! success (None)

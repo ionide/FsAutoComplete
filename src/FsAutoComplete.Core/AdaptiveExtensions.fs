@@ -295,7 +295,7 @@ module AMap =
     // else
     AMap.ofReader (fun () -> BatchRecalculateDirty(map, mapping))
 
-  let mapWithAdditionalDependenies
+  let mapWithAdditionalDependencies
     (mapping: HashMap<'K, 'T1> -> HashMap<'K, 'T2 * #seq<#IAdaptiveValue>>)
     (map: amap<'K, 'T1>)
     =

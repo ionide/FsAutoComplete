@@ -690,7 +690,7 @@ type ParseAndCheckResults
               && not results.IsForType
               && not results.IsError
               && List.isEmpty longName.QualifyingIdents
-            // Debug.waitForDebuggerAttachedAndBreak "--> TryGetCompletions"
+
             return Some(sortedDecls, residue, shouldKeywords)
         with :? TimeoutException ->
           return None
