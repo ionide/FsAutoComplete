@@ -16,6 +16,7 @@ let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Po
   let containsPosAndNoSummaryPresent (xd: PreXmlDoc) =
     if rangeContainsPos xd.Range pos then
       let d = xd.ToXmlDoc(false, None)
+
       let summaryPresent =
         d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
 

@@ -16,6 +16,7 @@ let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: P
   let tryGetSummaryIfContainsPos (xd: PreXmlDoc) =
     if rangeContainsPos xd.Range pos then
       let d = xd.ToXmlDoc(false, None)
+
       if Array.isEmpty d.UnprocessedLines then
         None
       elif d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>")) then
