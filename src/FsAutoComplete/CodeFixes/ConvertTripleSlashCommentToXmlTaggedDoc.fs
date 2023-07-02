@@ -14,9 +14,8 @@ let title = "Convert '///' comment to XML-tagged doc comment"
 
 let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Position) (xmlDoc: PreXmlDoc) =
   let containsPosAndNoSummaryPresent (xd: PreXmlDoc) =
-    let d = xd.ToXmlDoc(false, None)
-
-    if rangeContainsPos d.Range pos then
+    if rangeContainsPos xd.Range pos then
+      let d = xd.ToXmlDoc(false, None)
       let summaryPresent =
         d.UnprocessedLines |> Array.exists (fun s -> s.Contains("<summary>"))
 
