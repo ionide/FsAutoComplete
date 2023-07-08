@@ -470,7 +470,63 @@ let tests state =
         Expect.equal resolved.Label "CancellationToken" "Just making sure we're on the right member, one that should have backticks"
         Expect.equal resolved.Detail (Some "property Async.CancellationToken: Async<System.Threading.CancellationToken> with get") "Signature shouldn't have backticks"
 
-      } |> AsyncResult.bimap id (fun e -> failwithf "%O" e))]
+      } |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
+
+      testCaseAsync
+        "completion in interpolated string at start of line"
+        (async {
+          let! server, path = server
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 23; Character = 8 } // the '.' in 'List.'
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Empty"
+              "first member should be List.Empty, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "completion in interpolated string at start of line 2"
+        (async {
+          let! server, path = server
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 24; Character = 9 } // the '.' in 'List.'
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.TriggerCharacter
+                    triggerCharacter = Some '.' } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok (Some completions) ->
+            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "Empty"
+              "first member should be List.Empty, since properties are preferred over functions"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })]
 
 ///Tests for getting autocomplete
 let autocompleteTest state =
