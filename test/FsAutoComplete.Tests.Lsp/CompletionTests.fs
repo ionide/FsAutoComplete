@@ -473,7 +473,7 @@ let tests state =
       } |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
 
       testCaseAsync
-        "completion in interpolated string at start of line"
+        "completion in interpolated string"
         (async {
           let! server, path = server
 
@@ -501,7 +501,7 @@ let tests state =
         })
 
       testCaseAsync
-        "completion in interpolated string at start of line 2"
+        "completion in interpolated string with whitespace"
         (async {
           let! server, path = server
 
