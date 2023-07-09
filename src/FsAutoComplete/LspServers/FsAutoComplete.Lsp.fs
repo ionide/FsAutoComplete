@@ -1223,6 +1223,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
              ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
              ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
              GenerateXmlDocumentation.fix tryGetParseResultsForFile
+             RemoveRedundantAttributeSuffix.fix tryGetParseResultsForFile
              Run.ifEnabled
                (fun _ -> config.AddPrivateAccessModifier)
                (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)

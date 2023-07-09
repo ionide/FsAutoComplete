@@ -2777,6 +2777,102 @@ let private wrapExpressionInParenthesesTests state =
         selectCodeFix
   ])
 
+let private removeRedundantAttributeSuffixTests state =
+  serverTestList (nameof RemoveRedundantAttributeSuffix) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle RemoveRedundantAttributeSuffix.title
+
+      testCaseAsync "redundant attribute suffix in let binding"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        [<ObsoleteAttribute$0("Meh")>]
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        [<Obsolete("Meh")>]
+        let f x y = x + y
+        """
+
+      testCaseAsync "redundant attribute suffix on type definition"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<FooAttribute$0>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<Foo>]
+        type A =
+            class end
+        """
+
+      testCaseAsync "redundant attribute suffix with target and constructor"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<type: FooAttribute$0()>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<type: Foo()>]
+        type A =
+            class end
+        """
+
+      testCaseAsync "redundant attribute suffix in multiple attributes"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+        type BarAttribute() = inherit Attribute()
+
+        [<FooAttribute$0; Bar>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+        type BarAttribute() = inherit Attribute()
+
+        [<Foo; Bar>]
+        type A =
+            class end
+        """ ])
+
 let tests state = testList "CodeFix-tests" [
   HelpersTests.tests
 
@@ -2819,4 +2915,5 @@ let tests state = testList "CodeFix-tests" [
   useMutationWhenValueIsMutableTests state
   useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state
+  removeRedundantAttributeSuffixTests state
 ]
