@@ -42,6 +42,7 @@ open System.Collections.Concurrent
 open System.Diagnostics
 open System.Text.RegularExpressions
 open IcedTasks
+open System.Threading.Tasks
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -712,8 +713,8 @@ type AdaptiveFSharpLspServer
 
             use progressReport = new ServerProgressReport(lspClient)
 
-            progressReport.Begin($"Loading {projects.Count} Projects")
-            |> Async.StartImmediate
+            progressReport.Begin ($"Loading {projects.Count} Projects") (CancellationToken.None)
+            |> ignore<Task<unit>>
 
             let projectOptions =
               loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
