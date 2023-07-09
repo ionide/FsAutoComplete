@@ -76,8 +76,6 @@ module ProcessHelper =
       ()
     }
 
-
-
 type ResultOrString<'a> = Result<'a, string>
 
 type Serializer = obj -> string
@@ -251,141 +249,6 @@ module AsyncResult =
   let inline bimap okF errF r = Async.map (Result.bimap okF errF) r
   let inline ofOption recover o = Async.map (Result.ofOption recover) o
 
-// Maybe computation expression builder, copied from ExtCore library
-/// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs
-[<Sealed>]
-type MaybeBuilder() =
-  // 'T -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Return value : 'T option = Some value
-
-  // M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.ReturnFrom value : 'T option = value
-
-  // unit -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Zero() : unit option = Some() // TODO: Should this be None?
-
-  // (unit -> M<'T>) -> M<'T>
-  [<DebuggerStepThrough>]
-  member __.Delay(f: unit -> 'T option) : 'T option = f ()
-
-  // M<'T> -> M<'T> -> M<'T>
-  // or
-  // M<unit> -> M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Combine(r1, r2: 'T option) : 'T option =
-    match r1 with
-    | None -> None
-    | Some() -> r2
-
-  // M<'T> * ('T -> M<'U>) -> M<'U>
-  [<DebuggerStepThrough>]
-  member inline __.Bind(value, f: 'T -> 'U option) : 'U option = Option.bind f value
-
-  // 'T * ('T -> M<'U>) -> M<'U> when 'U :> IDisposable
-  [<DebuggerStepThrough>]
-  member __.Using(resource: ('T :> IDisposable), body: _ -> _ option) : _ option =
-    try
-      body resource
-    finally
-      if not <| obj.ReferenceEquals(null, box resource) then
-        resource.Dispose()
-
-  // (unit -> bool) * M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member x.While(guard, body: _ option) : _ option =
-    if guard () then
-      // OPTIMIZE: This could be simplified so we don't need to make calls to Bind and While.
-      x.Bind(body, (fun () -> x.While(guard, body)))
-    else
-      x.Zero()
-
-  // seq<'T> * ('T -> M<'U>) -> M<'U>
-  // or
-  // seq<'T> * ('T -> M<'U>) -> seq<M<'U>>
-  [<DebuggerStepThrough>]
-  member x.For(sequence: seq<_>, body: 'T -> unit option) : _ option =
-    // OPTIMIZE: This could be simplified so we don't need to make calls to Using, While, Delay.
-    x.Using(sequence.GetEnumerator(), (fun enum -> x.While(enum.MoveNext, x.Delay(fun () -> body enum.Current))))
-
-[<Sealed>]
-type AsyncMaybeBuilder() =
-  [<DebuggerStepThrough>]
-  member __.Return value : Async<'T option> = Some value |> async.Return
-
-  [<DebuggerStepThrough>]
-  member __.ReturnFrom value : Async<'T option> = value
-
-  [<DebuggerStepThrough>]
-  member __.ReturnFrom(value: 'T option) : Async<'T option> = async.Return value
-
-  [<DebuggerStepThrough>]
-  member __.Zero() : Async<unit option> = Some() |> async.Return
-
-  [<DebuggerStepThrough>]
-  member __.Delay(f: unit -> Async<'T option>) : Async<'T option> = f ()
-
-  [<DebuggerStepThrough>]
-  member __.Combine(r1, r2: Async<'T option>) : Async<'T option> =
-    async {
-      let! r1' = r1
-
-      match r1' with
-      | None -> return None
-      | Some() -> return! r2
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Bind(value: Async<'T option>, f: 'T -> Async<'U option>) : Async<'U option> =
-    async {
-      let! value' = value
-
-      match value' with
-      | None -> return None
-      | Some result -> return! f result
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Bind(value: 'T option, f: 'T -> Async<'U option>) : Async<'U option> =
-    async {
-      match value with
-      | None -> return None
-      | Some result -> return! f result
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Using(resource: ('T :> IDisposable), body: _ -> Async<_ option>) : Async<_ option> =
-    try
-      body resource
-    finally
-      if not << isNull <| resource then
-        resource.Dispose()
-
-  [<DebuggerStepThrough>]
-  member x.While(guard, body: Async<_ option>) : Async<_ option> =
-    if guard () then
-      x.Bind(body, (fun () -> x.While(guard, body)))
-    else
-      x.Zero()
-
-  [<DebuggerStepThrough>]
-  member x.For(sequence: seq<_>, body: 'T -> Async<unit option>) : Async<_ option> =
-    x.Using(sequence.GetEnumerator(), (fun enum -> x.While(enum.MoveNext, x.Delay(fun () -> body enum.Current))))
-
-  [<DebuggerStepThrough>]
-  member inline __.TryWith(computation: Async<'T option>, catchHandler: exn -> Async<'T option>) : Async<'T option> =
-    async.TryWith(computation, catchHandler)
-
-  [<DebuggerStepThrough>]
-  member inline __.TryFinally(computation: Async<'T option>, compensation: unit -> unit) : Async<'T option> =
-    async.TryFinally(computation, compensation)
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module AsyncMaybe =
-  let inline liftAsync (async: Async<'T>) : Async<_ option> = async |> Async.map Some
-
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -532,9 +395,6 @@ module List =
     tupledItems
     |> List.groupBy (fst)
     |> List.map (fun (key, list) -> key, list |> List.map snd)
-
-
-
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -731,8 +591,6 @@ type Path with
 
 let inline debug msg = Printf.kprintf Debug.WriteLine msg
 let inline fail msg = Printf.kprintf Debug.Fail msg
-let asyncMaybe = AsyncMaybeBuilder()
-let maybe = MaybeBuilder()
 
 
 let chooseByPrefix (prefix: string) (s: string) =

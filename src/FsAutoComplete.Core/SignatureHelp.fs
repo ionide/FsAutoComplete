@@ -33,11 +33,11 @@ let private getSignatureHelpForFunctionApplication
     endOfPreviousIdentPos: Position,
     lines: IFSACSourceText
   ) : Async<SignatureHelpInfo option> =
-  asyncMaybe {
+  asyncOption {
     let! lineStr = lines.GetLine endOfPreviousIdentPos
 
     let! possibleApplicationSymbolEnd =
-      maybe {
+      option {
         if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
           let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
           return funcRange.End
@@ -130,7 +130,7 @@ let private getSignatureHelpForMethod
     lines: IFSACSourceText,
     triggerChar
   ) =
-  asyncMaybe {
+  asyncOption {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
     let lidEnd = paramLocations.LongIdEndLocation
