@@ -81,7 +81,7 @@ module AVal =
   /// <summary>
   /// Calls a mapping function which creates additional dependencies to be tracked.
   /// </summary>
-  let mapWithAdditionalDependenies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
+  let mapWithAdditionalDependencies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
     let mutable lastDeps = HashSet.empty
 
     { new AVal.AbstractVal<'b>() with
@@ -176,7 +176,7 @@ module AMap =
       | None -> HashSet.empty
 
 
-  /// Reader for batchRecalc operations.
+  /// Reader for batchRecalculate operations.
   [<Sealed>]
   type BatchRecalculateDirty<'k, 'a, 'b>(input: amap<'k, 'a>, mapping: HashMap<'k, 'a> -> HashMap<'k, aval<'b>>) =
     inherit AbstractReader<HashMapDelta<'k, 'b>>(HashMapDelta.empty)
@@ -224,14 +224,14 @@ module AMap =
 
           cache <-
             match HashMap.tryRemove i cache with
-            | Some(o, remaingCache) ->
+            | Some(o, remainingCache) ->
               let rem, rest = MultiSetMap.remove o i targets
               targets <- rest
 
               if rem then
                 o.Outputs.Remove x |> ignore
 
-              remaingCache
+              remainingCache
             | None -> cache
 
           match op with
@@ -301,7 +301,7 @@ module AMap =
     =
     let mapping =
       mapping
-      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependenies (id))
+      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependencies (id))
 
     batchRecalcDirty mapping map
 
