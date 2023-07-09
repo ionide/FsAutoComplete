@@ -58,7 +58,7 @@ let lspServers =
 
 let sourceTextFactories: (string * ISourceTextFactory) list = [
   "NamedText", NamedTextFactory()
-  "RosylinSourceText", RoslynSourceTextFactory()
+  "RoslynSourceText", RoslynSourceTextFactory()
 ]
 
 let mutable toolsPath =
