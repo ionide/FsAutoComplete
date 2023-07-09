@@ -177,8 +177,6 @@ module Parser =
           else
             fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory sourceTextFactory
 
-        use _compilerEventListener = new Debug.FSharpCompilerEventLogger.Listener()
-
         let result = FSharpLspServer.start lspFactory
 
         Task.FromResult result),
