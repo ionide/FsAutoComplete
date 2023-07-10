@@ -510,5 +510,22 @@ let tests state =
           """
           (Diagnostics.acceptAll)
           selectCodeFix
+
+      ftestCaseAsync "add type annotations to entire function" <|
+        CodeFix.check server
+          """
+          let x$0 y z =
+              ignore<int> y
+              ignore<char> z
+              0
+          """
+          (Diagnostics.acceptAll)
+          selectCodeFix
+          """
+          let x (y: int) (z: char) : int =
+              ignore<int> y
+              ignore<char> z
+              0
+          """
     ]
   ])

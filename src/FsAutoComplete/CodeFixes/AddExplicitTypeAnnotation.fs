@@ -78,6 +78,40 @@ let private isSymbolToTriggerTypeAnnotation
 
 let title = "Add explicit type annotation"
 
+let rec nonTypedParameterName p =
+  match p with
+  | SynPat.Named(ident = SynIdent(ident, _)) -> Some ident
+  | SynPat.Paren(pat = p) -> nonTypedParameterName p
+  | _ -> None
+
+let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) lineStr endPos =
+  match parseAndCheck.TryGetSymbolUse endPos lineStr with
+  | Some symbolUse ->
+    match symbolUse.Symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv when isPotentialTargetForTypeAnnotation true (symbolUse, mfv) ->
+      let bindingInfo =
+        SyntaxTraversal.Traverse(
+          endPos,
+          parseAndCheck.GetAST,
+          { new SyntaxVisitorBase<_>() with
+              member _.VisitPat(path, defaultTraverse, pat) =
+                match path, pat with
+                | SyntaxNode.SynBinding(SynBinding(returnInfo = None)) :: SyntaxNode.SynModule _ :: _,
+                  SynPat.LongIdent(longDotId = lid; argPats = SynArgPats.Pats parameters) when
+                  rangeContainsPos lid.Range endPos
+                  ->
+                  Some(List.last lid.LongIdent, List.choose nonTypedParameterName parameters)
+                | _ -> None }
+        )
+
+      match bindingInfo with
+      | None -> []
+      | Some bindingInfo ->
+        // Good starting point to start constructing the text edits.
+        []
+    | _ -> []
+  | _ -> []
+
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
@@ -93,7 +127,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           fcsStartPos
 
       match res with
-      | None -> return []
+      | None -> return tryFunctionIdentifier parseAndCheck lineStr (protocolPosToPos codeActionParams.Range.End)
       | Some(symbolUse, mfv, explTy) ->
         match explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext) with
         | None -> return []
