@@ -465,6 +465,7 @@ module ClassificationUtils =
     /// computation expressions
     | Cexpr = 23
     | Text = 24
+    | Module = 25
 
   [<RequireQualifiedAccess; Flags>]
   type SemanticTokenModifier =
@@ -502,7 +503,7 @@ module ClassificationUtils =
     | SemanticClassificationType.Property -> SemanticTokenTypes.Property, []
     | SemanticClassificationType.MutableVar
     | SemanticClassificationType.MutableRecordField -> SemanticTokenTypes.Member, [ SemanticTokenModifier.Mutable ]
-    | SemanticClassificationType.Module
+    | SemanticClassificationType.Module -> SemanticTokenTypes.Module, []
     | SemanticClassificationType.Namespace -> SemanticTokenTypes.Namespace, []
     | SemanticClassificationType.Printf -> SemanticTokenTypes.Regexp, []
     | SemanticClassificationType.ComputationExpression -> SemanticTokenTypes.Cexpr, []
