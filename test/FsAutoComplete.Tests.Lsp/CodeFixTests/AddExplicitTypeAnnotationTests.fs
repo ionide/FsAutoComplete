@@ -549,7 +549,7 @@ let tests state =
           Diagnostics.acceptAll
           selectCodeFix
           """
-          let f2$0 (a: int) : int -> int =
+          let f2 (a: int) : int -> int =
               ()
               fun b -> a + b
           """
@@ -574,6 +574,56 @@ let tests state =
           selectCodeFix
           """
           let f1: 'a option -> int = function | None -> 1 | Some _ -> 2
+          """
+
+      testCaseAsync "add return type annotation when cursor is on let keyword" <|
+        CodeFix.check server
+          """
+          let$0 f g h = ignore<int> g ; ignore<string> h ; - 9.0
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f (g: int) (h: string) : float = ignore<int> g ; ignore<string> h ; - 9.0
+          """
+
+      testCaseAsync "add type annotation for parameter when cursor is on function name" <|
+        CodeFix.check server
+          """
+          let f$0 (a:int) b : int = a + b
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f (a:int) (b: int) : int = a + b
+          """
+
+      testCaseAsync "add type annotation for local function" <|
+        CodeFix.check server
+          """
+          do
+              let f$0 a b = a + b
+              ()
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          do
+              let f (a: int) (b: int) : int = a + b
+              ()
+          """
+
+      testCaseAsync "add type annotation for recursive function" <|
+        CodeFix.check server
+          """
+          let rec a b = b - 1
+          and c$0 d e = d - e
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let rec a b = b - 1
+          and c (d: int) (e: int) : int = d - e
           """
     ]
   ])
