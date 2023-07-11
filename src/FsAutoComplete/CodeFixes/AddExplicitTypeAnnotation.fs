@@ -84,7 +84,7 @@ let rec nonTypedParameterName p =
   | SynPat.Paren(pat = p) -> nonTypedParameterName p
   | _ -> None
 
-let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) lineStr endPos =
+let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sourceText lineStr endPos =
   match parseAndCheck.TryGetSymbolUse endPos lineStr with
   | Some symbolUse ->
     match symbolUse.Symbol with
@@ -96,19 +96,42 @@ let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) lineStr endPos =
           { new SyntaxVisitorBase<_>() with
               member _.VisitPat(path, defaultTraverse, pat) =
                 match path, pat with
-                | SyntaxNode.SynBinding(SynBinding(returnInfo = None)) :: SyntaxNode.SynModule _ :: _,
+                | SyntaxNode.SynBinding(SynBinding(headPat = headPat; returnInfo = None)) :: SyntaxNode.SynModule _ :: _,
                   SynPat.LongIdent(longDotId = lid; argPats = SynArgPats.Pats parameters) when
                   rangeContainsPos lid.Range endPos
                   ->
-                  Some(List.last lid.LongIdent, List.choose nonTypedParameterName parameters)
+                  Some(headPat.Range, List.choose nonTypedParameterName parameters)
                 | _ -> None }
         )
 
       match bindingInfo with
       | None -> []
-      | Some bindingInfo ->
+      | Some(headPatRange, parameters) ->
         // Good starting point to start constructing the text edits.
-        []
+        let returnTypeText = mfv.ReturnParameter.Type.Format(symbolUse.DisplayContext)
+
+        let parameterEdits =
+          parameters
+          |> List.choose (fun ident ->
+            InlayHints.tryGetDetailedExplicitTypeInfo
+              (InlayHints.isPotentialTargetForTypeAnnotation true)
+              (sourceText, parseAndCheck)
+              ident.idRange.Start
+            |> Option.bind (fun (symbolUse, mfv, explTy) ->
+              explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext)
+              |> Option.map (fun (_, edits) -> toLspEdits edits)))
+          |> Seq.collect id
+          |> Seq.toArray
+
+        [ { File = textDocument
+            Title = title
+            Edits =
+              [| yield! parameterEdits
+                 yield
+                   { Range = fcsPosToProtocolRange headPatRange.End
+                     NewText = $" : {returnTypeText}" } |]
+            Kind = FixKind.Refactor
+            SourceDiagnostic = None } ]
     | _ -> []
   | _ -> []
 
@@ -127,7 +150,14 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           fcsStartPos
 
       match res with
-      | None -> return tryFunctionIdentifier parseAndCheck lineStr (protocolPosToPos codeActionParams.Range.End)
+      | None ->
+        return
+          tryFunctionIdentifier
+            parseAndCheck
+            codeActionParams.TextDocument
+            sourceText
+            lineStr
+            (protocolPosToPos codeActionParams.Range.End)
       | Some(symbolUse, mfv, explTy) ->
         match explTy.TryGetTypeAndEdits(mfv.FullType, symbolUse.DisplayContext) with
         | None -> return []
