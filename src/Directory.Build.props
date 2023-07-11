@@ -7,5 +7,8 @@
     <NoWarn>$(NoWarn);FS2003</NoWarn>
     <!-- We've got a prerelease dep on System.CommandLine, and NuGet doesn't like that. NuGet can be quiet in this instance. -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
+    <!-- Implicit convertions for string should be fine https://github.com/fsharp/fslang-design/blob/main/FSharp-6.0/FS-1093-additional-conversions.md#motivation-for-op_implicit-type-directed-conversion -->
+    <NoWarn>$(NoWarn);FS3391</NoWarn>
+
   </PropertyGroup>
 </Project>

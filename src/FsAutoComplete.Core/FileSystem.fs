@@ -822,22 +822,22 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
     member _.IsPathRootedShim(p: string) =
       let r = isWindowsStyleRootedPath p || isUnixStyleRootedPath p
 
-      fsLogger.debug (
-        Log.setMessage "Is {path} rooted? {result}"
-        >> Log.addContext "path" p
-        >> Log.addContext "result" r
-      )
+      // fsLogger.debug (
+      //   Log.setMessage "Is {path} rooted? {result}"
+      //   >> Log.addContext "path" p
+      //   >> Log.addContext "result" r
+      // )
 
       r
 
     member _.GetFullPathShim(f: string) =
       let expanded = Path.FilePathToUri f |> Path.FileUriToLocalPath
 
-      fsLogger.debug (
-        Log.setMessage "{path} expanded to {expanded}"
-        >> Log.addContext "path" f
-        >> Log.addContext "expanded" expanded
-      )
+      // fsLogger.debug (
+      //   Log.setMessage "{path} expanded to {expanded}"
+      //   >> Log.addContext "path" f
+      //   >> Log.addContext "expanded" expanded
+      // )
 
       expanded
 
