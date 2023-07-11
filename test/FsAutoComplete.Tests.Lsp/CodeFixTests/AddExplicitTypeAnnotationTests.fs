@@ -528,7 +528,7 @@ let tests state =
               0
           """
 
-      testCaseAsync "add type annotations to function with function return type" <|
+      testCaseAsync "add type annotations to function with lambda function body" <|
         CodeFix.check server
           """
           let f1$0 a = fun b -> a + b
@@ -539,7 +539,7 @@ let tests state =
           let f1 (a: int) : int -> int = fun b -> a + b
           """
 
-      testCaseAsync "add type annotations to function with function return type" <|
+      testCaseAsync "add type annotations to function with sequential lambda function body" <|
         CodeFix.check server
           """
           let f2$0 a =
