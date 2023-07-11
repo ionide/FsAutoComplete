@@ -511,7 +511,7 @@ let tests state =
           (Diagnostics.acceptAll)
           selectCodeFix
 
-      ftestCaseAsync "add type annotations to entire function" <|
+      testCaseAsync "add type annotations to entire function" <|
         CodeFix.check server
           """
           let x$0 y z =
@@ -519,13 +519,61 @@ let tests state =
               ignore<char> z
               0
           """
-          (Diagnostics.acceptAll)
+          Diagnostics.acceptAll
           selectCodeFix
           """
           let x (y: int) (z: char) : int =
               ignore<int> y
               ignore<char> z
               0
+          """
+
+      testCaseAsync "add type annotations to function with function return type" <|
+        CodeFix.check server
+          """
+          let f1$0 a = fun b -> a + b
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f1 (a: int) : int -> int = fun b -> a + b
+          """
+
+      testCaseAsync "add type annotations to function with function return type" <|
+        CodeFix.check server
+          """
+          let f2$0 a =
+              ()
+              fun b -> a + b
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f2$0 (a: int) : int -> int =
+              ()
+              fun b -> a + b
+          """
+
+      testCaseAsync "add return type annotation when other parameters are typed" <|
+        CodeFix.check server
+          """
+          let f1$0 (a:int) = fun (b:char) -> System.TimeSpan.Zero
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f1 (a:int) : char -> System.TimeSpan = fun (b:char) -> System.TimeSpan.Zero
+          """
+
+      testCaseAsync "add return type annotation for match lambda" <|
+        CodeFix.check server
+          """
+          let f1$0 = function | None -> 1 | Some _ -> 2
+          """
+          Diagnostics.acceptAll
+          selectCodeFix
+          """
+          let f1: 'a option -> int = function | None -> 1 | Some _ -> 2
           """
     ]
   ])

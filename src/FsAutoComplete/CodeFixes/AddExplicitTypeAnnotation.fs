@@ -100,15 +100,48 @@ let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sou
                   SynPat.LongIdent(longDotId = lid; argPats = SynArgPats.Pats parameters) when
                   rangeContainsPos lid.Range endPos
                   ->
-                  Some(headPat.Range, List.choose nonTypedParameterName parameters)
+                  Some(headPat.Range, parameters.Length, List.choose nonTypedParameterName parameters)
                 | _ -> None }
         )
 
       match bindingInfo with
       | None -> []
-      | Some(headPatRange, parameters) ->
+      | Some(headPatRange, untypedParameterCount, parameters) ->
         // Good starting point to start constructing the text edits.
-        let returnTypeText = mfv.ReturnParameter.Type.Format(symbolUse.DisplayContext)
+        let returnTypeText =
+          if not mfv.FullType.IsFunctionType then
+            mfv.ReturnParameter.Type.Format(symbolUse.DisplayContext)
+          else
+            // We can't really be trust mfv.ReturnParameter, it will only contain the last type in a function type.
+            // Instead we collect all types and skip the amount of parameters we have in the function definition.
+            let allTypesFromFunctionType: FSharpType list =
+              let rec visit (t: FSharpType) (continuation: FSharpType list -> FSharpType list) =
+                if not t.IsFunctionType then
+                  continuation [ t ]
+                else
+                  let funcType = t.GenericArguments.[0]
+                  let argType = t.GenericArguments.[1]
+
+                  if not argType.IsFunctionType then
+                    continuation [ funcType; argType ]
+                  else
+                    visit argType (fun types -> funcType :: types |> continuation)
+
+              visit mfv.FullType id
+
+            if allTypesFromFunctionType.Length <= untypedParameterCount then
+              mfv.ReturnParameter.Type.Format(symbolUse.DisplayContext)
+            else
+              allTypesFromFunctionType
+              |> List.skip untypedParameterCount
+              |> List.map (fun t ->
+                let formattedType = t.Format(symbolUse.DisplayContext)
+
+                if t.IsFunctionType then
+                  $"({formattedType})"
+                else
+                  formattedType)
+              |> String.concat " -> "
 
         let parameterEdits =
           parameters
