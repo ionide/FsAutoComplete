@@ -27,13 +27,13 @@ let tests state =
         server
         """
         let name = "pikachu"
-        let a = sprintf$0 "Hey you %s %i" name 9000
+        printf$0 "Hey you %s %i" name 9000
         """
         Diagnostics.acceptAll
         selectCodeFix
         """
         let name = "pikachu"
-        let a = $"Hey you %s{name} %i{9000}"
+        printf $"Hey you %s{name} %i{9000}"
         """
 
       testCaseAsync "leading zeros in format"
