@@ -20,4 +20,18 @@ let tests state =
         selectCodeFix
         """
         let a = $"Hey %i{3}"
+        """
+
+      testCaseAsync "replace two simple formats"
+      <| CodeFix.check
+        server
+        """
+        let name = "pikachu"
+        let a = sprintf$0 "Hey you %s %i" name 9000
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        let name = "pikachu"
+        let a = $"Hey you %s{name} %i{9000}"
         """ ])
