@@ -13,7 +13,9 @@ open FSharp.Compiler.Text
 
 let title = "To interpolated string"
 
-let specifierRegex = Regex(@"\%(s|i)")
+/// See https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/plaintext-formatting#format-specifiers-for-printf
+let specifierRegex = Regex("\\%\\d*(s|i)")
+let validFunctionNames = set [| "printf"; "printfn"; "sprintf" |]
 
 let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText: IFSACSourceText) lineStr fcsPos =
   let application =
@@ -25,7 +27,7 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
             match synExpr with
             | SynExpr.App(ExprAtomicFlag.NonAtomic,
                           false,
-                          SynExpr.Ident(sprintfIdent),
+                          SynExpr.Ident(functionIdent),
                           SynExpr.Const(SynConst.String(synStringKind = SynStringKind.Regular), mString),
                           mApp) ->
               // Don't trust the value of SynConst.String, it is already a somewhat optimized version of what the user actually code.
@@ -33,7 +35,7 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
               | Error _ -> None
               | Ok formatString ->
                 if
-                  sprintfIdent.idText = "sprintf"
+                  validFunctionNames.Contains functionIdent.idText
                   && rangeContainsPos mApp fcsPos
                   && mApp.StartLine = mApp.EndLine // only support single line for now
                 then
@@ -61,20 +63,20 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
                       if mApp.StartLine <> mLastArg.EndLine then
                         None
                       else
-                        Some(sprintfIdent.idRange, mString, xs, mLastArg))
+                        Some(functionIdent, mString, xs, mLastArg))
                 else
                   None
             | _ -> defaultTraverse synExpr }
     )
 
   application
-  |> Option.bind (fun (mSprintf, mString, xs, mLastArg) ->
-    parseAndCheck.TryGetSymbolUse mSprintf.End lineStr
+  |> Option.bind (fun (functionIdent, mString, xs, mLastArg) ->
+    parseAndCheck.TryGetSymbolUse functionIdent.idRange.End lineStr
     |> Option.bind (fun symbolUse ->
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as mfv when mfv.Assembly.QualifiedName.StartsWith("FSharp.Core") ->
         // Verify the `sprintf` is the one from F# Core.
-        Some(mSprintf, mString, xs, mLastArg)
+        Some(functionIdent, mString, xs, mLastArg)
       | _ -> None))
 
 // TODO: this whole thing should only work if the language version is high enough
@@ -88,10 +90,16 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       match tryFindSprintfApplication parseAndCheck sourceText lineString fcsPos with
       | None -> return []
-      | Some(mSprintf, mString, arguments, mLastArg) ->
-        let replaceSprintfEdit =
-          { Range = fcsRangeToLsp (unionRanges mSprintf mString.StartRange)
-            NewText = "$" }
+      | Some(functionIdent, mString, arguments, mLastArg) ->
+        let functionEdit =
+          if functionIdent.idText = "sprintf" then
+            // Remove the `sprintf` function call
+            { Range = fcsRangeToLsp (unionRanges functionIdent.idRange mString.StartRange)
+              NewText = "$" }
+          else
+            // Insert the dollar sign before the string
+            { Range = fcsRangeToLsp mString.StartRange
+              NewText = "$" }
 
         let insertArgumentEdits =
           arguments
@@ -103,23 +111,20 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 let stringPos =
                   Position.mkPos mString.StartLine (mString.StartColumn + regexMatch.Index + regexMatch.Length)
 
-                mkRange mSprintf.FileName stringPos stringPos
+                mkRange functionIdent.idRange.FileName stringPos stringPos
 
               Some
                 { Range = fcsRangeToLsp mReplace
                   NewText = $"{{{argText}}}" })
 
         let removeArgumentEdits =
-          let m = mkRange mSprintf.FileName mString.End mLastArg.End
+          let m = mkRange functionIdent.idRange.FileName mString.End mLastArg.End
 
           { Range = fcsRangeToLsp m
             NewText = "" }
 
         return
-          [ { Edits =
-                [| yield replaceSprintfEdit
-                   yield! insertArgumentEdits
-                   yield removeArgumentEdits |]
+          [ { Edits = [| yield functionEdit; yield! insertArgumentEdits; yield removeArgumentEdits |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = None

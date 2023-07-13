@@ -34,4 +34,18 @@ let tests state =
         """
         let name = "pikachu"
         let a = $"Hey you %s{name} %i{9000}"
-        """ ])
+        """
+
+      testCaseAsync "leading zeros in format"
+      <| CodeFix.check
+        server
+        """
+        printfn $0"%02i" 9
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        printfn $"%02i{9}"
+        """
+
+      ])
