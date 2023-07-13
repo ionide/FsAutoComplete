@@ -19,5 +19,5 @@ let tests state =
         Diagnostics.acceptAll
         selectCodeFix
         """
-        let a = $"Hey %i" 3
+        let a = $"Hey %i{3}"
         """ ])

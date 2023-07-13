@@ -3093,6 +3093,7 @@ let tests state = testList "CodeFix-tests" [
   HelpersTests.tests
 
   AddExplicitTypeAnnotationTests.tests state
+  ToInterpolatedStringTests.tests state
   addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
