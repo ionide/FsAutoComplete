@@ -1692,7 +1692,8 @@ type AdaptiveFSharpLspServer
            (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile
-         RemovePatternArgument.fix tryGetParseResultsForFile |])
+         RemovePatternArgument.fix tryGetParseResultsForFile
+         ToInterpolatedString.fix tryGetParseResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {

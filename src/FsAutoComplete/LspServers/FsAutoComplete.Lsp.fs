@@ -1229,7 +1229,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile
-             RemovePatternArgument.fix tryGetParseResultsForFile |]
+             RemovePatternArgument.fix tryGetParseResultsForFile
+             ToInterpolatedString.fix tryGetParseResultsForFile |]
 
 
         match p.RootPath, c.AutomaticWorkspaceInit with
