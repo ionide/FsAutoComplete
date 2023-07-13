@@ -14,8 +14,17 @@ open FSharp.Compiler.Text
 let title = "To interpolated string"
 
 /// See https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/plaintext-formatting#format-specifiers-for-printf
-let specifierRegex = Regex("\\%\\d*(s|i)")
+let specifierRegex =
+  Regex("\\%(\\+|\\-)?\\d*(b|s|c|d|i|u|x|X|o|B|e|E|f|F|g|G|M|O|A)")
+
 let validFunctionNames = set [| "printf"; "printfn"; "sprintf" |]
+
+let inline synExprNeedsSpaces synExpr =
+  match synExpr with
+  | SynExpr.AnonRecd _
+  | SynExpr.Record _
+  | SynExpr.ObjExpr _ -> true
+  | _ -> false
 
 let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText: IFSACSourceText) lineStr fcsPos =
   let application =
@@ -54,11 +63,12 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
                       ||> List.zip
                       |> List.choose (fun (regexMatch, node) ->
                         match node with
-                        | SyntaxNode.SynExpr(SynExpr.App(argExpr = ae)) -> Some(regexMatch, ae.Range)
+                        | SyntaxNode.SynExpr(SynExpr.App(argExpr = ae)) ->
+                          Some(regexMatch, ae.Range, synExprNeedsSpaces ae)
                         | _ -> None)
 
                     List.tryLast xs
-                    |> Option.bind (fun (_, mLastArg) ->
+                    |> Option.bind (fun (_, mLastArg, _) ->
                       // Ensure the last argument of the current application is also on the same line.
                       if mApp.StartLine <> mLastArg.EndLine then
                         None
@@ -103,7 +113,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
         let insertArgumentEdits =
           arguments
-          |> List.choose (fun (regexMatch, mArg) ->
+          |> List.choose (fun (regexMatch, mArg, surroundWithSpaces) ->
             match sourceText.GetText(mArg) with
             | Error _ -> None
             | Ok argText ->
@@ -115,7 +125,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
               Some
                 { Range = fcsRangeToLsp mReplace
-                  NewText = $"{{{argText}}}" })
+                  NewText =
+                    sprintf
+                      "%s%s%s"
+                      (if surroundWithSpaces then "{ " else "{")
+                      argText
+                      (if surroundWithSpaces then " }" else "}") })
 
         let removeArgumentEdits =
           let m = mkRange functionIdent.idRange.FileName mString.End mLastArg.End
