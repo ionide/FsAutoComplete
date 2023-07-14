@@ -2873,6 +2873,222 @@ let private removeRedundantAttributeSuffixTests state =
             class end
         """ ])
 
+let private removePatternArgumentTests state =
+  fserverTestList (nameof RemovePatternArgument) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle RemovePatternArgument.title
+    testCaseAsync "Literal pattern qualified single parameter" <|
+      CodeFix.check server
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        let (E.A x$0) = E.A
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        let (E.A) = E.A
+        """
+
+    testCaseAsync "Local literal pattern qualified match parens parameter" <|
+      CodeFix.check server
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        match E.A with
+        | (E.A x$0) -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        match E.A with
+        | (E.A) -> ()
+        """
+
+    testCaseAsync "Local literal pattern qualified single parameter" <|
+      CodeFix.check server
+        """
+        type E =
+          | A = 1
+          | B = 2
+
+        do
+	        let (E.A x$0) = E.A
+	        ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+          | A = 1
+          | B = 2
+
+        do
+	        let (E.A) = E.A
+	        ()
+        """
+
+    testCaseAsync "Local literal constant pattern qualified parameter" <|
+      CodeFix.check server
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | A x$0 -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | A -> ()
+        """
+
+    testCaseAsync "Local literal constant pattern qualified parens parameter" <|
+      CodeFix.check server
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | (A x$0) -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | (A) -> ()
+        """
+
+    testCaseAsync "Local match qualified single parameter" <|
+      CodeFix.check server
+        """
+        match None with
+        | Option.None x$0 -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | Option.None -> ()
+        """
+
+    testCaseAsync "Local match qualified single parens parameter" <|
+      CodeFix.check server
+        """
+        match None with
+        | (Option.None x$0) -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | (Option.None) -> ()
+        """
+
+    testCaseAsync "Qualified single parameter" <|
+      CodeFix.check server
+        """
+        let (Option.None x$0) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (Option.None) = None
+        """
+
+    testCaseAsync "Local single parameter" <|
+      CodeFix.check server
+        """
+        do
+          let (Option.None x$0) = None
+          ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        do
+          let (Option.None) = None
+          ()
+        """
+
+    testCaseAsync "Local two match parameters" <|
+      CodeFix.check server
+        """
+        match None with
+        | None x$0 y -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | None -> ()
+        """
+
+    testCaseAsync "Local two match parens parameters" <|
+      CodeFix.check server
+        """
+        match None with
+        | None (x$0 y) -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | None -> ()
+        """
+
+    testCaseAsync "Local two parameter" <|
+      CodeFix.check server
+        """
+        do
+          let (Option.None x$0 y) = None
+          ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        do
+          let (Option.None) = None
+          ()
+        """
+
+    testCaseAsync "Single parameter" <|
+      CodeFix.check server
+        """
+        let (None x$0) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (None) = None
+        """
+
+    testCaseAsync "Two parameters" <|
+      CodeFix.check server
+        """
+        let (None x$0 y) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (None) = None
+        """
+  ])
+
 let tests state = testList "CodeFix-tests" [
   HelpersTests.tests
 
@@ -2916,4 +3132,5 @@ let tests state = testList "CodeFix-tests" [
   useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state
   removeRedundantAttributeSuffixTests state
+  removePatternArgumentTests state
 ]
