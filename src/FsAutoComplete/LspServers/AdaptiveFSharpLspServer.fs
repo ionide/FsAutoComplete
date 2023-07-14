@@ -354,6 +354,7 @@ type AdaptiveFSharpLspServer
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
+            // Since analyzers are not async, we need to switch to a new thread to not block threadpool
             do! Async.SwitchToNewThread()
 
             let res =
