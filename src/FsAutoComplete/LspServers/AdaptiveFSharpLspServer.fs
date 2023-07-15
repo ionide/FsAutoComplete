@@ -848,11 +848,6 @@ type AdaptiveFSharpLspServer
         return options |> List.map LoadedProject.LoadedProjectFile
     }
 
-  // let loadedFSharpProjectOptions =
-  //   loadedProjectOptions
-  //   |> AVal.mapNonAdaptive(List.map (fun o -> o.FSharpProjectOptions))
-
-
   /// <summary>
   /// Evaluates the adaptive value <see cref='F:loadedProjectOptions '/> and returns its current value.
   /// This should not be used inside the adaptive evaluation of other AdaptiveObjects since it does not track dependencies.
@@ -1135,7 +1130,6 @@ type AdaptiveFSharpLspServer
                 |> Async.startImmediateAsTask ctok
 
               opts |> scriptFileProjectOptions.Trigger
-              // todo langeversion parse from config options
 
               return
                 LoadedScriptFile
