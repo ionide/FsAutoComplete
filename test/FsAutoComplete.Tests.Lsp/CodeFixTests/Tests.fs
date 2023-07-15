@@ -2874,7 +2874,7 @@ let private removeRedundantAttributeSuffixTests state =
         """ ])
 
 let private removePatternArgumentTests state =
-  fserverTestList (nameof RemovePatternArgument) state defaultConfigDto None (fun server -> [
+  serverTestList (nameof RemovePatternArgument) state defaultConfigDto None (fun server -> [
     let selectCodeFix = CodeFix.withTitle RemovePatternArgument.title
     testCaseAsync "Literal pattern qualified single parameter" <|
       CodeFix.check server
