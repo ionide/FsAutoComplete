@@ -5,17 +5,14 @@ open Helpers
 open Utils.ServerTests
 open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
-open Microsoft.FSharp.Reflection
 open FsAutoComplete.FCSPatches
 
-
-let configDto =
-  { defaultConfigDto with FSIExtraParameters = Some [|"--langversion:6.0"|] }
-   // TODO For @nojaf to determine how to test with langversion
-  // { defaultConfigDto with FSIExtraParameters = Some [|"--langversion:4.7"|] }
+let langVersion60Config =
+  { defaultConfigDto with
+      FSIExtraParameters = Some [| "--langversion:6.0" |] }
 
 let tests state =
-  fserverTestList (nameof ToInterpolatedString) state configDto None (fun server ->
+  serverTestList (nameof ToInterpolatedString) state langVersion60Config None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
 
       testCaseAsync "simple integer string format"
@@ -325,10 +322,41 @@ let tests state =
         $"%A{ { new System.IDisposable with member _.Dispose() = () } }"
         """
 
-      testCaseAsync "Reflecting into LanguageVersion" <| async {
+      testCaseAsync "Reflecting into LanguageVersion"
+      <| async {
         let LanguageFeatureShim = LanguageFeatureShim("StringInterpolation")
         let languageVersion = LanguageVersionShim("5.0")
         Expect.equal true (languageVersion.SupportsFeature LanguageFeatureShim) ""
       }
+
+      testCaseAsync "Multiline applications are not supported"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        sprintf$0
+            "%A"
+            { new System.IDisposable with member _.Dispose() = () }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      ])
+
+let langVersion47Config =
+  { defaultConfigDto with
+      FSIExtraParameters = Some [| "--langversion:4.7" |] }
+
+let unavailableTests state =
+  serverTestList $"unavailable {(nameof ToInterpolatedString)}" state langVersion47Config None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
+
+      testCaseAsync "codefix not available for langversion"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        let a = sprintf$0 "Hey %i" 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
 
       ])

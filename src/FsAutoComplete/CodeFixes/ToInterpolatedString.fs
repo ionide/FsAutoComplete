@@ -88,11 +88,9 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
     |> Option.bind (fun symbolUse ->
       match symbolUse.Symbol with
       | :? FSharpMemberOrFunctionOrValue as mfv when mfv.Assembly.QualifiedName.StartsWith("FSharp.Core") ->
-        // Verify the `sprintf` is the one from F# Core.
+        // Verify the function is from F# Core.
         Some(functionIdent, mString, xs, mLastArg)
       | _ -> None))
-
-// TODO: this whole thing should only work if the language version is high enough
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (getLanguageVersion: GetLanguageVersion) : CodeFix =
   fun codeActionParams ->

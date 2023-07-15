@@ -3094,6 +3094,7 @@ let tests state = testList "CodeFix-tests" [
 
   AddExplicitTypeAnnotationTests.tests state
   ToInterpolatedStringTests.tests state
+  ToInterpolatedStringTests.unavailableTests state
   addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
