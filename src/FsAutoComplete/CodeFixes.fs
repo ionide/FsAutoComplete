@@ -17,6 +17,8 @@ type FcsPos = FSharp.Compiler.Text.Position
 module LspTypes = Ionide.LanguageServerProtocol.Types
 
 module Types =
+  open FsAutoComplete.FCSPatches
+  open System.Threading.Tasks
 
   type IsEnabled = unit -> bool
 
@@ -28,6 +30,8 @@ module Types =
     string<LocalPath>
       -> FSharp.Compiler.Text.Position
       -> Async<ResultOrString<ParseAndCheckResults * string * IFSACSourceText>>
+
+  type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
   type GetProjectOptionsForFile =
     string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
