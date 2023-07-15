@@ -10,8 +10,11 @@ open FSharp.Compiler.Symbols
 open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
+open FsAutoComplete.FCSPatches
 
 let title = "To interpolated string"
+
+let languageFeature = lazy (LanguageFeatureShim("StringInterpolation"))
 
 /// See https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/plaintext-formatting#format-specifiers-for-printf
 let specifierRegex =
@@ -91,57 +94,62 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
 
 // TODO: this whole thing should only work if the language version is high enough
 
-let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) (getLanguageVersion: GetLanguageVersion) : CodeFix =
   fun codeActionParams ->
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-      let fcsPos = protocolPosToPos codeActionParams.Range.Start
-      let! parseAndCheck, lineString, sourceText = getParseResultsForFile filePath fcsPos
+      let! languageVersion = getLanguageVersion filePath
 
-      match tryFindSprintfApplication parseAndCheck sourceText lineString fcsPos with
-      | None -> return []
-      | Some(functionIdent, mString, arguments, mLastArg) ->
-        let functionEdit =
-          if functionIdent.idText = "sprintf" then
-            // Remove the `sprintf` function call
-            { Range = fcsRangeToLsp (unionRanges functionIdent.idRange mString.StartRange)
-              NewText = "$" }
-          else
-            // Insert the dollar sign before the string
-            { Range = fcsRangeToLsp mString.StartRange
-              NewText = "$" }
+      if not (languageVersion.SupportsFeature languageFeature.Value) then
+        return []
+      else
+        let fcsPos = protocolPosToPos codeActionParams.Range.Start
+        let! parseAndCheck, lineString, sourceText = getParseResultsForFile filePath fcsPos
 
-        let insertArgumentEdits =
-          arguments
-          |> List.choose (fun (regexMatch, mArg, surroundWithSpaces) ->
-            match sourceText.GetText(mArg) with
-            | Error _ -> None
-            | Ok argText ->
-              let mReplace =
-                let stringPos =
-                  Position.mkPos mString.StartLine (mString.StartColumn + regexMatch.Index + regexMatch.Length)
+        match tryFindSprintfApplication parseAndCheck sourceText lineString fcsPos with
+        | None -> return []
+        | Some(functionIdent, mString, arguments, mLastArg) ->
+          let functionEdit =
+            if functionIdent.idText = "sprintf" then
+              // Remove the `sprintf` function call
+              { Range = fcsRangeToLsp (unionRanges functionIdent.idRange mString.StartRange)
+                NewText = "$" }
+            else
+              // Insert the dollar sign before the string
+              { Range = fcsRangeToLsp mString.StartRange
+                NewText = "$" }
 
-                mkRange functionIdent.idRange.FileName stringPos stringPos
+          let insertArgumentEdits =
+            arguments
+            |> List.choose (fun (regexMatch, mArg, surroundWithSpaces) ->
+              match sourceText.GetText(mArg) with
+              | Error _ -> None
+              | Ok argText ->
+                let mReplace =
+                  let stringPos =
+                    Position.mkPos mString.StartLine (mString.StartColumn + regexMatch.Index + regexMatch.Length)
 
-              Some
-                { Range = fcsRangeToLsp mReplace
-                  NewText =
-                    sprintf
-                      "%s%s%s"
-                      (if surroundWithSpaces then "{ " else "{")
-                      argText
-                      (if surroundWithSpaces then " }" else "}") })
+                  mkRange functionIdent.idRange.FileName stringPos stringPos
 
-        let removeArgumentEdits =
-          let m = mkRange functionIdent.idRange.FileName mString.End mLastArg.End
+                Some
+                  { Range = fcsRangeToLsp mReplace
+                    NewText =
+                      sprintf
+                        "%s%s%s"
+                        (if surroundWithSpaces then "{ " else "{")
+                        argText
+                        (if surroundWithSpaces then " }" else "}") })
 
-          { Range = fcsRangeToLsp m
-            NewText = "" }
+          let removeArgumentEdits =
+            let m = mkRange functionIdent.idRange.FileName mString.End mLastArg.End
 
-        return
-          [ { Edits = [| yield functionEdit; yield! insertArgumentEdits; yield removeArgumentEdits |]
-              File = codeActionParams.TextDocument
-              Title = title
-              SourceDiagnostic = None
-              Kind = FixKind.Refactor } ]
+            { Range = fcsRangeToLsp m
+              NewText = "" }
+
+          return
+            [ { Edits = [| yield functionEdit; yield! insertArgumentEdits; yield removeArgumentEdits |]
+                File = codeActionParams.TextDocument
+                Title = title
+                SourceDiagnostic = None
+                Kind = FixKind.Refactor } ]
     }

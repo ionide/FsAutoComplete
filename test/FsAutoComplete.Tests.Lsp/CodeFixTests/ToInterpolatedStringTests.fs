@@ -5,9 +5,17 @@ open Helpers
 open Utils.ServerTests
 open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
+open Microsoft.FSharp.Reflection
+open FsAutoComplete.FCSPatches
+
+
+let configDto =
+  { defaultConfigDto with FSIExtraParameters = Some [|"--langversion:6.0"|] }
+   // TODO For @nojaf to determine how to test with langversion
+  // { defaultConfigDto with FSIExtraParameters = Some [|"--langversion:4.7"|] }
 
 let tests state =
-  serverTestList (nameof ToInterpolatedString) state defaultConfigDto None (fun server ->
+  fserverTestList (nameof ToInterpolatedString) state configDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
 
       testCaseAsync "simple integer string format"
@@ -316,5 +324,11 @@ let tests state =
         """
         $"%A{ { new System.IDisposable with member _.Dispose() = () } }"
         """
+
+      testCaseAsync "Reflecting into LanguageVersion" <| async {
+        let LanguageFeatureShim = LanguageFeatureShim("StringInterpolation")
+        let languageVersion = LanguageVersionShim("5.0")
+        Expect.equal true (languageVersion.SupportsFeature LanguageFeatureShim) ""
+      }
 
       ])

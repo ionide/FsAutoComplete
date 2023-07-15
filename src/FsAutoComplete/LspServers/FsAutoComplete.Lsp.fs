@@ -33,6 +33,7 @@ open FsAutoComplete.Lsp
 open Ionide.LanguageServerProtocol.Types.AsyncLspResult
 open Ionide.LanguageServerProtocol.Types.LspResult
 open StreamJsonRpc
+open FsAutoComplete.FCSPatches
 
 
 type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
@@ -1100,6 +1101,19 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
             | Some tyRes -> return tyRes, lineAtPos, fileLines
           }
 
+        let tryGetLanguageVersion (fileName: string<LocalPath>) =
+          async {
+            let result =
+              let langVersion =
+                state.LanguageVersions |> Seq.tryFind (fun (k, _) -> UMX.untag fileName = (k))
+
+              match langVersion with
+              | Some(_, v) -> v
+              | None -> LanguageVersionShim.defaultLanguageVersion.Value
+
+            return result
+          }
+
         let inlineValueToggle =
           match c.InlineValues.Enabled with
           | Some true -> Some { ResolveProvider = Some false }
@@ -1230,7 +1244,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
              RenameParamToMatchSignature.fix tryGetParseResultsForFile
              RemovePatternArgument.fix tryGetParseResultsForFile
-             ToInterpolatedString.fix tryGetParseResultsForFile |]
+             ToInterpolatedString.fix tryGetParseResultsForFile tryGetLanguageVersion
+
+             |]
 
 
         match p.RootPath, c.AutomaticWorkspaceInit with

@@ -11,6 +11,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.CodeAnalysis
 open FsToolkit.ErrorHandling
+open FCSPatches
 
 [<AutoOpen>]
 module ProjInfoExtensions =
@@ -202,6 +203,10 @@ type State =
     x.ProjectController.RemoveProjectOptions(UMX.untag file)
 
   member x.FSharpProjectOptions = x.ProjectController.ProjectOptions
+
+  member x.LanguageVersions =
+    x.FSharpProjectOptions
+    |> Seq.map (fun (s, proj: FSharpProjectOptions) -> s, LanguageVersionShim.fromFSharpProjectOptions proj)
 
   member x.TryGetFileVersion(file: string<LocalPath>) : int option =
     x.Files.TryFind file |> Option.bind (fun f -> f.Version)
