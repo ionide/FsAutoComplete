@@ -532,20 +532,13 @@ type Path with
     let mutable finished = false
 
     if filePathSpan.Contains("Untitled-", StringComparison.InvariantCultureIgnoreCase) then
-#if NET6_0
+
       let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
 
       if rg.Success then
         filePathSpan <- rg.Groups.[1].Value.AsSpan()
         finished <- true
-#else
-      let rg =
-        System.Text.RegularExpressions.Regex.EnumerateMatches(filePathSpan, @"(Untitled-\d+).fsx")
 
-      for m in rg do
-        filePathSpan <- filePathSpan.Slice(m.Index, m.Length)
-        finished <- true
-#endif
     if not finished then
       let uri = ValueStringBuilder()
 
