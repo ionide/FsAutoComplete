@@ -322,6 +322,18 @@ let tests state =
         $"%A{ { new System.IDisposable with member _.Dispose() = () } }"
         """
 
+      testCaseAsync "Dot in decimal format"
+      <| CodeFix.check
+        server
+        """
+        sprintf$0 "£%.2f" location.price
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        $"£%.2f{location.price}"
+        """
+
       testCaseAsync "Reflecting into LanguageVersion"
       <| async {
         let LanguageFeatureShim = LanguageFeatureShim("StringInterpolation")

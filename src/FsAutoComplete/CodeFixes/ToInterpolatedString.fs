@@ -18,7 +18,7 @@ let languageFeature = lazy (LanguageFeatureShim("StringInterpolation"))
 
 /// See https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/plaintext-formatting#format-specifiers-for-printf
 let specifierRegex =
-  Regex("\\%(\\+|\\-)?\\d*(b|s|c|d|i|u|x|X|o|B|e|E|f|F|g|G|M|O|A)")
+  Regex(@"\%(\+|\-)?\.?\d*(b|s|c|d|i|u|x|X|o|B|e|E|f|F|g|G|M|O|A)")
 
 let validFunctionNames = set [| "printf"; "printfn"; "sprintf" |]
 
