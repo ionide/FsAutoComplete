@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.61.0] - 2023-07-16
+
+### Added 
+
+* [Codefix: Add codefix for redundant attribute suffix.](https://github.com/fsharp/FsAutoComplete/pull/1132) (thanks @nojaf!)
+* [Add module to SemanticTokenTypes](https://github.com/fsharp/FsAutoComplete/pull/1137) (thanks @nojaf!)
+* [Codefix: Add type annotations to entire function](https://github.com/fsharp/FsAutoComplete/pull/1138) (thanks @nojaf!)
+* [Codefix: RemovePatternArgument quick fix](https://github.com/fsharp/FsAutoComplete/pull/1142) (thanks @edgarfgp!)
+* [Codefix:  for interpolated string](https://github.com/fsharp/FsAutoComplete/pull/1143), [fix #1](https://github.com/fsharp/FsAutoComplete/pull/1146) (thanks @nojaf!)
+
+### Changed
+
+* [Swap maybe for option CEs](https://github.com/fsharp/FsAutoComplete/pull/1131) (thanks @TheAngryByrd!)
+
+### Fixed
+
+* [Make ServerProgressReport threadsafe](https://github.com/fsharp/FsAutoComplete/pull/1130) (thanks @TheAngryByrd!)
+* [Fix range handling for code completion in interpolated strings](https://github.com/fsharp/FsAutoComplete/pull/1133) (thanks @kojo12228!)
+* [Fixing Typos](https://github.com/fsharp/FsAutoComplete/pull/1136) (thanks @TheAngryByrd!)
+* [FSAC Not exiting on macos/linux](https://github.com/fsharp/FsAutoComplete/pull/1141) (thanks @TheAngryByrd!)
+* [CI not failing on focused tests](https://github.com/fsharp/FsAutoComplete/pull/1145) (thanks @TheAngryByrd!)
+
+### Removed
+
+* [Remove old eventlistener](https://github.com/fsharp/FsAutoComplete/pull/1134) (thanks @TheAngryByrd!)
+
 ## [0.60.1] - 2023-07-01
 
 ### Added
