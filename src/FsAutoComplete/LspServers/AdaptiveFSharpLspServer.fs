@@ -59,28 +59,22 @@ type AdaptiveWorkspaceChosen =
   | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
-type LoadedProjectFile =
-  { ProjectOptions: Types.ProjectOptions
-    FSharpProjectOptions: FSharpProjectOptions
-    LanguageVersion: LanguageVersionShim }
 
-type LoadedScriptFile =
+[<CustomEquality; NoComparison>]
+type LoadedProject =
   { FSharpProjectOptions: FSharpProjectOptions
     LanguageVersion: LanguageVersionShim }
 
-type LoadedProject =
-  | LoadedProjectFile of LoadedProjectFile
-  | LoadedScriptFile of LoadedScriptFile
+  interface IEquatable<LoadedProject> with
+    member x.Equals(other) =
+      x.FSharpProjectOptions = other.FSharpProjectOptions
 
-  member x.FSharpProjectOptions =
-    match x with
-    | LoadedProjectFile p -> p.FSharpProjectOptions
-    | LoadedScriptFile p -> p.FSharpProjectOptions
+  override x.GetHashCode() = x.FSharpProjectOptions.GetHashCode()
 
-  member x.LanguageVersion =
-    match x with
-    | LoadedProjectFile p -> p.LanguageVersion
-    | LoadedScriptFile p -> p.LanguageVersion
+  override x.Equals(other) =
+    match other with
+    | :? LoadedProject as other -> (x :> IEquatable<_>).Equals other
+    | _ -> false
 
   member x.SourceFiles = x.FSharpProjectOptions.SourceFiles
   member x.ProjectFileName = x.FSharpProjectOptions.ProjectFileName
@@ -793,9 +787,10 @@ type AdaptiveFSharpLspServer
         checker.ClearCaches() // if we got new projects assume we're gonna need to clear caches
 
         let options =
-          projectOptions
-          |> List.map (fun o ->
-            let fso = FCS.mapToFSharpProjectOptions o projectOptions
+          let fsharpOptions = projectOptions |> FCS.mapManyOptions |> Seq.toList
+
+          List.zip projectOptions fsharpOptions
+          |> List.map (fun (projectOption, fso) ->
 
             let langversion = LanguageVersionShim.fromFSharpProjectOptions fso
 
@@ -806,14 +801,14 @@ type AdaptiveFSharpLspServer
                   Stamp = fso.Stamp |> Option.orElse (Some DateTime.UtcNow.Ticks)
                   ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString())) }
 
-            { ProjectOptions = o
-              FSharpProjectOptions = fso
-              LanguageVersion = langversion })
+            { FSharpProjectOptions = fso
+              LanguageVersion = langversion },
+            projectOption)
 
         options
-        |> List.iter (fun loadedProject ->
-          let projectFileName = loadedProject.FSharpProjectOptions.ProjectFileName
-          let projViewerItemsNormalized = ProjectViewer.render loadedProject.ProjectOptions
+        |> List.iter (fun (loadedProject, projectOption) ->
+          let projectFileName = loadedProject.ProjectFileName
+          let projViewerItemsNormalized = ProjectViewer.render projectOption
 
           let responseFiles =
             projViewerItemsNormalized.Items
@@ -833,9 +828,9 @@ type AdaptiveFSharpLspServer
           let ws =
             { ProjectFileName = projectFileName
               ProjectFiles = responseFiles
-              OutFileOpt = Option.ofObj loadedProject.ProjectOptions.TargetPath
+              OutFileOpt = Option.ofObj projectOption.TargetPath
               References = references
-              Extra = loadedProject.ProjectOptions
+              Extra = projectOption
               ProjectItems = projViewerItemsNormalized.Items
               Additionals = Map.empty }
 
@@ -846,7 +841,7 @@ type AdaptiveFSharpLspServer
 
         notifications.Trigger(not, CancellationToken.None)
 
-        return options |> List.map LoadedProject.LoadedProjectFile
+        return options |> List.map fst
     }
 
   /// <summary>
@@ -1133,9 +1128,8 @@ type AdaptiveFSharpLspServer
               opts |> scriptFileProjectOptions.Trigger
 
               return
-                LoadedScriptFile
-                  { FSharpProjectOptions = opts
-                    LanguageVersion = LanguageVersionShim.fromFSharpProjectOptions opts }
+                { FSharpProjectOptions = opts
+                  LanguageVersion = LanguageVersionShim.fromFSharpProjectOptions opts }
             }
 
           return file, Option.toList projs
