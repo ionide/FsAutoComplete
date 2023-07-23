@@ -1,5 +1,13 @@
 # Changelog
 
+
+## [0.61.1] - 2023-07-22
+
+### Fixed
+
+* [Reduce project option duplication, reducing memory usage](https://github.com/fsharp/FsAutoComplete/pull/1147) (thanks @TheAngryByrd!)
+
+
 ## [0.61.0] - 2023-07-16
 
 ### Added 
