@@ -482,8 +482,6 @@ module RoslynSourceText =
     let combineValues (values: seq<'T>) =
       (0, values) ||> Seq.fold (fun hash value -> combine (value.GetHashCode()) hash)
 
-  let weakTable = ConditionalWeakTable<SourceText, IFSACSourceText>()
-
   let rec create (fileName: string<LocalPath>, sourceText: SourceText) : IFSACSourceText =
 
     let walk

@@ -977,7 +977,7 @@ let provideHints
         let line, _ = Position.toZ endPosForMethod
 
         let afterParenPosInLine =
-          getFirstPositionAfterParen (text.Lines.[line].ToString()) (endPosForMethod.Column)
+          getFirstPositionAfterParen (text.GetLineString(line)) (endPosForMethod.Column)
 
         let tupledParamInfos =
           parseAndCheck.GetParseResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)
