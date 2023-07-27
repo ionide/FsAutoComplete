@@ -283,6 +283,7 @@ type AdaptiveFSharpLspServer
     let filePathUntag = UMX.untag filePath
     let source = file.Source
     let version = file.Version
+    let fileName = Path.GetFileName filePathUntag
 
 
     let inline getSourceLine lineNo =
@@ -292,7 +293,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking unused opens...", message = filePathUntag)
+          do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
           let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
 
@@ -306,7 +307,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking unused declarations...", message = filePathUntag)
+          do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
           let isScript = Utils.isAScript (filePathUntag)
           let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
@@ -322,7 +323,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking simplifing of names...", message = filePathUntag)
+          do! progress.Begin($"Checking simplifing of names {fileName}...", message = filePathUntag)
 
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
