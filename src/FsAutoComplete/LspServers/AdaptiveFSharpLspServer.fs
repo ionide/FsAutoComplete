@@ -981,13 +981,14 @@ type AdaptiveFSharpLspServer
     | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
       // ignore if already cancelled
       ()
+
   [<return: Struct>]
   let rec (|Cancelled|_|) (e: exn) =
     match e with
     | :? TaskCanceledException -> ValueSome()
     | :? OperationCanceledException -> ValueSome()
     | :? System.AggregateException as aex ->
-      if aex. InnerExceptions.Count = 1 then
+      if aex.InnerExceptions.Count = 1 then
         (|Cancelled|_|) aex.InnerException
       else
         ValueNone
