@@ -758,7 +758,7 @@ type RoslynSourceTextFactory() =
 type VolatileFile =
   { LastTouched: DateTime
     Source: IFSACSourceText
-    Version: int option }
+    Version: int }
 
   member this.FileName = this.Source.FileName
 
@@ -775,7 +775,7 @@ type VolatileFile =
 
 
   /// <summary>Helper method to create a VolatileFile</summary>
-  static member Create(source: IFSACSourceText, ?version: int, ?touched: DateTime) =
+  static member Create(source: IFSACSourceText, version: int, ?touched: DateTime) =
     let touched =
       match touched with
       | Some t -> t

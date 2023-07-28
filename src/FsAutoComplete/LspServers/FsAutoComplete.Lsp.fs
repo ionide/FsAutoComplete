@@ -1249,7 +1249,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
           >> Log.addContextDestructured "parms" filePath
         )
 
-        commands.SetFileContent(filePath, content, Some doc.Version)
+        commands.SetFileContent(filePath, content, doc.Version)
 
         do!
           checkFile (filePath, doc.Version, content, true)
@@ -1301,7 +1301,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                 text)
 
 
-        commands.SetFileContent(filePath, evolvedFileContent, Some endVersion)
+        commands.SetFileContent(filePath, evolvedFileContent, endVersion)
 
         checkFileDebouncer.Bounce p
       }

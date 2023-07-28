@@ -189,7 +189,7 @@ type State =
       x.Files.[file] <-
         { Source = text
           LastTouched = DateTime.Now
-          Version = None }
+          Version = 0 }
 
       opts)
 
@@ -209,14 +209,14 @@ type State =
     |> Seq.map (fun (s, proj: FSharpProjectOptions) -> s, LanguageVersionShim.fromFSharpProjectOptions proj)
 
   member x.TryGetFileVersion(file: string<LocalPath>) : int option =
-    x.Files.TryFind file |> Option.bind (fun f -> f.Version)
+    x.Files.TryFind file |> Option.map (fun f -> f.Version)
 
   member x.TryGetLastCheckedVersion(file: string<LocalPath>) : int option = x.LastCheckedVersion.TryFind file
 
   member x.SetFileVersion (file: string<LocalPath>) (version: int) =
     x.Files.TryFind file
     |> Option.iter (fun n ->
-      let fileState = { n with Version = Some version }
+      let fileState = { n with Version = version }
       x.Files.[file] <- fileState)
 
   member x.SetLastCheckedVersion (file: string<LocalPath>) (version: int) = x.LastCheckedVersion.[file] <- version

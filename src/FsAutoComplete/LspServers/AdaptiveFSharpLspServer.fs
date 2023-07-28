@@ -365,7 +365,7 @@ type AdaptiveFSharpLspServer
         lspClient.NotifyDocumentAnalyzed
           { TextDocument =
               { Uri = filePath |> Path.LocalPathToUri
-                Version = defaultArg version 0 } }
+                Version = version } }
     }
 
 
@@ -1043,7 +1043,7 @@ type AdaptiveFSharpLspServer
           return
             { LastTouched = File.getLastWriteTimeOrDefaultNow file
               Source = source
-              Version = None }
+              Version = 0 }
 
         with e ->
           logger.warn (
@@ -2373,9 +2373,7 @@ type AdaptiveFSharpLspServer
             }
             |> Option.defaultWith (fun () ->
               // Very unlikely to get here
-              VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value))
-
-            )
+              VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value), 0))
 
           transact (fun () ->
             updateOpenFiles file
@@ -2893,7 +2891,7 @@ type AdaptiveFSharpLspServer
                 let! version =
                   async {
                     let! file = forceFindOpenFileOrRead file
-                    return file |> Option.ofResult |> Option.bind (fun (f) -> f.Version)
+                    return file |> Option.ofResult |> Option.map (fun (f) -> f.Version)
                   }
 
                 return
@@ -3343,7 +3341,7 @@ type AdaptiveFSharpLspServer
           let tryGetFileVersion filePath =
             async {
               let! foo = forceFindOpenFileOrRead filePath
-              return foo |> Option.ofResult |> Option.bind (fun (f) -> f.Version)
+              return foo |> Option.ofResult |> Option.map (fun (f) -> f.Version)
             }
 
           let clientCapabilities = clientCapabilities |> AVal.force

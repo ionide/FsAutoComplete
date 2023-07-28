@@ -1351,7 +1351,7 @@ type Commands
               state.Files.[file] <-
                 { LastTouched = DateTime.Now
                   Source = text
-                  Version = None }
+                  Version = 0 }
 
               Some text
             | None -> None
@@ -1697,7 +1697,7 @@ type Commands
             }
 
         scriptFileProjectOptions.Trigger projectOptions
-        state.AddFileTextAndCheckerOptions(file, text, projectOptions, Some version)
+        state.AddFileTextAndCheckerOptions(file, text, projectOptions, version)
         fileStateSet.Trigger()
         return Some projectOptions
       | None ->
