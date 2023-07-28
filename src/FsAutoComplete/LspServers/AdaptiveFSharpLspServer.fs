@@ -2698,7 +2698,7 @@ type AdaptiveFSharpLspServer
                 { SignatureInformation.Label = signature
                   Documentation = Some d
                   Parameters = Some parameters
-                  ActiveParameter = 0u })
+                  ActiveParameter = None })
 
             let res =
               { Signatures = sigs

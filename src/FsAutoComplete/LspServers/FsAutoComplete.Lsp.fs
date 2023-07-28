@@ -1488,8 +1488,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                 { SignatureInformation.Label = signature
                   Documentation = Some d
                   Parameters = Some parameters
-                  // TODO: this should become an Option of value None
-                  ActiveParameter = 0u })
+                  ActiveParameter = None })
 
             let res =
               { Signatures = sigs
