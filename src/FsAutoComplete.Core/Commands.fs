@@ -223,7 +223,7 @@ module Commands =
     }
 
   let docForText (lines: IFSACSourceText) (tyRes: ParseAndCheckResults) : Document =
-    { LineCount = lines.Lines.Length
+    { LineCount = lines.GetLineCount()
       FullName = tyRes.FileName // from the compiler, assumed safe
       GetText = fun _ -> string lines
       GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i

@@ -289,6 +289,7 @@ type AdaptiveFSharpLspServer
     let filePathUntag = UMX.untag filePath
     let source = file.Source
     let version = file.Version
+    let fileName = Path.GetFileName filePathUntag
 
 
     let inline getSourceLine lineNo =
@@ -298,7 +299,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking unused opens...", message = filePathUntag)
+          do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
           let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
 
@@ -312,7 +313,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking unused declarations...", message = filePathUntag)
+          do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
           let isScript = Utils.isAScript (filePathUntag)
           let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
@@ -328,7 +329,7 @@ type AdaptiveFSharpLspServer
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Checking simplifing of names...", message = filePathUntag)
+          do! progress.Begin($"Checking simplifing of names {fileName}...", message = filePathUntag)
 
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
@@ -985,6 +986,23 @@ type AdaptiveFSharpLspServer
     | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
       // ignore if already cancelled
       ()
+
+  [<return: Struct>]
+  let rec (|Cancelled|_|) (e: exn) =
+    match e with
+    | :? TaskCanceledException -> ValueSome()
+    | :? OperationCanceledException -> ValueSome()
+    | :? System.AggregateException as aex ->
+      if aex.InnerExceptions.Count = 1 then
+        (|Cancelled|_|) aex.InnerException
+      else
+        ValueNone
+    | _ -> ValueNone
+
+  let returnException e =
+    match e with
+    | Cancelled -> LspResult.requestCancelled
+    | e -> LspResult.internalError (string e)
 
   let cachedFileContents = cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
 
@@ -2094,7 +2112,7 @@ type AdaptiveFSharpLspServer
       with e ->
         trace |> Tracing.recordException e
         logger.error (Log.setMessage "HandleFormatting Request Errored {p}" >> Log.addExn e)
-        return! LspResult.internalError (string e)
+        return! returnException e
     }
 
   member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
@@ -2224,7 +2242,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.Initialized(p: InitializedParams) =
@@ -2561,7 +2579,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
@@ -2661,7 +2679,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentSignatureHelp(p: SignatureHelpParams) =
@@ -2727,7 +2745,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
@@ -2824,7 +2842,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentPrepareRename p =
@@ -2914,7 +2932,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentDefinition(p: TextDocumentPositionParams) =
@@ -2944,7 +2962,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
@@ -2974,7 +2992,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentReferences(p: ReferenceParams) =
@@ -3010,7 +3028,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
@@ -3051,7 +3069,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
 
       }
 
@@ -3125,7 +3143,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.TextDocumentDocumentSymbol(p: DocumentSymbolParams) =
@@ -3162,7 +3180,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -3202,7 +3220,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentFormatting(p: DocumentFormattingParams) =
@@ -3244,7 +3262,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
@@ -3297,7 +3315,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -3364,7 +3382,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.TextDocumentCodeLens(p: CodeLensParams) =
@@ -3402,7 +3420,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.CodeLensResolve(p: CodeLens) =
@@ -3471,7 +3489,7 @@ type AdaptiveFSharpLspServer
               >> Log.addExn e
             )
 
-            return! LspResult.internalError (string e)
+            return! returnException e
         }
 
       let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
@@ -3641,7 +3659,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
@@ -3687,7 +3705,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> =
@@ -3713,7 +3731,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -3741,7 +3759,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
@@ -3846,7 +3864,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.TextDocumentInlineValue(p: InlineValueParams) =
@@ -3888,7 +3906,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     //unsupported -- begin
@@ -3999,7 +4017,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.FSharpSignatureData(p: TextDocumentPositionParams) =
@@ -4036,7 +4054,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -4090,7 +4108,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpLineLens(p: ProjectParms) =
@@ -4122,7 +4140,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) =
@@ -4155,7 +4173,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
 
       }
 
@@ -4193,7 +4211,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpProject(p: ProjectParms) =
@@ -4235,7 +4253,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
 
       }
 
@@ -4271,7 +4289,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpDotnetNewRun(p: DotnetNewRunRequest) =
@@ -4300,7 +4318,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpDotnetAddProject(p: DotnetProjectRequest) =
@@ -4329,7 +4347,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpDotnetRemoveProject(p: DotnetProjectRequest) =
@@ -4358,7 +4376,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FSharpDotnetSlnAdd(p: DotnetProjectRequest) =
@@ -4387,7 +4405,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.FSharpHelp(p: TextDocumentPositionParams) =
@@ -4418,7 +4436,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.FSharpDocumentation(p: TextDocumentPositionParams) =
@@ -4460,7 +4478,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
@@ -4506,7 +4524,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.LoadAnalyzers(path) =
@@ -4560,7 +4578,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FsProjMoveFileUp(p: DotnetFileRequest) =
@@ -4589,7 +4607,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -4619,7 +4637,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -4649,7 +4667,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FsProjAddFileBelow(p: DotnetFile2Request) =
@@ -4678,7 +4696,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override __.FsProjRenameFile(p: DotnetRenameFileRequest) =
@@ -4707,7 +4725,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
 
@@ -4737,7 +4755,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override _.FsProjRemoveFile(p: DotnetFileRequest) =
@@ -4771,7 +4789,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override _.FsProjAddExistingFile(p: DotnetFileRequest) =
@@ -4800,7 +4818,7 @@ type AdaptiveFSharpLspServer
             >> Log.addExn e
           )
 
-          return! LspResult.internalError (string e)
+          return! returnException e
       }
 
     override x.Dispose() =
