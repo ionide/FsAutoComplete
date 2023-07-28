@@ -75,7 +75,7 @@ let tests state =
 
           let textChange : DidChangeTextDocumentParams =
             {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
+              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
               ContentChanges =  [|
                 {
                   Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
@@ -162,7 +162,7 @@ let tests state =
 
           let textChange : DidChangeTextDocumentParams =
             {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
+              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
               ContentChanges =  [|
                 {
                   Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
@@ -249,7 +249,7 @@ let tests state =
 
           let textChange : DidChangeTextDocumentParams =
             {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = Some 1}
+              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
               ContentChanges =  [|
                 {
                   Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }

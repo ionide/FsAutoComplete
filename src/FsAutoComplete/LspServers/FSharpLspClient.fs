@@ -49,7 +49,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   override __.WorkspaceSemanticTokensRefresh() =
     sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
 
-  override __.TextDocumentPublishDiagnostics(p) =
+  override __.TextDocumentPublishDiagnostics(p: PublishDiagnosticsParams) =
     sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
   ///Custom notification for workspace/solution/project loading events

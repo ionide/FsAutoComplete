@@ -22,7 +22,7 @@ type SignatureHelpInfo =
     /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
     ActiveOverload: int option
     /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
-    ActiveParameter: int option
+    ActiveParameter: uint option
     SigHelpKind: SignatureHelpKind
   }
 
@@ -116,7 +116,7 @@ let private getSignatureHelpForFunctionApplication
           tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, symbolStartLineText, None)
 
         return
-          { ActiveParameter = Some argumentIndex
+          { ActiveParameter = Some (uint argumentIndex)
             Methods = methods.Methods
             ActiveOverload = None
             SigHelpKind = FunctionApplication }
@@ -202,7 +202,7 @@ let private getSignatureHelpForMethod
 
 
       return
-        { ActiveParameter = Some argumentIndex
+        { ActiveParameter = Some (uint argumentIndex)
           Methods = filteredMethods
           ActiveOverload = methodCandidate
           SigHelpKind = MethodCall }

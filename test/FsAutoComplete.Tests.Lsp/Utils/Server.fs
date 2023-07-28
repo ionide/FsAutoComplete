@@ -35,7 +35,7 @@ type Document =
 
   member doc.VersionedTextDocumentIdentifier: VersionedTextDocumentIdentifier =
     { Uri = doc.Uri
-      Version = Some doc.Version }
+      Version = doc.Version }
 
   member x.Diagnostics =
     x.Server.Events
@@ -71,6 +71,7 @@ module Server =
       let p: InitializeParams =
         { ProcessId = Some 1
           RootPath = path
+          Locale = None
           RootUri = path |> Option.map (sprintf "file://%s")
           InitializationOptions = Some(Server.serialize config)
           Capabilities = Some clientCaps
@@ -306,7 +307,7 @@ module Document =
           doc
           // `fsharp/documentAnalyzed` signals all checks & analyzers done
           |> analyzedStream
-          |> Observable.filter (fun n -> n.TextDocument.Version = Some doc.Version)
+          |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
           // wait for late diagnostics
           |> Observable.delay waitForLateDiagnosticsDelay
         )
@@ -325,10 +326,9 @@ module Document =
     System.Threading.Interlocked.Increment(&doc.Version)
 
   /// Note: Mutates passed `doc`
-  let private incrVersionedTextDocumentIdentifier (doc: Document) =
+  let private incrVersionedTextDocumentIdentifier (doc: Document): VersionedTextDocumentIdentifier =
     { Uri = doc.Uri
-      Version = Some(doc |> incrVersion) }
-
+      Version = incrVersion doc }
 
   let openWith initialText (doc: Document) =
     async {
