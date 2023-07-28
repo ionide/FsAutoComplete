@@ -1453,16 +1453,14 @@ type AdaptiveFSharpLspServer
     |> AsyncAVal.forceAsync
 
 
-  let openFilesToCheckedDeclarations =
-    openFilesToCheckedFilesResults
-    |> AMap.map (fun k v ->
-      v
-      |> AsyncAVal.mapOption (fun c _ -> c.GetParseResults.GetNavigationItems().Declarations))
+  let openFilesToDeclarations =
+    openFilesToParsedResults
+    |> AMap.map (fun k v -> v |> AsyncAVal.mapOption (fun p _ -> p.GetNavigationItems().Declarations))
 
-  let getAllDeclarations () =
+  let getAllOpenDeclarations () =
     async {
       let! results =
-        openFilesToCheckedDeclarations
+        openFilesToDeclarations
         |> AMap.force
         |> HashMap.toArray
         |> Array.map (fun (k, v) ->
@@ -1477,7 +1475,7 @@ type AdaptiveFSharpLspServer
     }
 
   let getDeclarations filename =
-    openFilesToCheckedDeclarations |> AMapAsync.tryFindAndFlatten filename
+    openFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
@@ -3198,7 +3196,7 @@ type AdaptiveFSharpLspServer
 
           let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
-          let! decls = getAllDeclarations ()
+          let! decls = getAllOpenDeclarations ()
 
           let res =
             decls
