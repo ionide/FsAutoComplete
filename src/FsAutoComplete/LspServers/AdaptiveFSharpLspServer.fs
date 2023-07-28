@@ -18,6 +18,7 @@ open System.Reactive
 open System.Reactive.Linq
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
+open System.Buffers
 open FsAutoComplete.Adaptive
 
 open FSharp.Control.Reactive
@@ -1264,9 +1265,9 @@ type AdaptiveFSharpLspServer
 
       match result with
       | Error e ->
-        logger.info (
+        logger.error (
           Log.setMessage "Typecheck failed for {file} with {error}"
-          >> Log.addContextDestructured "file" file
+          >> Log.addContextDestructured "file" file.FileName
           >> Log.addContextDestructured "error" e
         )
 

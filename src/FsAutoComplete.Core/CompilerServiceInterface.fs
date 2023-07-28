@@ -325,6 +325,12 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
           else
             return r
       with ex ->
+        checkerLogger.error (
+          Log.setMessage "{opName} completed with exception: {ex}"
+          >> Log.addContextDestructured "opName" opName
+          >> Log.addExn ex
+        )
+
         return! ResultOrString.Error(ex.ToString())
     }
 
