@@ -116,7 +116,7 @@ let private getSignatureHelpForFunctionApplication
           tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, symbolStartLineText, None)
 
         return
-          { ActiveParameter = Some (uint argumentIndex)
+          { ActiveParameter = Some(uint argumentIndex)
             Methods = methods.Methods
             ActiveOverload = None
             SigHelpKind = FunctionApplication }
@@ -202,7 +202,7 @@ let private getSignatureHelpForMethod
 
 
       return
-        { ActiveParameter = Some (uint argumentIndex)
+        { ActiveParameter = Some(uint argumentIndex)
           Methods = filteredMethods
           ActiveOverload = methodCandidate
           SigHelpKind = MethodCall }

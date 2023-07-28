@@ -237,7 +237,10 @@ type AdaptiveFSharpLspServer
     logger.info (Log.setMessageI $"SendDiag for {uri:file}: {diags.Length:diags} entries")
 
     // TODO: providing version would be very useful
-    { Uri = uri; Diagnostics = diags; Version = None } |> lspClient.TextDocumentPublishDiagnostics
+    { Uri = uri
+      Diagnostics = diags
+      Version = None }
+    |> lspClient.TextDocumentPublishDiagnostics
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
@@ -921,8 +924,7 @@ type AdaptiveFSharpLspServer
             ps
             |> Seq.sortBy (fun (x, _) -> x.TextDocument.Version)
             |> Seq.collect (fun (p, touched) ->
-              p.ContentChanges
-              |> Array.map (fun x -> x, p.TextDocument.Version, touched))
+              p.ContentChanges |> Array.map (fun x -> x, p.TextDocument.Version, touched))
 
           let file =
             (file, changes)
@@ -2097,7 +2099,11 @@ type AdaptiveFSharpLspServer
 
   member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
-  member private x.logUnimplementedRequest<'t, 'u>(argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
+  member private x.logUnimplementedRequest<'t, 'u>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
     logger.info (
       Log.setMessage $"{caller} request: {{parms}}"
       >> Log.addContextDestructured "parms" argValue
@@ -2105,7 +2111,11 @@ type AdaptiveFSharpLspServer
 
     Helpers.notImplemented<'u>
 
-  member private x.logIgnoredNotification<'t>(argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
+  member private x.logIgnoredNotification<'t>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
     logger.info (
       Log.setMessage $"{caller} request: {{parms}}"
       >> Log.addContextDestructured "parms" argValue
@@ -2537,7 +2547,11 @@ type AdaptiveFSharpLspServer
                     else
                       Array.append items KeywordList.keywordCompletionItems
 
-                  let completionList = { IsIncomplete = false; Items = its; ItemDefaults = None }
+                  let completionList =
+                    { IsIncomplete = false
+                      Items = its
+                      ItemDefaults = None }
+
                   success (Some completionList)
 
         with e ->
@@ -3884,7 +3898,7 @@ type AdaptiveFSharpLspServer
 
     override x.DocumentLinkResolve(p) = x.logUnimplementedRequest p
 
-    override x.Exit() = x.logIgnoredNotification(())
+    override x.Exit() = x.logIgnoredNotification (())
 
     override x.InlayHintResolve p = x.logUnimplementedRequest p
 
@@ -4058,7 +4072,9 @@ type AdaptiveFSharpLspServer
                 Edit =
                   { DocumentChanges =
                       Some
-                        [| { TextDocument = { Uri = p.TextDocument.Uri; Version = Some p.TextDocument.Version }
+                        [| { TextDocument =
+                               { Uri = p.TextDocument.Uri
+                                 Version = Some p.TextDocument.Version }
                              Edits =
                                [| { Range = fcsPosToProtocolRange insertPos
                                     NewText = text } |] } |]

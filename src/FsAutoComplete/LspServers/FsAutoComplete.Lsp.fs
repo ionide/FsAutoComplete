@@ -185,7 +185,10 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
     )
 
     //TODO: it would be _amazing_ to flow version through to here
-    { Uri = uri; Diagnostics = diags; Version = None } |> lspClient.TextDocumentPublishDiagnostics
+    { Uri = uri
+      Diagnostics = diags
+      Version = None }
+    |> lspClient.TextDocumentPublishDiagnostics
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
@@ -888,7 +891,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
           | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
 
-  member private x.logUnimplementedRequest<'t, 'u>(argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
+  member private x.logUnimplementedRequest<'t, 'u>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
     logger.info (
       Log.setMessage $"{caller} request: {{parms}}"
       >> Log.addContextDestructured "parms" argValue
@@ -896,7 +903,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
 
     Helpers.notImplemented<'u>
 
-  member private x.logIgnoredNotification<'t>(argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
+  member private x.logIgnoredNotification<'t>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
     logger.info (
       Log.setMessage $"{caller} request: {{parms}}"
       >> Log.addContextDestructured "parms" argValue
@@ -911,50 +922,50 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
 
     //unsupported -- begin
 
-    override x.CodeActionResolve(p) = x.logUnimplementedRequest(p)
+    override x.CodeActionResolve(p) = x.logUnimplementedRequest (p)
 
-    override x.DocumentLinkResolve(p) = x.logUnimplementedRequest(p)
+    override x.DocumentLinkResolve(p) = x.logUnimplementedRequest (p)
 
-    override x.Exit() = x.logIgnoredNotification(())
+    override x.Exit() = x.logIgnoredNotification (())
 
-    override x.InlayHintResolve p = x.logUnimplementedRequest(p)
+    override x.InlayHintResolve p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentDocumentColor p = x.logUnimplementedRequest(p)
+    override x.TextDocumentDocumentColor p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentColorPresentation p = x.logUnimplementedRequest(p)
+    override x.TextDocumentColorPresentation p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentDocumentLink p = x.logUnimplementedRequest(p)
+    override x.TextDocumentDocumentLink p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentOnTypeFormatting p = x.logUnimplementedRequest(p)
+    override x.TextDocumentOnTypeFormatting p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentSemanticTokensFullDelta p = x.logUnimplementedRequest(p)
+    override x.TextDocumentSemanticTokensFullDelta p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentWillSave p = x.logIgnoredNotification(p)
+    override x.TextDocumentWillSave p = x.logIgnoredNotification (p)
 
-    override x.TextDocumentWillSaveWaitUntil p = x.logUnimplementedRequest(p)
+    override x.TextDocumentWillSaveWaitUntil p = x.logUnimplementedRequest (p)
 
-    override x.WorkspaceDidChangeWorkspaceFolders p = x.logIgnoredNotification(p)
+    override x.WorkspaceDidChangeWorkspaceFolders p = x.logIgnoredNotification (p)
 
-    override x.WorkspaceDidCreateFiles p = x.logIgnoredNotification(p)
+    override x.WorkspaceDidCreateFiles p = x.logIgnoredNotification (p)
 
-    override x.WorkspaceDidDeleteFiles p = x.logIgnoredNotification(p)
+    override x.WorkspaceDidDeleteFiles p = x.logIgnoredNotification (p)
 
-    override x.WorkspaceDidRenameFiles p = x.logIgnoredNotification(p)
+    override x.WorkspaceDidRenameFiles p = x.logIgnoredNotification (p)
 
-    override x.WorkspaceExecuteCommand p = x.logUnimplementedRequest(p)
+    override x.WorkspaceExecuteCommand p = x.logUnimplementedRequest (p)
 
-    override x.WorkspaceWillCreateFiles p = x.logUnimplementedRequest(p)
+    override x.WorkspaceWillCreateFiles p = x.logUnimplementedRequest (p)
 
-    override x.WorkspaceWillDeleteFiles p = x.logUnimplementedRequest(p)
+    override x.WorkspaceWillDeleteFiles p = x.logUnimplementedRequest (p)
 
-    override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest(p)
+    override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentDeclaration p = x.logUnimplementedRequest(p)
-    override x.TextDocumentDiagnostic p = x.logUnimplementedRequest(p)
-    override x.TextDocumentLinkedEditingRange p = x.logUnimplementedRequest(p)
-    override x.TextDocumentMoniker p = x.logUnimplementedRequest(p)
-    override x.WorkspaceDiagnostic p = x.logUnimplementedRequest(p)
-    override x.WorkspaceSymbolResolve p = x.logUnimplementedRequest(p)
+    override x.TextDocumentDeclaration p = x.logUnimplementedRequest (p)
+    override x.TextDocumentDiagnostic p = x.logUnimplementedRequest (p)
+    override x.TextDocumentLinkedEditingRange p = x.logUnimplementedRequest (p)
+    override x.TextDocumentMoniker p = x.logUnimplementedRequest (p)
+    override x.WorkspaceDiagnostic p = x.logUnimplementedRequest (p)
+    override x.WorkspaceSymbolResolve p = x.logUnimplementedRequest (p)
 
     //unsupported -- end
 
@@ -1389,11 +1400,22 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                   else
                     Array.append items KeywordList.keywordCompletionItems
 
-                let completionList = { IsIncomplete = false; Items = its; ItemDefaults = None }
+                let completionList =
+                  { IsIncomplete = false
+                    Items = its
+                    ItemDefaults = None }
+
                 return! success (Some completionList)
               | _ ->
                 logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
-                return! success (Some { IsIncomplete = false; Items = [||]; ItemDefaults = None })
+
+                return!
+                  success (
+                    Some
+                      { IsIncomplete = false
+                        Items = [||]
+                        ItemDefaults = None }
+                  )
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
@@ -2233,7 +2255,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                 Edit =
                   { DocumentChanges =
                       Some
-                        [| { TextDocument = { Uri = p.TextDocument.Uri; Version = Some p.TextDocument.Version }
+                        [| { TextDocument =
+                               { Uri = p.TextDocument.Uri
+                                 Version = Some p.TextDocument.Version }
                              Edits =
                                [| { Range = fcsPosToProtocolRange insertPos
                                     NewText = text } |] } |]

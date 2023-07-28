@@ -216,8 +216,8 @@ module Helpers =
         ImplementationProvider = Some true
         ReferencesProvider = Some true
         DocumentHighlightProvider = Some true
-        DocumentSymbolProvider = Some (U2.Second { Label = Some "F#" })
-        WorkspaceSymbolProvider = Some (U2.Second { ResolveProvider = Some true })
+        DocumentSymbolProvider = Some(U2.Second { Label = Some "F#" })
+        WorkspaceSymbolProvider = Some(U2.Second { ResolveProvider = Some true })
         DocumentFormattingProvider = Some true
         DocumentRangeFormattingProvider = Some true
         SignatureHelpProvider =
@@ -229,13 +229,14 @@ module Helpers =
             { ResolveProvider = Some true
               TriggerCharacters = Some([| '.'; ''' |])
               AllCommitCharacters = None //TODO: what chars shoudl commit completions?
-              CompletionItem = None
-            }
+              CompletionItem = None }
         CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
         CodeActionProvider =
-          Some (U2.Second
-            { CodeActionKinds = None
-              ResolveProvider = None } )
+          Some(
+            U2.Second
+              { CodeActionKinds = None
+                ResolveProvider = None }
+          )
         TextDocumentSync =
           Some
             { TextDocumentSyncOptions.Default with
