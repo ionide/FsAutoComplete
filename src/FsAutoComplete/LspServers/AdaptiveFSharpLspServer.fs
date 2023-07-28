@@ -16,6 +16,8 @@ open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
 open System.Reactive
 open System.Reactive.Linq
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 open FsAutoComplete.Adaptive
 
 open FSharp.Control.Reactive
@@ -234,7 +236,11 @@ type AdaptiveFSharpLspServer
   let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
     logger.info (Log.setMessageI $"SendDiag for {uri:file}: {diags.Length:diags} entries")
 
-    { Uri = uri; Diagnostics = diags } |> lspClient.TextDocumentPublishDiagnostics
+    // TODO: providing version would be very useful
+    { Uri = uri
+      Diagnostics = diags
+      Version = None }
+    |> lspClient.TextDocumentPublishDiagnostics
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
@@ -916,10 +922,9 @@ type AdaptiveFSharpLspServer
 
           let changes =
             ps
-            |> Seq.sortBy (fun (x, _) -> x.TextDocument.Version.Value)
+            |> Seq.sortBy (fun (x, _) -> x.TextDocument.Version)
             |> Seq.collect (fun (p, touched) ->
-              p.ContentChanges
-              |> Array.map (fun x -> x, p.TextDocument.Version.Value, touched))
+              p.ContentChanges |> Array.map (fun x -> x, p.TextDocument.Version, touched))
 
           let file =
             (file, changes)
@@ -1038,7 +1043,7 @@ type AdaptiveFSharpLspServer
           return
             { LastTouched = File.getLastWriteTimeOrDefaultNow file
               Source = source
-              Version = None }
+              Version = 0 }
 
         with e ->
           logger.warn (
@@ -2094,6 +2099,30 @@ type AdaptiveFSharpLspServer
 
   member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
 
+  member private x.logUnimplementedRequest<'t, 'u>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
+    logger.info (
+      Log.setMessage $"{caller} request: {{parms}}"
+      >> Log.addContextDestructured "parms" argValue
+    )
+
+    Helpers.notImplemented<'u>
+
+  member private x.logIgnoredNotification<'t>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
+    logger.info (
+      Log.setMessage $"{caller} request: {{parms}}"
+      >> Log.addContextDestructured "parms" argValue
+    )
+
+    Helpers.ignoreNotification
+
   interface IFSharpLspServer with
     override x.Shutdown() =
       (x :> System.IDisposable).Dispose() |> async.Return
@@ -2118,7 +2147,7 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "items" c
           )
 
-          let inlineValueToggle =
+          let inlineValueToggle: InlineValueOptions option =
             match c.InlineValues.Enabled with
             | Some true -> Some { ResolveProvider = Some false }
             | Some false -> None
@@ -2344,9 +2373,7 @@ type AdaptiveFSharpLspServer
             }
             |> Option.defaultWith (fun () ->
               // Very unlikely to get here
-              VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value))
-
-            )
+              VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value), 0))
 
           transact (fun () ->
             updateOpenFiles file
@@ -2394,7 +2421,8 @@ type AdaptiveFSharpLspServer
           if lineStr.StartsWith "#" then
             let completionList =
               { IsIncomplete = false
-                Items = KeywordList.hashSymbolCompletionItems }
+                Items = KeywordList.hashSymbolCompletionItems
+                ItemDefaults = None }
 
 
             return! success (Some completionList)
@@ -2517,7 +2545,11 @@ type AdaptiveFSharpLspServer
                     else
                       Array.append items KeywordList.keywordCompletionItems
 
-                  let completionList = { IsIncomplete = false; Items = its }
+                  let completionList =
+                    { IsIncomplete = false
+                      Items = its
+                      ItemDefaults = None }
+
                   success (Some completionList)
 
         with e ->
@@ -2670,14 +2702,15 @@ type AdaptiveFSharpLspServer
                 let parameters =
                   m.Parameters
                   |> Array.map (fun p ->
-                    { ParameterInformation.Label = p.ParameterName
+                    { ParameterInformation.Label = U2.First p.ParameterName
                       Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
                 let d = Documentation.Markup(markdown comment)
 
                 { SignatureInformation.Label = signature
                   Documentation = Some d
-                  Parameters = Some parameters })
+                  Parameters = Some parameters
+                  ActiveParameter = None })
 
             let res =
               { Signatures = sigs
@@ -2858,7 +2891,7 @@ type AdaptiveFSharpLspServer
                 let! version =
                   async {
                     let! file = forceFindOpenFileOrRead file
-                    return file |> Option.ofResult |> Option.bind (fun (f) -> f.Version)
+                    return file |> Option.ofResult |> Option.map (fun (f) -> f.Version)
                   }
 
                 return
@@ -3156,6 +3189,7 @@ type AdaptiveFSharpLspServer
               ns
               |> Array.collect (fun n ->
                 getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
+            |> U2.First
             |> Some
 
           return res
@@ -3307,7 +3341,7 @@ type AdaptiveFSharpLspServer
           let tryGetFileVersion filePath =
             async {
               let! foo = forceFindOpenFileOrRead filePath
-              return foo |> Option.ofResult |> Option.bind (fun (f) -> f.Version)
+              return foo |> Option.ofResult |> Option.map (fun (f) -> f.Version)
             }
 
           let clientCapabilities = clientCapabilities |> AVal.force
@@ -3858,151 +3892,67 @@ type AdaptiveFSharpLspServer
       }
 
     //unsupported -- begin
-    override x.CodeActionResolve(p) =
-      logger.info (
-        Log.setMessage "CodeActionResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.CodeActionResolve(p) = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
+    override x.DocumentLinkResolve(p) = x.logUnimplementedRequest p
 
-    override x.DocumentLinkResolve(p) =
-      logger.info (
-        Log.setMessage "CodeActionResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.Exit() = x.logIgnoredNotification (())
 
-      Helpers.notImplemented
+    override x.InlayHintResolve p = x.logUnimplementedRequest p
 
-    override x.Exit() = Helpers.ignoreNotification
+    override x.TextDocumentDocumentColor p = x.logUnimplementedRequest p
 
-    override x.InlayHintResolve p =
-      logger.info (
-        Log.setMessage "InlayHintResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentColorPresentation p = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
+    override x.TextDocumentDocumentLink p = x.logUnimplementedRequest p
 
-    override x.TextDocumentDocumentColor p =
-      logger.info (
-        Log.setMessage "TextDocumentDocumentColor Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentOnTypeFormatting p = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
+    override x.TextDocumentSemanticTokensFullDelta p = x.logUnimplementedRequest p
 
-    override x.TextDocumentColorPresentation p =
-      logger.info (
-        Log.setMessage "TextDocumentColorPresentation Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentWillSave p = x.logIgnoredNotification p
 
-      Helpers.notImplemented
+    override x.TextDocumentWillSaveWaitUntil p = x.logUnimplementedRequest p
 
-    override x.TextDocumentDocumentLink p =
-      logger.info (
-        Log.setMessage "TextDocumentDocumentLink Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceDidChangeWorkspaceFolders p = x.logIgnoredNotification p
 
-      Helpers.notImplemented
+    override x.WorkspaceDidCreateFiles p = x.logIgnoredNotification p
 
-    override x.TextDocumentOnTypeFormatting p =
-      logger.info (
-        Log.setMessage "TextDocumentOnTypeFormatting Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceDidDeleteFiles p = x.logIgnoredNotification p
 
-      Helpers.notImplemented
+    override x.WorkspaceDidRenameFiles p = x.logIgnoredNotification p
 
-    override x.TextDocumentSemanticTokensFullDelta p =
-      logger.info (
-        Log.setMessage "TextDocumentSemanticTokensFullDelta Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceExecuteCommand p = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
+    override x.WorkspaceWillCreateFiles p = x.logUnimplementedRequest p
 
-    override x.TextDocumentWillSave p =
-      logger.info (
-        Log.setMessage "TextDocumentWillSave Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceWillDeleteFiles p = x.logUnimplementedRequest p
 
-      Helpers.ignoreNotification
+    override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest p
 
-    override x.TextDocumentWillSaveWaitUntil p =
-      logger.info (
-        Log.setMessage "TextDocumentWillSaveWaitUntil Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.CallHierarchyIncomingCalls p = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
+    override x.CallHierarchyOutgoingCalls p = x.logUnimplementedRequest p
 
-    override x.WorkspaceDidChangeWorkspaceFolders p =
-      logger.info (
-        Log.setMessage "WorkspaceDidChangeWorkspaceFolders Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentPrepareCallHierarchy p = x.logUnimplementedRequest p
 
-      Helpers.ignoreNotification
+    override x.TextDocumentPrepareTypeHierarchy p = x.logUnimplementedRequest p
 
-    override x.WorkspaceDidCreateFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidCreateFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TypeHierarchySubtypes p = x.logUnimplementedRequest p
 
-      Helpers.ignoreNotification
+    override x.TypeHierarchySupertypes p = x.logUnimplementedRequest p
 
-    override x.WorkspaceDidDeleteFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidDeleteFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentDeclaration p = x.logUnimplementedRequest p
 
-      Helpers.ignoreNotification
+    override x.TextDocumentDiagnostic p = x.logUnimplementedRequest p
 
-    override x.WorkspaceDidRenameFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidRenameFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentLinkedEditingRange p = x.logUnimplementedRequest p
 
-      Helpers.ignoreNotification
+    override x.TextDocumentMoniker p = x.logUnimplementedRequest p
 
-    override x.WorkspaceExecuteCommand p =
-      logger.info (
-        Log.setMessage "WorkspaceExecuteCommand Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceDiagnostic p = x.logUnimplementedRequest p
 
-      Helpers.notImplemented
-
-    override x.WorkspaceWillCreateFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillCreateFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceWillDeleteFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillDeleteFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceWillRenameFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillRenameFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
+    override x.WorkspaceSymbolResolve p = x.logUnimplementedRequest p
 
     //unsupported -- end
 
@@ -4120,7 +4070,9 @@ type AdaptiveFSharpLspServer
                 Edit =
                   { DocumentChanges =
                       Some
-                        [| { TextDocument = p.TextDocument
+                        [| { TextDocument =
+                               { Uri = p.TextDocument.Uri
+                                 Version = Some p.TextDocument.Version }
                              Edits =
                                [| { Range = fcsPosToProtocolRange insertPos
                                     NewText = text } |] } |]
@@ -4878,36 +4830,6 @@ type AdaptiveFSharpLspServer
 
         return ()
       }
-
-    member this.CallHierarchyIncomingCalls
-      (arg1: CallHierarchyIncomingCallsParams)
-      : AsyncLspResult<CallHierarchyIncomingCall array option> =
-      failwith "Not Implemented"
-
-    member this.CallHierarchyOutgoingCalls
-      (arg1: CallHierarchyOutgoingCallsParams)
-      : AsyncLspResult<CallHierarchyOutgoingCall array option> =
-      failwith "Not Implemented"
-
-    member this.TextDocumentPrepareCallHierarchy
-      (arg1: CallHierarchyPrepareParams)
-      : AsyncLspResult<CallHierarchyItem array option> =
-      failwith "Not Implemented"
-
-    member this.TextDocumentPrepareTypeHierarchy
-      (arg1: TypeHierarchyPrepareParams)
-      : AsyncLspResult<TypeHierarchyItem array option> =
-      failwith "Not Implemented"
-
-    member this.TypeHierarchySubtypes
-      (arg1: TypeHierarchySubtypesParams)
-      : AsyncLspResult<TypeHierarchyItem array option> =
-      failwith "Not Implemented"
-
-    member this.TypeHierarchySupertypes
-      (arg1: TypeHierarchySupertypesParams)
-      : AsyncLspResult<TypeHierarchyItem array option> =
-      failwith "Not Implemented"
 
 module AdaptiveFSharpLspServer =
 

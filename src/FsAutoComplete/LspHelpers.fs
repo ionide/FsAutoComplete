@@ -131,11 +131,13 @@ module Conversions =
         { Uri = uri
           Range = fcsRangeToLsp decl.Range }
 
-      let sym =
-        { SymbolInformation.Name = decl.LogicalName
+      let sym: SymbolInformation =
+        { Name = decl.LogicalName
           Kind = kind
           Location = location
-          ContainerName = container }
+          ContainerName = container
+          Tags = None
+          Deprecated = None }
 
       if symbolFilter sym then Some sym else None
 
@@ -428,7 +430,8 @@ module Structure =
       StartLine = lsp.Start.Line
       EndCharacter = Some lsp.End.Character
       EndLine = lsp.End.Line
-      Kind = kind }
+      Kind = kind
+      CollapsedText = None }
 
 module ClassificationUtils =
   [<RequireQualifiedAccess>]

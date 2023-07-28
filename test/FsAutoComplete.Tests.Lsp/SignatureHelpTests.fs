@@ -67,7 +67,7 @@ let private functionApplicationEdgeCasesTests server =
       f 1 $0 // preserve last space
       """ Manual (fun resp ->
         match resp with
-        | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1) "should have suggested the second parameter"
+        | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
         | None -> failwithf "There should be sighelp for this position")
       ptestCaseAsync "issue 745 - signature help shows tuples in parens"
       <| testSignatureHelp server """
