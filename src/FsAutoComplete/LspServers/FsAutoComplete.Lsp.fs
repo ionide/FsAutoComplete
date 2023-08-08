@@ -47,7 +47,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath, sourceTextFactory)
+    new Commands(FSharpCompilerServiceChecker(false, 200L, false), state, false, rootPath, sourceTextFactory)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -486,7 +486,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
 
       let newCommands =
         new Commands(
-          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
+          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount, config.Fsac.ParallelReferenceResolution),
           state,
           hasAnalyzersNow,
           rootPath,

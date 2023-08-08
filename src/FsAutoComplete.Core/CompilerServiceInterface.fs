@@ -17,7 +17,7 @@ open FsToolkit.ErrorHandling
 
 type Version = int
 
-type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
+type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
@@ -27,7 +27,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
       keepAllBackgroundSymbolUses = true,
       enableBackgroundItemKeyStoreAndSemanticClassification = true,
       enablePartialTypeChecking = not hasAnalyzers,
-      parallelReferenceResolution = true,
+      parallelReferenceResolution = parallelReferenceResolution,
       captureIdentifiersWhenParsing = true,
       useSyntaxTreeCache = true
     )

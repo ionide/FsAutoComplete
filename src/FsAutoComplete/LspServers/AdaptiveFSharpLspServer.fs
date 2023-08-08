@@ -98,7 +98,7 @@ type AdaptiveFSharpLspServer
 
   let checker =
     config
-    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount)
+    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount, c.Fsac.ParallelReferenceResolution)
     |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
