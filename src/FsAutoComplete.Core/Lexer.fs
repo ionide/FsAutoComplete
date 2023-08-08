@@ -41,14 +41,35 @@ type private DraftToken =
 module Lexer =
   let logger = LogProvider.getLoggerByName "Lexer"
 
+  [<return: Struct>]
+  let (|Define|_|) (a: string) =
+    if a.StartsWith "--defin:" then
+      ValueSome(a.[9..])
+    else
+      ValueNone
+
+  [<return: Struct>]
+  let (|LangVersion|_|) (a: string) =
+    if a.StartsWith "--langversion:" then
+      ValueSome(a.[14..])
+    else
+      ValueNone
+
   /// Return all tokens of current line
   let tokenizeLine (args: string[]) lineStr =
-    let defines =
-      args
-      |> Seq.choose (fun s -> if s.StartsWith "--define:" then Some s.[9..] else None)
-      |> Seq.toList
+    let defines, langVersion =
+      ((ResizeArray(), None), args)
+      ||> Array.fold (fun (defines, langVersion) arg ->
+        match arg with
+        | Define d ->
+          defines.Add(d)
+          defines, langVersion
+        | LangVersion v -> defines, Some(v)
+        | _ -> defines, langVersion)
 
-    let sourceTokenizer = FSharpSourceTokenizer(defines, Some "/tmp.fsx")
+    let sourceTokenizer =
+      FSharpSourceTokenizer(Seq.toList defines, Some "/tmp.fsx", langVersion)
+
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
 
     let rec loop lexState acc =

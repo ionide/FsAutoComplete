@@ -21,15 +21,16 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
       keepAssemblyContents = hasAnalyzers,
+      keepAllBackgroundResolutions = true,
       suggestNamesForErrors = true,
-      enablePartialTypeChecking = not hasAnalyzers,
+      keepAllBackgroundSymbolUses = true,
       enableBackgroundItemKeyStoreAndSemanticClassification = true,
-      keepAllBackgroundSymbolUses = true
+      enablePartialTypeChecking = not hasAnalyzers,
+      parallelReferenceResolution = true,
+      captureIdentifiersWhenParsing = true,
+      useSyntaxTreeCache = true
     )
-
-
 
   let entityCache = EntityCache()
 

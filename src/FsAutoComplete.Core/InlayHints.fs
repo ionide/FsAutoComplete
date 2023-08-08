@@ -31,7 +31,7 @@ and private defaultTraversePat visitor origPath pat =
   | SynPat.As(p1, p2, _)
   | SynPat.Or(p1, p2, _, _) -> [ p1; p2 ] |> List.tryPick (traversePat visitor path)
   | SynPat.Ands(ps, _)
-  | SynPat.Tuple(_, ps, _)
+  | SynPat.Tuple(_, ps, _, _)
   | SynPat.ArrayOrList(_, ps, _) -> ps |> List.tryPick (traversePat visitor path)
   | SynPat.Attrib(p, _, _) -> traversePat visitor path p
   | SynPat.LongIdent(argPats = args) ->
