@@ -733,10 +733,13 @@ type FSACConfig =
     ParallelReferenceResolution: bool
   }
 
-  static member Default = { CachedTypeCheckCount = 200L; ParallelReferenceResolution = true }
+  static member Default =
+    { CachedTypeCheckCount = 200L
+      ParallelReferenceResolution = true }
 
   static member FromDto(dto: FSACDto) =
     let defaultConfig = FSACConfig.Default
+
     { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount
       ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution defaultConfig.ParallelReferenceResolution }
 

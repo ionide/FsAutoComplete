@@ -486,7 +486,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
 
       let newCommands =
         new Commands(
-          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount, config.Fsac.ParallelReferenceResolution),
+          FSharpCompilerServiceChecker(
+            hasAnalyzersNow,
+            config.Fsac.CachedTypeCheckCount,
+            config.Fsac.ParallelReferenceResolution
+          ),
           state,
           hasAnalyzersNow,
           rootPath,
