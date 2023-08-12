@@ -119,7 +119,7 @@ let lspTests =
                 InlayHintTests.tests createServer
                 DependentFileChecking.tests createServer
                 UnusedDeclarationsTests.tests createServer
-
+                EmptyFileTests.tests createServer
                 ] ]
 
 /// Tests that do not require a LSP server

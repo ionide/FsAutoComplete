@@ -214,6 +214,9 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Provides safe access to a substring of the file via FCS-provided Range
   member x.GetText(m: FSharp.Compiler.Text.Range) : Result<string, string> =
+    // indexing into first line of empty file can be encountered when typing from an empty file
+    // if we don't check it, GetLineString will throw IndexOutOfRangeException
+    if (x :> ISourceText).GetLineCount() = 0 then Ok "" else
     if not (Range.rangeContainsRange x.TotalRange m) then
       Error $"%A{m} is outside of the bounds of the file"
     else if m.StartLine = m.EndLine then // slice of a single line, just do that
@@ -248,6 +251,8 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
   /// Provides safe access to a line of the file via FCS-provided Position
   member x.GetLine(pos: FSharp.Compiler.Text.Position) : string option =
+    // indexing into first line of empty file can be encountered when typing from an empty file
+    if (x :> ISourceText).GetLineCount() = 0 then Some "" else
     if pos.Line < 1 || pos.Line > getLines.Value.Length then
       None
     else
@@ -265,6 +270,9 @@ type NamedText(fileName: string<LocalPath>, str: string) =
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
   member x.TryGetChar(pos: FSharp.Compiler.Text.Position) : char option =
     option {
+      // indexing into first line of empty file can be encountered when typing from an empty file
+      // if we don't check it, GetLineUnsafe will throw IndexOutOfRangeException
+      do! Option.guard ((x :> ISourceText).GetLineCount() > 0)
       do! Option.guard (Range.rangeContainsPos (x.TotalRange) pos)
       let lineText = x.GetLineUnsafe(pos)
 

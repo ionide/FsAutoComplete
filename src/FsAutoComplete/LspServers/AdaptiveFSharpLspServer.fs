@@ -416,6 +416,7 @@ type AdaptiveFSharpLspServer
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
+      if volatileFile.Source.Length = 0 then () else // Don't analyze and error on an empty file
       async {
         let config = config |> AVal.force
         do! builtInCompilerAnalyzers config volatileFile parseAndCheck
@@ -1054,16 +1055,21 @@ type AdaptiveFSharpLspServer
             Log.setMessage "forceFindOpenFileOrRead else - {file}"
             >> Log.addContextDestructured "file" file
           )
+          if File.Exists (UMX.untag file) then
+            use s = File.openFileStreamForReadingAsync file
 
-          use s = File.openFileStreamForReadingAsync file
+            let! source = sourceTextFactory.Create(file, s) |> Async.AwaitCancellableValueTask
 
-          let! source = sourceTextFactory.Create(file, s) |> Async.AwaitCancellableValueTask
-
-          return
-            { LastTouched = File.getLastWriteTimeOrDefaultNow file
-              Source = source
-              Version = 0 }
-
+            return
+              { LastTouched = File.getLastWriteTimeOrDefaultNow file
+                Source = source
+                Version = 0 }
+                
+          else // When a user does "File -> New Text File -> Select a language -> F#" without saving, the file won't exist 
+            return
+              { LastTouched = DateTime.UtcNow
+                Source = sourceTextFactory.Create(file, "")
+                Version = 0 }
         with e ->
           logger.warn (
             Log.setMessage "Could not read file {file}"
@@ -2432,7 +2438,8 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
 
           let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
-
+          if volatileFile.Source.Length = 0 then return None else // An empty file has empty completions. Otherwise we would error down there
+          
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
 
           if lineStr.StartsWith "#" then
