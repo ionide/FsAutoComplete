@@ -416,14 +416,16 @@ type AdaptiveFSharpLspServer
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
-      if volatileFile.Source.Length = 0 then () else // Don't analyze and error on an empty file
-      async {
-        let config = config |> AVal.force
-        do! builtInCompilerAnalyzers config volatileFile parseAndCheck
-        do! runAnalyzers config parseAndCheck volatileFile
+      if volatileFile.Source.Length = 0 then
+        ()
+      else // Don't analyze and error on an empty file
+        async {
+          let config = config |> AVal.force
+          do! builtInCompilerAnalyzers config volatileFile parseAndCheck
+          do! runAnalyzers config parseAndCheck volatileFile
 
-      }
-      |> Async.StartWithCT ct)
+        }
+        |> Async.StartWithCT ct)
 
 
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
@@ -1055,7 +1057,8 @@ type AdaptiveFSharpLspServer
             Log.setMessage "forceFindOpenFileOrRead else - {file}"
             >> Log.addContextDestructured "file" file
           )
-          if File.Exists (UMX.untag file) then
+
+          if File.Exists(UMX.untag file) then
             use s = File.openFileStreamForReadingAsync file
 
             let! source = sourceTextFactory.Create(file, s) |> Async.AwaitCancellableValueTask
@@ -1064,8 +1067,8 @@ type AdaptiveFSharpLspServer
               { LastTouched = File.getLastWriteTimeOrDefaultNow file
                 Source = source
                 Version = 0 }
-                
-          else // When a user does "File -> New Text File -> Select a language -> F#" without saving, the file won't exist 
+
+          else // When a user does "File -> New Text File -> Select a language -> F#" without saving, the file won't exist
             return
               { LastTouched = DateTime.UtcNow
                 Source = sourceTextFactory.Create(file, "")
@@ -2438,143 +2441,146 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
 
           let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          if volatileFile.Source.Length = 0 then return None else // An empty file has empty completions. Otherwise we would error down there
-          
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
 
-          if lineStr.StartsWith "#" then
-            let completionList =
-              { IsIncomplete = false
-                Items = KeywordList.hashSymbolCompletionItems
-                ItemDefaults = None }
+          if volatileFile.Source.Length = 0 then
+            return None
+          else // An empty file has empty completions. Otherwise we would error down there
+
+            let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+
+            if lineStr.StartsWith "#" then
+              let completionList =
+                { IsIncomplete = false
+                  Items = KeywordList.hashSymbolCompletionItems
+                  ItemDefaults = None }
 
 
-            return! success (Some completionList)
-          else
-            let config = AVal.force config
+              return! success (Some completionList)
+            else
+              let config = AVal.force config
 
-            let rec retryAsyncOption (delay: TimeSpan) timesLeft handleError action =
-              async {
-                match! action with
-                | Ok x -> return Ok x
-                | Error e when timesLeft >= 0 ->
-                  let nextAction = handleError e
-                  do! Async.Sleep(delay)
-                  return! retryAsyncOption delay (timesLeft - 1) handleError nextAction
-                | Error e -> return Error e
-              }
+              let rec retryAsyncOption (delay: TimeSpan) timesLeft handleError action =
+                async {
+                  match! action with
+                  | Ok x -> return Ok x
+                  | Error e when timesLeft >= 0 ->
+                    let nextAction = handleError e
+                    do! Async.Sleep(delay)
+                    return! retryAsyncOption delay (timesLeft - 1) handleError nextAction
+                  | Error e -> return Error e
+                }
 
-            let getCompletions forceGetTypeCheckResultsStale =
-              asyncResult {
+              let getCompletions forceGetTypeCheckResultsStale =
+                asyncResult {
 
-                let! volatileFile = forceFindOpenFileOrRead filePath
-                let! lineStr = volatileFile.Source |> tryGetLineStr pos
+                  let! volatileFile = forceFindOpenFileOrRead filePath
+                  let! lineStr = volatileFile.Source |> tryGetLineStr pos
 
-                // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
-                // This will require the trigger character to be at the place VSCode says it is
-                // Otherwise we'll fail here and our retry logic will come into place
-                do!
-                  match p.Context with
-                  | Some({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
-                    volatileFile.Source.TryGetChar pos = context.triggerCharacter
-                  | _ -> true
-                  |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
+                  // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
+                  // This will require the trigger character to be at the place VSCode says it is
+                  // Otherwise we'll fail here and our retry logic will come into place
+                  do!
+                    match p.Context with
+                    | Some({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                      volatileFile.Source.TryGetChar pos = context.triggerCharacter
+                    | _ -> true
+                    |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
 
-                // Special characters like parentheses, brackets, etc. require a full type check
-                let isSpecialChar = Option.exists (Char.IsLetterOrDigit >> not)
+                  // Special characters like parentheses, brackets, etc. require a full type check
+                  let isSpecialChar = Option.exists (Char.IsLetterOrDigit >> not)
 
-                let previousCharacter = volatileFile.Source.TryGetChar(FcsPos.subtractColumn pos 1)
+                  let previousCharacter = volatileFile.Source.TryGetChar(FcsPos.subtractColumn pos 1)
 
-                let! typeCheckResults =
-                  if isSpecialChar previousCharacter then
-                    forceGetTypeCheckResults filePath
-                  else
-                    forceGetTypeCheckResultsStale filePath
-
-                let getAllSymbols () =
-                  if config.ExternalAutocomplete then
-                    typeCheckResults.GetAllEntities true
-                  else
-                    []
-
-                let! (decls, residue, shouldKeywords) =
-                  Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
-                    typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols
-                    |> AsyncResult.ofOption (fun () -> "No TryGetCompletions results"))
-
-                do! Result.requireNotEmpty "Should not have empty completions" decls
-
-                return Some(decls, residue, shouldKeywords, typeCheckResults, getAllSymbols, volatileFile)
-              }
-
-            let handleError e =
-              match e with
-              | "Should not have empty completions" ->
-                // If we don't get any completions, assume we need to wait for a full typecheck
-                getCompletions forceGetTypeCheckResults
-              | _ -> getCompletions forceGetTypeCheckResultsStale
-
-            match!
-              retryAsyncOption
-                (TimeSpan.FromMilliseconds(15.))
-                100
-                handleError
-                (getCompletions forceGetTypeCheckResultsStale)
-              |> AsyncResult.ofStringErr
-            with
-            | None -> return! success (None)
-            | Some(decls, _, shouldKeywords, typeCheckResults, _, volatileFile) ->
-
-              return!
-                Debug.measure "TextDocumentCompletion.TryGetCompletions success"
-                <| fun () ->
-                  transact (fun () ->
-                    HashMap.OfList(
-                      [ for d in decls do
-                          d.NameInList, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
-                    )
-                    |> autoCompleteItems.UpdateTo)
-                  |> ignore<bool>
-
-                  let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
-
-                  let items =
-                    decls
-                    |> Array.mapi (fun id d ->
-                      let code =
-                        if
-                          System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
-                        then
-                          d.NameInList
-                        elif d.NamespaceToOpen.IsSome then
-                          d.NameInList
-                        else
-                          FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
-
-                      let label =
-                        match d.NamespaceToOpen with
-                        | Some no -> sprintf "%s (open %s)" d.NameInList no
-                        | None -> d.NameInList
-
-                      { CompletionItem.Create(d.NameInList) with
-                          Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                          InsertText = Some code
-                          SortText = Some(sprintf "%06d" id)
-                          FilterText = Some d.NameInList
-                          Label = label })
-
-                  let its =
-                    if not includeKeywords then
-                      items
+                  let! typeCheckResults =
+                    if isSpecialChar previousCharacter then
+                      forceGetTypeCheckResults filePath
                     else
-                      Array.append items KeywordList.keywordCompletionItems
+                      forceGetTypeCheckResultsStale filePath
 
-                  let completionList =
-                    { IsIncomplete = false
-                      Items = its
-                      ItemDefaults = None }
+                  let getAllSymbols () =
+                    if config.ExternalAutocomplete then
+                      typeCheckResults.GetAllEntities true
+                    else
+                      []
 
-                  success (Some completionList)
+                  let! (decls, residue, shouldKeywords) =
+                    Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
+                      typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols
+                      |> AsyncResult.ofOption (fun () -> "No TryGetCompletions results"))
+
+                  do! Result.requireNotEmpty "Should not have empty completions" decls
+
+                  return Some(decls, residue, shouldKeywords, typeCheckResults, getAllSymbols, volatileFile)
+                }
+
+              let handleError e =
+                match e with
+                | "Should not have empty completions" ->
+                  // If we don't get any completions, assume we need to wait for a full typecheck
+                  getCompletions forceGetTypeCheckResults
+                | _ -> getCompletions forceGetTypeCheckResultsStale
+
+              match!
+                retryAsyncOption
+                  (TimeSpan.FromMilliseconds(15.))
+                  100
+                  handleError
+                  (getCompletions forceGetTypeCheckResultsStale)
+                |> AsyncResult.ofStringErr
+              with
+              | None -> return! success (None)
+              | Some(decls, _, shouldKeywords, typeCheckResults, _, volatileFile) ->
+
+                return!
+                  Debug.measure "TextDocumentCompletion.TryGetCompletions success"
+                  <| fun () ->
+                    transact (fun () ->
+                      HashMap.OfList(
+                        [ for d in decls do
+                            d.NameInList, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
+                      )
+                      |> autoCompleteItems.UpdateTo)
+                    |> ignore<bool>
+
+                    let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
+
+                    let items =
+                      decls
+                      |> Array.mapi (fun id d ->
+                        let code =
+                          if
+                            System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
+                          then
+                            d.NameInList
+                          elif d.NamespaceToOpen.IsSome then
+                            d.NameInList
+                          else
+                            FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
+
+                        let label =
+                          match d.NamespaceToOpen with
+                          | Some no -> sprintf "%s (open %s)" d.NameInList no
+                          | None -> d.NameInList
+
+                        { CompletionItem.Create(d.NameInList) with
+                            Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                            InsertText = Some code
+                            SortText = Some(sprintf "%06d" id)
+                            FilterText = Some d.NameInList
+                            Label = label })
+
+                    let its =
+                      if not includeKeywords then
+                        items
+                      else
+                        Array.append items KeywordList.keywordCompletionItems
+
+                    let completionList =
+                      { IsIncomplete = false
+                        Items = its
+                        ItemDefaults = None }
+
+                    success (Some completionList)
 
         with e ->
           trace |> Tracing.recordException e
