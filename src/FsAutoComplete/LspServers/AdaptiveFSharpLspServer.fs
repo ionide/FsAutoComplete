@@ -417,8 +417,8 @@ type AdaptiveFSharpLspServer
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
       if volatileFile.Source.Length = 0 then
-        ()
-      else // Don't analyze and error on an empty file
+        () // Don't analyze and error on an empty file
+      else
         async {
           let config = config |> AVal.force
           do! builtInCompilerAnalyzers config volatileFile parseAndCheck
@@ -2443,8 +2443,8 @@ type AdaptiveFSharpLspServer
           let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
 
           if volatileFile.Source.Length = 0 then
-            return None
-          else // An empty file has empty completions. Otherwise we would error down there
+            return None // An empty file has empty completions. Otherwise we would error down there
+          else
 
             let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
 
