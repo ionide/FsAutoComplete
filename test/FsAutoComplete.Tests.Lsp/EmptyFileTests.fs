@@ -37,10 +37,18 @@ let tests state =
                   let! server, events, scriptPath = server1
                   do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
-                  match! waitForParseResultsForFile "EmptyFile.fsx" events with
+                  let! parseResults = waitForParseResultsForFile "EmptyFile.fsx" events |> Async.StartChild
+                  let! fsacResults = waitForFsacDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
+                  let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
+                  match! parseResults with
                   | Ok () -> () // all good, no parsing/checking errors
                   | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" scriptPath errors
-                  do! server.TextDocumentDidClose { TextDocument = { Uri = Path.FilePathToUri scriptPath } }
+                  match! fsacResults with
+                  | Ok () -> () // all good, no parsing/checking errors
+                  | Core.Result.Error errors -> failwithf "FSAC error while checking script %s: %A" scriptPath errors
+                  match! compilerResults with
+                  | Ok () -> () // all good, no parsing/checking errors
+                  | Core.Result.Error errors -> failwithf "Compiler error while checking script %s: %A" scriptPath errors
                 })
             
             testCaseAsync
@@ -57,9 +65,7 @@ let tests state =
                             { triggerKind = CompletionTriggerKind.Invoked
                               triggerCharacter = None } }
 
-                  let! response = server.TextDocumentCompletion completionParams
-
-                  match response with
+                  match! server.TextDocumentCompletion completionParams with
                   | Ok (Some _) -> failtest "An empty file has empty completions"
                   | Ok None -> ()
                   | Error e -> failtestf "Got an error while retrieving completions: %A" e
@@ -89,7 +95,9 @@ let tests state =
                             triggerCharacter = None }
                     } |> Async.StartChild
 
-                  match! waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events with
+                  let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
+
+                  match! compilerResults with
                   | Ok () -> failtest "should get a checking error from an 'c' by itself"
                   | Core.Result.Error errors ->
                     Expect.hasLength errors 1 "should have an error FS0039: identifier not defined"
