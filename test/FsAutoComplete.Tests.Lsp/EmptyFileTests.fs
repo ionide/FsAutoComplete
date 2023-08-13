@@ -89,9 +89,9 @@ let tests state =
                   let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
 
                   match! compilerResults with
-                  | Ok () -> failtest "should get a checking error from an 'c' by itself"
+                  | Ok () -> failtest "should get an F# compiler checking error from an 'c' by itself"
                   | Core.Result.Error errors ->
-                    Expect.hasLength errors 1 "should have an error FS0039: identifier not defined"
+                    Expect.hasLength errors 1 "should have only an error FS0039: identifier not defined"
                     Expect.exists errors (fun error -> error.Code = Some "39") "should have an error FS0039: identifier not defined"
 
                   match! completions with
