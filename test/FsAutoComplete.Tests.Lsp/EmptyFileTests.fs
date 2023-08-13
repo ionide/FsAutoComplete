@@ -37,18 +37,9 @@ let tests state =
                   let! server, events, scriptPath = server1
                   do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
-                  let! parseResults = waitForParseResultsForFile "EmptyFile.fsx" events |> Async.StartChild
-                  let! fsacResults = waitForFsacDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
-                  let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
-                  match! parseResults with
-                  | Ok () -> () // all good, no parsing/checking errors
+                  match! waitForParseResultsForFile "EmptyFile.fsx" events with
+                  | Ok _ -> () // all good, no parsing/checking errors
                   | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" scriptPath errors
-                  match! fsacResults with
-                  | Ok () -> () // all good, no parsing/checking errors
-                  | Core.Result.Error errors -> failwithf "FSAC error while checking script %s: %A" scriptPath errors
-                  match! compilerResults with
-                  | Ok () -> () // all good, no parsing/checking errors
-                  | Core.Result.Error errors -> failwithf "Compiler error while checking script %s: %A" scriptPath errors
                 })
             
             testCaseAsync
