@@ -7,12 +7,16 @@ open Navigation
 open FSharp.Compiler.Text
 open Utils.TextEdit
 open Ionide.LanguageServerProtocol.Types
+open FSharp.UMX
+
+let makeText (text: string) =
+  (FsAutoComplete.NamedTextFactory() :> FsAutoComplete.ISourceTextFactory).Create(UMX.tag "fake.fsx", text)
 
 let private navigationTests =
   testList (nameof Navigation) [
     let extractTwoCursors text =
       let (text, poss) = Cursors.extract text
-      let text = SourceText.ofString text
+      let text = makeText text
       (text, (poss[0], poss[1]))
 
     testList (nameof tryEndOfPrevLine) [
@@ -50,7 +54,7 @@ let z = 4"""
         Expect.isNone actual "No prev line in first line"
 
       testCase "cannot get end of prev line when single line" <| fun _ ->
-        let text = SourceText.ofString "let foo = 4"
+        let text = makeText "let foo = 4"
         let line = 0
         let actual = tryEndOfPrevLine text line
         Expect.isNone actual "No prev line in first line"
@@ -91,7 +95,7 @@ let $0z$0 = 4"""
         Expect.isNone actual "No next line in last line"
 
       testCase "cannot get start of next line when single line" <| fun _ ->
-        let text = SourceText.ofString "let foo = 4"
+        let text = makeText "let foo = 4"
         let line = 0
         let actual = tryStartOfNextLine text line
         Expect.isNone actual "No next line in first line"
@@ -147,9 +151,9 @@ let z = 4"""
         let line = start.Line
         let actual = text |> rangeToDeleteFullLine line
         Expect.equal actual expected "Incorrect range"
-        
+
       testCase "can get all range for single empty line" <| fun _ ->
-        let text = SourceText.ofString ""
+        let text = makeText ""
         let pos = { Line = 0; Character = 0 }
         let expected = { Start = pos; End = pos }
 

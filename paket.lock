@@ -651,7 +651,7 @@ NUGET
       System.Security.Principal.Windows (>= 5.0)
     Microsoft.Win32.SystemEvents (7.0)
     Mono.Posix.NETStandard (1.0)
-    MSBuild.StructuredLogger (2.1.820)
+    MSBuild.StructuredLogger (2.1.844)
       Microsoft.Build.Framework (>= 17.5)
       Microsoft.Build.Utilities.Core (>= 17.5)
     Newtonsoft.Json (13.0.1)
