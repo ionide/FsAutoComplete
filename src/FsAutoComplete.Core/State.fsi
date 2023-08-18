@@ -80,9 +80,11 @@ type State =
   member AddCancellationToken: file: string<LocalPath> * token: CancellationTokenSource -> unit
   member GetCancellationTokens: file: string<LocalPath> -> CancellationTokenSource list
 
-  member TryGetFileCheckerOptionsWithLines: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
+  member TryGetFileCheckerOptionsWithLines:
+    file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
 
-  member TryGetFileCheckerOptionsWithSource: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
+  member TryGetFileCheckerOptionsWithSource:
+    file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
 
   member TryGetFileSource: file: string<LocalPath> -> ResultOrString<IFSACSourceText>
 

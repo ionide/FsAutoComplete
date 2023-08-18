@@ -211,4 +211,5 @@ module Tokenizer =
   ///   -> full identifier range with backticks, just identifier name (~`symbolNameCore`) without backticks
   ///
   /// returns `None` iff `range` isn't inside `text` -> `range` & `text` for different states
-  val tryFixupRange: symbolNameCore: string * range: Range * text: IFSACSourceText * includeBackticks: bool -> Range voption
+  val tryFixupRange:
+    symbolNameCore: string * range: Range * text: IFSACSourceText * includeBackticks: bool -> Range voption

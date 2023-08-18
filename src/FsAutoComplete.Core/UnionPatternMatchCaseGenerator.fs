@@ -488,8 +488,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
         unitRange.StartLine <> unitRange.EndLine
         || unitRange.StartColumn <> unitRange.EndColumn
 
-      rhsExprExists
-      && not (FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
+      rhsExprExists && not (FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
     | _ -> not (FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 

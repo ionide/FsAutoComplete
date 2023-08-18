@@ -6,7 +6,10 @@ open FsAutoComplete
 open FSharp.Compiler.CodeAnalysis
 
 type AdaptiveFSharpLspServer =
-  new: workspaceLoader: IWorkspaceLoader * lspClient: FSharpLspClient * sourceTextFactory: ISourceTextFactory -> AdaptiveFSharpLspServer
+  new:
+    workspaceLoader: IWorkspaceLoader * lspClient: FSharpLspClient * sourceTextFactory: ISourceTextFactory ->
+      AdaptiveFSharpLspServer
+
   interface IFSharpLspServer
 
   member ScriptFileProjectOptions: IEvent<FSharpProjectOptions>
@@ -16,4 +19,9 @@ module AdaptiveFSharpLspServer =
   open StreamJsonRpc
 
   val createRpc: handler: IJsonRpcMessageHandler -> JsonRpc
-  val startCore: toolsPath: 'a -> workspaceLoaderFactory: ('a -> #IWorkspaceLoader) -> sourceTextFactory: ISourceTextFactory -> LspCloseReason
+
+  val startCore:
+    toolsPath: 'a ->
+    workspaceLoaderFactory: ('a -> #IWorkspaceLoader) ->
+    sourceTextFactory: ISourceTextFactory ->
+      LspCloseReason
