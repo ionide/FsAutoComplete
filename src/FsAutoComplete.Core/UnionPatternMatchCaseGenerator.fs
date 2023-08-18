@@ -8,6 +8,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Symbols
+open FsToolkit.ErrorHandling
 
 [<NoEquality; NoComparison>]
 type PatternMatchExpr =
@@ -283,7 +284,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.ArbitraryAfterError(_debugStr, _range) -> None
 
       | SynExpr.FromParseError(synExpr, _range)
-      | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _range) -> walkExpr synExpr
+      | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, _, _range) -> walkExpr synExpr
 
       | _ -> None)
 
@@ -375,7 +376,7 @@ let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entit
   caseCount > 0 && writtenCaseCount < caseCount
 
 let tryFindPatternMatchExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
-  asyncMaybe {
+  asyncOption {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
     let input = parseResults.ParseTree
     return! tryFindPatternMatchExprInParsedInput pos input
@@ -494,7 +495,7 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
 
 
 let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos document =
-  asyncMaybe {
+  asyncOption {
     let! patMatchExpr = tryFindPatternMatchExprInBufferAtPos codeGenService pos document
 
     if checkThatPatternMatchExprEndsWithCompleteClause patMatchExpr then
@@ -505,13 +506,13 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
   }
 
 let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =
-  asyncMaybe {
+  asyncOption {
     let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
     let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
 
 
     let! superficialTypeDefinition =
-      asyncMaybe {
+      asyncOption {
         let! symbolUse = symbolUse
 
         match symbolUse.Symbol with

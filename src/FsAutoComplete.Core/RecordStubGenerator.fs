@@ -72,7 +72,7 @@ type RecordStubsInsertionParams =
             Some(fieldInfo, indentColumn, fieldLine)
           | _ -> None)
 
-      maybe {
+      option {
         let! maxLineIdx =
           fieldAndStartColumnAndLineIdxList
           |> List.unzip3
@@ -212,7 +212,7 @@ let walkAndFindRecordBinding (pos, input) =
   SyntaxTraversal.Traverse(pos, input, walker)
 
 let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
-  asyncMaybe {
+  asyncOption {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
     let! found = walkAndFindRecordBinding (pos, parseResults.ParseTree)
@@ -270,7 +270,7 @@ let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
   fieldCount > 0 && writtenFieldCount < fieldCount
 
 let tryFindRecordDefinitionFromPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
-  asyncMaybe {
+  asyncOption {
     let! recordExpression, insertionPos = tryFindStubInsertionParamsAtPos codeGenService pos document
 
     let! symbol, symbolUse =

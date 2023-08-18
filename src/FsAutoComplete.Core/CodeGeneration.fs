@@ -53,7 +53,7 @@ type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) 
       }
 
     override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
-      asyncMaybe {
+      asyncOption {
         let! symbol = (x :> ICodeGenerationService).GetSymbolAtPosition(fileName, pos)
 
         if symbol.Kind = kind then

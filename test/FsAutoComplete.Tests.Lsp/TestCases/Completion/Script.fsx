@@ -11,3 +11,15 @@ let tail = List.
 type A = {
   Id : Lis
 }
+open System.IO
+Path.GetDirectoryName("foo").
+Path.GetDirectoryName("foo")
+
+"bareString".
+"bareString"
+
+[1;2;3].
+[1;2;3]
+
+$"{List.}"
+$"{ List. }"

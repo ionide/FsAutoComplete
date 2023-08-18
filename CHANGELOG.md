@@ -1,5 +1,61 @@
 # Changelog
 
+
+## [0.61.1] - 2023-07-22
+
+### Fixed
+
+* [Reduce project option duplication, reducing memory usage](https://github.com/fsharp/FsAutoComplete/pull/1147) (thanks @TheAngryByrd!)
+
+
+## [0.61.0] - 2023-07-16
+
+### Added 
+
+* [Codefix: Add codefix for redundant attribute suffix.](https://github.com/fsharp/FsAutoComplete/pull/1132) (thanks @nojaf!)
+* [Add module to SemanticTokenTypes](https://github.com/fsharp/FsAutoComplete/pull/1137) (thanks @nojaf!)
+* [Codefix: Add type annotations to entire function](https://github.com/fsharp/FsAutoComplete/pull/1138) (thanks @nojaf!)
+* [Codefix: RemovePatternArgument quick fix](https://github.com/fsharp/FsAutoComplete/pull/1142) (thanks @edgarfgp!)
+* [Codefix:  for interpolated string](https://github.com/fsharp/FsAutoComplete/pull/1143), [fix #1](https://github.com/fsharp/FsAutoComplete/pull/1146) (thanks @nojaf!)
+
+### Changed
+
+* [Swap maybe for option CEs](https://github.com/fsharp/FsAutoComplete/pull/1131) (thanks @TheAngryByrd!)
+
+### Fixed
+
+* [Make ServerProgressReport threadsafe](https://github.com/fsharp/FsAutoComplete/pull/1130) (thanks @TheAngryByrd!)
+* [Fix range handling for code completion in interpolated strings](https://github.com/fsharp/FsAutoComplete/pull/1133) (thanks @kojo12228!)
+* [Fixing Typos](https://github.com/fsharp/FsAutoComplete/pull/1136) (thanks @TheAngryByrd!)
+* [FSAC Not exiting on macos/linux](https://github.com/fsharp/FsAutoComplete/pull/1141) (thanks @TheAngryByrd!)
+* [CI not failing on focused tests](https://github.com/fsharp/FsAutoComplete/pull/1145) (thanks @TheAngryByrd!)
+
+### Removed
+
+* [Remove old eventlistener](https://github.com/fsharp/FsAutoComplete/pull/1134) (thanks @TheAngryByrd!)
+
+## [0.60.1] - 2023-07-01
+
+### Added
+
+* [A new set of settings for excluding files from built-in analyzers](https://github.com/fsharp/FsAutoComplete/pull/1120) (thanks @TheAngryByrd!)
+* [A new setting for choosing the ISourceText implementation, along with a Roslyn-based implementation](https://github.com/fsharp/FsAutoComplete/pull/1123) (thanks @TheAngryByrd!)
+* [The Generate Xml Doc codefix now works on properties with getters and setters](https://github.com/fsharp/FsAutoComplete/pull/1126) (thanks @dawedawe!)
+
+## [0.60.0] - 2023-06-14
+
+### Added
+
+* [A new codefix for generating missing parameters and return types for XML Documentation](https://github.com/fsharp/FsAutoComplete/pull/1108) (thanks @dawedawe!)
+
+### Fixed
+
+* [Abstract classes generation now handles members with attributes](https://github.com/fsharp/FsAutoComplete/pull/1107)
+
+### Changed
+
+* [The FSharp.Compiler.Services were updated to 43.7.300, matching the F# Compiler shipped in .NET 7.0.300](https://github.com/fsharp/FsAutoComplete/pull/1116) (thanks @TheAngryByrd!)
+
 ## [0.59.6] - 2023-04-21
 
 ### Added

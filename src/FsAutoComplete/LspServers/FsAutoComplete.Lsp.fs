@@ -28,14 +28,17 @@ open FSharp.Compiler.Symbols
 open Fantomas.Client.Contracts
 open Fantomas.Client.LSPFantomasService
 open FSharp.Compiler.Text.Position
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 
 open FsAutoComplete.Lsp
 open Ionide.LanguageServerProtocol.Types.AsyncLspResult
 open Ionide.LanguageServerProtocol.Types.LspResult
 open StreamJsonRpc
+open FsAutoComplete.FCSPatches
 
 
-type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
+type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
 
 
   let logger = LogProvider.getLoggerByName "LSP"
@@ -44,7 +47,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath)
+    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath, sourceTextFactory)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -74,7 +77,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         lspClient.NotifyDocumentAnalyzed
           { TextDocument =
               { Uri = filePath |> Path.LocalPathToUri
-                Version = Some version } }
+                Version = version } }
     }
 
   /// UTC Time of start of last `checkFile` call
@@ -86,7 +89,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
   /// `DateTime` instead of `Stopwatch`: stopwatch doesn't work with multiple simultaneous consumers
   let mutable lastCheckFile = DateTime.UtcNow
 
-  let checkFile (filePath: string<LocalPath>, version: int, content: NamedText, isFirstOpen: bool) =
+  let checkFile (filePath: string<LocalPath>, version: int, content: IFSACSourceText, isFirstOpen: bool) =
     asyncResult {
 
       let start =
@@ -146,7 +149,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     async {
       let doc = p.TextDocument
       let filePath = doc.GetFilePath() |> Utils.normalizePath
-      let version = doc.Version.Value // this always has a value, despite the Option type
+      let version = doc.Version
 
       match state.TryGetFileSource(filePath) with
       | Ok content ->
@@ -181,7 +184,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       >> Log.addContextDestructured "diags" diags.Length
     )
 
-    { Uri = uri; Diagnostics = diags } |> lspClient.TextDocumentPublishDiagnostics
+    //TODO: it would be _amazing_ to flow version through to here
+    { Uri = uri
+      Diagnostics = diags
+      Version = None }
+    |> lspClient.TextDocumentPublishDiagnostics
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
@@ -482,7 +489,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
           state,
           hasAnalyzersNow,
-          rootPath
+          rootPath,
+          sourceTextFactory
         )
 
       commands <- newCommands
@@ -618,7 +626,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   ///Helper function for handling Position requests using **recent** type check results
   member x.positionHandler<'a, 'b when 'b :> ITextDocumentPositionParams>
-    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> NamedText -> AsyncLspResult<'a>)
+    (f: 'b -> FcsPos -> ParseAndCheckResults -> string -> IFSACSourceText -> AsyncLspResult<'a>)
     (arg: 'b)
     : AsyncLspResult<'a> =
     async {
@@ -671,7 +679,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
   ///Helper function for handling file requests using **recent** type check results
   member x.fileHandler<'a>
-    (f: string<LocalPath> -> ParseAndCheckResults -> NamedText -> AsyncLspResult<'a>)
+    (f: string<LocalPath> -> ParseAndCheckResults -> IFSACSourceText -> AsyncLspResult<'a>)
     (arg: TextDocumentIdentifier)
     : AsyncLspResult<'a> =
     async {
@@ -726,8 +734,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
     (
       fileName: string<LocalPath>,
       action: unit -> Async<Result<FormatDocumentResponse, string>>,
-      handlerFormattedDoc: (NamedText * string) -> TextEdit[],
-      handleFormattedRange: (NamedText * string * FormatSelectionRange) -> TextEdit[]
+      handlerFormattedDoc: (IFSACSourceText * string) -> TextEdit[],
+      handleFormattedRange: (IFSACSourceText * string * FormatSelectionRange) -> TextEdit[]
     ) =
     async {
       let! res = action ()
@@ -883,6 +891,30 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
           | Some encoded -> return! success (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
 
+  member private x.logUnimplementedRequest<'t, 'u>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
+    logger.info (
+      Log.setMessage $"{caller} request: {{parms}}"
+      >> Log.addContextDestructured "parms" argValue
+    )
+
+    Helpers.notImplemented<'u>
+
+  member private x.logIgnoredNotification<'t>
+    (
+      argValue: 't,
+      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
+    ) =
+    logger.info (
+      Log.setMessage $"{caller} request: {{parms}}"
+      >> Log.addContextDestructured "parms" argValue
+    )
+
+    Helpers.ignoreNotification
+
   member __.ScriptFileProjectOptions = commands.ScriptFileProjectOptions
 
   interface IFSharpLspServer with
@@ -890,156 +922,50 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
     //unsupported -- begin
 
-    override x.CodeActionResolve(p) =
-      logger.info (
-        Log.setMessage "CodeActionResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.CodeActionResolve(p) = x.logUnimplementedRequest (p)
 
-      Helpers.notImplemented
+    override x.DocumentLinkResolve(p) = x.logUnimplementedRequest (p)
 
-    override x.DocumentLinkResolve(p) =
-      logger.info (
-        Log.setMessage "CodeActionResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.Exit() = x.logIgnoredNotification (())
 
-      Helpers.notImplemented
+    override x.InlayHintResolve p = x.logUnimplementedRequest (p)
 
-    override x.Exit() = Helpers.ignoreNotification
+    override x.TextDocumentDocumentColor p = x.logUnimplementedRequest (p)
 
-    override x.InlayHintResolve p =
-      logger.info (
-        Log.setMessage "InlayHintResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentColorPresentation p = x.logUnimplementedRequest (p)
 
-      Helpers.notImplemented
+    override x.TextDocumentDocumentLink p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentDocumentColor p =
-      logger.info (
-        Log.setMessage "TextDocumentDocumentColor Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentOnTypeFormatting p = x.logUnimplementedRequest (p)
 
-      Helpers.notImplemented
+    override x.TextDocumentSemanticTokensFullDelta p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentColorPresentation p =
-      logger.info (
-        Log.setMessage "TextDocumentColorPresentation Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.TextDocumentWillSave p = x.logIgnoredNotification (p)
 
-      Helpers.notImplemented
+    override x.TextDocumentWillSaveWaitUntil p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentDocumentLink p =
-      logger.info (
-        Log.setMessage "TextDocumentDocumentLink Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceDidChangeWorkspaceFolders p = x.logIgnoredNotification (p)
 
-      Helpers.notImplemented
+    override x.WorkspaceDidCreateFiles p = x.logIgnoredNotification (p)
 
-    override x.TextDocumentOnTypeFormatting p =
-      logger.info (
-        Log.setMessage "TextDocumentOnTypeFormatting Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceDidDeleteFiles p = x.logIgnoredNotification (p)
 
-      Helpers.notImplemented
+    override x.WorkspaceDidRenameFiles p = x.logIgnoredNotification (p)
 
-    override x.TextDocumentSemanticTokensFullDelta p =
-      logger.info (
-        Log.setMessage "TextDocumentSemanticTokensFullDelta Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceExecuteCommand p = x.logUnimplementedRequest (p)
 
-      Helpers.notImplemented
+    override x.WorkspaceWillCreateFiles p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentWillSave p =
-      logger.info (
-        Log.setMessage "TextDocumentWillSave Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
+    override x.WorkspaceWillDeleteFiles p = x.logUnimplementedRequest (p)
 
-      Helpers.ignoreNotification
+    override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest (p)
 
-    override x.TextDocumentWillSaveWaitUntil p =
-      logger.info (
-        Log.setMessage "TextDocumentWillSaveWaitUntil Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceDidChangeWorkspaceFolders p =
-      logger.info (
-        Log.setMessage "WorkspaceDidChangeWorkspaceFolders Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.ignoreNotification
-
-    override x.WorkspaceDidCreateFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidCreateFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.ignoreNotification
-
-    override x.WorkspaceDidDeleteFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidDeleteFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.ignoreNotification
-
-    override x.WorkspaceDidRenameFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceDidRenameFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.ignoreNotification
-
-    override x.WorkspaceExecuteCommand p =
-      logger.info (
-        Log.setMessage "WorkspaceExecuteCommand Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceWillCreateFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillCreateFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceWillDeleteFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillDeleteFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-    override x.WorkspaceWillRenameFiles p =
-      logger.info (
-        Log.setMessage "WorkspaceWillRenameFiles Request: {parms}"
-        >> Log.addContextDestructured "parms" p
-      )
-
-      Helpers.notImplemented
-
-
-
-
-
+    override x.TextDocumentDeclaration p = x.logUnimplementedRequest (p)
+    override x.TextDocumentDiagnostic p = x.logUnimplementedRequest (p)
+    override x.TextDocumentLinkedEditingRange p = x.logUnimplementedRequest (p)
+    override x.TextDocumentMoniker p = x.logUnimplementedRequest (p)
+    override x.WorkspaceDiagnostic p = x.logUnimplementedRequest (p)
+    override x.WorkspaceSymbolResolve p = x.logUnimplementedRequest (p)
 
     //unsupported -- end
 
@@ -1099,7 +1025,20 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             | Some tyRes -> return tyRes, lineAtPos, fileLines
           }
 
-        let inlineValueToggle =
+        let tryGetLanguageVersion (fileName: string<LocalPath>) =
+          async {
+            let result =
+              let langVersion =
+                state.LanguageVersions |> Seq.tryFind (fun (k, _) -> UMX.untag fileName = (k))
+
+              match langVersion with
+              | Some(_, v) -> v
+              | None -> LanguageVersionShim.defaultLanguageVersion.Value
+
+            return result
+          }
+
+        let inlineValueToggle: InlineValueOptions option =
           match c.InlineValues.Enabled with
           | Some true -> Some { ResolveProvider = Some false }
           | Some false -> None
@@ -1108,7 +1047,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let getFileLines =
           commands.TryGetFileCheckerOptionsWithLines >> Result.map snd >> Async.singleton
 
-        let getLineText (lines: NamedText) (range: Ionide.LanguageServerProtocol.Types.Range) =
+        let getLineText (lines: IFSACSourceText) (range: Ionide.LanguageServerProtocol.Types.Range) =
           lines.GetText(protocolRangeToRange (UMX.untag lines.FileName) range)
           |> Async.singleton
 
@@ -1217,15 +1156,21 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
              AddTypeToIndeterminateValue.fix tryGetParseResultsForFile tryGetProjectOptions
              ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
              AddMissingInstanceMember.fix
+             AddMissingXmlDocumentation.fix tryGetParseResultsForFile
              AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
              ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
              ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
              GenerateXmlDocumentation.fix tryGetParseResultsForFile
+             RemoveRedundantAttributeSuffix.fix tryGetParseResultsForFile
              Run.ifEnabled
                (fun _ -> config.AddPrivateAccessModifier)
                (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
              UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
-             RenameParamToMatchSignature.fix tryGetParseResultsForFile |]
+             RenameParamToMatchSignature.fix tryGetParseResultsForFile
+             RemovePatternArgument.fix tryGetParseResultsForFile
+             ToInterpolatedString.fix tryGetParseResultsForFile tryGetLanguageVersion
+
+             |]
 
 
         match p.RootPath, c.AutomaticWorkspaceInit with
@@ -1297,14 +1242,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
       async {
         let doc = p.TextDocument
         let filePath = doc.GetFilePath() |> Utils.normalizePath
-        let content = NamedText(filePath, doc.Text)
+        let content = sourceTextFactory.Create(filePath, doc.Text)
 
         logger.info (
           Log.setMessage "TextDocumentDidOpen Request: {parms}"
           >> Log.addContextDestructured "parms" filePath
         )
 
-        commands.SetFileContent(filePath, content, Some doc.Version)
+        commands.SetFileContent(filePath, content, doc.Version)
 
         do!
           checkFile (filePath, doc.Version, content, true)
@@ -1322,7 +1267,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
         let doc = p.TextDocument
         let filePath = doc.GetFilePath() |> Utils.normalizePath
         // types are incorrect for this endpoint - version is always supplied by the client
-        let endVersion = doc.Version.Value
+        let endVersion = doc.Version
 
         logger.info (
           Log.setMessage "TextDocumentDidChange Request: {parms}"
@@ -1331,21 +1276,14 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         let initialText =
           state.TryGetFileSource(filePath)
-          |> Result.bimap id (fun _ -> NamedText(filePath, ""))
+          |> Result.bimap id (fun _ -> sourceTextFactory.Create(filePath, ""))
 
         let evolvedFileContent =
           (initialText, p.ContentChanges)
           ||> Array.fold (fun text change ->
             match change.Range with
             | None -> // replace entire content
-              NamedText(filePath, change.Text)
-            | Some rangeToReplace when
-              rangeToReplace.Start.Line = 0
-              && rangeToReplace.Start.Character = 0
-              && rangeToReplace.End.Line = 0
-              && rangeToReplace.End.Character = 0
-              ->
-              NamedText(filePath, change.Text)
+              sourceTextFactory.Create(filePath, change.Text)
             | Some rangeToReplace ->
               // replace just this slice
               let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
@@ -1363,7 +1301,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 text)
 
 
-        commands.SetFileContent(filePath, evolvedFileContent, Some endVersion)
+        commands.SetFileContent(filePath, evolvedFileContent, endVersion)
 
         checkFileDebouncer.Bounce p
       }
@@ -1411,7 +1349,8 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             if lineStr.StartsWith "#" then
               let completionList =
                 { IsIncomplete = false
-                  Items = KeywordList.hashSymbolCompletionItems }
+                  Items = KeywordList.hashSymbolCompletionItems
+                  ItemDefaults = None }
 
               return! success (Some completionList)
             else
@@ -1461,11 +1400,22 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                   else
                     Array.append items KeywordList.keywordCompletionItems
 
-                let completionList = { IsIncomplete = false; Items = its }
+                let completionList =
+                  { IsIncomplete = false
+                    Items = its
+                    ItemDefaults = None }
+
                 return! success (Some completionList)
               | _ ->
                 logger.info (Log.setMessage "TextDocumentCompletion - no completion results")
-                return! success (Some { IsIncomplete = false; Items = [||] })
+
+                return!
+                  success (
+                    Some
+                      { IsIncomplete = false
+                        Items = [||]
+                        ItemDefaults = None }
+                  )
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
@@ -1552,14 +1502,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 let parameters =
                   m.Parameters
                   |> Array.map (fun p ->
-                    { ParameterInformation.Label = p.ParameterName
+                    { ParameterInformation.Label = U2.First p.ParameterName
                       Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
                 let d = Documentation.Markup(markdown comment)
 
                 { SignatureInformation.Label = signature
                   Documentation = Some d
-                  Parameters = Some parameters })
+                  Parameters = Some parameters
+                  ActiveParameter = None })
 
             let res =
               { Signatures = sigs
@@ -1840,6 +1791,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
             |> Array.collect (fun (n, p) ->
               let uri = Path.LocalPathToUri p
               getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query))
+            |> U2.First
             |> Some
             |> success
 
@@ -1860,7 +1812,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         commands.FormatDocument fileName
 
-      let handlerFormattedDoc (lines: NamedText, formatted: string) =
+      let handlerFormattedDoc (lines: IFSACSourceText, formatted: string) =
         let range =
           let zero = { Line = 0; Character = 0 }
           let lastPos = lines.LastFilePosition
@@ -1892,7 +1844,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
 
         commands.FormatSelection(fileName, range)
 
-      let handlerFormattedRangeDoc (lines: NamedText, formatted: string, range: FormatSelectionRange) =
+      let handlerFormattedRangeDoc (lines: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
         let range =
           { Start =
               { Line = range.StartLine - 1
@@ -2303,7 +2255,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient) =
                 Edit =
                   { DocumentChanges =
                       Some
-                        [| { TextDocument = p.TextDocument
+                        [| { TextDocument =
+                               { Uri = p.TextDocument.Uri
+                                 Version = Some p.TextDocument.Version }
                              Edits =
                                [| { Range = fcsPosToProtocolRange insertPos
                                     NewText = text } |] } |]
@@ -2976,7 +2930,7 @@ module FSharpLspServer =
           | HandleableException -> false
           | _ -> true }
 
-  let startCore toolsPath stateStorageDir workspaceLoaderFactory =
+  let startCore toolsPath stateStorageDir workspaceLoaderFactory sourceTextFactory =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -3014,7 +2968,7 @@ module FSharpLspServer =
       let state = State.Initial toolsPath stateStorageDir workspaceLoaderFactory
       let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
       FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- FsAutoComplete.FileSystem(originalFs, state.Files.TryFind)
-      new FSharpLspServer(state, lspClient) :> IFSharpLspServer
+      new FSharpLspServer(state, lspClient, sourceTextFactory) :> IFSharpLspServer
 
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient regularServer createRpc

@@ -404,7 +404,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       addIfInside r
       walkMeasure m
     | SynExpr.Const(_, r) -> addIfInside r
-    | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r) -> addIfInside r
+    | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r, trivia) -> addIfInside r
     | SynExpr.Sequential(seqPoint, isTrueSeq, expr1, expr2, r) -> ()
     | SynExpr.Ident(_) -> ()
     | SynExpr.LongIdent(isOptional, longDotId, altNameRefCell, r) -> addIfInside r
@@ -418,7 +418,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.LibraryOnlyUnionCaseFieldSet(_, longId, _, _, r) -> addIfInside r
     | SynExpr.ArbitraryAfterError(debugStr, r) -> addIfInside r
     | SynExpr.FromParseError(expr, r) -> addIfInside r
-    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, r) -> addIfInside r
+    | SynExpr.DiscardAfterMissingQualificationAfterDot(_, _, r) -> addIfInside r
     | SynExpr.Fixed(expr, r) -> addIfInside r
     | SynExpr.InterpolatedString(parts, kind, r) ->
       addIfInside r
@@ -527,7 +527,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynMemberDefn.Member(binding, r) ->
       addIfInside r
       walkBinding binding
-    | SynMemberDefn.ImplicitCtor(_, AllAttrs attrs, AllSimplePats pats, _, _, r) ->
+    | SynMemberDefn.ImplicitCtor(_, AllAttrs attrs, AllSimplePats pats, _, _, r, _) ->
       addIfInside r
       List.iter walkAttribute attrs
       List.iter walkSimplePat pats
@@ -684,11 +684,25 @@ module Completion =
               | SynExpr.Const(SynConst.String _, _) -> Some Context.StringLiteral
               | SynExpr.InterpolatedString(parts, _, _) ->
                 parts
-                |> List.tryPick (function
-                  | SynInterpolatedStringPart.String(s, m) when Range.rangeContainsPos m pos ->
+                |> List.indexed
+                |> List.tryPick (fun (i, part) ->
+                  let inRangeOfPrevious =
+                    if i = 0 then
+                      false
+                    else
+                      // With no space between FillExpr and }..." of interpolated string,
+                      // there will be a range clash.
+                      match List.item (i - 1) parts with
+                      | SynInterpolatedStringPart.String(_, m) -> Range.rangeContainsPos m pos
+                      | SynInterpolatedStringPart.FillExpr(e, _) -> Range.rangeContainsPos e.Range pos
+
+                  match part with
+                  | SynInterpolatedStringPart.String(s, m) when Range.rangeContainsPos m pos && not inRangeOfPrevious ->
                     Some Context.StringLiteral
                   | SynInterpolatedStringPart.String _ -> None
-                  | SynInterpolatedStringPart.FillExpr(e, _) when Range.rangeContainsPos e.Range pos ->
+                  | SynInterpolatedStringPart.FillExpr(e, _) when
+                    Range.rangeContainsPos e.Range pos && not inRangeOfPrevious
+                    ->
                     defaultTraverse e // gotta dive into the expr to see if we're in a literal inside the expr
                   | SynInterpolatedStringPart.FillExpr _ -> None)
               | _ -> defaultTraverse expr

@@ -32,6 +32,14 @@ module AdaptiveExtensions =
       | None -> x.Add(key, adder key) |> ignore
       | Some v -> updater key v
 
+    member x.GetOrAdd(key, adder: 'Key -> 'Value) : 'Value =
+      match x.TryGetValue key with
+      | Some x -> x
+      | None ->
+        let v = adder key
+        x.Add(key, v) |> ignore
+        v
+
 
 module Utils =
   let cheapEqual (a: 'T) (b: 'T) =
@@ -73,7 +81,7 @@ module AVal =
   /// <summary>
   /// Calls a mapping function which creates additional dependencies to be tracked.
   /// </summary>
-  let mapWithAdditionalDependenies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
+  let mapWithAdditionalDependencies (mapping: 'a -> 'b * #seq<#IAdaptiveValue>) (value: aval<'a>) : aval<'b> =
     let mutable lastDeps = HashSet.empty
 
     { new AVal.AbstractVal<'b>() with
@@ -168,7 +176,7 @@ module AMap =
       | None -> HashSet.empty
 
 
-  /// Reader for batchRecalc operations.
+  /// Reader for batchRecalculate operations.
   [<Sealed>]
   type BatchRecalculateDirty<'k, 'a, 'b>(input: amap<'k, 'a>, mapping: HashMap<'k, 'a> -> HashMap<'k, aval<'b>>) =
     inherit AbstractReader<HashMapDelta<'k, 'b>>(HashMapDelta.empty)
@@ -216,14 +224,14 @@ module AMap =
 
           cache <-
             match HashMap.tryRemove i cache with
-            | Some(o, remaingCache) ->
+            | Some(o, remainingCache) ->
               let rem, rest = MultiSetMap.remove o i targets
               targets <- rest
 
               if rem then
                 o.Outputs.Remove x |> ignore
 
-              remaingCache
+              remainingCache
             | None -> cache
 
           match op with
@@ -287,13 +295,13 @@ module AMap =
     // else
     AMap.ofReader (fun () -> BatchRecalculateDirty(map, mapping))
 
-  let mapWithAdditionalDependenies
+  let mapWithAdditionalDependencies
     (mapping: HashMap<'K, 'T1> -> HashMap<'K, 'T2 * #seq<#IAdaptiveValue>>)
     (map: amap<'K, 'T1>)
     =
     let mapping =
       mapping
-      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependenies (id))
+      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependencies (id))
 
     batchRecalcDirty mapping map
 
@@ -533,7 +541,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let map (mapping: 'a -> CancellationToken -> Task<'b>) (input: asyncaval<'a>) =
@@ -565,7 +573,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapAsync (mapping: 'a -> Async<'b>) (input: asyncaval<'a>) =
@@ -597,7 +605,7 @@ module AsyncAVal =
 
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =

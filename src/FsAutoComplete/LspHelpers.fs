@@ -9,12 +9,18 @@ open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
+open System.Text.RegularExpressions
+open FsAutoComplete.Logging
 
 
 type FcsRange = FSharp.Compiler.Text.Range
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
+
+module FcsPos =
+  let subtractColumn (pos: FcsPos) (column: int) =
+    FcsPos.mkPos pos.Line (pos.Column - column)
 
 [<AutoOpen>]
 module Conversions =
@@ -125,11 +131,13 @@ module Conversions =
         { Uri = uri
           Range = fcsRangeToLsp decl.Range }
 
-      let sym =
-        { SymbolInformation.Name = decl.LogicalName
+      let sym: SymbolInformation =
+        { Name = decl.LogicalName
           Kind = kind
           Location = location
-          ContainerName = container }
+          ContainerName = container
+          Tags = None
+          Deprecated = None }
 
       if symbolFilter sym then Some sym else None
 
@@ -422,7 +430,8 @@ module Structure =
       StartLine = lsp.Start.Line
       EndCharacter = Some lsp.End.Character
       EndLine = lsp.End.Line
-      Kind = kind }
+      Kind = kind
+      CollapsedText = None }
 
 module ClassificationUtils =
   [<RequireQualifiedAccess>]
@@ -459,6 +468,7 @@ module ClassificationUtils =
     /// computation expressions
     | Cexpr = 23
     | Text = 24
+    | Module = 25
 
   [<RequireQualifiedAccess; Flags>]
   type SemanticTokenModifier =
@@ -496,7 +506,7 @@ module ClassificationUtils =
     | SemanticClassificationType.Property -> SemanticTokenTypes.Property, []
     | SemanticClassificationType.MutableVar
     | SemanticClassificationType.MutableRecordField -> SemanticTokenTypes.Member, [ SemanticTokenModifier.Mutable ]
-    | SemanticClassificationType.Module
+    | SemanticClassificationType.Module -> SemanticTokenTypes.Module, []
     | SemanticClassificationType.Namespace -> SemanticTokenTypes.Namespace, []
     | SemanticClassificationType.Printf -> SemanticTokenTypes.Regexp, []
     | SemanticClassificationType.ComputationExpression -> SemanticTokenTypes.Cexpr, []
@@ -640,8 +650,11 @@ type FSharpConfigDto =
     InterfaceStubGenerationMethodBody: string option
     AddPrivateAccessModifier: bool option
     UnusedOpensAnalyzer: bool option
+    UnusedOpensAnalyzerExclusions: string array option
     UnusedDeclarationsAnalyzer: bool option
+    UnusedDeclarationsAnalyzerExclusions: string array option
     SimplifyNameAnalyzer: bool option
+    SimplifyNameAnalyzerExclusions: string array option
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
@@ -738,6 +751,15 @@ type DebugConfig =
       LogDurationBetweenCheckFiles = false
       LogCheckFileDuration = false }
 
+let logger = lazy (LogProvider.getLoggerByName "LspHelpers")
+
+let tryCreateRegex (pattern: string) =
+  try
+    Some(Regex(pattern))
+  with e ->
+    logger.Value.warn (Log.setMessageI $"Invalid regex pattern: {pattern}" >> Log.addExn e)
+    None
+
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
@@ -759,8 +781,11 @@ type FSharpConfig =
     InterfaceStubGenerationMethodBody: string
     AddPrivateAccessModifier: bool
     UnusedOpensAnalyzer: bool
+    UnusedOpensAnalyzerExclusions: Regex array
     UnusedDeclarationsAnalyzer: bool
+    UnusedDeclarationsAnalyzerExclusions: Regex array
     SimplifyNameAnalyzer: bool
+    SimplifyNameAnalyzerExclusions: Regex array
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
@@ -801,8 +826,11 @@ type FSharpConfig =
       InterfaceStubGenerationMethodBody = "failwith \"Not Implemented\""
       AddPrivateAccessModifier = false
       UnusedOpensAnalyzer = false
+      UnusedOpensAnalyzerExclusions = [||]
       UnusedDeclarationsAnalyzer = false
+      UnusedDeclarationsAnalyzerExclusions = [||]
       SimplifyNameAnalyzer = false
+      SimplifyNameAnalyzerExclusions = [||]
       ResolveNamespaces = false
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
@@ -841,8 +869,15 @@ type FSharpConfig =
         defaultArg dto.InterfaceStubGenerationMethodBody "failwith \"Not Implemented\""
       AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier false
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer false
+      UnusedOpensAnalyzerExclusions = defaultArg dto.UnusedOpensAnalyzerExclusions [||] |> Array.choose tryCreateRegex
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer false
+      UnusedDeclarationsAnalyzerExclusions =
+        defaultArg dto.UnusedDeclarationsAnalyzerExclusions [||]
+        |> Array.choose tryCreateRegex
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer false
+      SimplifyNameAnalyzerExclusions =
+        defaultArg dto.SimplifyNameAnalyzerExclusions [||]
+        |> Array.choose tryCreateRegex
       ResolveNamespaces = defaultArg dto.ResolveNamespaces false
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false
@@ -932,8 +967,21 @@ type FSharpConfig =
         defaultArg dto.InterfaceStubGenerationMethodBody x.InterfaceStubGenerationMethodBody
       AddPrivateAccessModifier = defaultArg dto.AddPrivateAccessModifier x.AddPrivateAccessModifier
       UnusedOpensAnalyzer = defaultArg dto.UnusedOpensAnalyzer x.UnusedOpensAnalyzer
+      UnusedOpensAnalyzerExclusions =
+        defaultArg
+          (dto.UnusedOpensAnalyzerExclusions |> Option.map (Array.choose tryCreateRegex))
+          x.UnusedOpensAnalyzerExclusions
       UnusedDeclarationsAnalyzer = defaultArg dto.UnusedDeclarationsAnalyzer x.UnusedDeclarationsAnalyzer
+      UnusedDeclarationsAnalyzerExclusions =
+        defaultArg
+          (dto.UnusedDeclarationsAnalyzerExclusions
+           |> Option.map (Array.choose tryCreateRegex))
+          x.UnusedDeclarationsAnalyzerExclusions
       SimplifyNameAnalyzer = defaultArg dto.SimplifyNameAnalyzer x.SimplifyNameAnalyzer
+      SimplifyNameAnalyzerExclusions =
+        defaultArg
+          (dto.SimplifyNameAnalyzerExclusions |> Option.map (Array.choose tryCreateRegex))
+          x.SimplifyNameAnalyzerExclusions
       ResolveNamespaces = defaultArg dto.ResolveNamespaces x.ResolveNamespaces
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
       EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers

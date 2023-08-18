@@ -37,6 +37,7 @@ let initTests createServer =
       let p: InitializeParams =
         { ProcessId = Some 1
           RootPath = Some __SOURCE_DIRECTORY__
+          Locale = None
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
           Capabilities = Some clientCaps
@@ -58,9 +59,9 @@ let initTests createServer =
 
         Expect.equal
           res.Capabilities.CodeActionProvider
-          (Some
+          (Some (U2.Second
             { CodeActionOptions.ResolveProvider = None
-              CodeActionOptions.CodeActionKinds = None })
+              CodeActionOptions.CodeActionKinds = None }))
           "Code Action Provider"
 
         Expect.equal
@@ -74,7 +75,7 @@ let initTests createServer =
         Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
         Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
         Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
-        Expect.equal res.Capabilities.DocumentSymbolProvider (Some true) "Document Symbol Provider"
+        Expect.equal res.Capabilities.DocumentSymbolProvider (Some (U2.Second { Label = Some "F#" })) "Document Symbol Provider"
         Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
         Expect.equal res.Capabilities.Experimental None "Experimental"
         Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
@@ -99,7 +100,7 @@ let initTests createServer =
 
         Expect.equal res.Capabilities.TextDocumentSync (Some td) "Text Document Provider"
         Expect.equal res.Capabilities.TypeDefinitionProvider (Some true) "Type Definition Provider"
-        Expect.equal res.Capabilities.WorkspaceSymbolProvider (Some true) "Workspace Symbol Provider"
+        Expect.equal res.Capabilities.WorkspaceSymbolProvider (Some (U2.Second { ResolveProvider = Some true })) "Workspace Symbol Provider"
         Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
       | Result.Error e -> failtest "Initialization failed"
     })

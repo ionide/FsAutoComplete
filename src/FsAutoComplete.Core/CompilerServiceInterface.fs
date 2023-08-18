@@ -165,8 +165,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
 
       let allFlags = Array.append [| "--targetprofile:mscorlib" |] fsiAdditionalArguments
 
-      do! Async.SwitchToNewThread()
-
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
           UMX.untag file,
@@ -191,8 +189,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
 
       let allFlags =
         Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
-
-      do! Async.SwitchToNewThread()
 
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
@@ -269,7 +265,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
       )
 
       let path = UMX.untag filePath
-      do! Async.SwitchToNewThread()
       return! checker.ParseFile(path, source, options)
     }
 
@@ -299,7 +294,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
       let path = UMX.untag filePath
 
       try
-        do! Async.SwitchToNewThread()
         let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
@@ -331,6 +325,12 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
           else
             return r
       with ex ->
+        checkerLogger.error (
+          Log.setMessage "{opName} completed with exception: {ex}"
+          >> Log.addContextDestructured "opName" opName
+          >> Log.addExn ex
+        )
+
         return! ResultOrString.Error(ex.ToString())
     }
 
@@ -394,8 +394,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
         >> Log.addContextDestructured "file" file
       )
 
-      do! Async.SwitchToNewThread()
-
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some(opts, []) ->
@@ -407,7 +405,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
           opts :: dependentProjects
           |> List.map (fun (opts) ->
             async {
-              do! Async.SwitchToNewThread()
               let opts = clearProjectReferences opts
               let! res = checker.ParseAndCheckProject opts
               return res.GetUsesOfSymbol symbol
@@ -423,8 +420,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
         Log.setMessage "FindReferencesForSymbolInFile - {file}"
         >> Log.addContextDestructured "file" file
       )
-
-      do! Async.SwitchToNewThread()
 
       return!
         checker.FindBackgroundReferencesInFile(
@@ -444,7 +439,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
         >> Log.addContextDestructured "file" fileName
       )
 
-      do! Async.SwitchToNewThread()
       let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
       return parseResult.GetNavigationItems().Declarations
     }

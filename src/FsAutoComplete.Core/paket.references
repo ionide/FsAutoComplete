@@ -16,3 +16,6 @@ Microsoft.Build.Utilities.Core
 Ionide.LanguageServerProtocol
 Ionide.KeepAChangelog.Tasks
 Microsoft.Extensions.Caching.Memory
+Microsoft.CodeAnalysis
+LinkDotNet.StringBuilder
+CommunityToolkit.HighPerformance

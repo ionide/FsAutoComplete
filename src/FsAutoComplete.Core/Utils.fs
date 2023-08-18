@@ -10,6 +10,10 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.UMX
 open FSharp.Compiler.Symbols
 open System.Runtime.CompilerServices
+open LinkDotNet.StringBuilder
+open CommunityToolkit.HighPerformance.Buffers
+open FsAutoComplete.Logging
+open System.Globalization
 
 
 /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
@@ -76,8 +80,6 @@ module ProcessHelper =
       ()
     }
 
-
-
 type ResultOrString<'a> = Result<'a, string>
 
 type Serializer = obj -> string
@@ -108,39 +110,52 @@ type Document =
     GetLineText0: int -> string
     GetLineText1: int -> string }
 
+
 /// <summary>
 /// Checks if the file ends with `.fsx` `.fsscript` or `.sketchfs`
 /// </summary>
-let isAScript (fileName: string) =
-  let ext = Path.GetExtension(fileName)
-
-  [ ".fsx"; ".fsscript"; ".sketchfs" ] |> List.exists ((=) ext)
+let inline isAScript (fileName: ReadOnlySpan<char>) =
+  fileName.EndsWith ".fsx"
+  || fileName.EndsWith ".fsscript"
+  || fileName.EndsWith ".sketchfs"
 
 /// <summary>
 /// Checks if the file ends with `.fsi`
 /// </summary>
-let isSignatureFile (fileName: string) = fileName.EndsWith ".fsi"
+let inline isSignatureFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".fsi"
 
 /// <summary>
 /// Checks if the file ends with `.fs`
 /// </summary>
-let isFsharpFile (fileName: string) = fileName.EndsWith ".fs"
+let isFsharpFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".fs"
+
+let inline internal isFileWithFSharpI fileName =
+  isAScript fileName || isSignatureFile fileName || isFsharpFile fileName
+
 
 /// <summary>
 /// This is a combination of `isAScript`, `isSignatureFile`, and `isFsharpFile`
 /// </summary>
 /// <param name="fileName"></param>
 /// <returns></returns>
-let isFileWithFSharp fileName =
-  [ isAScript; isSignatureFile; isFsharpFile ]
-  |> List.exists (fun f -> f fileName)
+let inline isFileWithFSharp (fileName: string) = isFileWithFSharpI fileName
 
-let normalizePath (file: string) : string<LocalPath> =
-  if isFileWithFSharp file then
-    let p = Path.GetFullPath file
-    UMX.tag<LocalPath> ((p.Chars 0).ToString().ToLower() + p.Substring(1))
+let inline internal normalizePathI (file: ReadOnlySpan<char>) : string<LocalPath> =
+  if isFileWithFSharpI file then
+
+    let p = (Path.GetFullPath(StringPool.Shared.GetOrAdd file)).AsSpan()
+    let buffer = SpanOwner<char>.Allocate(p.Length)
+
+    try
+      let written = p.Slice(0, 1).ToLower(buffer.Span, CultureInfo.InvariantCulture)
+      p.Slice(written).CopyTo(buffer.Span.Slice(written))
+      UMX.tag<LocalPath> (StringPool.Shared.GetOrAdd buffer.Span)
+    finally
+      buffer.Dispose()
   else
-    UMX.tag<LocalPath> file
+    UMX.tag<LocalPath> (StringPool.Shared.GetOrAdd file)
+
+let inline normalizePath (file: string) : string<LocalPath> = normalizePathI file
 
 let inline combinePaths path1 (path2: string) =
   Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
@@ -250,141 +265,6 @@ module Async =
 module AsyncResult =
   let inline bimap okF errF r = Async.map (Result.bimap okF errF) r
   let inline ofOption recover o = Async.map (Result.ofOption recover) o
-
-// Maybe computation expression builder, copied from ExtCore library
-/// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs
-[<Sealed>]
-type MaybeBuilder() =
-  // 'T -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Return value : 'T option = Some value
-
-  // M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.ReturnFrom value : 'T option = value
-
-  // unit -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Zero() : unit option = Some() // TODO: Should this be None?
-
-  // (unit -> M<'T>) -> M<'T>
-  [<DebuggerStepThrough>]
-  member __.Delay(f: unit -> 'T option) : 'T option = f ()
-
-  // M<'T> -> M<'T> -> M<'T>
-  // or
-  // M<unit> -> M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member inline __.Combine(r1, r2: 'T option) : 'T option =
-    match r1 with
-    | None -> None
-    | Some() -> r2
-
-  // M<'T> * ('T -> M<'U>) -> M<'U>
-  [<DebuggerStepThrough>]
-  member inline __.Bind(value, f: 'T -> 'U option) : 'U option = Option.bind f value
-
-  // 'T * ('T -> M<'U>) -> M<'U> when 'U :> IDisposable
-  [<DebuggerStepThrough>]
-  member __.Using(resource: ('T :> IDisposable), body: _ -> _ option) : _ option =
-    try
-      body resource
-    finally
-      if not <| obj.ReferenceEquals(null, box resource) then
-        resource.Dispose()
-
-  // (unit -> bool) * M<'T> -> M<'T>
-  [<DebuggerStepThrough>]
-  member x.While(guard, body: _ option) : _ option =
-    if guard () then
-      // OPTIMIZE: This could be simplified so we don't need to make calls to Bind and While.
-      x.Bind(body, (fun () -> x.While(guard, body)))
-    else
-      x.Zero()
-
-  // seq<'T> * ('T -> M<'U>) -> M<'U>
-  // or
-  // seq<'T> * ('T -> M<'U>) -> seq<M<'U>>
-  [<DebuggerStepThrough>]
-  member x.For(sequence: seq<_>, body: 'T -> unit option) : _ option =
-    // OPTIMIZE: This could be simplified so we don't need to make calls to Using, While, Delay.
-    x.Using(sequence.GetEnumerator(), (fun enum -> x.While(enum.MoveNext, x.Delay(fun () -> body enum.Current))))
-
-[<Sealed>]
-type AsyncMaybeBuilder() =
-  [<DebuggerStepThrough>]
-  member __.Return value : Async<'T option> = Some value |> async.Return
-
-  [<DebuggerStepThrough>]
-  member __.ReturnFrom value : Async<'T option> = value
-
-  [<DebuggerStepThrough>]
-  member __.ReturnFrom(value: 'T option) : Async<'T option> = async.Return value
-
-  [<DebuggerStepThrough>]
-  member __.Zero() : Async<unit option> = Some() |> async.Return
-
-  [<DebuggerStepThrough>]
-  member __.Delay(f: unit -> Async<'T option>) : Async<'T option> = f ()
-
-  [<DebuggerStepThrough>]
-  member __.Combine(r1, r2: Async<'T option>) : Async<'T option> =
-    async {
-      let! r1' = r1
-
-      match r1' with
-      | None -> return None
-      | Some() -> return! r2
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Bind(value: Async<'T option>, f: 'T -> Async<'U option>) : Async<'U option> =
-    async {
-      let! value' = value
-
-      match value' with
-      | None -> return None
-      | Some result -> return! f result
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Bind(value: 'T option, f: 'T -> Async<'U option>) : Async<'U option> =
-    async {
-      match value with
-      | None -> return None
-      | Some result -> return! f result
-    }
-
-  [<DebuggerStepThrough>]
-  member __.Using(resource: ('T :> IDisposable), body: _ -> Async<_ option>) : Async<_ option> =
-    try
-      body resource
-    finally
-      if not << isNull <| resource then
-        resource.Dispose()
-
-  [<DebuggerStepThrough>]
-  member x.While(guard, body: Async<_ option>) : Async<_ option> =
-    if guard () then
-      x.Bind(body, (fun () -> x.While(guard, body)))
-    else
-      x.Zero()
-
-  [<DebuggerStepThrough>]
-  member x.For(sequence: seq<_>, body: 'T -> Async<unit option>) : Async<_ option> =
-    x.Using(sequence.GetEnumerator(), (fun enum -> x.While(enum.MoveNext, x.Delay(fun () -> body enum.Current))))
-
-  [<DebuggerStepThrough>]
-  member inline __.TryWith(computation: Async<'T option>, catchHandler: exn -> Async<'T option>) : Async<'T option> =
-    async.TryWith(computation, catchHandler)
-
-  [<DebuggerStepThrough>]
-  member inline __.TryFinally(computation: Async<'T option>, compensation: unit -> unit) : Async<'T option> =
-    async.TryFinally(computation, compensation)
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module AsyncMaybe =
-  let inline liftAsync (async: Async<'T>) : Async<_ option> = async |> Async.map Some
 
 
 [<RequireQualifiedAccess>]
@@ -533,9 +413,6 @@ module List =
     |> List.groupBy (fst)
     |> List.map (fun (key, list) -> key, list |> List.map snd)
 
-
-
-
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module String =
@@ -650,89 +527,119 @@ type Path with
   /// Algorithm from https://stackoverflow.com/a/35734486/433393 for converting file paths to uris,
   /// modified slightly to not rely on the System.Path members because they vary per-platform
   static member FilePathToUri(filePath: string) : string =
-    let filePath, finished =
-      if filePath.Contains "Untitled-" then
-        let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
 
-        if rg.Success then
-          rg.Groups.[1].Value, true
-        else
-          filePath, false
-      else
-        filePath, false
+    let mutable filePathSpan = filePath.AsSpan()
+    let mutable finished = false
+
+    if filePathSpan.Contains("Untitled-", StringComparison.InvariantCultureIgnoreCase) then
+
+      let rg = System.Text.RegularExpressions.Regex.Match(filePath, @"(Untitled-\d+).fsx")
+
+      if rg.Success then
+        filePathSpan <- rg.Groups.[1].Value.AsSpan()
+        finished <- true
 
     if not finished then
-      let uri = System.Text.StringBuilder(filePath.Length)
+      let uri = ValueStringBuilder()
 
-      for c in filePath do
-        if
-          (c >= 'a' && c <= 'z')
-          || (c >= 'A' && c <= 'Z')
-          || (c >= '0' && c <= '9')
-          || c = '+'
-          || c = '/'
-          || c = '.'
-          || c = '-'
-          || c = '_'
-          || c = '~'
-          || c > '\xFF'
-        then
-          uri.Append(c) |> ignore
-        // handle windows path separator chars.
-        // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
-        // logic to work cross-platform (for tests)
-        else if c = '\\' then
-          uri.Append('/') |> ignore
-        else
-          uri.Append('%') |> ignore
-          uri.Append((int c).ToString("X2")) |> ignore
+      try
+        let mutable length = 0
 
-      if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
-        "file:" + uri.ToString()
-      else
-        "file:///" + (uri.ToString()).TrimStart('/')
-    // handle windows path separator chars.
-    // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
-    // logic to work cross-platform (for tests)
+        for c in filePathSpan do
+          if
+            (c >= 'a' && c <= 'z')
+            || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')
+            || c = '+'
+            || c = '/'
+            || c = '.'
+            || c = '-'
+            || c = '_'
+            || c = '~'
+            || c > '\xFF'
+          then
+            uri.Append(c)
+            length <- length + 1
+          // handle windows path separator chars.
+          // we _would_ use Path.DirectorySeparator/AltDirectorySeparator, but those vary per-platform and we want this
+          // logic to work cross-platform (for tests)
+          else if c = '\\' then
+            uri.Append('/')
+            length <- length + 1
+          else
+            uri.Append('%')
+            let buffer = SpanOwner<char>.Allocate 2
+            let mutable out = 0
+
+            try
+              (int c).TryFormat(buffer.Span, &out, "X2") |> ignore
+              uri.Append(buffer.Span)
+            finally
+              buffer.Dispose()
+
+            length <- length + 2
+
+        let file =
+          if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path
+            "file:".AsSpan()
+          else
+            uri.TrimStart('/')
+            "file:///".AsSpan()
+
+        let buffer = SpanOwner<char>.Allocate(file.Length + uri.Length)
+        let finalResult = ValueStringBuilder(buffer.Span)
+
+        try
+          finalResult.Append(file)
+          finalResult.Append(uri.AsSpan())
+
+          StringPool.Shared.GetOrAdd(finalResult.AsSpan())
+        finally
+          finalResult.Dispose()
+          buffer.Dispose()
+      finally
+        uri.Dispose()
+
     else
-      "untitled:" + filePath
+      String.Concat("untitled:", filePathSpan)
+
+
+  /// a test that checks if the start of the line is a windows-style drive string, for example
+  /// /d:, /c:, /z:, etc.
+  static member inline internal IsWindowsStyleDriveLetterMatch(s: ReadOnlySpan<char>) =
+    let slice = s.Slice(0, 3)
+    slice.Length = 3 && slice[0] = '/' && Char.IsLetter slice[1] && slice[2] = ':'
+
 
   /// handles unifying the local-path logic for windows and non-windows paths,
   /// without doing a check based on what the current system's OS is.
   static member FileUriToLocalPath(uriString: string) =
-    /// a test that checks if the start of the line is a windows-style drive string, for example
-    /// /d:, /c:, /z:, etc.
-    let isWindowsStyleDriveLetterMatch (s: string) =
-      match s.[0..2].ToCharArray() with
-      | [||]
-      | [| _ |]
-      | [| _; _ |] -> false
-      // 26 windows drive letters allowed, only
-      | [| '/'; driveLetter; ':' |] when Char.IsLetter driveLetter -> true
-      | _ -> false
 
-    let initialLocalPath = Uri(uriString).LocalPath
+    let uriStringSpan = uriString.AsSpan()
+    let mutable initialLocalPath = Uri(uriString).LocalPath.AsSpan()
+    let mutable builder = ValueStringBuilder()
 
-    let fn =
-      if isWindowsStyleDriveLetterMatch initialLocalPath then
-        let trimmed = initialLocalPath.TrimStart('/')
+    try
+      let isWindowPath = Path.IsWindowsStyleDriveLetterMatch initialLocalPath
 
-        let initialDriveLetterCaps =
-          string (System.Char.ToLower trimmed.[0]) + trimmed.[1..]
-
-        initialDriveLetterCaps
+      if isWindowPath then
+        initialLocalPath <- initialLocalPath.TrimStart('/')
+        builder.Append(System.Char.ToLower initialLocalPath.[0])
+        builder.Append(initialLocalPath.Slice(1))
       else
-        initialLocalPath
+        builder.Append initialLocalPath
 
-    if uriString.StartsWith "untitled:" then
-      (fn + ".fsx")
-    else
-      fn
+      if uriStringSpan.StartsWith("untitled:") then
+        builder.Append(".fsx")
+
+      StringPool.Shared.GetOrAdd(builder.AsSpan())
+    finally
+      builder.Dispose()
+
+
 
 let inline debug msg = Printf.kprintf Debug.WriteLine msg
 let inline fail msg = Printf.kprintf Debug.Fail msg
-let asyncMaybe = AsyncMaybeBuilder()
-let maybe = MaybeBuilder()
 
 
 let chooseByPrefix (prefix: string) (s: string) =
