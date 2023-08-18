@@ -7,6 +7,7 @@ open FsAutoComplete.Logging
 open FSharp.UMX
 open FsToolkit.ErrorHandling
 open FSharp.Compiler.Text
+open FsAutoComplete.FCSPatches
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -16,13 +17,15 @@ module LspTypes = Ionide.LanguageServerProtocol.Types
 module Types =
   type IsEnabled = unit -> bool
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
-  type GetFileLines = string<LocalPath> -> Async<ResultOrString<NamedText>>
-  type GetLineText = NamedText -> LspTypes.Range -> Async<Result<string, string>>
+  type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
+  type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
       -> FSharp.Compiler.Text.Position
-      -> Async<ResultOrString<ParseAndCheckResults * string * NamedText>>
+      -> Async<ResultOrString<ParseAndCheckResults * string * IFSACSourceText>>
+
+  type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
   type GetProjectOptionsForFile =
     string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
@@ -104,39 +107,39 @@ module SourceText =
 /// helpers for iterating along text lines
 module Navigation =
   val findPosForCharacter: lines: string[] -> pos: int -> FcsPos
-  val inc: lines: NamedText -> pos: LspTypes.Position -> LspTypes.Position option
-  val dec: lines: NamedText -> pos: LspTypes.Position -> LspTypes.Position option
-  val decMany: lines: NamedText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
-  val incMany: lines: NamedText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
+  val inc: lines: IFSACSourceText -> pos: LspTypes.Position -> LspTypes.Position option
+  val dec: lines: IFSACSourceText -> pos: LspTypes.Position -> LspTypes.Position option
+  val decMany: lines: IFSACSourceText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
+  val incMany: lines: IFSACSourceText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
 
   val walkBackUntilConditionWithTerminal:
-    lines: NamedText ->
+    lines: IFSACSourceText ->
     pos: LspTypes.Position ->
     condition: (char -> bool) ->
     terminal: (char -> bool) ->
       LspTypes.Position option
 
   val walkForwardUntilConditionWithTerminal:
-    lines: NamedText ->
+    lines: IFSACSourceText ->
     pos: LspTypes.Position ->
     condition: (char -> bool) ->
     terminal: (char -> bool) ->
       LspTypes.Position option
 
   val walkBackUntilCondition:
-    lines: NamedText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
+    lines: IFSACSourceText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
 
   val walkForwardUntilCondition:
-    lines: NamedText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
+    lines: IFSACSourceText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
 
   /// Tries to detect the last cursor position in line before `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no prev line -> `currentLine` is first line
-  val tryEndOfPrevLine: lines: ISourceText -> currentLine: int -> LspTypes.Position option
+  val tryEndOfPrevLine: lines: IFSACSourceText -> currentLine: int -> LspTypes.Position option
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no next line -> `currentLine` is last line
-  val tryStartOfNextLine: lines: ISourceText -> currentLine: int -> LspTypes.Position option
+  val tryStartOfNextLine: lines: IFSACSourceText -> currentLine: int -> LspTypes.Position option
   /// Gets the range to delete the complete line `lineIndex` (0-based).
   /// Deleting the line includes a linebreak if possible
   /// -> range starts either at end of previous line (-> includes leading linebreak)
@@ -144,7 +147,7 @@ module Navigation =
   ///
   /// Special case: there's just one line
   /// -> delete text of (single) line
-  val rangeToDeleteFullLine: lineIndex: int -> lines: ISourceText -> LspTypes.Range
+  val rangeToDeleteFullLine: lineIndex: int -> lines: IFSACSourceText -> LspTypes.Range
 
 module Run =
   open Types

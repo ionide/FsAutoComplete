@@ -253,7 +253,7 @@ module Navigation =
   /// Tries to detect the last cursor position in line before `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no prev line -> `currentLine` is first line
-  let tryEndOfPrevLine (lines: ISourceText) currentLine =
+  let tryEndOfPrevLine (lines: IFSACSourceText) currentLine =
     if SourceText.WithEmptyHandling.isFirstLine currentLine lines then
       None
     else
@@ -266,7 +266,7 @@ module Navigation =
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no next line -> `currentLine` is last line
-  let tryStartOfNextLine (lines: ISourceText) currentLine =
+  let tryStartOfNextLine (lines: IFSACSourceText) currentLine =
     if SourceText.WithEmptyHandling.isLastLine currentLine lines then
       None
     else
@@ -280,7 +280,7 @@ module Navigation =
   ///
   /// Special case: there's just one line
   /// -> delete text of (single) line
-  let rangeToDeleteFullLine lineIndex (lines: ISourceText) =
+  let rangeToDeleteFullLine lineIndex (lines: IFSACSourceText) =
     match tryEndOfPrevLine lines lineIndex with
     | Some start ->
       // delete leading linebreak

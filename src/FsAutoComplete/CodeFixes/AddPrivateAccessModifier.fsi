@@ -17,7 +17,7 @@ type SymbolUseWorkspace =
     -> bool
     -> FSharp.Compiler.Text.Position
     -> LineStr
-    -> NamedText
+    -> IFSACSourceText
     -> ParseAndCheckResults
     -> Async<Result<FSharp.Compiler.Symbols.FSharpSymbol *
     System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>

@@ -9,6 +9,11 @@ open System.Runtime.CompilerServices
 open FsToolkit.ErrorHandling
 open System.IO
 open FSharp.Compiler.IO
+open IcedTasks
+
+module File =
+  val getLastWriteTimeOrDefaultNow: path: string<LocalPath> -> DateTime
+  val openFileStreamForReadingAsync: path: string<LocalPath> -> FileStream
 
 [<AutoOpen>]
 module PositionExtensions =
@@ -40,6 +45,58 @@ module RangeExtensions =
     member inline With: start: pos * fin: pos -> range
     member inline WithStart: start: pos -> range
     member inline WithEnd: fin: pos -> range
+
+type IFSACSourceText =
+  abstract member String: string
+  /// The local absolute path of the file whose contents this IFSACSourceText represents
+  abstract member FileName: string<LocalPath>
+  /// The unwrapped local absolute path of the file whose contents this IFSACSourceText represents.
+  /// Should only be used when interoping with the Compiler/Serialization
+  abstract member RawFileName: string
+  /// Representation of the final position in this file
+  abstract member LastFilePosition: Position
+  /// Representation of the entire contents of the file, for inclusion checks
+  abstract member TotalRange: Range
+  /// Provides line-by-line access to the underlying text.
+  /// This can lead to unsafe access patterns, consider using one of the range or position-based
+  /// accessors instead
+  abstract member Lines: string array
+  /// Provides safe access to a substring of the file via FCS-provided Range
+  abstract member GetText: range: Range -> Result<string, string>
+  /// Provides safe access to a line of the file via FCS-provided Position
+  abstract member GetLine: position: Position -> option<string>
+  /// Provide safe access to the length of a line of the file via FCS-provided Position
+  abstract member GetLineLength: position: Position -> option<int>
+  abstract member GetCharUnsafe: position: Position -> char
+  /// <summary>Provides safe access to a character of the file via FCS-provided Position.
+  /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
+  abstract member TryGetChar: position: Position -> option<char>
+  /// Provides safe incrementing of a lien in the file via FCS-provided Position
+  abstract member NextLine: position: Position -> option<Position>
+  /// Provides safe incrementing of a position in the file via FCS-provided Position
+  abstract member NextPos: position: Position -> option<Position>
+  /// Provides safe incrementing of positions in a file while returning the character at the new position.
+  /// Intended use is for traversal loops.
+  abstract member TryGetNextChar: position: Position -> option<Position * char>
+  /// Provides safe decrementing of a position in the file via FCS-provided Position
+  abstract member PrevPos: position: Position -> option<Position>
+  /// Provides safe decrementing of positions in a file while returning the character at the new position.
+  /// Intended use is for traversal loops.
+  abstract member TryGetPrevChar: position: Position -> option<Position * char>
+  /// create a new IFSACSourceText for this file with the given text inserted at the given range.
+  abstract member ModifyText: range: Range * text: string -> Result<IFSACSourceText, string>
+  /// Safe access to the char in a file by Position
+  abstract Item: index: Position -> option<char> with get
+  /// Safe access to the contents of a file by Range
+  abstract Item: index: Range -> Result<string, string> with get
+
+  abstract member WalkForward:
+    position: Position * terminal: (char -> bool) * condition: (char -> bool) -> option<Position>
+
+  abstract member WalkBackwards:
+    position: Position * terminal: (char -> bool) * condition: (char -> bool) -> option<Position>
+
+  inherit ISourceText
 
 /// A copy of the StringText type from F#.Compiler.Text, which is private.
 /// Adds a UOM-typed filename to make range manipulation easier, as well as
@@ -97,30 +154,35 @@ type NamedText =
   /// This can lead to unsafe access patterns, consider using one of the range or position-based
   /// accessors instead
   member Lines: string array
-  interface ISourceText
+  interface IFSACSourceText
+
+type ISourceTextFactory =
+  abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
+  abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
+
+type NamedTextFactory =
+  new: unit -> NamedTextFactory
+  interface ISourceTextFactory
+
+type RoslynSourceTextFactory =
+  new: unit -> RoslynSourceTextFactory
+  interface ISourceTextFactory
 
 type VolatileFile =
-  { Touched: DateTime
-    Lines: NamedText
-    Version: int option }
+  { LastTouched: DateTime
+    Source: IFSACSourceText
+    Version: int }
 
   member FileName: string<LocalPath>
   /// <summary>Updates the Lines value</summary>
-  member SetLines: lines: NamedText -> VolatileFile
-  /// <summary>Updates the Lines value with supplied text</summary>
-  member SetText: text: string -> VolatileFile
+  member SetSource: source: IFSACSourceText -> VolatileFile
   /// <summary>Updates the Touched value</summary>
-  member SetTouched: touched: DateTime -> VolatileFile
+  member SetLastTouched: touched: DateTime -> VolatileFile
   /// <summary>Updates the Touched value attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow. </summary>
   member UpdateTouched: unit -> VolatileFile
   /// <summary>Helper method to create a VolatileFile</summary>
-  static member Create: lines: NamedText * version: int option * touched: DateTime -> VolatileFile
+  static member Create: source: IFSACSourceText * version: int * ?touched: DateTime -> VolatileFile
 
-  /// <summary>Helper method to create a VolatileFile</summary>
-  static member Create: path: string<LocalPath> * text: string * version: int option * touched: DateTime -> VolatileFile
-
-  /// <summary>Helper method to create a VolatileFile, attempting to use the file on disk's GetLastWriteTimeUtc otherwise uses DateTime.UtcNow.</summary>
-  static member Create: path: string<LocalPath> * text: string * version: int option -> VolatileFile
 
 type FileSystem =
   new: actualFs: IFileSystem * tryFindFile: (string<LocalPath> -> VolatileFile option) -> FileSystem
@@ -149,4 +211,4 @@ module Tokenizer =
   ///   -> full identifier range with backticks, just identifier name (~`symbolNameCore`) without backticks
   ///
   /// returns `None` iff `range` isn't inside `text` -> `range` & `text` for different states
-  val tryFixupRange: symbolNameCore: string * range: Range * text: NamedText * includeBackticks: bool -> Range voption
+  val tryFixupRange: symbolNameCore: string * range: Range * text: IFSACSourceText * includeBackticks: bool -> Range voption

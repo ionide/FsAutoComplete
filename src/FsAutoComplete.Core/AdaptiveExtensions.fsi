@@ -50,7 +50,7 @@ module AVal =
   /// <summary>
   /// Calls a mapping function which creates additional dependencies to be tracked.
   /// </summary>
-  val mapWithAdditionalDependenies:
+  val mapWithAdditionalDependencies:
     mapping: ('a -> 'b * #seq<'b1>) -> value: FSharp.Data.Adaptive.aval<'a> -> FSharp.Data.Adaptive.aval<'b>
       when 'b1 :> FSharp.Data.Adaptive.IAdaptiveValue
 
@@ -134,7 +134,7 @@ module AMap =
     map: FSharp.Data.Adaptive.amap<'K, 'T1> ->
       FSharp.Data.Adaptive.amap<'K, 'T2>
 
-  val mapWithAdditionalDependenies:
+  val mapWithAdditionalDependencies:
     mapping: (FSharp.Data.Adaptive.HashMap<'K, 'T1> -> FSharp.Data.Adaptive.HashMap<'K, ('T2 * #seq<'b>)>) ->
     map: FSharp.Data.Adaptive.amap<'K, 'T1> ->
       FSharp.Data.Adaptive.amap<'K, 'T2>

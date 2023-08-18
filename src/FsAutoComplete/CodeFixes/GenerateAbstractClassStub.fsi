@@ -14,6 +14,6 @@ val title: string
 val fix:
   getParseResultsForFile: GetParseResultsForFile ->
   genAbstractClassStub:
-    (ParseAndCheckResults -> FcsRange -> NamedText -> string -> Async<CoreResponse<FcsPos * string>>) ->
+    (ParseAndCheckResults -> FcsRange -> IFSACSourceText -> string -> Async<CoreResponse<FcsPos * string>>) ->
   getTextReplacements: (unit -> Map<string, string>) ->
     (CodeActionParams -> Async<Result<Fix list, string>>)

@@ -63,22 +63,22 @@ type Document =
 /// <summary>
 /// Checks if the file ends with `.fsx` `.fsscript` or `.sketchfs`
 /// </summary>
-val isAScript: fileName: string -> bool
+val inline isAScript: fileName: ReadOnlySpan<char> -> bool
 /// <summary>
 /// Checks if the file ends with `.fsi`
 /// </summary>
-val isSignatureFile: fileName: string -> bool
+val inline isSignatureFile: fileName: ReadOnlySpan<char> -> bool
 /// <summary>
 /// Checks if the file ends with `.fs`
 /// </summary>
-val isFsharpFile: fileName: string -> bool
+val isFsharpFile: fileName: ReadOnlySpan<char> -> bool
 /// <summary>
 /// This is a combination of `isAScript`, `isSignatureFile`, and `isFsharpFile`
 /// </summary>
 /// <param name="fileName"></param>
 /// <returns></returns>
-val isFileWithFSharp: fileName: string -> bool
-val normalizePath: file: string -> string<LocalPath>
+val inline isFileWithFSharp: fileName: string -> bool
+val inline normalizePath: file: string -> string<LocalPath>
 val inline combinePaths: path1: string -> path2: string -> string
 val inline (</>): path1: string -> path2: string -> string
 val projectOptionsToParseOptions: checkOptions: FSharpProjectOptions -> FSharpParsingOptions
@@ -120,85 +120,6 @@ module Async =
 module AsyncResult =
   val inline bimap: okF: ('a -> 'b) -> errF: ('c -> 'b) -> r: Async<Result<'a, 'c>> -> Async<'b>
   val inline ofOption: recover: (unit -> 'a) -> o: Async<'b option> -> Async<Result<'b, 'a>>
-
-/// https://github.com/jack-pappas/ExtCore/blob/master/ExtCore/Control.fs
-[<Sealed>]
-type MaybeBuilder =
-  new: unit -> MaybeBuilder
-
-  [<DebuggerStepThrough>]
-  member inline Return: value: 'T -> 'T option
-
-  [<DebuggerStepThrough>]
-  member inline ReturnFrom: value: 'T option -> 'T option
-
-  [<DebuggerStepThrough>]
-  member inline Zero: unit -> unit option
-
-  [<DebuggerStepThrough>]
-  member Delay: f: (unit -> 'T option) -> 'T option
-
-  [<DebuggerStepThrough>]
-  member inline Combine: r1: unit option * r2: 'T option -> 'T option
-
-  [<DebuggerStepThrough>]
-  member inline Bind: value: 'T option * f: ('T -> 'U option) -> 'U option
-
-  [<DebuggerStepThrough>]
-  member Using: resource: 'T * body: ('T -> 'a option) -> 'a option when 'T :> IDisposable
-
-  [<DebuggerStepThrough>]
-  member While: guard: (unit -> bool) * body: unit option -> unit option
-
-  [<DebuggerStepThrough>]
-  member For: sequence: seq<'T> * body: ('T -> unit option) -> unit option
-
-[<Sealed>]
-type AsyncMaybeBuilder =
-  new: unit -> AsyncMaybeBuilder
-
-  [<DebuggerStepThrough>]
-  member Return: value: 'T -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member ReturnFrom: value: Async<'T option> -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member ReturnFrom: value: 'T option -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member Zero: unit -> Async<unit option>
-
-  [<DebuggerStepThrough>]
-  member Delay: f: (unit -> Async<'T option>) -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member Combine: r1: Async<unit option> * r2: Async<'T option> -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member Bind: value: Async<'T option> * f: ('T -> Async<'U option>) -> Async<'U option>
-
-  [<DebuggerStepThrough>]
-  member Bind: value: 'T option * f: ('T -> Async<'U option>) -> Async<'U option>
-
-  [<DebuggerStepThrough>]
-  member Using: resource: 'T * body: ('T -> Async<'a option>) -> Async<'a option> when 'T :> IDisposable and 'T: null
-
-  [<DebuggerStepThrough>]
-  member While: guard: (unit -> bool) * body: Async<unit option> -> Async<unit option>
-
-  [<DebuggerStepThrough>]
-  member For: sequence: seq<'T> * body: ('T -> Async<unit option>) -> Async<unit option>
-
-  [<DebuggerStepThrough>]
-  member inline TryWith: computation: Async<'T option> * catchHandler: (exn -> Async<'T option>) -> Async<'T option>
-
-  [<DebuggerStepThrough>]
-  member inline TryFinally: computation: Async<'T option> * compensation: (unit -> unit) -> Async<'T option>
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module AsyncMaybe =
-  val inline liftAsync: async: Async<'T> -> Async<'T option>
 
 [<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -278,8 +199,6 @@ type Path with
 
 val inline debug: msg: Printf.StringFormat<'a, unit> -> 'a
 val inline fail: msg: Printf.StringFormat<'a, unit> -> 'a
-val asyncMaybe: AsyncMaybeBuilder
-val maybe: MaybeBuilder
 val chooseByPrefix: prefix: string -> s: string -> string option
 val chooseByPrefix2: prefixes: string list -> s: string -> string option
 val splitByPrefix: prefix: string -> s: string -> (string * string) option

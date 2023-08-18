@@ -65,10 +65,10 @@ module Range =
     val rangeContainsPos: range: Range -> pos: Position -> bool
 
 val record: cacher: Cacher<'a * 'b> -> ('a -> 'b -> AsyncLspResult<'c>)
-val createServer: state: (unit -> State) -> IFSharpLspServer * ClientEvents
+val createServer: state: (unit -> State) -> sourceTextFactory: ISourceTextFactory -> IFSharpLspServer * ClientEvents
 
 val createAdaptiveServer:
-    workspaceLoader: (unit -> #Ionide.ProjInfo.IWorkspaceLoader) -> IFSharpLspServer * ClientEvents
+    workspaceLoader: (unit -> #Ionide.ProjInfo.IWorkspaceLoader) -> sourceTextFactory: ISourceTextFactory -> IFSharpLspServer * ClientEvents
 
 val defaultConfigDto: FSharpConfigDto
 val clientCaps: ClientCapabilities

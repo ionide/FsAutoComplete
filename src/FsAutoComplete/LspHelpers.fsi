@@ -15,6 +15,9 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
+module FcsPos =
+  val subtractColumn: pos: FcsPos -> column: int -> FcsPos
+
 [<AutoOpen>]
 module Conversions =
   module Lsp = Ionide.LanguageServerProtocol.Types
@@ -142,6 +145,7 @@ module ClassificationUtils =
     /// computation expressions
     | Cexpr = 23
     | Text = 24
+    | Module = 25
 
   [<RequireQualifiedAccess; Flags>]
   type SemanticTokenModifier =
@@ -274,8 +278,11 @@ type FSharpConfigDto =
     InterfaceStubGenerationMethodBody: string option
     AddPrivateAccessModifier: bool option
     UnusedOpensAnalyzer: bool option
+    UnusedOpensAnalyzerExclusions: string array option
     UnusedDeclarationsAnalyzer: bool option
+    UnusedDeclarationsAnalyzerExclusions: string array option
     SimplifyNameAnalyzer: bool option
+    SimplifyNameAnalyzerExclusions: string array option
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
@@ -366,8 +373,11 @@ type FSharpConfig =
     InterfaceStubGenerationMethodBody: string
     AddPrivateAccessModifier: bool
     UnusedOpensAnalyzer: bool
+    UnusedOpensAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     UnusedDeclarationsAnalyzer: bool
+    UnusedDeclarationsAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     SimplifyNameAnalyzer: bool
+    SimplifyNameAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool

@@ -11,6 +11,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.CodeAnalysis
 open FsToolkit.ErrorHandling
+open FsAutoComplete.FCSPatches
 
 [<AutoOpen>]
 module ProjInfoExtensions =
@@ -61,31 +62,32 @@ type State =
     workspaceLoaderFactory: (Ionide.ProjInfo.Types.ToolsPath -> Ionide.ProjInfo.IWorkspaceLoader) ->
       State
 
-  member RefreshCheckerOptions: file: string<LocalPath> * text: NamedText -> FSharpProjectOptions option
+  member RefreshCheckerOptions: file: string<LocalPath> * text: IFSACSourceText -> FSharpProjectOptions option
   member GetProjectOptions: file: string<LocalPath> -> FSharpProjectOptions option
   member GetProjectOptions': file: string<LocalPath> -> FSharpProjectOptions
   member RemoveProjectOptions: file: string<LocalPath> -> unit
   member FSharpProjectOptions: seq<string * FSharpProjectOptions>
+  member LanguageVersions: seq<string * LanguageVersionShim>
   member TryGetFileVersion: file: string<LocalPath> -> int option
   member TryGetLastCheckedVersion: file: string<LocalPath> -> int option
   member SetFileVersion: file: string<LocalPath> -> version: int -> unit
   member SetLastCheckedVersion: file: string<LocalPath> -> version: int -> unit
 
   member AddFileTextAndCheckerOptions:
-    file: string<LocalPath> * text: NamedText * opts: FSharpProjectOptions * version: int option -> unit
+    file: string<LocalPath> * text: IFSACSourceText * opts: FSharpProjectOptions * version: int -> unit
 
-  member AddFileText: file: string<LocalPath> * text: NamedText * version: int option -> unit
+  member AddFileText: file: string<LocalPath> * text: IFSACSourceText * version: int -> unit
   member AddCancellationToken: file: string<LocalPath> * token: CancellationTokenSource -> unit
   member GetCancellationTokens: file: string<LocalPath> -> CancellationTokenSource list
 
-  member TryGetFileCheckerOptionsWithLines: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * NamedText>
+  member TryGetFileCheckerOptionsWithLines: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
 
-  member TryGetFileCheckerOptionsWithSource: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * NamedText>
+  member TryGetFileCheckerOptionsWithSource: file: string<LocalPath> -> ResultOrString<FSharpProjectOptions * IFSACSourceText>
 
-  member TryGetFileSource: file: string<LocalPath> -> ResultOrString<NamedText>
+  member TryGetFileSource: file: string<LocalPath> -> ResultOrString<IFSACSourceText>
 
   member TryGetFileCheckerOptionsWithLinesAndLineStr:
-    file: string<LocalPath> * pos: Position -> ResultOrString<FSharpProjectOptions * NamedText * LineStr>
+    file: string<LocalPath> * pos: Position -> ResultOrString<FSharpProjectOptions * IFSACSourceText * LineStr>
 
   /// Removes `file` from all caches
   member Forget: file: string<LocalPath> -> unit

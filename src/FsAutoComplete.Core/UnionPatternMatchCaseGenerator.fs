@@ -489,9 +489,9 @@ let checkThatPatternMatchExprEndsWithCompleteClause (expr: PatternMatchExpr) =
         || unitRange.StartColumn <> unitRange.EndColumn
 
       rhsExprExists
-      && not (FsAutoComplete.FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
+      && not (FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
-    | _ -> not (FsAutoComplete.FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
+    | _ -> not (FCSPatches.SyntaxTreeOps.synExprContainsError expr.Expr)
 
 
 let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos document =
