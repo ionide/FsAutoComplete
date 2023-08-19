@@ -8,6 +8,13 @@
     <IsTestProject>true</IsTestProject>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
+    <!-- enable graph-based checking. This can't go at the repo-level because when we test
+         in .net 6 the TestCases projects don't know about these flags -->
+    <!-- Yes we know 'times' is for test only, thanks FSC :) -->
+    <NoWarn>$(NoWarn);FS0075</NoWarn>
+    <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
+    <!-- end graph-based-checking options -->
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete/FsAutoComplete.fsproj">
@@ -20,15 +27,25 @@
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers.fsi" />
     <Compile Include="Helpers.fs" />
+    <Compile Include="Utils/Utils.fsi" />
     <Compile Include="Utils/Utils.fs" />
+    <Compile Include="Utils/Utils.Tests.fsi" />
     <Compile Include="Utils/Utils.Tests.fs" />
+    <Compile Include="Utils/TextEdit.fsi" />
     <Compile Include="Utils/TextEdit.fs" />
+    <Compile Include="Utils/TextEdit.Tests.fsi" />
     <Compile Include="Utils/TextEdit.Tests.fs" />
+    <Compile Include="Utils/Server.fsi" />
     <Compile Include="Utils/Server.fs" />
+    <Compile Include="Utils/ServerTests.fsi" />
     <Compile Include="Utils/ServerTests.fs" />
+    <Compile Include="Utils/Server.Tests.fsi" />
     <Compile Include="Utils/Server.Tests.fs" />
+    <Compile Include="Utils/CursorbasedTests.fsi" />
     <Compile Include="Utils/CursorbasedTests.fs" />
+    <Compile Include="Utils/CursorbasedTests.Tests.fsi" />
     <Compile Include="Utils/CursorbasedTests.Tests.fs" />
     <Compile
         Include="*Tests.fs"

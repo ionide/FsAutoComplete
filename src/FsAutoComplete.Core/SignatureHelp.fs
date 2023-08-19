@@ -38,8 +38,8 @@ let private getSignatureHelpForFunctionApplication
 
     let! possibleApplicationSymbolEnd =
       option {
-        if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
-          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
+        if tyRes.GetParseResults.IsPosContainedInApplication endOfPreviousIdentPos then
+          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
           return funcRange.End
         else
           return endOfPreviousIdentPos
@@ -84,7 +84,7 @@ let private getSignatureHelpForFunctionApplication
         let numDefinedArgs = definedArgs.Length
 
         let curriedArgsInSource =
-          tyRes.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolStart
+          tyRes.GetParseResults.GetAllArgumentsForFunctionApplicationAtPosition symbolStart
           |> Option.defaultValue []
           |> Array.ofList
 
