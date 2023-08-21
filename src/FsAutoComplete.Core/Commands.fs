@@ -922,7 +922,6 @@ module Commands =
         return (symbol, dict)
     }
 
-
   /// * `includeDeclarations`:
   ///   if `false` only returns usage locations and excludes declarations
   ///   * Note: if `true` you can still separate usages and declarations from each other
@@ -2048,7 +2047,7 @@ type Commands
                   match valData with
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
-                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> Some true
+                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
                   | _ -> Some false
                 | _ -> defaultTraverse synBinding
 
@@ -2145,17 +2144,17 @@ type Commands
                                 ->
                                 Some true
                               | SynMemberDefn.GetSetMember(
-                                  memberDefnForGet = Some(SynBinding(
-                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
-                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
-                                ->
-                                Some true
-                              | SynMemberDefn.GetSetMember(
                                   memberDefnForSet = Some(SynBinding(
                                     xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some true
+                                Some false
+                              | SynMemberDefn.GetSetMember(
+                                  memberDefnForGet = Some(SynBinding(
+                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
+                                ->
+                                Some false
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)

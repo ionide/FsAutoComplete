@@ -1,23 +1,23 @@
 {
-    "FSharp.excludeProjectDirectories": [
-        ".git",
-        "paket-files",
-        "packages",
-        "test/FsAutoComplete.IntegrationTests"
-    ],
-    //otherwise take a lot of time to load proj inside
-    //the test directories
-    "omnisharp.autoStart": false,
-    "FSharp.minimizeBackgroundParsing": true,
-    "FSharp.trace.server": "verbose",
-    "yaml.schemas": {
-      "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*"
-    },
-    "editor.inlayHints.enabled": "offUnlessPressed",
-    "FSharp.enableAdaptiveLspServer": true,
-    "files.associations": {
-      "*.*proj": "msbuild",
-      "*.props": "msbuild",
-      "*.targets": "msbuild"
-    }
+  "FSharp.excludeProjectDirectories": [
+    ".git",
+    "paket-files",
+    "packages",
+    "test/FsAutoComplete.IntegrationTests"
+  ],
+  //otherwise take a lot of time to load proj inside
+  //the test directories
+  "omnisharp.autoStart": false,
+  "FSharp.minimizeBackgroundParsing": true,
+  "FSharp.trace.server": "off",
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*"
+  },
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  "FSharp.enableAdaptiveLspServer": true,
+  "files.associations": {
+    "*.*proj": "msbuild",
+    "*.props": "msbuild",
+    "*.targets": "msbuild"
+  }
 }

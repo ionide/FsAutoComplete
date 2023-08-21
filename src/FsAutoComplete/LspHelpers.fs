@@ -630,6 +630,7 @@ type FSACDto =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
     CachedTypeCheckCount: int64 option
+    ParallelReferenceResolution: bool option
   }
 
 type FSharpConfigDto =
@@ -728,16 +729,23 @@ type FSACConfig =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
     CachedTypeCheckCount: int64
+    /// <summary>Whether to use parallel reference resolution in the compiler. See <see href="https://fsharp.github.io/fsharp-compiler-docs/reference/fsharp-compiler-codeanalysis-fsharpchecker.html#Create">the docs</see> for details.</summary>
+    ParallelReferenceResolution: bool
   }
 
-  static member Default = { CachedTypeCheckCount = 200L }
+  static member Default =
+    { CachedTypeCheckCount = 200L
+      ParallelReferenceResolution = true }
 
   static member FromDto(dto: FSACDto) =
     let defaultConfig = FSACConfig.Default
-    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount }
+
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount
+      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution defaultConfig.ParallelReferenceResolution }
 
   member this.AddDto(dto: FSACDto) =
-    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount }
+    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount
+      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution this.ParallelReferenceResolution }
 
 type DebugConfig =
   { DontCheckRelatedFiles: bool

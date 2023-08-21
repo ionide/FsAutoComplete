@@ -98,7 +98,7 @@ type AdaptiveFSharpLspServer
 
   let checker =
     config
-    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount)
+    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount, c.Fsac.ParallelReferenceResolution)
     |> AVal.map (FSharpCompilerServiceChecker)
 
   /// The reality is a file can be in multiple projects
@@ -1642,6 +1642,49 @@ type AdaptiveFSharpLspServer
       text
       tyRes
 
+  let symbolUseWorkspace2
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    text
+    tyRes
+    =
+    let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
+      async {
+        let checker = checker |> AVal.force
+
+        if File.Exists(UMX.untag file) then
+          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+          return! checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
+        else
+          // untitled script files
+          match! forceGetTypeCheckResultsStale file with
+          | Error _ -> return Seq.empty
+          | Ok tyRes ->
+            let! ct = Async.CancellationToken
+            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+            return usages |> Seq.map (fun u -> u.Range)
+      }
+
+    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
+      forceGetFSharpProjectOptions file |> Async.map Option.ofResult
+
+    Commands.symbolUseWorkspace
+      getDeclarationLocation
+      findReferencesForSymbolInFile
+      forceFindSourceText
+      tryGetProjectOptionsForFsproj
+      (getAllFSharpProjectOptions >> Async.map Array.toSeq)
+      includeDeclarations
+      includeBackticks
+      errorOnFailureToFixRange
+      pos
+      lineStr
+      text
+      tyRes
+
   let codefixes =
 
     let tryGetParseResultsForFile filePath pos =
@@ -1779,7 +1822,7 @@ type AdaptiveFSharpLspServer
          RemoveRedundantAttributeSuffix.fix tryGetParseResultsForFile
          Run.ifEnabled
            (fun _ -> config.AddPrivateAccessModifier)
-           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
+           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace2)
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile
          RemovePatternArgument.fix tryGetParseResultsForFile

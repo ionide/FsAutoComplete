@@ -258,6 +258,7 @@ type FSACDto =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
     CachedTypeCheckCount: int64 option
+    ParallelReferenceResolution: bool option
   }
 
 type FSharpConfigDto =
@@ -338,6 +339,8 @@ type FSACConfig =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
     CachedTypeCheckCount: int64
+    /// <summary>Whether to use parallel reference resolution in the compiler. See <see href="https://fsharp.github.io/fsharp-compiler-docs/reference/fsharp-compiler-codeanalysis-fsharpchecker.html#Create">the docs</see> for details.</summary>
+    ParallelReferenceResolution: bool
   }
 
   static member Default: FSACConfig
