@@ -1671,7 +1671,7 @@ type AdaptiveFSharpLspServer
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
       forceGetFSharpProjectOptions file |> Async.map Option.ofResult
 
-    Commands.symbolUseWorkspace2
+    Commands.symbolUseWorkspace
       getDeclarationLocation
       findReferencesForSymbolInFile
       forceFindSourceText
@@ -2931,7 +2931,7 @@ type AdaptiveFSharpLspServer
             Commands.renameSymbolRange getDeclarationLocation false pos lineStr volatileFile.Source tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-          let! (_, ranges) =
+          let! ranges =
             symbolUseWorkspace true true true pos lineStr volatileFile.Source tyRes
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
@@ -3052,7 +3052,7 @@ type AdaptiveFSharpLspServer
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
           and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let! (_, usages) =
+          let! usages =
             symbolUseWorkspace true true false pos lineStr volatileFile.Source tyRes
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
@@ -3590,7 +3590,7 @@ type AdaptiveFSharpLspServer
                                 Arguments = None } }
                   )
 
-              | Ok(_, uses) ->
+              | Ok uses ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =

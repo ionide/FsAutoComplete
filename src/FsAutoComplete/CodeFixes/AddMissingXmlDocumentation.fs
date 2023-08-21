@@ -14,7 +14,6 @@ let title = "Add missing XML documentation"
 
 let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: PreXmlDoc) =
   let tryGetSummaryIfContainsPos (xd: PreXmlDoc) =
-
     if rangeContainsPos xd.Range pos then
       let d = xd.ToXmlDoc(false, None)
 

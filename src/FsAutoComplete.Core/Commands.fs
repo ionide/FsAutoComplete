@@ -922,7 +922,6 @@ module Commands =
         return (symbol, dict)
     }
 
-
   /// * `includeDeclarations`:
   ///   if `false` only returns usage locations and excludes declarations
   ///   * Note: if `true` you can still separate usages and declarations from each other
@@ -942,38 +941,6 @@ module Commands =
   ///     * When exact ranges are required
   ///       -> for "Rename"
   let symbolUseWorkspace
-    (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
-    (includeDeclarations: bool)
-    (includeBackticks: bool)
-    (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
-    (text: IFSACSourceText)
-    (tyRes: ParseAndCheckResults)
-    : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
-    asyncResult {
-      let! symbolUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No symbol")
-
-      return!
-        symbolUseWorkspaceAux
-          getDeclarationLocation
-          findReferencesForSymbolInFile
-          tryGetFileSource
-          tryGetProjectOptionsForFsproj
-          getAllProjectOptions
-          includeDeclarations
-          includeBackticks
-          errorOnFailureToFixRange
-          text
-          tyRes
-          symbolUse
-    }
-
-  let symbolUseWorkspace2
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
@@ -2081,7 +2048,7 @@ type Commands
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
-                  | _ -> Some()
+                  | _ -> Some false
                 | _ -> defaultTraverse synBinding
 
               member _.VisitComponentInfo(_, synComponentInfo) =
@@ -2089,7 +2056,7 @@ type Commands
                 | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | _ -> None
 
               member _.VisitRecordDefn(_, fields, _) =
@@ -2098,7 +2065,7 @@ type Commands
                   | SynField(xmlDoc = xmlDoc; idOpt = Some ident) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 fields |> List.tryPick isInLine
@@ -2109,7 +2076,7 @@ type Commands
                   | SynUnionCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2120,7 +2087,7 @@ type Commands
                   | SynEnumCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2131,7 +2098,7 @@ type Commands
                   | SynBinding(xmlDoc = xmlDoc) as s when
                     rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> defaultTraverse b
 
                 bindings |> List.tryPick isInLine
@@ -2150,7 +2117,7 @@ type Commands
                 | SynModuleOrNamespace(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | SynModuleOrNamespace(decls = decls) ->
 
                   let rec findNested decls =
@@ -2162,7 +2129,7 @@ type Commands
                         | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                           longIdentContainsPos longId pos && xmlDoc.IsEmpty
                           ->
-                          Some()
+                          Some false
                         | _ -> findNested decls
                       | SynModuleDecl.Types(typeDefns = typeDefns) ->
                         typeDefns
@@ -2175,19 +2142,19 @@ type Commands
                               | SynMemberDefn.AutoProperty(ident = ident; xmlDoc = xmlDoc) when
                                 rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                                 ->
-                                Some()
-                              | SynMemberDefn.GetSetMember(
-                                  memberDefnForGet = Some(SynBinding(
-                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
-                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
-                                ->
-                                Some()
+                                Some true
                               | SynMemberDefn.GetSetMember(
                                   memberDefnForSet = Some(SynBinding(
                                     xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some()
+                                Some false
+                              | SynMemberDefn.GetSetMember(
+                                  memberDefnForGet = Some(SynBinding(
+                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
+                                ->
+                                Some false
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
@@ -2197,7 +2164,7 @@ type Commands
 
       let isAstElemWithEmptyPreXmlDoc input pos =
         match isLowerAstElemWithEmptyPreXmlDoc input pos with
-        | Some xml -> Some xml
+        | Some isAutoProperty -> Some isAutoProperty
         | _ -> isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos
 
       let trimmed = lineStr.TrimStart(' ')
@@ -2206,7 +2173,7 @@ type Commands
 
       match isAstElemWithEmptyPreXmlDoc tyRes.GetAST triggerPosition with
       | None -> return None
-      | Some() ->
+      | Some(isAutoProperty) ->
 
         let signatureData =
           Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
@@ -2229,6 +2196,7 @@ type Commands
             | Ok(Some(_, memberParameters, genericParameters)) ->
               match memberParameters with
               | [] -> ()
+              | _ when isAutoProperty -> () // no parameter section for auto properties
               | parameters ->
                 yield!
                   parameters
@@ -2319,61 +2287,6 @@ type Commands
           tyRes
     }
 
-  member x.SymbolUseWorkspace2
-    (
-      pos,
-      lineStr,
-      text: IFSACSourceText,
-      tyRes: ParseAndCheckResults,
-      includeDeclarations: bool,
-      includeBackticks: bool,
-      errorOnFailureToFixRange: bool
-    ) =
-    asyncResult {
-      let findReferencesForSymbolInFile (file: string<LocalPath>, project, symbol) =
-        if File.Exists(UMX.untag file) then
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          checker.FindReferencesForSymbolInFile(UMX.untag file, project, symbol)
-        else
-          // untitled script files
-          async {
-            match state.TryGetFileCheckerOptionsWithLines(file) with
-            | Error _ -> return [||]
-            | Ok(opts, source) ->
-              match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
-              | None -> return [||]
-              | Some tyRes ->
-                let! ct = Async.CancellationToken
-                let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-                return usages |> Seq.map (fun u -> u.Range)
-          }
-
-      let tryGetFileSource symbolFile =
-        state.TryGetFileSource symbolFile |> Async.singleton
-
-      let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
-        state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
-        |> Async.singleton
-
-      let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
-
-      return!
-        Commands.symbolUseWorkspace2
-          x.GetDeclarationLocation
-          findReferencesForSymbolInFile
-          tryGetFileSource
-          tryGetProjectOptionsForFsproj
-          getAllProjectOptions
-          includeDeclarations
-          includeBackticks
-          errorOnFailureToFixRange
-          pos
-          lineStr
-          text
-          tyRes
-    }
-
   member x.RenameSymbolRange(pos: Position, tyRes: ParseAndCheckResults, lineStr: LineStr, text: IFSACSourceText) =
     Commands.renameSymbolRange x.GetDeclarationLocation false pos lineStr text tyRes
 
@@ -2383,7 +2296,7 @@ type Commands
       // safety check: rename valid?
       let! _ = x.RenameSymbolRange(pos, tyRes, lineStr, text)
 
-      let! (_, usages) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
+      let! usages = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
       return usages
     }
 

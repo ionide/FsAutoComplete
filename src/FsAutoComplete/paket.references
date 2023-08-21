@@ -8,8 +8,8 @@ FSharp.Core
 FSharp.UMX
 FsToolkit.ErrorHandling
 FsToolkit.ErrorHandling.TaskResult
-ICSharpCode.Decompiler
 IcedTasks
+ICSharpCode.Decompiler
 Ionide.KeepAChangelog.Tasks
 Ionide.LanguageServerProtocol
 Ionide.ProjInfo.ProjectSystem
