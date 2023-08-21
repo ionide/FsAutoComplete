@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.62.0] - 2023-08-21
+
+### Added
+
+* A new flag for controlling FSAC's support of ParallelReferenceResolution - `fsharp.fsac.parallelReferenceResolution`. If true, this allows for more parallelization of the compilation.
+
+### Changed
+
+* Updated Ionide.LanguageServerProtocol to get better LSP 3.17 support
+* Updated to FCS 7.0.400!
+
+### Fixed
+
+* [Massively improved the performance of comparing file paths in the LSP server](https://github.com/fsharp/FsAutoComplete/pull/1139) (thanks @TheAngryByrd!)
+* [Improved getting declarations in the Adaptive LSP Server](https://github.com/fsharp/FsAutoComplete/pull/1150) (thanks @TheAngryByrd!)
+
 
 ## [0.61.1] - 2023-07-22
 
