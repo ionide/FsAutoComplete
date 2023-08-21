@@ -47,7 +47,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
   let mutable rootPath: string option = None
 
   let mutable commands =
-    new Commands(FSharpCompilerServiceChecker(false, 200L), state, false, rootPath, sourceTextFactory)
+    new Commands(FSharpCompilerServiceChecker(false, 200L, false), state, false, rootPath, sourceTextFactory)
 
   let mutable commandDisposables = ResizeArray()
   let mutable clientCapabilities: ClientCapabilities option = None
@@ -486,7 +486,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
 
       let newCommands =
         new Commands(
-          FSharpCompilerServiceChecker(hasAnalyzersNow, config.Fsac.CachedTypeCheckCount),
+          FSharpCompilerServiceChecker(
+            hasAnalyzersNow,
+            config.Fsac.CachedTypeCheckCount,
+            config.Fsac.ParallelReferenceResolution
+          ),
           state,
           hasAnalyzersNow,
           rootPath,
@@ -1689,7 +1693,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
       p
       |> x.positionHandler (fun p pos tyRes lineStr lines ->
         asyncResult {
-          let! (_, usages) =
+          let! usages =
             commands.SymbolUseWorkspace(pos, lineStr, lines, tyRes, true, true, false)
             |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
@@ -2062,7 +2066,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                                 Arguments = None } }
                   )
 
-              | Ok(_, uses) ->
+              | Ok uses ->
                 let allUses = uses.Values |> Array.concat
 
                 let cmd =

@@ -18,22 +18,19 @@ let titlePrefix = "Prefix with _"
 /// But current FCS version doesn't include range for `SynAccess`
 /// -> no (easy) way to get range with accessibility
 /// -> instead of range to replace, just if there's accessibility
-let private variableHasAccessibility (ast: ParsedInput) (pos: Position) =
+let private accessibilityRange (ast: ParsedInput) (pos: Position) =
   SyntaxTraversal.Traverse(
     pos,
     ast,
     { new SyntaxVisitorBase<_>() with
         member _.VisitPat(_, defaultTraverse, pat) =
           match pat with
-          | SynPat.Named(accessibility = Some _; range = range) when Range.rangeContainsPos range pos ->
-            // `SynAccess` in FCS version currently used in FSAC doesn't contain its range
-            // -> no easy way to get range with accessibility
-            // -> instead of returning range with accessibility, just info if there's accessibility
-            // TODO: return range with accessibility once available (https://github.com/dotnet/fsharp/pull/13304)
-            Some true
+          | SynPat.Named(accessibility = Some(SynAccess.Private(range = accessRange)); range = range) when
+            Range.rangeContainsPos range pos
+            ->
+            Some(accessRange.WithEnd(accessRange.End.WithColumn(accessRange.End.Column + 1))) // add an additional column to remove the 'space' between private and identifier
           | _ -> defaultTraverse pat }
   )
-  |> Option.defaultValue false
 
 /// a codefix that suggests prepending a _ to unused values
 let fix (getParseResultsForFile: GetParseResultsForFile) =
@@ -43,14 +40,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
       let startPos = protocolPosToPos codeActionParams.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName startPos
 
+      let underscore range : Ionide.LanguageServerProtocol.Types.TextEdit = { Range = range; NewText = "_" }
+
       let mkFix title range =
         { SourceDiagnostic = Some diagnostic
           File = codeActionParams.TextDocument
           Title = title
-          Edits = [| { Range = range; NewText = "_" } |]
+          Edits = [| underscore range |]
           Kind = FixKind.Refactor }
 
-      let mkReplaceFix = mkFix titleReplace
+      let mkReplaceFix identRange accessRange =
+        match accessRange with
+        | None -> mkFix titleReplace identRange
+        | Some accessRange ->
+          { mkFix titleReplace identRange with
+              Edits = [| underscore identRange; { Range = accessRange; NewText = "" } |] }
 
       let tryMkPrefixFix range =
         match lines.GetText(protocolRangeToRange (UMX.untag fileName) range) with
@@ -60,11 +64,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
         | _ -> None
 
       let tryMkValueReplaceFix (range: Ionide.LanguageServerProtocol.Types.Range) =
-        // // `let private foo = ...` -> `private` must be removed (`let private _ = ...` is not valid)
-        if variableHasAccessibility tyRes.GetAST (protocolPosToPos range.Start) then
-          None
-        else
-          mkReplaceFix range |> Some
+        mkReplaceFix range (accessibilityRange tyRes.GetAST startPos |> Option.map fcsRangeToLsp)
+        |> Some
 
       // CodeFixes:
       // * Replace with _
@@ -79,7 +80,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
         match symbolUse.Symbol with
         | :? FSharpMemberOrFunctionOrValue as mfv ->
           if mfv.IsMemberThisValue then
-            return [ mkReplaceFix diagnostic.Range ]
+            return [ mkReplaceFix diagnostic.Range None ]
           elif mfv.IsValue then
             let symbolText =
               lines.GetText symbolUse.Range

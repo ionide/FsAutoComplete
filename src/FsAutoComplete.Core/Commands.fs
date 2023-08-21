@@ -740,25 +740,7 @@ module Commands =
           Position = pos
           Scope = ic.ScopeKind }))
 
-  /// * `includeDeclarations`:
-  ///   if `false` only returns usage locations and excludes declarations
-  ///   * Note: if `true` you can still separate usages and declarations from each other
-  ///     with `Symbol.partitionInfoDeclarationsAndUsages`
-  /// * `includeBackticks`:
-  ///   if `true` returns ranges including existing backticks, otherwise without:
-  ///   `let _ = ``my value`` + 42`
-  ///   * `true`: ` ``my value`` `
-  ///   * `false`: `my value`
-  /// * `errorOnFailureToFixRange`:
-  ///   Ranges returned by FCS don't just span the actual identifier, but include Namespace, Module, Type: `System.String.IsNullOrEmpty`
-  ///   These ranges gets adjusted to include just the concrete identifier (`IsNullOrEmpty`)
-  ///   * If `false` and range cannot be adjust, the original range gets used.
-  ///     * When results are more important than always exact range
-  ///       -> for "Find All References"
-  ///   * If `true`: Instead of using the source range, this function instead returns an Error
-  ///     * When exact ranges are required
-  ///       -> for "Rename"
-  let symbolUseWorkspace
+  let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
@@ -767,13 +749,11 @@ module Commands =
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
-    pos
-    lineStr
     (text: IFSACSourceText)
     (tyRes: ParseAndCheckResults)
+    (symbolUse: FSharpSymbolUse)
     : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
     asyncResult {
-      let! symbolUse = tyRes.TryGetSymbolUse pos lineStr |> Result.ofOption (fun _ -> "No symbol")
       let symbol = symbolUse.Symbol
 
       let symbolNameCore = symbol.DisplayNameCore
@@ -942,6 +922,65 @@ module Commands =
         return (symbol, dict)
     }
 
+  /// * `includeDeclarations`:
+  ///   if `false` only returns usage locations and excludes declarations
+  ///   * Note: if `true` you can still separate usages and declarations from each other
+  ///     with `Symbol.partitionInfoDeclarationsAndUsages`
+  /// * `includeBackticks`:
+  ///   if `true` returns ranges including existing backticks, otherwise without:
+  ///   `let _ = ``my value`` + 42`
+  ///   * `true`: ` ``my value`` `
+  ///   * `false`: `my value`
+  /// * `errorOnFailureToFixRange`:
+  ///   Ranges returned by FCS don't just span the actual identifier, but include Namespace, Module, Type: `System.String.IsNullOrEmpty`
+  ///   These ranges gets adjusted to include just the concrete identifier (`IsNullOrEmpty`)
+  ///   * If `false` and range cannot be adjust, the original range gets used.
+  ///     * When results are more important than always exact range
+  ///       -> for "Find All References"
+  ///   * If `true`: Instead of using the source range, this function instead returns an Error
+  ///     * When exact ranges are required
+  ///       -> for "Rename"
+  let symbolUseWorkspace
+    (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
+    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (includeDeclarations: bool)
+    (includeBackticks: bool)
+    (errorOnFailureToFixRange: bool)
+    pos
+    lineStr
+    (text: IFSACSourceText)
+    (tyRes: ParseAndCheckResults)
+    : Async<Result<(IDictionary<string<LocalPath>, Range[]>), string>> =
+    asyncResult {
+      let multipleSymbols = tyRes.TryGetSymbolUses pos lineStr
+      let result = Dictionary<string<LocalPath>, Range[]>()
+
+      for symbolUse in multipleSymbols do
+        let! symbolResult =
+          symbolUseWorkspaceAux
+            getDeclarationLocation
+            findReferencesForSymbolInFile
+            tryGetFileSource
+            tryGetProjectOptionsForFsproj
+            getAllProjectOptions
+            includeDeclarations
+            includeBackticks
+            errorOnFailureToFixRange
+            text
+            tyRes
+            symbolUse
+
+        for KeyValue(k, v) in snd symbolResult do
+          if result.ContainsKey k then
+            result.[k] <- [| yield! result.[k]; yield! v |]
+          else
+            result.Add(k, v)
+
+      return result
+    }
 
   /// Puts `newName` into backticks if necessary.
   ///
@@ -2009,7 +2048,7 @@ type Commands
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
-                  | _ -> Some()
+                  | _ -> Some false
                 | _ -> defaultTraverse synBinding
 
               member _.VisitComponentInfo(_, synComponentInfo) =
@@ -2017,7 +2056,7 @@ type Commands
                 | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | _ -> None
 
               member _.VisitRecordDefn(_, fields, _) =
@@ -2026,7 +2065,7 @@ type Commands
                   | SynField(xmlDoc = xmlDoc; idOpt = Some ident) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 fields |> List.tryPick isInLine
@@ -2037,7 +2076,7 @@ type Commands
                   | SynUnionCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2048,7 +2087,7 @@ type Commands
                   | SynEnumCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -2059,7 +2098,7 @@ type Commands
                   | SynBinding(xmlDoc = xmlDoc) as s when
                     rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                     ->
-                    Some()
+                    Some false
                   | _ -> defaultTraverse b
 
                 bindings |> List.tryPick isInLine
@@ -2078,7 +2117,7 @@ type Commands
                 | SynModuleOrNamespace(longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some()
+                  Some false
                 | SynModuleOrNamespace(decls = decls) ->
 
                   let rec findNested decls =
@@ -2090,7 +2129,7 @@ type Commands
                         | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
                           longIdentContainsPos longId pos && xmlDoc.IsEmpty
                           ->
-                          Some()
+                          Some false
                         | _ -> findNested decls
                       | SynModuleDecl.Types(typeDefns = typeDefns) ->
                         typeDefns
@@ -2103,19 +2142,19 @@ type Commands
                               | SynMemberDefn.AutoProperty(ident = ident; xmlDoc = xmlDoc) when
                                 rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                                 ->
-                                Some()
-                              | SynMemberDefn.GetSetMember(
-                                  memberDefnForGet = Some(SynBinding(
-                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
-                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
-                                ->
-                                Some()
+                                Some true
                               | SynMemberDefn.GetSetMember(
                                   memberDefnForSet = Some(SynBinding(
                                     xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some()
+                                Some false
+                              | SynMemberDefn.GetSetMember(
+                                  memberDefnForGet = Some(SynBinding(
+                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
+                                ->
+                                Some false
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
@@ -2125,7 +2164,7 @@ type Commands
 
       let isAstElemWithEmptyPreXmlDoc input pos =
         match isLowerAstElemWithEmptyPreXmlDoc input pos with
-        | Some xml -> Some xml
+        | Some isAutoProperty -> Some isAutoProperty
         | _ -> isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos
 
       let trimmed = lineStr.TrimStart(' ')
@@ -2134,7 +2173,7 @@ type Commands
 
       match isAstElemWithEmptyPreXmlDoc tyRes.GetAST triggerPosition with
       | None -> return None
-      | Some() ->
+      | Some(isAutoProperty) ->
 
         let signatureData =
           Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
@@ -2157,6 +2196,7 @@ type Commands
             | Ok(Some(_, memberParameters, genericParameters)) ->
               match memberParameters with
               | [] -> ()
+              | _ when isAutoProperty -> () // no parameter section for auto properties
               | parameters ->
                 yield!
                   parameters
@@ -2256,7 +2296,7 @@ type Commands
       // safety check: rename valid?
       let! _ = x.RenameSymbolRange(pos, tyRes, lineStr, text)
 
-      let! (_, usages) = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
+      let! usages = x.SymbolUseWorkspace(pos, lineStr, text, tyRes, true, true, true)
       return usages
     }
 

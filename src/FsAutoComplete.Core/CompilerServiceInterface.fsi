@@ -16,7 +16,9 @@ open FsToolkit.ErrorHandling
 type Version = int
 
 type FSharpCompilerServiceChecker =
-  new: hasAnalyzers: bool * typecheckCacheSize: int64 -> FSharpCompilerServiceChecker
+  new:
+    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool -> FSharpCompilerServiceChecker
+
   member DisableInMemoryProjectReferences: bool with get, set
 
   static member GetDependingProjects:

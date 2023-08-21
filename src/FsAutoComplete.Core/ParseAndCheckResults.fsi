@@ -67,6 +67,8 @@ type ParseAndCheckResults =
 
   member TryGetSymbolUse: pos: Position -> lineStr: LineStr -> FSharpSymbolUse option
 
+  member TryGetSymbolUses: pos: Position -> lineStr: LineStr -> FSharpSymbolUse list
+
   member TryGetSymbolUseAndUsages:
     pos: Position -> lineStr: LineStr -> Result<(FSharpSymbolUse * FSharpSymbolUse array), string>
 

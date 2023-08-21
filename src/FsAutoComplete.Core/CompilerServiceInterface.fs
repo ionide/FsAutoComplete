@@ -17,19 +17,20 @@ open FsToolkit.ErrorHandling
 
 type Version = int
 
-type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize) =
+type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
-      keepAllBackgroundResolutions = true,
       keepAssemblyContents = hasAnalyzers,
+      keepAllBackgroundResolutions = true,
       suggestNamesForErrors = true,
-      enablePartialTypeChecking = not hasAnalyzers,
+      keepAllBackgroundSymbolUses = true,
       enableBackgroundItemKeyStoreAndSemanticClassification = true,
-      keepAllBackgroundSymbolUses = true
+      enablePartialTypeChecking = not hasAnalyzers,
+      parallelReferenceResolution = parallelReferenceResolution,
+      captureIdentifiersWhenParsing = true,
+      useSyntaxTreeCache = true
     )
-
-
 
   let entityCache = EntityCache()
 

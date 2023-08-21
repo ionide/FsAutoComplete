@@ -19,8 +19,7 @@ type SymbolUseWorkspace =
     -> LineStr
     -> IFSACSourceText
     -> ParseAndCheckResults
-    -> Async<Result<FSharp.Compiler.Symbols.FSharpSymbol *
-    System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
+    -> Async<Result<System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>, string>>
 
 val fix:
   getParseResultsForFile: GetParseResultsForFile ->
