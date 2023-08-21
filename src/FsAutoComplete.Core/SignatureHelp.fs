@@ -22,7 +22,7 @@ type SignatureHelpInfo =
     /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
     ActiveOverload: int option
     /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
-    ActiveParameter: int option
+    ActiveParameter: uint option
     SigHelpKind: SignatureHelpKind
   }
 
@@ -31,15 +31,15 @@ let private getSignatureHelpForFunctionApplication
     tyRes: ParseAndCheckResults,
     caretPos: Position,
     endOfPreviousIdentPos: Position,
-    lines: NamedText
+    lines: IFSACSourceText
   ) : Async<SignatureHelpInfo option> =
-  asyncMaybe {
+  asyncOption {
     let! lineStr = lines.GetLine endOfPreviousIdentPos
 
     let! possibleApplicationSymbolEnd =
-      maybe {
-        if tyRes.GetParseResults.IsPosContainedInApplicationPatched endOfPreviousIdentPos then
-          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingAppliedPatched endOfPreviousIdentPos
+      option {
+        if tyRes.GetParseResults.IsPosContainedInApplication endOfPreviousIdentPos then
+          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
           return funcRange.End
         else
           return endOfPreviousIdentPos
@@ -84,7 +84,7 @@ let private getSignatureHelpForFunctionApplication
         let numDefinedArgs = definedArgs.Length
 
         let curriedArgsInSource =
-          tyRes.GetParseResults.GetAllArgumentsForFunctionApplicationAtPostion symbolStart
+          tyRes.GetParseResults.GetAllArgumentsForFunctionApplicationAtPosition symbolStart
           |> Option.defaultValue []
           |> Array.ofList
 
@@ -116,15 +116,21 @@ let private getSignatureHelpForFunctionApplication
           tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, symbolStartLineText, None)
 
         return
-          { ActiveParameter = Some argumentIndex
+          { ActiveParameter = Some(uint argumentIndex)
             Methods = methods.Methods
             ActiveOverload = None
             SigHelpKind = FunctionApplication }
     | _ -> return! None
   }
 
-let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Position, lines: NamedText, triggerChar) =
-  asyncMaybe {
+let private getSignatureHelpForMethod
+  (
+    tyRes: ParseAndCheckResults,
+    caretPos: Position,
+    lines: IFSACSourceText,
+    triggerChar
+  ) =
+  asyncOption {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
     let lidEnd = paramLocations.LongIdEndLocation
@@ -196,7 +202,7 @@ let private getSignatureHelpForMethod (tyRes: ParseAndCheckResults, caretPos: Po
 
 
       return
-        { ActiveParameter = Some argumentIndex
+        { ActiveParameter = Some(uint argumentIndex)
           Methods = filteredMethods
           ActiveOverload = methodCandidate
           SigHelpKind = MethodCall }
@@ -206,7 +212,7 @@ let getSignatureHelpFor
   (
     tyRes: ParseAndCheckResults,
     pos: Position,
-    lines: NamedText,
+    lines: IFSACSourceText,
     triggerChar,
     possibleSessionKind
   ) =

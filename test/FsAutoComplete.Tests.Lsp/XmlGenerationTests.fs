@@ -48,7 +48,7 @@ let tests state =
 
           let! result =
             server.FSharpDocumentationGenerator(
-              { TextDocument = { Uri = fileUri; Version = Some 1 }
+              { TextDocument = { Uri = fileUri; Version = 1 }
                 // the start of the 'add' symbol name
                 Position = { Line = 0; Character = 5 } }
             )

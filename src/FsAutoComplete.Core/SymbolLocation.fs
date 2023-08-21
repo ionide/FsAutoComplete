@@ -14,7 +14,7 @@ type SymbolDeclarationLocation =
 let getDeclarationLocation
   (
     symbolUse: FSharpSymbolUse,
-    currentDocument: NamedText,
+    currentDocument: IFSACSourceText,
     getProjectOptions,
     projectsThatContainFile: string<LocalPath> -> Async<FSharpProjectOptions list>,
     getDependentProjectsOfProjects

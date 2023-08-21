@@ -15,6 +15,7 @@ open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
 open System.IO
+open FsAutoComplete
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
 
@@ -46,14 +47,19 @@ let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
 
   Helpers.createServer createServer
 
-let adaptiveLspServerFactory toolsPath workspaceLoaderFactory =
-  Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath)
+let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
+  Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath) sourceTextFactory
 
 let lspServers =
   [
     // "FSharpLspServer", fsharpLspServerFactory
     "AdaptiveLspServer", adaptiveLspServerFactory
     ]
+
+let sourceTextFactories: (string * ISourceTextFactory) list = [
+  "NamedText", NamedTextFactory()
+  "RoslynSourceText", RoslynSourceTextFactory()
+]
 
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
@@ -63,63 +69,65 @@ let lspTests =
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
         for (lspName, lspFactory) in lspServers do
-          testList
-            $"{loaderName}.{lspName}"
-            [ 
-              Templates.tests ()
-              let createServer () =
-                lspFactory toolsPath workspaceLoaderFactory
+          for (sourceTextName, sourceTextFactory) in sourceTextFactories do
 
-              initTests createServer
-              closeTests createServer
+            testList
+              $"{loaderName}.{lspName}.{sourceTextName}"
+              [
+                Templates.tests ()
+                let createServer () =
+                  lspFactory toolsPath workspaceLoaderFactory sourceTextFactory
 
-              Utils.Tests.Server.tests createServer
-              Utils.Tests.CursorbasedTests.tests createServer
+                initTests createServer
+                closeTests createServer
 
-              CodeLens.tests createServer
-              documentSymbolTest createServer
-              Completion.autocompleteTest createServer
-              Completion.autoOpenTests createServer
-              foldingTests createServer
-              tooltipTests createServer
-              Highlighting.tests createServer
-              scriptPreviewTests createServer
-              scriptEvictionTests createServer
-              scriptProjectOptionsCacheTests createServer
-              dependencyManagerTests createServer
-              interactiveDirectivesUnitTests
+                Utils.Tests.Server.tests createServer
+                Utils.Tests.CursorbasedTests.tests createServer
 
-              // commented out because FSDN is down
-              //fsdnTest createServer
+                CodeLens.tests createServer
+                documentSymbolTest createServer
+                Completion.autocompleteTest createServer
+                Completion.autoOpenTests createServer
+                foldingTests createServer
+                tooltipTests createServer
+                Highlighting.tests createServer
+                scriptPreviewTests createServer
+                scriptEvictionTests createServer
+                scriptProjectOptionsCacheTests createServer
+                dependencyManagerTests createServer
+                interactiveDirectivesUnitTests
 
-              //linterTests createServer
-              uriTests
-              formattingTests createServer
-              analyzerTests createServer
-              signatureTests createServer
-              SignatureHelp.tests createServer
-              CodeFixTests.Tests.tests createServer
-              Completion.tests createServer
-              GoTo.tests createServer
+                // commented out because FSDN is down
+                //fsdnTest createServer
 
-              FindReferences.tests createServer
-              Rename.tests createServer
+                //linterTests createServer
+                uriTests
+                formattingTests createServer
+                analyzerTests createServer
+                signatureTests createServer
+                SignatureHelp.tests createServer
+                CodeFixTests.Tests.tests createServer
+                Completion.tests createServer
+                GoTo.tests createServer
 
-              InfoPanelTests.docFormattingTest createServer
-              DetectUnitTests.tests createServer
-              XmlDocumentationGeneration.tests createServer
-              InlayHintTests.tests createServer
-              DependentFileChecking.tests createServer
-              UnusedDeclarationsTests.tests createServer
+                FindReferences.tests createServer
+                Rename.tests createServer
 
-              ] ]
-      
+                InfoPanelTests.docFormattingTest createServer
+                DetectUnitTests.tests createServer
+                XmlDocumentationGeneration.tests createServer
+                InlayHintTests.tests createServer
+                DependentFileChecking.tests createServer
+                UnusedDeclarationsTests.tests createServer
+
+                ] ]
+
 /// Tests that do not require a LSP server
 let generalTests = testList "general" [
   testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
-  InlayHintTests.explicitTypeInfoTests
-
-  FindReferences.tryFixupRangeTests
+  for (name, factory) in sourceTextFactories do
+    InlayHintTests.explicitTypeInfoTests (name, factory)
+    FindReferences.tryFixupRangeTests (name, factory)
 ]
 
 [<Tests>]
@@ -128,7 +136,7 @@ let tests =
     "FSAC"
     [
       generalTests
-      lspTests 
+      lspTests
     ]
 
 
@@ -152,7 +160,7 @@ let main args =
       | Some "info" -> Logging.LogLevel.Info
       | Some "verbose" -> Logging.LogLevel.Verbose
       | Some "debug" -> Logging.LogLevel.Debug
-      | _ -> Logging.LogLevel.Info
+      | _ -> Logging.LogLevel.Warn
 
     let args =
       args
@@ -246,3 +254,5 @@ let main args =
          }
 
   runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
+
+

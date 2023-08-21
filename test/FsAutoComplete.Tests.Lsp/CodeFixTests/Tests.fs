@@ -1605,6 +1605,106 @@ let private generateXmlDocumentationTests state =
           member val Name = "" with get, set
         """
 
+      testCaseAsync "not applicable for explicit getter and setter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.Name
+            with $0get () = "foo"
+            and set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "documentation on property with explicit getter and setter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with get () = "foo"
+            and set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <returns></returns>
+          member _.Name
+            with get () = "foo"
+            and set (x: string) = someField <- x
+        """
+
+      testCaseAsync "documentation on property with explicit getter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with get () = "foo"
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <returns></returns>
+          member _.Name
+            with get () = "foo"
+        """
+
+      testCaseAsync "documentation on property with explicit setter"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.$0Name
+            with set (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          let mutable someField = ""
+          /// <summary></summary>
+          /// <param name="x"></param>
+          /// <returns></returns>
+          member _.Name
+            with set (x: string) = someField <- x
+        """
+
+      testCaseAsync "not applicable for explicit getter"
+
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          member _.Name
+            with $0get () = "foo"
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "not applicable for explicit setter"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type MyClass() =
+          let mutable someField = ""
+          member _.Name
+            with s$0et (x: string) = someField <- x
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
       testCaseAsync "documentation for named module"
       <| CodeFix.check
         server
@@ -2676,10 +2776,324 @@ let private wrapExpressionInParenthesesTests state =
         selectCodeFix
   ])
 
+let private removeRedundantAttributeSuffixTests state =
+  serverTestList (nameof RemoveRedundantAttributeSuffix) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle RemoveRedundantAttributeSuffix.title
+
+      testCaseAsync "redundant attribute suffix in let binding"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        [<ObsoleteAttribute$0("Meh")>]
+        let f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        [<Obsolete("Meh")>]
+        let f x y = x + y
+        """
+
+      testCaseAsync "redundant attribute suffix on type definition"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<FooAttribute$0>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<Foo>]
+        type A =
+            class end
+        """
+
+      testCaseAsync "redundant attribute suffix with target and constructor"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<type: FooAttribute$0()>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+
+        [<type: Foo()>]
+        type A =
+            class end
+        """
+
+      testCaseAsync "redundant attribute suffix in multiple attributes"
+      <| CodeFix.check
+        server
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+        type BarAttribute() = inherit Attribute()
+
+        [<FooAttribute$0; Bar>]
+        type A =
+            class end
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        open System
+
+        type FooAttribute() = inherit Attribute()
+        type BarAttribute() = inherit Attribute()
+
+        [<Foo; Bar>]
+        type A =
+            class end
+        """ ])
+
+let private removePatternArgumentTests state =
+  serverTestList (nameof RemovePatternArgument) state defaultConfigDto None (fun server -> [
+    let selectCodeFix = CodeFix.withTitle RemovePatternArgument.title
+    testCaseAsync "Literal pattern qualified single parameter" <|
+      CodeFix.check server
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        let (E.A x$0) = E.A
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        let (E.A) = E.A
+        """
+
+    testCaseAsync "Local literal pattern qualified match parens parameter" <|
+      CodeFix.check server
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        match E.A with
+        | (E.A x$0) -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+            | A = 1
+            | B = 2
+
+        match E.A with
+        | (E.A) -> ()
+        """
+
+    testCaseAsync "Local literal pattern qualified single parameter" <|
+      CodeFix.check server
+        """
+        type E =
+          | A = 1
+          | B = 2
+
+        do
+	        let (E.A x$0) = E.A
+	        ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        type E =
+          | A = 1
+          | B = 2
+
+        do
+	        let (E.A) = E.A
+	        ()
+        """
+
+    testCaseAsync "Local literal constant pattern qualified parameter" <|
+      CodeFix.check server
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | A x$0 -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | A -> ()
+        """
+
+    testCaseAsync "Local literal constant pattern qualified parens parameter" <|
+      CodeFix.check server
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | (A x$0) -> ()
+        """
+        (Diagnostics.expectCode "3191")
+        selectCodeFix
+        """
+        let [<Literal>] A = 1
+
+        match 1 with
+        | (A) -> ()
+        """
+
+    testCaseAsync "Local match qualified single parameter" <|
+      CodeFix.check server
+        """
+        match None with
+        | Option.None x$0 -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | Option.None -> ()
+        """
+
+    testCaseAsync "Local match qualified single parens parameter" <|
+      CodeFix.check server
+        """
+        match None with
+        | (Option.None x$0) -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | (Option.None) -> ()
+        """
+
+    testCaseAsync "Qualified single parameter" <|
+      CodeFix.check server
+        """
+        let (Option.None x$0) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (Option.None) = None
+        """
+
+    testCaseAsync "Local single parameter" <|
+      CodeFix.check server
+        """
+        do
+          let (Option.None x$0) = None
+          ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        do
+          let (Option.None) = None
+          ()
+        """
+
+    testCaseAsync "Local two match parameters" <|
+      CodeFix.check server
+        """
+        match None with
+        | None x$0 y -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | None -> ()
+        """
+
+    testCaseAsync "Local two match parens parameters" <|
+      CodeFix.check server
+        """
+        match None with
+        | None (x$0 y) -> ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        match None with
+        | None -> ()
+        """
+
+    testCaseAsync "Local two parameter" <|
+      CodeFix.check server
+        """
+        do
+          let (Option.None x$0 y) = None
+          ()
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        do
+          let (Option.None) = None
+          ()
+        """
+
+    testCaseAsync "Single parameter" <|
+      CodeFix.check server
+        """
+        let (None x$0) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (None) = None
+        """
+
+    testCaseAsync "Two parameters" <|
+      CodeFix.check server
+        """
+        let (None x$0 y) = None
+        """
+        (Diagnostics.expectCode "725")
+        selectCodeFix
+        """
+        let (None) = None
+        """
+  ])
+
 let tests state = testList "CodeFix-tests" [
   HelpersTests.tests
 
   AddExplicitTypeAnnotationTests.tests state
+  ToInterpolatedStringTests.tests state
+  ToInterpolatedStringTests.unavailableTests state
   addMissingEqualsToTypeDefinitionTests state
   addMissingFunKeywordTests state
   addMissingInstanceMemberTests state
@@ -2718,4 +3132,6 @@ let tests state = testList "CodeFix-tests" [
   useMutationWhenValueIsMutableTests state
   useTripleQuotedInterpolationTests state
   wrapExpressionInParenthesesTests state
+  removeRedundantAttributeSuffixTests state
+  removePatternArgumentTests state
 ]

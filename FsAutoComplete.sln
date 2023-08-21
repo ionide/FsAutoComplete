@@ -27,6 +27,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsAutoComplete.DependencyMa
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "build", "build\build.fsproj", "{400D56D0-28C9-4210-AA30-BD688122E298}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "benchmarks", "benchmarks\benchmarks.fsproj", "{0CD029D8-B39E-4CBE-A190-C84A7A811180}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -65,6 +67,10 @@ Global
 		{400D56D0-28C9-4210-AA30-BD688122E298}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{400D56D0-28C9-4210-AA30-BD688122E298}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{400D56D0-28C9-4210-AA30-BD688122E298}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0CD029D8-B39E-4CBE-A190-C84A7A811180}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0CD029D8-B39E-4CBE-A190-C84A7A811180}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0CD029D8-B39E-4CBE-A190-C84A7A811180}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0CD029D8-B39E-4CBE-A190-C84A7A811180}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

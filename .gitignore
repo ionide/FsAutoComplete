@@ -44,3 +44,4 @@ coverage
 test/FsAutoComplete.Tests.Lsp/TestResults/
 
 .tool-versions
+BenchmarkDotNet.Artifacts/

@@ -552,11 +552,11 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
 /// not `accessibility`.
 ///
 /// Note: doesn't handle when accessibility is on prev line
-let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
+let private rangeOfNamedPat (text: IFSACSourceText) (pat: SynPat) =
   match pat with
   | SynPat.Named(accessibility = None) -> pat.Range
   | SynPat.Named(ident = SynIdent(ident = ident); accessibility = Some(access)) ->
-    maybe {
+    option {
       let start = ident.idRange.Start
       let! line = text.GetLine start
 
@@ -585,7 +585,7 @@ let private rangeOfNamedPat (text: NamedText) (pat: SynPat) =
   | _ -> failwith "Pattern must be Named!"
 
 /// Note: (deliberately) fails when `pat` is neither `Named` nor `OptionalVal`
-let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: SyntaxVisitorPath) =
+let rec private getParensForIdentPat (text: IFSACSourceText) (pat: SynPat) (path: SyntaxVisitorPath) =
   match pat with
   | SynPat.Named(ident = SynIdent(ident = ident)) ->
     // neither `range`, not `pat.Range` includes `accessibility`...
@@ -599,7 +599,7 @@ let rec private getParensForIdentPat (text: NamedText) (pat: SynPat) (path: Synt
     getParensForPatternWithIdent patternRange identStart path
   | _ -> failwith "Pattern must be Named or OptionalVal!"
 
-let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) : ExplicitType option =
+let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Position) : ExplicitType option =
   SyntaxTraversal.Traverse(
     pos,
     ast,
@@ -706,7 +706,7 @@ let tryGetExplicitTypeInfo (text: NamedText, ast: ParsedInput) (pos: Position) :
           //      * `let f2 = fun (Value v) -> v + 1`
           //        -> compiler generated `_arg1` in `args`,
           //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
-          maybe {
+          option {
             let! pat = pats |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
 
             let rec tryGetIdent pat =
@@ -858,10 +858,10 @@ let isPotentialTargetForTypeAnnotation
 
 let tryGetDetailedExplicitTypeInfo
   (isValidTarget: FSharpSymbolUse * FSharpMemberOrFunctionOrValue -> bool)
-  (text: NamedText, parseAndCheck: ParseAndCheckResults)
+  (text: IFSACSourceText, parseAndCheck: ParseAndCheckResults)
   (pos: Position)
   =
-  maybe {
+  option {
     let! line = text.GetLine pos
     let! symbolUse = parseAndCheck.TryGetSymbolUse pos line
 
@@ -896,7 +896,13 @@ type HintConfig =
   { ShowTypeHints: bool
     ShowParameterHints: bool }
 
-let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: Range, hintConfig) : Async<Hint[]> =
+let provideHints
+  (
+    text: IFSACSourceText,
+    parseAndCheck: ParseAndCheckResults,
+    range: Range,
+    hintConfig
+  ) : Async<Hint[]> =
   asyncResult {
     let! cancellationToken = Async.CancellationToken
 
@@ -971,7 +977,7 @@ let provideHints (text: NamedText, parseAndCheck: ParseAndCheckResults, range: R
         let line, _ = Position.toZ endPosForMethod
 
         let afterParenPosInLine =
-          getFirstPositionAfterParen (text.Lines.[line].ToString()) (endPosForMethod.Column)
+          getFirstPositionAfterParen (text.GetLineString(line)) (endPosForMethod.Column)
 
         let tupledParamInfos =
           parseAndCheck.GetParseResults.FindParameterLocations(Position.fromZ line afterParenPosInLine)

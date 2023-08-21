@@ -193,7 +193,7 @@ let record (cacher: Cacher<_>) =
     cacher.OnNext(name, payload)
     AsyncLspResult.success Unchecked.defaultof<_>
 
-let createServer (state: unit -> State) =
+let createServer (state: unit -> State) sourceTextFactory =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -206,10 +206,10 @@ let createServer (state: unit -> State) =
   let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
   let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
   FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(innerState, client)
+  let server = new FSharpLspServer(innerState, client, sourceTextFactory)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
-let createAdaptiveServer (workspaceLoader) =
+let createAdaptiveServer workspaceLoader sourceTextFactory =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -219,7 +219,7 @@ let createAdaptiveServer (workspaceLoader) =
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client)
+  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -236,8 +236,11 @@ let defaultConfigDto: FSharpConfigDto =
     RecordStubGenerationBody = None
     AddPrivateAccessModifier = None
     UnusedOpensAnalyzer = None
+    UnusedOpensAnalyzerExclusions = None
     UnusedDeclarationsAnalyzer = None
+    UnusedDeclarationsAnalyzerExclusions = None
     SimplifyNameAnalyzer = None
+    SimplifyNameAnalyzerExclusions = None
     ResolveNamespaces = None
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
@@ -287,7 +290,9 @@ let clientCaps: ClientCapabilities =
 
     let symbolCaps: SymbolCapabilities =
       { DynamicRegistration = Some true
-        SymbolKind = None }
+        SymbolKind = None
+        TagSupport = None
+        ResolveSupport = None }
 
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
@@ -304,12 +309,17 @@ let clientCaps: ClientCapabilities =
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some dynCaps
-      DidChangeWatchedFiles = Some dynCaps
+      DidChangeWatchedFiles = None
       Symbol = Some symbolCaps
       SemanticTokens = Some semanticTokenCaps
       InlayHint = Some inlayHintCaps
       InlineValue = Some inlineValueCaps
-      CodeLens = Some codeLensCaps }
+      CodeLens = Some codeLensCaps
+      ExecuteCommand = Some dynCaps
+      WorkspaceFolders = Some false
+      Configuration = Some true
+      FileOperations = None
+      Diagnostics = Some { RefreshSupport = Some false } }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: SynchronizationCapabilities =
@@ -318,16 +328,26 @@ let clientCaps: ClientCapabilities =
         WillSaveWaitUntil = Some true
         DidSave = Some true }
 
-    let diagCaps: PublishDiagnosticsCapabilities =
+    let publishDiagCaps: PublishDiagnosticsCapabilities =
       let diagnosticTags: DiagnosticTagSupport = { ValueSet = [||] }
 
       { RelatedInformation = Some true
-        TagSupport = Some diagnosticTags }
+        TagSupport = Some diagnosticTags
+        VersionSupport = Some false
+        CodeDescriptionSupport = Some true
+        DataSupport = Some false }
 
     let ciCaps: CompletionItemCapabilities =
       { SnippetSupport = Some true
         CommitCharactersSupport = Some true
-        DocumentationFormat = None }
+        DocumentationFormat = None
+        DeprecatedSupport = Some false
+        PreselectSupport = Some false
+        TagSupport = None
+        InsertReplaceSupport = Some false
+        ResolveSupport = None
+        InsertTextModeSupport = None
+        LabelDetailsSupport = Some true }
 
     let cikCaps: CompletionItemKindCapabilities = { ValueSet = None }
 
@@ -335,7 +355,11 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         CompletionItem = Some ciCaps
         CompletionItemKind = Some cikCaps
-        ContextSupport = Some true }
+        ContextSupport = Some true
+        InsertTextMode = Some InsertTextMode.AsIs
+        CompletionList = Some {
+          ItemDefaults = None
+        } }
 
     let hoverCaps: HoverCapabilities =
       { DynamicRegistration = Some true
@@ -343,22 +367,29 @@ let clientCaps: ClientCapabilities =
 
     let sigCaps: SignatureHelpCapabilities =
       let siCaps: SignatureInformationCapabilities =
-        { DocumentationFormat = Some [| "markdown" |] }
+        { DocumentationFormat = Some [| "markdown" |]
+          ParameterInformation = Some { LabelOffsetSupport = Some true }
+          ActiveParameterSupport = Some true }
 
       { DynamicRegistration = Some true
-        SignatureInformation = Some siCaps }
+        SignatureInformation = Some siCaps
+        ContextSupport = Some true }
 
     let docSymCaps: DocumentSymbolCapabilities =
       let skCaps: SymbolKindCapabilities = { ValueSet = None }
 
       { DynamicRegistration = Some true
         SymbolKind = Some skCaps
-        HierarchicalDocumentSymbolSupport = Some false }
+        HierarchicalDocumentSymbolSupport = Some false
+        TagSupport = None
+        LabelSupport = Some true  }
 
     let foldingRangeCaps: FoldingRangeCapabilities =
       { DynamicRegistration = Some true
         LineFoldingOnly = Some true
-        RangeLimit = Some 100 }
+        RangeLimit = Some 100
+        FoldingRange = Some { CollapsedText = Some true }
+        FoldingRangeKind = None }
 
     let semanticTokensCaps: SemanticTokensClientCapabilities =
       { DynamicRegistration = Some true
@@ -369,7 +400,9 @@ let clientCaps: ClientCapabilities =
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
         OverlappingTokenSupport = None
-        MultilineTokenSupport = None }
+        MultilineTokenSupport = None
+        ServerCancelSupport = Some true
+        AugmentsSyntaxTokens = Some true }
 
     let codeActionCaps =
       { DynamicRegistration = Some true
@@ -391,10 +424,39 @@ let clientCaps: ClientCapabilities =
     let renameCaps: RenameClientCapabilities =
       { DynamicRegistration = Some true
         HonorsChangeAnnotations = Some false
-        PrepareSupport = Some false }
+        PrepareSupport = Some false
+        PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier }
+
+    let linkCaps: DynamicLinkSupportCapabilities =
+      { DynamicRegistration = Some true
+        LinkSupport = Some false }
+
+    let defCaps: DynamicLinkSupportCapabilities =
+      { DynamicRegistration = Some true
+        LinkSupport = Some false }
+
+    let typeDefCaps: DynamicLinkSupportCapabilities =
+      { DynamicRegistration = Some true
+        LinkSupport = Some false }
+
+    let implCaps: DynamicLinkSupportCapabilities =
+      { DynamicRegistration = Some true
+        LinkSupport = Some false }
+
+    let docLinkCaps: DocumentLinkCapabilities =
+      {
+        DynamicRegistration = Some true
+        TooltipSupport = Some true
+      }
+
+    let diagCaps: DiagnosticCapabilities =
+      {
+        DynamicRegistration = Some true
+        RelatedDocumentSupport = Some true
+      }
 
     { Synchronization = Some syncCaps
-      PublishDiagnostics = Some diagCaps
+      PublishDiagnostics = Some publishDiagCaps
       Completion = Some compCaps
       Hover = Some hoverCaps
       SignatureHelp = Some sigCaps
@@ -404,24 +466,32 @@ let clientCaps: ClientCapabilities =
       Formatting = Some dynCaps
       RangeFormatting = Some dynCaps
       OnTypeFormatting = Some dynCaps
-      Definition = Some dynCaps
+      Definition = Some defCaps
       CodeAction = Some codeActionCaps
       CodeLens = Some dynCaps
-      DocumentLink = Some dynCaps
+      DocumentLink = Some docLinkCaps
       Rename = Some renameCaps
       FoldingRange = Some foldingRangeCaps
       SelectionRange = Some dynCaps
       SemanticTokens = Some semanticTokensCaps
       InlayHint = Some inlayHintCaps
       CallHierarchy = None
-      TypeHierarchy = None }
-      // InlineValue = Some inlineValueCaps }
-
+      TypeHierarchy = None
+      Declaration = Some linkCaps
+      TypeDefinition = Some typeDefCaps
+      Implementation = Some implCaps
+      ColorProvider = Some dynCaps
+      LinkedEditingRange = Some dynCaps
+      Moniker = Some dynCaps
+      InlineValue = Some dynCaps
+      Diagnostic = Some diagCaps
+       }
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
     Experimental = None
-    Window = None }
+    Window = None
+    General = None }
 
 open Expecto.Logging
 open Expecto.Logging.Message
@@ -499,7 +569,8 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
           Some
             [| { Uri = Path.FilePathToUri path
                  Name = "Test Folder" } |]
-        trace = None }
+        trace = None
+        Locale = None }
 
     let! result = server.Initialize p
 

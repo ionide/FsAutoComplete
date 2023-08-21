@@ -25,3 +25,6 @@ System.Configuration.ConfigurationManager
 FSharp.Data.Adaptive
 Microsoft.Extensions.Caching.Memory
 OpenTelemetry.Exporter.OpenTelemetryProtocol
+Microsoft.CodeAnalysis
+LinkDotNet.StringBuilder
+CommunityToolkit.HighPerformance

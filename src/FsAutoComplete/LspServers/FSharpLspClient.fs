@@ -9,6 +9,8 @@ open FsAutoComplete.LspHelpers
 open System
 open System.Threading.Tasks
 open FsAutoComplete.Utils
+open System.Threading
+open IcedTasks
 
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
@@ -47,7 +49,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   override __.WorkspaceSemanticTokensRefresh() =
     sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
 
-  override __.TextDocumentPublishDiagnostics(p) =
+  override __.TextDocumentPublishDiagnostics(p: PublishDiagnosticsParams) =
     sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
   ///Custom notification for workspace/solution/project loading events
@@ -89,37 +91,77 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
 
 
+/// <summary>
+/// An awaitable wrapper around a task whose result is disposable. The wrapper is not disposable, so this prevents usage errors like "use _lock = myAsync()" when the appropriate usage should be "use! _lock = myAsync())".
+/// </summary>
+[<Struct>]
+type AwaitableDisposable<'T when 'T :> IDisposable>(t: Task<'T>) =
+  member x.GetAwaiter() = t.GetAwaiter()
+  member x.AsTask() = t
+  static member op_Implicit(source: AwaitableDisposable<'T>) = source.AsTask()
+
+[<AutoOpen>]
+module private SemaphoreSlimExtensions =
+  // Based on https://gist.github.com/StephenCleary/7dd1c0fc2a6594ba0ed7fb7ad6b590d6
+  // and https://gist.github.com/brendankowitz/5949970076952746a083054559377e56
+  type SemaphoreSlim with
+
+    member x.LockAsync(?ct: CancellationToken) =
+      AwaitableDisposable(
+        task {
+          let ct = defaultArg ct CancellationToken.None
+          let t = x.WaitAsync(ct)
+
+          do! t
+
+          return
+            { new IDisposable with
+                member _.Dispose() =
+                  // only release if the task completed successfully
+                  // otherwise, we could be releasing a semaphore that was never acquired
+                  if t.Status = TaskStatus.RanToCompletion then
+                    x.Release() |> ignore }
+        }
+      )
+
 type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 
-  let mutable canReportProgress = true
+  let mutable canReportProgress = false
   let mutable endSent = false
+
+  let locker = new SemaphoreSlim(1, 1)
 
   member val Token = defaultArg token (ProgressToken.Second((Guid.NewGuid().ToString())))
 
   member x.Begin(title, ?cancellable, ?message, ?percentage) =
-    async {
-      let! result = lspClient.WorkDoneProgressCreate x.Token
+    cancellableTask {
+      use! __ = fun ct -> locker.LockAsync(ct)
 
-      match result with
-      | Ok() -> ()
-      | Error e -> canReportProgress <- false
+      if not endSent then
+        let! result = lspClient.WorkDoneProgressCreate x.Token
 
-      if canReportProgress then
-        do!
-          lspClient.Progress(
-            x.Token,
-            WorkDoneProgressBegin.Create(
-              title,
-              ?cancellable = cancellable,
-              ?message = message,
-              ?percentage = percentage
+        match result with
+        | Ok() -> canReportProgress <- true
+        | Error e -> canReportProgress <- false
+
+        if canReportProgress then
+          do!
+            lspClient.Progress(
+              x.Token,
+              WorkDoneProgressBegin.Create(
+                title,
+                ?cancellable = cancellable,
+                ?message = message,
+                ?percentage = percentage
+              )
             )
-          )
     }
 
   member x.Report(?cancellable, ?message, ?percentage) =
-    async {
-      if canReportProgress then
+    cancellableTask {
+      use! __ = fun ct -> locker.LockAsync(ct)
+
+      if canReportProgress && not endSent then
         do!
           lspClient.Progress(
             x.Token,
@@ -128,14 +170,18 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     }
 
   member x.End(?message) =
-    async {
-      if canReportProgress && not endSent then
+    cancellableTask {
+      use! __ = fun ct -> locker.LockAsync(ct)
+      let stillNeedsToSend = canReportProgress && not endSent
+      endSent <- true
+
+      if stillNeedsToSend then
         do! lspClient.Progress(x.Token, WorkDoneProgressEnd.Create(?message = message))
-        endSent <- true
     }
 
   interface IAsyncDisposable with
-    member x.DisposeAsync() = task { do! x.End() } |> ValueTask
+    member x.DisposeAsync() =
+      task { do! x.End () (CancellationToken.None) } |> ValueTask
 
   interface IDisposable with
     member x.Dispose() =

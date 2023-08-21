@@ -498,11 +498,11 @@ module WorkspaceEdit =
       if uri <> textDocument.Uri then
         Some $"Edit should be for document `{textDocument.Uri}`, but was for `{uri}`"
       else
-        match textDocument.Version, version with
-        // only compare `Version` when `textDocument` and `version` has a Version. Otherwise ignore
-        | Some textDocVersion, Some version when textDocVersion <> version ->
-            Some $"Edit should be for document version `{textDocVersion}`, but version was `{version}`"
-        | _ -> None
+        if Some textDocument.Version <> version then
+          // only compare `Version` when `textDocument` and `version` has a Version. Otherwise ignore
+          Some $"Edit should be for document version `{textDocument.Version}`, but version was `{version}`"
+        else
+          None
 
     match (workspaceEdit.DocumentChanges, workspaceEdit.Changes) with
     | None, None ->

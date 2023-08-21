@@ -680,11 +680,25 @@ module Completion =
               | SynExpr.Const(SynConst.String _, _) -> Some Context.StringLiteral
               | SynExpr.InterpolatedString(parts, _, _) ->
                 parts
-                |> List.tryPick (function
-                  | SynInterpolatedStringPart.String(s, m) when Range.rangeContainsPos m pos ->
+                |> List.indexed
+                |> List.tryPick (fun (i, part) ->
+                  let inRangeOfPrevious =
+                    if i = 0 then
+                      false
+                    else
+                      // With no space between FillExpr and }..." of interpolated string,
+                      // there will be a range clash.
+                      match List.item (i - 1) parts with
+                      | SynInterpolatedStringPart.String(_, m) -> Range.rangeContainsPos m pos
+                      | SynInterpolatedStringPart.FillExpr(e, _) -> Range.rangeContainsPos e.Range pos
+
+                  match part with
+                  | SynInterpolatedStringPart.String(s, m) when Range.rangeContainsPos m pos && not inRangeOfPrevious ->
                     Some Context.StringLiteral
                   | SynInterpolatedStringPart.String _ -> None
-                  | SynInterpolatedStringPart.FillExpr(e, _) when Range.rangeContainsPos e.Range pos ->
+                  | SynInterpolatedStringPart.FillExpr(e, _) when
+                    Range.rangeContainsPos e.Range pos && not inRangeOfPrevious
+                    ->
                     defaultTraverse e // gotta dive into the expr to see if we're in a literal inside the expr
                   | SynInterpolatedStringPart.FillExpr _ -> None)
               | _ -> defaultTraverse expr

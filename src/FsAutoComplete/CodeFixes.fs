@@ -17,17 +17,21 @@ type FcsPos = FSharp.Compiler.Text.Position
 module LspTypes = Ionide.LanguageServerProtocol.Types
 
 module Types =
+  open FsAutoComplete.FCSPatches
+  open System.Threading.Tasks
 
   type IsEnabled = unit -> bool
 
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
-  type GetFileLines = string<LocalPath> -> Async<ResultOrString<NamedText>>
-  type GetLineText = NamedText -> LspTypes.Range -> Async<Result<string, string>>
+  type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
+  type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
       -> FSharp.Compiler.Text.Position
-      -> Async<ResultOrString<ParseAndCheckResults * string * NamedText>>
+      -> Async<ResultOrString<ParseAndCheckResults * string * IFSACSourceText>>
+
+  type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
   type GetProjectOptionsForFile =
     string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
@@ -197,10 +201,10 @@ module Navigation =
 
     fcsPos
 
-  let inc (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let inc (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
     lines.NextPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
-  let dec (lines: NamedText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let dec (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
     lines.PrevPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
   let rec decMany lines pos count =
@@ -229,13 +233,14 @@ module Navigation =
       return pos
     }
 
-  let walkBackUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+  let walkBackUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
     lines.WalkBackwards(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
-  let walkForwardUntilConditionWithTerminal (lines: NamedText) pos condition terminal =
+  let walkForwardUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
     let fcsStartPos = protocolPosToPos pos
+
 
     lines.WalkForward(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
@@ -248,7 +253,7 @@ module Navigation =
   /// Tries to detect the last cursor position in line before `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no prev line -> `currentLine` is first line
-  let tryEndOfPrevLine (lines: ISourceText) currentLine =
+  let tryEndOfPrevLine (lines: IFSACSourceText) currentLine =
     if SourceText.WithEmptyHandling.isFirstLine currentLine lines then
       None
     else
@@ -261,7 +266,7 @@ module Navigation =
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no next line -> `currentLine` is last line
-  let tryStartOfNextLine (lines: ISourceText) currentLine =
+  let tryStartOfNextLine (lines: IFSACSourceText) currentLine =
     if SourceText.WithEmptyHandling.isLastLine currentLine lines then
       None
     else
@@ -275,7 +280,7 @@ module Navigation =
   ///
   /// Special case: there's just one line
   /// -> delete text of (single) line
-  let rangeToDeleteFullLine lineIndex (lines: ISourceText) =
+  let rangeToDeleteFullLine lineIndex (lines: IFSACSourceText) =
     match tryEndOfPrevLine lines lineIndex with
     | Some start ->
       // delete leading linebreak
