@@ -406,7 +406,8 @@ module SyntaxTreeOps =
       | SynExpr.YieldOrReturnFrom(_, e, _)
       | SynExpr.DoBang(e, _)
       | SynExpr.Fixed(e, _)
-      | SynExpr.Paren(e, _, _, _) -> walkExpr e
+      | SynExpr.Paren(e, _, _, _)
+      | SynExpr.DotLambda(expr = e) -> walkExpr e
 
       | SynExpr.NamedIndexedPropertySet(_, e1, e2, _)
       | SynExpr.DotSet(e1, _, e2, _)
@@ -440,7 +441,8 @@ module SyntaxTreeOps =
               yield! bindings ]
 
       | SynExpr.ForEach(enumExpr = e1; bodyExpr = e2)
-      | SynExpr.While(whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
+      | SynExpr.While(whileExpr = e1; doExpr = e2)
+      | SynExpr.WhileBang(whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
 
       | SynExpr.For(identBody = e1; toBody = e2; doBody = e3) -> walkExpr e1 || walkExpr e2 || walkExpr e3
 

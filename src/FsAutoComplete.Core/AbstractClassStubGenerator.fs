@@ -29,7 +29,8 @@ type AbstractClassData =
 
 let private (|ExplicitCtor|_|) =
   function
-  | SynMemberDefn.Member(SynBinding(valData = SynValData(Some({ MemberKind = SynMemberKind.Constructor }), _, _)), _) ->
+  | SynMemberDefn.Member(
+      memberDefn = SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor })))) ->
     Some()
   | _ -> None
 

@@ -81,9 +81,10 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     addIfInside attr.Range
     walkExpr attr.ArgExpr
 
-  and walkTyparDecl (SynTyparDecl(attributes = AllAttrs attrs; Item2 = typar)) =
+  and walkTyparDecl (SynTyparDecl(attributes = AllAttrs attrs; typar = typar; intersectionConstraints = ts)) =
     List.iter walkAttribute attrs
     walkTypar typar
+    List.iter walkType ts
 
   and walkTyparDecls (typars: SynTyparDecls) =
     typars.TyparDecls |> List.iter walkTyparDecl
@@ -243,6 +244,9 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       walkType lhs
       walkType rhs
     | SynType.FromParseError(r) -> addIfInside r
+    | SynType.Intersection(typar = typar; types = ts) ->
+      Option.iter walkTypar typar
+      List.iter walkType ts
 
   and walkClause (SynMatchClause(pat, e1, e2, r, _, _)) =
     addIfInside r
@@ -307,7 +311,8 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       List.iter walkExpr es
     | SynExpr.App(_, _, e1, e2, r)
     | SynExpr.TryFinally(e1, e2, r, _, _, _)
-    | SynExpr.While(_, e1, e2, r) ->
+    | SynExpr.While(_, e1, e2, r)
+    | SynExpr.WhileBang(_, e1, e2, r) ->
       addIfInside r
       List.iter walkExpr [ e1; e2 ]
     | SynExpr.Record(_, _, fields, r) ->
@@ -396,7 +401,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
       walkType t
       walkMemberSig sign
       walkExpr e
-    | SynExpr.Const(SynConst.Measure(_, _, m), r) ->
+    | SynExpr.Const(SynConst.Measure(synMeasure = m), r) ->
       addIfInside r
       walkMeasure m
     | SynExpr.Const(_, r) -> addIfInside r
@@ -436,19 +441,23 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynExpr.Typar(t, r) ->
       addIfInside r
       walkTypar t
+    | SynExpr.DotLambda(expr = e) -> walkExpr e
 
   and walkMeasure =
     function
-    | SynMeasure.Product(m1, m2, r)
-    | SynMeasure.Divide(m1, m2, r) ->
+    | SynMeasure.Product(m1, _, m2, r) ->
       addIfInside r
       walkMeasure m1
+      walkMeasure m2
+    | SynMeasure.Divide(m1, _, m2, r) ->
+      addIfInside r
+      Option.iter walkMeasure m1
       walkMeasure m2
     | SynMeasure.Named(longIdent, r) -> addIfInside r
     | SynMeasure.Seq(ms, r) ->
       addIfInside r
       List.iter walkMeasure ms
-    | SynMeasure.Power(m, _, r) ->
+    | SynMeasure.Power(measure = m; range = r) ->
       addIfInside r
       walkMeasure m
     | SynMeasure.Var(ty, r) ->
@@ -457,7 +466,7 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynMeasure.Paren(m, r) ->
       addIfInside r
       walkMeasure m
-    | SynMeasure.One
+    | SynMeasure.One _
     | SynMeasure.Anon _ -> ()
 
   and walkSimplePat =

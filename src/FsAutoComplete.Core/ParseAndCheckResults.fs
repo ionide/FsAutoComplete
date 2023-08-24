@@ -645,6 +645,7 @@ type ParseAndCheckResults
               | CompletionItemKind.Argument -> 4
               | CompletionItemKind.Other -> 5
               | CompletionItemKind.Method(isExtension = true) -> 6
+              | CompletionItemKind.SuggestedName -> 7
 
             let decls =
               match filter with
