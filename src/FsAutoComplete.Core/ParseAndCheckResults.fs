@@ -539,6 +539,14 @@ type ParseAndCheckResults
           if symbol.IsPropertyGetterMethod then
             Ok(typ, [], [])
           else
+            let symbol =
+              // Symbol is a property with both get and set.
+              // Take the setter symbol in this case.
+              if symbol.HasGetterMethod && symbol.HasSetterMethod then
+                symbol.SetterMethod
+              else
+                symbol
+
             let parms =
               symbol.CurriedParameterGroups
               |> Seq.map (
