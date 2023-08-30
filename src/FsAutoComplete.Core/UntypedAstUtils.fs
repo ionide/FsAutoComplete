@@ -157,7 +157,6 @@ let internal getRangesAtPosition input (r: Position) : Range list =
     | SynPat.Record(_, r) -> addIfInside r
     | SynPat.Null(r) -> addIfInside r
     | SynPat.OptionalVal(_, r) -> addIfInside r
-    | SynPat.DeprecatedCharRange(_, _, r) -> addIfInside r
     | SynPat.InstanceMember(_, _, _, accessibility, r) -> addIfInside r
     | SynPat.FromParseError(_, r) -> addIfInside r
     | SynPat.As(lpat, rpat, r) ->

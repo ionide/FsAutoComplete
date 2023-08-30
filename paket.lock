@@ -480,8 +480,8 @@ NUGET
       FSharp.Core (>= 4.6.2) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
       System.Collections.Immutable (>= 6.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
   remote: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json
-    FSharp.Compiler.Service (43.8.100-preview.23421.4)
-      FSharp.Core (8.0.100-beta.23421.4)
+    FSharp.Compiler.Service (43.8.100-preview.23429.1)
+      FSharp.Core (8.0.100-beta.23429.1)
       System.Buffers (>= 4.5.1)
       System.Collections.Immutable (>= 7.0)
       System.Diagnostics.DiagnosticSource (>= 7.0.2)
@@ -489,7 +489,7 @@ NUGET
       System.Reflection.Emit (>= 4.7)
       System.Reflection.Metadata (>= 7.0)
       System.Runtime.CompilerServices.Unsafe (>= 6.0)
-    FSharp.Core (8.0.100-beta.23421.4)
+    FSharp.Core (8.0.100-beta.23429.1)
 
 GROUP Build
 STORAGE: NONE
