@@ -1152,6 +1152,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
              RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
              ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
              AddMissingFunKeyword.fix getFileLines getLineText
+             AddMissingWildcardOperator.fix tryGetParseResultsForFile
              MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
              AddMissingRecKeyword.fix getFileLines getLineText
              ConvertBangEqualsToInequality.fix getRangeText

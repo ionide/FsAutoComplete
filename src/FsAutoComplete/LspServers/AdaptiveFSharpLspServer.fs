@@ -1806,6 +1806,7 @@ type AdaptiveFSharpLspServer
          RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
          ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
          AddMissingFunKeyword.fix forceFindSourceText getLineText
+         AddMissingWildcardOperator.fix tryGetParseResultsForFile
          MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
          AddMissingRecKeyword.fix forceFindSourceText getLineText
          ConvertBangEqualsToInequality.fix getRangeText
