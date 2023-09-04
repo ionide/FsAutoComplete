@@ -8,6 +8,8 @@ open Fantomas.Core.SyntaxOak
 
 let repositoryRoot = __SOURCE_DIRECTORY__ </> ".."
 
+let removeReturnCarriage (v: string) = v.Replace("\r", "")
+
 let mkCodeFixImplementation codeFixName =
   let path =
     repositoryRoot
@@ -131,7 +133,7 @@ let fix
     }}
 """
 
-  File.WriteAllText(path, content)
+  File.WriteAllText(path, removeReturnCarriage content)
   Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
 
 let mkCodeFixSignature codeFixName =
@@ -151,7 +153,7 @@ val title: string
 val fix: getParseResultsForFile: GetParseResultsForFile -> CodeFix
 """
 
-  File.WriteAllText(path, content)
+  File.WriteAllText(path, removeReturnCarriage content)
   Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
 
 let updateProjectFiles () =
@@ -181,11 +183,11 @@ let getOakFor path =
   |> Array.head
   |> fst
 
-let appendItemToArray codeFixName path (array: ExprArrayOrListNode) =
-  let lastElement = array.Elements |> List.last |> Expr.Node
+let appendItemToArrayOrList item path (node: ExprArrayOrListNode) =
+  let lastElement = node.Elements |> List.last |> Expr.Node
   let startIndent = lastElement.Range.StartColumn
   let lineIdx = lastElement.Range.EndLine - 1
-  let arrayEndsOnLastElement = array.Range.EndLine = lastElement.Range.EndLine
+  let arrayEndsOnLastElement = node.Range.EndLine = lastElement.Range.EndLine
 
   let updatedLines =
     let lines = File.ReadAllLines path
@@ -197,14 +199,12 @@ let appendItemToArray codeFixName path (array: ExprArrayOrListNode) =
       let endOfArray = currentLastLine.Substring(lastElement.Range.EndColumn)
 
       lines
-      |> Array.updateAt
-        lineIdx
-        $"{endOfLastElement}\n%s{spaces}%s{codeFixName}.fix tryGetParseResultsForFile%s{endOfArray}"
+      |> Array.updateAt lineIdx $"{endOfLastElement}\n%s{spaces}%s{item}%s{endOfArray}"
     else
-      lines
-      |> Array.insertAt (lineIdx + 1) $"%s{spaces}%s{codeFixName}.fix tryGetParseResultsForFile"
+      lines |> Array.insertAt (lineIdx + 1) $"%s{spaces}%s{item}"
 
   File.WriteAllLines(path, updatedLines)
+  Trace.tracefn $"Added \"%s{item}\" to %s{Path.GetRelativePath(repositoryRoot, path)}"
 
 let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
   let path =
@@ -272,7 +272,7 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
       | Expr.ArrayOrList array -> array
       | _ -> raise (exn "Expected array")
 
-    appendItemToArray codeFixName path array
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" path array
   with ex ->
     Trace.traceException ex
     Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
@@ -344,10 +344,82 @@ let wireCodeFixInFsAutoCompleteLsp codeFixName =
           | _ -> None
         | _ -> None)
 
-    appendItemToArray codeFixName path array
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" path array
   with ex ->
     Trace.traceException ex
     Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
+
+let mkCodeFixTests codeFixName =
+  let path =
+    repositoryRoot
+    </> "test"
+    </> "FsAutoComplete.Tests.Lsp"
+    </> "CodeFixTests"
+    </> $"%s{codeFixName}Tests.fs"
+
+  let contents =
+    $"module private FsAutoComplete.Tests.CodeFixTests.%s{codeFixName}Tests
+
+open Expecto
+open Helpers
+open Utils.ServerTests
+open Utils.CursorbasedTests
+open FsAutoComplete.CodeFix
+
+let tests state =
+  serverTestList (nameof %s{codeFixName}) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle %s{codeFixName}.title
+
+      ftestCaseAsync \"first unit test for %s{codeFixName}\"
+      <| CodeFix.check
+        server
+        \"let a$0 b c = ()\"
+        Diagnostics.acceptAll
+        selectCodeFix
+        \"let Text replaced by %s{codeFixName} b c = ()\"
+    ])
+"
+
+  File.WriteAllText(path, removeReturnCarriage contents)
+  Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
+
+let wireCodeFixTests codeFixName =
+  let path =
+    repositoryRoot
+    </> "test"
+    </> "FsAutoComplete.Tests.Lsp"
+    </> "CodeFixTests"
+    </> "Tests.fs"
+
+  try
+    let oak = getOakFor path
+    // module FsAutoComplete.Tests.CodeFixTests.Tests
+    let testsModule = oak.ModulesOrNamespaces |> List.exactlyOne
+
+    // let tests state =
+    let testBinding =
+      testsModule.Declarations
+      |> List.pick (function
+        | ModuleDecl.TopLevelBinding binding ->
+          match binding.FunctionName with
+          | Choice1Of2(IdentName "tests") -> Some binding
+          | _ -> None
+        | _ -> None)
+
+    let appNode =
+      match testBinding.Expr with
+      | Expr.App appNode -> appNode
+      | e -> failwithf "Expected Expr.App, got %A" e
+
+    let list =
+      match List.last appNode.Arguments with
+      | Expr.ArrayOrList list -> list
+      | e -> failwithf "Expected Expr.ArrayOrList, got %A" e
+
+    appendItemToArrayOrList $"%s{codeFixName}Tests.tests state" path list
+  with ex ->
+    Trace.traceException ex
+    Trace.traceError $"Unable to find array of tests in %s{path}.\nDid the code structure change?"
 
 let scaffold (codeFixName: string) : unit =
   // generate files in src/CodeFixes/
@@ -358,9 +430,11 @@ let scaffold (codeFixName: string) : unit =
   wireCodeFixInAdaptiveFSharpLspServer codeFixName
   wireCodeFixInFsAutoCompleteLsp codeFixName
 
-  // Add test file in test/FsAutoComplete.Tests.Lsp/CodeFixTests
+  // Add test file
+  mkCodeFixTests codeFixName
 
   // Wire up tests in test/FsAutoComplete.Tests.Lsp/CodeFixTests/Tests.fs
+  wireCodeFixTests codeFixName
 
   updateProjectFiles ()
   Trace.tracefn $"Scaffolding %s{codeFixName} complete!"
