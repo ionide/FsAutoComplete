@@ -4,6 +4,7 @@ open System
 open System.IO
 open Fake.Core
 open Fake.IO.FileSystemOperators
+open Fantomas.Core.SyntaxOak
 
 let repositoryRoot = __SOURCE_DIRECTORY__ </> ".."
 
@@ -131,6 +132,27 @@ let fix
 """
 
   File.WriteAllText(path, content)
+  Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
+
+let mkCodeFixSignature codeFixName =
+  let path =
+    repositoryRoot
+    </> "src"
+    </> "FsAutoComplete"
+    </> "CodeFixes"
+    </> $"{codeFixName}.fsi"
+
+  let content =
+    $"""module FsAutoComplete.CodeFix.%s{codeFixName}
+
+open FsAutoComplete.CodeFix.Types
+
+val title: string
+val fix: getParseResultsForFile: GetParseResultsForFile -> CodeFix
+"""
+
+  File.WriteAllText(path, content)
+  Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
 
 let updateProjectFiles () =
   let fsAutoCompleteProject =
@@ -146,15 +168,195 @@ let updateProjectFiles () =
 
   File.SetLastWriteTime(fsAutoCompleteTestsLsp, DateTime.Now)
 
+let (|IdentName|_|) (name: string) (identListNode: IdentListNode) =
+  match identListNode.Content with
+  | [ IdentifierOrDot.Ident stn ] when stn.Text = name -> Some()
+  | _ -> None
+
+let getOakFor path =
+  let content = File.ReadAllText path
+
+  Fantomas.Core.CodeFormatter.ParseOakAsync(false, content)
+  |> Async.RunSynchronously
+  |> Array.head
+  |> fst
+
+let appendItemToArray codeFixName path (array: ExprArrayOrListNode) =
+  let lastElement = array.Elements |> List.last |> Expr.Node
+  let startIndent = lastElement.Range.StartColumn
+  let lineIdx = lastElement.Range.EndLine - 1
+  let arrayEndsOnLastElement = array.Range.EndLine = lastElement.Range.EndLine
+
+  let updatedLines =
+    let lines = File.ReadAllLines path
+    let currentLastLine = lines.[lineIdx]
+    let spaces = String.replicate startIndent " "
+
+    if arrayEndsOnLastElement then
+      let endOfLastElement = currentLastLine.Substring(0, lastElement.Range.EndColumn)
+      let endOfArray = currentLastLine.Substring(lastElement.Range.EndColumn)
+
+      lines
+      |> Array.updateAt
+        lineIdx
+        $"{endOfLastElement}\n%s{spaces}%s{codeFixName}.fix tryGetParseResultsForFile%s{endOfArray}"
+    else
+      lines
+      |> Array.insertAt (lineIdx + 1) $"%s{spaces}%s{codeFixName}.fix tryGetParseResultsForFile"
+
+  File.WriteAllLines(path, updatedLines)
+
+let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
+  let path =
+    repositoryRoot
+    </> "src"
+    </> "FsAutoComplete"
+    </> "LspServers"
+    </> "AdaptiveFSharpLspServer.fs"
+
+  try
+    let oak = getOakFor path
+
+    // namespace FsAutoComplete.Lsp
+    let ns = oak.ModulesOrNamespaces |> List.exactlyOne
+
+    // type AdaptiveFSharpLspServer
+    let t =
+      ns.Declarations
+      |> List.pick (function
+        | ModuleDecl.TypeDefn t ->
+          let tdn = TypeDefn.TypeDefnNode t
+
+          match tdn.TypeName.Identifier with
+          | IdentName "AdaptiveFSharpLspServer" -> Some tdn
+          | _ -> None
+        | _ -> None)
+
+    // let codefixes =
+    let codefixesValue =
+      t.Members
+      |> List.pick (function
+        | MemberDefn.LetBinding bindingList ->
+          match bindingList.Bindings with
+          | bindings ->
+            bindings
+            |> List.tryPick (fun binding ->
+              match binding.FunctionName with
+              | Choice1Of2(IdentName "codefixes") -> Some binding
+              | _ -> None)
+        | _ -> None)
+
+    let infixApp =
+      match codefixesValue.Expr with
+      | Expr.CompExprBody body ->
+        match List.last body.Statements with
+        | ComputationExpressionStatement.OtherStatement other ->
+          match other with
+          | Expr.InfixApp infixApp -> infixApp
+          | _ -> raise (exn "Expected |> infix operator")
+        | _ -> raise (exn "Expected |> infix operator")
+      | _ -> raise (exn "Expected |> infix operator")
+
+    let appWithLambda =
+      match infixApp.RightHandSide with
+      | Expr.AppWithLambda appWithLambda -> appWithLambda
+      | _ -> raise (exn "Expected function with lambda")
+
+    let lambda =
+      match appWithLambda.Lambda with
+      | Choice1Of2 lambda -> lambda
+      | Choice2Of2 _ -> raise (exn "Expected lambda")
+
+    let array =
+      match lambda.Expr with
+      | Expr.ArrayOrList array -> array
+      | _ -> raise (exn "Expected array")
+
+    appendItemToArray codeFixName path array
+  with ex ->
+    Trace.traceException ex
+    Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
+
+let wireCodeFixInFsAutoCompleteLsp codeFixName =
+  let path =
+    repositoryRoot
+    </> "src"
+    </> "FsAutoComplete"
+    </> "LspServers"
+    </> "FsAutoComplete.Lsp.fs"
+
+  try
+    let oak = getOakFor path
+    // namespace FsAutoComplete.Lsp
+    let ns = oak.ModulesOrNamespaces |> List.exactlyOne
+
+    // type AdaptiveFSharpLspServer
+    let t =
+      ns.Declarations
+      |> List.pick (function
+        | ModuleDecl.TypeDefn t ->
+          let tdn = TypeDefn.TypeDefnNode t
+
+          match tdn.TypeName.Identifier with
+          | IdentName "FSharpLspServer" -> Some tdn
+          | _ -> None
+        | _ -> None)
+
+    // interface IFSharpLspServer with
+    let iFSharpLspServer =
+      t.Members
+      |> List.pick (function
+        | MemberDefn.Interface i -> Some i
+        | _ -> None)
+
+    // override _.Initialize(p: InitializeParams) =
+    let overrideMember =
+      iFSharpLspServer.Members
+      |> List.pick (function
+        | MemberDefn.Member mb ->
+          match mb.FunctionName with
+          | Choice1Of2 iln ->
+            match iln.Content with
+            | [ _; _; IdentifierOrDot.Ident ident ] when ident.Text = "Initialize" -> Some mb
+            | _ -> None
+          | Choice2Of2 _ -> None
+        | _ -> None)
+
+    let asyncComp =
+      match overrideMember.Expr with
+      | Expr.NamedComputation namedComputation -> namedComputation
+      | e -> failwithf "Expected Expr.NamedComputation, got %A" e
+
+    let compBody =
+      match asyncComp.Body with
+      | Expr.CompExprBody body -> body
+      | e -> failwithf "Expected Expr.CompExprBody, got %A" e
+
+    let array =
+      compBody.Statements
+      |> List.pick (function
+        | ComputationExpressionStatement.OtherStatement(Expr.LongIdentSet longIdentSet) ->
+          match longIdentSet.Identifier with
+          | IdentName "codefixes" ->
+            match longIdentSet.Expr with
+            | Expr.ArrayOrList array -> Some array
+            | _ -> None
+          | _ -> None
+        | _ -> None)
+
+    appendItemToArray codeFixName path array
+  with ex ->
+    Trace.traceException ex
+    Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
+
 let scaffold (codeFixName: string) : unit =
   // generate files in src/CodeFixes/
-  // .fs
-  // .fsi
   mkCodeFixImplementation codeFixName
+  mkCodeFixSignature codeFixName
 
-  // wire up codefix in
-  // - AdaptiveFSharpLspServer.fs
-  // - FsAutoComplete.Lsp.fs
+  // Wire up codefix to LSP servers
+  wireCodeFixInAdaptiveFSharpLspServer codeFixName
+  wireCodeFixInFsAutoCompleteLsp codeFixName
 
   // Add test file in test/FsAutoComplete.Tests.Lsp/CodeFixTests
 
@@ -162,3 +364,6 @@ let scaffold (codeFixName: string) : unit =
 
   updateProjectFiles ()
   Trace.tracefn $"Scaffolding %s{codeFixName} complete!"
+
+// TODO: introduce a target that verifies the codefix can still be added.
+// By checking the AST can still reach the entry points of the lists.

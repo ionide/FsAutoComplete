@@ -82,3 +82,4 @@ group Build
   nuget Microsoft.Build
   nuget MSBuild.StructuredLogger
   nuget Octokit 0.48 // there's an API break in 0.50, so we need to pin this to prevent errors
+  nuget Fantomas.Core 6.2.0
