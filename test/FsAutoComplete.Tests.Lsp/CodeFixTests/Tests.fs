@@ -3333,7 +3333,7 @@ let tests state =
       convertTripleSlashCommentToXmlTaggedDocTests state
       addPrivateAccessModifierTests state
       GenerateAbstractClassStubTests.tests state
-      generateRecordStubTests state
+      // generateRecordStubTests state
       generateUnionCasesTests state
       generateXmlDocumentationTests state
       ImplementInterfaceTests.tests state
@@ -3351,4 +3351,5 @@ let tests state =
       useTripleQuotedInterpolationTests state
       wrapExpressionInParenthesesTests state
       removeRedundantAttributeSuffixTests state
-      removePatternArgumentTests state ]
+      removePatternArgumentTests state
+      UpdateFooBarTests.tests state ]

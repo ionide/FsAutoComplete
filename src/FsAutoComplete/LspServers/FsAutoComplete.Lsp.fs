@@ -1173,6 +1173,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
              RenameParamToMatchSignature.fix tryGetParseResultsForFile
              RemovePatternArgument.fix tryGetParseResultsForFile
              ToInterpolatedString.fix tryGetParseResultsForFile tryGetLanguageVersion
+             UpdateFooBar.fix tryGetParseResultsForFile
 
              |]
 
