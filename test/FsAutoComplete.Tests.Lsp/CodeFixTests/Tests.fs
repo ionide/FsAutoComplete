@@ -3351,4 +3351,5 @@ let tests textFactory state =
       useTripleQuotedInterpolationTests state
       wrapExpressionInParenthesesTests state
       removeRedundantAttributeSuffixTests state
-      removePatternArgumentTests state ]
+      removePatternArgumentTests state
+      UpdateValueInSignatureFileTests.tests state ]
