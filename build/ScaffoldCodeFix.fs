@@ -203,8 +203,34 @@ let appendItemToArrayOrList item path (node: ExprArrayOrListNode) =
     else
       lines |> Array.insertAt (lineIdx + 1) $"%s{spaces}%s{item}"
 
-  File.WriteAllLines(path, updatedLines)
+  let content = String.concat "\n" updatedLines
+  File.WriteAllText(path, content)
   Trace.tracefn $"Added \"%s{item}\" to %s{Path.GetRelativePath(repositoryRoot, path)}"
+
+module List =
+  let exactlyOneOrFail (message: string) (items: 'T list) : 'T =
+    if items.Length = 1 then items.Head else failwith message
+
+  let pickOrFail (message: string) (chooser: 'T -> 'U option) (items: 'T list) : 'U =
+    match List.tryPick chooser items with
+    | None -> failwith message
+    | Some u -> u
+
+let findArrayOrListOfFail (e: Expr) =
+  match e with
+  | Expr.ArrayOrList array -> array
+  | e -> failwithf $"Expected to find Expr.ArrayOrList, got %A{e}"
+
+let findTypeWithNameOfFail (typeName: string) (mn: ModuleOrNamespaceNode) : ITypeDefn =
+  mn.Declarations
+  |> List.pickOrFail $"Expected to find ModuleDecl.TypeDefn for %s{typeName}" (function
+    | ModuleDecl.TypeDefn t ->
+      let tdn = TypeDefn.TypeDefnNode t
+
+      match tdn.TypeName.Identifier with
+      | IdentName typeName -> Some tdn
+      | _ -> None
+    | _ -> None)
 
 let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
   let path =
@@ -218,24 +244,17 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
     let oak = getOakFor path
 
     // namespace FsAutoComplete.Lsp
-    let ns = oak.ModulesOrNamespaces |> List.exactlyOne
+    let ns =
+      oak.ModulesOrNamespaces
+      |> List.exactlyOneOrFail "Expected a single namespace in Oak."
 
     // type AdaptiveFSharpLspServer
-    let t =
-      ns.Declarations
-      |> List.pick (function
-        | ModuleDecl.TypeDefn t ->
-          let tdn = TypeDefn.TypeDefnNode t
-
-          match tdn.TypeName.Identifier with
-          | IdentName "AdaptiveFSharpLspServer" -> Some tdn
-          | _ -> None
-        | _ -> None)
+    let t = findTypeWithNameOfFail "AdaptiveFSharpLspServer" ns
 
     // let codefixes =
     let codefixesValue =
       t.Members
-      |> List.pick (function
+      |> List.pickOrFail "Expected to find MemberDefn.LetBinding for codefixes" (function
         | MemberDefn.LetBinding bindingList ->
           match bindingList.Bindings with
           | bindings ->
@@ -253,24 +272,21 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
         | ComputationExpressionStatement.OtherStatement other ->
           match other with
           | Expr.InfixApp infixApp -> infixApp
-          | _ -> raise (exn "Expected |> infix operator")
-        | _ -> raise (exn "Expected |> infix operator")
-      | _ -> raise (exn "Expected |> infix operator")
+          | e -> failwithf $"Expected to find Expr.InfixApp, got %A{e}"
+        | ces -> failwithf $"Expected to find ComputationExpressionStatement.OtherStatement, got %A{ces}"
+      | e -> failwithf $"Expected to find Expr.CompExprBody, got %A{e}"
 
     let appWithLambda =
       match infixApp.RightHandSide with
       | Expr.AppWithLambda appWithLambda -> appWithLambda
-      | _ -> raise (exn "Expected function with lambda")
+      | e -> failwithf $"Expected to find Expr.AppWithLambda, got %A{e}"
 
     let lambda =
       match appWithLambda.Lambda with
       | Choice1Of2 lambda -> lambda
-      | Choice2Of2 _ -> raise (exn "Expected lambda")
+      | Choice2Of2 ml -> failwithf $"Expected to find ExprLambdaNode, got %A{ml}"
 
-    let array =
-      match lambda.Expr with
-      | Expr.ArrayOrList array -> array
-      | _ -> raise (exn "Expected array")
+    let array = findArrayOrListOfFail lambda.Expr
 
     appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" path array
   with ex ->
@@ -288,19 +304,12 @@ let wireCodeFixInFsAutoCompleteLsp codeFixName =
   try
     let oak = getOakFor path
     // namespace FsAutoComplete.Lsp
-    let ns = oak.ModulesOrNamespaces |> List.exactlyOne
+    let ns =
+      oak.ModulesOrNamespaces
+      |> List.exactlyOneOrFail "Expected a single namespace in Oak."
 
     // type AdaptiveFSharpLspServer
-    let t =
-      ns.Declarations
-      |> List.pick (function
-        | ModuleDecl.TypeDefn t ->
-          let tdn = TypeDefn.TypeDefnNode t
-
-          match tdn.TypeName.Identifier with
-          | IdentName "FSharpLspServer" -> Some tdn
-          | _ -> None
-        | _ -> None)
+    let t = findTypeWithNameOfFail "FSharpLspServer" ns
 
     // interface IFSharpLspServer with
     let iFSharpLspServer =
@@ -325,16 +334,16 @@ let wireCodeFixInFsAutoCompleteLsp codeFixName =
     let asyncComp =
       match overrideMember.Expr with
       | Expr.NamedComputation namedComputation -> namedComputation
-      | e -> failwithf "Expected Expr.NamedComputation, got %A" e
+      | e -> failwithf $"Expected Expr.NamedComputation, got %A{e}"
 
     let compBody =
       match asyncComp.Body with
       | Expr.CompExprBody body -> body
-      | e -> failwithf "Expected Expr.CompExprBody, got %A" e
+      | e -> failwithf $"Expected Expr.CompExprBody, got %A{e}"
 
     let array =
       compBody.Statements
-      |> List.pick (function
+      |> List.pickOrFail "Expected to find ComputationExpressionStatement.OtherStatement" (function
         | ComputationExpressionStatement.OtherStatement(Expr.LongIdentSet longIdentSet) ->
           match longIdentSet.Identifier with
           | IdentName "codefixes" ->
@@ -394,12 +403,14 @@ let wireCodeFixTests codeFixName =
   try
     let oak = getOakFor path
     // module FsAutoComplete.Tests.CodeFixTests.Tests
-    let testsModule = oak.ModulesOrNamespaces |> List.exactlyOne
+    let testsModule =
+      oak.ModulesOrNamespaces
+      |> List.exactlyOneOrFail "Expected a single module in Oak."
 
     // let tests state =
     let testBinding =
       testsModule.Declarations
-      |> List.pick (function
+      |> List.pickOrFail "Expected to find ModuleDecl.TopLevelBinding for tests" (function
         | ModuleDecl.TopLevelBinding binding ->
           match binding.FunctionName with
           | Choice1Of2(IdentName "tests") -> Some binding
@@ -409,13 +420,9 @@ let wireCodeFixTests codeFixName =
     let appNode =
       match testBinding.Expr with
       | Expr.App appNode -> appNode
-      | e -> failwithf "Expected Expr.App, got %A" e
+      | e -> failwithf $"Expected Expr.App, got %A{e}"
 
-    let list =
-      match List.last appNode.Arguments with
-      | Expr.ArrayOrList list -> list
-      | e -> failwithf "Expected Expr.ArrayOrList, got %A" e
-
+    let list = findArrayOrListOfFail (List.last appNode.Arguments)
     appendItemToArrayOrList $"%s{codeFixName}Tests.tests state" path list
   with ex ->
     Trace.traceException ex
