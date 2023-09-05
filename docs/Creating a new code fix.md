@@ -34,13 +34,13 @@ Furthermore, this command updates the following files to properly register the n
 The unit test file contains a single focused test, allowing you to promptly verify the functionality. To run this initial test, you have two options:
 
 1. Using the `dotnet test` command:
-   ```bash
-   dotnet test -f net6.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
-   ```
+ ```bash
+dotnet test -f net6.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+ ```
 
 2. Alternatively, using the `dotnet run` command:
-   ```bash
-   dotnet run -f net6.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
-   ```
+ ```bash
+dotnet run -f net6.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+ ```
 
 This comprehensive approach ensures that the newly introduced code fix is properly integrated, tested, and ready for seamless integration into the FSAutocomplete environment.
