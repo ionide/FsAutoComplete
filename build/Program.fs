@@ -180,12 +180,20 @@ let init args =
     | None -> failwith "Usage: dotnet run --project ./build/build.fsproj -- -t ScaffoldCodeFix <name>"
     | Some codeFixName -> ScaffoldCodeFix.scaffold codeFixName)
 
+  Target.create "EnsureCanScaffoldCodeFix" (fun _ -> ScaffoldCodeFix.ensureScaffoldStillWorks ())
+
   "PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
   |> ignore<string>
 
   "Restore" ==> "Build" |> ignore<string>
 
-  "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All" |> ignore<string>
+  "Build"
+  ==> "EnsureCanScaffoldCodeFix"
+  ==> "LspTest"
+  ==> "Coverage"
+  ==> "Test"
+  ==> "All"
+  |> ignore<string>
 
   "Clean" ==> "LocalRelease" ==> "ReleaseArchive" ==> "Release" |> ignore<string>
 

@@ -8,6 +8,27 @@ open Fantomas.Core.SyntaxOak
 
 let repositoryRoot = __SOURCE_DIRECTORY__ </> ".."
 
+let AdaptiveFSharpLspServerPath =
+  repositoryRoot
+  </> "src"
+  </> "FsAutoComplete"
+  </> "LspServers"
+  </> "AdaptiveFSharpLspServer.fs"
+
+let FsAutoCompleteLspPath =
+  repositoryRoot
+  </> "src"
+  </> "FsAutoComplete"
+  </> "LspServers"
+  </> "FsAutoComplete.Lsp.fs"
+
+let TestsPath =
+  repositoryRoot
+  </> "test"
+  </> "FsAutoComplete.Tests.Lsp"
+  </> "CodeFixTests"
+  </> "Tests.fs"
+
 let removeReturnCarriage (v: string) = v.Replace("\r", "")
 
 let mkCodeFixImplementation codeFixName =
@@ -232,131 +253,123 @@ let findTypeWithNameOfFail (typeName: string) (mn: ModuleOrNamespaceNode) : ITyp
       | _ -> None
     | _ -> None)
 
+let findArrayInAdaptiveFSharpLspServer () : ExprArrayOrListNode =
+  let oak = getOakFor AdaptiveFSharpLspServerPath
+
+  // namespace FsAutoComplete.Lsp
+  let ns =
+    oak.ModulesOrNamespaces
+    |> List.exactlyOneOrFail "Expected a single namespace in Oak."
+
+  // type AdaptiveFSharpLspServer
+  let t = findTypeWithNameOfFail "AdaptiveFSharpLspServer" ns
+
+  // let codefixes =
+  let codefixesValue =
+    t.Members
+    |> List.pickOrFail "Expected to find MemberDefn.LetBinding for codefixes" (function
+      | MemberDefn.LetBinding bindingList ->
+        match bindingList.Bindings with
+        | bindings ->
+          bindings
+          |> List.tryPick (fun binding ->
+            match binding.FunctionName with
+            | Choice1Of2(IdentName "codefixes") -> Some binding
+            | _ -> None)
+      | _ -> None)
+
+  let infixApp =
+    match codefixesValue.Expr with
+    | Expr.CompExprBody body ->
+      match List.last body.Statements with
+      | ComputationExpressionStatement.OtherStatement other ->
+        match other with
+        | Expr.InfixApp infixApp -> infixApp
+        | e -> failwithf $"Expected to find Expr.InfixApp, got %A{e}"
+      | ces -> failwithf $"Expected to find ComputationExpressionStatement.OtherStatement, got %A{ces}"
+    | e -> failwithf $"Expected to find Expr.CompExprBody, got %A{e}"
+
+  let appWithLambda =
+    match infixApp.RightHandSide with
+    | Expr.AppWithLambda appWithLambda -> appWithLambda
+    | e -> failwithf $"Expected to find Expr.AppWithLambda, got %A{e}"
+
+  let lambda =
+    match appWithLambda.Lambda with
+    | Choice1Of2 lambda -> lambda
+    | Choice2Of2 ml -> failwithf $"Expected to find ExprLambdaNode, got %A{ml}"
+
+  findArrayOrListOfFail lambda.Expr
+
 let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
-  let path =
-    repositoryRoot
-    </> "src"
-    </> "FsAutoComplete"
-    </> "LspServers"
-    </> "AdaptiveFSharpLspServer.fs"
-
   try
-    let oak = getOakFor path
+    let array = findArrayInAdaptiveFSharpLspServer ()
 
-    // namespace FsAutoComplete.Lsp
-    let ns =
-      oak.ModulesOrNamespaces
-      |> List.exactlyOneOrFail "Expected a single namespace in Oak."
-
-    // type AdaptiveFSharpLspServer
-    let t = findTypeWithNameOfFail "AdaptiveFSharpLspServer" ns
-
-    // let codefixes =
-    let codefixesValue =
-      t.Members
-      |> List.pickOrFail "Expected to find MemberDefn.LetBinding for codefixes" (function
-        | MemberDefn.LetBinding bindingList ->
-          match bindingList.Bindings with
-          | bindings ->
-            bindings
-            |> List.tryPick (fun binding ->
-              match binding.FunctionName with
-              | Choice1Of2(IdentName "codefixes") -> Some binding
-              | _ -> None)
-        | _ -> None)
-
-    let infixApp =
-      match codefixesValue.Expr with
-      | Expr.CompExprBody body ->
-        match List.last body.Statements with
-        | ComputationExpressionStatement.OtherStatement other ->
-          match other with
-          | Expr.InfixApp infixApp -> infixApp
-          | e -> failwithf $"Expected to find Expr.InfixApp, got %A{e}"
-        | ces -> failwithf $"Expected to find ComputationExpressionStatement.OtherStatement, got %A{ces}"
-      | e -> failwithf $"Expected to find Expr.CompExprBody, got %A{e}"
-
-    let appWithLambda =
-      match infixApp.RightHandSide with
-      | Expr.AppWithLambda appWithLambda -> appWithLambda
-      | e -> failwithf $"Expected to find Expr.AppWithLambda, got %A{e}"
-
-    let lambda =
-      match appWithLambda.Lambda with
-      | Choice1Of2 lambda -> lambda
-      | Choice2Of2 ml -> failwithf $"Expected to find ExprLambdaNode, got %A{ml}"
-
-    let array = findArrayOrListOfFail lambda.Expr
-
-    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" path array
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" AdaptiveFSharpLspServerPath array
   with ex ->
     Trace.traceException ex
-    Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
+
+    Trace.traceError
+      $"Unable to find array of codefixes in %s{AdaptiveFSharpLspServerPath}.\nDid the code structure change?"
+
+let findArrayInFsAutoCompleteLsp () =
+  let oak = getOakFor FsAutoCompleteLspPath
+  // namespace FsAutoComplete.Lsp
+  let ns =
+    oak.ModulesOrNamespaces
+    |> List.exactlyOneOrFail "Expected a single namespace in Oak."
+
+  // type AdaptiveFSharpLspServer
+  let t = findTypeWithNameOfFail "FSharpLspServer" ns
+
+  // interface IFSharpLspServer with
+  let iFSharpLspServer =
+    t.Members
+    |> List.pick (function
+      | MemberDefn.Interface i -> Some i
+      | _ -> None)
+
+  // override _.Initialize(p: InitializeParams) =
+  let overrideMember =
+    iFSharpLspServer.Members
+    |> List.pick (function
+      | MemberDefn.Member mb ->
+        match mb.FunctionName with
+        | Choice1Of2 iln ->
+          match iln.Content with
+          | [ _; _; IdentifierOrDot.Ident ident ] when ident.Text = "Initialize" -> Some mb
+          | _ -> None
+        | Choice2Of2 _ -> None
+      | _ -> None)
+
+  let asyncComp =
+    match overrideMember.Expr with
+    | Expr.NamedComputation namedComputation -> namedComputation
+    | e -> failwithf $"Expected Expr.NamedComputation, got %A{e}"
+
+  let compBody =
+    match asyncComp.Body with
+    | Expr.CompExprBody body -> body
+    | e -> failwithf $"Expected Expr.CompExprBody, got %A{e}"
+
+  compBody.Statements
+  |> List.pickOrFail "Expected to find ComputationExpressionStatement.OtherStatement" (function
+    | ComputationExpressionStatement.OtherStatement(Expr.LongIdentSet longIdentSet) ->
+      match longIdentSet.Identifier with
+      | IdentName "codefixes" ->
+        match longIdentSet.Expr with
+        | Expr.ArrayOrList array -> Some array
+        | _ -> None
+      | _ -> None
+    | _ -> None)
 
 let wireCodeFixInFsAutoCompleteLsp codeFixName =
-  let path =
-    repositoryRoot
-    </> "src"
-    </> "FsAutoComplete"
-    </> "LspServers"
-    </> "FsAutoComplete.Lsp.fs"
-
   try
-    let oak = getOakFor path
-    // namespace FsAutoComplete.Lsp
-    let ns =
-      oak.ModulesOrNamespaces
-      |> List.exactlyOneOrFail "Expected a single namespace in Oak."
-
-    // type AdaptiveFSharpLspServer
-    let t = findTypeWithNameOfFail "FSharpLspServer" ns
-
-    // interface IFSharpLspServer with
-    let iFSharpLspServer =
-      t.Members
-      |> List.pick (function
-        | MemberDefn.Interface i -> Some i
-        | _ -> None)
-
-    // override _.Initialize(p: InitializeParams) =
-    let overrideMember =
-      iFSharpLspServer.Members
-      |> List.pick (function
-        | MemberDefn.Member mb ->
-          match mb.FunctionName with
-          | Choice1Of2 iln ->
-            match iln.Content with
-            | [ _; _; IdentifierOrDot.Ident ident ] when ident.Text = "Initialize" -> Some mb
-            | _ -> None
-          | Choice2Of2 _ -> None
-        | _ -> None)
-
-    let asyncComp =
-      match overrideMember.Expr with
-      | Expr.NamedComputation namedComputation -> namedComputation
-      | e -> failwithf $"Expected Expr.NamedComputation, got %A{e}"
-
-    let compBody =
-      match asyncComp.Body with
-      | Expr.CompExprBody body -> body
-      | e -> failwithf $"Expected Expr.CompExprBody, got %A{e}"
-
-    let array =
-      compBody.Statements
-      |> List.pickOrFail "Expected to find ComputationExpressionStatement.OtherStatement" (function
-        | ComputationExpressionStatement.OtherStatement(Expr.LongIdentSet longIdentSet) ->
-          match longIdentSet.Identifier with
-          | IdentName "codefixes" ->
-            match longIdentSet.Expr with
-            | Expr.ArrayOrList array -> Some array
-            | _ -> None
-          | _ -> None
-        | _ -> None)
-
-    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" path array
+    let array = findArrayInFsAutoCompleteLsp ()
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" FsAutoCompleteLspPath array
   with ex ->
     Trace.traceException ex
-    Trace.traceError $"Unable to find array of codefixes in %s{path}.\nDid the code structure change?"
+    Trace.traceError $"Unable to find array of codefixes in %s{FsAutoCompleteLspPath}.\nDid the code structure change?"
 
 let mkCodeFixTests codeFixName =
   let path =
@@ -392,41 +405,37 @@ let tests state =
   File.WriteAllText(path, removeReturnCarriage contents)
   Trace.tracefn $"Generated %s{Path.GetRelativePath(repositoryRoot, path)}"
 
+let findListInTests () =
+  let oak = getOakFor TestsPath
+  // module FsAutoComplete.Tests.CodeFixTests.Tests
+  let testsModule =
+    oak.ModulesOrNamespaces
+    |> List.exactlyOneOrFail "Expected a single module in Oak."
+
+  // let tests state =
+  let testBinding =
+    testsModule.Declarations
+    |> List.pickOrFail "Expected to find ModuleDecl.TopLevelBinding for tests" (function
+      | ModuleDecl.TopLevelBinding binding ->
+        match binding.FunctionName with
+        | Choice1Of2(IdentName "tests") -> Some binding
+        | _ -> None
+      | _ -> None)
+
+  let appNode =
+    match testBinding.Expr with
+    | Expr.App appNode -> appNode
+    | e -> failwithf $"Expected Expr.App, got %A{e}"
+
+  findArrayOrListOfFail (List.last appNode.Arguments)
+
 let wireCodeFixTests codeFixName =
-  let path =
-    repositoryRoot
-    </> "test"
-    </> "FsAutoComplete.Tests.Lsp"
-    </> "CodeFixTests"
-    </> "Tests.fs"
-
   try
-    let oak = getOakFor path
-    // module FsAutoComplete.Tests.CodeFixTests.Tests
-    let testsModule =
-      oak.ModulesOrNamespaces
-      |> List.exactlyOneOrFail "Expected a single module in Oak."
-
-    // let tests state =
-    let testBinding =
-      testsModule.Declarations
-      |> List.pickOrFail "Expected to find ModuleDecl.TopLevelBinding for tests" (function
-        | ModuleDecl.TopLevelBinding binding ->
-          match binding.FunctionName with
-          | Choice1Of2(IdentName "tests") -> Some binding
-          | _ -> None
-        | _ -> None)
-
-    let appNode =
-      match testBinding.Expr with
-      | Expr.App appNode -> appNode
-      | e -> failwithf $"Expected Expr.App, got %A{e}"
-
-    let list = findArrayOrListOfFail (List.last appNode.Arguments)
-    appendItemToArrayOrList $"%s{codeFixName}Tests.tests state" path list
+    let list = findListInTests ()
+    appendItemToArrayOrList $"%s{codeFixName}Tests.tests state" TestsPath list
   with ex ->
     Trace.traceException ex
-    Trace.traceError $"Unable to find array of tests in %s{path}.\nDid the code structure change?"
+    Trace.traceError $"Unable to find array of tests in %s{TestsPath}.\nDid the code structure change?"
 
 let scaffold (codeFixName: string) : unit =
   // generate files in src/CodeFixes/
@@ -446,5 +455,7 @@ let scaffold (codeFixName: string) : unit =
   updateProjectFiles ()
   Trace.tracefn $"Scaffolding %s{codeFixName} complete!"
 
-// TODO: introduce a target that verifies the codefix can still be added.
-// By checking the AST can still reach the entry points of the lists.
+let ensureScaffoldStillWorks () =
+  findArrayInAdaptiveFSharpLspServer () |> ignore
+  findArrayInFsAutoCompleteLsp () |> ignore
+  findListInTests () |> ignore
