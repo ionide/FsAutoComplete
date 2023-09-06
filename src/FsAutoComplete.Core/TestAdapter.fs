@@ -100,6 +100,25 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       else NotExpecto
     | _ -> NotExpecto
 
+  let (|FindTestCases|_|) expr =
+    match expr with
+    | SynExpr.App(
+        funcExpr = SynExpr.App(
+          funcExpr = SynExpr.App(funcExpr = expr1; argExpr = SynExpr.Const(constant = SynConst.String(text = s)))))
+    | SynExpr.App(
+      argExpr = SynExpr.App(
+        funcExpr = SynExpr.App(funcExpr = expr1; argExpr = SynExpr.Const(constant = SynConst.String(text = s)))))
+    | SynExpr.App(
+      funcExpr = SynExpr.App(funcExpr = expr1); argExpr = SynExpr.Const(constant = SynConst.String(text = s)))
+    | SynExpr.App(
+      funcExpr = SynExpr.App(funcExpr = SynExpr.App(funcExpr = expr1))
+      argExpr = SynExpr.Const(constant = SynConst.String(text = s)))
+    | SynExpr.App(
+      funcExpr = SynExpr.App(funcExpr = SynExpr.App(funcExpr = SynExpr.App(funcExpr = expr1)))
+      argExpr = SynExpr.Const(constant = SynConst.String(text = s)))
+    | SynExpr.App(funcExpr = expr1; argExpr = SynExpr.Const(constant = SynConst.String(text = s))) -> Some (expr1, s)
+    | _ -> None
+
   let rec visitExpr (parent: TestAdapterEntry<range>) =
     function
     | SynExpr.App(_, _, SynExpr.App(_, _, expr1, SynExpr.Const(SynConst.String(text = s), _), range), expr2, _) ->
@@ -139,18 +158,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       | _ ->
         visitExpr parent expr1
         visitExpr parent expr2
-    | SynExpr.App(_, _, SynExpr.App(_, _, expr1, _, _range), SynExpr.Const(SynConst.String(text = s), _), _)
-    | SynExpr.App(_,
-                  _,
-                  SynExpr.App(_, _, SynExpr.App(_, _, expr1, _, _range), _, _),
-                  SynExpr.Const(SynConst.String(text = s), _),
-                  _)
-    | SynExpr.App(_,
-                  _,
-                  SynExpr.App(_, _, SynExpr.App(_, _, SynExpr.App(_, _, expr1, _, _range), _, _), _, _),
-                  SynExpr.Const(SynConst.String(text = s), _),
-                  _)
-    | SynExpr.App(_, _, expr1, SynExpr.Const(SynConst.String(text = s), _), _range) -> //Take those applications that are using string constant as an argument
+    | FindTestCases (expr1, s) -> //Take those applications that are using string constant as an argument
       match expr1 with
       | Case ->
         ident <- ident + 1
