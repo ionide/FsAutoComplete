@@ -71,14 +71,13 @@ let init args =
       "reportgenerator"
       "-reports:test/FsAutoComplete.Tests.Lsp/coverage.xml -reporttypes:Html;HtmlSummary -targetdir:./coverage"
     |> fun r ->
-         if not r.OK then
-           failwithf "Errors while generating coverage report: %A" r.Errors)
+      if not r.OK then
+        failwithf "Errors while generating coverage report: %A" r.Errors)
 
   Target.create "ReleaseArchive" (fun _ ->
     Directory.ensure pkgsDir
 
-    !!(toolsDir </> "fsautocomplete.*.nupkg")
-    |> Shell.copy pkgsDir)
+    !!(toolsDir </> "fsautocomplete.*.nupkg") |> Shell.copy pkgsDir)
 
   Target.create "LocalRelease" (fun _ ->
     Directory.ensure toolsDir
@@ -89,7 +88,9 @@ let init args =
         { p with
             OutputPath = Some(__SOURCE_DIRECTORY__ </> ".." </> toolsDir)
             Configuration = DotNet.BuildConfiguration.fromString configuration
-            MSBuildParams = { MSBuild.CliArguments.Create() with Properties = [ packAsToolProp ] } })
+            MSBuildParams =
+              { MSBuild.CliArguments.Create() with
+                  Properties = [ packAsToolProp ] } })
       "src/FsAutoComplete")
 
   Target.create "Clean" (fun _ -> Shell.cleanDirs [ buildDir; buildReleaseDir; pkgsDir; toolsDir ])
@@ -98,7 +99,9 @@ let init args =
 
   Target.create "Build" (fun _ ->
     DotNet.build
-      (fun p -> { p with Configuration = DotNet.BuildConfiguration.fromString configuration })
+      (fun p ->
+        { p with
+            Configuration = DotNet.BuildConfiguration.fromString configuration })
       "FsAutoComplete.sln")
 
   Target.create "EnsureRepoConfig" (fun _ ->
@@ -170,25 +173,35 @@ let init args =
 
   Target.create "Promote" ignore
 
+  Target.create "ScaffoldCodeFix" (fun ctx ->
+    let codeFixName = ctx.Context.Arguments |> List.tryHead
+
+    match codeFixName with
+    | None -> failwith "Usage: dotnet run --project ./build/build.fsproj -- -t ScaffoldCodeFix <name>"
+    | Some codeFixName -> ScaffoldCodeFix.scaffold codeFixName)
+
+  Target.create "EnsureCanScaffoldCodeFix" (fun _ -> ScaffoldCodeFix.ensureScaffoldStillWorks ())
+
   "PromoteUnreleasedToVersion" ==> "CreateVersionTag" ==> "Promote"
   |> ignore<string>
 
   "Restore" ==> "Build" |> ignore<string>
 
-  "Build" ==> "LspTest" ==> "Coverage" ==> "Test" ==> "All"
+  "Build"
+  ==> "EnsureCanScaffoldCodeFix"
+  ==> "LspTest"
+  ==> "Coverage"
+  ==> "Test"
+  ==> "All"
   |> ignore<string>
 
-  "Clean"
-  ==> "LocalRelease"
-  ==> "ReleaseArchive"
-  ==> "Release"
-  |> ignore<string>
+  "Clean" ==> "LocalRelease" ==> "ReleaseArchive" ==> "Release" |> ignore<string>
 
   "ReleaseArchive" ==> "All" |> ignore<string>
 
 [<EntryPoint>]
 let main args =
-  init ((args |> List.ofArray))
+  init (args |> List.ofArray)
 
   try
     Target.runOrDefaultWithArguments "ReleaseArchive"

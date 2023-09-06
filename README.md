@@ -46,6 +46,10 @@ This repository is prepared to use Gitpod for a web-based VSCode-style IDE. Clic
 
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fsharp/fsautocomplete)
 
+### Creating a new code fix
+
+Checkout [this guide](./docs/Creating%20a%20new%20code%20fix.md) to start with a new code fix.
+
 ## Releasing
 
 * Update CHANGELOG.md with the release notes from the current release in the `Unreleased` section. Use section headings like `Added`, `Fixed`, etc from keepachangelog.com.
