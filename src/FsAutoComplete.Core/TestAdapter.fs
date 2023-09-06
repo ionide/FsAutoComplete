@@ -116,7 +116,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     | SynExpr.App(
       funcExpr = SynExpr.App(funcExpr = SynExpr.App(funcExpr = SynExpr.App(funcExpr = expr1)))
       argExpr = SynExpr.Const(constant = SynConst.String(text = s)))
-    | SynExpr.App(funcExpr = expr1; argExpr = SynExpr.Const(constant = SynConst.String(text = s))) -> Some (expr1, s)
+    | SynExpr.App(funcExpr = expr1; argExpr = SynExpr.Const(constant = SynConst.String(text = s))) -> Some(expr1, s)
     | _ -> None
 
   let rec visitExpr (parent: TestAdapterEntry<range>) =
@@ -158,7 +158,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       | _ ->
         visitExpr parent expr1
         visitExpr parent expr2
-    | FindTestCases (expr1, s) -> //Take those applications that are using string constant as an argument
+    | FindTestCases(expr1, s) -> //Take those applications that are using string constant as an argument
       match expr1 with
       | Case ->
         ident <- ident + 1
