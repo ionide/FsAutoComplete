@@ -55,5 +55,5 @@ let tests state =
         (async {
           let! testNotification = getTestNotification "ExpectoTests" "Sample.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 expecto test list"
-          Expect.hasLength testNotification.Tests.[0].Childs 10 "Expected to have found 13 expecto tests"
+          Expect.hasLength testNotification.Tests.[0].Childs 13 "Expected to have found 13 expecto tests"
         }) ]
