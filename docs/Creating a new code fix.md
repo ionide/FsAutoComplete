@@ -31,7 +31,7 @@ Furthermore, this command updates the following files to properly register the n
 - `src/FsAutoComplete/LspServers/FsAutoComplete.Lsp.fs`
 - `test/FsAutoComplete.Tests.Lsp/CodeFixTests/Tests.fs`
 
-The unit test file contains a single focused test, allowing you to promptly verify the functionality. To run this initial test, you have two options:
+The unit test file contains a [single focused test](https://github.com/haf/expecto#focusing-tests), allowing you to promptly verify the functionality. To run this initial test, you have two options:
 
 1. Using the `dotnet test` command:
  ```bash
@@ -44,3 +44,9 @@ dotnet run -f net6.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Te
  ```
 
 This comprehensive approach ensures that the newly introduced code fix is properly integrated, tested, and ready for seamless integration into the FSAutocomplete environment.
+
+When preparing to submit a pull request, please consider the following guidelines:
+
+- Eliminate any extraneous code or comments that may remain from the sample code.
+- Ensure proper source code formatting by running the command `dotnet fantomas src`. 
+- Avoid including focused tests, as they can cause the continuous integration build to fail.
