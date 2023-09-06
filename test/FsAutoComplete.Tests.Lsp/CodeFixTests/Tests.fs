@@ -17,7 +17,7 @@ let private addMissingEqualsToTypeDefinitionTests state =
         """
         type Person $0{ Name : string; Age : int; City : string }
         """
-        (Diagnostics.expectCode "3360")
+        (Diagnostics.expectCode "10")
         selectCodeFix
         """
         type Person = { Name : string; Age : int; City : string }
@@ -29,7 +29,7 @@ let private addMissingEqualsToTypeDefinitionTests state =
         """
         type Name $0Name of string
         """
-        (Diagnostics.expectCode "3360")
+        (Diagnostics.expectCode "10")
         selectCodeFix
         """
         type Name = Name of string
