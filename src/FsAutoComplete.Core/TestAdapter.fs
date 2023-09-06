@@ -73,6 +73,15 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     || str.EndsWith "testPropertyWithConfigs"
     || str.EndsWith "ptestPropertyWithConfigs"
     || str.EndsWith "ftestPropertyWithConfigs"
+    || str.EndsWith "testTheory"
+    || str.EndsWith "ftestTheory"
+    || str.EndsWith "ptestTheory"
+    || str.EndsWith "testTheoryAsync"
+    || str.EndsWith "ftestTheoryAsync"
+    || str.EndsWith "ptestTheoryAsync"
+    || str.EndsWith "testTheoryTask"
+    || str.EndsWith "ftestTheoryTask"
+    || str.EndsWith "ptestTheoryTask"
 
   let isExpectoListName (str: string) =
     str.EndsWith "testList" || str.EndsWith "ftestList" || str.EndsWith "ptestList"
