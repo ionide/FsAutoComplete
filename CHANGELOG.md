@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.63.0] - 2023-09-06
+
+### Added
+* [Add support for Expecto theory tests](https://github.com/fsharp/FsAutoComplete/pull/1160) (thanks @Numpsy!)
+* [Add Scaffolding for Generating Codefixes](https://github.com/fsharp/FsAutoComplete/pull/1158) (thanks @nojaf!)
+### Changed
+* [Extract out AST-collecting-walker to a separate function + abstract class](https://github.com/fsharp/FsAutoComplete/pull/1154) (thanks @baronfel!)
+
+### Fixed
+* [Fixed File Index out of range issues](https://github.com/fsharp/FsAutoComplete/pull/1152) (thanks @Happypig375!)
+
 ## [0.62.0] - 2023-08-21
 
 ### Added
