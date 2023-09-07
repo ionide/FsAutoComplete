@@ -9,4 +9,4 @@ open FsAutoComplete.LspHelpers
 
 val title: string
 /// a codefix that adds a missing wildcard pattern to a match case
-val fix: getParseResultsForFile: GetParseResultsForFile -> (CodeActionParams -> Async<Result<Fix list, string>>)
+val fix: getParseResultsForFile: GetParseResultsForFile -> CodeFix
