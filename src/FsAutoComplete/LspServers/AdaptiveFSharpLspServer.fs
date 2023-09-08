@@ -47,6 +47,7 @@ open System.Text.RegularExpressions
 open IcedTasks
 open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
+open Microsoft.Build.Graph
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -732,6 +733,7 @@ type AdaptiveFSharpLspServer
       | AdaptiveWorkspaceChosen.Directory _ -> return raise (NotImplementedException())
       | AdaptiveWorkspaceChosen.Projs projects ->
         let! binlogConfig = binlogConfig
+
 
         let! projectOptions =
           projects
@@ -3993,11 +3995,154 @@ type AdaptiveFSharpLspServer
 
     override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest p
 
-    override x.CallHierarchyIncomingCalls p = x.logUnimplementedRequest p
+    override x.CallHierarchyIncomingCalls (p: CallHierarchyIncomingCallsParams) = asyncResult {
+      let tags = [ "CallHierarchyIncomingCalls", box p ]
+      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      try
+        logger.info (
+          Log.setMessage "CallHierarchyIncomingCalls Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+        let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+        let pos = protocolPosToPos p.Item.SelectionRange.Start
+        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+
+        let! usages =
+          symbolUseWorkspace true true false pos lineStr volatileFile.Source tyRes
+          |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+
+        let locationToCallHierarchyItem (loc: Location)   = asyncOption {
+
+          if p.Item.SelectionRange.Start = loc.Range.Start then do! None
+          let fn = loc.Uri |> Path.FileUriToLocalPath |> Utils.normalizePath
+          let! decls = getDeclarations fn |> AsyncAVal.forceAsync
+          let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
+          let (decl, symbolInfo) =
+           decls
+            |> Array.collect (fun top ->
+              getSymbolInformations loc.Uri glyphToSymbolKind top (fun s -> true)
+              |> Array.map (fun info -> (top, info))
+            )
+            // |> Array.rev
+            |> Array.filter (fun (top: NavigationTopLevelDeclaration, info) ->
+
+                let body = top.Declaration.BodyRange |> fcsRangeToLsp
+                body.Start.Line <= loc.Range.Start.Line && body.End.Line >= loc.Range.End.Line
+
+            )
+
+            |> Array.maxBy (fun (top: NavigationTopLevelDeclaration, info) ->
+                let body = top.Declaration.Range |> fcsRangeToLsp
+                body.Start.Line - loc.Range.Start.Line
+            )
+
+
+          // let! lexedResult  = Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
+          return
+            // containingDecls
+            // |> Array.map(fun (decl, symbolInfo) ->
+            {
+              From = {
+                Name = symbolInfo.Name
+                Kind = symbolInfo.Kind
+                Tags = symbolInfo.Tags
+                Detail = None
+                Uri = loc.Uri
+                Range = fcsRangeToLsp decl.Declaration.Range
+                SelectionRange = fcsRangeToLsp decl.Declaration.Range
+                Data = None
+              }
+              FromRanges = [| loc.Range |]
+            }
+            // )
+
+        }
+        // return None
+        let! references =
+          usages.Values
+          |> Seq.collect (Seq.map fcsRangeToLspLocation)
+          |> Seq.toArray
+          |> Array.map locationToCallHierarchyItem
+          |> Async.parallel75
+          |> Async.map (Array.choose id)
+
+
+
+        let returnValue = references
+
+        return Some returnValue
+      with e ->
+        trace |> Tracing.recordException e
+
+        logger.error (
+          Log.setMessage "CallHierarchyIncomingCalls Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
+        )
+
+        return! returnException e
+
+    }
 
     override x.CallHierarchyOutgoingCalls p = x.logUnimplementedRequest p
 
-    override x.TextDocumentPrepareCallHierarchy p = x.logUnimplementedRequest p
+    override x.TextDocumentPrepareCallHierarchy (p: CallHierarchyPrepareParams) = asyncResult {
+      let tags = [ "CallHierarchyPrepareParams", box p ]
+      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      try
+        logger.info (
+          Log.setMessage "CallHierarchyPrepareParams Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+
+        let (filePath, pos) =
+          {
+            new ITextDocumentPositionParams with
+              member __.TextDocument = p.TextDocument
+              member __.Position = p.Position
+          }
+          |> getFilePathAndPosition
+
+        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+        let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
+        let! lexedResult =
+          Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
+          |> Result.ofOption (fun () -> "No symbol found")
+          |> Result.ofStringErr
+
+        let location = findDeclToLspLocation decl
+
+        let returnValue = [|
+          {
+            Name = lexedResult.Text
+            Kind = SymbolKind.Function
+            Tags = None
+            Detail = None
+            Uri = location.Uri
+            Range = location.Range
+            SelectionRange = location.Range
+            Data = None
+          }
+        |]
+
+        return Some returnValue
+      with e ->
+        trace |> Tracing.recordException e
+
+        logger.error (
+          Log.setMessage "CallHierarchyPrepareParams Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
+        )
+
+        return! returnException e
+    }
 
     override x.TextDocumentPrepareTypeHierarchy p = x.logUnimplementedRequest p
 

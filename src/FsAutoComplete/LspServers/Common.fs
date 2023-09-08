@@ -241,6 +241,7 @@ module Helpers =
                 Save = Some { IncludeText = Some true } }
         FoldingRangeProvider = Some true
         SelectionRangeProvider = Some true
+        CallHierarchyProvider = Some true
         SemanticTokensProvider =
           Some
             { Legend =
