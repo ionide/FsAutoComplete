@@ -1147,14 +1147,17 @@ module Commands =
 
 
 
-  let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
+  let analyzerHandler (file: string<LocalPath>, content, parseAndCheck: ParseAndCheckResults, tast) =
     let ctx: SDK.Context =
       { FileName = UMX.untag file
         Content = content
-        ParseTree = pt
         TypedTree = tast
-        Symbols = symbols
-        GetAllEntities = getAllEnts }
+        GetAllEntities = parseAndCheck.GetAllEntities
+        ParseFileResults = parseAndCheck.GetParseResults
+        CheckFileResults = parseAndCheck.GetCheckResults
+        CheckProjectResults = Unchecked.defaultof<FSharpCheckProjectResults>
+        AllSymbolUses = Array.empty
+        SymbolUsesOfFile = parseAndCheck.GetCheckResults.GetAllUsesOfAllSymbolsInFile() |> Seq.toArray }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
@@ -1292,14 +1295,7 @@ type Commands
               | true, fileData ->
 
                 let res =
-                  Commands.analyzerHandler (
-                    file,
-                    fileData.Source.ToString().Split("\n"),
-                    parseAndCheck.GetParseResults.ParseTree,
-                    tast,
-                    parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
-                    parseAndCheck.GetAllEntities
-                  )
+                  Commands.analyzerHandler (file, fileData.Source.ToString().Split("\n"), parseAndCheck, tast)
 
                 (res, file) |> NotificationEvent.AnalyzerMessage |> notify.Trigger
 

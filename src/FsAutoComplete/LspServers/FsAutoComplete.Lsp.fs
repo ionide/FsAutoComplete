@@ -466,7 +466,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
             >> Log.addContextDestructured "dir" dir
           )
 
-          let (n, m) = dir |> SDK.Client.loadAnalyzers
+          let n, m =
+            dir
+            |> SDK.Client.loadAnalyzers (fun error -> Loggers.analyzers.error (Log.setMessage error))
 
           Loggers.analyzers.info (
             Log.setMessage "From {name}: {dllNo} dlls including {analyzersNo} analyzers"

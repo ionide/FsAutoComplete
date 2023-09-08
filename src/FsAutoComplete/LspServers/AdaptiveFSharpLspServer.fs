@@ -163,7 +163,9 @@ type AdaptiveFSharpLspServer
 
           Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
 
-          let (dllCount, analyzerCount) = dir |> FSharp.Analyzers.SDK.Client.loadAnalyzers
+          let dllCount, analyzerCount =
+            dir
+            |> FSharp.Analyzers.SDK.Client.loadAnalyzers (fun error -> Loggers.analyzers.error (Log.setMessage error))
 
           Loggers.analyzers.info (
             Log.setMessageI
@@ -391,14 +393,7 @@ type AdaptiveFSharpLspServer
             do! Async.SwitchToNewThread()
 
             let res =
-              Commands.analyzerHandler (
-                file,
-                volatileFile.Source.ToString().Split("\n"),
-                parseAndCheck.GetParseResults.ParseTree,
-                tast,
-                parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
-                parseAndCheck.GetAllEntities
-              )
+              Commands.analyzerHandler (file, volatileFile.Source.ToString().Split("\n"), parseAndCheck, tast)
 
             let! ct = Async.CancellationToken
             notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file), ct)
