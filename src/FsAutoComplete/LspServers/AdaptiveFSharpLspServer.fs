@@ -47,7 +47,6 @@ open System.Text.RegularExpressions
 open IcedTasks
 open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
-open Microsoft.Build.Graph
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -734,7 +733,6 @@ type AdaptiveFSharpLspServer
       | AdaptiveWorkspaceChosen.Projs projects ->
         let! binlogConfig = binlogConfig
 
-
         let! projectOptions =
           projects
           |> AMap.mapWithAdditionalDependencies (fun projects ->
@@ -1110,6 +1108,7 @@ type AdaptiveFSharpLspServer
     }
 
 
+
   /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
   let parseAllFiles () =
     asyncAVal {
@@ -1170,13 +1169,42 @@ type AdaptiveFSharpLspServer
           return file, projs
       })
 
-  let allFSharpProjectOptions =
+  let allFSharpFilesAndProjectOptions =
     let wins =
       openFilesToChangesAndProjectOptions
-      |> AMap.map (fun k v -> v |> AsyncAVal.mapSync (fun d _ -> snd d))
+      |> AMap.map (fun k v -> v |> AsyncAVal.mapSync (fun (file, projects) _ -> Some file, projects))
 
-    let loses = sourceFileToProjectOptions |> AMap.map (fun k v -> AsyncAVal.constant v)
+    let loses =
+      sourceFileToProjectOptions
+      |> AMap.map (fun filePath v ->
+      asyncAVal {
+        let! file = forceFindOpenFileOrRead filePath |> Async.StartAsTask
+        return (Result.toOption file, v)
+      })
     AMap.union loses wins
+
+  let allFSharpProjectOptions =
+    allFSharpFilesAndProjectOptions
+    |> AMapAsync.mapAsyncAVal (fun filePath (file, options) ctok ->
+        AsyncAVal.constant options
+      )
+
+  let allFilesParsed =
+    allFSharpFilesAndProjectOptions
+    |> AMapAsync.mapAsyncAVal (fun filePath (file, options: LoadedProject list) ctok ->
+      asyncAVal {
+        let! (checker: FSharpCompilerServiceChecker) = checker
+        return! taskOption {
+          let! project = options |> selectProject
+          let options = project.FSharpProjectOptions
+          let parseOpts = Utils.projectOptionsToParseOptions project.FSharpProjectOptions
+          let! file = file
+
+
+          return! parseFile checker file parseOpts options
+        }
+
+      })
 
 
   let getAllProjectOptions () =
@@ -1327,27 +1355,6 @@ type AdaptiveFSharpLspServer
         )
     }
 
-  let openFilesToParsedResults =
-    openFilesToChangesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun _ (info, projectOptions) ctok ->
-      asyncAVal {
-        let file = info.Source.FileName
-        let! checker = checker
-
-        return!
-          taskOption {
-            let! opts = selectProject projectOptions
-            and! cts = tryGetOpenFileToken file
-
-            let parseOpts = Utils.projectOptionsToParseOptions opts.FSharpProjectOptions
-
-            return!
-              parseFile checker info parseOpts opts.FSharpProjectOptions
-              |> Async.withCancellation cts.Token
-              |> Async.startImmediateAsTask ctok
-          }
-      })
-
 
   let openFilesToRecentCheckedFilesResults =
     openFilesToChangesAndProjectOptions
@@ -1383,7 +1390,8 @@ type AdaptiveFSharpLspServer
 
       })
 
-  let getParseResults filePath = openFilesToParsedResults |> AMapAsync.tryFindAndFlatten filePath
+  let getParseResults filePath =
+    allFilesParsed |> AMapAsync.tryFindAndFlatten filePath
 
   let getTypeCheckResults filePath = openFilesToCheckedFilesResults |> AMapAsync.tryFindAndFlatten (filePath)
 
@@ -1453,15 +1461,14 @@ type AdaptiveFSharpLspServer
     }
     |> AsyncAVal.forceAsync
 
-
-  let openFilesToDeclarations =
-    openFilesToParsedResults
+  let allFilesToDeclarations =
+    allFilesParsed
     |> AMap.map (fun k v -> v |> AsyncAVal.mapOption (fun p _ -> p.GetNavigationItems().Declarations))
 
-  let getAllOpenDeclarations () =
+  let getAllDeclarations () =
     async {
       let! results =
-        openFilesToDeclarations
+        allFilesToDeclarations
         |> AMap.force
         |> HashMap.toArray
         |> Array.map (fun (k, v) ->
@@ -1475,13 +1482,13 @@ type AdaptiveFSharpLspServer
 
     }
 
-  let getDeclarations filename = openFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
+  let getDeclarations filename =
+    allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
     let pos = p.GetFcsPos()
     filePath, pos
-
 
 
   let forceGetProjectOptions filePath =
@@ -3239,7 +3246,7 @@ type AdaptiveFSharpLspServer
 
           let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
-          let! decls = getAllOpenDeclarations ()
+          let! decls = getAllDeclarations ()
 
           let res =
             decls
@@ -4020,39 +4027,34 @@ type AdaptiveFSharpLspServer
           let fn = loc.Uri |> Path.FileUriToLocalPath |> Utils.normalizePath
           let! decls = getDeclarations fn |> AsyncAVal.forceAsync
           let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
-          let (decl, symbolInfo) =
+          let containers =
            decls
             |> Array.collect (fun top ->
               getSymbolInformations loc.Uri glyphToSymbolKind top (fun s -> true)
               |> Array.map (fun info -> (top, info))
             )
-            // |> Array.rev
             |> Array.filter (fun (top: NavigationTopLevelDeclaration, info) ->
 
-                let body = top.Declaration.BodyRange |> fcsRangeToLsp
-                body.Start.Line <= loc.Range.Start.Line && body.End.Line >= loc.Range.End.Line
+                info.Location.Range.Start <= loc.Range.Start && info.Location.Range.End >= loc.Range.End
+            )
+          let (decl, symbolInfo) =
+            containers
+            |> Array.minBy (fun (top: NavigationTopLevelDeclaration, info) ->
 
+                Math.Abs(loc.Range.Start.Line - info.Location.Range.Start.Line)
             )
 
-            |> Array.maxBy (fun (top: NavigationTopLevelDeclaration, info) ->
-                let body = top.Declaration.Range |> fcsRangeToLsp
-                body.Start.Line - loc.Range.Start.Line
-            )
-
-
-          // let! lexedResult  = Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
           return
-            // containingDecls
-            // |> Array.map(fun (decl, symbolInfo) ->
+
             {
               From = {
                 Name = symbolInfo.Name
                 Kind = symbolInfo.Kind
                 Tags = symbolInfo.Tags
                 Detail = None
-                Uri = loc.Uri
-                Range = fcsRangeToLsp decl.Declaration.Range
-                SelectionRange = fcsRangeToLsp decl.Declaration.Range
+                Uri = symbolInfo.Location.Uri
+                Range = symbolInfo.Location.Range
+                SelectionRange = symbolInfo.Location.Range
                 Data = None
               }
               FromRanges = [| loc.Range |]
@@ -4071,9 +4073,7 @@ type AdaptiveFSharpLspServer
 
 
 
-        let returnValue = references
-
-        return Some returnValue
+        return Some references
       with e ->
         trace |> Tracing.recordException e
 
