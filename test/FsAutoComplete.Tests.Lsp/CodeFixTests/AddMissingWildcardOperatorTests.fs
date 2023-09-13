@@ -7,10 +7,12 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
 let tests state =
-  serverTestList (nameof AddMissingWildcardOperator) state defaultConfigDto None (fun server -> [
-    let selectCodeFix = CodeFix.withTitle AddMissingWildcardOperator.title
-    ftestCaseAsync "can suggest wildcard pattern for missing match case" <|
-      CodeFix.check server
+  serverTestList (nameof AddMissingWildcardOperator) state defaultConfigDto None (fun server ->
+    [ let selectCodeFix = CodeFix.withTitle AddMissingWildcardOperator.title
+
+      ftestCaseAsync "can suggest wildcard pattern for missing match case"
+      <| CodeFix.check
+        server
         """
         type SomeUnion =
             | First
@@ -32,6 +34,4 @@ let tests state =
             match su with
             | First -> "hey"
             | _ -> "hello"
-        """
-    ]
-  )
+        """ ])

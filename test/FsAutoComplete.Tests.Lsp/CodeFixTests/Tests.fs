@@ -3352,5 +3352,4 @@ let tests state =
       wrapExpressionInParenthesesTests state
       removeRedundantAttributeSuffixTests state
       removePatternArgumentTests state
-      AddMissingWildcardOperatorTests.tests state
-    ]
+      AddMissingWildcardOperatorTests.tests state ]

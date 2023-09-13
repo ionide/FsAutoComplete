@@ -21,16 +21,12 @@ let tryFindPattern pos input =
         member _.VisitExpr(path, traverseSynExpr, defaultTraverse, expr) =
           match expr with
           | SynExpr.LongIdent(
-                      longDotId =
-                          SynLongIdent.SynLongIdent(
-                              trivia = [ Some(IdentTrivia.OriginalNotation("|->")) ]
-                          )
-                      range = range) when FSharp.Compiler.Text.Range.rangeContainsPos range pos ->
+              longDotId = SynLongIdent.SynLongIdent(trivia = [ Some(IdentTrivia.OriginalNotation("|->")) ])
+              range = range) when FSharp.Compiler.Text.Range.rangeContainsPos range pos ->
 
-                  Some(range)
+            Some(range)
 
-          | _ -> defaultTraverse expr
-    }
+          | _ -> defaultTraverse expr }
 
   SyntaxTraversal.Traverse(pos, input, visitor)
 
@@ -52,12 +48,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         let lspRange = fcsRangeToLsp operatorRange
 
         return
-            [ { Title = title
-                File = codeActionParams.TextDocument
-                SourceDiagnostic = Some diagnostic
-                Edits =
-                  [| { Range = lspRange
-                       NewText = "| _ ->" }
-                  |]
-                Kind = FixKind.Fix } ]
+          [ { Title = title
+              File = codeActionParams.TextDocument
+              SourceDiagnostic = Some diagnostic
+              Edits = [| { Range = lspRange; NewText = "| _ ->" } |]
+              Kind = FixKind.Fix } ]
     })
