@@ -15,12 +15,16 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
+module Lsp = Ionide.LanguageServerProtocol.Types
+
+module LspRange =
+  val Zero : Lsp.Range
+
 module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos
 
 [<AutoOpen>]
 module Conversions =
-  module Lsp = Ionide.LanguageServerProtocol.Types
   /// convert an LSP position to a compiler position
   val protocolPosToPos: pos: Lsp.Position -> FcsPos
   val protocolPosToRange: pos: Lsp.Position -> Range

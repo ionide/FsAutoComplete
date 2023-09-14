@@ -20,6 +20,7 @@ open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open System.Buffers
 open FsAutoComplete.Adaptive
+open FsAutoComplete.LspHelpers
 
 open FSharp.Control.Reactive
 open FsToolkit.ErrorHandling
@@ -47,6 +48,7 @@ open System.Text.RegularExpressions
 open IcedTasks
 open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.Syntax
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -4071,8 +4073,6 @@ type AdaptiveFSharpLspServer
           |> Async.parallel75
           |> Async.map (Array.choose id)
 
-
-
         return Some references
       with e ->
         trace |> Tracing.recordException e
@@ -4087,7 +4087,88 @@ type AdaptiveFSharpLspServer
 
     }
 
-    override x.CallHierarchyOutgoingCalls p = x.logUnimplementedRequest p
+    override x.CallHierarchyOutgoingCalls p = asyncResult {
+      let tags = [ "CallHierarchyOutgoingCalls", box p ]
+      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      try
+        logger.info (
+          Log.setMessage "CallHierarchyOutgoingCalls Request: {parms}"
+          >> Log.addContextDestructured "parms" p
+        )
+        let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+        let pos = protocolPosToPos p.Item.SelectionRange.Start
+        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+        let! implFile =
+          tyRes.GetCheckResults.ImplementationFile
+          |> Result.ofOption (fun () -> "No implementation file found")
+          |> Result.ofStringErr
+        let membersOrFunctions = ResizeArray<_>()
+        CallHierarchy.gatherFSharpMemberOrFunction (membersOrFunctions.Add) implFile.Declarations
+
+        let createOutGoingCall (range :  FSharp.Compiler.Text.Range, x : FSharpMemberOrFunctionOrValue) =
+
+          let file = range.FileName |> Utils.normalizePath |> Path.LocalPathToUri
+          // let! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+          // and! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let declRange =
+            try
+              fcsRangeToLsp x.DeclarationLocation
+            with e ->
+              LspRange.Zero
+          {
+            To = {
+              Name = x.DisplayName
+              Kind = SymbolKind.Function
+              Tags = None
+              Detail = None
+              Uri = file
+              Range =  declRange
+              SelectionRange =  declRange
+              Data = None
+            }
+            FromRanges = [| fcsRangeToLsp range |]
+          }
+
+
+        let allRemainingExpr =
+          membersOrFunctions
+          |> Seq.filter(fun (range,x) ->
+            let lookingFor =
+
+              x.IsFunction
+              || x.IsMethod
+              || x.IsPropertyGetterMethod
+              || x.IsPropertySetterMethod
+            // TODO get bodyRange and check if it is in the range
+            range.Start.Line >= pos.Line && lookingFor
+
+          )
+          |> Seq.toArray
+        // implFile.Declarations.Head
+
+        // let visitor =
+        //     { new SyntaxVisitorBase<_>() with
+        //         override _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+        //     }
+        // let foo =SyntaxTraversal.Traverse(pos, tyRes.GetParseResults.ParseTree, visitor)
+
+        let response = allRemainingExpr |> Array.map (createOutGoingCall)
+
+        return Some response
+      with e ->
+        trace |> Tracing.recordException e
+
+        logger.error (
+          Log.setMessage "CallHierarchyOutgoingCalls Request Errored {p}"
+          >> Log.addContextDestructured "p" p
+          >> Log.addExn e
+        )
+
+        return! returnException e
+    }
 
     override x.TextDocumentPrepareCallHierarchy (p: CallHierarchyPrepareParams) = asyncResult {
       let tags = [ "CallHierarchyPrepareParams", box p ]
