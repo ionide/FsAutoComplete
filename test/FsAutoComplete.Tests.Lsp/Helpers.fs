@@ -539,11 +539,15 @@ let inline expectExitCodeZero (r: BufferedCommandResult) =
     0
     $"Expected exit code zero but was %i{r.ExitCode}.\nStdOut: %s{r.StandardOutput}\nStdErr: %s{r.StandardError}"
 
-let dotnetRestore dir =
-  runProcess dir "dotnet" "restore" |> Async.map expectExitCodeZero
+let dotnetRestore dir = async {
+  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "restore -v d"
+  return expectExitCodeZero r
+}
 
-let dotnetToolRestore dir =
-  runProcess dir "dotnet" "tool restore" |> Async.map expectExitCodeZero
+let dotnetToolRestore dir = async {
+  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "tool restore"
+  return expectExitCodeZero r
+}
 
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {

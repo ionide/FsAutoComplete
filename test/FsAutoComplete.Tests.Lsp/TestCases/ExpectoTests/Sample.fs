@@ -44,6 +44,14 @@ let tests =
       Expect.equal 4 (2+2) "2+2"
     }
 
+    testCaseAsync "async test case backpipe" <| async {
+        Expect.equal 4 (2+2) "2+2"
+      }
+
+    testCaseAsync "async test case paren"(async {
+        Expect.equal 4 (2+2) "2+2"
+      })
+
     testTheory "odd numbers" [1; 3; 5] ( fun x ->
       Expect.isTrue (x % 2 = 1) "should be odd" )
 

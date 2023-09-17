@@ -245,14 +245,13 @@ let main args =
 
   let cts = new CancellationTokenSource(testTimeout)
 
-  let config =
-    { defaultConfig with
-        // failOnFocusedTests = true
-        printer = Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer
-        verbosity = logLevel
-        // runInParallel = false
-         }
+  let args  =
+    [
+      CLIArguments.Printer (Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+      CLIArguments.Verbosity logLevel
+      // CLIArguments.Parallel
+    ]
 
-  runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
+  runTestsWithCLIArgsAndCancel cts.Token args fixedUpArgs tests
 
 

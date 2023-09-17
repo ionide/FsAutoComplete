@@ -142,7 +142,8 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
         visitExpr entry expr2
       | Case, SynExpr.ComputationExpr _
       | Case, SynExpr.Lambda _
-      | Case, SynExpr.Paren(SynExpr.Lambda _, _, _, _) ->
+      | Case, SynExpr.Paren(expr = SynExpr.App(argExpr = SynExpr.ComputationExpr _))
+      | Case, SynExpr.Paren(expr = (SynExpr.Lambda _)) ->
         ident <- ident + 1
 
         let entry =
