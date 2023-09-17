@@ -50,7 +50,7 @@ nuget Microsoft.NETFramework.ReferenceAssemblies
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
 nuget Expecto
 nuget Expecto.Diff
-nuget YoloDev.Expecto.TestSdk 0.14.2
+nuget YoloDev.Expecto.TestSdk
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol >= 0.4.16
