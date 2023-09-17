@@ -1,13 +1,11 @@
 <Project>
-  <ItemGroup>
-    <FormatInputs Include="src/**/*.fs;src/**/*.fsi" Exclude="src/**/obj/**/*.fs" />
-  </ItemGroup>
+
 
   <Target Name="Format">
-    <Exec Command="dotnet fantomas @(FormatInputs, ' ') " />
+    <Exec Command="dotnet fantomas $(MSBuildThisFileDirectory)" />
   </Target>
 
   <Target Name="CheckFormat">
-    <Exec Command="dotnet fantomas --check @(FormatInputs, ' ') " />
+    <Exec Command="dotnet fantomas --check $(MSBuildThisFileDirectory) " />
   </Target>
 </Project>

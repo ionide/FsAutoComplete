@@ -1,12 +1,30 @@
 <Project>
 
-<Target Name="SupportPrereleaseVersion"
-    AfterTargets="SetVersionFromChangelog">
-    <PropertyGroup Condition="'$(VersionSuffix)' != ''">
-        <Version>$(Version)-$(VersionSuffix)</Version>
-        <PackageVersion>$(Version)</PackageVersion>
-    </PropertyGroup>
-</Target>
+  <PropertyGroup>
+    <_BuildProjBaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build/obj/</_BuildProjBaseIntermediateOutputPath>
+    <_DotnetToolManifestFile>$(MSBuildThisFileDirectory).config/dotnet-tools.json</_DotnetToolManifestFile>
+    <_DotnetToolRestoreOutputFile>$(_BuildProjBaseIntermediateOutputPath)/dotnet-tool-restore-$(NETCoreSdkVersion)</_DotnetToolRestoreOutputFile>
+    <_DotnetFantomasOutputFile>$(BaseIntermediateOutputPath)dotnet-fantomas-msbuild</_DotnetFantomasOutputFile>
+  </PropertyGroup>
 
+  <Target Name="SupportPrereleaseVersion"
+      AfterTargets="SetVersionFromChangelog">
+      <PropertyGroup Condition="'$(VersionSuffix)' != ''">
+          <Version>$(Version)-$(VersionSuffix)</Version>
+          <PackageVersion>$(Version)</PackageVersion>
+      </PropertyGroup>
+  </Target>
 
+  <!-- Make sure that dotnet tools (including paket) are restored before restoring any project -->
+  <Target Name="ToolRestore" BeforeTargets="Restore;CollectPackageReferences;PaketRestore" Inputs="$(_DotnetToolManifestFile)" Outputs="$(_DotnetToolRestoreOutputFile)">
+    <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildThisFileDirectory)" StandardOutputImportance="High" StandardErrorImportance="High" />
+    <MakeDir Directories="$(_BuildProjBaseIntermediateOutputPath)"/>
+    <Touch Files="$(_DotnetToolRestoreOutputFile)" AlwaysCreate="True" ForceTouch="True" />
+  </Target>
+
+  <!-- Make sure that files are formatted before building -->
+  <Target Name="Format" BeforeTargets="BeforeBuild" Inputs="@(Compile)" Outputs="$(_DotnetFantomasOutputFile)" >
+    <Exec Command="dotnet fantomas $(MSBuildProjectDirectory)" StandardOutputImportance="High" StandardErrorImportance="High" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <Touch Files="$(_DotnetFantomasOutputFile)" AlwaysCreate="True" ForceTouch="True" />
+  </Target>
 </Project>
