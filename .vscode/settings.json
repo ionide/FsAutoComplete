@@ -19,5 +19,8 @@
     "*.*proj": "msbuild",
     "*.props": "msbuild",
     "*.targets": "msbuild"
+  },
+  "[fsharp]": {
+      "editor.formatOnSave": true
   }
 }
