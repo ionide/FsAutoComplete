@@ -42,9 +42,9 @@ NUGET
       Microsoft.SourceLink.Bitbucket.Git (>= 1.1.1)
       Microsoft.SourceLink.GitHub (>= 1.1.1)
       Microsoft.SourceLink.GitLab (>= 1.1.1)
-    Expecto (9.0.4)
-      FSharp.Core (>= 4.6)
-      Mono.Cecil (>= 0.11.3)
+    Expecto (10.1)
+      FSharp.Core (>= 7.0.200) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
+      Mono.Cecil (>= 0.11.4 < 1.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
     Expecto.Diff (9.0.4)
       DiffPlex (>= 1.6.3)
       Expecto (>= 9.0.4)
@@ -485,10 +485,10 @@ NUGET
       System.Runtime.CompilerServices.Unsafe (>= 4.5.3) - restriction: || (&& (== net6.0) (>= net461)) (&& (== net6.0) (< netcoreapp2.1)) (&& (== net6.0) (< netstandard1.0)) (&& (== net6.0) (< netstandard2.0)) (&& (== net6.0) (>= wp8)) (&& (== net7.0) (>= net461)) (&& (== net7.0) (< netcoreapp2.1)) (&& (== net7.0) (< netstandard1.0)) (&& (== net7.0) (< netstandard2.0)) (&& (== net7.0) (>= wp8)) (== netstandard2.0) (== netstandard2.1)
     System.Windows.Extensions (7.0) - copy_local: false, restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       System.Drawing.Common (>= 7.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
-    YoloDev.Expecto.TestSdk (0.13.3)
-      Expecto (>= 9.0 < 10.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
-      FSharp.Core (>= 4.6.2) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
-      System.Collections.Immutable (>= 6.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
+    YoloDev.Expecto.TestSdk (0.14.2)
+      Expecto (>= 10.0 < 11.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
+      FSharp.Core (>= 7.0.200) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
+      System.Collections.Immutable (>= 6.0) - restriction: || (== net6.0) (== net7.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
 
 GROUP Build
 STORAGE: NONE
