@@ -276,7 +276,6 @@ let tests state = testList (nameof(Server)) [
 
     testSequenced <| testList "contesting" [
       let projectDir = inTestCases "Project"
-      dotnetRestore projectDir.Value |> Async.RunSynchronously
       serverTestList "dir with project and no analyzers" state noAnalyzersConfig projectDir (fun server -> [
         testCaseAsync "can load file in project" (async {
           let! (doc, diags) = server |> Server.openDocument "Other.fs"

@@ -33,15 +33,15 @@ let tests state =
         [
             testCaseAsync
                 "no parsing/checking errors"
-                (async {
+                <| async {
                   let! server, events, scriptPath = server1
                   do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
                   match! waitForParseResultsForFile "EmptyFile.fsx" events with
                   | Ok _ -> () // all good, no parsing/checking errors
                   | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" scriptPath errors
-                })
-            
+                }
+
             testCaseAsync
                 "auto completion does not throw and is empty"
                 (async {
@@ -66,7 +66,7 @@ let tests state =
                 (async {
                   let! server, events, scriptPath = server2
                   do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
-                  
+
                   do! server.TextDocumentDidChange {
                       TextDocument = { Uri = Path.FilePathToUri scriptPath; Version = 1 }
                       ContentChanges =  [| {
