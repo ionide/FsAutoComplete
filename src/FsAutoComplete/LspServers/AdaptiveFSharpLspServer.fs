@@ -3392,6 +3392,10 @@ type AdaptiveFSharpLspServer
                 try
                   return! codeFix codeActionParams
                 with e ->
+                  logger.error (
+                    Log.setMessage "Exception in CodeFix: {error}"
+                    >> Log.addContextDestructured "error" (e.ToString())
+                  )
                   return Ok []
               })
             |> Async.parallel75
