@@ -894,16 +894,29 @@ module private IntFix =
 
   let convertToOtherBaseFixes
     doc
-    lineStr
+    (lineStr: string)
     (constant: IntConstant)
     = 
     let mkFixKeepExistingSign title replacement =
       let range = ORange.union constant.BaseRange constant.ValueRange
       let edits = [| { Range = range.ToRangeInside constant.Range; NewText = replacement } |]
       mkFix doc title edits
-    let mkFixReplaceExistingSign title replacement =
-      let range = ORange.union constant.SignRange constant.ValueRange
-      let edits = [| { Range = range.ToRangeInside constant.Range; NewText = replacement } |]
+    let mkFixReplaceExistingSign title (replacement: string) =
+      let localRange = ORange.union constant.SignRange constant.ValueRange
+      let range = localRange.ToRangeInside constant.Range
+      // special case: 
+      // `5y+0b1010_0101y` -> `5y+-91y` -> `The type 'sbyte' does not support the operator '+-'`
+      // -> if sign then add additional space if necessary
+      let replacement =
+        if 
+          (replacement.StartsWith "-" || replacement.StartsWith "+")
+          && range.Start.Character > 0 
+          && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1]) 
+          then
+            " " + replacement
+        else
+          replacement
+      let edits = [| { Range = range; NewText = replacement } |]
       mkFix doc title edits
 
     let inline mkIntFixes (value: 'int, abs: 'int -> 'uint, minValue: 'int) = [

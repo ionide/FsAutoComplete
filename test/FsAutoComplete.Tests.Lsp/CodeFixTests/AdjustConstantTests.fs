@@ -554,22 +554,6 @@ module private ConvertIntToOtherBase =
               (selectIntCodeFix Base.Decimal)
         ]
       ]
-
-      testList "examples of error results" [
-        // Changing sign might result in invalid code.  
-        // Deemed acceptable because:
-        // * rare
-        // * error is close to cursor
-        // * easy to fix by user
-
-        testCaseAsync "The type 'sbyte' does not support the operator '+-'" <|
-          CodeFix.check server
-            "let err = 5y+0b10011000y$0"
-            Diagnostics.acceptAll
-            (selectIntCodeFix Base.Decimal)
-            // Note: with space between `+` and `-` there would be no error
-            "let err = 5y+-104y"
-      ]
     ])
 
   module Float =
@@ -1417,6 +1401,66 @@ module SignHelpers =
             Diagnostics.acceptAll
             (CodeFix.withTitle Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign)
             "let value = 0b11y"
+      ]
+
+      testList "ensure valid sign" [
+        // QuickFixes might add sign which might lead to invalid code:
+        // ```fsharp
+        // //             -91y
+        // let value = 5y+0b1010_0101y
+
+        // // => Convert to decimal
+
+        // let value = 5y+-91y
+        // //            ^^
+        // //            The type 'sbyte' does not support the operator '+-'
+        // ```
+        //
+        // -> insert space before sign if necessary
+
+        testCaseAsync "add space when new `-` sign immediately after `+`" <|
+          CodeFix.check server
+            "let value = 5y+0b1010_0101y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = 5y+ -91y"
+        testCaseAsync "don't add space when `-` with space before" <|
+          CodeFix.check server
+            "let value = 5y+ 0b1010_0101y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = 5y+ -91y"
+        testCaseAsync "don't add space when new `-` sign immediately after `(`" <|
+          CodeFix.check server
+            "let value = 5y+(0b1010_0101y$0)"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = 5y+(-91y)"
+        testCaseAsync "add space when new `-` sign immediately after `<|`" <|
+          CodeFix.check server
+            "let value = max 5y <|0b1010_0101y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = max 5y <| -91y"
+        testCaseAsync "don't add space when no new `-` sign" <|
+          CodeFix.check server
+            "let value = 5y+0b1011011y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = 5y+91y"
+
+        testCaseAsync "add space when convert to other base" <|
+          CodeFix.check server
+            "let value = 5y+0b1010_0101y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.toDecimal)
+            "let value = 5y+ -91y"
+        testCaseAsync "add space when extract `-`" <|
+          CodeFix.check server
+            "let value = 5y+0b10000101y$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant)
+            "let value = 5y+ -0b1111011y"
       ]
     ])
 
