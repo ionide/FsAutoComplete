@@ -958,17 +958,8 @@ module private IntFix =
     let inline mkFloatFixes (value: 'float, getBits: 'float -> 'uint) = [
       assert(constant.Base <> Base.Decimal)
 
-      let inline changeSign value =
-        -GenericOne * value
-      //TODO: why am I using this `abs` function and not the F# one?...
-      let inline abs value =
-        if value >= GenericZero then
-          value
-        else
-          changeSign value
-
       // value without explicit sign
-      let specified = if constant.Sign = Negative then changeSign value else value
+      let specified = if constant.Sign = Negative then -value else value
       if constant.Base <> Base.Hexadecimal then
         mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned (getBits specified))
       if constant.Base <> Base.Octal then
