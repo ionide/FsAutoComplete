@@ -962,6 +962,32 @@ module private ConvertCharToOtherForm =
         "\\u2248"
         "\\U00002248"
 
+      checkAll server "can convert single quotation mark"
+        "let c = '{char}'"
+        "\\\'"
+        "\\039"
+        "\\x27"
+        "\\u0027"
+        "\\U00000027"
+      
+      checkAll server "can convert unescaped double quotation mark"
+        "let c = '{char}'"
+        "\""
+        "\\034"
+        "\\x22"
+        "\\u0022"
+        "\\U00000022"
+      // Note: Just check from `'"` to number forms. 
+      //       Other directions produce unescaped quotation mark
+      //       -> Handled in test above
+      check server "can convert escaped double quotation mark"
+        "let c = '\"$0'"
+        "" 
+        "let c = '\\034'"
+        "let c = '\\x22'"
+        "let c = '\\u0022'"
+        "let c = '\\U00000022'"
+
       testList "byte" [
         let checkAll
           server

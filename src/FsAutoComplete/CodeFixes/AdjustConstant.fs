@@ -610,8 +610,10 @@ module private Format =
       | '\t' -> Some "\\t"
       | '\v' -> Some "\\v"
       | '\\' -> Some "\\"
+      // Note: double quotation marks can be escaped -- but don't have to be.
+      //       We're emitting unescaped quotations: `'"'` and not `'\"'`
       | '\"' -> Some "\""
-      | '\'' -> Some "\'"
+      | '\'' -> Some "\\\'"
       | _ when Char.IsControl c -> None
       | c -> Some (string c)
 
