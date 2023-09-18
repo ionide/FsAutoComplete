@@ -34,11 +34,9 @@ module TypedAstUtils =
     | Some name when name = typeof<'T>.Name -> true
     | _ -> false
 
-  let hasAttribute<'T> (attributes: seq<FSharpAttribute>) =
-    attributes |> Seq.exists isAttribute<'T>
+  let hasAttribute<'T> (attributes: seq<FSharpAttribute>) = attributes |> Seq.exists isAttribute<'T>
 
-  let tryGetAttribute<'T> (attributes: seq<FSharpAttribute>) =
-    attributes |> Seq.tryFind isAttribute<'T>
+  let tryGetAttribute<'T> (attributes: seq<FSharpAttribute>) = attributes |> Seq.tryFind isAttribute<'T>
 
   let hasModuleSuffixAttribute (entity: FSharpEntity) =
     entity.Attributes
@@ -67,8 +65,7 @@ module TypedAstUtils =
 
   let private UnnamedUnionFieldRegex = Regex("^Item(\d+)?$", RegexOptions.Compiled)
 
-  let isUnnamedUnionCaseField (field: FSharpField) =
-    UnnamedUnionFieldRegex.IsMatch(field.Name)
+  let isUnnamedUnionCaseField (field: FSharpField) = UnnamedUnionFieldRegex.IsMatch(field.Name)
 
 [<AutoOpen>]
 module TypedAstExtensionHelpers =

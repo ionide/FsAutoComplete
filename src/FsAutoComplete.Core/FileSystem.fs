@@ -247,8 +247,7 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
       Ok(builder.ToString())
 
-  member private x.GetLineUnsafe(pos: FSharp.Compiler.Text.Position) =
-    (x :> ISourceText).GetLineString(pos.Line - 1)
+  member private x.GetLineUnsafe(pos: FSharp.Compiler.Text.Position) = (x :> ISourceText).GetLineString(pos.Line - 1)
 
   /// Provides safe access to a line of the file via FCS-provided Position
   member x.GetLine(pos: FSharp.Compiler.Text.Position) : string option =
@@ -399,11 +398,9 @@ type NamedText(fileName: string<LocalPath>, str: string) =
 
     loop start
 
-  member x.WalkForward(start, terminal, condition) =
-    x.Walk(start, x.NextPos, terminal, condition)
+  member x.WalkForward(start, terminal, condition) = x.Walk(start, x.NextPos, terminal, condition)
 
-  member x.WalkBackwards(start, terminal, condition) =
-    x.Walk(start, x.PrevPos, terminal, condition)
+  member x.WalkBackwards(start, terminal, condition) = x.Walk(start, x.PrevPos, terminal, condition)
 
 
   /// Provides line-by-line access to the underlying text.
@@ -473,11 +470,9 @@ type NamedText(fileName: string<LocalPath>, str: string) =
     member x.Item
       with get (pos: FSharp.Compiler.Text.Position) = x.Item pos
 
-    member x.WalkForward(start, terminal, condition) =
-      x.WalkForward(start, terminal, condition)
+    member x.WalkForward(start, terminal, condition) = x.WalkForward(start, terminal, condition)
 
-    member x.WalkBackwards(start, terminal, condition) =
-      x.WalkBackwards(start, terminal, condition)
+    member x.WalkBackwards(start, terminal, condition) = x.WalkBackwards(start, terminal, condition)
 
 module RoslynSourceText =
   open Microsoft.CodeAnalysis.Text
@@ -486,8 +481,7 @@ module RoslynSourceText =
   [<RequireQualifiedAccess>]
   module Hash =
     /// (From Roslyn) This is how VB Anonymous Types combine hash values for fields.
-    let combine (newKey: int) (currentKey: int) =
-      (currentKey * (int 0xA5555529)) + newKey
+    let combine (newKey: int) (currentKey: int) = (currentKey * (int 0xA5555529)) + newKey
 
     let combineValues (values: seq<'T>) =
       (0, values) ||> Seq.fold (fun hash value -> combine (value.GetHashCode()) hash)
@@ -686,8 +680,7 @@ module RoslynSourceText =
             else
               (0, 0)
 
-          member _.GetSubTextString(start, length) =
-            sourceText.GetSubText(TextSpan(start, length)).ToString()
+          member _.GetSubTextString(start, length) = sourceText.GetSubText(TextSpan(start, length)).ToString()
 
           member _.SubTextEquals(target, startIndex) =
             if startIndex < 0 || startIndex >= sourceText.Length then
@@ -813,8 +806,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
   ///
   /// either the first char is '/', or the first char is a drive identifier followed by ':'
   let isWindowsStyleRootedPath (p: string) =
-    let isAlpha (c: char) =
-      (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+    let isAlpha (c: char) = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 
     (p.Length >= 1 && p.[0] = '/')
     || (p.Length >= 2 && isAlpha p.[0] && p.[1] = ':')
@@ -882,8 +874,7 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
     member _.GetCreationTimeShim p = actualFs.GetCreationTimeShim p
     member _.GetDirectoryNameShim p = actualFs.GetDirectoryNameShim p
 
-    member _.GetFullFilePathInDirectoryShim dir f =
-      actualFs.GetFullFilePathInDirectoryShim dir f
+    member _.GetFullFilePathInDirectoryShim dir f = actualFs.GetFullFilePathInDirectoryShim dir f
 
     member _.OpenFileForReadShim(filePath: string, useMemoryMappedFile, shouldShadowCopy) =
       filePath

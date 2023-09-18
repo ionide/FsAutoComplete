@@ -103,8 +103,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         "mscorlib" ]
       |> List.map (fun p -> p + ".dll")
 
-    let containsBadRef (s: string) =
-      badRefs |> List.exists (fun r -> s.EndsWith r)
+    let containsBadRef (s: string) = badRefs |> List.exists (fun r -> s.EndsWith r)
 
     fun (projOptions: FSharpProjectOptions) ->
       { projOptions with
@@ -122,8 +121,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     { projectOptions with
         SourceFiles = files }
 
-  let (|Reference|_|) (opt: string) =
-    if opt.StartsWith "-r:" then Some(opt.[3..]) else None
+  let (|Reference|_|) (opt: string) = if opt.StartsWith "-r:" then Some(opt.[3..]) else None
 
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =

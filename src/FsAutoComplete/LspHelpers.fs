@@ -19,16 +19,14 @@ type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
 module FcsPos =
-  let subtractColumn (pos: FcsPos) (column: int) =
-    FcsPos.mkPos pos.Line (pos.Column - column)
+  let subtractColumn (pos: FcsPos) (column: int) = FcsPos.mkPos pos.Line (pos.Column - column)
 
 [<AutoOpen>]
 module Conversions =
   module Lsp = Ionide.LanguageServerProtocol.Types
 
   /// convert an LSP position to a compiler position
-  let protocolPosToPos (pos: Lsp.Position) : FcsPos =
-    FcsPos.mkPos (pos.Line + 1) (pos.Character)
+  let protocolPosToPos (pos: Lsp.Position) : FcsPos = FcsPos.mkPos (pos.Line + 1) (pos.Character)
 
   let protocolPosToRange (pos: Lsp.Position) : Lsp.Range = { Start = pos; End = pos }
 
@@ -201,8 +199,7 @@ module internal GlyphConversions =
 
     let completionItemSet = defaultArg completionItemSet defaultSet
 
-    let bestAvailable (possible: 'kind[]) =
-      possible |> Array.tryFind (fun x -> Array.contains x completionItemSet)
+    let bestAvailable (possible: 'kind[]) = possible |> Array.tryFind (fun x -> Array.contains x completionItemSet)
 
     let unionCases = FSharpType.GetUnionCases(typeof<FSharpGlyph>)
     let cache = Dictionary<FSharpGlyph, 'kind option>(unionCases.Length)
@@ -347,8 +344,7 @@ module Workspace =
     | WorkspacePeekFoundSolutionItemKind.Folder folder -> folder.Items |> List.collect foldFsproj
     | WorkspacePeekFoundSolutionItemKind.MsbuildFormat msbuild -> [ item.Name, msbuild ]
 
-  let countProjectsInSln (sln: WorkspacePeekFoundSolution) =
-    sln.Items |> List.map foldFsproj |> List.sumBy List.length
+  let countProjectsInSln (sln: WorkspacePeekFoundSolution) = sln.Items |> List.map foldFsproj |> List.sumBy List.length
 
 module SigantureData =
   let formatSignature typ parms : string =

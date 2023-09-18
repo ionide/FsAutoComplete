@@ -167,11 +167,9 @@ module DocumentationFormatter =
         }
         |> String.concat ""
 
-      let typeConstraint (tc: FSharpType) =
-        sprintf ":> %s" (tc |> format displayContext |> fst)
+      let typeConstraint (tc: FSharpType) = sprintf ":> %s" (tc |> format displayContext |> fst)
 
-      let enumConstraint (ec: FSharpType) =
-        sprintf "enum<%s>" (ec |> format displayContext |> fst)
+      let enumConstraint (ec: FSharpType) = sprintf "enum<%s>" (ec |> format displayContext |> fst)
 
       let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
         sprintf
@@ -485,8 +483,7 @@ module DocumentationFormatter =
         with _ ->
           "Unknown"
 
-    let formatName (parameter: FSharpParameter) =
-      parameter.Name |> Option.defaultValue parameter.DisplayName
+    let formatName (parameter: FSharpParameter) = parameter.Name |> Option.defaultValue parameter.DisplayName
 
     let isDelegate =
       match func.EnclosingEntitySafe with

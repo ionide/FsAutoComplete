@@ -72,8 +72,7 @@ module Types =
 
     member buf.Peep() = contents.[count - 1]
 
-    member buf.Top(n) =
-      [ for x in contents.[max 0 (count - n) .. count - 1] -> x ] |> List.rev
+    member buf.Top(n) = [ for x in contents.[max 0 (count - n) .. count - 1] -> x ] |> List.rev
 
     member buf.Push(x) =
       buf.Ensure(count + 1)
@@ -132,8 +131,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.fatal'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Fatal |> logConfig |> logger.fromLog
+      member logger.fatal'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Fatal |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs a fatal log message given a log configurer.
@@ -146,8 +144,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.error'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Error |> logConfig |> logger.fromLog
+      member logger.error'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Error |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs an error log message given a log configurer.
@@ -160,8 +157,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.warn'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Warn |> logConfig |> logger.fromLog
+      member logger.warn'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Warn |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs a warn log message given a log configurer.
@@ -174,8 +170,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.info'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Info |> logConfig |> logger.fromLog
+      member logger.info'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Info |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs an info log message given a log configurer.
@@ -188,8 +183,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.debug'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Debug |> logConfig |> logger.fromLog
+      member logger.debug'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Debug |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs a debug log message given a log configurer.
@@ -202,8 +196,7 @@ module Types =
       /// </summary>
       /// <param name="logConfig">A function to configure a log</param>
       /// <returns><see langword="true"/>  if the log message was logged</returns>
-      member logger.trace'(logConfig: Log -> Log) =
-        Log.StartLogLevel LogLevel.Trace |> logConfig |> logger.fromLog
+      member logger.trace'(logConfig: Log -> Log) = Log.StartLogLevel LogLevel.Trace |> logConfig |> logger.fromLog
 
       /// <summary>
       /// Logs a trace log message given a log configurer.
@@ -236,8 +229,7 @@ module Types =
     /// <param name="messageThunk">The function that generates a message to add to a Log.</param>
     /// <param name="log">The log to amend.</param>
     /// <returns>The amended log.</returns>
-    let setMessageThunk (messageThunk: unit -> string) (log: Log) =
-      { log with Message = Some messageThunk }
+    let setMessageThunk (messageThunk: unit -> string) (log: Log) = { log with Message = Some messageThunk }
 
     /// <summary>
     /// Amends a <see cref="T:FsLibLog.Types.Log">Log</see> with a parameter.
@@ -323,8 +315,7 @@ module Types =
     let private formatterRegex =
       Regex(@"(?<!{){(?<number>\d+)(?<columnFormat>:(?<format>[^}]+))?}(?!})", RegexOptions.Compiled)
 
-    let private isAnObject value =
-      Convert.GetTypeCode(value) = TypeCode.Object
+    let private isAnObject value = Convert.GetTypeCode(value) = TypeCode.Object
 
     /// <summary>
     /// Amends a <see cref="T:FsLibLog.Types.Log">Log</see> with a given interpolated string. This will generate a message template from a special syntax within the interpolation. The syntax for the interplated string is <code> $"I want to log {myVariable:MyLogVariableName}". </code>
@@ -428,8 +419,7 @@ module Operators =
   /// <param name="key">The name for the parameter.</param>
   /// <param name="value">The value for the parameter.</param>
   /// <returns>The amended log with the parameter added.</returns>
-  let (>>!+) log (key, value) =
-    log >> Log.addContextDestructured key value
+  let (>>!+) log (key, value) = log >> Log.addContextDestructured key value
 
   /// <summary>
   /// Amends a Log with an exn. Handles nulls.
@@ -665,8 +655,7 @@ module Providers =
     // This has to be set from usercode for this to light up
     let mutable private microsoftLoggerFactory: ILoggerFactory option = None
 
-    let setMicrosoftLoggerFactory (factory: ILoggerFactory) =
-      microsoftLoggerFactory <- Option.ofObj factory
+    let setMicrosoftLoggerFactory (factory: ILoggerFactory) = microsoftLoggerFactory <- Option.ofObj factory
 
     let getLogFactoryType =
       lazy (Type.GetType("Microsoft.Extensions.Logging.ILoggerFactory, Microsoft.Extensions.Logging.Abstractions"))
@@ -1058,8 +1047,7 @@ module LogProvider =
   /// </summary>
   /// <param name="quotation">The quotation to generate a logger name from.</param>
   /// <returns></returns>
-  let getLoggerByQuotation (quotation: Quotations.Expr) =
-    getModuleType quotation |> getLoggerByType
+  let getLoggerByQuotation (quotation: Quotations.Expr) = getModuleType quotation |> getLoggerByType
 
 
 type LogProvider =

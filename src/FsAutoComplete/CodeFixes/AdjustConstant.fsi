@@ -30,17 +30,20 @@ type Base =
 module Title =
   val removeDigitSeparators: string
   val replaceWith: (string -> string)
+
   module Int =
     module Convert =
       val toDecimal: string
       val toHexadecimal: string
       val toOctal: string
       val toBinary: string
+
       module SpecialCase =
         val extractMinusFromNegativeConstant: string
         val integrateExplicitMinus: string
         val useImplicitPlusInPositiveConstantWithMinusSign: string
         val removeExplicitMinusWithMinValue: string
+
     module Separate =
       val decimal3: string
       val hexadecimal4: string
@@ -48,9 +51,11 @@ module Title =
       val octal3: string
       val binary4: string
       val binary8: string
+
   module Float =
     module Separate =
       val all3: string
+
   module Char =
     module Convert =
       val toChar: (string -> string)

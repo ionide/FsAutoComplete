@@ -83,8 +83,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     || str.EndsWith "ftestTheoryTask"
     || str.EndsWith "ptestTheoryTask"
 
-  let isExpectoListName (str: string) =
-    str.EndsWith "testList" || str.EndsWith "ftestList" || str.EndsWith "ptestList"
+  let isExpectoListName (str: string) = str.EndsWith "testList" || str.EndsWith "ftestList" || str.EndsWith "ptestList"
 
   let (|Case|List|NotExpecto|) =
     function

@@ -86,8 +86,7 @@ let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResult
     | _ -> return! None
   }
 
-let private isSignatureFile (f: string<LocalPath>) =
-  System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
+let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
 type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
   // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
@@ -168,8 +167,7 @@ module private ShouldCreate =
 
 
   [<return: Struct>]
-  let private (|StartsWith|_|) (v: string) (fullName: string) =
-    if fullName.StartsWith v then ValueSome() else ValueNone
+  let private (|StartsWith|_|) (v: string) (fullName: string) = if fullName.StartsWith v then ValueSome() else ValueNone
   // doesn't differentiate between modules, types, namespaces
   // -> is just for documentation in code
   [<return: Struct>]
@@ -223,8 +221,7 @@ module private ShouldCreate =
       | _ -> false
     | _ -> false
 
-  let inline private hasName (p: FSharpParameter) =
-    not (String.IsNullOrEmpty p.DisplayName) && p.DisplayName <> "````"
+  let inline private hasName (p: FSharpParameter) = not (String.IsNullOrEmpty p.DisplayName) && p.DisplayName <> "````"
 
   let inline private isMeaningfulName (p: FSharpParameter) = p.DisplayName.Length > 2
 

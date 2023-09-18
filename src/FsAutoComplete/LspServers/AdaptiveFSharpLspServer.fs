@@ -69,8 +69,7 @@ type LoadedProject =
     LanguageVersion: LanguageVersionShim }
 
   interface IEquatable<LoadedProject> with
-    member x.Equals(other) =
-      x.FSharpProjectOptions = other.FSharpProjectOptions
+    member x.Equals(other) = x.FSharpProjectOptions = other.FSharpProjectOptions
 
   override x.GetHashCode() = x.FSharpProjectOptions.GetHashCode()
 
@@ -293,8 +292,7 @@ type AdaptiveFSharpLspServer
     let fileName = Path.GetFileName filePathUntag
 
 
-    let inline getSourceLine lineNo =
-      (source: ISourceText).GetLineString(lineNo - 1)
+    let inline getSourceLine lineNo = (source: ISourceText).GetLineString(lineNo - 1)
 
     let checkUnusedOpens =
       async {
@@ -717,8 +715,7 @@ type AdaptiveFSharpLspServer
 
   let (|ProjectAssetsFile|_|) (props: list<Types.Property>) = tryFindProp "ProjectAssetsFile" props
 
-  let (|BaseIntermediateOutputPath|_|) (props: list<Types.Property>) =
-    tryFindProp "BaseIntermediateOutputPath" props
+  let (|BaseIntermediateOutputPath|_|) (props: list<Types.Property>) = tryFindProp "BaseIntermediateOutputPath" props
 
   let (|MSBuildAllProjects|_|) (props: list<Types.Property>) =
     tryFindProp "MSBuildAllProjects" props
@@ -1036,14 +1033,11 @@ type AdaptiveFSharpLspServer
     resetCancellationToken filePath
     transact (fun () -> textChanges.AddOrElse(filePath, adder, updater))
 
-  let isFileOpen file =
-    openFiles |> AMap.tryFindA file |> AVal.map (Option.isSome)
+  let isFileOpen file = openFiles |> AMap.tryFindA file |> AVal.map (Option.isSome)
 
-  let findFileInOpenFiles file =
-    openFilesWithChanges |> AMap.tryFindA file
+  let findFileInOpenFiles file = openFilesWithChanges |> AMap.tryFindA file
 
-  let forceFindOpenFile filePath =
-    findFileInOpenFiles filePath |> AVal.force
+  let forceFindOpenFile filePath = findFileInOpenFiles filePath |> AVal.force
 
   let forceFindOpenFileOrRead file =
     asyncOption {
@@ -1137,8 +1131,7 @@ type AdaptiveFSharpLspServer
         |> Async.parallel75
     }
 
-  let forceFindSourceText filePath =
-    forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
+  let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
 
 
   let openFilesToChangesAndProjectOptions =
@@ -1225,8 +1218,7 @@ type AdaptiveFSharpLspServer
 
       Commands.calculateNamespaceInsert (fun () -> Some ast) d pos getline)
 
-  let getAutoCompleteNamespacesByDeclName name =
-    autoCompleteNamespaces |> AMap.tryFind name
+  let getAutoCompleteNamespacesByDeclName name = autoCompleteNamespaces |> AMap.tryFind name
 
 
   /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
@@ -1389,11 +1381,9 @@ type AdaptiveFSharpLspServer
 
       })
 
-  let getParseResults filePath =
-    openFilesToParsedResults |> AMapAsync.tryFindAndFlatten filePath
+  let getParseResults filePath = openFilesToParsedResults |> AMapAsync.tryFindAndFlatten filePath
 
-  let getTypeCheckResults filePath =
-    openFilesToCheckedFilesResults |> AMapAsync.tryFindAndFlatten (filePath)
+  let getTypeCheckResults filePath = openFilesToCheckedFilesResults |> AMapAsync.tryFindAndFlatten (filePath)
 
   let getRecentTypeCheckResults filePath =
     openFilesToRecentCheckedFilesResults |> AMapAsync.tryFindAndFlatten (filePath)
@@ -1483,8 +1473,7 @@ type AdaptiveFSharpLspServer
 
     }
 
-  let getDeclarations filename =
-    openFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
+  let getDeclarations filename = openFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
@@ -1546,8 +1535,7 @@ type AdaptiveFSharpLspServer
               return! None
           }
 
-        member x.ParseFileInProject(file) =
-          forceGetParseResults file |> Async.map (Option.ofResult) }
+        member x.ParseFileInProject(file) = forceGetParseResults file |> Async.map (Option.ofResult) }
 
   let getDependentProjectsOfProjects ps =
     let projectSnapshot = forceLoadProjects ()
@@ -1715,8 +1703,7 @@ type AdaptiveFSharpLspServer
     let getUnionPatternMatchCases tyRes pos sourceText line =
       Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos sourceText line
 
-    let unionCaseStubReplacements (config) () =
-      Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
+    let unionCaseStubReplacements (config) () = Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
 
     let implementInterfaceConfig config () : ImplementInterface.Config =
@@ -1724,8 +1711,7 @@ type AdaptiveFSharpLspServer
         MethodBody = config.InterfaceStubGenerationMethodBody
         IndentationSize = config.IndentationSize }
 
-    let recordStubReplacements config () =
-      Map.ofList [ "$1", config.RecordStubGenerationBody ]
+    let recordStubReplacements config () = Map.ofList [ "$1", config.RecordStubGenerationBody ]
 
     let tryFindRecordDefinitionFromPos =
       RecordStubGenerator.tryFindRecordDefinitionFromPos codeGenServer
@@ -1835,9 +1821,8 @@ type AdaptiveFSharpLspServer
          UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
          RenameParamToMatchSignature.fix tryGetParseResultsForFile
          RemovePatternArgument.fix tryGetParseResultsForFile
-         ToInterpolatedString.fix tryGetParseResultsForFile getLanguageVersion 
-         AdjustConstant.fix tryGetParseResultsForFile
-      |])
+         ToInterpolatedString.fix tryGetParseResultsForFile getLanguageVersion
+         AdjustConstant.fix tryGetParseResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
@@ -2194,8 +2179,7 @@ type AdaptiveFSharpLspServer
     Helpers.ignoreNotification
 
   interface IFSharpLspServer with
-    override x.Shutdown() =
-      (x :> System.IDisposable).Dispose() |> async.Return
+    override x.Shutdown() = (x :> System.IDisposable).Dispose() |> async.Return
 
     override _.Initialize(p: InitializeParams) =
       asyncResult {
@@ -3398,6 +3382,7 @@ type AdaptiveFSharpLspServer
                     Log.setMessage "Exception in CodeFix: {error}"
                     >> Log.addContextDestructured "error" (e.ToString())
                   )
+
                   return Ok []
               })
             |> Async.parallel75

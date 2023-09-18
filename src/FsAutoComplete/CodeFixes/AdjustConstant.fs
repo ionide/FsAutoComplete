@@ -62,22 +62,18 @@ let private tryFindConstant ast pos =
         member _.VisitPat(_, defaultTraverse, synPat) =
           match synPat with
           | SynPat.Const(constant, range) when rangeContainsPos range pos -> findConst range constant |> Some
-          | _ -> defaultTraverse synPat
-    }
+          | _ -> defaultTraverse synPat }
   )
 
 /// Computes the absolute of `n`
 ///
 /// Unlike `abs` or `Math.Abs` this here handles `MinValue` and does not throw `OverflowException`.
 type private Int =
-  static member inline abs(n: sbyte) : byte =
-    if n >= 0y then byte n else byte (0y - n)
+  static member inline abs(n: sbyte) : byte = if n >= 0y then byte n else byte (0y - n)
 
-  static member inline abs(n: int16) : uint16 =
-    if n >= 0s then uint16 n else uint16 (0s - n)
+  static member inline abs(n: int16) : uint16 = if n >= 0s then uint16 n else uint16 (0s - n)
 
-  static member inline abs(n: int32) : uint32 =
-    if n >= 0l then uint32 n else uint32 (0l - n)
+  static member inline abs(n: int32) : uint32 = if n >= 0l then uint32 n else uint32 (0l - n)
 
   static member inline abs(n: int64) : uint64 =
     if n >= 0L then
@@ -89,8 +85,7 @@ type private Int =
       //        BUT: converting `Int64.MinValue` to `UInt64` produces correct absolute of `Int64.MinValue`
       uint64 (0L - n)
 
-  static member inline abs(n: nativeint) : unativeint =
-    if n >= 0n then unativeint n else unativeint (0n - n)
+  static member inline abs(n: nativeint) : unativeint = if n >= 0n then unativeint n else unativeint (0n - n)
 
 type private Offset = int
 
@@ -100,8 +95,7 @@ type private Offset = int
 type private RangeInLine = Range
 
 module private Range =
-  let inline inSingleLine (range: Range) =
-    range.Start.Line = range.End.Line
+  let inline inSingleLine (range: Range) = range.Start.Line = range.End.Line
 
 type private Range with
 
@@ -120,10 +114,9 @@ type private Range with
 /// Unlike `LSP.Range`: just Offsets, not Positions (Line & Character)
 [<IsReadOnly; Struct>]
 [<StructuredFormatDisplay("{DisplayText}")>]
-type private ORange = {
-  Start: Offset
-  End: Offset
-} with
+type private ORange =
+  { Start: Offset
+    End: Offset }
 
   member r.DisplayText = r.ToString()
   override r.ToString() = $"{r.Start}..{r.End}"
@@ -131,10 +124,13 @@ type private ORange = {
   member inline r.Length = r.End - r.Start
   member inline r.IsEmpty = r.Start = r.End
 
-  member inline r.ToRangeFrom(pos: Position) : Range = {
-    Start = { Line = pos.Line; Character = pos.Character + r.Start }
-    End = { Line = pos.Line; Character = pos.Character + r.End }
-  }
+  member inline r.ToRangeFrom(pos: Position) : Range =
+    { Start =
+        { Line = pos.Line
+          Character = pos.Character + r.Start }
+      End =
+        { Line = pos.Line
+          Character = pos.Character + r.End } }
 
   member inline r.ToRangeInside(range: Range) : Range =
     assert (Range.inSingleLine range)
@@ -153,11 +149,9 @@ type private ORange = {
   member inline r.SpanIn(str: String) = str.AsSpan(r.Start, r.Length)
   member inline r.SpanIn(s: ReadOnlySpan<_>) = s.Slice(r.Start, r.Length)
 
-  member inline r.SpanIn(parent: Range, s: ReadOnlySpan<_>) =
-    r.ShiftInside(parent).SpanIn(s)
+  member inline r.SpanIn(parent: Range, s: ReadOnlySpan<_>) = r.ShiftInside(parent).SpanIn(s)
 
-  member inline r.SpanIn(parent: Range, s: String) =
-    r.ShiftInside(parent).SpanIn(s)
+  member inline r.SpanIn(parent: Range, s: String) = r.ShiftInside(parent).SpanIn(s)
 
   member inline r.EmptyAtStart = { Start = r.Start; End = r.Start }
   member inline r.EmptyAtEnd = { Start = r.End; End = r.End }
@@ -174,10 +168,9 @@ module private ORange =
   ///
   /// Note: if there's a gap between `range1` and `range2` that gap is included in output range:
   ///       `union (1..3) (7..9) = 1..9`
-  let inline union (range1: ORange) (range2: ORange) = {
-    Start = min range1.Start range2.Start
-    End = max range1.End range2.End
-  }
+  let inline union (range1: ORange) (range2: ORange) =
+    { Start = min range1.Start range2.Start
+      End = max range1.End range2.End }
 
   /// Split `range` after `length` counting from the front.
   ///
@@ -192,7 +185,10 @@ module private ORange =
   /// Note: Tuple instead of `ValueTuple` (`struct`) for better inlining.
   ///       Check when used: Tuple should not actually be created!
   let inline splitFront length (range: ORange) =
-    ({ range with End = range.Start + length }, { range with Start = range.Start + length })
+    ({ range with
+        End = range.Start + length },
+     { range with
+         Start = range.Start + length })
 
   /// Split `range` after `length` counting from the back.
   ///
@@ -204,14 +200,22 @@ module private ORange =
   /// assert(right = { Start = 6; End = 10 })
   /// ```
   let inline splitBack length (range: ORange) =
-    ({ range with End = range.End - length }, { range with Start = range.End - length })
+    ({ range with End = range.End - length },
+     { range with
+         Start = range.End - length })
 
   /// Adjusts `Start` by `+ dStart`
-  let inline adjustStart dStart (range: ORange) = { range with Start = range.Start + dStart }
+  let inline adjustStart dStart (range: ORange) =
+    { range with
+        Start = range.Start + dStart }
+
   /// Adjusts `End` by `- dEnd`
   let inline adjustEnd dEnd (range: ORange) = { range with End = range.End - dEnd }
+
   /// Adjusts `Start` by `+ dStart` and `End` by `- dEnd`
-  let inline adjust (dStart, dEnd) (range: ORange) = { Start = range.Start + dStart; End = range.End - dEnd }
+  let inline adjust (dStart, dEnd) (range: ORange) =
+    { Start = range.Start + dStart
+      End = range.End - dEnd }
 
 [<Extension>]
 type private Extensions() =
@@ -265,8 +269,7 @@ module private Tuple =
 module private Char =
   let inline isDigitOrUnderscore c = Char.IsDigit c || c = '_'
 
-  let inline isHexDigitOrUnderscore c =
-    isDigitOrUnderscore c || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
+  let inline isHexDigitOrUnderscore c = isDigitOrUnderscore c || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
 
   let inline isSingleQuote c = c = '\''
 
@@ -283,18 +286,19 @@ type CharFormat =
   /// `\U000000E7`
   | Utf32Hexadecimal
 
-type private CharConstant = {
-  Range: Range
+type private CharConstant =
+  {
+    Range: Range
 
-  Value: char
-  Format: CharFormat
-  Constant: SynConst
-  ValueRange: ORange
+    Value: char
+    Format: CharFormat
+    Constant: SynConst
+    ValueRange: ORange
 
-  /// `B` suffix
-  /// Only when Byte
-  SuffixRange: ORange
-} with
+    /// `B` suffix
+    /// Only when Byte
+    SuffixRange: ORange
+  }
 
   member c.IsByte = not c.SuffixRange.IsEmpty
 
@@ -334,14 +338,12 @@ module private CharConstant =
       else
         CharFormat.Char
 
-    {
-      Range = constRange
+    { Range = constRange
       Value = value
       Format = format
       Constant = constant
       ValueRange = valueRange
-      SuffixRange = suffixRange
-    }
+      SuffixRange = suffixRange }
 
 type private Sign =
   | Negative
@@ -398,20 +400,19 @@ module private Base =
 /// * required digits
 ///   * optional underscores inside
 /// * optional suffix
-type private IntConstant = {
-  Range: Range
+type private IntConstant =
+  { Range: Range
 
-  Sign: Sign
-  SignRange: ORange
+    Sign: Sign
+    SignRange: ORange
 
-  Base: Base
-  BaseRange: ORange
+    Base: Base
+    BaseRange: ORange
 
-  Constant: SynConst
-  ValueRange: ORange
+    Constant: SynConst
+    ValueRange: ORange
 
-  SuffixRange: ORange
-}
+    SuffixRange: ORange }
 
 module private IntConstant =
   /// Note: Does not handle ASCII byte. Check with `CharConstant.isAsciiByte` and then parse with `CharConstant.parse`
@@ -426,16 +427,14 @@ module private IntConstant =
     let valueRange, suffixRange =
       Parse.while' (text, range, Char.isHexDigitOrUnderscore)
 
-    {
-      Range = constRange
+    { Range = constRange
       Sign = sign
       SignRange = signRange
       Base = base'
       BaseRange = baseRange
       Constant = constant
       ValueRange = valueRange
-      SuffixRange = suffixRange
-    }
+      SuffixRange = suffixRange }
 
 [<RequireQualifiedAccess>]
 type private FloatValue =
@@ -450,37 +449,37 @@ type private FloatValue =
 /// Float Constant (without Hex/Oct/Bin form -- just Decimal & Scientific)
 ///
 /// Includes `float32`, `float`, `decimal`
-type private FloatConstant = {
-  Range: Range
+type private FloatConstant =
+  {
+    Range: Range
 
-  /// Note: Leading sign, not exponent sign
-  Sign: Sign
-  SignRange: ORange
+    /// Note: Leading sign, not exponent sign
+    Sign: Sign
+    SignRange: ORange
 
-  Constant: SynConst
-  Value: FloatValue
-  /// Part before decimal separator (`.`)
-  ///
-  /// Note: Cannot be empty
-  IntRange: ORange
-  /// Part after decimal separator (`.`)
-  ///
-  /// Note: empty when no decimal
-  DecimalRange: ORange
-  /// Exponent Part without `e` or sign
-  ///
-  /// Note: empty when no exponent
-  ExponentRange: ORange
+    Constant: SynConst
+    Value: FloatValue
+    /// Part before decimal separator (`.`)
+    ///
+    /// Note: Cannot be empty
+    IntRange: ORange
+    /// Part after decimal separator (`.`)
+    ///
+    /// Note: empty when no decimal
+    DecimalRange: ORange
+    /// Exponent Part without `e` or sign
+    ///
+    /// Note: empty when no exponent
+    ExponentRange: ORange
 
-  SuffixRange: ORange
-} with
+    SuffixRange: ORange
+  }
 
   member c.IsScientific = not c.ExponentRange.IsEmpty
   member c.ValueRange = ORange.union c.IntRange c.ExponentRange
 
 module private FloatConstant =
-  let inline isIntFloat (text: ReadOnlySpan<char>) =
-    text.EndsWith "lf" || text.EndsWith "LF"
+  let inline isIntFloat (text: ReadOnlySpan<char>) = text.EndsWith "lf" || text.EndsWith "LF"
 
   /// Note: Does not handle Hex/Oct/Bin form (`lf` or `LF` suffix). Check with `FloatConstant.isIntFloat` and then parse with `IntConstant.parse`
   let parse (lineStr: ReadOnlySpan<char>, constRange: RangeInLine, constant: SynConst, value: FloatValue) =
@@ -508,8 +507,7 @@ module private FloatConstant =
         let _, _, range = Sign.parse (text, range)
         Parse.while' (text, range, Char.isDigitOrUnderscore)
 
-    {
-      Range = constRange
+    { Range = constRange
       Sign = sign
       SignRange = signRange
       Constant = constant
@@ -517,8 +515,7 @@ module private FloatConstant =
       IntRange = intRange
       DecimalRange = decimalRange
       ExponentRange = exponentRange
-      SuffixRange = suffixRange
-    }
+      SuffixRange = suffixRange }
 
 // Titles in extra modules (instead with their corresponding fix)
 // to exposed titles to Unit Tests while keeping fixes private.
@@ -567,13 +564,12 @@ module Title =
       let toUtf16Hexadecimal = sprintf "Convert to `%s`"
       let toUtf32Hexadecimal = sprintf "Convert to `%s`"
 
-let inline private mkFix doc title edits = {
-  Title = title
-  File = doc
-  Edits = edits
-  Kind = FixKind.Refactor
-  SourceDiagnostic = None
-}
+let inline private mkFix doc title edits =
+  { Title = title
+    File = doc
+    Edits = edits
+    Kind = FixKind.Refactor
+    SourceDiagnostic = None }
 
 
 module private DigitGroup =
@@ -583,12 +579,11 @@ module private DigitGroup =
     if text.Contains '_' then
       let replacement = text.ToString().Replace("_", "")
 
-      mkFix doc Title.removeDigitSeparators [|
-        {
-          Range = localRange.ToRangeInside constantRange
-          NewText = replacement
-        }
-      |]
+      mkFix
+        doc
+        Title.removeDigitSeparators
+        [| { Range = localRange.ToRangeInside constantRange
+             NewText = replacement } |]
       |> List.singleton
     else
       []
@@ -641,8 +636,7 @@ module private Format =
       | _ when Char.IsControl c -> None
       | c -> Some(string c)
 
-    let inline asChar (c: char) =
-      tryAsChar c |> Option.defaultValue (string c)
+    let inline asChar (c: char) = tryAsChar c |> Option.defaultValue (string c)
 
     let inline asDecimal (c: char) = $"\\%03i{uint16 c}"
     let inline asHexadecimal (c: char) = $"\\x%02X{uint16 c}"
@@ -795,7 +789,11 @@ module private CommonFixes =
         |> Option.defaultWith (fun _ -> $"System.{tyName}.{fieldName}")
 
       let title = mkTitle $"{tyName}.{fieldName}"
-      let edits = [| { Range = constantRange; NewText = propCall } |]
+
+      let edits =
+        [| { Range = constantRange
+             NewText = propCall } |]
+
       return mkFix doc title edits |> List.singleton
     }
     |> Option.defaultValue []
@@ -814,7 +812,11 @@ module private CommonFixes =
     let mkFix value =
       let title = Title.replaceWith value
       let replacement = prependSpaceIfNecessary constantRange lineStr value
-      let edits = [| { Range = constantRange; NewText = replacement } |]
+
+      let edits =
+        [| { Range = constantRange
+             NewText = replacement } |]
+
       mkFix doc title edits |> List.singleton
 
     match constantValue with
@@ -936,63 +938,61 @@ module private CharFix =
 
     mkFix doc data [||]
 
-  let convertToOtherFormatFixes doc (lineStr: String) (constant: CharConstant) = [
-    let mkFix' title replacement =
-      let edits = [|
-        {
-          Range = constant.ValueRange.ToRangeInside constant.Range
-          NewText = replacement
-        }
-      |]
+  let convertToOtherFormatFixes doc (lineStr: String) (constant: CharConstant) =
+    [ let mkFix' title replacement =
+        let edits =
+          [| { Range = constant.ValueRange.ToRangeInside constant.Range
+               NewText = replacement } |]
 
-      mkFix doc title edits
-
-    if constant.Format <> CharFormat.Char then
-      match Format.Char.tryAsChar constant.Value with
-      | None -> () // Don't convert to "invisible" char
-      | Some value -> mkFix' (Title.Char.Convert.toChar value) value
-    // `\x` & `\U` currently not supported for byte char
-    // TODO: allow byte once support was added
-    if constant.Format <> CharFormat.Decimal && int constant.Value <= 255 then
-      let value = Format.Char.asDecimal constant.Value
-      mkFix' (Title.Char.Convert.toDecimal value) value
-
-    if
-      not constant.IsByte
-      && constant.Format <> CharFormat.Hexadecimal
-      && int constant.Value <= 0xFF
-    then
-      let value = Format.Char.asHexadecimal constant.Value
-      mkFix' (Title.Char.Convert.toHexadecimal value) value
-
-    if constant.Format <> CharFormat.Utf16Hexadecimal then
-      let value = Format.Char.asUtf16Hexadecimal constant.Value
-      mkFix' (Title.Char.Convert.toUtf16Hexadecimal value) value
-
-    if not constant.IsByte && constant.Format <> CharFormat.Utf32Hexadecimal then
-      let value = Format.Char.asUtf32Hexadecimal constant.Value
-      mkFix' (Title.Char.Convert.toUtf32Hexadecimal value) value
-
-    if constant.IsByte then
-      // convert to int representation
-      let mkFix' title replacement =
-        let edits = [| { Range = constant.Range; NewText = replacement + "uy" } |]
         mkFix doc title edits
 
-      let value = byte constant.Value
-      mkFix' Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value)
-      mkFix' Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
-      mkFix' Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
-      mkFix' Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
-  ]
+      if constant.Format <> CharFormat.Char then
+        match Format.Char.tryAsChar constant.Value with
+        | None -> () // Don't convert to "invisible" char
+        | Some value -> mkFix' (Title.Char.Convert.toChar value) value
+      // `\x` & `\U` currently not supported for byte char
+      // TODO: allow byte once support was added
+      if constant.Format <> CharFormat.Decimal && int constant.Value <= 255 then
+        let value = Format.Char.asDecimal constant.Value
+        mkFix' (Title.Char.Convert.toDecimal value) value
 
-  let all doc (lineStr: String) (error: bool) (constant: CharConstant) = [
-    if not error then
-      yield! convertToOtherFormatFixes doc lineStr constant
+      if
+        not constant.IsByte
+        && constant.Format <> CharFormat.Hexadecimal
+        && int constant.Value <= 0xFF
+      then
+        let value = Format.Char.asHexadecimal constant.Value
+        mkFix' (Title.Char.Convert.toHexadecimal value) value
 
-    if DEBUG then
-      debugFix doc lineStr constant
-  ]
+      if constant.Format <> CharFormat.Utf16Hexadecimal then
+        let value = Format.Char.asUtf16Hexadecimal constant.Value
+        mkFix' (Title.Char.Convert.toUtf16Hexadecimal value) value
+
+      if not constant.IsByte && constant.Format <> CharFormat.Utf32Hexadecimal then
+        let value = Format.Char.asUtf32Hexadecimal constant.Value
+        mkFix' (Title.Char.Convert.toUtf32Hexadecimal value) value
+
+      if constant.IsByte then
+        // convert to int representation
+        let mkFix' title replacement =
+          let edits =
+            [| { Range = constant.Range
+                 NewText = replacement + "uy" } |]
+
+          mkFix doc title edits
+
+        let value = byte constant.Value
+        mkFix' Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value)
+        mkFix' Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
+        mkFix' Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+        mkFix' Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value) ]
+
+  let all doc (lineStr: String) (error: bool) (constant: CharConstant) =
+    [ if not error then
+        yield! convertToOtherFormatFixes doc lineStr constant
+
+      if DEBUG then
+        debugFix doc lineStr constant ]
 
 module private IntFix =
   let private debugFix doc (lineStr: String) (constant: IntConstant) =
@@ -1009,12 +1009,9 @@ module private IntFix =
     let mkFixKeepExistingSign title replacement =
       let range = ORange.union constant.BaseRange constant.ValueRange
 
-      let edits = [|
-        {
-          Range = range.ToRangeInside constant.Range
-          NewText = replacement
-        }
-      |]
+      let edits =
+        [| { Range = range.ToRangeInside constant.Range
+             NewText = replacement } |]
 
       mkFix doc title edits
 
@@ -1025,295 +1022,294 @@ module private IntFix =
       let edits = [| { Range = range; NewText = replacement } |]
       mkFix doc title edits
 
-    let inline mkIntFixes (value: 'int, abs: 'int -> 'uint, minValue: 'int) = [
-      if constant.Base = Base.Decimal then
-        // easy case: no special cases: `-` is always explicit, value always matches explicit sign
-        // -> just convert absolute value and keep existing sign
+    let inline mkIntFixes (value: 'int, abs: 'int -> 'uint, minValue: 'int) =
+      [ if constant.Base = Base.Decimal then
+          // easy case: no special cases: `-` is always explicit, value always matches explicit sign
+          // -> just convert absolute value and keep existing sign
 
-        // but obviously there are no easy cases...:
-        // special case: MinValue: `-128y = -0b1000_000y = 0b1000_0000y`
-        //    -> technical `-0b1000_0000y` is correct -- but misleading (`-` AND negative bit) -> remove `-`
-        if value = minValue then
-          mkFixReplaceExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
-          mkFixReplaceExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
-          mkFixReplaceExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
-        else
+          // but obviously there are no easy cases...:
+          // special case: MinValue: `-128y = -0b1000_000y = 0b1000_0000y`
+          //    -> technical `-0b1000_0000y` is correct -- but misleading (`-` AND negative bit) -> remove `-`
+          if value = minValue then
+            mkFixReplaceExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
+            mkFixReplaceExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+            mkFixReplaceExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
+          else
+            let absValue = abs value
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
+
+        elif value = GenericZero || (value > GenericZero && constant.Sign = Positive) then
+          // easy case: implicit or explicit `+` sign matches value
+          // -> just convert absolute value and keep existing sign
+          // additional special case handled here: keep `-` for exactly `0`
+          let absValue =
+            assert (value >= GenericZero)
+            value
+
+          if
+            (assert (constant.Base <> Base.Decimal)
+             true)
+          then
+            mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
+
+          if constant.Base <> Base.Hexadecimal then
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
+
+          if constant.Base <> Base.Octal then
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
+
+          if constant.Base <> Base.Binary then
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
+
+        elif value > GenericZero && constant.Sign = Negative then
+          // explicit `-`, but value is Positive
+          // -> first sign bit is set (-> negative) and then negated with explicit `-`
+          // Example: `-0b1000_0001y = -(-127y) = 127y`
+          //
+          // Quick Fixes:
+          // * Adjust number in same base to use implicit `+`
+          // * Change to decimal while remove explicit `-` (Decimal MUST match sign)
+          // * Change to other bases while keeping explicit `-` (-> keep bits intact)
+
+          if true then // `if` for grouping. Gets removed by compiler.
+            let title =
+              Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign
+
+            let absValue =
+              assert (value >= GenericZero)
+              value
+
+            let replacement =
+              match constant.Base with
+              | Base.Decimal -> unreachable ()
+              | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned absValue
+              | Base.Octal -> Format.Int.asOctalUnsigned absValue
+              | Base.Binary -> Format.Int.asBinaryUnsigned absValue
+
+            mkFixReplaceExistingSign title replacement
+
+          if
+            (assert (constant.Base <> Base.Decimal)
+             true)
+          then
+            let absValue =
+              assert (value >= GenericZero)
+              value
+
+            mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
+
+          // keep `-` sign -> value after base-prefix must be negative
+          let negativeValue = -value
+
+          if constant.Base <> Base.Hexadecimal then
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned negativeValue)
+
+          if constant.Base <> Base.Octal then
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned negativeValue)
+
+          if constant.Base <> Base.Binary then
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned negativeValue)
+
+        elif value = minValue then
+          // special case: `MinValue`: there's no corresponding `abs` in same type:
+          //               There's no `128y` matching `MinValue = -128y`
+
+          // Note: we already handled `0` above
+          //       -> if we're here we KNOW `value` & `minValue` MUST be signed and cannot be unsigned!
+          assert (minValue <> GenericZero)
+
+          if constant.Sign = Negative then
+            // `-0b1000_0000y = -(-128y) = `-128y`
+            // Note: Because no `+128y` and not decimal, we KNOW sign is not necessary
+            let title = Title.Int.Convert.SpecialCase.removeExplicitMinusWithMinValue
+
+            mkFix
+              doc
+              title
+              [| { Range = constant.SignRange.ToRangeInside constant.Range
+                   NewText = "" } |]
+
+          if
+            (assert (constant.Base <> Base.Decimal)
+             true)
+          then
+            mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalSigned value)
+
+          if constant.Base <> Base.Hexadecimal then
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
+
+          if constant.Base <> Base.Octal then
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+
+          if constant.Base <> Base.Binary then
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
+
+        elif value < GenericZero && constant.Sign = Positive then
+          if true then
+            let title = Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant
+
+            let replacement =
+              match constant.Base with
+              | Base.Decimal -> unreachable ()
+              | Base.Hexadecimal -> Format.Int.asHexadecimalSigned (value, abs)
+              | Base.Octal -> Format.Int.asOctalSigned (value, abs)
+              | Base.Binary -> Format.Int.asBinarySigned (value, abs)
+
+            mkFixReplaceExistingSign title replacement
+
+          if
+            (assert (constant.Base <> Base.Decimal)
+             true)
+          then
+            mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalSigned value)
+
+          // keep bits intact -> don't add any `-`
+          if constant.Base <> Base.Hexadecimal then
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
+
+          if constant.Base <> Base.Octal then
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+
+          if constant.Base <> Base.Binary then
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
+
+        elif value < GenericZero then
+          assert (constant.Sign = Negative)
+
+          if true then
+            let title = Title.Int.Convert.SpecialCase.integrateExplicitMinus
+
+            let replacement =
+              match constant.Base with
+              | Base.Decimal -> unreachable ()
+              | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned value
+              | Base.Octal -> Format.Int.asOctalUnsigned value
+              | Base.Binary -> Format.Int.asBinaryUnsigned value
+
+            mkFixReplaceExistingSign title replacement
+
+          // keep `-` intact
           let absValue = abs value
-          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
-          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
 
-      elif value = GenericZero || (value > GenericZero && constant.Sign = Positive) then
-        // easy case: implicit or explicit `+` sign matches value
-        // -> just convert absolute value and keep existing sign
-        // additional special case handled here: keep `-` for exactly `0`
-        let absValue =
-          assert (value >= GenericZero)
-          value
+          if
+            (assert (constant.Base <> Base.Decimal)
+             true)
+          then
+            mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
 
-        if
-          (assert (constant.Base <> Base.Decimal)
-           true)
-        then
-          mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
+          if constant.Base <> Base.Hexadecimal then
+            mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
 
-        if constant.Base <> Base.Hexadecimal then
-          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
+          if constant.Base <> Base.Octal then
+            mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
 
-        if constant.Base <> Base.Octal then
-          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
+          if constant.Base <> Base.Binary then
+            mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
 
-        if constant.Base <> Base.Binary then
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
+        else
+          // unreachable()
+          () ]
 
-      elif value > GenericZero && constant.Sign = Negative then
-        // explicit `-`, but value is Positive
-        // -> first sign bit is set (-> negative) and then negated with explicit `-`
-        // Example: `-0b1000_0001y = -(-127y) = 127y`
-        //
-        // Quick Fixes:
-        // * Adjust number in same base to use implicit `+`
-        // * Change to decimal while remove explicit `-` (Decimal MUST match sign)
-        // * Change to other bases while keeping explicit `-` (-> keep bits intact)
-
-        if true then // `if` for grouping. Gets removed by compiler.
-          let title =
-            Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign
-
-          let absValue =
-            assert (value >= GenericZero)
-            value
-
-          let replacement =
-            match constant.Base with
-            | Base.Decimal -> unreachable ()
-            | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned absValue
-            | Base.Octal -> Format.Int.asOctalUnsigned absValue
-            | Base.Binary -> Format.Int.asBinaryUnsigned absValue
-
-          mkFixReplaceExistingSign title replacement
-
-        if
-          (assert (constant.Base <> Base.Decimal)
-           true)
-        then
-          let absValue =
-            assert (value >= GenericZero)
-            value
-
-          mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
-
-        // keep `-` sign -> value after base-prefix must be negative
-        let negativeValue = -value
-
-        if constant.Base <> Base.Hexadecimal then
-          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned negativeValue)
-
-        if constant.Base <> Base.Octal then
-          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned negativeValue)
-
-        if constant.Base <> Base.Binary then
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned negativeValue)
-
-      elif value = minValue then
-        // special case: `MinValue`: there's no corresponding `abs` in same type:
-        //               There's no `128y` matching `MinValue = -128y`
-
-        // Note: we already handled `0` above
-        //       -> if we're here we KNOW `value` & `minValue` MUST be signed and cannot be unsigned!
-        assert (minValue <> GenericZero)
-
-        if constant.Sign = Negative then
-          // `-0b1000_0000y = -(-128y) = `-128y`
-          // Note: Because no `+128y` and not decimal, we KNOW sign is not necessary
-          let title = Title.Int.Convert.SpecialCase.removeExplicitMinusWithMinValue
-
-          mkFix doc title [|
-            {
-              Range = constant.SignRange.ToRangeInside constant.Range
-              NewText = ""
-            }
-          |]
-
-        if
-          (assert (constant.Base <> Base.Decimal)
-           true)
-        then
-          mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalSigned value)
-
+    let inline mkUIntFixes (value: 'uint) =
+      [ if constant.Base <> Base.Decimal then
+          mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value)
         if constant.Base <> Base.Hexadecimal then
           mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
-
         if constant.Base <> Base.Octal then
           mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+        if constant.Base <> Base.Binary then
+          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value) ]
+
+    let mkByteFixes (value: byte) =
+      [ yield! mkUIntFixes value
+
+        // convert to char (`'a'B`)
+        if value < 128uy then
+          let inline asByteChar charValue = $"'{charValue}'B"
+
+          let mkFix title replacement =
+            let edits =
+              [| { Range = constant.Range
+                   NewText = replacement } |]
+
+            mkFix doc title edits
+
+          let byteChar = char value
+
+          match Format.Char.tryAsChar byteChar with
+          | None -> ()
+          | Some value ->
+            let value = value |> asByteChar
+            mkFix (Title.Char.Convert.toChar value) value
+
+          let value = Format.Char.asDecimal byteChar |> asByteChar
+          mkFix (Title.Char.Convert.toDecimal value) value
+          // Currently not supported by F#
+          // let value = Format.Char.asHexadecimal byteChar |> asByteChar
+          // mkFix (Title.Char.Convert.toHexadecimal value) value
+          let value = Format.Char.asUtf16Hexadecimal byteChar |> asByteChar
+          mkFix (Title.Char.Convert.toUtf16Hexadecimal value) value
+        // Currently not supported by F#
+        // let value = Format.Char.asUtf32Hexadecimal byteChar |> asByteChar
+        // mkFix (Title.Char.Convert.toUtf32Hexadecimal value) value
+        ]
+
+    let inline mkFloatFixes (value: 'float, getBits: 'float -> 'uint) =
+      [ assert (constant.Base <> Base.Decimal)
+
+        // value without explicit sign
+        let specified = if constant.Sign = Negative then -value else value
+
+        if constant.Base <> Base.Hexadecimal then
+          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned (getBits specified))
+
+        if constant.Base <> Base.Octal then
+          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned (getBits specified))
 
         if constant.Base <> Base.Binary then
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
+          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned (getBits specified))
 
-      elif value < GenericZero && constant.Sign = Positive then
-        if true then
+        // `0b1...lf`
+        if value < GenericZero && constant.Sign = Positive then
           let title = Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant
+          let posValue = abs value
+          assert (posValue >= GenericZero)
 
           let replacement =
             match constant.Base with
             | Base.Decimal -> unreachable ()
-            | Base.Hexadecimal -> Format.Int.asHexadecimalSigned (value, abs)
-            | Base.Octal -> Format.Int.asOctalSigned (value, abs)
-            | Base.Binary -> Format.Int.asBinarySigned (value, abs)
+            | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits posValue)
+            | Base.Octal -> Format.Int.asOctalUnsigned (getBits posValue)
+            | Base.Binary -> Format.Int.asBinaryUnsigned (getBits posValue)
 
-          mkFixReplaceExistingSign title replacement
-
-        if
-          (assert (constant.Base <> Base.Decimal)
-           true)
-        then
-          mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalSigned value)
-
-        // keep bits intact -> don't add any `-`
-        if constant.Base <> Base.Hexadecimal then
-          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
-
-        if constant.Base <> Base.Octal then
-          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
-
-        if constant.Base <> Base.Binary then
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
-
-      elif value < GenericZero then
-        assert (constant.Sign = Negative)
-
-        if true then
+          mkFixReplaceExistingSign title ("-" + replacement)
+        // `-0b0....lf`
+        elif value < GenericZero && constant.Sign = Negative then
           let title = Title.Int.Convert.SpecialCase.integrateExplicitMinus
 
           let replacement =
             match constant.Base with
             | Base.Decimal -> unreachable ()
-            | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned value
-            | Base.Octal -> Format.Int.asOctalUnsigned value
-            | Base.Binary -> Format.Int.asBinaryUnsigned value
+            | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits value)
+            | Base.Octal -> Format.Int.asOctalUnsigned (getBits value)
+            | Base.Binary -> Format.Int.asBinaryUnsigned (getBits value)
 
           mkFixReplaceExistingSign title replacement
+        // `-0b1...lf`
+        elif value > GenericZero && constant.Sign = Negative then
+          let title =
+            Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign
 
-        // keep `-` intact
-        let absValue = abs value
+          let replacement =
+            match constant.Base with
+            | Base.Decimal -> unreachable ()
+            | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits value)
+            | Base.Octal -> Format.Int.asOctalUnsigned (getBits value)
+            | Base.Binary -> Format.Int.asBinaryUnsigned (getBits value)
 
-        if
-          (assert (constant.Base <> Base.Decimal)
-           true)
-        then
-          mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
-
-        if constant.Base <> Base.Hexadecimal then
-          mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned absValue)
-
-        if constant.Base <> Base.Octal then
-          mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned absValue)
-
-        if constant.Base <> Base.Binary then
-          mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned absValue)
-
-      else
-        // unreachable()
-        ()
-    ]
-
-    let inline mkUIntFixes (value: 'uint) = [
-      if constant.Base <> Base.Decimal then
-        mkFixKeepExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value)
-      if constant.Base <> Base.Hexadecimal then
-        mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
-      if constant.Base <> Base.Octal then
-        mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
-      if constant.Base <> Base.Binary then
-        mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
-    ]
-
-    let mkByteFixes (value: byte) = [
-      yield! mkUIntFixes value
-
-      // convert to char (`'a'B`)
-      if value < 128uy then
-        let inline asByteChar charValue = $"'{charValue}'B"
-
-        let mkFix title replacement =
-          let edits = [| { Range = constant.Range; NewText = replacement } |]
-          mkFix doc title edits
-
-        let byteChar = char value
-
-        match Format.Char.tryAsChar byteChar with
-        | None -> ()
-        | Some value ->
-          let value = value |> asByteChar
-          mkFix (Title.Char.Convert.toChar value) value
-
-        let value = Format.Char.asDecimal byteChar |> asByteChar
-        mkFix (Title.Char.Convert.toDecimal value) value
-        // Currently not supported by F#
-        // let value = Format.Char.asHexadecimal byteChar |> asByteChar
-        // mkFix (Title.Char.Convert.toHexadecimal value) value
-        let value = Format.Char.asUtf16Hexadecimal byteChar |> asByteChar
-        mkFix (Title.Char.Convert.toUtf16Hexadecimal value) value
-    // Currently not supported by F#
-    // let value = Format.Char.asUtf32Hexadecimal byteChar |> asByteChar
-    // mkFix (Title.Char.Convert.toUtf32Hexadecimal value) value
-    ]
-
-    let inline mkFloatFixes (value: 'float, getBits: 'float -> 'uint) = [
-      assert (constant.Base <> Base.Decimal)
-
-      // value without explicit sign
-      let specified = if constant.Sign = Negative then -value else value
-
-      if constant.Base <> Base.Hexadecimal then
-        mkFixKeepExistingSign Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned (getBits specified))
-
-      if constant.Base <> Base.Octal then
-        mkFixKeepExistingSign Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned (getBits specified))
-
-      if constant.Base <> Base.Binary then
-        mkFixKeepExistingSign Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned (getBits specified))
-
-      // `0b1...lf`
-      if value < GenericZero && constant.Sign = Positive then
-        let title = Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant
-        let posValue = abs value
-        assert (posValue >= GenericZero)
-
-        let replacement =
-          match constant.Base with
-          | Base.Decimal -> unreachable ()
-          | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits posValue)
-          | Base.Octal -> Format.Int.asOctalUnsigned (getBits posValue)
-          | Base.Binary -> Format.Int.asBinaryUnsigned (getBits posValue)
-
-        mkFixReplaceExistingSign title ("-" + replacement)
-      // `-0b0....lf`
-      elif value < GenericZero && constant.Sign = Negative then
-        let title = Title.Int.Convert.SpecialCase.integrateExplicitMinus
-
-        let replacement =
-          match constant.Base with
-          | Base.Decimal -> unreachable ()
-          | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits value)
-          | Base.Octal -> Format.Int.asOctalUnsigned (getBits value)
-          | Base.Binary -> Format.Int.asBinaryUnsigned (getBits value)
-
-        mkFixReplaceExistingSign title replacement
-      // `-0b1...lf`
-      elif value > GenericZero && constant.Sign = Negative then
-        let title =
-          Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign
-
-        let replacement =
-          match constant.Base with
-          | Base.Decimal -> unreachable ()
-          | Base.Hexadecimal -> Format.Int.asHexadecimalUnsigned (getBits value)
-          | Base.Octal -> Format.Int.asOctalUnsigned (getBits value)
-          | Base.Binary -> Format.Int.asBinaryUnsigned (getBits value)
-
-        mkFixReplaceExistingSign title replacement
-    ]
+          mkFixReplaceExistingSign title replacement ]
 
     match constant.Constant with
     | SynConst.SByte value -> mkIntFixes (value, Int.abs, SByte.MinValue)
@@ -1359,12 +1355,9 @@ module private IntFix =
             let toAdd = length - nDigits
             let zeros = String('0', toAdd)
 
-            let edits = [|
-              {
-                Range = constant.ValueRange.EmptyAtStart.ToRangeInside(constant.Range)
-                NewText = zeros
-              }
-            |]
+            let edits =
+              [| { Range = constant.ValueRange.EmptyAtStart.ToRangeInside(constant.Range)
+                   NewText = zeros } |]
 
             mkFix doc $"Pad with `0`s to `{length}` bits" edits |> Some
           else
@@ -1388,12 +1381,8 @@ module private IntFix =
 
       let tryMkFix title groupSize =
         if n.Length > groupSize then
-          [|
-            {
-              Range = constant.ValueRange.ToRangeInside(constant.Range)
-              NewText = DigitGroup.addSeparator n groupSize DigitGroup.RightToLeft
-            }
-          |]
+          [| { Range = constant.ValueRange.ToRangeInside(constant.Range)
+               NewText = DigitGroup.addSeparator n groupSize DigitGroup.RightToLeft } |]
           |> mkFix doc title
           |> List.singleton
         else
@@ -1401,15 +1390,13 @@ module private IntFix =
 
       match constant.Base with
       | Base.Decimal -> [ yield! tryMkFix Title.Int.Separate.decimal3 3 ]
-      | Base.Hexadecimal -> [
-          yield! tryMkFix Title.Int.Separate.hexadecimal4 4
-          yield! tryMkFix Title.Int.Separate.hexadecimal2 2
-        ]
+      | Base.Hexadecimal ->
+        [ yield! tryMkFix Title.Int.Separate.hexadecimal4 4
+          yield! tryMkFix Title.Int.Separate.hexadecimal2 2 ]
       | Base.Octal -> [ yield! tryMkFix Title.Int.Separate.octal3 3 ]
-      | Base.Binary -> [
-          yield! tryMkFix Title.Int.Separate.binary4 4
-          yield! tryMkFix Title.Int.Separate.binary8 8
-        ]
+      | Base.Binary ->
+        [ yield! tryMkFix Title.Int.Separate.binary4 4
+          yield! tryMkFix Title.Int.Separate.binary8 8 ]
 
   /// Removes or adds digit group separators (`_`)
   let digitGroupFixes doc (lineStr: String) (constant: IntConstant) =
@@ -1496,8 +1483,7 @@ module private IntFix =
     (error: bool)
     (constant: IntConstant)
     =
-    [
-      if not error then
+    [ if not error then
         yield! convertToOtherBaseFixes doc lineStr constant
         yield! replaceIntWithNameFix doc pos lineStr parseAndCheck constant
 
@@ -1505,8 +1491,7 @@ module private IntFix =
       yield! padBinaryWithZerosFixes doc lineStr constant
 
       if DEBUG then
-        debugFix doc lineStr constant
-    ]
+        debugFix doc lineStr constant ]
 
 module private FloatFix =
   let private debugFix doc (lineStr: String) (constant: FloatConstant) =
@@ -1546,32 +1531,25 @@ module private FloatFix =
     if text.Contains '_' then
       []
     else
-      let edits = [|
-        if constant.IntRange.Length > 3 then
-          let range = constant.IntRange.ToRangeInside constant.Range
-          let n = range.SpanIn(lineStr).ToString()
+      let edits =
+        [| if constant.IntRange.Length > 3 then
+             let range = constant.IntRange.ToRangeInside constant.Range
+             let n = range.SpanIn(lineStr).ToString()
 
-          {
-            Range = range
-            NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft
-          }
-        if constant.DecimalRange.Length > 3 then
-          let range = constant.DecimalRange.ToRangeInside constant.Range
-          let n = range.SpanIn(lineStr).ToString()
+             { Range = range
+               NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft }
+           if constant.DecimalRange.Length > 3 then
+             let range = constant.DecimalRange.ToRangeInside constant.Range
+             let n = range.SpanIn(lineStr).ToString()
 
-          {
-            Range = range
-            NewText = DigitGroup.addSeparator n 3 DigitGroup.LeftToRight
-          }
-        if constant.ExponentRange.Length > 3 then
-          let range = constant.ExponentRange.ToRangeInside constant.Range
-          let n = range.SpanIn(lineStr).ToString()
+             { Range = range
+               NewText = DigitGroup.addSeparator n 3 DigitGroup.LeftToRight }
+           if constant.ExponentRange.Length > 3 then
+             let range = constant.ExponentRange.ToRangeInside constant.Range
+             let n = range.SpanIn(lineStr).ToString()
 
-          {
-            Range = range
-            NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft
-          }
-      |]
+             { Range = range
+               NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft } |]
 
       match edits with
       | [||] -> []
@@ -1591,8 +1569,7 @@ module private FloatFix =
     (error: bool)
     (constant: FloatConstant)
     =
-    [
-      if not error then
+    [ if not error then
         // Note: `infinity` & co don't get parsed as `SynConst`, but instead as `Ident`
         //       -> `constant` is always actual float value, not named
         yield!
@@ -1608,8 +1585,7 @@ module private FloatFix =
       yield! digitGroupFixes doc lineStr constant
 
       if DEBUG then
-        debugFix doc lineStr constant
-    ]
+        debugFix doc lineStr constant ]
 
 
 /// CodeFixes for number-based Constant to:
