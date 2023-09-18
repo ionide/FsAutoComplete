@@ -648,6 +648,36 @@ module private Format =
 module private CommonFixes =
   open FSharp.Compiler.Symbols
 
+  /// Adding a sign might lead to invalid code:
+  /// ```fsharp
+  /// let value = 5y+0b1010_0101y
+  ///
+  /// // => Convert to decimal
+  ///
+  /// // without space:
+  /// let value = 5y+-91y
+  /// //            ^^
+  /// //            The type 'sbyte' does not support the operator '+-'
+  ///
+  /// // with space:
+  /// let value = 5y+ -91y
+  /// ```
+  /// 
+  /// -> Prepend space if leading sign in `replacement` and operator char immediately in front (in `lineStr`)
+  let prependSpaceIfNecessary
+    (range: Range)
+    (lineStr: string)
+    (replacement: string)
+    =
+    if 
+      (replacement.StartsWith "-" || replacement.StartsWith "+")
+      && range.Start.Character > 0
+      && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1]) 
+      then
+        " " + replacement
+    else
+      replacement
+
   /// Returns:
   /// * `None`: unhandled `SynConst`
   /// * `Some`:
@@ -747,7 +777,8 @@ module private CommonFixes =
     =
     let mkFix value =
       let title = Title.replaceWith value
-      let edits = [| { Range = constantRange; NewText = value } |]
+      let replacement = prependSpaceIfNecessary constantRange lineStr value
+      let edits = [| { Range = constantRange; NewText = replacement } |]
       mkFix doc title edits
       |> List.singleton
     match constantValue with
@@ -904,18 +935,7 @@ module private IntFix =
     let mkFixReplaceExistingSign title (replacement: string) =
       let localRange = ORange.union constant.SignRange constant.ValueRange
       let range = localRange.ToRangeInside constant.Range
-      // special case: 
-      // `5y+0b1010_0101y` -> `5y+-91y` -> `The type 'sbyte' does not support the operator '+-'`
-      // -> if sign then add additional space if necessary
-      let replacement =
-        if 
-          (replacement.StartsWith "-" || replacement.StartsWith "+")
-          && range.Start.Character > 0 
-          && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1]) 
-          then
-            " " + replacement
-        else
-          replacement
+      let replacement = CommonFixes.prependSpaceIfNecessary range lineStr replacement
       let edits = [| { Range = range; NewText = replacement } |]
       mkFix doc title edits
 

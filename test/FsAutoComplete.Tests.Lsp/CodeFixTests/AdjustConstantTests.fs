@@ -1461,6 +1461,13 @@ module SignHelpers =
             Diagnostics.acceptAll
             (CodeFix.withTitle Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant)
             "let value = 5y+ -0b1111011y"
+
+        testCaseAsync "add space when convert to `-infinity`" <|
+          CodeFix.check server
+            "let value = 5.0+0o1777600000000000000000LF$0"
+            Diagnostics.acceptAll
+            (CodeFix.withTitle (Title.replaceWith "-infinity"))
+            "let value = 5.0+ -infinity"
       ]
     ])
 
