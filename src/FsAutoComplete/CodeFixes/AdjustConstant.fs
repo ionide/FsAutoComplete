@@ -12,7 +12,7 @@ open FSharp.Compiler.Text.Range
 open Microsoft.FSharp.Core.LanguagePrimitives
 
 /// If `true`: enable `debugFix`es which show parsed `XXXConstant`s.
-/// 
+///
 /// Note: As constant, because F# doesn't have `#define` 
 let [<Literal>] private DEBUG = false
 
@@ -20,12 +20,12 @@ let inline private unreachable() = invalidOp "unreachable"
 
 /// Returns `SynConst` and its range at passed `pos`
 ///
-/// Note: 
+/// Note:  
 /// When `SynConst.Measure`:
 /// * returns contained constant when `pos` inside contained constant
 /// * otherwise `SynConst.Measure` when on other parts of `Measure` constant (`<km>`)
-/// 
-/// Note:
+///
+/// Note:  
 /// Might be erroneous Constant -> containing `value` is then default (`0`).
 /// Check by comparing returned range with existing Diagnostics.
 let private tryFindConstant ast pos =
@@ -81,9 +81,9 @@ type private Int =
   static member inline abs(n: int32): uint32 =
     if n >= 0l then uint32 n else uint32 (0l - n)
   static member inline abs(n: int64): uint64 =
-    if n >= 0L then 
-      uint64 n 
-    else 
+    if n >= 0L then
+      uint64 n
+    else
       // unchecked subtraction -> wrapping/modular negation
       // -> Negates all numbers -- with the exception of `Int64.MinValue`:
       //        `0L - Int64.MinValue = Int64.MinValue`
@@ -95,7 +95,7 @@ type private Int =
 type private Offset = int
 
 /// Range inside a **single** line inside a source text.
-/// 
+///
 /// Invariant: `Start.Line = End.Line` (-> `Range.inSingleLine`)
 type private RangeInLine = Range
 module private Range =
@@ -110,10 +110,10 @@ type private Range with
 
 /// Range inside some element list. Range is specified via Offsets inside that list.  
 /// In Practice: Range inside `RangeInLine`
-/// 
+///
 /// Similar to `System.Range` -- except it doesn't support indexing from the end.
 /// -> Some operations are easier to use (`Length` because it doesn't require length of container)
-/// 
+///
 /// Unlike `LSP.Range`: just Offsets, not Positions (Line & Character)
 [<IsReadOnly; Struct>]
 [<StructuredFormatDisplay("{DisplayText}")>]
@@ -174,17 +174,17 @@ type private ORange =
 
 module private ORange =
   /// Returns range that contains `range1` as well as `range2` with their extrema as border.
-  /// 
+  ///
   /// Note: if there's a gap between `range1` and `range2` that gap is included in output range:
   ///       `union (1..3) (7..9) = 1..9`
   let inline union (range1: ORange) (range2: ORange) =
-    { 
+    {
       Start = min range1.Start range2.Start
       End = max range1.End range2.End
     }
 
   /// Split `range` after `length` counting from the front.
-  /// 
+  ///
   /// Example:
   /// ```fsharp
   /// let range = { Start = 0; End = 10 }
@@ -192,7 +192,7 @@ module private ORange =
   /// assert(left = { Start = 0; End = 4 })
   /// assert(right = { Start = 4; End = 10 })
   /// ```
-  /// 
+  ///
   /// Note: Tuple instead of `ValueTuple` (`struct`) for better inlining.
   ///       Check when used: Tuple should not actually be created!
   let inline splitFront length (range: ORange) =
@@ -201,7 +201,7 @@ module private ORange =
       { range with Start = range.Start + length }
     )
   /// Split `range` after `length` counting from the back.
-  /// 
+  ///
   /// Example:
   /// ```fsharp
   /// let range = { Start = 0; End = 10 }
@@ -309,7 +309,7 @@ module private CharConstant =
     text.EndsWith "'B"
 
   /// `'a'`, `'\n'`, `'\231'`, `'\xE7'`, `'\u00E7'`, `'\U000000E7'`
-  /// 
+  ///
   /// Can have `B` suffix (-> byte, otherwise normal char)
   let parse (lineStr: ReadOnlySpan<char>, constRange: RangeInLine, constant: SynConst, value: char) =
     let text = constRange.SpanIn(lineStr)
@@ -319,8 +319,8 @@ module private CharConstant =
     let suffixLength = 
       if text.EndsWith "B" then 
         assert(text.EndsWith "'B")
-        1 
-      else 
+        1
+      else
         assert(text.EndsWith "'")
         0
     let valueRange = ORange.adjust (1,1+suffixLength) range
@@ -370,7 +370,7 @@ type Base =
     /// `0o`
   | Octal
     /// `0b`
-  | Binary 
+  | Binary
 module private Base =
   /// Returns `Decimal` in case of no base
   let inline parse (text: ReadOnlySpan<char>, range: ORange) =
@@ -379,12 +379,12 @@ module private Base =
       match text[1] with
       | 'x' | 'X' -> Tuple.splatR Base.Hexadecimal (range |> ORange.splitFront 2)
       | 'o' | 'O' -> Tuple.splatR Base.Octal (range |> ORange.splitFront 2)
-      | 'b' | 'B'  -> Tuple.splatR Base.Binary (range |> ORange.splitFront 2)
+      | 'b' | 'B' -> Tuple.splatR Base.Binary (range |> ORange.splitFront 2)
       | _ -> Base.Decimal, range.EmptyAtStart, range
     else
       Base.Decimal, range.EmptyAtStart, range
 
-/// Int Constant (without ASCII byte form) 
+/// Int Constant (without ASCII byte form)
 /// or Float Constant in Hex/Oct/Bin form
 /// or `UserNum` Constant (`bigint`) (always Dec form)
 ///
@@ -438,9 +438,9 @@ type private FloatValue =
   static member from(f: float32) = FloatValue.Float32 f
   static member from(d: decimal) = FloatValue.Decimal d
 /// Float Constant (without Hex/Oct/Bin form -- just Decimal & Scientific) 
-/// 
+///
 /// Includes `float32`, `float`, `decimal`
-type private FloatConstant = 
+type private FloatConstant =
   {
     Range: Range
 
@@ -451,7 +451,7 @@ type private FloatConstant =
     Constant: SynConst
     Value: FloatValue
     /// Part before decimal separator (`.`)
-    /// 
+    ///
     /// Note: Cannot be empty
     IntRange: ORange
     /// Part after decimal separator (`.`)
@@ -459,7 +459,7 @@ type private FloatConstant =
     /// Note: empty when no decimal
     DecimalRange: ORange
     /// Exponent Part without `e` or sign
-    /// 
+    ///
     /// Note: empty when no exponent
     ExponentRange: ORange
 
@@ -504,9 +504,8 @@ module private FloatConstant =
       ExponentRange = exponentRange
       SuffixRange = suffixRange
     }
-    
 
-// Titles in extra modules (instead with their corresponding fix) 
+// Titles in extra modules (instead with their corresponding fix)
 // to exposed titles to Unit Tests while keeping fixes private.
 module Title =
   let removeDigitSeparators = "Remove group separators"
@@ -540,7 +539,7 @@ module Title =
   module Float =
     module Separate =
       let all3 = "Separate digit groups (3)"
-      
+
   module Char =
     module Convert =
       let toChar = sprintf "Convert to `%s`"
@@ -562,7 +561,7 @@ let inline private mkFix doc title edits =
 module private DigitGroup =
   let removeFix
     (doc: TextDocumentIdentifier)
-    (lineStr: String) 
+    (lineStr: String)
     (constantRange: Range) (localRange: ORange)
     =
     let text = localRange.SpanIn(constantRange, lineStr)
@@ -580,7 +579,7 @@ module private DigitGroup =
     | LeftToRight
   let addSeparator (n: String) (groupSize: int) (dir: Direction) =
     let mutable res = n.ToString()
-    match dir with  
+    match dir with
     | RightToLeft ->
         // counting in reverse (from last to first)
         // starting at `1` and not `0`: never insert in last position
@@ -599,7 +598,7 @@ module private Format =
   module Char =
     /// Returns `None` for "invisible" chars (`Char.IsControl`)
     /// -- with the exception of some chars that can be represented via escape sequence
-    /// 
+    ///
     /// See: [F# Reference](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/strings#remarks)
     let tryAsChar (c: char) =
       match c with
@@ -625,7 +624,7 @@ module private Format =
   module Int =
     let inline asDecimalUnsigned n = $"%u{n}"
     let inline asDecimalSigned n = $"%i{n}"
-    /// Unsigned: no explicit `-` sign, 
+    /// Unsigned: no explicit `-` sign,
     ///           but sign gets directly encoding in hex representation (1st bit)
     let inline asHexadecimalUnsigned n = $"0x%X{n}"
     /// Signed: explicit `-` sign when negative and sign bit `0`
@@ -678,7 +677,7 @@ module private CommonFixes =
     if 
       (replacement.StartsWith "-" || replacement.StartsWith "+")
       && range.Start.Character > 0
-      && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1]) 
+      && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1])
       then
         " " + replacement
     else
@@ -690,9 +689,9 @@ module private CommonFixes =
   ///   * Simple Name of Constant Type: `SynConst.Double _` -> `Double`
   ///   * `FSharpType` matching `constant` type
   ///     * Note: `None` if cannot find corresponding Entity/Type. Most likely an error inside this function!
-  let tryGetFSharpType 
+  let tryGetFSharpType
     (parseAndCheck: ParseAndCheckResults)
-    (constant: SynConst) 
+    (constant: SynConst)
     = option {
       //Enhancement: cache? Must be by project. How to detect changes?
 
@@ -739,7 +738,7 @@ module private CommonFixes =
       return (name, ty)
     }
   /// Fix that replaces `constantRange` with `propertyName` on type of `constant`.
-  /// 
+  ///
   /// Example:
   /// `constant = SynConst.Double _` and `fieldName = "MinValue"`
   /// -> replaces `constantRange` with `Double.MinValue`
@@ -765,7 +764,7 @@ module private CommonFixes =
           |> Option.defaultWith (fun _ -> $"System.{tyName}.{fieldName}")
         let title = mkTitle $"{tyName}.{fieldName}"
         let edits = [| { Range = constantRange; NewText = propCall } |]
-        return 
+        return
           mkFix doc title edits
           |> List.singleton
       }
@@ -775,7 +774,7 @@ module private CommonFixes =
   /// Replaces float with `infinity` etc.
   let replaceFloatWithNameFix
     doc
-    (pos: FcsPos) (lineStr: String) 
+    (pos: FcsPos) (lineStr: String)
     (parseAndCheck: ParseAndCheckResults)
     (constant: SynConst)
     (constantRange: Range)
@@ -789,67 +788,67 @@ module private CommonFixes =
       |> List.singleton
     match constantValue with
     | FloatValue.Float value ->
-        if Double.IsPositiveInfinity value then 
+        if Double.IsPositiveInfinity value then
           mkFix "infinity"
         elif Double.IsNegativeInfinity value then
           mkFix "-infinity"
         elif Double.IsNaN value then
           mkFix "nan"
         elif value = System.Double.MaxValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Double.MaxValue)) Title.replaceWith
         elif value = System.Double.MinValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Double.MinValue)) Title.replaceWith
         elif value = System.Double.Epsilon then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Double.Epsilon)) Title.replaceWith
         else []
     | FloatValue.Float32 value ->
-        if Single.IsPositiveInfinity value then 
+        if Single.IsPositiveInfinity value then
           mkFix "infinityf"
         elif Single.IsNegativeInfinity value then
           mkFix "-infinityf"
         elif Single.IsNaN value then
           mkFix "nanf"
         elif value = System.Single.MaxValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Single.MaxValue)) Title.replaceWith
         elif value = System.Single.MinValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Single.MinValue)) Title.replaceWith
         elif value = System.Single.Epsilon then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Single.Epsilon)) Title.replaceWith
         else []
     | FloatValue.Decimal value ->
         if value = System.Decimal.MaxValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Decimal.MaxValue)) Title.replaceWith
         elif value = System.Decimal.MinValue then
-          replaceWithNamedConstantFix 
-            doc pos lineStr parseAndCheck 
-            constant constantRange 
+          replaceWithNamedConstantFix
+            doc pos lineStr parseAndCheck
+            constant constantRange
             (nameof(Decimal.MinValue)) Title.replaceWith
         else []
 
 module private CharFix =
-  let private debugFix 
-    doc 
+  let private debugFix
+    doc
     (lineStr: String)
     (constant: CharConstant)
     =
@@ -861,8 +860,8 @@ module private CharFix =
       $"%A{value} (%A{constant.Format}, %A{c}) %A{suffix} (%A{full}, %A{constant})"
     mkFix doc data [||]
 
-  let convertToOtherFormatFixes 
-    doc 
+  let convertToOtherFormatFixes
+    doc
     (lineStr: String)
     (constant: CharConstant)
     = [
@@ -896,10 +895,10 @@ module private CharFix =
           mkFix doc title edits
 
         let value = byte constant.Value
-        mkFix' Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value) 
-        mkFix' Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value) 
-        mkFix' Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value) 
-        mkFix' Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value) 
+        mkFix' Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned value)
+        mkFix' Title.Int.Convert.toHexadecimal (Format.Int.asHexadecimalUnsigned value)
+        mkFix' Title.Int.Convert.toOctal (Format.Int.asOctalUnsigned value)
+        mkFix' Title.Int.Convert.toBinary (Format.Int.asBinaryUnsigned value)
     ]
 
   let all
@@ -916,8 +915,8 @@ module private CharFix =
     ]
 
 module private IntFix =
-  let private debugFix 
-    doc 
+  let private debugFix
+    doc
     (lineStr: String)
     (constant: IntConstant)
     =
@@ -933,7 +932,7 @@ module private IntFix =
     doc
     (lineStr: string)
     (constant: IntConstant)
-    = 
+    =
     let mkFixKeepExistingSign title replacement =
       let range = ORange.union constant.BaseRange constant.ValueRange
       let edits = [| { Range = range.ToRangeInside constant.Range; NewText = replacement } |]
@@ -980,7 +979,7 @@ module private IntFix =
       elif value > GenericZero && constant.Sign = Negative then
         // explicit `-`, but value is Positive
         // -> first sign bit is set (-> negative) and then negated with explicit `-`
-        // Example: `-0b1000_0001y = -(-127y) = 127y` 
+        // Example: `-0b1000_0001y = -(-127y) = 127y`
         //
         // Quick Fixes:
         // * Adjust number in same base to use implicit `+`
@@ -1001,7 +1000,7 @@ module private IntFix =
             | Base.Binary ->
                 Format.Int.asBinaryUnsigned absValue
           mkFixReplaceExistingSign title replacement
-          
+        
         if (assert(constant.Base <> Base.Decimal); true) then
           let absValue = assert(value >= GenericZero); value
           mkFixReplaceExistingSign Title.Int.Convert.toDecimal (Format.Int.asDecimalUnsigned absValue)
@@ -1024,7 +1023,7 @@ module private IntFix =
         assert(minValue <> GenericZero)
 
         if constant.Sign = Negative then
-          // `-0b1000_0000y = -(-128y) = `-128y` 
+          // `-0b1000_0000y = -(-128y) = `-128y`
           // Note: Because no `+128y` and not decimal, we KNOW sign is not necessary
           let title = Title.Int.Convert.SpecialCase.removeExplicitMinusWithMinValue
           mkFix doc title [| {Range = constant.SignRange.ToRangeInside constant.Range; NewText = ""} |]
@@ -1111,7 +1110,7 @@ module private IntFix =
         let byteChar = char value
         match Format.Char.tryAsChar byteChar with
         | None -> ()
-        | Some value -> 
+        | Some value ->
             let value = value |> asByteChar
             mkFix (Title.Char.Convert.toChar value) value
         let value = Format.Char.asDecimal byteChar |> asByteChar
@@ -1205,9 +1204,9 @@ module private IntFix =
     doc
     (lineStr: String)
     (constant: IntConstant)
-    = 
+    =
     match constant.Base with
-    | Base.Binary -> 
+    | Base.Binary ->
         let bits =
           match constant.Constant with
           | SynConst.Byte _ -> 8
@@ -1242,13 +1241,12 @@ module private IntFix =
           []
     | _ -> []
 
-
   /// Separates digit groups with `_`.
   let separateDigitGroupsFix
     doc
     (lineStr: String)
     (constant: IntConstant)
-    = 
+    =
     let n = constant.ValueRange.SpanIn(constant.Range, lineStr)
     if n.Contains '_' then
       // don't change existing groups
@@ -1280,21 +1278,19 @@ module private IntFix =
           yield! tryMkFix Title.Int.Separate.binary8 8
         ]
 
-    
   /// Removes or adds digit group separators (`_`)
   let digitGroupFixes
     doc
     (lineStr: String)
     (constant: IntConstant)
-    = 
+    =
     match DigitGroup.removeFix doc lineStr constant.Range constant.ValueRange with
     | [] -> separateDigitGroupsFix doc lineStr constant
     | fix -> fix
 
-
-  let private replaceIntWithNameFix 
+  let private replaceIntWithNameFix
     doc
-    (pos: FcsPos) (lineStr: String) 
+    (pos: FcsPos) (lineStr: String)
     (parseAndCheck: ParseAndCheckResults)
     (constant: IntConstant)
     =
@@ -1305,13 +1301,13 @@ module private IntFix =
     //   value = 'int.MinValue
     let inline replaceWithExtremum value minValue maxValue =
       if value = maxValue then
-        CommonFixes.replaceWithNamedConstantFix 
+        CommonFixes.replaceWithNamedConstantFix
           doc pos lineStr parseAndCheck
           constant.Constant constant.Range
           "MaxValue" Title.replaceWith
       //                   don't replace uint `0`
       elif value = minValue && value <> GenericZero then
-        CommonFixes.replaceWithNamedConstantFix 
+        CommonFixes.replaceWithNamedConstantFix
           doc pos lineStr parseAndCheck
           constant.Constant constant.Range
           "MinValue" Title.replaceWith
@@ -1357,8 +1353,8 @@ module private IntFix =
     ]
 
 module private FloatFix =
-  let private debugFix 
-    doc 
+  let private debugFix
+    doc
     (lineStr: String)
     (constant: FloatConstant)
     =
@@ -1381,7 +1377,7 @@ module private FloatFix =
     doc
     (lineStr: String)
     (constant: FloatConstant)
-    = 
+    =
     let text = constant.Range.SpanIn(lineStr)
     if text.Contains '_' then
       []
@@ -1411,7 +1407,7 @@ module private FloatFix =
     doc
     (lineStr: String)
     (constant: FloatConstant)
-    = 
+    =
     match DigitGroup.removeFix doc lineStr constant.Range constant.ValueRange with
     | [] -> separateDigitGroupsFix doc lineStr constant
     | fix -> fix
@@ -1473,14 +1469,14 @@ let fix
           match constant with
           | SynConst.Byte _
           | SynConst.SByte _
-          | SynConst.Int16 _ 
-          | SynConst.UInt16 _ 
-          | SynConst.Int32 _ 
-          | SynConst.UInt32 _ 
-          | SynConst.Int64 _ 
-          | SynConst.UInt64 _ 
-          | SynConst.IntPtr _ 
-          | SynConst.UIntPtr _ -> 
+          | SynConst.Int16 _
+          | SynConst.UInt16 _
+          | SynConst.Int32 _
+          | SynConst.UInt32 _
+          | SynConst.Int64 _
+          | SynConst.UInt64 _
+          | SynConst.IntPtr _
+          | SynConst.UIntPtr _ ->
               assert(not (CharConstant.isAsciiByte (range.SpanIn(lineStr))))
               IntConstant.parse (lineStr, range, constant)
               |> Some
@@ -1500,17 +1496,17 @@ let fix
 
         return
           match constant with
-          | SynConst.Char value -> 
+          | SynConst.Char value ->
               let constant = CharConstant.parse (lineStr, range, constant, value)
               CharFix.all doc lineStr error constant
-          | SynConst.Byte value when CharConstant.isAsciiByte (range.SpanIn(lineStr)) -> 
+          | SynConst.Byte value when CharConstant.isAsciiByte (range.SpanIn(lineStr)) ->
               let constant = CharConstant.parse (lineStr, range, constant, char value)
               CharFix.all doc lineStr error constant
           | IntConstant constant -> IntFix.all doc fcsPos lineStr parseAndCheck error constant
           | SynConst.UserNum (_, _) ->
               let constant = IntConstant.parse (lineStr, range, constant)
               IntFix.all doc fcsPos lineStr parseAndCheck error constant
-          | SynConst.Single _ 
+          | SynConst.Single _
           | SynConst.Double _ when FloatConstant.isIntFloat (range.SpanIn(lineStr)) ->
               let constant = IntConstant.parse (lineStr, range, constant)
               IntFix.all doc fcsPos lineStr parseAndCheck error constant
