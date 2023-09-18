@@ -308,7 +308,7 @@ module private CharConstant =
   let inline isAsciiByte (text: ReadOnlySpan<char>) =
     text.EndsWith "'B"
 
-  /// `'a'`, `'\n'`, `'\231'`, `'\xE7'`, `'\u00E7'`, `\U000000E7`
+  /// `'a'`, `'\n'`, `'\231'`, `'\xE7'`, `'\u00E7'`, `'\U000000E7'`
   /// 
   /// Can have `B` suffix (-> byte, otherwise normal char)
   let parse (lineStr: ReadOnlySpan<char>, constRange: RangeInLine, constant: SynConst, value: char) =
