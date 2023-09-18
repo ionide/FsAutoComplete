@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.63.1] - 2023-09-18
+
+### Fixed
+- [fix an expecto test detection](https://github.com/fsharp/FsAutoComplete/pull/1165) (Thanks @TheAngryByrd!)
+
 ## [0.63.0] - 2023-09-06
 
 ### Added
