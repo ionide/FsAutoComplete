@@ -504,6 +504,7 @@ module private FloatConstant =
 // to exposed titles to Unit Tests while keeping fixes private.
 module Title =
   let removeDigitSeparators = "Remove group separators"
+  let replaceWith = sprintf "Replace with `%s`"
   module Int =
     module Convert =
       let toDecimal = "Convert to decimal"
@@ -533,7 +534,6 @@ module Title =
   module Float =
     module Separate =
       let all3 = "Separate digit groups (3)"
-    let replaceWith = sprintf "Replace with `%s`"
       
   module Char =
     module Convert =
@@ -646,15 +646,107 @@ module private Format =
         $"-0b%B{absValue}"
 
 module private CommonFixes =
+  open FSharp.Compiler.Symbols
+
+  /// Returns:
+  /// * `None`: unhandled `SynConst`
+  /// * `Some`:
+  ///   * Simple Name of Constant Type: `SynConst.Double _` -> `Double`
+  ///   * `FSharpType` matching `constant` type
+  ///     * Note: `None` if cannot find corresponding Entity/Type. Most likely an error inside this function!
+  let tryGetFSharpType 
+    (parseAndCheck: ParseAndCheckResults)
+    (constant: SynConst) 
+    = option {
+      //Enhancement: cache? Must be by project. How to detect changes?
+
+      let! name =
+        match constant with
+        | SynConst.Bool    _ -> Some <| nameof(System.Boolean)
+        | SynConst.Char    _ -> Some <| nameof(System.Char)
+        | SynConst.Byte    _ -> Some <| nameof(System.Byte)
+        | SynConst.SByte   _ -> Some <| nameof(System.SByte)
+        | SynConst.Int16   _ -> Some <| nameof(System.Int16)
+        | SynConst.UInt16  _ -> Some <| nameof(System.UInt16)
+        | SynConst.Int32   _ -> Some <| nameof(System.Int32)
+        | SynConst.UInt32  _ -> Some <| nameof(System.UInt32)
+        | SynConst.Int64   _ -> Some <| nameof(System.Int64)
+        | SynConst.UInt64  _ -> Some <| nameof(System.UInt64)
+        | SynConst.IntPtr  _ -> Some <| nameof(System.IntPtr)
+        | SynConst.UIntPtr _ -> Some <| nameof(System.UIntPtr)
+        | SynConst.Single  _ -> Some <| nameof(System.Single)
+        | SynConst.Double  _ -> Some <| nameof(System.Double)
+        | SynConst.Decimal _ -> Some <| nameof(System.Decimal)
+        | _ -> None
+
+      let isSystemAssembly (assembly: FSharpAssembly) =
+        match assembly.SimpleName with
+        // dotnet core
+        | "System.Runtime"
+        // .net framework
+        | "mscorlib"
+        // .net standard
+        | "netstandard"
+          -> true
+        | _ -> false
+
+      let assemblies = parseAndCheck.GetCheckResults.ProjectContext.GetReferencedAssemblies()
+      let ty =
+        assemblies
+        |> Seq.filter (isSystemAssembly)
+        |> Seq.tryPick (fun system -> system.Contents.FindEntityByPath ["System"; name])
+        |> Option.map (fun ent -> ent.AsType())
+
+      // Note: `ty` should never be `None`: we're only looking up standard dotnet types -- which should always be available.
+      //       But `isSystemAssembly` might not handle all possible assemblies with default types -> keep it safe and return `option`
+
+      return (name, ty)
+    }
+  /// Fix that replaces `constantRange` with `propertyName` on type of `constant`.
+  /// 
+  /// Example:
+  /// `constant = SynConst.Double _` and `fieldName = "MinValue"`
+  /// -> replaces `constantRange` with `Double.MinValue`
+  ///
+  /// Tries to detect if leading `System.` is necessary (`System` is not `open`).
+  /// If cannot detect: Puts `System.` in front
+  let replaceWithNamedConstantFix
+    doc
+    (pos: FcsPos) (lineStr: String)
+    (parseAndCheck: ParseAndCheckResults)
+    (constant: SynConst)
+    (constantRange: Range)
+    (fieldName: string)
+    (mkTitle: string -> string)
+    = option {
+        let! (tyName, ty) = tryGetFSharpType parseAndCheck constant
+        let propCall =
+          ty
+          |> Option.bind (fun ty ->
+            parseAndCheck.GetCheckResults.GetDisplayContextForPos pos
+            |> Option.map (fun displayContext -> $"{ty.Format displayContext}.{fieldName}")
+          )
+          |> Option.defaultWith (fun _ -> $"System.{tyName}.{fieldName}")
+        let title = mkTitle $"{tyName}.{fieldName}"
+        let edits = [| { Range = constantRange; NewText = propCall } |]
+        return 
+          mkFix doc title edits
+          |> List.singleton
+      }
+      |> Option.defaultValue []
+
+
   /// Replaces float with `infinity` etc.
   let replaceFloatWithNameFix
     doc
-    (lineStr: String)
+    (pos: FcsPos) (lineStr: String) 
+    (parseAndCheck: ParseAndCheckResults)
+    (constant: SynConst)
     (constantRange: Range)
     (constantValue: FloatValue)
     =
     let mkFix value =
-      let title = Title.Float.replaceWith value
+      let title = Title.replaceWith value
       let edits = [| { Range = constantRange; NewText = value } |]
       mkFix doc title edits
       |> List.singleton
@@ -666,7 +758,21 @@ module private CommonFixes =
           mkFix "-infinity"
         elif Double.IsNaN value then
           mkFix "nan"
-        // Enhancement: `System.Double.Epsilon` -> how to detect if `System` is `open`?
+        elif value = System.Double.MaxValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Double.MaxValue)) Title.replaceWith
+        elif value = System.Double.MinValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Double.MinValue)) Title.replaceWith
+        elif value = System.Double.Epsilon then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Double.Epsilon)) Title.replaceWith
         else []
     | FloatValue.Float32 value ->
         if Single.IsPositiveInfinity value then 
@@ -675,9 +781,34 @@ module private CommonFixes =
           mkFix "-infinityf"
         elif Single.IsNaN value then
           mkFix "nanf"
+        elif value = System.Single.MaxValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Single.MaxValue)) Title.replaceWith
+        elif value = System.Single.MinValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Single.MinValue)) Title.replaceWith
+        elif value = System.Single.Epsilon then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Single.Epsilon)) Title.replaceWith
         else []
-    | _ -> []
-
+    | FloatValue.Decimal value ->
+        if value = System.Decimal.MaxValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Decimal.MaxValue)) Title.replaceWith
+        elif value = System.Decimal.MinValue then
+          replaceWithNamedConstantFix 
+            doc pos lineStr parseAndCheck 
+            constant constantRange 
+            (nameof(Decimal.MinValue)) Title.replaceWith
+        else []
 
 module private CharFix =
   let private debugFix 
@@ -1121,23 +1252,66 @@ module private IntFix =
     | [] -> separateDigitGroupsFix doc lineStr constant
     | fix -> fix
 
+
+  let private replaceIntWithNameFix 
+    doc
+    (pos: FcsPos) (lineStr: String) 
+    (parseAndCheck: ParseAndCheckResults)
+    (constant: IntConstant)
+    =
+    // Cannot use following because `Min/MaxValue` are Fields, not Properties (`get_Min/MaxValue`)
+    // let inline private isMax<'int when 'int : equality and 'int:(static member MaxValue: 'int)> value =
+    //   value = 'int.MaxValue
+    // let inline private isMin<'int when 'int : equality and 'int:(static member MinValue: 'int)> value =
+    //   value = 'int.MinValue
+    let inline replaceWithExtremum value minValue maxValue =
+      if value = maxValue then
+        CommonFixes.replaceWithNamedConstantFix 
+          doc pos lineStr parseAndCheck
+          constant.Constant constant.Range
+          "MaxValue" Title.replaceWith
+      //                   don't replace uint `0`
+      elif value = minValue && value <> GenericZero then
+        CommonFixes.replaceWithNamedConstantFix 
+          doc pos lineStr parseAndCheck
+          constant.Constant constant.Range
+          "MinValue" Title.replaceWith
+      else
+        []
+
+    match constant.Constant with
+    | SynConst.SByte value -> replaceWithExtremum value SByte.MinValue SByte.MaxValue
+    | SynConst.Byte value -> replaceWithExtremum value Byte.MinValue Byte.MaxValue
+    | SynConst.Int16 value -> replaceWithExtremum value Int16.MinValue Int16.MaxValue
+    | SynConst.UInt16 value -> replaceWithExtremum value UInt16.MinValue UInt16.MaxValue
+    | SynConst.Int32 value -> replaceWithExtremum value Int32.MinValue Int32.MaxValue
+    | SynConst.UInt32 value -> replaceWithExtremum value UInt32.MinValue UInt32.MaxValue
+    | SynConst.Int64 value -> replaceWithExtremum value Int64.MinValue Int64.MaxValue
+    | SynConst.UInt64 value -> replaceWithExtremum value UInt64.MinValue UInt64.MaxValue
+    | SynConst.IntPtr value -> replaceWithExtremum value Int64.MinValue Int64.MaxValue
+    | SynConst.UIntPtr value -> replaceWithExtremum value UInt64.MinValue UInt64.MaxValue
+
+    | SynConst.Single value ->
+         CommonFixes.replaceFloatWithNameFix doc pos lineStr parseAndCheck constant.Constant constant.Range (FloatValue.from value)
+    | SynConst.Double value ->
+        CommonFixes.replaceFloatWithNameFix doc pos lineStr parseAndCheck constant.Constant constant.Range (FloatValue.from value)
+    | SynConst.Decimal value -> replaceWithExtremum value Decimal.MinValue Decimal.MaxValue
+
+    | _ -> []
+
   let all
     doc
-    (lineStr: String)
+    (pos: FcsPos) (lineStr: String)
+    (parseAndCheck: ParseAndCheckResults)
     (error: bool)
     (constant: IntConstant)
     = [
       if not error then
         yield! convertToOtherBaseFixes doc lineStr constant
+        yield! replaceIntWithNameFix doc pos lineStr parseAndCheck constant
+
       yield! digitGroupFixes doc lineStr constant
       yield! padBinaryWithZerosFixes doc lineStr constant
-
-      match constant.Constant with
-      | SynConst.Single value ->
-          yield! CommonFixes.replaceFloatWithNameFix doc lineStr constant.Range (FloatValue.from value)
-      | SynConst.Double value ->
-          yield! CommonFixes.replaceFloatWithNameFix doc lineStr constant.Range (FloatValue.from value)
-      | _ -> ()
 
       if DEBUG then
         debugFix doc lineStr constant
@@ -1205,14 +1379,15 @@ module private FloatFix =
 
   let all
     doc
-    (lineStr: String)
+    (pos: FcsPos) (lineStr: String)
+    (parseAndCheck: ParseAndCheckResults)
     (error: bool)
     (constant: FloatConstant)
     = [
       if not error then
         // Note: `infinity` & co don't get parsed as `SynConst`, but instead as `Ident`
         //       -> `constant` is always actual float value, not named
-        yield! CommonFixes.replaceFloatWithNameFix doc lineStr constant.Range constant.Value
+        yield! CommonFixes.replaceFloatWithNameFix doc pos lineStr parseAndCheck constant.Constant constant.Range constant.Value
 
       yield! digitGroupFixes doc lineStr constant
 
@@ -1224,7 +1399,7 @@ module private FloatFix =
 /// CodeFixes for number-based Constant to:
 /// * Convert between bases & forms
 /// * Add digit group separators
-/// * For Floats: Replace with name (like `infinity`)
+/// * Replace with name (like `infinity` or `TYPE.MinValue`)
 /// * Integrate/Extract Minus (Hex/Oct/Bin -> sign bit vs. explicit `-` sign)
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
@@ -1292,14 +1467,14 @@ let fix
           | SynConst.Byte value when CharConstant.isAsciiByte (range.SpanIn(lineStr)) -> 
               let constant = CharConstant.parse (lineStr, range, constant, char value)
               CharFix.all doc lineStr error constant
-          | IntConstant constant -> IntFix.all doc lineStr error constant
+          | IntConstant constant -> IntFix.all doc fcsPos lineStr parseAndCheck error constant
           | SynConst.UserNum (_, _) ->
               let constant = IntConstant.parse (lineStr, range, constant)
-              IntFix.all doc lineStr error constant
+              IntFix.all doc fcsPos lineStr parseAndCheck error constant
           | SynConst.Single _ 
           | SynConst.Double _ when FloatConstant.isIntFloat (range.SpanIn(lineStr)) ->
               let constant = IntConstant.parse (lineStr, range, constant)
-              IntFix.all doc lineStr error constant
-          | FloatConstant constant -> FloatFix.all doc lineStr error constant
+              IntFix.all doc fcsPos lineStr parseAndCheck error constant
+          | FloatConstant constant -> FloatFix.all doc fcsPos lineStr parseAndCheck error constant
           | _ -> []
   }

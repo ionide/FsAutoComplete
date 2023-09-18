@@ -1168,76 +1168,179 @@ module private AddDigitGroupSeparator =
       floatTests state
     ]
 
-module private FloatHelpers =
-  let tests state =
-    serverTestList "Float Helpers" state defaultConfigDto None (fun server -> [
-      testList "float" [
-        testCaseAsync "can replace with infinity" <|
-          CodeFix.check server
-            "let value = 123456789e123456789$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "infinity"))
-            "let value = infinity"
-        testCaseAsync "can replace with -infinity" <|
-          CodeFix.check server
-            "let value = -123456789e123456789$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "-infinity"))
-            "let value = -infinity"
-        testCaseAsync "can replace int with infinity" <|
-          CodeFix.check server
-            "let value = 0x7FF0000000000000LF$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "infinity"))
-            "let value = infinity"
-        testCaseAsync "can replace int with -infinity" <|
-          CodeFix.check server
-            // Note: is negative!
-            "let value = 0o1777600000000000000000LF$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "-infinity"))
-            "let value = -infinity"
-        testCaseAsync "can replace with nan" <|
-          CodeFix.check server
-            "let value = 0b1111111111111000000100010001010010010010001000100010001000100100LF$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "nan"))
-            "let value = nan"
+module private ReplaceWithName =
+  /// Note: `System` is `open`
+  let checkReplaceWith server tyName value fieldName =
+    let replacement = $"{tyName}.{fieldName}"
+    CodeFix.check server
+      $"open System\nlet value = {value}$0"
+      Diagnostics.acceptAll
+      (CodeFix.withTitle (Title.replaceWith replacement))
+      $"open System\nlet value = {replacement}"
+  let checkCannotReplaceWith server tyName value fieldName =
+    let replacement = $"{tyName}.{fieldName}"
+    CodeFix.checkNotApplicable server
+      $"open System\nlet value = {value}$0"
+      Diagnostics.acceptAll
+      (CodeFix.withTitle (Title.replaceWith replacement))
+
+  let private intTests state =
+    serverTestList "Replace Int" state defaultConfigDto None (fun server -> [
+      let checkReplaceWith = checkReplaceWith server
+      let checkCannotReplaceWith = checkCannotReplaceWith server
+
+      /// Formats with suffix
+      let inline format value = sprintf "%A" value
+
+      testList "can replace SByte" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.SByte) (format SByte.MaxValue) (nameof System.SByte.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.SByte) (format SByte.MinValue) (nameof(System.SByte.MinValue))
       ]
-      testList "float32" [
-        testCaseAsync "can replace with infinityf" <|
-          CodeFix.check server
-            "let value = 123456789e123456789f$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "infinityf"))
-            "let value = infinityf"
-        testCaseAsync "can replace with -infinityf" <|
-          CodeFix.check server
-            "let value = -123456789e123456789f$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "-infinityf"))
-            "let value = -infinityf"
-        testCaseAsync "can replace int with infinityf" <|
-          CodeFix.check server
-            "let value = 0x7F800000lf$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "infinityf"))
-            "let value = infinityf"
-        testCaseAsync "can replace int with -infinityf" <|
-          CodeFix.check server
-            // Note: is negative!
-            "let value = 0o37740000000lf$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "-infinityf"))
-            "let value = -infinityf"
-        testCaseAsync "can replace with nanf" <|
-          CodeFix.check server
-            "let value = 0b1111111101001000100100100100100lf$0"
-            Diagnostics.acceptAll
-            (CodeFix.withTitle (Title.Float.replaceWith "nanf"))
-            "let value = nanf"
+      testList "can replace Byte" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Byte) (format Byte.MaxValue) (nameof System.Byte.MaxValue)
+        testCaseAsync "not with MinValue" <|
+          checkCannotReplaceWith (nameof System.Byte) (format Byte.MinValue) (nameof(System.Byte.MinValue))
       ]
+      testList "can replace Int16" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Int16) (format Int16.MaxValue) (nameof System.Int16.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Int16) (format Int16.MinValue) (nameof(System.Int16.MinValue))
+      ]
+      testList "can replace UInt16" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.UInt16) (format UInt16.MaxValue) (nameof System.UInt16.MaxValue)
+        testCaseAsync "not with MinValue" <|
+          checkCannotReplaceWith (nameof System.UInt16) (format UInt16.MinValue) (nameof(System.UInt16.MinValue))
+      ]
+      testList "can replace Int32" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Int32) (format Int32.MaxValue) (nameof System.Int32.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Int32) (format Int32.MinValue) (nameof(System.Int32.MinValue))
+      ]
+      testList "can replace UInt32" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.UInt32) (format UInt32.MaxValue) (nameof System.UInt32.MaxValue)
+        testCaseAsync "not with MinValue" <|
+          checkCannotReplaceWith (nameof System.UInt32) (format UInt32.MinValue) (nameof(System.UInt32.MinValue))
+      ]
+      testList "can replace NativeInt" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.IntPtr) (format IntPtr.MaxValue) (nameof System.IntPtr.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.IntPtr) (format IntPtr.MinValue) (nameof(System.IntPtr.MinValue))
+      ]
+      testList "can replace UNativeInt" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.UIntPtr) (format UIntPtr.MaxValue) (nameof System.UIntPtr.MaxValue)
+        testCaseAsync "not with MinValue" <|
+          checkCannotReplaceWith (nameof System.UIntPtr) (format UIntPtr.MinValue) (nameof(System.UIntPtr.MinValue))
+      ]
+      testList "can replace Int64" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Int64) (format Int64.MaxValue) (nameof System.Int64.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Int64) (format Int64.MinValue) (nameof(System.Int64.MinValue))
+      ]
+      testList "can replace UInt64" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.UInt64) (format UInt64.MaxValue) (nameof System.UInt64.MaxValue)
+        testCaseAsync "not with MinValue" <|
+          checkCannotReplaceWith (nameof System.UInt64) (format UInt64.MinValue) (nameof(System.UInt64.MinValue))
+      ]
+
+      testCaseAsync "Emit leading System if System not open" <|
+        CodeFix.check server
+          $"let value = {format Int32.MaxValue}$0"
+          Diagnostics.acceptAll
+          (CodeFix.withTitle (Title.replaceWith "Int32.MaxValue"))
+          $"let value = System.Int32.MaxValue"
     ])
+
+  let private floatTests state =
+    serverTestList "Replace Float" state defaultConfigDto None (fun server -> [
+      // Beware of rounding in number printing!
+      // For example:
+      // ```fsharp
+      // > Double.MaxValue;;
+      // val it: float = 1.797693135e+308
+      // > 1.797693135e+308;;
+      // val it: float = infinity
+
+      // > Double.MaxValue.ToString();;
+      // val it: string = "1.7976931348623157E+308"
+      // ```
+
+      let checkReplaceWith = checkReplaceWith server
+      let checkCannotReplaceWith = checkCannotReplaceWith server
+      let checkReplaceWith' value name =
+        CodeFix.check server
+          $"let value = {value}$0"
+          Diagnostics.acceptAll
+          (CodeFix.withTitle (Title.replaceWith name))
+          $"let value = {name}"
+
+      testList "can replace float" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Double) "1.7976931348623157E+308" (nameof System.Double.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Double) "-1.7976931348623157E+308" (nameof System.Double.MinValue)
+        testCaseAsync "with Epsilon" <|
+          checkReplaceWith (nameof System.Double) "5E-324" (nameof System.Double.Epsilon)
+        testCaseAsync "with infinity" <|
+          checkReplaceWith' "123456789e123456789" "infinity"
+        testCaseAsync "with infinity (int)" <|
+          checkReplaceWith' "0x7FF0000000000000LF" "infinity"
+        testCaseAsync "with -infinity" <|
+          checkReplaceWith' "-123456789e123456789" "-infinity"
+        testCaseAsync "with -infinity (int)" <|
+          checkReplaceWith' "0o1777600000000000000000LF" "-infinity"
+        testCaseAsync "with nan (int)" <|
+          checkReplaceWith' "0b1111111111111000000100010001010010010010001000100010001000100100LF" "nan"
+      ]
+      testList "can replace float32" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Single) "3.4028235E+38f" (nameof System.Single.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Single) "-3.4028235E+38f" (nameof System.Single.MinValue)
+        testCaseAsync "with Epsilon" <|
+          checkReplaceWith (nameof System.Single) "1.401298464e-45f" (nameof System.Single.Epsilon)
+        testCaseAsync "with infinity" <|
+          checkReplaceWith' "123456789e123456789f" "infinityf"
+        testCaseAsync "with infinity (int)" <|
+          checkReplaceWith' "0x7F800000lf" "infinityf"
+        testCaseAsync "with -infinity" <|
+          checkReplaceWith' "-123456789e123456789f" "-infinityf"
+        testCaseAsync "with -infinity (int)" <|
+          checkReplaceWith' "0o37740000000lf" "-infinityf"
+        testCaseAsync "with nan (int)" <|
+          checkReplaceWith' "0b1111111101001000100100100100100lf" "nanf"
+      ]
+
+      testCaseAsync "Emit leading System if System not open" <|
+        CodeFix.check server
+          $"let value = 1.7976931348623157E+308$0"
+          Diagnostics.acceptAll
+          (CodeFix.withTitle (Title.replaceWith "Double.MaxValue"))
+          $"let value = System.Double.MaxValue"
+
+      testList "can replace decimal" [
+        testCaseAsync "with MaxValue" <|
+          checkReplaceWith (nameof System.Decimal) "79228162514264337593543950335m" (nameof System.Decimal.MaxValue)
+        testCaseAsync "with MinValue" <|
+          checkReplaceWith (nameof System.Decimal) "-79228162514264337593543950335m" (nameof System.Decimal.MinValue)
+      ]
+
+    ])
+  let tests state = 
+    testList "Replace With Name" [
+      intTests state
+      floatTests state
+    ]
 
 module SignHelpers =
   let tests state =
@@ -1324,7 +1427,8 @@ let tests state =
     ConvertCharToOtherForm.tests state
     ConvertByteBetweenIntAndChar.tests state
     
-    AddDigitGroupSeparator.tests state
-    FloatHelpers.tests state
+    ReplaceWithName.tests state
     SignHelpers.tests state
+
+    AddDigitGroupSeparator.tests state
   ]
