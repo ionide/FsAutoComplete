@@ -422,32 +422,112 @@ module private ConvertIntToOtherBase =
             member _.DoStuff(arg: int) =
               arg + 3 * 0b111001000 / 3
           """
-        check server "can convert in enum"
-          """
-          type MyEnum =
-            | Alpha = 123
-            | Beta = 456$0
-            | Gamma = 789
-          """
-          ""
-          """
-          type MyEnum =
-            | Alpha = 123
-            | Beta = 0x1C8
-            | Gamma = 789
-          """
-          """
-          type MyEnum =
-            | Alpha = 123
-            | Beta = 0o710
-            | Gamma = 789
-          """
-          """
-          type MyEnum =
-            | Alpha = 123
-            | Beta = 0b111001000
-            | Gamma = 789
-          """
+        testList "can convert in enum" [
+          check server "just value"
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = 456$0
+              | Gamma = 789
+            """
+            ""
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = 0x1C8
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = 0o710
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = 0b111001000
+              | Gamma = 789
+            """
+          check server "in parens"
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (456$0)
+              | Gamma = 789
+            """
+            ""
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0x1C8)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0o710)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0b111001000)
+              | Gamma = 789
+            """
+          check server "in app (lhs)"
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (456$0 >>> 2)
+              | Gamma = 789
+            """
+            ""
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0x1C8 >>> 2)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0o710 >>> 2)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (0b111001000 >>> 2)
+              | Gamma = 789
+            """
+          check server "in app (rhs)"
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (1 <<< 456$0)
+              | Gamma = 789
+            """
+            ""
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (1 <<< 0x1C8)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (1 <<< 0o710)
+              | Gamma = 789
+            """
+            """
+            type MyEnum =
+              | Alpha = 123
+              | Beta = (1 <<< 0b111001000)
+              | Gamma = 789
+            """
+        ]
         check server "can convert in pattern"
           """
           let f arg =

@@ -48,12 +48,18 @@ let private tryFindConstant ast pos =
         member _.VisitEnumDefn(_, cases, _) =
           cases
           |> List.tryPick (fun (SynEnumCase(valueExpr = expr)) ->
-              //ENHANCEMENT: walk into `expr`
-              match expr with
-              | SynExpr.Const(constant, range) when rangeContainsPos range pos ->
-                  findConst range constant
-                  |> Some
-              | _ -> None
+              let rec tryFindConst (expr: SynExpr) =
+                match expr with
+                | SynExpr.Const (constant, range) when rangeContainsPos range pos ->
+                    findConst range constant
+                    |> Some
+                | SynExpr.Paren (expr=expr) -> tryFindConst expr
+                | SynExpr.App (funcExpr=funcExpr) when rangeContainsPos funcExpr.Range pos ->
+                    tryFindConst funcExpr
+                | SynExpr.App (argExpr=argExpr) when rangeContainsPos argExpr.Range pos ->
+                    tryFindConst argExpr
+                | _ -> None
+              tryFindConst expr
           )
         member _.VisitPat(_, defaultTraverse, synPat) =
           match synPat with
