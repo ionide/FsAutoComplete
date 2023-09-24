@@ -79,17 +79,13 @@ module Lexer =
 
     loop FSharpTokenizerLexState.Initial []
 
-  let inline private isIdentifier t =
-    t.CharClass = FSharpTokenCharKind.Identifier
+  let inline private isIdentifier t = t.CharClass = FSharpTokenCharKind.Identifier
 
-  let inline private isOperator t =
-    t.CharClass = FSharpTokenCharKind.Operator
+  let inline private isOperator t = t.CharClass = FSharpTokenCharKind.Operator
 
-  let inline private isKeyword t =
-    t.ColorClass = FSharpTokenColorKind.Keyword
+  let inline private isKeyword t = t.ColorClass = FSharpTokenColorKind.Keyword
 
-  let inline private isPunctuation t =
-    t.ColorClass = FSharpTokenColorKind.Punctuation
+  let inline private isPunctuation t = t.ColorClass = FSharpTokenColorKind.Punctuation
 
   let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|)
     (
@@ -318,8 +314,7 @@ module Lexer =
     else
       getSymbol 0 col lineStr lookupType [||] |> Option.bind tryGetLexerSymbolIslands
 
-  let findLongIdents (col, lineStr) =
-    findIdents col lineStr SymbolLookupKind.Fuzzy
+  let findLongIdents (col, lineStr) = findIdents col lineStr SymbolLookupKind.Fuzzy
 
   let findLongIdentsAndResidue (col, lineStr: string) =
     let lineStr = lineStr.Substring(0, System.Math.Max(0, col))

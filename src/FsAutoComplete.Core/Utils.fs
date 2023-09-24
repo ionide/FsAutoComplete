@@ -129,8 +129,7 @@ let inline isSignatureFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".
 /// </summary>
 let isFsharpFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".fs"
 
-let inline internal isFileWithFSharpI fileName =
-  isAScript fileName || isSignatureFile fileName || isFsharpFile fileName
+let inline internal isFileWithFSharpI fileName = isAScript fileName || isSignatureFile fileName || isFsharpFile fileName
 
 
 /// <summary>
@@ -157,8 +156,7 @@ let inline internal normalizePathI (file: ReadOnlySpan<char>) : string<LocalPath
 
 let inline normalizePath (file: string) : string<LocalPath> = normalizePathI file
 
-let inline combinePaths path1 (path2: string) =
-  Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
+let inline combinePaths path1 (path2: string) = Path.Combine(path1, path2.TrimStart [| '\\'; '/' |])
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
@@ -203,8 +201,7 @@ module Result =
     | ValueNone -> Error(recover ())
 
   /// ensure the condition is true before continuing
-  let inline guard condition errorValue =
-    if condition () then Ok() else Error errorValue
+  let inline guard condition errorValue = if condition () then Ok() else Error errorValue
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -354,8 +351,7 @@ module Array =
   let startsWith (prefix: _[]) (whole: _[]) = isSubArray prefix whole 0
 
   /// Returns true if one array has trailing elements equal to another's.
-  let endsWith (suffix: _[]) (whole: _[]) =
-    isSubArray suffix whole (whole.Length - suffix.Length)
+  let endsWith (suffix: _[]) (whole: _[]) = isSubArray suffix whole (whole.Length - suffix.Length)
 
   /// Returns a new array with an element replaced with a given value.
   let replace index value (array: _[]) =
@@ -404,8 +400,7 @@ module Array =
 module List =
 
   ///Returns the greatest of all elements in the list that is less than the threshold
-  let maxUnderThreshold nmax =
-    List.maxBy (fun n -> if n > nmax then 0 else n)
+  let maxUnderThreshold nmax = List.maxBy (fun n -> if n > nmax then 0 else n)
 
   /// Groups a tupled list by the first item to produce a list of values
   let groupByFst (tupledItems: ('Key * 'Value) list) =
@@ -648,8 +643,7 @@ let chooseByPrefix (prefix: string) (s: string) =
   else
     None
 
-let chooseByPrefix2 prefixes (s: string) =
-  prefixes |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
+let chooseByPrefix2 prefixes (s: string) = prefixes |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
 
 let splitByPrefix (prefix: string) (s: string) =
   if s.StartsWith(prefix) then
@@ -657,8 +651,7 @@ let splitByPrefix (prefix: string) (s: string) =
   else
     None
 
-let splitByPrefix2 prefixes (s: string) =
-  prefixes |> List.tryPick (fun prefix -> splitByPrefix prefix s)
+let splitByPrefix2 prefixes (s: string) = prefixes |> List.tryPick (fun prefix -> splitByPrefix prefix s)
 
 [<AutoOpen>]
 module Patterns =
@@ -735,8 +728,7 @@ type Debounce<'a>(timeout, fn) as x =
   member val Timeout = timeout with get, set
 
 module Indentation =
-  let inline get (line: string) =
-    line.Length - line.AsSpan().Trim(' ').Length
+  let inline get (line: string) = line.Length - line.AsSpan().Trim(' ').Length
 
 
 type FSharpSymbol with

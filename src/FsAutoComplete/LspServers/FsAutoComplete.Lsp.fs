@@ -1071,13 +1071,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
             MethodBody = config.InterfaceStubGenerationMethodBody
             IndentationSize = config.IndentationSize }
 
-        let unionCaseStubReplacements () =
-          Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
+        let unionCaseStubReplacements () = Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
         let getUnionCaseStubReplacements () = unionCaseStubReplacements ()
 
-        let recordStubReplacements () =
-          Map.ofList [ "$1", config.RecordStubGenerationBody ]
+        let recordStubReplacements () = Map.ofList [ "$1", config.RecordStubGenerationBody ]
 
         let getRecordStubReplacements () = recordStubReplacements ()
 
@@ -2875,8 +2873,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
           return success (Some hints)
         })
 
-    override x.Dispose() =
-      (x :> ILspServer).Shutdown() |> Async.Start
+    override x.Dispose() = (x :> ILspServer).Shutdown() |> Async.Start
 
     member this.WorkDoneProgessCancel(arg1: ProgressToken) : Async<unit> = failwith "Not Implemented"
 

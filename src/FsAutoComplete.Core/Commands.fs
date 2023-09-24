@@ -66,8 +66,7 @@ module private Result =
 
 module AsyncResult =
 
-  let inline mapErrorRes ar : Async<CoreResponse<'a>> =
-    AsyncResult.foldResult id CoreResponse.ErrorRes ar
+  let inline mapErrorRes ar : Async<CoreResponse<'a>> = AsyncResult.foldResult id CoreResponse.ErrorRes ar
 
   let recoverCancellationGeneric (ar: Async<Result<'t, exn>>) recoverInternal =
     AsyncResult.foldResult id recoverInternal ar
@@ -584,8 +583,7 @@ module Commands =
         | false, None -> currentIndex, false, acc
 
       // Signature looks like <T> is Async<unit>
-      let inline removeSignPrefix (s: String) =
-        s.Split(" is ") |> Array.tryLast |> Option.defaultValue ""
+      let inline removeSignPrefix (s: String) = s.Split(" is ") |> Array.tryLast |> Option.defaultValue ""
 
       let hints =
         Array.init ((contents: ISourceText).GetLineCount()) (fun line -> (contents: ISourceText).GetLineString line)
@@ -697,8 +695,7 @@ module Commands =
         //TODO: unite with `CodeFix/ResolveNamespace`
         //TODO: Handle Nearest AND TopLevel. Currently it's just Nearest (vs. ResolveNamespace -> TopLevel) (#789)
 
-        let detectIndentation (line: string) =
-          line |> Seq.takeWhile ((=) ' ') |> Seq.length
+        let detectIndentation (line: string) = line |> Seq.takeWhile ((=) ' ') |> Seq.length
 
         // adjust line
         let pos =
@@ -1683,8 +1680,7 @@ type Commands
   member x.TryGetFileCheckerOptionsWithLinesAndLineStr(file: string<LocalPath>, pos) =
     state.TryGetFileCheckerOptionsWithLinesAndLineStr(file, pos)
 
-  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) =
-    state.TryGetFileCheckerOptionsWithLines file
+  member x.TryGetFileCheckerOptionsWithLines(file: string<LocalPath>) = state.TryGetFileCheckerOptionsWithLines file
 
   member x.TryGetFileVersion = state.TryGetFileVersion
 
@@ -1967,8 +1963,7 @@ type Commands
     includeExternal
     =
     async {
-      let getAllSymbols () =
-        if includeExternal then tyRes.GetAllEntities true else []
+      let getAllSymbols () = if includeExternal then tyRes.GetAllEntities true else []
 
       let! res = tyRes.TryGetCompletions pos lineStr filter getAllSymbols
 
@@ -2180,11 +2175,9 @@ type Commands
 
         let summarySection = "/// <summary></summary>"
 
-        let parameterSection (name, _type) =
-          $"/// <param name=\"%s{name}\"></param>"
+        let parameterSection (name, _type) = $"/// <param name=\"%s{name}\"></param>"
 
-        let genericArg name =
-          $"/// <typeparam name=\"'%s{name}\"></typeparam>"
+        let genericArg name = $"/// <typeparam name=\"'%s{name}\"></typeparam>"
 
         let returnsSection = "/// <returns></returns>"
 
@@ -2261,15 +2254,13 @@ type Commands
                 return usages |> Seq.map (fun u -> u.Range)
           }
 
-      let tryGetFileSource symbolFile =
-        state.TryGetFileSource symbolFile |> Async.singleton
+      let tryGetFileSource symbolFile = state.TryGetFileSource symbolFile |> Async.singleton
 
       let tryGetProjectOptionsForFsproj (fsprojPath: string<LocalPath>) =
         state.ProjectController.GetProjectOptionsForFsproj(UMX.untag fsprojPath)
         |> Async.singleton
 
-      let getAllProjectOptions () =
-        state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
+      let getAllProjectOptions () = state.ProjectController.ProjectOptions |> Seq.map snd |> Async.singleton
 
       return!
         Commands.symbolUseWorkspace
@@ -2301,14 +2292,11 @@ type Commands
     }
 
   member x.SymbolImplementationProject (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    let getProjectOptions filePath =
-      state.GetProjectOptions' filePath |> Async.singleton
+    let getProjectOptions filePath = state.GetProjectOptions' filePath |> Async.singleton
 
-    let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) =
-      checker.GetUsesOfSymbol(filePath, opts, sym)
+    let getUsesOfSymbol (filePath, opts, sym: FSharpSymbol) = checker.GetUsesOfSymbol(filePath, opts, sym)
 
-    let getAllProjects () =
-      state.FSharpProjectOptions |> Seq.toList |> Async.singleton
+    let getAllProjects () = state.FSharpProjectOptions |> Seq.toList |> Async.singleton
 
     Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
     |> x.AsCancellable tyRes.FileName
@@ -2469,8 +2457,7 @@ type Commands
       match tyResOpt with
       | None -> ()
       | Some tyRes ->
-        let getSourceLine lineNo =
-          (source :> ISourceText).GetLineString(lineNo - 1)
+        let getSourceLine lineNo = (source :> ISourceText).GetLineString(lineNo - 1)
 
         let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
         let simplified = Array.ofSeq simplified
@@ -2513,8 +2500,7 @@ type Commands
     let version = Version.info ()
     version.GitSha
 
-  member __.Quit() =
-    async { return [ CoreResponse.InfoRes "quitting..." ] }
+  member __.Quit() = async { return [ CoreResponse.InfoRes "quitting..." ] }
 
   member x.ScopesForFile(file: string<LocalPath>) =
     let getParseResultsForFile file =
@@ -2567,8 +2553,7 @@ type Commands
   member __.SetWorkspaceRoot(root: string option) = workspaceRoot <- root
   // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
-  member __.SetLinterConfigRelativePath(relativePath: string option) =
-    linterConfigFileRelativePath <- relativePath
+  member __.SetLinterConfigRelativePath(relativePath: string option) = linterConfigFileRelativePath <- relativePath
   // linterConfiguration <- Lint.loadConfiguration workspaceRoot linterConfigFileRelativePath
 
   // member __.FSharpLiterate (file: string<LocalPath>) =

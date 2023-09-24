@@ -42,8 +42,7 @@ module AdaptiveExtensions =
 
 
 module Utils =
-  let cheapEqual (a: 'T) (b: 'T) =
-    ShallowEqualityComparer<'T>.Instance.Equals(a, b)
+  let cheapEqual (a: 'T) (b: 'T) = ShallowEqualityComparer<'T>.Instance.Equals(a, b)
 
 /// <summary>
 /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
@@ -75,8 +74,7 @@ module AVal =
   /// <summary>
   /// Maps and calls dispose before mapping of new values. Useful for cleaning up callbacks like AddMarkingCallback for tracing purposes.
   /// </summary>
-  let mapDisposableTuple mapper value =
-    MapDisposableTupleVal(mapper, value) :> aval<_>
+  let mapDisposableTuple mapper value = MapDisposableTupleVal(mapper, value) :> aval<_>
 
   /// <summary>
   /// Calls a mapping function which creates additional dependencies to be tracked.
@@ -124,14 +122,12 @@ module AVal =
 
     /// <summary>Creates an observable on the aval that will be executed whenever the avals value changed.</summary>
     /// <param name="aval">The aval to get out-of-date information from.</param>
-    let onValueChangedWeak (aval: #aval<_>) =
-      Observable.Create(fun (obs: IObserver<_>) -> aval.AddCallback(obs.OnNext))
+    let onValueChangedWeak (aval: #aval<_>) = Observable.Create(fun (obs: IObserver<_>) -> aval.AddCallback(obs.OnNext))
 
 module ASet =
   /// Creates an amap with the keys from the set and the values given by mapping and
   /// adaptively applies the given mapping function to all elements and returns a new amap containing the results.
-  let mapAtoAMap mapper src =
-    src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
+  let mapAtoAMap mapper src = src |> ASet.mapToAMap mapper |> AMap.mapA (fun _ v -> v)
 
 module AMap =
   open FSharp.Data.Traceable
@@ -476,8 +472,7 @@ module AsyncAVal =
   /// <summary>
   /// Creates a constant async adaptive value always holding the given value.
   /// </summary>
-  let constant (value: 'a) =
-    ConstantVal(Task.FromResult value) :> asyncaval<_>
+  let constant (value: 'a) = ConstantVal(Task.FromResult value) :> asyncaval<_>
 
   /// <summary>
   /// Creates a constant async adaptive value always holding the task.

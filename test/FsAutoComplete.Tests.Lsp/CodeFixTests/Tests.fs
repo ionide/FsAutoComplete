@@ -3304,51 +3304,50 @@ let private removePatternArgumentTests state =
         let (None) = None
         """ ])
 
-let tests state =
-  testList
-    "CodeFix-tests"
-    [ HelpersTests.tests
-
-      AddExplicitTypeAnnotationTests.tests state
-      ToInterpolatedStringTests.tests state
-      ToInterpolatedStringTests.unavailableTests state
-      addMissingEqualsToTypeDefinitionTests state
-      addMissingFunKeywordTests state
-      addMissingInstanceMemberTests state
-      addMissingRecKeywordTests state
-      addMissingXmlDocumentationTests state
-      addNewKeywordToDisposableConstructorInvocationTests state
-      addTypeToIndeterminateValueTests state
-      changeDerefBangToValueTests state
-      changeDowncastToUpcastTests state
-      changeEqualsInFieldTypeToColonTests state
-      changePrefixNegationToInfixSubtractionTests state
-      changeRefCellDerefToNotTests state
-      changeTypeOfNameToNameOfTests state
-      convertBangEqualsToInequalityTests state
-      convertCSharpLambdaToFSharpLambdaTests state
-      convertDoubleEqualsToSingleEqualsTests state
-      convertInvalidRecordToAnonRecordTests state
-      convertPositionalDUToNamedTests state
-      convertTripleSlashCommentToXmlTaggedDocTests state
-      addPrivateAccessModifierTests state
-      GenerateAbstractClassStubTests.tests state
-      generateRecordStubTests state
-      generateUnionCasesTests state
-      generateXmlDocumentationTests state
-      ImplementInterfaceTests.tests state
-      makeDeclarationMutableTests state
-      makeOuterBindingRecursiveTests state
-      removeRedundantQualifierTests state
-      removeUnnecessaryReturnOrYieldTests state
-      removeUnusedBindingTests state
-      removeUnusedOpensTests state
-      RenameParamToMatchSignatureTests.tests state
-      renameUnusedValue state
-      replaceWithSuggestionTests state
-      resolveNamespaceTests state
-      useMutationWhenValueIsMutableTests state
-      useTripleQuotedInterpolationTests state
-      wrapExpressionInParenthesesTests state
-      removeRedundantAttributeSuffixTests state
-      removePatternArgumentTests state ]
+let tests state = testList "CodeFix-tests" [ 
+  HelpersTests.tests
+  AddExplicitTypeAnnotationTests.tests state
+  AdjustConstantTests.tests state
+  ToInterpolatedStringTests.tests state
+  ToInterpolatedStringTests.unavailableTests state
+  addMissingEqualsToTypeDefinitionTests state
+  addMissingFunKeywordTests state
+  addMissingInstanceMemberTests state
+  addMissingRecKeywordTests state
+  addMissingXmlDocumentationTests state
+  addNewKeywordToDisposableConstructorInvocationTests state
+  addTypeToIndeterminateValueTests state
+  changeDerefBangToValueTests state
+  changeDowncastToUpcastTests state
+  changeEqualsInFieldTypeToColonTests state
+  changePrefixNegationToInfixSubtractionTests state
+  changeRefCellDerefToNotTests state
+  changeTypeOfNameToNameOfTests state
+  convertBangEqualsToInequalityTests state
+  convertCSharpLambdaToFSharpLambdaTests state
+  convertDoubleEqualsToSingleEqualsTests state
+  convertInvalidRecordToAnonRecordTests state
+  convertPositionalDUToNamedTests state
+  convertTripleSlashCommentToXmlTaggedDocTests state
+  addPrivateAccessModifierTests state
+  GenerateAbstractClassStubTests.tests state
+  generateRecordStubTests state
+  generateUnionCasesTests state
+  generateXmlDocumentationTests state
+  ImplementInterfaceTests.tests state
+  makeDeclarationMutableTests state
+  makeOuterBindingRecursiveTests state
+  removeRedundantQualifierTests state
+  removeUnnecessaryReturnOrYieldTests state
+  removeUnusedBindingTests state
+  removeUnusedOpensTests state
+  RenameParamToMatchSignatureTests.tests state
+  renameUnusedValue state
+  replaceWithSuggestionTests state
+  resolveNamespaceTests state
+  useMutationWhenValueIsMutableTests state
+  useTripleQuotedInterpolationTests state
+  wrapExpressionInParenthesesTests state
+  removeRedundantAttributeSuffixTests state
+  removePatternArgumentTests state
+]

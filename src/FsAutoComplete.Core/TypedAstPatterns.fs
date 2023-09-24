@@ -381,16 +381,13 @@ module SymbolPatterns =
     else
       None
 
-  let (|Record|_|) (e: FSharpEntity) =
-    if e.IsFSharpRecord then Some() else None
+  let (|Record|_|) (e: FSharpEntity) = if e.IsFSharpRecord then Some() else None
 
-  let (|UnionType|_|) (e: FSharpEntity) =
-    if e.IsFSharpUnion then Some() else None
+  let (|UnionType|_|) (e: FSharpEntity) = if e.IsFSharpUnion then Some() else None
 
   let (|Delegate|_|) (e: FSharpEntity) = if e.IsDelegate then Some() else None
 
-  let (|FSharpException|_|) (e: FSharpEntity) =
-    if e.IsFSharpExceptionDeclaration then Some() else None
+  let (|FSharpException|_|) (e: FSharpEntity) = if e.IsFSharpExceptionDeclaration then Some() else None
 
   let (|Interface|_|) (e: FSharpEntity) = if e.IsInterface then Some() else None
 
@@ -420,26 +417,22 @@ module SymbolPatterns =
   let (|ByRef|_|) (e: FSharpEntity) = if e.IsByRef then Some() else None
   let (|Array|_|) (e: FSharpEntity) = if e.IsArrayType then Some() else None
 
-  let (|FSharpModule|_|) (entity: FSharpEntity) =
-    if entity.IsFSharpModule then Some() else None
+  let (|FSharpModule|_|) (entity: FSharpEntity) = if entity.IsFSharpModule then Some() else None
 
-  let (|Namespace|_|) (entity: FSharpEntity) =
-    if entity.IsNamespace then Some() else None
+  let (|Namespace|_|) (entity: FSharpEntity) = if entity.IsNamespace then Some() else None
 
   let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) = None
 
   let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
 
-  let (|Tuple|_|) (ty: FSharpType option) =
-    ty |> Option.bind (fun ty -> if ty.IsTupleType then Some() else None)
+  let (|Tuple|_|) (ty: FSharpType option) = ty |> Option.bind (fun ty -> if ty.IsTupleType then Some() else None)
 
   let (|RefCell|_|) (ty: FSharpType) =
     match getAbbreviatedType ty with
     | TypeWithDefinition def when def.IsFSharpRecord && def.FullName = "Microsoft.FSharp.Core.FSharpRef`1" -> Some()
     | _ -> None
 
-  let (|FunctionType|_|) (ty: FSharpType) =
-    if ty.IsFunctionType then Some() else None
+  let (|FunctionType|_|) (ty: FSharpType) = if ty.IsFunctionType then Some() else None
 
   let (|Pattern|_|) (symbol: FSharpSymbol) =
     match symbol with
@@ -520,8 +513,7 @@ module SymbolPatterns =
       | _ -> None
     | _ -> None
 
-  let (|ExtensionMember|_|) (func: FSharpMemberOrFunctionOrValue) =
-    if func.IsExtensionMember then Some() else None
+  let (|ExtensionMember|_|) (func: FSharpMemberOrFunctionOrValue) = if func.IsExtensionMember then Some() else None
 
   let (|Event|_|) (func: FSharpMemberOrFunctionOrValue) = if func.IsEvent then Some() else None
 

@@ -58,8 +58,7 @@ let private tryGetCommentsAndSymbolPos input pos =
     input,
     { new SyntaxVisitorBase<_>() with
 
-        member _.VisitBinding(_, defaultTraverse, synBinding) =
-          handleSynBinding defaultTraverse synBinding
+        member _.VisitBinding(_, defaultTraverse, synBinding) = handleSynBinding defaultTraverse synBinding
 
         member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
           bindings |> List.tryPick (handleSynBinding defaultTraverse)
@@ -107,8 +106,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       let parameterSection (name, _type) = $" <param name=\"%s{name}\"></param>"
 
-      let genericArg name =
-        $" <typeparam name=\"'%s{name}\"></typeparam>"
+      let genericArg name = $" <typeparam name=\"'%s{name}\"></typeparam>"
 
       let returnsSection = " <returns></returns>"
 

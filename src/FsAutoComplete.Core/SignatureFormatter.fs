@@ -38,8 +38,7 @@ module SignatureFormatter =
         "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
         "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
 
-  let private isMeasureType (t: FSharpEntity) =
-    Set.contains t.FullName measureTypeNames
+  let private isMeasureType (t: FSharpEntity) = Set.contains t.FullName measureTypeNames
 
   let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
     let context = context.WithPrefixGenericParameters()
@@ -124,11 +123,9 @@ module SignatureFormatter =
         }
         |> String.concat ""
 
-      let typeConstraint (tc: FSharpType) =
-        sprintf ":> %s" (formatFSharpType displayContext tc)
+      let typeConstraint (tc: FSharpType) = sprintf ":> %s" (formatFSharpType displayContext tc)
 
-      let enumConstraint (ec: FSharpType) =
-        sprintf "enum<%s>" (formatFSharpType displayContext ec)
+      let enumConstraint (ec: FSharpType) = sprintf "enum<%s>" (formatFSharpType displayContext ec)
 
       let delegateConstraint (tc: FSharpGenericParameterDelegateConstraint) =
         sprintf
@@ -447,8 +444,7 @@ module SignatureFormatter =
         with _ ->
           "Unknown"
 
-    let formatName (parameter: FSharpParameter) =
-      parameter.Name |> Option.defaultValue parameter.DisplayName
+    let formatName (parameter: FSharpParameter) = parameter.Name |> Option.defaultValue parameter.DisplayName
 
     let isDelegate =
       match func.EnclosingEntitySafe with
@@ -712,8 +708,7 @@ module SignatureFormatter =
     else typeDisplay + typeTip ()
 
   let footerForType (entity: FSharpSymbolUse) =
-    let formatFooter (fullName, assyName) =
-      $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
+    let formatFooter (fullName, assyName) = $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
 
     let valFooterData =
       try

@@ -93,8 +93,7 @@ let fix
           let previousLine = docLine - 1
           let insertionPointIsNotOutOfBoundsOfTheFile = docLine > 0
 
-          let theThereAreOtherOpensInThisModule () =
-            text.GetLineString(previousLine).Contains "open "
+          let theThereAreOtherOpensInThisModule () = text.GetLineString(previousLine).Contains "open "
 
           if insertionPointIsNotOutOfBoundsOfTheFile && theThereAreOtherOpensInThisModule () then
             text.GetLineString(previousLine).Split("open") |> Seq.head |> Seq.length // inherit the previous opens whitespace

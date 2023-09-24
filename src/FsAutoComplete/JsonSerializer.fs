@@ -11,8 +11,7 @@ module private JsonSerializerConverters =
   type OptionConverter() =
     inherit JsonConverter()
 
-    override x.CanConvert(t) =
-      t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
+    override x.CanConvert(t) = t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
 
     override x.WriteJson(writer, value, serializer) =
       let value =
@@ -129,8 +128,6 @@ module private JsonSerializerConverters =
 
 module JsonSerializer =
 
-  let writeJson (o: obj) =
-    JsonConvert.SerializeObject(o, JsonSerializerConverters.jsonConverters)
+  let writeJson (o: obj) = JsonConvert.SerializeObject(o, JsonSerializerConverters.jsonConverters)
 
-  let readJson<'T> (s: string) =
-    JsonConvert.DeserializeObject<'T>(s, JsonSerializerConverters.jsonConverters)
+  let readJson<'T> (s: string) = JsonConvert.DeserializeObject<'T>(s, JsonSerializerConverters.jsonConverters)

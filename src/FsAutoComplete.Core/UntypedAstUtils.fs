@@ -4,8 +4,7 @@ module Syntax =
   open FSharp.Compiler.Syntax
 
   /// A pattern that collects all attributes from a `SynAttributes` into a single flat list
-  let (|AllAttrs|) (attrs: SynAttributes) =
-    attrs |> List.collect (fun attrList -> attrList.Attributes)
+  let (|AllAttrs|) (attrs: SynAttributes) = attrs |> List.collect (fun attrList -> attrList.Attributes)
 
   /// An recursive pattern that collect all sequential expressions to avoid StackOverflowException
   let rec (|Sequentials|_|) =
@@ -571,12 +570,10 @@ module UntypedAstUtils =
   type internal ShortIdent = string
   type internal Idents = ShortIdent[]
 
-  let internal longIdentToArray (longIdent: LongIdent) : Idents =
-    longIdent |> Seq.map string |> Seq.toArray
+  let internal longIdentToArray (longIdent: LongIdent) : Idents = longIdent |> Seq.map string |> Seq.toArray
 
   /// matches if the range contains the position
-  let (|ContainsPos|_|) pos range =
-    if Range.rangeContainsPos range pos then Some() else None
+  let (|ContainsPos|_|) pos range = if Range.rangeContainsPos range pos then Some() else None
 
   /// Active pattern that matches an ident on a given name by the ident's `idText`
   let (|Ident|_|) ofName =

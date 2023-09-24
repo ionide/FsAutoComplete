@@ -31,8 +31,7 @@ open Fantomas.Client.Contracts
 open Fantomas.Client.LSPFantomasService
 
 module Result =
-  let ofStringErr r =
-    r |> Result.mapError JsonRpc.Error.InternalErrorMessage
+  let ofStringErr r = r |> Result.mapError JsonRpc.Error.InternalErrorMessage
 
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -43,8 +42,7 @@ module Result =
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) = ar |> Async.map Result.ofCoreResponse
 
-  let ofStringErr (ar: Async<Result<'a, string>>) =
-    ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage
+  let ofStringErr (ar: Async<Result<'a, string>>) = ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage
 
 
 
@@ -54,8 +52,7 @@ type DiagnosticMessage =
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<unit>) =
-  let send uri (diags: Map<string, Diagnostic[]>) =
-    Map.toArray diags |> Array.collect snd |> sendDiagnostics uri
+  let send uri (diags: Map<string, Diagnostic[]>) = Map.toArray diags |> Array.collect snd |> sendDiagnostics uri
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
@@ -147,8 +144,7 @@ module Async =
 
   let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
 
-  let inline logCancelled e =
-    logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
+  let inline logCancelled e = logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =

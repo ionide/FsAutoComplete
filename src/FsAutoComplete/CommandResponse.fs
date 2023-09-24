@@ -522,8 +522,7 @@ module CommandResponse =
             OutputType = typ
             Generics = generics } }
 
-  let help (serialize: Serializer) (data: string) =
-    serialize { Kind = "help"; Data = data }
+  let help (serialize: Serializer) (data: string) = serialize { Kind = "help"; Data = data }
 
   let fsdn (serialize: Serializer) (functions: string list) =
     let data = { FsdnResponse.Functions = functions }
