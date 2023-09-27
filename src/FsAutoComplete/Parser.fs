@@ -107,8 +107,8 @@ module Parser =
     Option<SourceTextFactoryOptions>(
       "--source-text-factory",
       description =
-        "Set the source text factory to use. NamedText is the default, and uses an old F# compiler's implementation. RoslynSourceText uses Roslyn's implementation.",
-      getDefaultValue = fun () -> SourceTextFactoryOptions.NamedText
+        "Set the source text factory to use.  RoslynSourceText is the default, uses Roslyn's implementation. NamedText uses an old F# compiler's implementation.",
+      getDefaultValue = fun () -> SourceTextFactoryOptions.RoslynSourceText
     )
 
   let otelTracingOption =
@@ -156,7 +156,7 @@ module Parser =
           match sourceTextFactoryOption with
           | SourceTextFactoryOptions.NamedText -> new NamedTextFactory()
           | SourceTextFactoryOptions.RoslynSourceText -> new RoslynSourceTextFactory()
-          | _ -> new NamedTextFactory()
+          | _ -> new RoslynSourceTextFactory()
 
         let dotnetPath =
           if

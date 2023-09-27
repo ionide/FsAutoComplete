@@ -57,7 +57,7 @@ let lspServers =
     ]
 
 let sourceTextFactories: (string * ISourceTextFactory) list = [
-  "NamedText", NamedTextFactory()
+  // "NamedText", NamedTextFactory()
   "RoslynSourceText", RoslynSourceTextFactory()
 ]
 
