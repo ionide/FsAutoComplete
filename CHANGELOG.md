@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.64.0] - 2023-09-27
+
+### Added 
+- [Add CodeActions for Number Constants: Convert between bases, Add digit group separators](https://github.com/fsharp/FsAutoComplete/pull/1167) (thanks @BooksBaum!)
+
+### Changed
+- [Default to RoslynSourceText](https://github.com/fsharp/FsAutoComplete/pull/1168) (thank @TheAngryByrd!)
+
 ## [0.63.1] - 2023-09-18
 
 ### Fixed
