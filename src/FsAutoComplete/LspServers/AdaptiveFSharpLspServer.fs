@@ -1179,32 +1179,33 @@ type AdaptiveFSharpLspServer
     let loses =
       sourceFileToProjectOptions
       |> AMap.map (fun filePath v ->
-      asyncAVal {
-        let! file = forceFindOpenFileOrRead filePath |> Async.StartAsTask
-        return (Result.toOption file, v)
-      })
+        asyncAVal {
+          let! file = forceFindOpenFileOrRead filePath |> Async.StartAsTask
+          return (Result.toOption file, v)
+        })
+
     AMap.union loses wins
 
   let allFSharpProjectOptions =
     allFSharpFilesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun filePath (file, options) ctok ->
-        AsyncAVal.constant options
-      )
+    |> AMapAsync.mapAsyncAVal (fun filePath (file, options) ctok -> AsyncAVal.constant options)
 
   let allFilesParsed =
     allFSharpFilesAndProjectOptions
     |> AMapAsync.mapAsyncAVal (fun filePath (file, options: LoadedProject list) ctok ->
       asyncAVal {
         let! (checker: FSharpCompilerServiceChecker) = checker
-        return! taskOption {
-          let! project = options |> selectProject
-          let options = project.FSharpProjectOptions
-          let parseOpts = Utils.projectOptionsToParseOptions project.FSharpProjectOptions
-          let! file = file
+
+        return!
+          taskOption {
+            let! project = options |> selectProject
+            let options = project.FSharpProjectOptions
+            let parseOpts = Utils.projectOptionsToParseOptions project.FSharpProjectOptions
+            let! file = file
 
 
-          return! parseFile checker file parseOpts options
-        }
+            return! parseFile checker file parseOpts options
+          }
 
       })
 
@@ -1392,8 +1393,7 @@ type AdaptiveFSharpLspServer
 
       })
 
-  let getParseResults filePath =
-    allFilesParsed |> AMapAsync.tryFindAndFlatten filePath
+  let getParseResults filePath = allFilesParsed |> AMapAsync.tryFindAndFlatten filePath
 
   let getTypeCheckResults filePath = openFilesToCheckedFilesResults |> AMapAsync.tryFindAndFlatten (filePath)
 
@@ -1484,8 +1484,7 @@ type AdaptiveFSharpLspServer
 
     }
 
-  let getDeclarations filename =
-    allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
+  let getDeclarations filename = allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
     let filePath = p.GetFilePath() |> Utils.normalizePath
@@ -4004,226 +4003,226 @@ type AdaptiveFSharpLspServer
 
     override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest p
 
-    override x.CallHierarchyIncomingCalls (p: CallHierarchyIncomingCallsParams) = asyncResult {
-      let tags = [ "CallHierarchyIncomingCalls", box p ]
-      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
-      try
-        logger.info (
-          Log.setMessage "CallHierarchyIncomingCalls Request: {parms}"
-          >> Log.addContextDestructured "parms" p
-        )
-        let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
-        let pos = protocolPosToPos p.Item.SelectionRange.Start
-        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
-        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+    override x.CallHierarchyIncomingCalls(p: CallHierarchyIncomingCallsParams) =
+      asyncResult {
+        let tags = [ "CallHierarchyIncomingCalls", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
-
-        let! usages =
-          symbolUseWorkspace true true false pos lineStr volatileFile.Source tyRes
-          |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
-
-        let locationToCallHierarchyItem (loc: Location)   = asyncOption {
-
-          if p.Item.SelectionRange.Start = loc.Range.Start then do! None
-          let fn = loc.Uri |> Path.FileUriToLocalPath |> Utils.normalizePath
-          let! decls = getDeclarations fn |> AsyncAVal.forceAsync
-          let glyphToSymbolKind = glyphToSymbolKind |> AVal.force
-          let containers =
-           decls
-            |> Array.collect (fun top ->
-              getSymbolInformations loc.Uri glyphToSymbolKind top (fun s -> true)
-              |> Array.map (fun info -> (top, info))
-            )
-            |> Array.filter (fun (top: NavigationTopLevelDeclaration, info) ->
-
-                info.Location.Range.Start <= loc.Range.Start && info.Location.Range.End >= loc.Range.End
-            )
-          let (decl, symbolInfo) =
-            containers
-            |> Array.minBy (fun (top: NavigationTopLevelDeclaration, info) ->
-
-                Math.Abs(loc.Range.Start.Line - info.Location.Range.Start.Line)
-            )
-
-          return
-
-            {
-              From = {
-                Name = symbolInfo.Name
-                Kind = symbolInfo.Kind
-                Tags = symbolInfo.Tags
-                Detail = None
-                Uri = symbolInfo.Location.Uri
-                Range = symbolInfo.Location.Range
-                SelectionRange = symbolInfo.Location.Range
-                Data = None
-              }
-              FromRanges = [| loc.Range |]
-            }
-            // )
-
-        }
-        // return None
-        let! references =
-          usages.Values
-          |> Seq.collect (Seq.map fcsRangeToLspLocation)
-          |> Seq.toArray
-          |> Array.map locationToCallHierarchyItem
-          |> Async.parallel75
-          |> Async.map (Array.choose id)
-
-        return Some references
-      with e ->
-        trace |> Tracing.recordException e
-
-        logger.error (
-          Log.setMessage "CallHierarchyIncomingCalls Request Errored {p}"
-          >> Log.addContextDestructured "p" p
-          >> Log.addExn e
-        )
-
-        return! returnException e
-
-    }
-
-    override x.CallHierarchyOutgoingCalls p = asyncResult {
-      let tags = [ "CallHierarchyOutgoingCalls", box p ]
-      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
-      try
-        logger.info (
-          Log.setMessage "CallHierarchyOutgoingCalls Request: {parms}"
-          >> Log.addContextDestructured "parms" p
-        )
-        let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
-        let pos = protocolPosToPos p.Item.SelectionRange.Start
-        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
-        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
-
-        let! implFile =
-          tyRes.GetCheckResults.ImplementationFile
-          |> Result.ofOption (fun () -> "No implementation file found")
-          |> Result.ofStringErr
-        let membersOrFunctions = ResizeArray<_>()
-        CallHierarchy.gatherFSharpMemberOrFunction (membersOrFunctions.Add) implFile.Declarations
-
-        let createOutGoingCall (range :  FSharp.Compiler.Text.Range, x : FSharpMemberOrFunctionOrValue) =
-
-          let file = range.FileName |> Utils.normalizePath |> Path.LocalPathToUri
-          // let! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
-          // and! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          let declRange =
-            try
-              fcsRangeToLsp x.DeclarationLocation
-            with e ->
-              LspRange.Zero
-          {
-            To = {
-              Name = x.DisplayName
-              Kind = SymbolKind.Function
-              Tags = None
-              Detail = None
-              Uri = file
-              Range =  declRange
-              SelectionRange =  declRange
-              Data = None
-            }
-            FromRanges = [| fcsRangeToLsp range |]
-          }
-
-
-        let allRemainingExpr =
-          membersOrFunctions
-          |> Seq.filter(fun (range,x) ->
-            let lookingFor =
-
-              x.IsFunction
-              || x.IsMethod
-              || x.IsPropertyGetterMethod
-              || x.IsPropertySetterMethod
-            // TODO get bodyRange and check if it is in the range
-            range.Start.Line >= pos.Line && lookingFor
-
+        try
+          logger.info (
+            Log.setMessage "CallHierarchyIncomingCalls Request: {parms}"
+            >> Log.addContextDestructured "parms" p
           )
-          |> Seq.toArray
-        // implFile.Declarations.Head
 
-        // let visitor =
-        //     { new SyntaxVisitorBase<_>() with
-        //         override _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
-        //     }
-        // let foo =SyntaxTraversal.Traverse(pos, tyRes.GetParseResults.ParseTree, visitor)
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-        let response = allRemainingExpr |> Array.map (createOutGoingCall)
 
-        return Some response
-      with e ->
-        trace |> Tracing.recordException e
+          let! usages =
+            symbolUseWorkspace true true false pos lineStr volatileFile.Source tyRes
+            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-        logger.error (
-          Log.setMessage "CallHierarchyOutgoingCalls Request Errored {p}"
-          >> Log.addContextDestructured "p" p
-          >> Log.addExn e
-        )
+          let locationToCallHierarchyItem (loc: Location) =
+            asyncOption {
 
-        return! returnException e
-    }
+              // Don't process ourselves
+              if p.Item.SelectionRange.Start = loc.Range.Start then
+                do! None
 
-    override x.TextDocumentPrepareCallHierarchy (p: CallHierarchyPrepareParams) = asyncResult {
-      let tags = [ "CallHierarchyPrepareParams", box p ]
-      use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
-      try
-        logger.info (
-          Log.setMessage "CallHierarchyPrepareParams Request: {parms}"
-          >> Log.addContextDestructured "parms" p
-        )
+              let fn = loc.Uri |> Path.FileUriToLocalPath |> Utils.normalizePath
 
-        let (filePath, pos) =
-          {
-            new ITextDocumentPositionParams with
-              member __.TextDocument = p.TextDocument
-              member __.Position = p.Position
-          }
-          |> getFilePathAndPosition
+              let! parseResults = getParseResults fn |> AsyncAVal.forceAsync
 
-        let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
-        let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-        and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+              // member _.TryRangeOfNameOfNearestOuterBindingContainingPos pos =
+              // doesn't find things within member declarations, we'll need to copy and expand the logic
+              // to find members
+              let! containerRange =
+                parseResults.TryRangeOfNameOfNearestOuterBindingContainingPos(protocolPosToPos loc.Range.Start)
 
-        let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
-        let! lexedResult =
-          Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
-          |> Result.ofOption (fun () -> "No symbol found")
-          |> Result.ofStringErr
+              let! volatileFile = forceFindOpenFileOrRead fn |> Async.map Result.toOption
+              let! lineStr = tryGetLineStr containerRange.Start volatileFile.Source |> Result.toOption
 
-        let location = findDeclToLspLocation decl
+              let! (_, idents) = Lexer.findLongIdents (containerRange.Start.Column, lineStr)
 
-        let returnValue = [|
-          {
-            Name = lexedResult.Text
-            Kind = SymbolKind.Function
-            Tags = None
-            Detail = None
-            Uri = location.Uri
-            Range = location.Range
-            SelectionRange = location.Range
-            Data = None
-          }
-        |]
+              let retVals =
+                { From =
+                    { Name = String.concat "." idents
+                      Kind = SymbolKind.Method
+                      Tags = None
+                      Detail = None
+                      Uri = loc.Uri
+                      Range = fcsRangeToLsp containerRange
+                      SelectionRange = fcsRangeToLsp containerRange
+                      Data = None }
+                  FromRanges = [| loc.Range |] }
 
-        return Some returnValue
-      with e ->
-        trace |> Tracing.recordException e
 
-        logger.error (
-          Log.setMessage "CallHierarchyPrepareParams Request Errored {p}"
-          >> Log.addContextDestructured "p" p
-          >> Log.addExn e
-        )
+              return retVals
+            }
 
-        return! returnException e
-    }
+
+          let! references =
+            usages.Values
+            |> Seq.collect (Seq.map fcsRangeToLspLocation)
+            |> Seq.toArray
+            |> Array.map locationToCallHierarchyItem
+            |> Async.parallel75
+            |> Async.map (Array.choose id)
+
+          return Some references
+        with e ->
+          trace |> Tracing.recordException e
+
+          logger.error (
+            Log.setMessage "CallHierarchyIncomingCalls Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+            >> Log.addExn e
+          )
+
+          return! returnException e
+
+      }
+
+    override x.CallHierarchyOutgoingCalls p =
+      asyncResult {
+        let tags = [ "CallHierarchyOutgoingCalls", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "CallHierarchyOutgoingCalls Request: {parms}"
+            >> Log.addContextDestructured "parms" p
+          )
+
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+          let! implFile =
+            tyRes.GetCheckResults.ImplementationFile
+            |> Result.ofOption (fun () -> "No implementation file found")
+            |> Result.ofStringErr
+
+          let membersOrFunctions = ResizeArray<_>()
+          CallHierarchy.gatherFSharpMemberOrFunction (membersOrFunctions.Add) implFile.Declarations
+
+          let createOutGoingCall (range: FSharp.Compiler.Text.Range, x: FSharpMemberOrFunctionOrValue) =
+
+            let file = range.FileName |> Utils.normalizePath |> Path.LocalPathToUri
+            // let! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+            // and! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+            let declRange =
+              try
+                fcsRangeToLsp x.DeclarationLocation
+              with e ->
+                LspRange.Zero
+
+            { To =
+                { Name = x.DisplayName
+                  Kind = SymbolKind.Function
+                  Tags = None
+                  Detail = None
+                  Uri = file
+                  Range = declRange
+                  SelectionRange = declRange
+                  Data = None }
+              FromRanges = [| fcsRangeToLsp range |] }
+
+
+          let allRemainingExpr =
+            membersOrFunctions
+            |> Seq.filter (fun (range, x) ->
+              let lookingFor =
+
+                x.IsFunction
+                || x.IsMethod
+                || x.IsPropertyGetterMethod
+                || x.IsPropertySetterMethod
+              // TODO get bodyRange and check if it is in the range
+              range.Start.Line >= pos.Line && lookingFor
+
+            )
+            |> Seq.toArray
+          // implFile.Declarations.Head
+
+          // let visitor =
+          //     { new SyntaxVisitorBase<_>() with
+          //         override _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+          //     }
+          // let foo =SyntaxTraversal.Traverse(pos, tyRes.GetParseResults.ParseTree, visitor)
+
+          let response = allRemainingExpr |> Array.map (createOutGoingCall)
+
+          return Some response
+        with e ->
+          trace |> Tracing.recordException e
+
+          logger.error (
+            Log.setMessage "CallHierarchyOutgoingCalls Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+            >> Log.addExn e
+          )
+
+          return! returnException e
+      }
+
+    override x.TextDocumentPrepareCallHierarchy(p: CallHierarchyPrepareParams) =
+      asyncResult {
+        let tags = [ "CallHierarchyPrepareParams", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "CallHierarchyPrepareParams Request: {parms}"
+            >> Log.addContextDestructured "parms" p
+          )
+
+          let (filePath, pos) =
+            { new ITextDocumentPositionParams with
+                member __.TextDocument = p.TextDocument
+                member __.Position = p.Position }
+            |> getFilePathAndPosition
+
+          let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+          let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
+
+          let! lexedResult =
+            Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
+            |> Result.ofOption (fun () -> "No symbol found")
+            |> Result.ofStringErr
+
+          let location = findDeclToLspLocation decl
+
+          let returnValue =
+            [| { Name = lexedResult.Text
+                 Kind = SymbolKind.Function
+                 Tags = None
+                 Detail = None
+                 Uri = location.Uri
+                 Range = location.Range
+                 SelectionRange = location.Range
+                 Data = None } |]
+
+          return Some returnValue
+        with e ->
+          trace |> Tracing.recordException e
+
+          logger.error (
+            Log.setMessage "CallHierarchyPrepareParams Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+            >> Log.addExn e
+          )
+
+          return! returnException e
+      }
 
     override x.TextDocumentPrepareTypeHierarchy p = x.logUnimplementedRequest p
 

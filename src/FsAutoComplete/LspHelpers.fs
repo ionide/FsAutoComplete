@@ -22,10 +22,11 @@ module FcsPos = FSharp.Compiler.Text.Position
 // type LspRange = Ionide.LanguageServerProtocol.Types.Range
 
 module Lsp = Ionide.LanguageServerProtocol.Types
+
 module LspRange =
   // static member Create (start: LspPos) (end_: LspPos) : LspRange =
   //   { Start = start; End = end_ }
-  let Zero : Lsp.Range =
+  let Zero: Lsp.Range =
     { Start = { Line = 0; Character = 0 }
       End = { Line = 0; Character = 0 } }
 

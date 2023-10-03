@@ -18,7 +18,7 @@ module FcsPos = FSharp.Compiler.Text.Position
 module Lsp = Ionide.LanguageServerProtocol.Types
 
 module LspRange =
-  val Zero : Lsp.Range
+  val Zero: Lsp.Range
 
 module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos

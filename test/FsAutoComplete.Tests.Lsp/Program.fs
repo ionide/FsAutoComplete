@@ -96,6 +96,7 @@ let lspTests =
                 scriptProjectOptionsCacheTests createServer
                 dependencyManagerTests createServer
                 interactiveDirectivesUnitTests
+                FsAutoComplete.Tests.CallHierarchy.tests
 
                 // commented out because FSDN is down
                 //fsdnTest createServer
