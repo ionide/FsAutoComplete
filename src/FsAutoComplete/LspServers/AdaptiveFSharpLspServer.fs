@@ -82,6 +82,7 @@ type LoadedProject =
 
   member x.SourceFiles = x.FSharpProjectOptions.SourceFiles
   member x.ProjectFileName = x.FSharpProjectOptions.ProjectFileName
+  static member op_Implicit(x : LoadedProject)  = x.FSharpProjectOptions
 
 
 type AdaptiveFSharpLspServer
@@ -1336,7 +1337,7 @@ type AdaptiveFSharpLspServer
 
   /// Bypass Adaptive checking and tell the checker to check a file
   let bypassAdaptiveTypeCheck (filePath: string<LocalPath>) opts =
-    async {
+    asyncResult {
       try
         logger.info (
           Log.setMessage "Forced Check : {file}"
@@ -1345,10 +1346,10 @@ type AdaptiveFSharpLspServer
 
         let checker = checker |> AVal.force
 
-        match! forceFindOpenFileOrRead filePath with
+        let! fileInfo = forceFindOpenFileOrRead filePath
         // Don't cache for autocompletions as we really only want to cache "Opened" files.
-        | Ok(fileInfo) -> return! parseAndCheckFile checker fileInfo opts false |> Async.Ignore
-        | _ -> ()
+        return! parseAndCheckFile checker fileInfo opts false
+
       with e ->
 
         logger.warn (
@@ -1356,6 +1357,7 @@ type AdaptiveFSharpLspServer
           >> Log.addContextDestructured "file" filePath
           >> Log.addExn e
         )
+        return! Error (e.ToString())
     }
 
 
@@ -4018,7 +4020,9 @@ type AdaptiveFSharpLspServer
           let pos = protocolPosToPos p.Item.SelectionRange.Start
           let! volatileFile = forceFindOpenFileOrRead filePath |> AsyncResult.ofStringErr
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          and! tyRes = forceGetTypeCheckResults filePath |> AsyncResult.ofStringErr
+          and! opts = forceGetProjectOptions filePath |> AsyncResult.ofStringErr
+          // Incoming file may not be "Opened" so we need to force a typecheck
+          let! tyRes = bypassAdaptiveTypeCheck filePath opts |> AsyncResult.ofStringErr
 
 
           let! usages =
@@ -4051,7 +4055,7 @@ type AdaptiveFSharpLspServer
                     { Name = name
                       Kind = (AVal.force glyphToSymbolKind) glyph |> Option.defaultValue SymbolKind.Method
                       Tags = None
-                      Detail = None
+                      Detail = Some (sprintf $"From {Path.GetFileName (UMX.untag fn)}")
                       Uri = loc.Uri
                       Range = fcsRangeToLsp fullBindingRange
                       SelectionRange = fcsRangeToLsp endRange.idRange

@@ -69,7 +69,7 @@ let incomingTests createServer =
               |]
               From = {
                 Data = None
-                Detail = None
+                Detail = Some "From Example1.fsx"
                 Kind = SymbolKind.Function
                 Name = "foo"
                 Range = LspRange.create 6 12 8 18
@@ -91,6 +91,6 @@ let incomingTests createServer =
 
 
 let tests createServer =
-  testList "CallHierarchy" [
+  ftestList "CallHierarchy" [
     incomingTests createServer
   ]
