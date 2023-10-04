@@ -1,4 +1,4 @@
-module Foo =
+module Example1 =
 
     let bar () =
         printfn "lol"
@@ -9,3 +9,4 @@ module Foo =
             bar ()
         foo ()
 
+    ignore bazz

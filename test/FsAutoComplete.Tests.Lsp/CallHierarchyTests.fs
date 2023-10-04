@@ -7,37 +7,90 @@ open System.IO
 open FsAutoComplete
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Text
+open Utils.ServerTests
+open Helpers
+open Utils.Server
+open Ionide.LanguageServerProtocol.Types
 
 let examples =  Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CallHierarchy")
 let sourceFactory : ISourceTextFactory = RoslynSourceTextFactory()
-let resultGet = function | Ok x -> x | Error e -> failwith e
+let resultGet = function | Ok x -> x | Error e -> failwithf "%A" e
+let resultOptionGet =
+  function
+  | Ok (Some x) -> x
+  | Ok (None) -> failwithf "Expected Some, got None"
+  | Error e -> failwithf "%A" e
 
-
-let tests =
-  testList "CallHierarchy" [
-    testCaseAsync "test" <| async {
-      let checker = FSharpCompilerServiceChecker(false, 100L, true)
-      let example1Name = Path.Combine(examples, "example1.fsx")
-      let exampleNameNormalized = Utils.normalizePath  example1Name
-      let! example1File = File.ReadAllTextAsync(example1Name) |> Async.AwaitTask
-      let source = sourceFactory.Create(exampleNameNormalized, example1File)
-      let! opts = checker.GetProjectOptionsFromScript(exampleNameNormalized, source, FSIRefs.TFM.NetCore)
-
-      let! checkResultsR = checker.ParseAndCheckFileInProject(exampleNameNormalized, 0, source, opts, false)
-      let checkResults = resultGet checkResultsR
-      let lol = checkResults.GetParseResults.TryRangeOfNameOfNearestOuterBindingContainingPos (Position.mkPos 9 14)
-      let tree = checkResults.GetAST
-      let visitor =
-          { new SyntaxVisitorBase<_>() with
-              override this.VisitBinding(path, defaultTraverse, synBinding) =
-                  defaultTraverse synBinding
-              // override this.VisitExpr(path, traverseSynExpr, defaultTraverse, synExpr) =
-
-              //     defaultTraverse synExpr
-        }
-
-      let result =
-          SyntaxTraversal.Traverse(Position.pos0, tree, visitor) //
-      printfn "%A" result
+module CallHierarchyPrepareParams =
+  let create (uri : DocumentUri) (line : int) (character : int) : CallHierarchyPrepareParams =
+    {
+      TextDocument = { Uri = uri }
+      Position = { Character = character; Line = line }
     }
+
+module LspRange =
+  let create (startLine : int) (startCharacter : int) (endLine : int) (endCharacter : int) : Range =
+    {
+      Start = { Character = startCharacter; Line = startLine }
+      End = { Character = endCharacter; Line = endLine }
+    }
+
+
+let incomingTests createServer =
+  serverTestList "IncomingTests" createServer defaultConfigDto (Some examples) (fun server -> [
+      testCaseAsync "Example1" <| async {
+        let! (aDoc, _) = Server.openDocument "Example1.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 2 9
+        let! prepareResult = server.Server.TextDocumentPrepareCallHierarchy prepareParams |> Async.map resultOptionGet
+
+        let expectedPrepareResult : HierarchyItem array = [|
+          {
+            Data = None
+            Detail = None
+            Kind = SymbolKind.Function
+            Name = "bar"
+            Range =  LspRange.create 2 8 2 11
+            SelectionRange = LspRange.create 2 8 2 11
+            Tags = None
+            Uri = aDoc.Uri
+          }
+        |]
+
+        Expect.equal prepareResult expectedPrepareResult "prepareResult"
+
+        let expectedIncomingResult : CallHierarchyIncomingCall array =
+          [|
+            {
+              FromRanges =   [|
+                LspRange.create 8 12 8 15
+              |]
+              From = {
+                Data = None
+                Detail = None
+                Kind = SymbolKind.Function
+                Name = "foo"
+                Range = LspRange.create 6 12 8 18
+                SelectionRange = LspRange.create 6 12 6 15
+                Tags = None
+                Uri = aDoc.Uri
+              }
+            }
+          |]
+
+        let incomingParams : CallHierarchyIncomingCallsParams = {
+          Item = prepareResult[0]
+        }
+        let! incomingResult = server.Server.CallHierarchyIncomingCalls incomingParams |> Async.map resultOptionGet
+
+        Expect.equal incomingResult expectedIncomingResult "incomingResult"
+      }
+    ])
+
+
+let tests createServer =
+  testList "CallHierarchy" [
+    incomingTests createServer
   ]

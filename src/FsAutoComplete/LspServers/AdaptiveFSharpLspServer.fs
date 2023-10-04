@@ -4036,29 +4036,27 @@ type AdaptiveFSharpLspServer
 
               let! parseResults = getParseResults fn |> AsyncAVal.forceAsync
 
-              // member _.TryRangeOfNameOfNearestOuterBindingContainingPos pos =
-              // doesn't find things within member declarations, we'll need to copy and expand the logic
-              // to find members
-              let! containerRange =
-                parseResults.TryRangeOfNameOfNearestOuterBindingContainingPos(protocolPosToPos loc.Range.Start)
+              let! (fullBindingRange, glyph, bindingIdents) =
+                parseResults.TryRangeOfNameOfNearestOuterBindingOrMember(protocolPosToPos loc.Range.Start)
 
-              let! volatileFile = forceFindOpenFileOrRead fn |> Async.map Result.toOption
-              let! lineStr = tryGetLineStr containerRange.Start volatileFile.Source |> Result.toOption
+              // We only want to use the last identifiers range because if we have a member like `self.MyMember`
+              // F# Find Usages only works with the last identifier's range so we want to use `MyMember`.
+              let! endRange = bindingIdents |> Seq.tryLast
 
-              let! (_, idents) = Lexer.findLongIdents (containerRange.Start.Column, lineStr)
+              // However we still want to display that whole name.
+              let name = bindingIdents |> Seq.map (fun x -> x.idText) |> String.concat "."
 
               let retVals =
                 { From =
-                    { Name = String.concat "." idents
-                      Kind = SymbolKind.Method
+                    { Name = name
+                      Kind = (AVal.force glyphToSymbolKind) glyph |> Option.defaultValue SymbolKind.Method
                       Tags = None
                       Detail = None
                       Uri = loc.Uri
-                      Range = fcsRangeToLsp containerRange
-                      SelectionRange = fcsRangeToLsp containerRange
+                      Range = fcsRangeToLsp fullBindingRange
+                      SelectionRange = fcsRangeToLsp endRange.idRange
                       Data = None }
                   FromRanges = [| loc.Range |] }
-
 
               return retVals
             }

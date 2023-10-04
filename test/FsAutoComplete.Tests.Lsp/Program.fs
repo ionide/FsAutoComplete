@@ -96,7 +96,6 @@ let lspTests =
                 scriptProjectOptionsCacheTests createServer
                 dependencyManagerTests createServer
                 interactiveDirectivesUnitTests
-                FsAutoComplete.Tests.CallHierarchy.tests
 
                 // commented out because FSDN is down
                 //fsdnTest createServer
@@ -121,6 +120,7 @@ let lspTests =
                 DependentFileChecking.tests createServer
                 UnusedDeclarationsTests.tests createServer
                 EmptyFileTests.tests createServer
+                CallHierarchy.tests createServer
                 ] ]
 
 /// Tests that do not require a LSP server
