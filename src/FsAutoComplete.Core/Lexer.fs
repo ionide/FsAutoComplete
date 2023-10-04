@@ -43,7 +43,7 @@ module Lexer =
 
   [<return: Struct>]
   let (|Define|_|) (a: string) =
-    if a.StartsWith "--defin:" then
+    if a.StartsWith "--define:" then
       ValueSome(a.[9..])
     else
       ValueNone
