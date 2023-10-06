@@ -15,12 +15,15 @@ body:
   - type: input
     attributes:
       label: Version
-      description: Which version of the package does this bug affect? Make sure you're not using an outdated version.
+      description: |
+        Which version of the package does this bug affect? Make sure you're not using an outdated version.
+        - If you are using VSCode, the version of Ionide can be used. You can can find this by going to `View -> Extensions -> Ionide for F#`. It will be displayed next to the name at the top.
+        - If you are using the tool directly, you can find the version by running `dotnet fsautocomplete --version` in your terminal.
       placeholder: v1.0.0
     validations:
       required: true
 
-  - type: input
+  - type: textarea
     attributes:
       label: Dotnet Info
       description: What is the output of `dotnet --info`?
@@ -35,7 +38,7 @@ body:
         Minimum steps required to reproduce the bug, including prerequisites, code snippets, or other relevant items.
         The information provided in this field must be readily actionable, meaning that anyone should be able to reproduce the bug by following these steps.
         If the reproduction steps are too complex to fit in this field, please provide a link to a repository instead.
-        If you don't provide actionable reproduction steps, your issue won't be investigated.
+        ⚠️ If you don't provide actionable reproduction steps, your issue won't be investigated. ⚠️
       placeholder: |
         - Step 1
         - Step 2
