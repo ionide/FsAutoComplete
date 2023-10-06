@@ -856,6 +856,7 @@ module CodeGenerationUtils =
     | SynRationalConst.Rational(numerator = numerator; denominator = denominator) ->
       sprintf "(%i/%i)" numerator denominator
     | SynRationalConst.Negate(rationalConst = RationalConst s) -> sprintf "- %s" s
+    | SynRationalConst.Paren(rationalConst = inner) -> (|RationalConst|) inner
 
   let rec (|TypeIdent|_|) =
     function
