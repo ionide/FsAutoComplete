@@ -13,7 +13,7 @@ lowest_matching: true
 
 nuget BenchmarkDotNet 0.13.5
 nuget Fantomas.Client >= 0.9
-nuget FSharp.Compiler.Service >= 43.8.100-preview.23455.5
+nuget FSharp.Compiler.Service >= 43.8.100-preview.23478.1
 nuget Ionide.ProjInfo >= 0.62.0
 nuget Ionide.ProjInfo.FCS >= 0.62.0
 nuget Ionide.ProjInfo.ProjectSystem >= 0.62.0
