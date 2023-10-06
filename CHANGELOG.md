@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.64.1] - 2023-10-05
+
+### Fixed
+- [fix the Define active pattern](https://github.com/fsharp/FsAutoComplete/pull/1170) (thanks @dawedawe!)
+
 ## [0.64.0] - 2023-09-27
 
 ### Added 
