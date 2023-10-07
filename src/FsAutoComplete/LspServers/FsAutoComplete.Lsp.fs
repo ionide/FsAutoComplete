@@ -2418,11 +2418,15 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
           >> Log.addContextDestructured "parms" p
         )
 
-        let! res = Commands.DotnetAddProject p.Target p.Reference
+        let! res =
+          if p.Target <> p.Reference then
+            Commands.DotnetAddProject p.Target p.Reference
+          else
+            async.Return(CoreResponse.Res())
 
         let res =
           match res with
-          | CoreResponse.InfoRes msg -> success None
+          | CoreResponse.InfoRes _msg -> success None
           | CoreResponse.ErrorRes msg -> LspResult.internalError msg
           | CoreResponse.Res(_) -> success None
 
