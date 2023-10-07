@@ -4379,9 +4379,9 @@ type AdaptiveFSharpLspServer
 
           if p.Target <> p.Reference then
             do!
-                Commands.DotnetAddProject p.Target p.Reference
-                |> AsyncResult.ofCoreResponse
-                |> AsyncResult.ignore<unit option, JsonRpc.Error> // mapping unit option to unit
+              Commands.DotnetAddProject p.Target p.Reference
+              |> AsyncResult.ofCoreResponse
+              |> AsyncResult.ignore<unit option, JsonRpc.Error> // mapping unit option to unit
 
           return None
         with e ->
