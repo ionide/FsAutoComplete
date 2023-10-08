@@ -82,7 +82,7 @@ type LoadedProject =
 
   member x.SourceFiles = x.FSharpProjectOptions.SourceFiles
   member x.ProjectFileName = x.FSharpProjectOptions.ProjectFileName
-  static member op_Implicit(x : LoadedProject)  = x.FSharpProjectOptions
+  static member op_Implicit(x: LoadedProject) = x.FSharpProjectOptions
 
 
 type AdaptiveFSharpLspServer
@@ -1357,7 +1357,8 @@ type AdaptiveFSharpLspServer
           >> Log.addContextDestructured "file" filePath
           >> Log.addExn e
         )
-        return! Error (e.ToString())
+
+        return! Error(e.ToString())
     }
 
 
@@ -4055,7 +4056,7 @@ type AdaptiveFSharpLspServer
                     { Name = name
                       Kind = (AVal.force glyphToSymbolKind) glyph |> Option.defaultValue SymbolKind.Method
                       Tags = None
-                      Detail = Some (sprintf $"From {Path.GetFileName (UMX.untag fn)}")
+                      Detail = Some(sprintf $"From {Path.GetFileName(UMX.untag fn)}")
                       Uri = loc.Uri
                       Range = fcsRangeToLsp fullBindingRange
                       SelectionRange = fcsRangeToLsp endRange.idRange
