@@ -80,7 +80,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
               match! inbox.Receive() with
               | Add(source, version, diags) ->
                 match Map.tryFind source state with
-                | Some(oldVersion, _) when oldVersion >= version -> return! loop state
+                | Some(oldVersion, _) when oldVersion > version -> return! loop state
                 | _ ->
                   let newState = state |> Map.add source (version, diags)
                   do! send uri newState

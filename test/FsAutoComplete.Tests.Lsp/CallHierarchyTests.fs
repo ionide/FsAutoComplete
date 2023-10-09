@@ -13,6 +13,7 @@ open Utils.Server
 open Ionide.LanguageServerProtocol.Types
 
 let examples =  Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CallHierarchy")
+let incomingExamples = Path.Combine(examples, "IncomingCalls")
 let sourceFactory : ISourceTextFactory = RoslynSourceTextFactory()
 let resultGet = function | Ok x -> x | Error e -> failwithf "%A" e
 let resultOptionGet =
@@ -37,7 +38,7 @@ module LspRange =
 
 
 let incomingTests createServer =
-  serverTestList "IncomingTests" createServer defaultConfigDto (Some examples) (fun server -> [
+  serverTestList "IncomingTests" createServer defaultConfigDto (Some incomingExamples) (fun server -> [
       testCaseAsync "Example1" <| async {
         let! (aDoc, _) = Server.openDocument "Example1.fsx" server
         use aDoc = aDoc
@@ -91,6 +92,6 @@ let incomingTests createServer =
 
 
 let tests createServer =
-  ftestList "CallHierarchy" [
+  testList "CallHierarchy" [
     incomingTests createServer
   ]

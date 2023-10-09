@@ -5052,8 +5052,11 @@ type AdaptiveFSharpLspServer
 
         return ()
       }
-    member this.CallHierarchyOutgoingCalls(arg1: CallHierarchyOutgoingCallsParams): AsyncLspResult<CallHierarchyOutgoingCall array option> =
-        AsyncLspResult.notImplemented
+
+    member this.CallHierarchyOutgoingCalls
+      (arg1: CallHierarchyOutgoingCallsParams)
+      : AsyncLspResult<CallHierarchyOutgoingCall array option> =
+      AsyncLspResult.notImplemented
 
 module AdaptiveFSharpLspServer =
 
