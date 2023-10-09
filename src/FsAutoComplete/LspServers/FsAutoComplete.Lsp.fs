@@ -220,12 +220,12 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
         |> lspClient.NotifyWorkspace
         |> Async.Start
 
-      | NotificationEvent.ParseError(errors, file) ->
+      | NotificationEvent.ParseError(errors, file, version) ->
         let uri = Path.LocalPathToUri file
         let diags = errors |> Array.map fcsErrorToDiagnostic
-        diagnosticCollections.SetFor(uri, "F# Compiler", diags)
+        diagnosticCollections.SetFor(uri, "F# Compiler", version, diags)
 
-      | NotificationEvent.UnusedOpens(file, opens) ->
+      | NotificationEvent.UnusedOpens(file, opens, version) ->
         let uri = Path.LocalPathToUri file
 
         let diags =
@@ -241,9 +241,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
               Data = None
               CodeDescription = None })
 
-        diagnosticCollections.SetFor(uri, "F# Unused opens", diags)
+        diagnosticCollections.SetFor(uri, "F# Unused opens", version, diags)
 
-      | NotificationEvent.UnusedDeclarations(file, decls) ->
+      | NotificationEvent.UnusedDeclarations(file, decls, version) ->
         let uri = Path.LocalPathToUri file
 
         let diags =
@@ -259,9 +259,9 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
               Data = None
               CodeDescription = None })
 
-        diagnosticCollections.SetFor(uri, "F# Unused declarations", diags)
+        diagnosticCollections.SetFor(uri, "F# Unused declarations", version, diags)
 
-      | NotificationEvent.SimplifyNames(file, decls) ->
+      | NotificationEvent.SimplifyNames(file, decls, version) ->
         let uri = Path.LocalPathToUri file
 
         let diags =
@@ -283,7 +283,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                 Data = None
                 CodeDescription = None })
 
-        diagnosticCollections.SetFor(uri, "F# simplify names", diags)
+        diagnosticCollections.SetFor(uri, "F# simplify names", version, diags)
 
       // | NotificationEvent.Lint (file, warnings) ->
       //     let uri = Path.LocalPathToUri file
@@ -328,11 +328,11 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
         let ntf: PlainNotification = { Content = msg }
 
         lspClient.NotifyCancelledRequest ntf |> Async.Start
-      | NotificationEvent.AnalyzerMessage(messages, file) ->
+      | NotificationEvent.AnalyzerMessage(messages, file, version) ->
         let uri = Path.LocalPathToUri file
 
         match messages with
-        | [||] -> diagnosticCollections.SetFor(uri, "F# Analyzers", [||])
+        | [||] -> diagnosticCollections.SetFor(uri, "F# Analyzers", version, [||])
         | messages ->
           let diags =
             messages
@@ -366,7 +366,7 @@ type FSharpLspServer(state: State, lspClient: FSharpLspClient, sourceTextFactory
                 CodeDescription = None
                 Data = fixes })
 
-          diagnosticCollections.SetFor(uri, "F# Analyzers", diags)
+          diagnosticCollections.SetFor(uri, "F# Analyzers", version, diags)
       | NotificationEvent.TestDetected(file, tests) ->
         let rec map
           (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>)

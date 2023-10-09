@@ -47,12 +47,13 @@ module AsyncResult =
 
 
 type DiagnosticMessage =
-  | Add of source: string * diags: Diagnostic[]
+  | Add of source: string * Version * diags: Diagnostic[]
   | Clear of source: string
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<unit>) =
-  let send uri (diags: Map<string, Diagnostic[]>) = Map.toArray diags |> Array.collect snd |> sendDiagnostics uri
+  let send uri (diags: Map<string, Version * Diagnostic[]>) =
+    Map.toArray diags |> Array.collect (snd >> snd) |> sendDiagnostics uri
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
@@ -74,13 +75,16 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     let mailbox =
       MailboxProcessor.Start(
         (fun inbox ->
-          let rec loop (state: Map<string, Diagnostic[]>) =
+          let rec loop (state: Map<string, Version * Diagnostic[]>) =
             async {
               match! inbox.Receive() with
-              | Add(source, diags) ->
-                let newState = state |> Map.add source diags
-                do! send uri newState
-                return! loop newState
+              | Add(source, version, diags) ->
+                match Map.tryFind source state with
+                | Some(oldVersion, _) when oldVersion >= version -> return! loop state
+                | _ ->
+                  let newState = state |> Map.add source (version, diags)
+                  do! send uri newState
+                  return! loop newState
               | Clear source ->
                 let newState = state |> Map.remove source
                 do! send uri newState
@@ -114,13 +118,13 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
   /// If false, no diagnostics will be collected or sent to the client
   member val ClientSupportsDiagnostics = true with get, set
 
-  member x.SetFor(fileUri: DocumentUri, kind: string, values: Diagnostic[]) =
+  member x.SetFor(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
     if x.ClientSupportsDiagnostics then
       let mailbox = getOrAddAgent fileUri
 
       match values with
       | [||] -> mailbox.Post(Clear kind)
-      | values -> mailbox.Post(Add(kind, values))
+      | values -> mailbox.Post(Add(kind, version, values))
 
   member x.ClearFor(fileUri: DocumentUri) =
     if x.ClientSupportsDiagnostics then
