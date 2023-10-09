@@ -18,17 +18,6 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
-// type LspPos = Ionide.LanguageServerProtocol.Types.Position
-// type LspRange = Ionide.LanguageServerProtocol.Types.Range
-
-module Lsp = Ionide.LanguageServerProtocol.Types
-
-module LspRange =
-  // static member Create (start: LspPos) (end_: LspPos) : LspRange =
-  //   { Start = start; End = end_ }
-  let Zero: Lsp.Range =
-    { Start = { Line = 0; Character = 0 }
-      End = { Line = 0; Character = 0 } }
 
 module FcsPos =
   let subtractColumn (pos: FcsPos) (column: int) = FcsPos.mkPos pos.Line (pos.Column - column)
@@ -36,6 +25,7 @@ module FcsPos =
 [<AutoOpen>]
 module Conversions =
 
+  module Lsp = Ionide.LanguageServerProtocol.Types
   /// convert an LSP position to a compiler position
   let protocolPosToPos (pos: Lsp.Position) : FcsPos = FcsPos.mkPos (pos.Line + 1) (pos.Character)
 
