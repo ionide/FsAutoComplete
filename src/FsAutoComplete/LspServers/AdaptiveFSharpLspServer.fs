@@ -1165,11 +1165,11 @@ type AdaptiveFSharpLspServer
           let! projs =
             asyncOption {
               let! cts = tryGetOpenFileToken filePath
+              use lcts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
 
               let! opts =
                 checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
-                |> Async.withCancellation cts.Token
-                |> Async.startImmediateAsTask ctok
+                |> Async.withCancellationSafe (fun () -> lcts.Token)
 
               opts |> scriptFileProjectOptions.Trigger
 
@@ -1401,11 +1401,11 @@ type AdaptiveFSharpLspServer
           asyncOption {
             let! opts = selectProject projectOptions
             let! cts = tryGetOpenFileToken file
+            use lcts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
 
             return!
               parseAndCheckFile checker info opts.FSharpProjectOptions true
-              |> Async.withCancellation cts.Token
-              |> fun work -> Async.StartImmediateAsTask(work, ctok)
+              |> Async.withCancellationSafe (fun () -> lcts.Token)
           }
 
       })
