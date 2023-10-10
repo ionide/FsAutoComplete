@@ -3304,8 +3304,8 @@ let private removePatternArgumentTests state =
         let (None) = None
         """ ])
 
-let tests state = testList "CodeFix-tests" [ 
-  HelpersTests.tests
+let tests textFactory state = testList "CodeFix-tests" [
+  HelpersTests.tests textFactory
   AddExplicitTypeAnnotationTests.tests state
   AdjustConstantTests.tests state
   ToInterpolatedStringTests.tests state
