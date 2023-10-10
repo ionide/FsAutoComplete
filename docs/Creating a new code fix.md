@@ -8,7 +8,7 @@ To introduce a new code fix within the context of FSAutocomplete, there are seve
 
 1. **Code Fix File**: This pertains to the actual implementation of the code fix.
 
-2. **Registration in LSP Servers**: Registration of the code fix is required in both of the associated LSP servers.
+2. **Registration in LSP Server**: Registration of the code fix is required in the associated LSP server.
 
 3. **Unit Test Setup**: Proper unit tests need to be established to ensure the correctness and effectiveness of the new code fix.
 
@@ -28,7 +28,6 @@ The above command accomplishes the following tasks:
 Furthermore, this command updates the following files to properly register the new code fix:
 
 - `src/FsAutoComplete/LspServers/AdaptiveFSharpLspServer.fs`
-- `src/FsAutoComplete/LspServers/FsAutoComplete.Lsp.fs`
 - `test/FsAutoComplete.Tests.Lsp/CodeFixTests/Tests.fs`
 
 The unit test file contains a [single focused test](https://github.com/haf/expecto#focusing-tests), allowing you to promptly verify the functionality. To run this initial test, you have two options:

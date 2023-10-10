@@ -15,12 +15,6 @@ let AdaptiveFSharpLspServerPath =
   </> "LspServers"
   </> "AdaptiveFSharpLspServer.fs"
 
-let FsAutoCompleteLspPath =
-  repositoryRoot
-  </> "src"
-  </> "FsAutoComplete"
-  </> "LspServers"
-  </> "FsAutoComplete.Lsp.fs"
 
 let TestsPath =
   repositoryRoot
@@ -312,64 +306,6 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
     Trace.traceError
       $"Unable to find array of codefixes in %s{AdaptiveFSharpLspServerPath}.\nDid the code structure change?"
 
-let findArrayInFsAutoCompleteLsp () =
-  let oak = getOakFor FsAutoCompleteLspPath
-  // namespace FsAutoComplete.Lsp
-  let ns =
-    oak.ModulesOrNamespaces
-    |> List.exactlyOneOrFail "Expected a single namespace in Oak."
-
-  // type AdaptiveFSharpLspServer
-  let t = findTypeWithNameOfFail "FSharpLspServer" ns
-
-  // interface IFSharpLspServer with
-  let iFSharpLspServer =
-    t.Members
-    |> List.pick (function
-      | MemberDefn.Interface i -> Some i
-      | _ -> None)
-
-  // override _.Initialize(p: InitializeParams) =
-  let overrideMember =
-    iFSharpLspServer.Members
-    |> List.pick (function
-      | MemberDefn.Member mb ->
-        match mb.FunctionName with
-        | Choice1Of2 iln ->
-          match iln.Content with
-          | [ _; _; IdentifierOrDot.Ident ident ] when ident.Text = "Initialize" -> Some mb
-          | _ -> None
-        | Choice2Of2 _ -> None
-      | _ -> None)
-
-  let asyncComp =
-    match overrideMember.Expr with
-    | Expr.NamedComputation namedComputation -> namedComputation
-    | e -> failwithf $"Expected Expr.NamedComputation, got %A{e}"
-
-  let compBody =
-    match asyncComp.Body with
-    | Expr.CompExprBody body -> body
-    | e -> failwithf $"Expected Expr.CompExprBody, got %A{e}"
-
-  compBody.Statements
-  |> List.pickOrFail "Expected to find ComputationExpressionStatement.OtherStatement" (function
-    | ComputationExpressionStatement.OtherStatement(Expr.LongIdentSet longIdentSet) ->
-      match longIdentSet.Identifier with
-      | IdentName "codefixes" ->
-        match longIdentSet.Expr with
-        | Expr.ArrayOrList array -> Some array
-        | _ -> None
-      | _ -> None
-    | _ -> None)
-
-let wireCodeFixInFsAutoCompleteLsp codeFixName =
-  try
-    let array = findArrayInFsAutoCompleteLsp ()
-    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" FsAutoCompleteLspPath array
-  with ex ->
-    Trace.traceException ex
-    Trace.traceError $"Unable to find array of codefixes in %s{FsAutoCompleteLspPath}.\nDid the code structure change?"
 
 let mkCodeFixTests codeFixName =
   let path =
@@ -444,7 +380,6 @@ let scaffold (codeFixName: string) : unit =
 
   // Wire up codefix to LSP servers
   wireCodeFixInAdaptiveFSharpLspServer codeFixName
-  wireCodeFixInFsAutoCompleteLsp codeFixName
 
   // Add test file
   mkCodeFixTests codeFixName
@@ -457,5 +392,4 @@ let scaffold (codeFixName: string) : unit =
 
 let ensureScaffoldStillWorks () =
   findArrayInAdaptiveFSharpLspServer () |> ignore
-  findArrayInFsAutoCompleteLsp () |> ignore
   findListInTests () |> ignore
