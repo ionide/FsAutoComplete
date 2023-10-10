@@ -3958,7 +3958,7 @@ type AdaptiveFSharpLspServer
 
           let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
 
-          let! pipelineHints = Commands.InlineValues(volatileFile.Source, tyRes)
+          let! pipelineHints = Commands.inlineValues volatileFile.Source tyRes
 
           let hints =
             pipelineHints

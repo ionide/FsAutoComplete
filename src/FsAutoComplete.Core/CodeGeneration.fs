@@ -27,58 +27,6 @@ type ICodeGenerationService =
 
   abstract ParseFileInProject: string<LocalPath> -> Async<option<FSharpParseFileResults>>
 
-type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
-  interface ICodeGenerationService with
-    override x.TokenizeLine(fileName, i) =
-      asyncOption {
-        let! text = state.TryGetFileSource fileName |> Option.ofResult
-
-        try
-          let! line = text.GetLine(Position.mkPos i 0)
-          return Lexer.tokenizeLine [||] line
-        with _ ->
-          return! None
-      }
-
-    override x.GetSymbolAtPosition(fileName, pos: Position) =
-      asyncOption {
-        return!
-          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-          | ResultOrString.Error _ -> None
-          | ResultOrString.Ok(opts, lines, line) ->
-            try
-              Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-            with _ ->
-              None
-      }
-
-    override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
-      asyncOption {
-        let! symbol = (x :> ICodeGenerationService).GetSymbolAtPosition(fileName, pos)
-
-        if symbol.Kind = kind then
-          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-          | ResultOrString.Error _ -> return! None
-          | ResultOrString.Ok(opts, text, line) ->
-            let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-            let symbolUse = result.TryGetSymbolUse pos line
-            return! Some(symbol, symbolUse)
-        else
-          return! None
-      }
-
-    override x.ParseFileInProject(fileName) =
-      async {
-        match state.TryGetFileCheckerOptionsWithLines fileName with
-        | ResultOrString.Error _ -> return None
-        | ResultOrString.Ok(opts, text) ->
-          try
-            return
-              checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-              |> Option.map (fun n -> n.GetParseResults)
-          with _ ->
-            return None
-      }
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming

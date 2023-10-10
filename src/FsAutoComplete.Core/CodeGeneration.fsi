@@ -26,9 +26,6 @@ type ICodeGenerationService =
 
   abstract ParseFileInProject: string<LocalPath> -> Async<option<FSharpParseFileResults>>
 
-type CodeGenerationService =
-  new: checker: FSharpCompilerServiceChecker * state: State -> CodeGenerationService
-  interface ICodeGenerationService
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
