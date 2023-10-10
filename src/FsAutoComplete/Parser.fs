@@ -154,7 +154,7 @@ module Parser =
 
         let sourceTextFactory: ISourceTextFactory =
           match sourceTextFactoryOption with
-          | SourceTextFactoryOptions.NamedText ->new RoslynSourceTextFactory()
+          | SourceTextFactoryOptions.NamedText -> new RoslynSourceTextFactory()
           | SourceTextFactoryOptions.RoslynSourceText -> new RoslynSourceTextFactory()
           | _ -> new RoslynSourceTextFactory()
 
