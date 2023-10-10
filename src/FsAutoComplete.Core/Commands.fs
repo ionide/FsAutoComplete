@@ -74,17 +74,17 @@ module AsyncResult =
   let recoverCancellation (ar: Async<Result<CoreResponse<'t>, exn>>) =
     recoverCancellationGeneric ar (sprintf "Request cancelled (exn was %A)" >> CoreResponse.InfoRes)
 
-  let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = AsyncResult.foldResult id ignore ar
+  let recoverCancellationIgnore (ar: Async<Result<unit, exn>>) = ar |> AsyncResult.foldResult id (ignore<exn>)
 
 [<RequireQualifiedAccess>]
 type NotificationEvent =
-  | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath>
+  | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath> * version: int
   | Workspace of ProjectSystem.ProjectResponse
-  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath>
-  | UnusedOpens of file: string<LocalPath> * opens: Range[]
+  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath> * version: int
+  | UnusedOpens of file: string<LocalPath> * opens: Range[] * version: int
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
-  | UnusedDeclarations of file: string<LocalPath> * decls: range[]
-  | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[]
+  | UnusedDeclarations of file: string<LocalPath> * decls: range[] * version: int
+  | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[] * version: int
   | Canceled of errorMessage: string
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
@@ -1251,7 +1251,7 @@ type Commands
   //Diagnostics handler - Triggered by `CheckCore`
   do
     disposables.Add
-    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
+    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, version) ->
       async {
         try
           NotificationEvent.FileParsed file |> notify.Trigger
@@ -1265,7 +1265,7 @@ type Commands
             |> Array.distinctBy (fun e ->
               e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-          (errors, file) |> NotificationEvent.ParseError |> notify.Trigger
+          (errors, file, version) |> NotificationEvent.ParseError |> notify.Trigger
         with _ ->
           ()
       }
@@ -1274,7 +1274,7 @@ type Commands
   //Analyzers handler - Triggered by `CheckCore`
   do
     disposables.Add
-    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, _) ->
+    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, file, version) ->
       async {
         if hasAnalyzers then
           try
@@ -1298,7 +1298,7 @@ type Commands
                     parseAndCheck.GetAllEntities
                   )
 
-                (res, file) |> NotificationEvent.AnalyzerMessage |> notify.Trigger
+                (res, file, version) |> NotificationEvent.AnalyzerMessage |> notify.Trigger
 
                 Loggers.analyzers.info (
                   Log.setMessage "end analysis of {file}"
@@ -2435,6 +2435,7 @@ type Commands
       let isScript = Utils.isAScript (UMX.untag file)
 
       let! (opts, source) = state.TryGetFileCheckerOptionsWithSource file
+      let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
       let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
@@ -2444,13 +2445,14 @@ type Commands
         let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
         let unused = unused |> Seq.toArray
 
-        notify.Trigger(NotificationEvent.UnusedDeclarations(file, unused))
+        notify.Trigger(NotificationEvent.UnusedDeclarations(file, unused, version))
     }
     |> Async.Ignore<Result<unit, _>>
 
   member x.CheckSimplifiedNames file : Async<unit> =
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
+      let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
       let tyResOpt = checker.TryGetRecentCheckResultsForFile(file, opts, source)
 
@@ -2461,7 +2463,7 @@ type Commands
 
         let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
         let simplified = Array.ofSeq simplified
-        notify.Trigger(NotificationEvent.SimplifyNames(file, simplified))
+        notify.Trigger(NotificationEvent.SimplifyNames(file, simplified, version))
     }
     |> Async.Ignore<Result<unit, _>>
     |> x.AsCancellable file
@@ -2470,6 +2472,7 @@ type Commands
   member x.CheckUnusedOpens file : Async<unit> =
     asyncResult {
       let! (opts, source) = state.TryGetFileCheckerOptionsWithLines file
+      let version = state.TryGetFileVersion file |> Option.defaultValue 0
 
       match checker.TryGetRecentCheckResultsForFile(file, opts, source) with
       | None -> return ()
@@ -2477,7 +2480,7 @@ type Commands
         let! unused =
           UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, (fun i -> (source: ISourceText).GetLineString(i - 1)))
 
-        notify.Trigger(NotificationEvent.UnusedOpens(file, (unused |> List.toArray)))
+        notify.Trigger(NotificationEvent.UnusedOpens(file, (unused |> List.toArray), version))
 
     }
     |> Async.Ignore<Result<unit, _>>

@@ -6,6 +6,7 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.EditorServices
 
 type LanguageFeatureShim =
   new: langFeature: string -> LanguageFeatureShim
@@ -27,3 +28,7 @@ module LanguageVersionShim =
 
 module SyntaxTreeOps =
   val synExprContainsError: SynExpr -> bool
+
+type FSharpParseFileResults with
+
+  member TryRangeOfNameOfNearestOuterBindingOrMember: pos: pos -> option<range * FSharpGlyph * LongIdent>

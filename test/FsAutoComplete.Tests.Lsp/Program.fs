@@ -120,6 +120,7 @@ let lspTests =
                 DependentFileChecking.tests createServer
                 UnusedDeclarationsTests.tests createServer
                 EmptyFileTests.tests createServer
+                CallHierarchy.tests createServer
                 ] ]
 
 /// Tests that do not require a LSP server

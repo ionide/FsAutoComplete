@@ -323,8 +323,6 @@ type AsyncAValBuilder =
   member inline Bind:
     value: asyncaval<'T1> * mapping: ('T1 -> System.Threading.CancellationToken -> asyncaval<'T2>) -> asyncaval<'T2>
 
-  member inline BindReturn: value: asyncaval<'T1> * mapping: ('T1 -> System.Threading.Tasks.Task<'T2>) -> asyncaval<'T2>
-
   member inline BindReturn: value: asyncaval<'T1> * mapping: ('T1 -> Async<'T2>) -> asyncaval<'T2>
 
   member inline BindReturn:
@@ -341,23 +339,18 @@ type AsyncAValBuilder =
 
 [<AutoOpen>]
 module AsyncAValBuilderExtensions =
-
+  open IcedTasks
   val asyncAVal: AsyncAValBuilder
 
   type AsyncAValBuilder with
 
     member inline Source: value: FSharp.Data.Adaptive.aval<'T> -> asyncaval<'T>
-
-  type AsyncAValBuilder with
-
     member inline Source: value: System.Threading.Tasks.Task<'T> -> asyncaval<'T>
-
-  type AsyncAValBuilder with
+    member inline Source: value: Async<'T> -> asyncaval<'T>
+    member inline Source: value: CancellableTask<'T> -> asyncaval<'T>
 
     member inline BindReturn:
       value: asyncaval<'T1> * mapping: ('T1 -> System.Threading.CancellationToken -> 'T2) -> asyncaval<'T2>
-
-  type AsyncAValBuilder with
 
     member inline BindReturn: value: asyncaval<'T1> * mapping: ('T1 -> 'T2) -> asyncaval<'T2>
 
