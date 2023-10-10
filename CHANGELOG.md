@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.65.0] - 2023-10-09
+
+### Added
+- [Incoming Call Hierarchy](https://github.com/fsharp/FsAutoComplete/pull/1164) (thanks @TheAngryByrd!)
+
+### Fixed 
+- [Ignore requests that would cause circular dependencies in project references](https://github.com/fsharp/FsAutoComplete/pull/1173) (thanks @dawedawe!)
+
 ## [0.64.1] - 2023-10-05
 
 ### Fixed
