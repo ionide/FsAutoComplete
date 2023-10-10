@@ -32,8 +32,6 @@
     <Compile Include="LspServers/Common.fs" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fsi" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fs" />
-    <Compile Include="LspServers/FsAutoComplete.Lsp.fsi" />
-    <Compile Include="LspServers/FsAutoComplete.Lsp.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />

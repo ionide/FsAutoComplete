@@ -5124,3 +5124,20 @@ module AdaptiveFSharpLspServer =
       new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory) :> IFSharpLspServer
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer createRpc
+
+  let start (startCore: unit -> LspCloseReason) =
+    let logger = LogProvider.getLoggerByName "Startup"
+
+    try
+      let result = startCore ()
+
+      logger.info (
+        Log.setMessage "Start - Ending LSP mode with {reason}"
+        >> Log.addContextDestructured "reason" result
+      )
+
+      int result
+    with ex ->
+      logger.error (Log.setMessage "Start - LSP mode crashed" >> Log.addExn ex)
+
+      3

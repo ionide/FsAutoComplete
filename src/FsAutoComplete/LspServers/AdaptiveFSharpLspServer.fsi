@@ -25,3 +25,5 @@ module AdaptiveFSharpLspServer =
     workspaceLoaderFactory: ('a -> #IWorkspaceLoader) ->
     sourceTextFactory: ISourceTextFactory ->
       LspCloseReason
+
+  val start: startCore: (unit -> LspCloseReason) -> int

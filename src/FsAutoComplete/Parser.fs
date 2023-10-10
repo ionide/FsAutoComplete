@@ -175,9 +175,9 @@ module Parser =
           if adaptiveLspEnabled then
             fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
           else
-            fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory sourceTextFactory
+            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
 
-        let result = FSharpLspServer.start lspFactory
+        let result = AdaptiveFSharpLspServer.start lspFactory
 
         Task.FromResult result),
       projectGraphOption,
