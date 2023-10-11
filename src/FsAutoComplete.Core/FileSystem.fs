@@ -1,11 +1,9 @@
 namespace FsAutoComplete
 
-open FSharp.Compiler.CodeAnalysis
 open System
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FSharp.Compiler.Text
-open System.Runtime.CompilerServices
 open FsToolkit.ErrorHandling
 
 open System.IO
@@ -155,7 +153,7 @@ module RoslynSourceText =
     let combineValues (values: seq<'T>) =
       (0, values) ||> Seq.fold (fun hash value -> combine (value.GetHashCode()) hash)
 
-  let rec create (fileName: string<LocalPath>, sourceText: SourceText) : IFSACSourceText =
+  type RoslynSourceTextFile(fileName: string<LocalPath>, sourceText: SourceText) =
 
     let walk
       (
@@ -186,209 +184,206 @@ module RoslynSourceText =
       loop start
 
 
-    let inline totalLinesLength () = sourceText.Lines |> Seq.length
+    let totalLinesLength () = sourceText.Lines |> Seq.length
 
-    let sourceText =
-      {
 
-        new Object() with
-          override _.ToString() = sourceText.ToString()
+    override _.ToString() = sourceText.ToString()
 
-          override _.Equals(x) = sourceText.Equals(x)
+    override _.Equals(x) = sourceText.Equals(x)
 
-          override _.GetHashCode() =
-            let checksum = sourceText.GetChecksum()
+    override _.GetHashCode() =
+      let checksum = sourceText.GetChecksum()
 
-            let contentsHash =
-              if not checksum.IsDefault then
-                Hash.combineValues checksum
-              else
-                0
+      let contentsHash =
+        if not checksum.IsDefault then
+          Hash.combineValues checksum
+        else
+          0
 
-            let encodingHash =
-              if not (isNull sourceText.Encoding) then
-                sourceText.Encoding.GetHashCode()
-              else
-                0
+      let encodingHash =
+        if not (isNull sourceText.Encoding) then
+          sourceText.Encoding.GetHashCode()
+        else
+          0
 
-            sourceText.ChecksumAlgorithm.GetHashCode()
-            |> Hash.combine encodingHash
-            |> Hash.combine contentsHash
-            |> Hash.combine sourceText.Length
-        interface IFSACSourceText with
+      sourceText.ChecksumAlgorithm.GetHashCode()
+      |> Hash.combine encodingHash
+      |> Hash.combine contentsHash
+      |> Hash.combine sourceText.Length
 
-          member x.Item
-            with get (index: Range): Result<string, string> = x.GetText(index)
+    interface IFSACSourceText with
 
-          member x.Item
-            with get (index: Position): char option = x.TryGetChar(index)
+      member x.Item
+        with get (index: Range): Result<string, string> = (x :> IFSACSourceText).GetText(index)
 
-          member x.WalkBackwards(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
-            walk (x, start, x.PrevPos, terminal, condition)
+      member x.Item
+        with get (index: Position): char option = (x :> IFSACSourceText).TryGetChar(index)
 
-          member x.WalkForward(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
-            walk (x, start, x.NextPos, terminal, condition)
+      member x.WalkBackwards(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
+        walk (x, start, (x :> IFSACSourceText).PrevPos, terminal, condition)
 
-          member x.String: string = sourceText.ToString()
-          member x.FileName: string<LocalPath> = fileName
-          member x.RawFileName: string = UMX.untag fileName
+      member x.WalkForward(start: Position, terminal: char -> bool, condition: char -> bool) : Position option =
+        walk (x, start, (x :> IFSACSourceText).NextPos, terminal, condition)
 
-          member x.LastFilePosition: Position =
-            let endLine, endChar = (x :> ISourceText).GetLastCharacterPosition()
-            Position.mkPos endLine endChar
+      member x.String: string = sourceText.ToString()
+      member x.FileName: string<LocalPath> = fileName
+      member x.RawFileName: string = UMX.untag fileName
 
-          member x.TotalRange: Range =
-            (Range.mkRange (UMX.untag fileName) Position.pos0 (x.LastFilePosition))
+      member x.LastFilePosition: Position =
+        let endLine, endChar = (x :> ISourceText).GetLastCharacterPosition()
+        Position.mkPos endLine endChar
 
-          member x.Lines: string array =
-            sourceText.Lines |> Seq.toArray |> Array.map (fun l -> l.ToString())
+      member x.TotalRange: Range =
+        (Range.mkRange (UMX.untag fileName) Position.pos0 ((x :> IFSACSourceText).LastFilePosition))
 
-          member this.GetText(range: Range) : Result<string, string> =
-            range.ToRoslynTextSpan(sourceText) |> sourceText.GetSubText |> string |> Ok
+      member x.Lines: string array =
+        sourceText.Lines |> Seq.toArray |> Array.map (fun l -> l.ToString())
 
-          member x.GetLine(pos: Position) : string option =
-            if pos.Line < 1 || pos.Line > totalLinesLength () then
-              None
+      member this.GetText(range: Range) : Result<string, string> =
+        range.ToRoslynTextSpan(sourceText) |> sourceText.GetSubText |> string |> Ok
+
+      member x.GetLine(pos: Position) : string option =
+        if pos.Line < 1 || pos.Line > totalLinesLength () then
+          None
+        else
+          Some((x :> ISourceText).GetLineString(pos.Line - 1))
+
+      member x.GetLineLength(pos: Position) : int option =
+        if pos.Line > totalLinesLength () then
+          None
+        else
+          Some((x :> ISourceText).GetLineString(pos.Line - 1).Length)
+
+      member x.GetCharUnsafe(pos: Position) : char = (x :> IFSACSourceText).GetLine(pos).Value[pos.Column - 1]
+
+      member x.TryGetChar(pos: Position) : char option =
+        option {
+          do! Option.guard (Range.rangeContainsPos ((x :> IFSACSourceText).TotalRange) pos)
+
+          if pos.Column = 0 then
+            return! None
+          else
+            let lineIndex = pos.Column - 1
+            let! lineText = (x :> IFSACSourceText).GetLine(pos)
+
+            if lineText.Length <= lineIndex then
+              return! None
             else
-              Some((x :> ISourceText).GetLineString(pos.Line - 1))
+              return lineText[lineIndex]
+        }
 
-          member x.GetLineLength(pos: Position) : int option =
-            if pos.Line > totalLinesLength () then
-              None
+      member this.NextLine(pos: Position) : Position option =
+        if pos.Line < totalLinesLength () then
+          Position.mkPos (pos.Line + 1) 0 |> Some
+        else
+          None
+
+      member x.NextPos(pos: Position) : Position option =
+        option {
+          let! currentLine = (x :> IFSACSourceText).GetLine pos
+
+          if pos.Column - 1 = currentLine.Length then
+            if totalLinesLength () > pos.Line then
+              // advance to the beginning of the next line
+              return Position.mkPos (pos.Line + 1) 0
             else
-              Some((x :> ISourceText).GetLineString(pos.Line - 1).Length)
+              return! None
+          else
+            return Position.mkPos pos.Line (pos.Column + 1)
+        }
 
-          member x.GetCharUnsafe(pos: Position) : char = x.GetLine(pos).Value[pos.Column - 1]
+      member x.TryGetNextChar(pos: Position) : (Position * char) option =
+        option {
+          let! np = (x :> IFSACSourceText).NextPos pos
+          return np, (x :> IFSACSourceText).GetCharUnsafe np
+        }
 
-          member x.TryGetChar(pos: Position) : char option =
-            option {
-              do! Option.guard (Range.rangeContainsPos (x.TotalRange) pos)
+      member x.PrevPos(pos: Position) : Position option =
+        option {
+          if pos.Column <> 0 then
+            return Position.mkPos pos.Line (pos.Column - 1)
+          else if pos.Line <= 1 then
+            return! None
+          else if totalLinesLength () > pos.Line - 2 then
+            let prevLine = (x :> ISourceText).GetLineString(pos.Line - 2)
+            // retreat to the end of the previous line
+            return Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
+          else
+            return! None
+        }
 
-              if pos.Column = 0 then
-                return! None
-              else
-                let lineIndex = pos.Column - 1
-                let! lineText = x.GetLine(pos)
+      member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
+        option {
+          let! np = (x :> IFSACSourceText).PrevPos pos
+          let! prevLineLength = (x :> IFSACSourceText).GetLineLength(np)
 
-                if lineText.Length <= lineIndex then
-                  return! None
-                else
-                  return lineText[lineIndex]
-            }
+          if np.Column < 1 || prevLineLength < np.Column then
+            return! (x :> IFSACSourceText).TryGetPrevChar(np)
+          else
+            return np, (x :> IFSACSourceText).GetCharUnsafe np
+        }
 
-          member this.NextLine(pos: Position) : Position option =
-            if pos.Line < totalLinesLength () then
-              Position.mkPos (pos.Line + 1) 0 |> Some
-            else
-              None
-
-          member x.NextPos(pos: Position) : Position option =
-            option {
-              let! currentLine = x.GetLine pos
-
-              if pos.Column - 1 = currentLine.Length then
-                if totalLinesLength () > pos.Line then
-                  // advance to the beginning of the next line
-                  return Position.mkPos (pos.Line + 1) 0
-                else
-                  return! None
-              else
-                return Position.mkPos pos.Line (pos.Column + 1)
-            }
-
-          member x.TryGetNextChar(pos: Position) : (Position * char) option =
-            option {
-              let! np = x.NextPos pos
-              return np, x.GetCharUnsafe np
-            }
-
-          member x.PrevPos(pos: Position) : Position option =
-            option {
-              if pos.Column <> 0 then
-                return Position.mkPos pos.Line (pos.Column - 1)
-              else if pos.Line <= 1 then
-                return! None
-              else if totalLinesLength () > pos.Line - 2 then
-                let prevLine = (x :> ISourceText).GetLineString(pos.Line - 2)
-                // retreat to the end of the previous line
-                return Position.mkPos (pos.Line - 1) (prevLine.Length - 1)
-              else
-                return! None
-            }
-
-          member x.TryGetPrevChar(pos: FSharp.Compiler.Text.Position) : (FSharp.Compiler.Text.Position * char) option =
-            option {
-              let! np = x.PrevPos pos
-              let! prevLineLength = x.GetLineLength(np)
-
-              if np.Column < 1 || prevLineLength < np.Column then
-                return! x.TryGetPrevChar(np)
-              else
-                return np, x.GetCharUnsafe np
-            }
-
-          member x.ModifyText(range: Range, text: string) : Result<IFSACSourceText, string> =
-            let span = range.ToRoslynTextSpan(sourceText)
-            let change = TextChange(span, text)
-            Ok(create (fileName, sourceText.WithChanges(change)))
+      member x.ModifyText(range: Range, text: string) : Result<IFSACSourceText, string> =
+        let span = range.ToRoslynTextSpan(sourceText)
+        let change = TextChange(span, text)
+        Ok(RoslynSourceTextFile(fileName, sourceText.WithChanges(change)))
 
 
 
-        interface ISourceText with
+    interface ISourceText with
 
-          member _.Item
-            with get index = sourceText.[index]
+      member _.Item
+        with get index = sourceText.[index]
 
-          member _.GetLineString(lineIndex) = sourceText.Lines.[lineIndex].ToString()
+      member _.GetLineString(lineIndex) = sourceText.Lines.[lineIndex].ToString()
 
-          member _.GetLineCount() = sourceText.Lines.Count
+      member _.GetLineCount() = sourceText.Lines.Count
 
-          member _.GetLastCharacterPosition() =
-            if sourceText.Lines.Count > 0 then
-              (sourceText.Lines.Count, sourceText.Lines.[sourceText.Lines.Count - 1].Span.Length)
-            else
-              (0, 0)
+      member _.GetLastCharacterPosition() =
+        if sourceText.Lines.Count > 0 then
+          (sourceText.Lines.Count, sourceText.Lines.[sourceText.Lines.Count - 1].Span.Length)
+        else
+          (0, 0)
 
-          member _.GetSubTextString(start, length) = sourceText.GetSubText(TextSpan(start, length)).ToString()
+      member _.GetSubTextString(start, length) = sourceText.GetSubText(TextSpan(start, length)).ToString()
 
-          member _.SubTextEquals(target, startIndex) =
-            if startIndex < 0 || startIndex >= sourceText.Length then
-              invalidArg "startIndex" "Out of range."
+      member _.SubTextEquals(target, startIndex) =
+        if startIndex < 0 || startIndex >= sourceText.Length then
+          invalidArg "startIndex" "Out of range."
 
-            if String.IsNullOrEmpty(target) then
-              invalidArg "target" "Is null or empty."
+        if String.IsNullOrEmpty(target) then
+          invalidArg "target" "Is null or empty."
 
-            let lastIndex = startIndex + target.Length
+        let lastIndex = startIndex + target.Length
 
-            if lastIndex <= startIndex || lastIndex >= sourceText.Length then
-              invalidArg "target" "Too big."
+        if lastIndex <= startIndex || lastIndex >= sourceText.Length then
+          invalidArg "target" "Too big."
 
-            let mutable finished = false
-            let mutable didEqual = true
-            let mutable i = 0
+        let mutable finished = false
+        let mutable didEqual = true
+        let mutable i = 0
 
-            while not finished && i < target.Length do
-              if target.[i] <> sourceText.[startIndex + i] then
-                didEqual <- false
-                finished <- true // bail out early
-              else
-                i <- i + 1
+        while not finished && i < target.Length do
+          if target.[i] <> sourceText.[startIndex + i] then
+            didEqual <- false
+            finished <- true // bail out early
+          else
+            i <- i + 1
 
-            didEqual
+        didEqual
 
-          member _.ContentEquals(sourceText) =
-            match sourceText with
-            | :? SourceText as sourceText -> sourceText.ContentEquals(sourceText)
-            | _ -> false
+      member _.ContentEquals(sourceText) =
+        match sourceText with
+        | :? SourceText as sourceText -> sourceText.ContentEquals(sourceText)
+        | _ -> false
 
-          member _.Length = sourceText.Length
+      member _.Length = sourceText.Length
 
-          member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
-            sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
+      member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
+        sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
 
-      }
 
-    sourceText
+
 
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
@@ -400,13 +395,14 @@ type RoslynSourceTextFactory() =
       // This uses a TextReader because the TextReader overload https://github.com/dotnet/roslyn/blob/6df76ec8b109c9460f7abccc3a310c7cdbd2975e/src/Compilers/Core/Portable/Text/SourceText.cs#L120-L139
       // attempts to use the LargeText implementation for large strings. While the string is already allocated, if using CONSERVE_MEMORY, it should be cleaned up and compacted eventually.
       use t = new StringReader(text)
-      RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
+      RoslynSourceText.RoslynSourceTextFile(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(t, text.Length)))
 
     member this.Create(fileName: string<LocalPath>, stream: Stream) : CancellableValueTask<IFSACSourceText> =
       fun ct ->
         ct.ThrowIfCancellationRequested()
         // Maybe one day we'll have an async version for streams: https://github.com/dotnet/roslyn/issues/61489
-        RoslynSourceText.create (fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
+        RoslynSourceText.RoslynSourceTextFile(fileName, (Microsoft.CodeAnalysis.Text.SourceText.From(stream)))
+        :> IFSACSourceText
         |> ValueTask.FromResult
 
 
