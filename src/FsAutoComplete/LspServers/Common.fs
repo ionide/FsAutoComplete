@@ -1,34 +1,18 @@
 namespace FsAutoComplete.Lsp
 
 
-open FsAutoComplete.Lsp
 open System
 open System.IO
 open System.Threading
 open FsAutoComplete
-open FsAutoComplete.Core
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.CodeFix
-open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
-open Ionide.LanguageServerProtocol.Types.LspResult
-open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
-open Newtonsoft.Json.Linq
-open Ionide.ProjInfo.ProjectSystem
-open FSharp.Control.Reactive.Observable
 open FsToolkit.ErrorHandling
 open FSharp.UMX
-open FSharp.Analyzers
-open FSharp.Compiler.Text
 open CliWrap
-open CliWrap.Buffered
-open FSharp.Compiler.Tokenization
-open FSharp.Compiler.EditorServices
-open FSharp.Compiler.Symbols
-open Fantomas.Client.Contracts
-open Fantomas.Client.LSPFantomasService
+
 
 module Result =
   let ofStringErr r = r |> Result.mapError JsonRpc.Error.InternalErrorMessage
@@ -41,7 +25,6 @@ module Result =
 
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) = ar |> Async.map Result.ofCoreResponse
-
   let ofStringErr (ar: Async<Result<'a, string>>) = ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage
 
 
@@ -142,14 +125,11 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
         cts.Cancel()
 
 module Async =
-  open FsAutoComplete.Logging
-  open FsAutoComplete.Logging.Types
   open System.Threading.Tasks
 
   let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
 
   let inline logCancelled e = logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
-
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
     async {

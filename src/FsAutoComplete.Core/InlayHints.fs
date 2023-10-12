@@ -64,28 +64,6 @@ type Hint =
     //ENHANCEMENT: allow xml doc
     Tooltip: string option }
 
-let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
-  option {
-
-    let! contents = state.TryGetFileSource p.FileName |> Option.ofResult
-
-    let! line = contents.GetLine identText.End
-    let! symbolUse = p.TryGetSymbolUse identText.End line
-
-    match symbolUse.Symbol with
-    | :? FSharpMemberOrFunctionOrValue as mfv when
-      mfv.IsFunction || mfv.IsConstructor || mfv.CurriedParameterGroups.Count <> 0
-      ->
-      let parameters = mfv.CurriedParameterGroups
-
-      let formatted =
-        parameters
-        |> Seq.collect (fun pGroup -> pGroup |> Seq.map (fun p -> p.DisplayName + ":"))
-
-      return formatted |> Array.ofSeq
-    | _ -> return! None
-  }
-
 let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
 type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with

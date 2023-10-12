@@ -37,27 +37,16 @@ let loaders =
     // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
   ]
 
-let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
-  let testRunDir =
-    Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
-    |> DirectoryInfo
-
-  let createServer () =
-    FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
-
-  Helpers.createServer createServer
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
   Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath) sourceTextFactory
 
 let lspServers =
   [
-    // "FSharpLspServer", fsharpLspServerFactory
     "AdaptiveLspServer", adaptiveLspServerFactory
     ]
 
 let sourceTextFactories: (string * ISourceTextFactory) list = [
-  // "NamedText", NamedTextFactory()
   "RoslynSourceText", RoslynSourceTextFactory()
 ]
 
@@ -106,7 +95,7 @@ let lspTests =
                 analyzerTests createServer
                 signatureTests createServer
                 SignatureHelp.tests createServer
-                CodeFixTests.Tests.tests createServer
+                CodeFixTests.Tests.tests sourceTextFactory createServer
                 Completion.tests createServer
                 GoTo.tests createServer
 
