@@ -85,14 +85,20 @@ type LoadedProject =
   static member op_Implicit(x: LoadedProject) = x.FSharpProjectOptions
 
 
-type AdaptiveFSharpLspServer
-  (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
-
-  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
-
-  let thisType = typeof<AdaptiveFSharpLspServer>
-
+type AdaptiveState (lspClient: FSharpLspClient, sourceTextFactory : ISourceTextFactory, workspaceLoader: IWorkspaceLoader) =
+  let logger = LogProvider.getLoggerFor<AdaptiveState> ()
+  let thisType = typeof<AdaptiveState>
   let disposables = new Disposables.CompositeDisposable()
+
+  /// The reality is a file can be in multiple projects
+  /// This is extracted to make it easier to do some type of customized select
+  /// in the future
+  let selectProject projs = projs |> List.tryHead
+
+  let selectFSharpProject (projs: LoadedProject list) =
+    projs |> List.tryHead |> Option.map (fun p -> p.FSharpProjectOptions)
+
+
 
   let rootPath = cval<string option> None
 
@@ -103,13 +109,15 @@ type AdaptiveFSharpLspServer
     |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount, c.Fsac.ParallelReferenceResolution)
     |> AVal.map (FSharpCompilerServiceChecker)
 
-  /// The reality is a file can be in multiple projects
-  /// This is extracted to make it easier to do some type of customized select
-  /// in the future
-  let selectProject projs = projs |> List.tryHead
+  let configChanges =
+    aval {
+      let! config = config
+      and! checker = checker
+      and! rootPath = rootPath
 
-  let selectFSharpProject (projs: LoadedProject list) =
-    projs |> List.tryHead |> Option.map (fun p -> p.FSharpProjectOptions)
+      return config, checker, rootPath
+    }
+
 
   let mutable traceNotifications: ProgressListener option = None
 
@@ -203,14 +211,7 @@ type AdaptiveFSharpLspServer
       if fi.Exists && (fi.Name = "dotnet" || fi.Name = "dotnet.exe") then
         checker.SetDotnetRoot(fi, defaultArg rootPath System.Environment.CurrentDirectory |> DirectoryInfo)
 
-  let configChanges =
-    aval {
-      let! config = config
-      and! checker = checker
-      and! rootPath = rootPath
 
-      return config, checker, rootPath
-    }
 
   // Syncs config changes to the mutable world
   do
@@ -224,6 +225,8 @@ type AdaptiveFSharpLspServer
 
       setDotnetRoot checker config.DotNetRoot rootPath)
     |> disposables.Add
+
+
 
   let updateConfig c = transact (fun () -> config.Value <- c)
 
@@ -912,8 +915,6 @@ type AdaptiveFSharpLspServer
     }
     |> AMap.ofAVal
 
-  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
-  let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
 
   let openFilesTokens =
     ConcurrentDictionary<string<LocalPath>, CancellationTokenSource>()
@@ -1017,22 +1018,6 @@ type AdaptiveFSharpLspServer
       // ignore if already cancelled
       ()
 
-  [<return: Struct>]
-  let rec (|Cancelled|_|) (e: exn) =
-    match e with
-    | :? TaskCanceledException -> ValueSome()
-    | :? OperationCanceledException -> ValueSome()
-    | :? System.AggregateException as aex ->
-      if aex.InnerExceptions.Count = 1 then
-        (|Cancelled|_|) aex.InnerException
-      else
-        ValueNone
-    | _ -> ValueNone
-
-  let returnException e =
-    match e with
-    | Cancelled -> LspResult.requestCancelled
-    | e -> LspResult.internalError (string e)
 
   let cachedFileContents = cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
 
@@ -1169,7 +1154,7 @@ type AdaptiveFSharpLspServer
 
               let! opts =
                 checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
-                |> Async.withCancellationSafe (fun () -> lcts.Token)
+                |> Async.withCancellation lcts.Token
 
               opts |> scriptFileProjectOptions.Trigger
 
@@ -1405,7 +1390,7 @@ type AdaptiveFSharpLspServer
 
             return!
               parseAndCheckFile checker info opts.FSharpProjectOptions true
-              |> Async.withCancellationSafe (fun () -> lcts.Token)
+              |> Async.withCancellation lcts.Token
           }
 
       })
@@ -1502,11 +1487,6 @@ type AdaptiveFSharpLspServer
     }
 
   let getDeclarations filename = allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
-
-  let getFilePathAndPosition (p: ITextDocumentPositionParams) =
-    let filePath = p.GetFilePath() |> Utils.normalizePath
-    let pos = p.GetFcsPos()
-    filePath, pos
 
 
   let forceGetProjectOptions filePath =
@@ -1852,7 +1832,7 @@ type AdaptiveFSharpLspServer
          AdjustConstant.fix tryGetParseResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
-    async {
+    cancellableTask {
       let filePath = uri |> Path.FileUriToLocalPath |> Utils.normalizePath
 
       let doesNotExist (file: string<LocalPath>) = not (File.Exists(UMX.untag file))
@@ -1987,7 +1967,7 @@ type AdaptiveFSharpLspServer
             |> Option.defaultWith (fun () -> CancellationToken.None)
 
           bypassAdaptiveTypeCheck (file) (proj)
-          |> Async.withCancellationSafe (fun () -> token)
+          |> Async.withCancellation token
           |> Async.Ignore
           |> Async.bind (fun _ ->
             async {
@@ -2013,10 +1993,132 @@ type AdaptiveFSharpLspServer
     }
 
 
+  member x.RootPath
+    with get () = AVal.force rootPath
+    and set v = transact (fun () -> rootPath.Value <- v)
+
+  member x.Config
+    with get () = AVal.force config
+    and set v = transact (fun () -> config.Value <- v)
+
+  member x.ClientCapabilities
+    with get () = AVal.force clientCapabilities
+    and set v = transact (fun () -> clientCapabilities.Value <- v)
+
+  member x.WorkspacePaths
+    with get () = AVal.force workspacePaths
+    and set v = transact (fun () -> workspacePaths.Value <- v)
+
+  member x.DiagnosticCollections = diagnosticCollections
+
+  member x.ScriptFileProjectOptions with get() = scriptFileProjectOptions
+
+  // member x.IsFileOpen file =
+  //   isFileOpen file |> AVal.force
+
+  member x.OpenDocument(filePath, text: string, version) = cancellableTask {
+    if isFileOpen filePath |> AVal.force then
+      return ()
+    else
+      // We want to try to use the file system's datetime if available
+      let file =
+        VolatileFile.Create(sourceTextFactory.Create(filePath, text), version)
+
+      updateOpenFiles file
+      do! forceGetOpenFileTypeCheckResults filePath |> Async.Ignore<Result<ParseAndCheckResults, string>>
+    return ()
+  }
+
+  member x.ChangeDocument(filePath, p: DidChangeTextDocumentParams) = cancellableTask {
+    updateTextChanges filePath (p, DateTime.UtcNow)
+    do! forceGetOpenFileTypeCheckResults filePath |> Async.Ignore<Result<ParseAndCheckResults, string>>
+  }
+
+  member x.SaveDocument(filePath: string<LocalPath>, text: string option) = cancellableTask {
+    let file =
+      option {
+        let! oldFile = forceFindOpenFile filePath
+
+        let oldFile =
+          text
+          |> Option.map (fun t -> sourceTextFactory.Create(oldFile.FileName, t))
+          |> Option.map (oldFile.SetSource)
+          |> Option.defaultValue oldFile
+
+        return oldFile.UpdateTouched()
+      }
+      |> Option.defaultWith (fun () ->
+        // Very unlikely to get here
+        VolatileFile.Create(sourceTextFactory.Create(filePath, text.Value), 0))
+
+    transact (fun () ->
+      updateOpenFiles file
+      textChanges.Remove filePath |> ignore<bool>)
+
+    let! _ = forceGetOpenFileTypeCheckResults filePath
+    do! bypassAdaptiveAndCheckDepenenciesForFile filePath
+  }
+
+  // member x.TryFindDocument(filePath) =
+  //   forceFindOpenFile filePath
+
+  member x.ForgetDocument(filePath) =
+    forgetDocument filePath
+
+  member x.ParseAllFiles () =
+    parseAllFiles () |> AsyncAVal.forceCancellableTask
+
+  member x.GetOpenFileTypeCheckResults (file) =
+    forceGetOpenFileTypeCheckResults file
+
+  interface IDisposable with
+    member this.Dispose() = disposables.Dispose()
+
+type AdaptiveFSharpLspServer
+  (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
+
+  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
+
+  let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
+  let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
+
+  let thisType = typeof<AdaptiveFSharpLspServer>
+
+  let disposables = new Disposables.CompositeDisposable()
+
+  let state = new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader)
+
+  do disposables.Add(state)
+
+  [<return: Struct>]
+  let rec (|Cancelled|_|) (e: exn) =
+    match e with
+    | :? TaskCanceledException -> ValueSome()
+    | :? OperationCanceledException -> ValueSome()
+    | :? System.AggregateException as aex ->
+      if aex.InnerExceptions.Count = 1 then
+        (|Cancelled|_|) aex.InnerException
+      else
+        ValueNone
+    | _ -> ValueNone
+
+  let returnException e =
+    match e with
+    | Cancelled -> LspResult.requestCancelled
+    | e -> LspResult.internalError (string e)
+
+
+  let getFilePathAndPosition (p: ITextDocumentPositionParams) =
+    let filePath = p.GetFilePath() |> Utils.normalizePath
+    let pos = p.GetFcsPos()
+    filePath, pos
+
+
+
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : AsyncLspResult<SemanticTokens option> =
     asyncResult {
 
-      let! tyRes = forceGetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+      let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
       let r = tyRes.GetCheckResults.GetSemanticClassification(range)
       let filteredRanges = Commands.scrubRanges r
 
@@ -2047,7 +2149,7 @@ type AdaptiveFSharpLspServer
 
         let! res = action () |> AsyncResult.ofStringErr
 
-        let rootPath = rootPath |> AVal.force
+        let rootPath = state.RootPath
 
         match res with
         | (FormatDocumentResponse.Formatted(sourceText, formatted)) ->
@@ -2179,7 +2281,7 @@ type AdaptiveFSharpLspServer
         return! returnException e
     }
 
-  member __.ScriptFileProjectOptions = scriptFileProjectOptions.Publish
+  member __.ScriptFileProjectOptions = state.ScriptFileProjectOptions.Publish
 
   member private x.logUnimplementedRequest<'t, 'u>
     (
@@ -2242,7 +2344,7 @@ type AdaptiveFSharpLspServer
           let projs =
             match p.RootPath, c.AutomaticWorkspaceInit with
             | None, _
-            | _, false -> workspacePaths |> AVal.force
+            | _, false -> state.WorkspacePaths
             | Some actualRootPath, true ->
               let peeks =
                 WorkspacePeek.peek
@@ -2271,17 +2373,17 @@ type AdaptiveFSharpLspServer
               |> WorkspaceChosen.Projs
 
           transact (fun () ->
-            rootPath.Value <- actualRootPath
-            clientCapabilities.Value <- p.Capabilities
+            state.RootPath <- actualRootPath
+            state.ClientCapabilities <- p.Capabilities
             lspClient.ClientCapabilities <- p.Capabilities
 
-            diagnosticCollections.ClientSupportsDiagnostics <-
+            state.DiagnosticCollections.ClientSupportsDiagnostics <-
               match p.Capabilities with
               | Some { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
               | _ -> false
 
-            updateConfig c
-            workspacePaths.Value <- projs)
+            state.Config <- c
+            state.WorkspacePaths <- projs)
 
           let defaultSettings =
             { Helpers.defaultServerCapabilities with
@@ -2315,7 +2417,7 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
-          let! _ = parseAllFiles () |> AsyncAVal.forceAsync
+          let! _ = state.ParseAllFiles()
           return ()
         with e ->
 
@@ -2344,16 +2446,8 @@ type AdaptiveFSharpLspServer
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
-          if isFileOpen filePath |> AVal.force then
-            return ()
-          else
-            // We want to try to use the file system's datetime if available
-            let file =
-              VolatileFile.Create(sourceTextFactory.Create(filePath, doc.Text), doc.Version)
+          do! state.OpenDocument(filePath, doc.Text, doc.Version)
 
-            updateOpenFiles file
-            let! _ = forceGetOpenFileTypeCheckResults filePath
-            return ()
         with e ->
           trace |> Tracing.recordException e
 
@@ -2378,7 +2472,7 @@ type AdaptiveFSharpLspServer
           )
 
           let doc = p.TextDocument
-          do! forgetDocument doc.Uri
+          do! state.ForgetDocument doc.Uri
           return ()
 
         with e ->
@@ -2406,11 +2500,7 @@ type AdaptiveFSharpLspServer
 
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
-
-          updateTextChanges filePath (p, DateTime.UtcNow)
-
-          let! _ = forceGetOpenFileTypeCheckResults filePath
-
+          do! state.ChangeDocument(filePath, p)
 
           return ()
         with e ->
@@ -2440,28 +2530,8 @@ type AdaptiveFSharpLspServer
           let doc = p.TextDocument
           let filePath = doc.GetFilePath() |> Utils.normalizePath
 
-          let file =
-            option {
-              let! oldFile = forceFindOpenFile filePath
+          do! state.SaveDocument(filePath, p.Text)
 
-              let oldFile =
-                p.Text
-                |> Option.map (fun t -> sourceTextFactory.Create(oldFile.FileName, t))
-                |> Option.map (oldFile.SetSource)
-                |> Option.defaultValue oldFile
-
-              return oldFile.UpdateTouched()
-            }
-            |> Option.defaultWith (fun () ->
-              // Very unlikely to get here
-              VolatileFile.Create(sourceTextFactory.Create(filePath, p.Text.Value), 0))
-
-          transact (fun () ->
-            updateOpenFiles file
-            textChanges.Remove filePath |> ignore<bool>)
-
-          let! _ = forceGetOpenFileTypeCheckResults filePath
-          do! bypassAdaptiveAndCheckDepenenciesForFile filePath
           do! lspClient.CodeLensRefresh()
 
           logger.info (
