@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        dotnet-version: ["", "6.0.x", "7.0.x"]
+        dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
         # these entries will mesh with the above combinations
         include:
           # just use what's in the repo
@@ -32,20 +32,27 @@ jobs:
             label: "repo global.json"
             build_net7: false
             test_tfm: net6.0
-          # latest 6.0 stable
+          # latest 6.0
           - global-json-file: "global.json"
             dotnet-version: "6.0.x"
             include-prerelease: false
-            label: "6.0 stable"
+            label: "6.0"
             build_net7: false
             test_tfm: net6.0
-          # latest 7.0 preview
+          # latest 7.0
           - global-json-file: "global.json"
             dotnet-version: "7.0.x"
             include-prerelease: true
-            label: "7.0 preview"
+            label: "7.0"
             build_net7: true
             test_tfm: net7.0
+          # latest 8.0
+          - global-json-file: "global.json"
+            dotnet-version: "8.0.x"
+            include-prerelease: true
+            label: "8.0"
+            build_net8: true
+            test_tfm: net8.0
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -76,18 +83,24 @@ jobs:
       run: dotnet --info
 
     - name: Restore tools
-      run: dotnet tool restore
+      run: |
+        dotnet tool restore && dotnet paket restore
 
     - name: Check format
       run: dotnet build -t:CheckFormat
+      env:
+        DOTNET_ROLL_FORWARD: LatestMajor
+        DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
 
     - name: Run Build
       run: dotnet run --project build -t Build
       env:
         BuildNet7: ${{ matrix.build_net7 }}
+        BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}
+        BuildNet8: ${{ matrix.build_net8 }}

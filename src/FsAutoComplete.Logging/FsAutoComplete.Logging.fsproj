@@ -2,6 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks Condition="'$(BuildNet7)' == 'true'">net6.0;net7.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BuildNet8)' == 'true'">net6.0;net7.0;net8.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
