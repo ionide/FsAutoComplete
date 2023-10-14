@@ -107,7 +107,7 @@ let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
-  | str -> str.IndexOf('(') + 1
+  | str -> str.IndexOf('(', startPos) + 1
 
 let private maxHintLength = 30
 
@@ -946,7 +946,8 @@ let provideHints
                 parameterHints.Add hint
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when
-        hintConfig.ShowParameterHints && methodOrConstructor.IsConstructor
+        hintConfig.ShowParameterHints
+        && (methodOrConstructor.IsConstructor || methodOrConstructor.IsMethod)
         -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
@@ -970,13 +971,18 @@ let provideHints
             methodOrConstructor.CurriedParameterGroups |> Seq.concat |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
 
           for idx = 0 to parameters.Length - 1 do
-            // let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
+            let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
             let param = parameters.[idx]
             let paramName = param.DisplayName
+            // PLI.IsNamedArgument is true if the user has provided a name here. There's no since in providing a hint
+            // for a named argument, so skip it
+            if paramLocationInfo.IsNamedArgument then
+              ()
+            // otherwise apply our 'should we make a hint' logic to the argument text
+            else if ShouldCreate.paramHint methodOrConstructor param "" then
+              let hint = createParamHint paramLocationInfo.ArgumentRange paramName
+              parameterHints.Add(hint)
 
-            // if shouldCreateHint param && paramLocationInfo.IsNamedArgument then
-            //     let hint = { Text = paramName + " ="; Pos = paramLocationInfo.ArgumentRange.Start; Kind = Parameter }
-            //     parameterHints.Add(hint)
             ()
 
         // This will only happen for curried methods defined in F#.
@@ -999,7 +1005,10 @@ let provideHints
           for (definitionArg, appliedArgRange) in parms do
             let! appliedArgText = text[appliedArgRange]
 
-            if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
+            let shouldCreate =
+              ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText
+
+            if shouldCreate then
               let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
 
