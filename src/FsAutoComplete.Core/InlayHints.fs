@@ -107,7 +107,7 @@ let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
-  | str -> str.IndexOf('(') + 1
+  | str -> str.IndexOf('(', startPos) + 1
 
 let private maxHintLength = 30
 
