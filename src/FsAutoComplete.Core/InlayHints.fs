@@ -946,7 +946,8 @@ let provideHints
                 parameterHints.Add hint
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when
-        hintConfig.ShowParameterHints && methodOrConstructor.IsConstructor
+        hintConfig.ShowParameterHints
+        && (methodOrConstructor.IsConstructor || methodOrConstructor.IsMethod)
         -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
@@ -1004,7 +1005,10 @@ let provideHints
           for (definitionArg, appliedArgRange) in parms do
             let! appliedArgText = text[appliedArgRange]
 
-            if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
+            let shouldCreate =
+              ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText
+
+            if shouldCreate then
               let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
 

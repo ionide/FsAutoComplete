@@ -1140,6 +1140,33 @@ let private paramHintTests state =
         """
         [ paramHint "uriString"; paramHint "uriKind" ]
 
+      testCaseAsync "can show param for method applied in curried form"
+      <| checkAllInMarkedRange
+        server
+        """
+        $|System.Environment.GetFolderPath $0System.Environment.SpecialFolder.Desktop
+        |> ignore$|
+        """
+        [ paramHint "folder" ]
+
+      testCaseAsync "can show param for method called in tuple form"
+      <| checkAllInMarkedRange
+        server
+        """
+        $|System.Environment.GetFolderPath($0System.Environment.SpecialFolder.Desktop)
+        |> ignore$|
+        """
+        [ paramHint "folder" ]
+
+      testCaseAsync "can show param for method called in tuple form with multiple parameters"
+      <| checkAllInMarkedRange
+        server
+        """
+        $|System.Environment.GetFolderPath($0System.Environment.SpecialFolder.Desktop, $0System.Environment.SpecialFolderOption.Create)
+        |> ignore$|
+        """
+        [ paramHint "folder"; paramHint "option" ]
+
       testCaseAsync "can show param for name in backticks"
       <| checkAllInMarkedRange
         server
