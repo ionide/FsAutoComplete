@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.66.0] - 2023-10-15
+
+### Removed
+
+* [The following options have been removed from the LSP. The old CLI options will trigger a warning if present, but will not crash the server]((https://github.com/fsharp/FsAutoComplete/pull/1174)) (Thanks @TheAngryByrd!)
+  * The older, Non-Adaptive LSP implementation (in favor of using the Adaptive LSP server)
+  * NamedText (in favor of RoslynSourceText)
+
+### Changed
+
+* [The Inlay Hints' Parameter Hints learned how to show parameter hints for constructor arguments and method parameters](https://github.com/fsharp/FsAutoComplete/pull/1176)
+
 ## [0.65.0] - 2023-10-09
 
 ### Added
