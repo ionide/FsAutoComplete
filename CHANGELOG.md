@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.66.1] - 2023-10-15
+
+### Changed
+
+* Fixed a bug in inlay hints generation for constructors and methods that would cause a crash on members with optional or ParamArray parameters.
+
 ## [0.66.0] - 2023-10-15
 
 ### Removed
