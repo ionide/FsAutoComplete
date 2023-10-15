@@ -1167,6 +1167,32 @@ let private paramHintTests state =
         """
         [ paramHint "folder"; paramHint "option" ]
 
+      testCaseAsync "can show param for method called in tuple form with multiple parameters with optional parameter"
+      <| checkAllInMarkedRange
+        server
+        """
+        type Foo =
+          static member Blah(name: string, enabled: bool, ?age: int) = ()
+        $|
+        Foo.Blah($0"test", $0true)
+        |> ignore
+        $|
+        """
+        [ paramHint "name"; paramHint "enabled" ]
+
+      testCaseAsync "can show param for method called in tuple form with multiple parameters with paramarray parameter"
+      <| checkAllInMarkedRange
+        server
+        """
+        type Foo =
+          static member Blah(name: string, enabled: bool, [<System.ParamArray>]ages: int[]) = ()
+        $|
+        Foo.Blah($0"test", $0true, $01, 2, 3, 4)
+        |> ignore
+        $|
+        """
+        [ paramHint "name"; paramHint "enabled"; paramHint "ages" ]
+
       testCaseAsync "can show param for name in backticks"
       <| checkAllInMarkedRange
         server

@@ -11,6 +11,9 @@ open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text.Range
+open FsAutoComplete.Logging
+
+let logger = LogProvider.getLoggerByName "InlayHints"
 
 /// `traversePat`from `SyntaxTraversal.Traverse`
 ///
@@ -970,20 +973,41 @@ let provideHints
           let parameters =
             methodOrConstructor.CurriedParameterGroups |> Seq.concat |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
 
-          for idx = 0 to parameters.Length - 1 do
-            let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
-            let param = parameters.[idx]
-            let paramName = param.DisplayName
-            // PLI.IsNamedArgument is true if the user has provided a name here. There's no since in providing a hint
-            // for a named argument, so skip it
-            if paramLocationInfo.IsNamedArgument then
-              ()
-            // otherwise apply our 'should we make a hint' logic to the argument text
-            else if ShouldCreate.paramHint methodOrConstructor param "" then
-              let hint = createParamHint paramLocationInfo.ArgumentRange paramName
-              parameterHints.Add(hint)
+          if parameters.Length <> tupledParamInfos.ArgumentLocations.Length then
+            // safety - if the number of parameters doesn't match the number of argument locations, then we can't
+            // reliably create hints, so skip it
+            logger.info (
+              Log.setMessage
+                "Parameter hints for {memberName} may fail because the number of parameters in the defintion ({memberParameters}) doesn't match the number of argument locations ({providedParameters})"
+              >> Log.addContext
+                "memberName"
+                $"{methodOrConstructor.DeclaringEntity
+                   |> Option.map (fun e -> e.FullName)
+                   |> Option.defaultValue String.Empty}::{methodOrConstructor.DisplayName}"
+              >> Log.addContext "memberParameters" parameters.Length
+              >> Log.addContext "providedParameters" tupledParamInfos.ArgumentLocations.Length
+            )
 
-            ()
+          // iterate over the _provided_ parameters, because otherwise we might index into optional parameters
+          // from the method's definition that the user didn't have to provide.
+          // thought/note: what about `paramarray` parameters?
+          tupledParamInfos.ArgumentLocations
+          |> Array.iteri (fun idx paramLocationInfo ->
+            if parameters.Length <= idx then
+              // safety - if the number of parameters doesn't match the number of argument locations, then we can't
+              // reliably create hints, so skip it
+              ()
+            else
+              let param = parameters.[idx]
+              let paramName = param.DisplayName
+              // PLI.IsNamedArgument is true if the user has provided a name here. There's no since in providing a hint
+              // for a named argument, so skip it
+              if paramLocationInfo.IsNamedArgument then
+                ()
+              // otherwise apply our 'should we make a hint' logic to the argument text
+              else if ShouldCreate.paramHint methodOrConstructor param "" then
+                let hint = createParamHint paramLocationInfo.ArgumentRange paramName
+                parameterHints.Add(hint))
 
         // This will only happen for curried methods defined in F#.
         | _, Some appliedArgRanges ->
