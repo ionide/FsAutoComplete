@@ -2642,6 +2642,8 @@ type AdaptiveFSharpLspServer
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
+      let config = AVal.force config
+
       let mapHelpText (ci: CompletionItem) (text: HelpText) =
         match text with
         | HelpText.Simple(symbolName, text) ->
@@ -2700,8 +2702,8 @@ type AdaptiveFSharpLspServer
 
               let n =
                 match getAutoCompleteNamespacesByDeclName sym |> AVal.force with
-                | None -> None
-                | Some s -> Some s
+                | Some s when not config.FullNameExternalAutocomplete -> Some s
+                | _ -> None
 
               CoreResponse.Res(HelpText.Full(sym, tip, n))
 
