@@ -212,6 +212,7 @@ let defaultConfigDto: FSharpConfigDto =
     ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
+    FullNameExternalAutocomplete = None
     Linter = None
     LinterConfig = None
     IndentationSize = None

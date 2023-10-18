@@ -2602,20 +2602,11 @@ type AdaptiveFSharpLspServer
                     let items =
                       decls
                       |> Array.mapi (fun id d ->
-                        let code =
-                          if
-                            System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
-                          then
-                            d.NameInList
-                          elif d.NamespaceToOpen.IsSome then
-                            d.NameInList
-                          else
-                            FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
-
-                        let label =
+                        let code, label =
                           match d.NamespaceToOpen with
-                          | Some no -> sprintf "%s (open %s)" d.NameInList no
-                          | None -> d.NameInList
+                          | Some no when config.FullNameExternalAutocomplete -> sprintf "%s.%s" no d.NameInCode, sprintf "%s (of %s)" d.NameInList no
+                          | Some no -> d.NameInCode, sprintf "%s (open %s)" d.NameInList no
+                          | None -> d.NameInCode, d.NameInList
 
                         { CompletionItem.Create(d.NameInList) with
                             Kind = (AVal.force glyphToCompletionKind) d.Glyph
