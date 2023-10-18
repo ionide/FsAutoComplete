@@ -2604,7 +2604,8 @@ type AdaptiveFSharpLspServer
                       |> Array.mapi (fun id d ->
                         let code, label =
                           match d.NamespaceToOpen with
-                          | Some no when config.FullNameExternalAutocomplete -> sprintf "%s.%s" no d.NameInCode, sprintf "%s (of %s)" d.NameInList no
+                          | Some no when config.FullNameExternalAutocomplete ->
+                            sprintf "%s.%s" no d.NameInCode, sprintf "%s (of %s)" d.NameInList no
                           | Some no -> d.NameInCode, sprintf "%s (open %s)" d.NameInList no
                           | None -> d.NameInCode, d.NameInList
 
