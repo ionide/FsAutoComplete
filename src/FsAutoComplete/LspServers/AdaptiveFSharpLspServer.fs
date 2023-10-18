@@ -2575,6 +2575,11 @@ type AdaptiveFSharpLspServer
                   getCompletions forceGetOpenFileTypeCheckResults
                 | _ -> getCompletions forceGetOpenFileTypeCheckResultsStale
 
+              let getCodeToInsert (d: DeclarationListItem) =
+                match d.NamespaceToOpen with
+                | Some no when config.FullNameExternalAutocomplete -> sprintf "%s.%s" no d.NameInCode
+                | _ -> d.NameInCode
+
               match!
                 retryAsyncOption
                   (TimeSpan.FromMilliseconds(15.))
@@ -2592,7 +2597,7 @@ type AdaptiveFSharpLspServer
                     transact (fun () ->
                       HashMap.OfList(
                         [ for d in decls do
-                            d.NameInList, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
+                            getCodeToInsert d, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
                       )
                       |> autoCompleteItems.UpdateTo)
                     |> ignore<bool>
@@ -2602,16 +2607,15 @@ type AdaptiveFSharpLspServer
                     let items =
                       decls
                       |> Array.mapi (fun id d ->
-                        let code, label =
+                        let label =
                           match d.NamespaceToOpen with
-                          | Some no when config.FullNameExternalAutocomplete ->
-                            sprintf "%s.%s" no d.NameInCode, sprintf "%s (of %s)" d.NameInList no
-                          | Some no -> d.NameInCode, sprintf "%s (open %s)" d.NameInList no
-                          | None -> d.NameInCode, d.NameInList
+                          | Some no when config.FullNameExternalAutocomplete -> sprintf "%s (of %s)" d.NameInList no
+                          | Some no -> sprintf "%s (open %s)" d.NameInList no
+                          | None -> d.NameInList
 
                         { CompletionItem.Create(d.NameInList) with
                             Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                            InsertText = Some code
+                            InsertText = Some(getCodeToInsert d)
                             SortText = Some(sprintf "%06d" id)
                             FilterText = Some d.NameInList
                             Label = label })
