@@ -2597,7 +2597,7 @@ type AdaptiveFSharpLspServer
                     transact (fun () ->
                       HashMap.OfList(
                         [ for d in decls do
-                            getCodeToInsert d, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
+                            d.FullName, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
                       )
                       |> autoCompleteItems.UpdateTo)
                     |> ignore<bool>
@@ -2607,17 +2607,22 @@ type AdaptiveFSharpLspServer
                     let items =
                       decls
                       |> Array.mapi (fun id d ->
-                        let label =
+                        let code = getCodeToInsert d
+
+                        let label, filterText =
                           match d.NamespaceToOpen with
-                          | Some no when config.FullNameExternalAutocomplete -> sprintf "%s (of %s)" d.NameInList no
-                          | Some no -> sprintf "%s (open %s)" d.NameInList no
-                          | None -> d.NameInList
+                          | Some no when config.FullNameExternalAutocomplete ->
+                            // allow filter "Ceiling (System.Math)" by "System.Math.Ceiling" or "CeilingSystem.Math"
+                            sprintf "%s (%s)" d.NameInList no, d.NameInList + code
+                          | Some no -> sprintf "%s (open %s)" d.NameInList no, d.NameInList
+                          | None -> d.NameInList, d.NameInList
 
                         { CompletionItem.Create(d.NameInList) with
+                            Data = Some(JValue(d.FullName))
                             Kind = (AVal.force glyphToCompletionKind) d.Glyph
                             InsertText = Some(getCodeToInsert d)
                             SortText = Some(sprintf "%06d" id)
-                            FilterText = Some d.NameInList
+                            FilterText = Some filterText
                             Label = label })
 
                     let its =
@@ -2723,10 +2728,10 @@ type AdaptiveFSharpLspServer
           )
 
           return!
-            match ci.InsertText with
-            | None -> LspResult.internalError "No InsertText"
-            | Some insertText ->
-              helpText insertText
+            match ci.Data with
+            | None -> LspResult.internalError "No FullName"
+            | Some fullName ->
+              helpText (fullName.ToString())
               |> Result.ofCoreResponse
               |> Result.bimap
                 (function

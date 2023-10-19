@@ -42,13 +42,16 @@ module KeywordList =
   let hashSymbolCompletionItems =
     hashDirectives
     |> Seq.map (fun kv ->
+      let label = "#" + kv.Key
+
       { CompletionItem.Create(kv.Key) with
+          Data = Some(Newtonsoft.Json.Linq.JValue(label))
           Kind = Some CompletionItemKind.Keyword
           InsertText = Some kv.Key
           FilterText = Some kv.Key
           SortText = Some kv.Key
           Documentation = Some(Documentation.String kv.Value)
-          Label = "#" + kv.Key })
+          Label = label })
     |> Seq.toArray
 
   let allKeywords: string list =
@@ -58,6 +61,7 @@ module KeywordList =
     allKeywords
     |> List.mapi (fun id k ->
       { CompletionItem.Create(k) with
+          Data = Some(Newtonsoft.Json.Linq.JValue(k))
           Kind = Some CompletionItemKind.Keyword
           InsertText = Some k
           SortText = Some(sprintf "1000000%d" id)
