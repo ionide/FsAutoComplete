@@ -2580,6 +2580,28 @@ type AdaptiveFSharpLspServer
                 | Some no when config.FullNameExternalAutocomplete -> sprintf "%s.%s" no d.NameInCode
                 | _ -> d.NameInCode
 
+              let createCompletionItem (config: FSharpConfig) (id: int) (d: DeclarationListItem) =
+                let code = getCodeToInsert d
+
+                /// The `label` for completion "System.Math.Ceiling" will be displayed as "Ceiling (System.Math)". This is to bias the viewer towards the member name,
+                /// with the namespace being less-important. The `filterText` is the text that will be used to filter the list of completions as the user types.
+                /// Prepending the member name to the filter text makes it so that the text the user is mot likely typing catches more relevant members at the head of the list.
+                /// e.f. "CeilingSystem.Math.Ceiling" means that the user typing `ceiling` will catch all of the members named ceiling that are in the available namespaces
+                let label, filterText =
+                  match d.NamespaceToOpen with
+                  | Some no when config.FullNameExternalAutocomplete ->
+                    sprintf "%s (%s)" d.NameInList no, d.NameInList + code
+                  | Some no -> sprintf "%s (open %s)" d.NameInList no, d.NameInList
+                  | None -> d.NameInList, d.NameInList
+
+                { CompletionItem.Create(d.NameInList) with
+                    Data = Some(JValue(d.FullName))
+                    Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                    InsertText = Some code
+                    SortText = Some(sprintf "%06d" id)
+                    FilterText = Some filterText
+                    Label = label }
+
               match!
                 retryAsyncOption
                   (TimeSpan.FromMilliseconds(15.))
@@ -2604,28 +2626,7 @@ type AdaptiveFSharpLspServer
 
                     let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
 
-                    let items =
-                      decls
-                      |> Array.mapi (fun id d ->
-                        let code = getCodeToInsert d
-
-                        let label, filterText =
-                          match d.NamespaceToOpen with
-                          | Some no when config.FullNameExternalAutocomplete ->
-                            // completion "System.Math.Ceiling" will be displayed as "Ceiling (System.Math)"
-                            // filter text is "CeilingSystem.Math.Ceiling"
-                            // can be filtered out by "SysMaCe" or "CeSysMa"
-                            sprintf "%s (%s)" d.NameInList no, d.NameInList + code
-                          | Some no -> sprintf "%s (open %s)" d.NameInList no, d.NameInList
-                          | None -> d.NameInList, d.NameInList
-
-                        { CompletionItem.Create(d.NameInList) with
-                            Data = Some(JValue(d.FullName))
-                            Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                            InsertText = Some code
-                            SortText = Some(sprintf "%06d" id)
-                            FilterText = Some filterText
-                            Label = label })
+                    let items = decls |> Array.mapi (createCompletionItem config)
 
                     let its =
                       if not includeKeywords then
