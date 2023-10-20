@@ -2612,7 +2612,9 @@ type AdaptiveFSharpLspServer
                         let label, filterText =
                           match d.NamespaceToOpen with
                           | Some no when config.FullNameExternalAutocomplete ->
-                            // allow filter "Ceiling (System.Math)" by "System.Math.Ceiling" or "CeilingSystem.Math"
+                            // completion "System.Math.Ceiling" will be displayed as "Ceiling (System.Math)"
+                            // filter text is "CeilingSystem.Math.Ceiling"
+                            // can be filtered out by "SysMaCe" or "CeSysMa"
                             sprintf "%s (%s)" d.NameInList no, d.NameInList + code
                           | Some no -> sprintf "%s (open %s)" d.NameInList no, d.NameInList
                           | None -> d.NameInList, d.NameInList
@@ -2620,7 +2622,7 @@ type AdaptiveFSharpLspServer
                         { CompletionItem.Create(d.NameInList) with
                             Data = Some(JValue(d.FullName))
                             Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                            InsertText = Some(getCodeToInsert d)
+                            InsertText = Some code
                             SortText = Some(sprintf "%06d" id)
                             FilterText = Some filterText
                             Label = label })
