@@ -77,6 +77,7 @@ let lspTests =
                 documentSymbolTest createServer
                 Completion.autocompleteTest createServer
                 Completion.autoOpenTests createServer
+                Completion.fullNameExternalAutocompleteTest createServer
                 foldingTests createServer
                 tooltipTests createServer
                 Highlighting.tests createServer

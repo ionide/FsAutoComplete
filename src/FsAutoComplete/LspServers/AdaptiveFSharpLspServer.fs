@@ -2575,6 +2575,33 @@ type AdaptiveFSharpLspServer
                   getCompletions forceGetOpenFileTypeCheckResults
                 | _ -> getCompletions forceGetOpenFileTypeCheckResultsStale
 
+              let getCodeToInsert (d: DeclarationListItem) =
+                match d.NamespaceToOpen with
+                | Some no when config.FullNameExternalAutocomplete -> sprintf "%s.%s" no d.NameInCode
+                | _ -> d.NameInCode
+
+              let createCompletionItem (config: FSharpConfig) (id: int) (d: DeclarationListItem) =
+                let code = getCodeToInsert d
+
+                /// The `label` for completion "System.Math.Ceiling" will be displayed as "Ceiling (System.Math)". This is to bias the viewer towards the member name,
+                /// with the namespace being less-important. The `filterText` is the text that will be used to filter the list of completions as the user types.
+                /// Prepending the member name to the filter text makes it so that the text the user is mot likely typing catches more relevant members at the head of the list.
+                /// e.f. "CeilingSystem.Math.Ceiling" means that the user typing `ceiling` will catch all of the members named ceiling that are in the available namespaces
+                let label, filterText =
+                  match d.NamespaceToOpen with
+                  | Some no when config.FullNameExternalAutocomplete ->
+                    sprintf "%s (%s)" d.NameInList no, d.NameInList + code
+                  | Some no -> sprintf "%s (open %s)" d.NameInList no, d.NameInList
+                  | None -> d.NameInList, d.NameInList
+
+                { CompletionItem.Create(d.NameInList) with
+                    Data = Some(JValue(d.FullName))
+                    Kind = (AVal.force glyphToCompletionKind) d.Glyph
+                    InsertText = Some code
+                    SortText = Some(sprintf "%06d" id)
+                    FilterText = Some filterText
+                    Label = label }
+
               match!
                 retryAsyncOption
                   (TimeSpan.FromMilliseconds(15.))
@@ -2592,37 +2619,14 @@ type AdaptiveFSharpLspServer
                     transact (fun () ->
                       HashMap.OfList(
                         [ for d in decls do
-                            d.NameInList, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
+                            d.FullName, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
                       )
                       |> autoCompleteItems.UpdateTo)
                     |> ignore<bool>
 
                     let includeKeywords = config.KeywordsAutocomplete && shouldKeywords
 
-                    let items =
-                      decls
-                      |> Array.mapi (fun id d ->
-                        let code =
-                          if
-                            System.Text.RegularExpressions.Regex.IsMatch(d.NameInList, """^[a-zA-Z][a-zA-Z0-9']+$""")
-                          then
-                            d.NameInList
-                          elif d.NamespaceToOpen.IsSome then
-                            d.NameInList
-                          else
-                            FSharpKeywords.NormalizeIdentifierBackticks d.NameInList
-
-                        let label =
-                          match d.NamespaceToOpen with
-                          | Some no -> sprintf "%s (open %s)" d.NameInList no
-                          | None -> d.NameInList
-
-                        { CompletionItem.Create(d.NameInList) with
-                            Kind = (AVal.force glyphToCompletionKind) d.Glyph
-                            InsertText = Some code
-                            SortText = Some(sprintf "%06d" id)
-                            FilterText = Some d.NameInList
-                            Label = label })
+                    let items = decls |> Array.mapi (createCompletionItem config)
 
                     let its =
                       if not includeKeywords then
@@ -2650,6 +2654,8 @@ type AdaptiveFSharpLspServer
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
+      let config = AVal.force config
+
       let mapHelpText (ci: CompletionItem) (text: HelpText) =
         match text with
         | HelpText.Simple(symbolName, text) ->
@@ -2708,8 +2714,8 @@ type AdaptiveFSharpLspServer
 
               let n =
                 match getAutoCompleteNamespacesByDeclName sym |> AVal.force with
-                | None -> None
-                | Some s -> Some s
+                | Some s when not config.FullNameExternalAutocomplete -> Some s
+                | _ -> None
 
               CoreResponse.Res(HelpText.Full(sym, tip, n))
 
@@ -2725,10 +2731,10 @@ type AdaptiveFSharpLspServer
           )
 
           return!
-            match ci.InsertText with
-            | None -> LspResult.internalError "No InsertText"
-            | Some insertText ->
-              helpText insertText
+            match ci.Data with
+            | None -> LspResult.internalError "No FullName"
+            | Some fullName ->
+              helpText (fullName.ToString())
               |> Result.ofCoreResponse
               |> Result.bimap
                 (function

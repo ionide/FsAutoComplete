@@ -636,6 +636,7 @@ type FSharpConfigDto =
     ExcludeProjectDirectories: string[] option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
+    FullNameExternalAutocomplete: bool option
     Linter: bool option
     LinterConfig: string option
     IndentationSize: int option
@@ -771,6 +772,7 @@ type FSharpConfig =
     ExcludeProjectDirectories: string[]
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
+    FullNameExternalAutocomplete: bool
     Linter: bool
     LinterConfig: string option
     IndentationSize: int
@@ -816,6 +818,7 @@ type FSharpConfig =
       ExcludeProjectDirectories = [||]
       KeywordsAutocomplete = false
       ExternalAutocomplete = false
+      FullNameExternalAutocomplete = false
       IndentationSize = 4
       Linter = false
       LinterConfig = None
@@ -861,6 +864,7 @@ type FSharpConfig =
       ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories [||]
       KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
       ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
+      FullNameExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
       IndentationSize = defaultArg dto.IndentationSize 4
       Linter = defaultArg dto.Linter false
       LinterConfig = dto.LinterConfig
@@ -958,6 +962,7 @@ type FSharpConfig =
       ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories x.ExcludeProjectDirectories
       KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete x.KeywordsAutocomplete
       ExternalAutocomplete = defaultArg dto.ExternalAutocomplete x.ExternalAutocomplete
+      FullNameExternalAutocomplete = defaultArg dto.FullNameExternalAutocomplete x.FullNameExternalAutocomplete
       IndentationSize = defaultArg dto.IndentationSize x.IndentationSize
       Linter = defaultArg dto.Linter x.Linter
       LinterConfig = dto.LinterConfig
