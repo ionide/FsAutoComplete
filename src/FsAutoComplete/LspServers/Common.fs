@@ -185,6 +185,11 @@ module Helpers =
   let notImplemented<'t> = async.Return LspResult.notImplemented<'t>
   let ignoreNotification = async.Return(())
 
+  let tryGetLineStr pos (text: IFSACSourceText) =
+    text.GetLine(pos)
+    |> Result.ofOption (fun () -> $"No line in {text.FileName} at position {pos}")
+
+
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
 
   let defaultServerCapabilities =
