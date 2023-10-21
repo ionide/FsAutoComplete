@@ -27,58 +27,6 @@ type ICodeGenerationService =
 
   abstract ParseFileInProject: string<LocalPath> -> Async<option<FSharpParseFileResults>>
 
-type CodeGenerationService(checker: FSharpCompilerServiceChecker, state: State) =
-  interface ICodeGenerationService with
-    override x.TokenizeLine(fileName, i) =
-      asyncOption {
-        let! text = state.TryGetFileSource fileName |> Option.ofResult
-
-        try
-          let! line = text.GetLine(Position.mkPos i 0)
-          return Lexer.tokenizeLine [||] line
-        with _ ->
-          return! None
-      }
-
-    override x.GetSymbolAtPosition(fileName, pos: Position) =
-      asyncOption {
-        return!
-          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-          | ResultOrString.Error _ -> None
-          | ResultOrString.Ok(opts, lines, line) ->
-            try
-              Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
-            with _ ->
-              None
-      }
-
-    override x.GetSymbolAndUseAtPositionOfKind(fileName, pos: Position, kind) =
-      asyncOption {
-        let! symbol = (x :> ICodeGenerationService).GetSymbolAtPosition(fileName, pos)
-
-        if symbol.Kind = kind then
-          match state.TryGetFileCheckerOptionsWithLinesAndLineStr(fileName, pos) with
-          | ResultOrString.Error _ -> return! None
-          | ResultOrString.Ok(opts, text, line) ->
-            let! result = checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-            let symbolUse = result.TryGetSymbolUse pos line
-            return! Some(symbol, symbolUse)
-        else
-          return! None
-      }
-
-    override x.ParseFileInProject(fileName) =
-      async {
-        match state.TryGetFileCheckerOptionsWithLines fileName with
-        | ResultOrString.Error _ -> return None
-        | ResultOrString.Ok(opts, text) ->
-          try
-            return
-              checker.TryGetRecentCheckResultsForFile(fileName, opts, text)
-              |> Option.map (fun n -> n.GetParseResults)
-          with _ ->
-            return None
-      }
 
 module CodeGenerationUtils =
   open FSharp.Compiler.Syntax.PrettyNaming
@@ -99,11 +47,9 @@ module CodeGenerationUtils =
       for _ in 0 .. count - 1 do
         x.WriteLine ""
 
-    member __.Indent i =
-      indentWriter.Indent <- indentWriter.Indent + i
+    member __.Indent i = indentWriter.Indent <- indentWriter.Indent + i
 
-    member __.Unindent i =
-      indentWriter.Indent <- max 0 (indentWriter.Indent - i)
+    member __.Unindent i = indentWriter.Indent <- max 0 (indentWriter.Indent - i)
 
     member __.Dump() = indentWriter.InnerWriter.ToString()
 
@@ -210,8 +156,7 @@ module CodeGenerationUtils =
       let revd = List.rev xs
       Some(List.rev revd.Tail, revd.Head)
 
-  let bracket (str: string) =
-    if str.Contains(" ") then "(" + str + ")" else str
+  let bracket (str: string) = if str.Contains(" ") then "(" + str + ")" else str
 
   let formatType ctx (typ: FSharpType) =
     let genericDefinition =
@@ -364,8 +309,7 @@ module CodeGenerationUtils =
     else
       displayName
 
-  let isEventMember (m: FSharpMemberOrFunctionOrValue) =
-    m.IsEvent || hasAttribute<CLIEventAttribute> m.Attributes
+  let isEventMember (m: FSharpMemberOrFunctionOrValue) = m.IsEvent || hasAttribute<CLIEventAttribute> m.Attributes
 
   /// Rename a given argument if the identifier has been used
 
@@ -446,8 +390,7 @@ module CodeGenerationUtils =
 
         writer.Unindent ctx.Indentation
 
-    let memberPrefix (m: FSharpMemberOrFunctionOrValue) =
-      if m.IsDispatchSlot then "override " else "member "
+    let memberPrefix (m: FSharpMemberOrFunctionOrValue) = if m.IsDispatchSlot then "override " else "member "
 
     match m with
     | MemberInfo.PropertyGetSet(getter, setter) ->
@@ -588,8 +531,7 @@ module CodeGenerationUtils =
   /// Use this hack when FCS doesn't return enough information on .NET properties and events.
   /// we use this to filter out the 'meta' members in favor of providing the underlying members for template generation
   /// eg: a property _also_ has the relevant get/set members, so we don't need them.
-  let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) =
-    m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
+  let isSyntheticMember (m: FSharpMemberOrFunctionOrValue) = m.IsProperty || m.IsEventAddMethod || m.IsEventRemoveMethod
 
   let isAbstractNonVirtualMember (m: FSharpMemberOrFunctionOrValue) =
     // is an abstract member
@@ -733,8 +675,7 @@ module CodeGenerationUtils =
     | _ -> lastValidToken
 
   /// The code below is responsible for handling the code generation and determining the insert position
-  let getLineIdent (lineStr: string) =
-    lineStr.Length - lineStr.TrimStart(' ').Length
+  let getLineIdent (lineStr: string) = lineStr.Length - lineStr.TrimStart(' ').Length
 
   let formatMembersAt
     startColumn

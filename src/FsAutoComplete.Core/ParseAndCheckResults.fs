@@ -741,8 +741,7 @@ type ParseAndCheckResults
     with _ ->
       []
 
-  member __.GetAllSymbolUsesInFile() =
-    checkResults.GetAllUsesOfAllSymbolsInFile()
+  member __.GetAllSymbolUsesInFile() = checkResults.GetAllUsesOfAllSymbolsInFile()
 
   member __.GetSemanticClassification = checkResults.GetSemanticClassification None
   member __.GetAST = parseResults.ParseTree

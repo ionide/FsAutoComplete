@@ -45,8 +45,7 @@ module private Section =
       |> String.concat nl
       |> addSection name
 
-  let fromOption (name: string) (content: string option) =
-    if content.IsNone then "" else addSection name content.Value
+  let fromOption (name: string) (content: string option) = if content.IsNone then "" else addSection name content.Value
 
   let fromList (name: string) (content: string seq) =
     if Seq.isEmpty content then
@@ -73,8 +72,7 @@ module private Format =
     { TagName: string
       Formatter: TagInfo -> string option }
 
-  let private extractTextFromQuote (quotedText: string) =
-    quotedText.Substring(1, quotedText.Length - 2)
+  let private extractTextFromQuote (quotedText: string) = quotedText.Substring(1, quotedText.Length - 2)
 
 
   let extractMemberText (text: string) =
@@ -531,11 +529,9 @@ module private Format =
           None
       | _ -> None
 
-    let tryGetDescription (text: string) =
-      tryGetInnerTextOnNonVoidElement text "description"
+    let tryGetDescription (text: string) = tryGetInnerTextOnNonVoidElement text "description"
 
-    let tryGetTerm (text: string) =
-      tryGetInnerTextOnNonVoidElement text "term"
+    let tryGetTerm (text: string) = tryGetInnerTextOnNonVoidElement text "term"
 
     let rec extractItemList (res: ItemList list) (text: string) =
       match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
@@ -749,8 +745,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.map (fun node -> Format.extractMemberText node.Attributes.[0].InnerText, node)
     |> Seq.toList
 
-  let readRemarks (doc: XmlDocument) =
-    doc.DocumentElement.GetElementsByTagName "remarks" |> Seq.cast<XmlNode>
+  let readRemarks (doc: XmlDocument) = doc.DocumentElement.GetElementsByTagName "remarks" |> Seq.cast<XmlNode>
 
   let rawSummary = doc.DocumentElement.ChildNodes.[0]
   let rawParameters = readChildren "param" doc
@@ -776,8 +771,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       |> List.contains node.ParentNode.Name
       |> not)
 
-  let readNamedContentAsKvPair (key, content) =
-    KeyValuePair(key, readContentForTooltip content)
+  let readNamedContentAsKvPair (key, content) = KeyValuePair(key, readContentForTooltip content)
 
   let summary = readContentForTooltip rawSummary
 

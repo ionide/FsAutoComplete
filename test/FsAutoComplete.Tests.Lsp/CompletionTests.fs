@@ -47,7 +47,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -73,23 +73,25 @@ let tests state =
           let line = 15
           let character = lineUnderTest.Length
 
-          let textChange : DidChangeTextDocumentParams =
-            {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
-              ContentChanges =  [|
-                {
-                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
-                  RangeLength = Some 0
-                  Text = "."
-                }
-              |]
-            }
+          let textChange: DidChangeTextDocumentParams =
+            { TextDocument =
+                { Uri = Path.FilePathToUri path
+                  Version = 1 }
+              ContentChanges =
+                [| { Range =
+                       Some
+                         { Start = { Line = line; Character = character }
+                           End = { Line = line; Character = character } }
+                     RangeLength = Some 0
+                     Text = "." } |] }
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character + 1 }
+              Position =
+                { Line = line
+                  Character = character + 1 }
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -99,7 +101,7 @@ let tests state =
           do! c
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -135,7 +137,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -160,23 +162,25 @@ let tests state =
           let lineUnderTest = "\"bareString\""
           let character = lineUnderTest.Length
 
-          let textChange : DidChangeTextDocumentParams =
-            {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
-              ContentChanges =  [|
-                {
-                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
-                  RangeLength = Some 0
-                  Text = "."
-                }
-              |]
-            }
+          let textChange: DidChangeTextDocumentParams =
+            { TextDocument =
+                { Uri = Path.FilePathToUri path
+                  Version = 1 }
+              ContentChanges =
+                [| { Range =
+                       Some
+                         { Start = { Line = line; Character = character }
+                           End = { Line = line; Character = character } }
+                     RangeLength = Some 0
+                     Text = "." } |] }
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character + 1 }
+              Position =
+                { Line = line
+                  Character = character + 1 }
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -186,7 +190,7 @@ let tests state =
           do! c
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -222,7 +226,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -247,23 +251,25 @@ let tests state =
           let lineUnderTest = "[1;2;3]"
           let character = lineUnderTest.Length
 
-          let textChange : DidChangeTextDocumentParams =
-            {
-              TextDocument = { Uri = Path.FilePathToUri path ; Version = 1}
-              ContentChanges =  [|
-                {
-                  Range = Some { Start = { Line = line; Character = character }; End = { Line = line; Character = character } }
-                  RangeLength = Some 0
-                  Text = "."
-                }
-              |]
-            }
+          let textChange: DidChangeTextDocumentParams =
+            { TextDocument =
+                { Uri = Path.FilePathToUri path
+                  Version = 1 }
+              ContentChanges =
+                [| { Range =
+                       Some
+                         { Start = { Line = line; Character = character }
+                           End = { Line = line; Character = character } }
+                     RangeLength = Some 0
+                     Text = "." } |] }
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character + 1 }
+              Position =
+                { Line = line
+                  Character = character + 1 }
               Context =
                 Some
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
@@ -273,7 +279,7 @@ let tests state =
           do! c
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -309,7 +315,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               100
@@ -341,7 +347,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
             let firstItem = completions.Items.[0]
 
@@ -369,7 +375,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
             let firstItem = completions.Items.[0]
 
@@ -396,67 +402,84 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.isLessThan
               completions.Items.Length
               300
               "shouldn't have a very long list of completion items that are only types"
+
             Expect.isGreaterThan
               completions.Items.Length
               100
               "should have a reasonable number of completion items that are only types"
 
-            Expect.exists
-              completions.Items
-              (fun item -> item.Label = "list")
-              "completion should contain the list type"
+            Expect.exists completions.Items (fun item -> item.Label = "list") "completion should contain the list type"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
 
-      testCaseAsync "completion before first character of expression" (async {
-        let! server, path = server
-        let completionParams : CompletionParams =
-          {
-            TextDocument = { Uri = Path.FilePathToUri path }
-            Position = { Line = 8; Character = 12 } // after the 'L' in 'List.'
-            Context = Some { triggerKind = CompletionTriggerKind.Invoked; triggerCharacter = None }
-          }
-        let! response = server.TextDocumentCompletion completionParams
-        match response with
-        | Ok (Some completions) ->
-          Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
-          let firstItem = completions.Items.[0]
-          Expect.equal firstItem.Label "async" "first member should be async, alphabetically first in the full symbol list"
-        | Ok None ->
-          failtest "Should have gotten some completion items"
-        | Error e ->
-          failtestf "Got an error while retrieving completions: %A" e
-      })
+      testCaseAsync
+        "completion before first character of expression"
+        (async {
+          let! server, path = server
 
-      testCaseAsync "completion after first character of expression" (async {
-        let! server, path = server
-        let completionParams : CompletionParams =
-          {
-            TextDocument = { Uri = Path.FilePathToUri path }
-            Position = { Line = 8; Character = 11 } // before the 'L' in 'List.'
-            Context = Some { triggerKind = CompletionTriggerKind.Invoked; triggerCharacter = None }
-          }
-        let! response = server.TextDocumentCompletion completionParams
-        match response with
-        | Ok (Some completions) ->
-          Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
-          let firstItem = completions.Items.[0]
-          Expect.equal firstItem.Label "async" "first member should be async, alphabetically first in the full symbol list"
-        | Ok None ->
-          failtest "Should have gotten some completion items"
-        | Error e ->
-          failtestf "Got an error while retrieving completions: %A" e
-      })
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 8; Character = 12 } // after the 'L' in 'List.'
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.Invoked
+                    triggerCharacter = None } }
 
-      testCaseAsync "no backticks in completionitem signatures" (asyncResult {
-        let! server, path = server
-        let completionParams: CompletionParams =
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok(Some completions) ->
+            Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "async"
+              "first member should be async, alphabetically first in the full symbol list"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "completion after first character of expression"
+        (async {
+          let! server, path = server
+
+          let completionParams: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 8; Character = 11 } // before the 'L' in 'List.'
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.Invoked
+                    triggerCharacter = None } }
+
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok(Some completions) ->
+            Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
+            let firstItem = completions.Items.[0]
+
+            Expect.equal
+              firstItem.Label
+              "async"
+              "first member should be async, alphabetically first in the full symbol list"
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "no backticks in completionitem signatures"
+        (asyncResult {
+          let! server, path = server
+
+          let completionParams: CompletionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
               Context =
@@ -464,13 +487,22 @@ let tests state =
                   { triggerKind = CompletionTriggerKind.TriggerCharacter
                     triggerCharacter = Some '.' } }
 
-        let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
-        let ctokMember = response.Items[0]
-        let! resolved = server.CompletionItemResolve(ctokMember)
-        Expect.equal resolved.Label "CancellationToken" "Just making sure we're on the right member, one that should have backticks"
-        Expect.equal resolved.Detail (Some "property Async.CancellationToken: Async<System.Threading.CancellationToken> with get") "Signature shouldn't have backticks"
+          let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
+          let ctokMember = response.Items[0]
+          let! resolved = server.CompletionItemResolve(ctokMember)
 
-      } |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
+          Expect.equal
+            resolved.Label
+            "CancellationToken"
+            "Just making sure we're on the right member, one that should have backticks"
+
+          Expect.equal
+            resolved.Detail
+            (Some "property Async.CancellationToken: Async<System.Threading.CancellationToken> with get")
+            "Signature shouldn't have backticks"
+
+         }
+         |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
 
       testCaseAsync
         "completion in interpolated string"
@@ -488,7 +520,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
             let firstItem = completions.Items.[0]
 
@@ -516,7 +548,7 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok (Some completions) ->
+          | Ok(Some completions) ->
             Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
             let firstItem = completions.Items.[0]
 
@@ -526,7 +558,7 @@ let tests state =
               "first member should be List.Empty, since properties are preferred over functions"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
-        })]
+        }) ]
 
 ///Tests for getting autocomplete
 let autocompleteTest state =
@@ -572,7 +604,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
 
             Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
             Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
@@ -594,7 +626,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
             //TODO
             // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
             Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
@@ -616,7 +648,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
             //TODO
             // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
             Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
@@ -638,7 +670,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
 
             Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
             Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
@@ -659,7 +691,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
             Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
             Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
         })
@@ -679,7 +711,7 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok (Some res) ->
+          | Result.Ok(Some res) ->
             Expect.exists res.Items (fun n -> n.Label = "Bar") "Autocomplete contains given symbol"
             Expect.exists res.Items (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
         }) ]
@@ -722,9 +754,7 @@ let autoOpenTests state =
     let text = edit.NewText
     let pos = edit.Range.Start
 
-    let indentation =
-      pos.Character
-      + (text.Length - text.TrimStart().Length)
+    let indentation = pos.Character + (text.Length - text.TrimStart().Length)
 
     { Line = pos.Line
       Character = indentation }
@@ -749,21 +779,17 @@ let autoOpenTests state =
               Only = None
               TriggerKind = None } }
 
-      let (|ContainsOpenAction|_|) (codeActions: CodeAction []) =
+      let (|ContainsOpenAction|_|) (codeActions: CodeAction[]) =
         codeActions
-        |> Array.tryFind (fun ca ->
-          ca.Kind = Some "quickfix"
-          && ca.Title.StartsWith "open ")
+        |> Array.tryFind (fun ca -> ca.Kind = Some "quickfix" && ca.Title.StartsWith "open ")
 
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e
       | Ok None -> return failtest "Quick fix Request none"
-      | Ok (Some (CodeActions (ContainsOpenAction quickfix))) ->
+      | Ok(Some(CodeActions(ContainsOpenAction quickfix))) ->
         let ns = quickfix.Title.Substring("open ".Length)
 
-        let edit =
-          quickfix.Edit.Value.DocumentChanges.Value.[0]
-            .Edits.[0]
+        let edit = quickfix.Edit.Value.DocumentChanges.Value.[0].Edits.[0]
 
         let openPos = calcOpenPos edit
         return (edit, ns, openPos)
@@ -789,11 +815,7 @@ let autoOpenTests state =
           (expectedOpen.Line)
           (expectedOpen.Character))
 
-    let runner =
-      if pending then
-        ptestCaseAsync
-      else
-        testCaseAsync
+    let runner = if pending then ptestCaseAsync else testCaseAsync
 
     runner name
     <| async {
@@ -808,10 +830,14 @@ let autoOpenTests state =
       match! server.TextDocumentCompletion p with
       | Error e -> failtestf "Request failed: %A" e
       | Ok None -> failtest "Request none"
-      | Ok (Some res) ->
+      | Ok(Some res) ->
         Expect.isFalse res.IsIncomplete "Result is incomplete"
         let ci = res.Items |> Array.tryFind (fun c -> c.Label = word)
-        if ci = None then failwithf $"Couldn't find completion item for `{word}` among the items %A{res.Items |> Array.map (fun i -> i.Label)}" |> ignore
+
+        if ci = None then
+          failwithf
+            $"Couldn't find completion item for `{word}` among the items %A{res.Items |> Array.map (fun i -> i.Label)}"
+          |> ignore
 
         // now get details: `completionItem/resolve` (previous request was `textDocument/completion` -> List of all completions, but without details)
         match! server.CompletionItemResolve ci.Value with
@@ -938,3 +964,127 @@ let autoOpenTests state =
         "with implicit top level module with open and new lines"
         "ImplicitTopLevelModuleWithOpenAndNewLines.fsx"
       testScript "with root module with comments and new line before open" "ModuleDocsAndNewLineBeforeOpen.fsx" ]
+
+let fullNameExternalAutocompleteTest state =
+  let server =
+    async {
+      let config =
+        { defaultConfigDto with
+            ExternalAutocomplete = Some true
+            FullNameExternalAutocomplete = Some true }
+
+      let path =
+        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
+
+      let! (server, event) = serverInitialize path config state
+      let projectPath = Path.Combine(path, "FullNameExternalAutocompleteTest.fsproj")
+      do! waitForWorkspaceFinishedParsing event
+      do! parseProject projectPath server
+      let path = Path.Combine(path, "Script.fs")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
+
+  let scriptServer =
+    async {
+      let config =
+        { defaultConfigDto with
+            ExternalAutocomplete = Some true
+            FullNameExternalAutocomplete = Some true }
+
+      let path =
+        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
+
+      let! (server, event) = serverInitialize path config state
+      do! waitForWorkspaceFinishedParsing event
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
+
+  let makeAutocompleteTest (serverConfig: (IFSharpLspServer * string) Async) testName (line, character) expects =
+    testCaseAsync
+      testName
+      (async {
+        let! server, path = serverConfig
+
+        let p: CompletionParams =
+          { TextDocument = { Uri = Path.FilePathToUri path }
+            Position = { Line = line; Character = character }
+            Context =
+              Some
+                { triggerKind = CompletionTriggerKind.Invoked
+                  triggerCharacter = None } }
+
+        let! res = server.TextDocumentCompletion p
+
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Result.Ok None -> failtest "Request none"
+        | Result.Ok(Some res) -> expects res
+      })
+
+  let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
+    [ makeAutocompleteTest serverConfig "Autocomplete for Array.map contains no backticks" (0, 8) (fun res ->
+        let n = res.Items |> Array.tryFind (fun i -> i.Label = "Array.map")
+        Expect.isSome n "Completion doesn't exist"
+        Expect.equal n.Value.InsertText (Some "Array.map") "Autocomplete for Array.map contains backticks")
+
+      makeAutocompleteTest serverConfig "Autocomplete for ``a.b`` contains backticks" (2, 1) (fun res ->
+        let n = res.Items |> Array.tryFind (fun i -> i.Label = "a.b")
+        Expect.isSome n "Completion doesn't exist"
+        Expect.equal n.Value.InsertText (Some "``a.b``") "Autocomplete for a.b contains no backticks")
+
+      testCaseAsync
+        "Autocompletes with same label have different description"
+        (asyncResult {
+          let! server, path = serverConfig
+
+          let p: CompletionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 3; Character = 4 }
+              Context =
+                Some
+                  { triggerKind = CompletionTriggerKind.Invoked
+                    triggerCharacter = None } }
+
+          let! response = server.TextDocumentCompletion p |> AsyncResult.map Option.get
+
+          let! items =
+            response.Items
+            |> Array.filter (fun i -> i.Label = "bind")
+            |> Array.map (server.CompletionItemResolve)
+            |> Async.Parallel
+
+          let count =
+            items
+            |> Array.distinctBy (function Ok x -> x.Detail | Error _ -> None)
+            |> Array.length
+
+          Expect.equal count items.Length "These completions doesn't have different description"
+         }
+         |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
+
+      makeAutocompleteTest
+        serverConfig
+        "Check Autocomplete for System.Text.RegularExpressions.Regex"
+        (4, 5)
+        (fun res ->
+          let n = res.Items |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
+          Expect.isSome n "Completion doesn't exist"
+          Expect.equal n.Value.InsertText (Some "System.Text.RegularExpressions.Regex") "Autocomplete for Regex is not System.Text.RegularExpressions.Regex"
+          Expect.equal n.Value.FilterText (Some "RegexSystem.Text.RegularExpressions.Regex") "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
+
+      makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5, 6) (fun res ->
+        let n = res.Items |> Array.tryFind (fun i -> i.Label = "Result")
+        Expect.isSome n "Completion doesn't exist"
+        Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol") ]
+
+  testList
+    "fullNameExternalAutocompleteTest Tests"
+    [ testList "fullNameExternalAutocompleteTest within project files" (makeAutocompleteTestList server)
+      testList "fullNameExternalAutocompleteTest within script files" (makeAutocompleteTestList scriptServer) ]

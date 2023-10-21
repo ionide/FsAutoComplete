@@ -15,6 +15,8 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
+module Lsp = Ionide.LanguageServerProtocol.Types
+
 module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos
 
@@ -267,6 +269,7 @@ type FSharpConfigDto =
     ExcludeProjectDirectories: string[] option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
+    FullNameExternalAutocomplete: bool option
     Linter: bool option
     LinterConfig: string option
     IndentationSize: int option
@@ -361,6 +364,7 @@ type FSharpConfig =
     ExcludeProjectDirectories: string[]
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
+    FullNameExternalAutocomplete: bool
     Linter: bool
     LinterConfig: string option
     IndentationSize: int

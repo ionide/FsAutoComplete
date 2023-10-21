@@ -11,6 +11,9 @@ open System.Linq
 open System.Collections.Immutable
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text.Range
+open FsAutoComplete.Logging
+
+let logger = LogProvider.getLoggerByName "InlayHints"
 
 /// `traversePat`from `SyntaxTraversal.Traverse`
 ///
@@ -64,30 +67,7 @@ type Hint =
     //ENHANCEMENT: allow xml doc
     Tooltip: string option }
 
-let private getArgumentsFor (state: FsAutoComplete.State, p: ParseAndCheckResults, identText: Range) =
-  option {
-
-    let! contents = state.TryGetFileSource p.FileName |> Option.ofResult
-
-    let! line = contents.GetLine identText.End
-    let! symbolUse = p.TryGetSymbolUse identText.End line
-
-    match symbolUse.Symbol with
-    | :? FSharpMemberOrFunctionOrValue as mfv when
-      mfv.IsFunction || mfv.IsConstructor || mfv.CurriedParameterGroups.Count <> 0
-      ->
-      let parameters = mfv.CurriedParameterGroups
-
-      let formatted =
-        parameters
-        |> Seq.collect (fun pGroup -> pGroup |> Seq.map (fun p -> p.DisplayName + ":"))
-
-      return formatted |> Array.ofSeq
-    | _ -> return! None
-  }
-
-let private isSignatureFile (f: string<LocalPath>) =
-  System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
+let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
 type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
   // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
@@ -130,7 +110,7 @@ let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
-  | str -> str.IndexOf('(') + 1
+  | str -> str.IndexOf('(', startPos) + 1
 
 let private maxHintLength = 30
 
@@ -168,8 +148,7 @@ module private ShouldCreate =
 
 
   [<return: Struct>]
-  let private (|StartsWith|_|) (v: string) (fullName: string) =
-    if fullName.StartsWith v then ValueSome() else ValueNone
+  let private (|StartsWith|_|) (v: string) (fullName: string) = if fullName.StartsWith v then ValueSome() else ValueNone
   // doesn't differentiate between modules, types, namespaces
   // -> is just for documentation in code
   [<return: Struct>]
@@ -223,8 +202,7 @@ module private ShouldCreate =
       | _ -> false
     | _ -> false
 
-  let inline private hasName (p: FSharpParameter) =
-    not (String.IsNullOrEmpty p.DisplayName) && p.DisplayName <> "````"
+  let inline private hasName (p: FSharpParameter) = not (String.IsNullOrEmpty p.DisplayName) && p.DisplayName <> "````"
 
   let inline private isMeaningfulName (p: FSharpParameter) = p.DisplayName.Length > 2
 
@@ -971,7 +949,8 @@ let provideHints
                 parameterHints.Add hint
 
       | :? FSharpMemberOrFunctionOrValue as methodOrConstructor when
-        hintConfig.ShowParameterHints && methodOrConstructor.IsConstructor
+        hintConfig.ShowParameterHints
+        && (methodOrConstructor.IsConstructor || methodOrConstructor.IsMethod)
         -> // TODO: support methods when this API comes into FCS
         let endPosForMethod = symbolUse.Range.End
         let line, _ = Position.toZ endPosForMethod
@@ -994,15 +973,41 @@ let provideHints
           let parameters =
             methodOrConstructor.CurriedParameterGroups |> Seq.concat |> Array.ofSeq // TODO: need ArgumentLocations to be surfaced
 
-          for idx = 0 to parameters.Length - 1 do
-            // let paramLocationInfo = tupledParamInfos.ArgumentLocations.[idx]
-            let param = parameters.[idx]
-            let paramName = param.DisplayName
+          if parameters.Length <> tupledParamInfos.ArgumentLocations.Length then
+            // safety - if the number of parameters doesn't match the number of argument locations, then we can't
+            // reliably create hints, so skip it
+            logger.info (
+              Log.setMessage
+                "Parameter hints for {memberName} may fail because the number of parameters in the defintion ({memberParameters}) doesn't match the number of argument locations ({providedParameters})"
+              >> Log.addContext
+                "memberName"
+                $"{methodOrConstructor.DeclaringEntity
+                   |> Option.map (fun e -> e.FullName)
+                   |> Option.defaultValue String.Empty}::{methodOrConstructor.DisplayName}"
+              >> Log.addContext "memberParameters" parameters.Length
+              >> Log.addContext "providedParameters" tupledParamInfos.ArgumentLocations.Length
+            )
 
-            // if shouldCreateHint param && paramLocationInfo.IsNamedArgument then
-            //     let hint = { Text = paramName + " ="; Pos = paramLocationInfo.ArgumentRange.Start; Kind = Parameter }
-            //     parameterHints.Add(hint)
-            ()
+          // iterate over the _provided_ parameters, because otherwise we might index into optional parameters
+          // from the method's definition that the user didn't have to provide.
+          // thought/note: what about `paramarray` parameters?
+          tupledParamInfos.ArgumentLocations
+          |> Array.iteri (fun idx paramLocationInfo ->
+            if parameters.Length <= idx then
+              // safety - if the number of parameters doesn't match the number of argument locations, then we can't
+              // reliably create hints, so skip it
+              ()
+            else
+              let param = parameters.[idx]
+              let paramName = param.DisplayName
+              // PLI.IsNamedArgument is true if the user has provided a name here. There's no since in providing a hint
+              // for a named argument, so skip it
+              if paramLocationInfo.IsNamedArgument then
+                ()
+              // otherwise apply our 'should we make a hint' logic to the argument text
+              else if ShouldCreate.paramHint methodOrConstructor param "" then
+                let hint = createParamHint paramLocationInfo.ArgumentRange paramName
+                parameterHints.Add(hint))
 
         // This will only happen for curried methods defined in F#.
         | _, Some appliedArgRanges ->
@@ -1024,7 +1029,10 @@ let provideHints
           for (definitionArg, appliedArgRange) in parms do
             let! appliedArgText = text[appliedArgRange]
 
-            if ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText then
+            let shouldCreate =
+              ShouldCreate.paramHint methodOrConstructor definitionArg appliedArgText
+
+            if shouldCreate then
               let hint = createParamHint appliedArgRange definitionArg.DisplayName
               parameterHints.Add(hint)
 

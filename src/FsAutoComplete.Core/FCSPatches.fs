@@ -7,6 +7,7 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.EditorServices
 
 module internal SynExprAppLocationsImpl =
   let rec private searchSynArgExpr traverseSynExpr expr ranges =
@@ -349,6 +350,60 @@ type FSharpParseFileResults with
             | SynExpr.InterpolatedString(range = range) when Range.rangeContainsPos range pos -> Some range
             | _ -> defaultTraverse expr }
     )
+
+  member scope.ClassifyBinding(binding: SynBinding) =
+    match binding with
+    | SynBinding(valData = SynValData(memberFlags = None)) -> FSharpGlyph.Delegate
+    | _ -> FSharpGlyph.Method
+
+  member scope.TryRangeOfNameOfNearestOuterBindingOrMember pos =
+    let tryGetIdentRangeFromBinding binding =
+      let glyph = scope.ClassifyBinding binding
+
+      match binding with
+      | SynBinding(headPat = headPat) ->
+        match headPat with
+        | SynPat.LongIdent(longDotId = longIdentWithDots) ->
+          Some(binding.RangeOfBindingWithRhs, glyph, longIdentWithDots.LongIdent)
+        | SynPat.As(rhsPat = SynPat.Named(ident = SynIdent(ident, _); isThisVal = false))
+        | SynPat.Named(SynIdent(ident, _), false, _, _) -> Some(binding.RangeOfBindingWithRhs, glyph, [ ident ])
+        | _ -> None
+
+    let rec walkBinding expr workingRange =
+      match expr with
+
+      // This lets us dive into subexpressions that may contain the binding we're after
+      | SynExpr.Sequential(_, _, expr1, expr2, _) ->
+        if Range.rangeContainsPos expr1.Range pos then
+          walkBinding expr1 workingRange
+        else
+          walkBinding expr2 workingRange
+
+      | SynExpr.LetOrUse(bindings = bindings; body = bodyExpr) ->
+        let potentialNestedRange =
+          bindings
+          |> List.tryFind (fun binding -> Range.rangeContainsPos binding.RangeOfBindingWithRhs pos)
+          |> Option.bind tryGetIdentRangeFromBinding
+
+        match potentialNestedRange with
+        | Some range -> walkBinding bodyExpr range
+        | None -> walkBinding bodyExpr workingRange
+
+      | _ -> Some workingRange
+
+    let visitor =
+      { new SyntaxVisitorBase<_>() with
+          override _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+
+          override _.VisitBinding(_path, defaultTraverse, binding) =
+            match binding with
+            | SynBinding(expr = expr) as b when Range.rangeContainsPos b.RangeOfBindingWithRhs pos ->
+              match tryGetIdentRangeFromBinding b with
+              | Some range -> walkBinding expr range
+              | None -> None
+            | _ -> defaultTraverse binding }
+
+    SyntaxTraversal.Traverse(pos, scope.ParseTree, visitor)
 
 module SyntaxTreeOps =
   open FSharp.Compiler.Syntax

@@ -193,21 +193,6 @@ let record (cacher: Cacher<_>) =
     cacher.OnNext(name, payload)
     AsyncLspResult.success Unchecked.defaultof<_>
 
-let createServer (state: unit -> State) sourceTextFactory =
-  let serverInteractions = new Cacher<_>()
-  let recordNotifications = record serverInteractions
-
-  let recordRequests =
-    { new Server.ClientRequestSender with
-        member __.Send name payload = record serverInteractions name payload }
-
-  let innerState = state ()
-  let client = FSharpLspClient(recordNotifications, recordRequests)
-  let originalFs = FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem
-  let fs = FsAutoComplete.FileSystem(originalFs, innerState.Files.TryFind)
-  FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <- fs
-  let server = new FSharpLspServer(innerState, client, sourceTextFactory)
-  server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let createAdaptiveServer workspaceLoader sourceTextFactory =
   let serverInteractions = new Cacher<_>()
@@ -227,6 +212,7 @@ let defaultConfigDto: FSharpConfigDto =
     ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
+    FullNameExternalAutocomplete = None
     Linter = None
     LinterConfig = None
     IndentationSize = None
@@ -539,11 +525,15 @@ let inline expectExitCodeZero (r: BufferedCommandResult) =
     0
     $"Expected exit code zero but was %i{r.ExitCode}.\nStdOut: %s{r.StandardOutput}\nStdErr: %s{r.StandardError}"
 
-let dotnetRestore dir =
-  runProcess dir "dotnet" "restore" |> Async.map expectExitCodeZero
+let dotnetRestore dir = async {
+  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "restore -v d"
+  return expectExitCodeZero r
+}
 
-let dotnetToolRestore dir =
-  runProcess dir "dotnet" "tool restore" |> Async.map expectExitCodeZero
+let dotnetToolRestore dir = async {
+  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "tool restore"
+  return expectExitCodeZero r
+}
 
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {

@@ -9,26 +9,17 @@ open System.CommandLine
 open System.CommandLine.Parsing
 open System.CommandLine.Builder
 open Serilog.Filters
-open System.Runtime.InteropServices
 open System.Threading.Tasks
 open FsAutoComplete.Lsp
 open OpenTelemetry
 open OpenTelemetry.Resources
 open OpenTelemetry.Trace
 
-type SourceTextFactoryOptions =
-  | NamedText = 0
-  | RoslynSourceText = 1
-
-
-
 module Parser =
   open FsAutoComplete.Core
   open System.Diagnostics
 
   let mutable tracerProvider = Unchecked.defaultof<_>
-
-
 
   [<Struct>]
   type Pos = { Line: int; Column: int }
@@ -103,14 +94,6 @@ module Parser =
       "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
     )
 
-  let sourceTextFactoryOption =
-    Option<SourceTextFactoryOptions>(
-      "--source-text-factory",
-      description =
-        "Set the source text factory to use. NamedText is the default, and uses an old F# compiler's implementation. RoslynSourceText uses Roslyn's implementation.",
-      getDefaultValue = fun () -> SourceTextFactoryOptions.NamedText
-    )
-
   let otelTracingOption =
     Option<bool>(
       "--otel-exporter-enabled",
@@ -138,13 +121,12 @@ module Parser =
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
     rootCommand.AddOption otelTracingOption
-    rootCommand.AddOption sourceTextFactoryOption
 
     // for back-compat - we removed some options and this broke some clients.
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
-      Func<_, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled sourceTextFactoryOption ->
+      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
         let workspaceLoaderFactory =
           fun toolsPath ->
             if projectGraphEnabled then
@@ -152,11 +134,7 @@ module Parser =
             else
               Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
 
-        let sourceTextFactory: ISourceTextFactory =
-          match sourceTextFactoryOption with
-          | SourceTextFactoryOptions.NamedText -> new NamedTextFactory()
-          | SourceTextFactoryOptions.RoslynSourceText -> new RoslynSourceTextFactory()
-          | _ -> new NamedTextFactory()
+        let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
 
         let dotnetPath =
           if
@@ -175,15 +153,14 @@ module Parser =
           if adaptiveLspEnabled then
             fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
           else
-            fun () -> FSharpLspServer.startCore toolsPath stateDirectory workspaceLoaderFactory sourceTextFactory
+            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
 
-        let result = FSharpLspServer.start lspFactory
+        let result = AdaptiveFSharpLspServer.start lspFactory
 
         Task.FromResult result),
       projectGraphOption,
       stateLocationOption,
-      adaptiveLspServerOption,
-      sourceTextFactoryOption
+      adaptiveLspServerOption
     )
 
     rootCommand
@@ -257,8 +234,7 @@ module Parser =
       let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) = e.Level >= minLevel
 
       // will use later when a mapping-style config of { "category": "minLevel" } is established
-      let excludeByLevelWhenCategory category level event =
-        isCategory category event || not (hasMinLevel level event)
+      let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
 
       let args = ctx.ParseResult
 

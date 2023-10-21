@@ -37,27 +37,16 @@ let loaders =
     // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
   ]
 
-let fsharpLspServerFactory toolsPath workspaceLoaderFactory =
-  let testRunDir =
-    Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
-    |> DirectoryInfo
-
-  let createServer () =
-    FsAutoComplete.State.Initial toolsPath testRunDir workspaceLoaderFactory
-
-  Helpers.createServer createServer
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
   Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath) sourceTextFactory
 
 let lspServers =
   [
-    // "FSharpLspServer", fsharpLspServerFactory
     "AdaptiveLspServer", adaptiveLspServerFactory
     ]
 
 let sourceTextFactories: (string * ISourceTextFactory) list = [
-  "NamedText", NamedTextFactory()
   "RoslynSourceText", RoslynSourceTextFactory()
 ]
 
@@ -88,6 +77,7 @@ let lspTests =
                 documentSymbolTest createServer
                 Completion.autocompleteTest createServer
                 Completion.autoOpenTests createServer
+                Completion.fullNameExternalAutocompleteTest createServer
                 foldingTests createServer
                 tooltipTests createServer
                 Highlighting.tests createServer
@@ -106,7 +96,7 @@ let lspTests =
                 analyzerTests createServer
                 signatureTests createServer
                 SignatureHelp.tests createServer
-                CodeFixTests.Tests.tests createServer
+                CodeFixTests.Tests.tests sourceTextFactory createServer
                 Completion.tests createServer
                 GoTo.tests createServer
 
@@ -119,7 +109,8 @@ let lspTests =
                 InlayHintTests.tests createServer
                 DependentFileChecking.tests createServer
                 UnusedDeclarationsTests.tests createServer
-
+                EmptyFileTests.tests createServer
+                CallHierarchy.tests createServer
                 ] ]
 
 /// Tests that do not require a LSP server
@@ -245,14 +236,13 @@ let main args =
 
   let cts = new CancellationTokenSource(testTimeout)
 
-  let config =
-    { defaultConfig with
-        // failOnFocusedTests = true
-        printer = Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer
-        verbosity = logLevel
-        // runInParallel = false
-         }
+  let args  =
+    [
+      CLIArguments.Printer (Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+      CLIArguments.Verbosity logLevel
+      // CLIArguments.Parallel
+    ]
 
-  runTestsWithArgsAndCancel cts.Token config fixedUpArgs tests
+  runTestsWithCLIArgsAndCancel cts.Token args fixedUpArgs tests
 
 

@@ -19,32 +19,23 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   member val ClientCapabilities: ClientCapabilities option = None with get, set
 
-  override __.WindowShowMessage(p) =
-    sendServerNotification "window/showMessage" (box p) |> Async.Ignore
+  override __.WindowShowMessage(p) = sendServerNotification "window/showMessage" (box p) |> Async.Ignore
 
-  override __.WindowShowMessageRequest(p) =
-    sendServerRequest.Send "window/showMessageRequest" (box p)
+  override __.WindowShowMessageRequest(p) = sendServerRequest.Send "window/showMessageRequest" (box p)
 
-  override __.WindowLogMessage(p) =
-    sendServerNotification "window/logMessage" (box p) |> Async.Ignore
+  override __.WindowLogMessage(p) = sendServerNotification "window/logMessage" (box p) |> Async.Ignore
 
-  override __.TelemetryEvent(p) =
-    sendServerNotification "telemetry/event" (box p) |> Async.Ignore
+  override __.TelemetryEvent(p) = sendServerNotification "telemetry/event" (box p) |> Async.Ignore
 
-  override __.ClientRegisterCapability(p) =
-    sendServerRequest.Send "client/registerCapability" (box p)
+  override __.ClientRegisterCapability(p) = sendServerRequest.Send "client/registerCapability" (box p)
 
-  override __.ClientUnregisterCapability(p) =
-    sendServerRequest.Send "client/unregisterCapability" (box p)
+  override __.ClientUnregisterCapability(p) = sendServerRequest.Send "client/unregisterCapability" (box p)
 
-  override __.WorkspaceWorkspaceFolders() =
-    sendServerRequest.Send "workspace/workspaceFolders" ()
+  override __.WorkspaceWorkspaceFolders() = sendServerRequest.Send "workspace/workspaceFolders" ()
 
-  override __.WorkspaceConfiguration(p) =
-    sendServerRequest.Send "workspace/configuration" (box p)
+  override __.WorkspaceConfiguration(p) = sendServerRequest.Send "workspace/configuration" (box p)
 
-  override __.WorkspaceApplyEdit(p) =
-    sendServerRequest.Send "workspace/applyEdit" (box p)
+  override __.WorkspaceApplyEdit(p) = sendServerRequest.Send "workspace/applyEdit" (box p)
 
   override __.WorkspaceSemanticTokensRefresh() =
     sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
@@ -63,8 +54,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyCancelledRequest(p: PlainNotification) =
     sendServerNotification "fsharp/notifyCancel" (box p) |> Async.Ignore
 
-  member __.NotifyFileParsed(p: PlainNotification) =
-    sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
+  member __.NotifyFileParsed(p: PlainNotification) = sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
 
   member __.NotifyDocumentAnalyzed(p: DocumentAnalyzedNotification) =
     sendServerNotification "fsharp/documentAnalyzed" (box p) |> Async.Ignore
@@ -180,12 +170,10 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     }
 
   interface IAsyncDisposable with
-    member x.DisposeAsync() =
-      task { do! x.End () (CancellationToken.None) } |> ValueTask
+    member x.DisposeAsync() = task { do! x.End () (CancellationToken.None) } |> ValueTask
 
   interface IDisposable with
-    member x.Dispose() =
-      (x :> IAsyncDisposable).DisposeAsync() |> ignore
+    member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
 open System.Diagnostics.Tracing
@@ -197,11 +185,9 @@ open Ionide.ProjInfo.Logging
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
 type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
-  let isOneOf list string =
-    list |> Array.exists (fun f -> f string)
+  let isOneOf list string = list |> Array.exists (fun f -> f string)
 
-  let strEquals (other: string) (this: string) =
-    this.Equals(other, StringComparison.InvariantCultureIgnoreCase)
+  let strEquals (other: string) (this: string) = this.Equals(other, StringComparison.InvariantCultureIgnoreCase)
 
   let strContains (substring: string) (str: string) = str.Contains(substring)
 
@@ -324,8 +310,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
   do ActivitySource.AddActivityListener listener
 
   interface IDisposable with
-    member this.Dispose() : unit =
-      (this :> IAsyncDisposable).DisposeAsync() |> ignore
+    member this.Dispose() : unit = (this :> IAsyncDisposable).DisposeAsync() |> ignore
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =

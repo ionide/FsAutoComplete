@@ -17,8 +17,7 @@ let private embeddedSourceGuid = System.Guid "0E8A571B-6926-466E-B4AD-8AB04611F5
 
 let private httpClient = new System.Net.Http.HttpClient()
 
-let private toHex (bytes: byte[]) =
-  System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
+let private toHex (bytes: byte[]) = System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
 /// left hand side of sourcelink document mapping, represents a static or partially-static repo root path
 [<Measure>]

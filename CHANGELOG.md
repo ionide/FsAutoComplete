@@ -1,5 +1,76 @@
 # Changelog
 
+## [0.66.1] - 2023-10-15
+
+### Changed
+
+* Fixed a bug in inlay hints generation for constructors and methods that would cause a crash on members with optional or ParamArray parameters.
+
+## [0.66.0] - 2023-10-15
+
+### Removed
+
+* [The following options have been removed from the LSP. The old CLI options will trigger a warning if present, but will not crash the server]((https://github.com/fsharp/FsAutoComplete/pull/1174)) (Thanks @TheAngryByrd!)
+  * The older, Non-Adaptive LSP implementation (in favor of using the Adaptive LSP server)
+  * NamedText (in favor of RoslynSourceText)
+
+### Changed
+
+* [The Inlay Hints' Parameter Hints learned how to show parameter hints for constructor arguments and method parameters](https://github.com/fsharp/FsAutoComplete/pull/1176)
+
+## [0.65.0] - 2023-10-09
+
+### Added
+- [Incoming Call Hierarchy](https://github.com/fsharp/FsAutoComplete/pull/1164) (thanks @TheAngryByrd!)
+
+### Fixed 
+- [Ignore requests that would cause circular dependencies in project references](https://github.com/fsharp/FsAutoComplete/pull/1173) (thanks @dawedawe!)
+
+## [0.64.1] - 2023-10-05
+
+### Fixed
+- [fix the Define active pattern](https://github.com/fsharp/FsAutoComplete/pull/1170) (thanks @dawedawe!)
+
+## [0.64.0] - 2023-09-27
+
+### Added 
+- [Add CodeActions for Number Constants: Convert between bases, Add digit group separators](https://github.com/fsharp/FsAutoComplete/pull/1167) (thanks @BooksBaum!)
+
+### Changed
+- [Default to RoslynSourceText](https://github.com/fsharp/FsAutoComplete/pull/1168) (thank @TheAngryByrd!)
+
+## [0.63.1] - 2023-09-18
+
+### Fixed
+- [fix an expecto test detection](https://github.com/fsharp/FsAutoComplete/pull/1165) (Thanks @TheAngryByrd!)
+
+## [0.63.0] - 2023-09-06
+
+### Added
+* [Add support for Expecto theory tests](https://github.com/fsharp/FsAutoComplete/pull/1160) (thanks @Numpsy!)
+* [Add Scaffolding for Generating Codefixes](https://github.com/fsharp/FsAutoComplete/pull/1158) (thanks @nojaf!)
+### Changed
+* [Extract out AST-collecting-walker to a separate function + abstract class](https://github.com/fsharp/FsAutoComplete/pull/1154) (thanks @baronfel!)
+
+### Fixed
+* [Fixed File Index out of range issues](https://github.com/fsharp/FsAutoComplete/pull/1152) (thanks @Happypig375!)
+
+## [0.62.0] - 2023-08-21
+
+### Added
+
+* A new flag for controlling FSAC's support of ParallelReferenceResolution - `fsharp.fsac.parallelReferenceResolution`. If true, this allows for more parallelization of the compilation.
+
+### Changed
+
+* Updated Ionide.LanguageServerProtocol to get better LSP 3.17 support
+* Updated to FCS 7.0.400!
+
+### Fixed
+
+* [Massively improved the performance of comparing file paths in the LSP server](https://github.com/fsharp/FsAutoComplete/pull/1139) (thanks @TheAngryByrd!)
+* [Improved getting declarations in the Adaptive LSP Server](https://github.com/fsharp/FsAutoComplete/pull/1150) (thanks @TheAngryByrd!)
+
 
 ## [0.61.1] - 2023-07-22
 

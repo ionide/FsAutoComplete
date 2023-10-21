@@ -118,8 +118,7 @@ module DotnetNewTemplate =
 
             ] } ]
 
-  let isMatch (filterstr: string) (x: string) =
-    x.ToLower().Contains(filterstr.ToLower())
+  let isMatch (filterstr: string) (x: string) = x.ToLower().Contains(filterstr.ToLower())
 
   let nameMatch (filterstr: string) (x: string) = x.ToLower() = filterstr.ToLower()
 

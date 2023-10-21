@@ -75,8 +75,7 @@ let private posIsInLhsOfClause (pos: Position) (clause: SynMatchClause) =
     Range.rangeContainsPos (Range.unionRanges guardExpr.Range patternRange) pos
 
 let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: ParsedInput) =
-  let inline getIfPosInRange range f =
-    if Range.rangeContainsPos range pos then f () else None
+  let inline getIfPosInRange range f = if Range.rangeContainsPos range pos then f () else None
 
   let rec walkImplFileInput (ParsedImplFileInput(contents = moduleOrNamespaceList)) =
     List.tryPick walkSynModuleOrNamespace moduleOrNamespaceList
