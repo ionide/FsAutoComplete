@@ -461,7 +461,6 @@ module private SemanticHelpers =
 
 [<Extension>]
 type ActivityExtensions =
-  [<Extension>]
 
   /// <summary>
   /// Add or update the Activity baggage with the input key and value.
@@ -481,13 +480,13 @@ type ActivityExtensions =
   /// <param name="key">The baggage key name</param>
   /// <param name="value">The baggage value mapped to the input key</param>
   /// <returns><see langword="this" /> for convenient chaining.</returns>
+  [<Extension>]
   static member inline SetBaggageSafe(span: Activity, key: string, value: string) =
     if not (isNull span) then
       span.AddBaggage(key, value)
     else
       span
 
-  [<Extension>]
   /// <summary>
   /// Add <see cref="ActivityEvent" /> object to the <see cref="Events" /> list.
   ///
@@ -496,10 +495,10 @@ type ActivityExtensions =
   /// <param name="span">The activity to add the baggage to</param>
   /// <param name="e"> object of <see cref="ActivityEvent"/> to add to the attached events list.</param>
   /// <returns><see langword="this" /> for convenient chaining.</returns>
+  [<Extension>]
   static member inline AddEventSafe(span: Activity, e: ActivityEvent) =
     if Funcs.isNotNull span then span.AddEvent(e) else span
 
-  [<Extension>]
   /// <summary>
   /// Add or update the Activity tag with the input key and value.
   ///
@@ -515,6 +514,7 @@ type ActivityExtensions =
   /// <param name="key">The tag key name</param>
   /// <param name="value">The tag value mapped to the input key</param>
   /// <returns><see langword="this" /> for convenient chaining.</returns>
+  [<Extension>]
   static member inline SetTagSafe(span: Activity, key, value: obj) =
     if Funcs.isNotNull span then
       span.SetTag(key, value)

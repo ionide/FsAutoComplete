@@ -347,7 +347,7 @@ module Workspace =
 
   let countProjectsInSln (sln: WorkspacePeekFoundSolution) = sln.Items |> List.map foldFsproj |> List.sumBy List.length
 
-module SigantureData =
+module SignatureData =
   let formatSignature typ parms : string =
     let formatType =
       function
@@ -420,7 +420,7 @@ module Structure =
 
   let toFoldingRange (item: Structure.ScopeRange) : FoldingRange =
     let kind = scopeToKind item.Scope
-    // map the collapserange to the foldingRange
+    // map the collapseRange to the foldingRange
     let lsp = fcsRangeToLsp item.CollapseRange
 
     { StartCharacter = Some lsp.Start.Character
@@ -561,7 +561,7 @@ type WorkspacePeekRequest =
     Deep: int
     ExcludedDirs: string array }
 
-type DocumentationForSymbolReuqest = { XmlSig: string; Assembly: string }
+type DocumentationForSymbolRequest = { XmlSig: string; Assembly: string }
 
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }

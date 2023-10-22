@@ -273,7 +273,7 @@ module AsyncAVal =
   val ofAVal: value: FSharp.Data.Adaptive.aval<'a> -> asyncaval<'a>
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   val map:
@@ -282,13 +282,13 @@ module AsyncAVal =
       asyncaval<'b>
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   val mapAsync: mapping: ('a -> Async<'b>) -> input: asyncaval<'a> -> asyncaval<'b>
 
   /// <summary>
-  /// Returns a new async adaptive value that adaptively applies the mapping fun tion to the given
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// adaptive inputs.
   /// </summary>
   val mapSync: mapping: ('a -> System.Threading.CancellationToken -> 'b) -> input: asyncaval<'a> -> asyncaval<'b>

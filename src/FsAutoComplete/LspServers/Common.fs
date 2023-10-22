@@ -213,7 +213,7 @@ module Helpers =
           Some
             { ResolveProvider = Some true
               TriggerCharacters = Some([| '.'; ''' |])
-              AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+              AllCommitCharacters = None //TODO: what chars should commit completions?
               CompletionItem = None }
         CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
         CodeActionProvider =

@@ -231,9 +231,9 @@ module private ShouldCreate =
 
   /// Boundary checks:
   /// * word boundary (-> upper case letter)
-  ///   `"bar" |> isPostifxOf "fooBar"`
+  ///   `"bar" |> isPostfixOf "fooBar"`
   /// * `.` boundary (-> property access)
-  ///   `"bar" |> isPostifxOf "data.bar"`
+  ///   `"bar" |> isPostfixOf "data.bar"`
   ///
   /// Doesn't consider capitalization, except for word boundary at start of postfix:
   /// * `bar` postfix of `fooBar`
@@ -397,8 +397,8 @@ type MissingExplicitType with
        | _ -> () |]
 
   member x.TypeAndEdits(ty: FSharpType, displayContext: FSharpDisplayContext) =
-    let (ty, tyForAnntotation) = x.FormatType(ty, displayContext)
-    let edits = x.CreateEdits(tyForAnntotation)
+    let (ty, tyForAnnotation) = x.FormatType(ty, displayContext)
+    let edits = x.CreateEdits(tyForAnnotation)
     (ty, edits)
 
   /// Note: No validation of `mfv`!
@@ -978,7 +978,7 @@ let provideHints
             // reliably create hints, so skip it
             logger.info (
               Log.setMessage
-                "Parameter hints for {memberName} may fail because the number of parameters in the defintion ({memberParameters}) doesn't match the number of argument locations ({providedParameters})"
+                "Parameter hints for {memberName} may fail because the number of parameters in the definition ({memberParameters}) doesn't match the number of argument locations ({providedParameters})"
               >> Log.addContext
                 "memberName"
                 $"{methodOrConstructor.DeclaringEntity
@@ -990,7 +990,7 @@ let provideHints
 
           // iterate over the _provided_ parameters, because otherwise we might index into optional parameters
           // from the method's definition that the user didn't have to provide.
-          // thought/note: what about `paramarray` parameters?
+          // thought/note: what about `param array` parameters?
           tupledParamInfos.ArgumentLocations
           |> Array.iteri (fun idx paramLocationInfo ->
             if parameters.Length <= idx then

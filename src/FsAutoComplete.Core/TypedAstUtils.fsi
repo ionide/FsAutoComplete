@@ -46,7 +46,7 @@ module TypedAstExtensionHelpers =
   type FSharpSymbol with
 
     /// <summary>
-    /// If this member is a type abbeviation (<c>type Foo = Bar&lt;string&gt;</c> for example),
+    /// If this member is a type abbreviation (<c>type Foo = Bar&lt;string&gt;</c> for example),
     /// resolves the underlying type. Otherwise returns this type.
     /// </summary>
     member GetAbbreviatedParent: unit -> FSharpSymbol

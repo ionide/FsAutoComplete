@@ -17,7 +17,7 @@ type SignatureHelpKind =
 
 type SignatureHelpInfo =
   {
-    /// all potential overloads of the member at the position where signaturehelp was invoked
+    /// all potential overloads of the member at the position where signature help was invoked
     Methods: MethodGroupItem[]
     /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
     ActiveOverload: int option

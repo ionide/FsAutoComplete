@@ -23,12 +23,12 @@ module Debug =
   let measure name f =
     let sw = Stopwatch.StartNew()
     let r = f ()
-    let ellapsed = sw.ElapsedMilliseconds
+    let elapsed = sw.ElapsedMilliseconds
 
     measureLogger.info (
-      Log.setMessage ("{name} took {ellapsed} ms")
+      Log.setMessage ("{name} took {elapsed} ms")
       >> Log.addContextDestructured "name" name
-      >> Log.addContextDestructured "ellapsed" ellapsed
+      >> Log.addContextDestructured "elapsed" elapsed
     )
 
     r
@@ -37,12 +37,12 @@ module Debug =
     async {
       let sw = Stopwatch.StartNew()
       let! r = f
-      let ellapsed = sw.ElapsedMilliseconds
+      let elapsed = sw.ElapsedMilliseconds
 
       measureLogger.info (
-        Log.setMessage ("{name} took {ellapsed} ms")
+        Log.setMessage ("{name} took {elapsed} ms")
         >> Log.addContextDestructured "name" name
-        >> Log.addContextDestructured "ellapsed" ellapsed
+        >> Log.addContextDestructured "elapsed" elapsed
       )
 
       return r

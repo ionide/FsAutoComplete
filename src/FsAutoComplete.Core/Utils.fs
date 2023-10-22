@@ -371,13 +371,13 @@ module Array =
     if areEqual array [||] then
       ()
     else
-      let arrlen, revlen = array.Length - 1, array.Length / 2 - 1
+      let arrLen, revLen = array.Length - 1, array.Length / 2 - 1
 
-      for idx in 0..revlen do
+      for idx in 0..revLen do
         let t1 = array.[idx]
-        let t2 = array.[arrlen - idx]
+        let t2 = array.[arrLen - idx]
         array.[idx] <- t2
-        array.[arrlen - idx] <- t1
+        array.[arrLen - idx] <- t1
 
   let splitAt (n: int) (xs: 'a[]) : 'a[] * 'a[] =
     match xs with

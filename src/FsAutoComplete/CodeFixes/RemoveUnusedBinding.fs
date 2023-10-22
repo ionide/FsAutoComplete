@@ -16,7 +16,7 @@ let posBetween (range: Range) tester =
   Position.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
   && Position.posGeq range.End tester
 
-type private ReplacmentRangeResult =
+type private ReplacementRangeResult =
   | FullBinding of bindingRange: Range
   | Pattern of patternRange: Range
 
