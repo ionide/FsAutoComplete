@@ -30,6 +30,8 @@
     <Compile Include="LspServers/IFSharpLspServer.fs" />
     <Compile Include="LspServers/FSharpLspClient.fs" />
     <Compile Include="LspServers/Common.fs" />
+    <Compile Include="LspServers/AdaptiveServerState.fsi" />
+    <Compile Include="LspServers/AdaptiveServerState.fs" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fsi" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fs" />
     <Compile Include="Parser.fs" />
