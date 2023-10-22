@@ -62,7 +62,7 @@ module CodeGenerationUtils =
     {
       Writer: ColumnIndentedTextWriter
       /// Map generic types to specific instances for specialized interface implementation
-      TypeInstantations: Map<string, string>
+      TypeInstantiations: Map<string, string>
       /// Data for interface instantiation
       ArgInstantiations: (FSharpGenericParameter * FSharpType) seq
       /// Indentation inside method bodies

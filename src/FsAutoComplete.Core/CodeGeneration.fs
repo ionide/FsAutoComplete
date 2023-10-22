@@ -134,7 +134,7 @@ module CodeGenerationUtils =
     {
       Writer: ColumnIndentedTextWriter
       /// Map generic types to specific instances for specialized interface implementation
-      TypeInstantations: Map<string, string>
+      TypeInstantiations: Map<string, string>
       /// Data for interface instantiation
       ArgInstantiations: (FSharpGenericParameter * FSharpType) seq
       /// Indentation inside method bodies
@@ -162,7 +162,7 @@ module CodeGenerationUtils =
     let genericDefinition =
       typ.Instantiate(Seq.toList ctx.ArgInstantiations).Format(ctx.DisplayContext)
 
-    (genericDefinition, ctx.TypeInstantations)
+    (genericDefinition, ctx.TypeInstantiations)
     ||> Map.fold (fun s k v -> s.Replace(k, v))
 
   let normalizeArgName (namesWithIndices: NamesWithIndices) nm =
@@ -336,7 +336,7 @@ module CodeGenerationUtils =
          sprintf "(%s)" args),
       namesWithIndices
 
-    let preprocess (ctx: Context) (v: FSharpMemberOrFunctionOrValue) =
+    let preProcess (ctx: Context) (v: FSharpMemberOrFunctionOrValue) =
       let buildUsage argInfos =
         let parArgs, _ = getParamArgs argInfos ctx v
 
@@ -394,10 +394,10 @@ module CodeGenerationUtils =
 
     match m with
     | MemberInfo.PropertyGetSet(getter, setter) ->
-      let (usage, modifiers, getterArgInfos, retType) = preprocess ctx getter
+      let (usage, modifiers, getterArgInfos, retType) = preProcess ctx getter
       let closeDeclaration = closeDeclaration retType
       let writeImplementation = writeImplementation ctx
-      let (_, _, setterArgInfos, _) = preprocess ctx setter
+      let (_, _, setterArgInfos, _) = preProcess ctx setter
       let writer = ctx.Writer
 
       writer.Write(memberPrefix getter)
@@ -438,7 +438,7 @@ module CodeGenerationUtils =
       writer.Unindent ctx.Indentation
 
     | MemberInfo.Member v ->
-      let (usage, modifiers, argInfos, retType) = preprocess ctx v
+      let (usage, modifiers, argInfos, retType) = preProcess ctx v
       let closeDeclaration = closeDeclaration retType
       let writeImplementation = writeImplementation ctx
       let writer = ctx.Writer
@@ -541,7 +541,7 @@ module CodeGenerationUtils =
           m.ImplementedAbstractSignatures <> null
           && m.ImplementedAbstractSignatures.Count = 0
         with _ ->
-          true) // exceptions here trying to acces the member means we're safe
+          true) // exceptions here trying to access the member means we're safe
     // this member is not an override
     && not m.IsOverrideOrExplicitInterfaceImplementation
 
@@ -713,7 +713,7 @@ module CodeGenerationUtils =
 
     let ctx =
       { Writer = writer
-        TypeInstantations = instantiations
+        TypeInstantiations = instantiations
         ArgInstantiations = Seq.empty
         Indentation = indentation
         ObjectIdent = objectIdent

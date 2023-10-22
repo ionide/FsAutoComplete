@@ -34,7 +34,7 @@ type IFSharpLspServer =
   abstract FSharpDotnetSlnAdd: DotnetProjectRequest -> Async<LspResult<PlainNotification option>>
   abstract FSharpHelp: TextDocumentPositionParams -> Async<LspResult<PlainNotification option>>
   abstract FSharpDocumentation: TextDocumentPositionParams -> Async<LspResult<PlainNotification option>>
-  abstract FSharpDocumentationSymbol: DocumentationForSymbolReuqest -> Async<LspResult<PlainNotification option>>
+  abstract FSharpDocumentationSymbol: DocumentationForSymbolRequest -> Async<LspResult<PlainNotification option>>
   abstract FSharpLiterateRequest: FSharpLiterateRequest -> Async<LspResult<PlainNotification>>
   abstract LoadAnalyzers: obj -> Async<LspResult<unit>>
   abstract FSharpPipelineHints: FSharpPipelineHintRequest -> Async<LspResult<PlainNotification option>>

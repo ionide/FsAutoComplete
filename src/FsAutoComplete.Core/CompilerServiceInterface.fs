@@ -336,7 +336,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   /// <summary>
   /// This is use primary for Autocompletions. The problem with trying to use TryGetRecentCheckResultsForFile is that it will return None
   /// if there isn't a GetHashCode that matches the SourceText passed in.  This a problem particularly for Autocompletions because we'd have to wait for a typecheck
-  /// on every keystroke which can prove slow.  For autocompletions, it's ok to rely on cached typechecks as files above generally don't change mid type.
+  /// on every keystroke which can prove slow.  For autocompletions, it's ok to rely on cached type-checks as files above generally don't change mid type.
   /// </summary>
   /// <param name="file">The path of the file to get cached type check results for.</param>
   /// <returns>Cached typecheck results</returns>

@@ -207,7 +207,7 @@ module CommandResponse =
 
   type HighlightingResponse = { Highlights: HighlightingRange[] }
 
-  type PieplineHint =
+  type PipelineHint =
     { Line: int
       Types: string[]
       PrecedingNonPipeExprLine: int option }

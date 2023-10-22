@@ -51,7 +51,7 @@ type IFSACSourceText =
   /// The local absolute path of the file whose contents this IFSACSourceText represents
   abstract member FileName: string<LocalPath>
   /// The unwrapped local absolute path of the file whose contents this IFSACSourceText represents.
-  /// Should only be used when interoping with the Compiler/Serialization
+  /// Should only be used when interoperating with the Compiler/Serialization
   abstract member RawFileName: string
   /// Representation of the final position in this file
   abstract member LastFilePosition: Position

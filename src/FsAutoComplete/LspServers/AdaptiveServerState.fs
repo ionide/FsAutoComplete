@@ -1050,15 +1050,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     |> Async.map (Result.ofOption (fun () -> $"Could not read file: {file}"))
 
   do
-    let fileshimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
+    let fileShimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
     // let cachedFileContents = cachedFileContents |> cmap.mapA (fun _ v -> v)
 
     let filesystemShim file =
-      // GetLastWriteTimeShim gets called _alot_ and when we do checks on save we use Async.Parallel for type checking.
+      // GetLastWriteTimeShim gets called _a lot_ and when we do checks on save we use Async.Parallel for type checking.
       // Adaptive uses lots of locks under the covers, so many threads can get blocked waiting for data.
       // flattening openFilesWithChanges makes this check a lot quicker as it's not needing to recalculate each value.
 
-      fileshimChanges |> AMap.force |> HashMap.tryFind file
+      fileShimChanges |> AMap.force |> HashMap.tryFind file
 
     FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
       FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
@@ -1117,11 +1117,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           let! projs =
             asyncOption {
               let! cts = tryGetOpenFileToken filePath
-              use lcts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
+              use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
 
               let! opts =
                 checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
-                |> Async.withCancellation lcts.Token
+                |> Async.withCancellation linkedCts.Token
 
               opts |> scriptFileProjectOptions.Trigger
 
@@ -1234,9 +1234,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let autoCompleteNamespaces =
     autoCompleteItems
-    |> AMap.choose (fun name (d, pos, fn, getline, ast) ->
+    |> AMap.choose (fun name (d, pos, fn, getLine, ast) ->
 
-      Commands.calculateNamespaceInsert (fun () -> Some ast) d pos getline)
+      Commands.calculateNamespaceInsert (fun () -> Some ast) d pos getLine)
 
   let getAutoCompleteNamespacesByDeclName name = autoCompleteNamespaces |> AMap.tryFind name
 
@@ -1373,11 +1373,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           asyncOption {
             let! opts = selectProject projectOptions
             let! cts = tryGetOpenFileToken file
-            use lcts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
+            use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts.Token)
 
             return!
               parseAndCheckFile checker info opts.FSharpProjectOptions true
-              |> Async.withCancellation lcts.Token
+              |> Async.withCancellation linkedCts.Token
           }
 
       })
@@ -1964,7 +1964,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       if isFileOpen filePath |> AVal.force then
         return ()
       else
-        // We want to try to use the file system's datetime if available
+        // We want to try to use the file system's DateTime if available
         let file = VolatileFile.Create(sourceTextFactory.Create(filePath, text), version)
 
         updateOpenFiles file

@@ -105,7 +105,7 @@ module Workspace =
 
   val countProjectsInSln: sln: WorkspacePeekFoundSolution -> int
 
-module SigantureData =
+module SignatureData =
   val formatSignature: typ: string -> parms: ('a * string) list list -> string
 
 module Structure =
@@ -197,7 +197,7 @@ type WorkspacePeekRequest =
     Deep: int
     ExcludedDirs: string array }
 
-type DocumentationForSymbolReuqest = { XmlSig: string; Assembly: string }
+type DocumentationForSymbolRequest = { XmlSig: string; Assembly: string }
 
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }

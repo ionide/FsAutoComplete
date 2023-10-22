@@ -145,7 +145,7 @@ module private Format =
           // otherwise it will create an infinity loop
           text
       else
-        // Should not happend but like that we are sure to handle all possible cases
+        // Should not happened but like that we are sure to handle all possible cases
         text
     | _ -> text
 
@@ -164,7 +164,7 @@ module private Format =
 
           // We need to trim the end of the text because the
           // user write XML comments with a space between the '///'
-          // and the '<code>' tag. Then it mess up identifation of new lines
+          // and the '<code>' tag. Then it mess up identification of new lines
           // at the end of the code snippet.
           // Example:
           // /// <code>
@@ -403,7 +403,7 @@ module private Format =
         // CaseC of the or section
         //
         // The original comments is for `System.Uri("")`
-        // By making the assumption that an 'or' section is always single line this allows us the detact the "<block></block>" section
+        // By making the assumption that an 'or' section is always single line this allows us to detect the "<block></block>" section
 
         // orText is on a single line, we just add quotation syntax
         if lastParagraphStartIndex = -1 then
@@ -427,7 +427,7 @@ module private Format =
   /// If an 'or' block is found between 2 elements then we remove it as we can't generate a valid markdown for it
   ///
   /// For example, <td> Some text -or- another text </td> cannot be converted into a multiline string
-  /// and so we prefer to remove the 'or' block instead of having some weird markdown artefacts
+  /// and so we prefer to remove the 'or' block instead of having some weird markdown artifacts
   ///
   /// For now, we only consider text between <td></td> to be invalid
   /// We can add more in the future if needed, but I want to keep this as minimal as possible to avoid capturing false positive
@@ -644,7 +644,7 @@ module private Format =
                    " | " + header)
                |> String.concat ""
 
-             let seprator =
+             let separator =
                columnHeaders
                |> List.mapi (fun index _ ->
                  if index = 0 then "| ---"
@@ -669,7 +669,7 @@ module private Format =
              Environment.NewLine
              + columnHeadersText
              + Environment.NewLine
-             + seprator
+             + separator
              + Environment.NewLine
              + itemsText)
           |> Some }
@@ -728,7 +728,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     | _ ->
       let content =
         // Normale the EOL
-        // This make it easier to work with line splittig
+        // This make it easier to work with line splitting
         node.InnerXml.Replace("\r\n", "\n") |> Format.applyAll
 
       content.Split('\n')
@@ -857,7 +857,7 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
   let acc' =
     match reader.Read() with
     | false -> indentationSize, None
-    // Assembly is the first node in the XML and is at least always indended by 1 "tab"
+    // Assembly is the first node in the XML and is at least always intended by 1 "tab"
     // So we used it as a reference to detect the tabs sizes
     // This is needed because `netstandard.xml` use 2 spaces tabs
     // Where when building a C# classlib, the xml file use 4 spaces size for example

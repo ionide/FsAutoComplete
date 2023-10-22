@@ -258,8 +258,8 @@ type AdaptiveFSharpLspServer
       [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
     ) =
     logger.info (
-      Log.setMessage $"{caller} request: {{parms}}"
-      >> Log.addContextDestructured "parms" argValue
+      Log.setMessage $"{caller} request: {{params}}"
+      >> Log.addContextDestructured "params" argValue
     )
 
     Helpers.notImplemented<'u>
@@ -270,8 +270,8 @@ type AdaptiveFSharpLspServer
       [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
     ) =
     logger.info (
-      Log.setMessage $"{caller} request: {{parms}}"
-      >> Log.addContextDestructured "parms" argValue
+      Log.setMessage $"{caller} request: {{params}}"
+      >> Log.addContextDestructured "params" argValue
     )
 
     Helpers.ignoreNotification
@@ -295,7 +295,7 @@ type AdaptiveFSharpLspServer
             |> Option.defaultValue FSharpConfig.Default
 
           logger.info (
-            Log.setMessage "Intialization options {items}"
+            Log.setMessage "Initialization options {items}"
             >> Log.addContextDestructured "items" c
           )
 
@@ -408,8 +408,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDidOpen Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDidOpen Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let doc = p.TextDocument
@@ -436,8 +436,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDidClose Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDidClose Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let doc = p.TextDocument
@@ -463,8 +463,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDidChange Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDidChange Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let doc = p.TextDocument
@@ -492,8 +492,8 @@ type AdaptiveFSharpLspServer
         try
 
           logger.info (
-            Log.setMessage "TextDocumentDidSave Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDidSave Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let doc = p.TextDocument
@@ -504,8 +504,8 @@ type AdaptiveFSharpLspServer
           do! lspClient.CodeLensRefresh()
 
           logger.info (
-            Log.setMessage "TextDocumentDidSave Request Finished: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDidSave Request Finished: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           return ()
@@ -528,8 +528,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentCompletion Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentCompletion Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -763,8 +763,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "CompletionItemResolve Request: {parms}"
-            >> Log.addContextDestructured "parms" ci
+            Log.setMessage "CompletionItemResolve Request: {params}"
+            >> Log.addContextDestructured "params" ci
           )
 
           return!
@@ -799,8 +799,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentSignatureHelp Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
 
@@ -850,8 +850,8 @@ type AdaptiveFSharpLspServer
           trace |> Tracing.recordException e
 
           logger.error (
-            Log.setMessage "TextDocumentSignatureHelp Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentSignatureHelp Request: {params}"
+            >> Log.addContextDestructured "params" p
             >> Log.addExn e
           )
 
@@ -865,8 +865,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentHover Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentHover Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -877,8 +877,8 @@ type AdaptiveFSharpLspServer
           match tyRes.TryGetToolTipEnhanced pos lineStr with
           | Ok(Some tooltipResult) ->
             logger.info (
-              Log.setMessage "TryGetToolTipEnhanced : {parms}"
-              >> Log.addContextDestructured "parms" tooltipResult
+              Log.setMessage "TryGetToolTipEnhanced : {params}"
+              >> Log.addContextDestructured "params" tooltipResult
             )
 
             let formatCommentStyle =
@@ -958,8 +958,8 @@ type AdaptiveFSharpLspServer
     override x.TextDocumentPrepareRename p =
       asyncResult {
         logger.info (
-          Log.setMessage "TextDocumentOnPrepareRename Request: {parms}"
-          >> Log.addContextDestructured "parms" p
+          Log.setMessage "TextDocumentOnPrepareRename Request: {params}"
+          >> Log.addContextDestructured "params" p
         )
 
         let (filePath, pos) = getFilePathAndPosition p
@@ -981,8 +981,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentRename Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentRename Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1054,8 +1054,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDefinition Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDefinition Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1084,8 +1084,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentTypeDefinition Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentTypeDefinition Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1114,8 +1114,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentReferences Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentReferences Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1150,8 +1150,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDocumentHighlight Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDocumentHighlight Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1192,8 +1192,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentImplementation Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentImplementation Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -1202,8 +1202,8 @@ type AdaptiveFSharpLspServer
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           logger.info (
-            Log.setMessage "TextDocumentImplementation Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentImplementation Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let getProjectOptions file = state.GetProjectOptionsForFile file |> AsyncResult.bimap id failwith //? Should we fail here?
@@ -1254,8 +1254,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentDocumentSymbol Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentDocumentSymbol Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1289,8 +1289,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "WorkspaceSymbol Request: {parms}"
-            >> Log.addContextDestructured "parms" symbolRequest
+            Log.setMessage "WorkspaceSymbol Request: {params}"
+            >> Log.addContextDestructured "params" symbolRequest
           )
 
           let glyphToSymbolKind = state.GlyphToSymbolKind
@@ -1332,8 +1332,8 @@ type AdaptiveFSharpLspServer
 
           let action () =
             logger.info (
-              Log.setMessage "TextDocumentFormatting Request: {parms}"
-              >> Log.addContextDestructured "parms" p
+              Log.setMessage "TextDocumentFormatting Request: {params}"
+              >> Log.addContextDestructured "params" p
             )
 
             let tryGetFileCheckerOptionsWithLines file = state.GetOpenFileSource file
@@ -1374,8 +1374,8 @@ type AdaptiveFSharpLspServer
 
           let action () =
             logger.info (
-              Log.setMessage "TextDocumentRangeFormatting Request: {parms}"
-              >> Log.addContextDestructured "parms" p
+              Log.setMessage "TextDocumentRangeFormatting Request: {params}"
+              >> Log.addContextDestructured "params" p
             )
 
             let range =
@@ -1424,8 +1424,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentCodeAction Request: {parms}"
-            >> Log.addContextDestructured "parms" codeActionParams
+            Log.setMessage "TextDocumentCodeAction Request: {params}"
+            >> Log.addContextDestructured "params" codeActionParams
           )
 
           let (fixes: Async<Result<Fix list, string>[]>) =
@@ -1497,8 +1497,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentCodeLens Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentCodeLens Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1531,8 +1531,8 @@ type AdaptiveFSharpLspServer
     override __.CodeLensResolve(p: CodeLens) =
       // JB:TODO see how to reuse existing code
       logger.info (
-        Log.setMessage "CodeLensResolve Request: {parms}"
-        >> Log.addContextDestructured "parms" p
+        Log.setMessage "CodeLensResolve Request: {params}"
+        >> Log.addContextDestructured "params" p
       )
 
       let handler (f) (arg: CodeLens) : Async<LspResult<CodeLens>> =
@@ -1622,7 +1622,7 @@ type AdaptiveFSharpLspServer
 
                 return { p with Command = None } |> Some |> success
               | CoreResponse.Res(typ, parms, _) ->
-                let formatted = SigantureData.formatSignature typ parms
+                let formatted = SignatureData.formatSignature typ parms
 
                 let cmd =
                   { Title = formatted
@@ -1687,8 +1687,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "WorkspaceDidChangeWatchedFiles Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           for c in p.Changes do
@@ -1711,8 +1711,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "WorkspaceDidChangeConfiguration Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "WorkspaceDidChangeConfiguration Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
@@ -1740,8 +1740,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentFoldingRange Request: {parms}"
-            >> Log.addContextDestructured "parms" rangeP
+            Log.setMessage "TextDocumentFoldingRange Request: {params}"
+            >> Log.addContextDestructured "params" rangeP
           )
 
           let file = rangeP.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1774,8 +1774,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentSelectionRange Request: {parms}"
-            >> Log.addContextDestructured "parms" selectionRangeP
+            Log.setMessage "TextDocumentSelectionRange Request: {params}"
+            >> Log.addContextDestructured "params" selectionRangeP
           )
 
           let rec mkSelectionRanges =
@@ -1820,8 +1820,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentSemanticTokensFull request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentSemanticTokensFull request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1848,8 +1848,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentSemanticTokensRange request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentSemanticTokensRange request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1874,8 +1874,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentInlayHint Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentInlayHint Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1979,8 +1979,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "TextDocumentInlineValue Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "TextDocumentInlineValue Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -1995,9 +1995,9 @@ type AdaptiveFSharpLspServer
 
           let hints =
             pipelineHints
-            |> Array.map (fun (pos, linehints) ->
+            |> Array.map (fun (pos, lineHints) ->
               { InlineValueText.Range = fcsPosToProtocolRange pos
-                Text = linehints }
+                Text = lineHints }
               |> InlineValue.InlineValueText)
             |> Some
 
@@ -2061,8 +2061,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "CallHierarchyIncomingCalls Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "CallHierarchyIncomingCalls Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
@@ -2144,8 +2144,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "CallHierarchyPrepareParams Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "CallHierarchyPrepareParams Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) =
@@ -2216,8 +2216,8 @@ type AdaptiveFSharpLspServer
 
     override x.FSharpLiterateRequest(p: FSharpLiterateRequest) =
       logger.info (
-        Log.setMessage "FSharpLiterateRequest Request: {parms}"
-        >> Log.addContextDestructured "parms" p
+        Log.setMessage "FSharpLiterateRequest Request: {params}"
+        >> Log.addContextDestructured "params" p
       )
 
       Helpers.notImplemented
@@ -2230,8 +2230,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpSignature Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpSignature Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -2263,8 +2263,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpSignatureData Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpSignatureData Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let pos =
@@ -2301,8 +2301,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDocumentationGenerator Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDocumentationGenerator Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -2354,14 +2354,14 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpLineLense Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpLineLense Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fn = p.Project.GetFilePath() |> Utils.normalizePath
 
           match! state.GetDeclarations fn with
-          | None -> return! LspResult.internalError $"No declerations found for {fn}"
+          | None -> return! LspResult.internalError $"No declarations found for {fn}"
           | Some decls ->
             let decls = decls |> Array.map (fun d -> d, fn)
 
@@ -2386,8 +2386,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpWorkspaceLoad Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpWorkspaceLoad Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let projs =
@@ -2421,8 +2421,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpWorkspacePeek Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpWorkspacePeek Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let res =
@@ -2457,8 +2457,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpProject Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpProject Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let paths = state.WorkspacePaths
@@ -2493,8 +2493,8 @@ type AdaptiveFSharpLspServer
 
     override __.FSharpFsdn(p: FsdnRequest) =
       logger.info (
-        Log.setMessage "FSharpFsdn Request: {parms}"
-        >> Log.addContextDestructured "parms" p
+        Log.setMessage "FSharpFsdn Request: {params}"
+        >> Log.addContextDestructured "params" p
       )
       // Hasn't been online for a long time
       Helpers.notImplemented
@@ -2506,8 +2506,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDotnetNewList Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDotnetNewList Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           match! Commands.DotnetNewList() |> AsyncResult.ofCoreResponse with
@@ -2533,8 +2533,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDotnetNewRun Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDotnetNewRun Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2562,8 +2562,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDotnetAddProject Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDotnetAddProject Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           if p.Target <> p.Reference then
@@ -2592,8 +2592,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDotnetRemoveProject Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDotnetRemoveProject Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2621,8 +2621,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDotnetSlnAdd Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDotnetSlnAdd Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2650,8 +2650,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpHelp Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpHelp Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -2681,8 +2681,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpDocumentation Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDocumentation Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let (filePath, pos) = getFilePathAndPosition p
@@ -2716,15 +2716,15 @@ type AdaptiveFSharpLspServer
           return! returnException e
       }
 
-    override x.FSharpDocumentationSymbol(p: DocumentationForSymbolReuqest) =
+    override x.FSharpDocumentationSymbol(p: DocumentationForSymbolRequest) =
       asyncResult {
-        let tags = [ "DocumentationForSymbolReuqest", box p ]
+        let tags = [ "DocumentationForSymbolRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
           logger.info (
-            Log.setMessage "FSharpDocumentationSymbol Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpDocumentationSymbol Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let! tyRes =
@@ -2768,8 +2768,8 @@ type AdaptiveFSharpLspServer
         use trace = fsacActivitySource.StartActivityForType(thisType)
 
         logger.info (
-          Log.setMessage "LoadAnalyzers Request: {parms}"
-          >> Log.addContextDestructured "parms" path
+          Log.setMessage "LoadAnalyzers Request: {params}"
+          >> Log.addContextDestructured "params" path
         )
 
         try
@@ -2790,8 +2790,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FSharpPipelineHints Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FSharpPipelineHints Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -2823,8 +2823,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjMoveFileUp Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjMoveFileUp Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2853,8 +2853,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjMoveFileDown Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjMoveFileDown Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2883,8 +2883,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjAddFileAbove Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjAddFileAbove Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2912,8 +2912,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjAddFileBelow Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjAddFileBelow Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2941,8 +2941,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjRenameFile Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjRenameFile Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -2971,8 +2971,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjAddFile Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjAddFile Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -3000,8 +3000,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjRemoveFile Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjRemoveFile Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           let fullPath = Path.Combine(Path.GetDirectoryName p.FsProj, p.FileVirtualPath)
@@ -3035,8 +3035,8 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "FsProjAddExistingFile Request: {parms}"
-            >> Log.addContextDestructured "parms" p
+            Log.setMessage "FsProjAddExistingFile Request: {params}"
+            >> Log.addContextDestructured "params" p
           )
 
           do!
@@ -3059,7 +3059,7 @@ type AdaptiveFSharpLspServer
 
     override x.Dispose() = disposables.Dispose()
 
-    member this.WorkDoneProgessCancel(token: ProgressToken) : Async<unit> =
+    member this.WorkDoneProgressCancel(token: ProgressToken) : Async<unit> =
       async {
 
         let tags = [ "ProgressToken", box token ]
@@ -3067,15 +3067,15 @@ type AdaptiveFSharpLspServer
 
         try
           logger.info (
-            Log.setMessage "WorkDoneProgessCancel Request: {parms}"
-            >> Log.addContextDestructured "parms" token
+            Log.setMessage "WorkDoneProgressCancel Request: {params}"
+            >> Log.addContextDestructured "params" token
           )
 
         with e ->
           trace |> Tracing.recordException e
 
           logger.error (
-            Log.setMessage "WorkDoneProgessCancel Request Errored {p}"
+            Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
             >> Log.addContextDestructured "token" token
             >> Log.addExn e
           )

@@ -1104,7 +1104,7 @@ module Commands =
 
   // TODO: LSP technically does now know how to handle overlapping, nested and multiline ranges, but
   // as of 3 February 2021 there are no good examples of this that I've found, so we still do this
-  /// because LSP doesn't know how to handle overlapping/nested ranges, we have to dedupe them here
+  /// because LSP doesn't know how to handle overlapping/nested ranges, we have to de-dupe them here
   let scrubRanges (highlights: SemanticClassificationItem array) : SemanticClassificationItem array =
     let startToken =
       fun (m: SemanticClassificationItem) -> m.Range.StartLine, m.Range.StartColumn
@@ -1139,14 +1139,14 @@ module Commands =
 
 
 
-  let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEnts) =
+  let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEntities) =
     let ctx: SDK.Context =
       { FileName = UMX.untag file
         Content = content
         ParseTree = pt
         TypedTree = tast
         Symbols = symbols
-        GetAllEntities = getAllEnts }
+        GetAllEntities = getAllEntities }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with

@@ -58,7 +58,7 @@ module SignatureFormatter =
           sprintf "struct (%s)" refTupleStr
         else
           refTupleStr
-      elif typ.IsGenericParameter then // no longer need to differentiate between STRP and normal generic parameter types
+      elif typ.IsGenericParameter then // no longer need to differentiate between SRTP and normal generic parameter types
         "'" + typ.GenericParameter.Name
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
         let typeDef = typ.TypeDefinition
@@ -162,12 +162,12 @@ module SignatureFormatter =
 
     sb.ToString()
 
-  let getUnioncaseSignature (displayContext: FSharpDisplayContext) (unionCase: FSharpUnionCase) =
+  let getUnionCaseSignature (displayContext: FSharpDisplayContext) (unionCase: FSharpUnionCase) =
     if unionCase.Fields.Count > 0 then
       let typeList =
         unionCase.Fields
         |> Seq.map (fun unionField ->
-          if unionField.Name.StartsWith "Item" then //TODO: Some better way of dettecting default names for the union cases' fields
+          if unionField.Name.StartsWith "Item" then //TODO: Some better way of detecting default names for the union cases' fields
             formatFSharpType displayContext unionField.FieldType
           else
             unionField.Name + ":" ++ (formatFSharpType displayContext unionField.FieldType))
@@ -205,7 +205,7 @@ module SignatureFormatter =
         | _ -> ""
 
       let modifier =
-        //F# types are prefixed with new, should non F# types be too for consistancy?
+        //F# types are prefixed with new, should non F# types be too for consistency?
         if func.IsConstructor then
           match func.EnclosingEntitySafe with
           | Some ent ->
@@ -523,9 +523,9 @@ module SignatureFormatter =
 
     let constraints =
       match v.FullTypeSafe with
-      | Some fulltype when fulltype.IsGenericParameter ->
+      | Some fullType when fullType.IsGenericParameter ->
         let formattedParam =
-          formatGenericParameter false displayContext fulltype.GenericParameter
+          formatGenericParameter false displayContext fullType.GenericParameter
 
         if String.IsNullOrWhiteSpace formattedParam then
           None
@@ -581,7 +581,7 @@ module SignatureFormatter =
       | _ when fse.IsInterface -> "interface"
       | _ -> "type"
 
-    let enumtip () =
+    let enumTip () =
       $" ={nl}  |"
       ++ (fse.FSharpFields
           |> Seq.filter (fun f -> not f.IsCompilerGenerated)
@@ -591,10 +591,10 @@ module SignatureFormatter =
             | None -> field.Name)
           |> String.concat $"{nl}  | ")
 
-    let uniontip () =
+    let unionTip () =
       $" ={nl}  |"
       ++ (fse.UnionCases
-          |> Seq.map (getUnioncaseSignature displayContext)
+          |> Seq.map (getUnionCaseSignature displayContext)
           |> String.concat $"{nl}  | ")
 
     let delegateTip () =
@@ -605,7 +605,7 @@ module SignatureFormatter =
       $" ={nl}   delegate of{nl}{invokerSig}"
 
     let typeTip () =
-      let constrc =
+      let constructors =
         fse.MembersFunctionsAndValues
         |> Seq.filter (fun n -> n.IsConstructor && n.Accessibility.IsPublic)
         |> fun v ->
@@ -658,7 +658,7 @@ module SignatureFormatter =
 
 
       let res =
-        [ yield constrc
+        [ yield constructors
           if not fse.IsFSharpModule then
             yield! fields
 
@@ -702,13 +702,13 @@ module SignatureFormatter =
       else
         basicName
 
-    if fse.IsFSharpUnion then typeDisplay + uniontip ()
-    elif fse.IsEnum then typeDisplay + enumtip ()
+    if fse.IsFSharpUnion then typeDisplay + unionTip ()
+    elif fse.IsEnum then typeDisplay + enumTip ()
     elif fse.IsDelegate then typeDisplay + delegateTip ()
     else typeDisplay + typeTip ()
 
   let footerForType (entity: FSharpSymbolUse) =
-    let formatFooter (fullName, assyName) = $"Full name: %s{fullName}{nl}Assembly: %s{assyName}"
+    let formatFooter (fullName, asmName) = $"Full name: %s{fullName}{nl}Assembly: %s{asmName}"
 
     let valFooterData =
       try
@@ -728,7 +728,7 @@ module SignatureFormatter =
 
     valFooterData |> Option.map formatFooter |> Option.defaultValue ""
 
-  ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
+  ///Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
   let getTooltipDetailsFromSymbolUse (symbol: FSharpSymbolUse) =
     match symbol with
     | SymbolUse.Entity(fse, _) ->
@@ -781,7 +781,7 @@ module SignatureFormatter =
       Some(signature, footerForType symbol)
 
     | SymbolUse.UnionCase uc ->
-      let signature = getUnioncaseSignature symbol.DisplayContext uc
+      let signature = getUnionCaseSignature symbol.DisplayContext uc
       Some(signature, footerForType symbol)
 
     | SymbolUse.ActivePatternCase apc ->
