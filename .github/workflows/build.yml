@@ -84,8 +84,8 @@ jobs:
 
     - name: Restore tools
       run: |
-		# can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to 
-		# dotnet tool restore then.
+        # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to 
+        # dotnet tool restore then.
         dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.0 && dotnet paket restore
 
     - name: Check format
