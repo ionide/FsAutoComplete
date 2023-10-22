@@ -36,7 +36,6 @@ open Fantomas.Client.LSPFantomasService
 open FSharp.Data.Adaptive
 open Ionide.ProjInfo
 open System.Diagnostics
-open System.Text.RegularExpressions
 open IcedTasks
 open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
@@ -44,7 +43,6 @@ open Helpers
 
 type AdaptiveFSharpLspServer
   (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
-
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
@@ -2468,8 +2466,6 @@ type AdaptiveFSharpLspServer
           transact (fun () ->
             state.WorkspacePaths <-
               match paths with
-              | WorkspaceChosen.Sln x -> failwith "Can't load individual projects when Sln is chosen"
-              | WorkspaceChosen.Directory x -> failwith "Can't load individual projects when Directory is chosen"
               | WorkspaceChosen.Projs ps ->
                 p.Project.GetFilePath()
                 |> Utils.normalizePath
@@ -3094,7 +3090,6 @@ type AdaptiveFSharpLspServer
 
 module AdaptiveFSharpLspServer =
 
-  open System.Threading.Tasks
   open StreamJsonRpc
 
   let createRpc (handler: IJsonRpcMessageHandler) : JsonRpc =

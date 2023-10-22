@@ -7,10 +7,7 @@ open FsAutoComplete
 open FsAutoComplete.CodeFix
 open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
-open Ionide.LanguageServerProtocol.Server
-open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Types
-open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
 open System.Reactive
 
@@ -42,15 +39,11 @@ open FsAutoComplete.Lsp.Helpers
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
-  | Sln of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Directory of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Projs of HashSet<string<LocalPath>>
   | NotChosen
 
 [<RequireQualifiedAccess>]
 type AdaptiveWorkspaceChosen =
-  | Sln of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Directory of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
@@ -85,11 +78,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   /// This is extracted to make it easier to do some type of customized select
   /// in the future
   let selectProject projs = projs |> List.tryHead
-
-  let selectFSharpProject (projs: LoadedProject list) =
-    projs |> List.tryHead |> Option.map (fun p -> p.FSharpProjectOptions)
-
-
 
   let rootPath = cval<string option> None
 
@@ -321,7 +309,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       async {
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin($"Checking simplifing of names {fileName}...", message = filePathUntag)
+          do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
           let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
           let simplified = Array.ofSeq simplified
@@ -632,7 +620,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
     |> AVal.map (fun writeTime -> filePath, writeTime)
 
-
   let readFileFromDisk lastTouched (file: string<LocalPath>) =
     async {
       if File.Exists(UMX.untag file) then
@@ -684,8 +671,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         return Ionide.ProjInfo.BinaryLogGeneration.Within(DirectoryInfo(Path.Combine(rootPath, ".ionide")))
     }
 
-  // JB:TODO Adding to solution
-  // JB:TODO Adding new project file not yet added to solution
   let workspacePaths: ChangeableValue<WorkspaceChosen> =
     cval WorkspaceChosen.NotChosen
 
@@ -697,9 +682,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     workspacePaths
     |> AVal.map (fun wsp ->
       match wsp with
-      | WorkspaceChosen.Sln v -> projectFileChanges v v |> AdaptiveWorkspaceChosen.Sln, noopDisposable
-      | WorkspaceChosen.Directory d ->
-        failwith "Need to use AdaptiveDirectory" |> AdaptiveWorkspaceChosen.Directory, noopDisposable
       | WorkspaceChosen.Projs projs ->
         let projChanges =
           projs
@@ -747,8 +729,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       match wsp with
       | AdaptiveWorkspaceChosen.NotChosen -> return []
-      | AdaptiveWorkspaceChosen.Sln _ -> return raise (NotImplementedException())
-      | AdaptiveWorkspaceChosen.Directory _ -> return raise (NotImplementedException())
       | AdaptiveWorkspaceChosen.Projs projects ->
         let! binlogConfig = binlogConfig
 
@@ -762,7 +742,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 UMX.untag proj |> ProjectResponse.ProjectLoading |> NotificationEvent.Workspace
 
               notifications.Trigger(not, CancellationToken.None))
-
 
             use progressReport = new ServerProgressReport(lspClient)
 
@@ -779,6 +758,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 >> Log.addContextDestructured "path" p.Properties
               )
 
+            // Collect other files that should trigger a reload of a project
             let additionalDependencies (p: Types.ProjectOptions) =
               [ let projectFileChanges = projectFileChanges p.ProjectFileName
 
@@ -1883,7 +1863,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
 
-  let bypassAdaptiveAndCheckDepenenciesForFile (filePath: string<LocalPath>) =
+  let bypassAdaptiveAndCheckDependenciesForFile (filePath: string<LocalPath>) =
     async {
       let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath) ]
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -1979,9 +1959,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   member x.ScriptFileProjectOptions = scriptFileProjectOptions
 
-  // member x.IsFileOpen file =
-  //   isFileOpen file |> AVal.force
-
   member x.OpenDocument(filePath, text: string, version) =
     cancellableTask {
       if isFileOpen filePath |> AVal.force then
@@ -2031,7 +2008,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         textChanges.Remove filePath |> ignore<bool>)
 
       let! _ = forceGetOpenFileTypeCheckResults filePath
-      do! bypassAdaptiveAndCheckDepenenciesForFile filePath
+      do! bypassAdaptiveAndCheckDependenciesForFile filePath
     }
 
 
@@ -2065,8 +2042,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   member x.GetFilesToProject() = getAllFilesToProjectOptionsSelected ()
 
   member x.GetUsesOfSymbol(filePath, opts, symbol) = (AVal.force checker).GetUsesOfSymbol(filePath, opts, symbol)
-  // let! tyRes = forceGetOpenFileTypeCheckResults filePath
-  // return tyRes.GetCheckResults.GetUsesOfSymbolInFile(pos, line)
 
   member x.Codefixes = codefixes |> AVal.force
 

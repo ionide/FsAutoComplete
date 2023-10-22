@@ -20,15 +20,11 @@ open FsAutoComplete.Lsp
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
-  | Sln of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Directory of string<LocalPath> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Projs of HashSet<string<LocalPath>>
   | NotChosen
 
 [<RequireQualifiedAccess>]
 type AdaptiveWorkspaceChosen =
-  | Sln of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
-  | Directory of aval<string<LocalPath> * DateTime> // TODO later when ionide supports sending specific choices instead of only fsprojs
   | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
 
@@ -56,6 +52,8 @@ type AdaptiveState =
   member WorkspacePaths: WorkspaceChosen with get, set
   member DiagnosticCollections: DiagnosticCollection
   member ScriptFileProjectOptions: Event<FSharpProjectOptions>
+
+
   member OpenDocument: filePath: string<LocalPath> * text: string * version: int -> CancellableTask<unit>
   member ChangeDocument: filePath: string<LocalPath> * p: DidChangeTextDocumentParams -> CancellableTask<unit>
   member SaveDocument: filePath: string<LocalPath> * text: string option -> CancellableTask<unit>
