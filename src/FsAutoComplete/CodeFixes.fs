@@ -326,6 +326,11 @@ module Run =
   let ifDiagnosticByMessage (checkMessage: string) handler : CodeFix =
     runDiagnostics (fun d -> d.Message.Contains checkMessage) handler
 
+  let ifDiagnosticByCheckMessage (checkMessageFunc: (string -> bool) list) handler : CodeFix =
+    runDiagnostics (fun d ->
+      checkMessageFunc
+      |> List.exists (fun f -> f d.Message)) handler
+
   let ifDiagnosticByType (diagnosticType: string) handler : CodeFix =
     runDiagnostics
       (fun d ->

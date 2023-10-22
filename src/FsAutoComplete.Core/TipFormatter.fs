@@ -890,6 +890,23 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
 let private xmlDocCache =
   Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
 
+let private findCultures v =
+  let rec loop state (v: System.Globalization.CultureInfo) =
+      let state' = v.Name :: state
+      if v.Parent = System.Globalization.CultureInfo.InvariantCulture then
+          "" :: state' |> List.rev
+      else loop state' v.Parent
+  loop [] v
+
+let private findLocalizedXmlFile (xmlFile: string) =
+  let xmlName = Path.GetFileName xmlFile
+  let path = Path.GetDirectoryName xmlFile
+
+  findCultures System.Globalization.CultureInfo.CurrentUICulture
+  |> List.map (fun culture -> Path.Combine (path, culture, xmlName))
+  |> List.tryFind (fun i -> File.Exists i)
+  |> Option.defaultValue xmlFile
+
 let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
   //Workaround for netstandard.dll
@@ -902,6 +919,8 @@ let private getXmlDoc dllFile =
       Path.Combine(Path.GetDirectoryName(xmlFile), "netstandard.xml")
     else
       xmlFile
+
+  let xmlFile = findLocalizedXmlFile xmlFile
 
   if xmlDocCache.ContainsKey xmlFile then
     Some xmlDocCache.[xmlFile]
