@@ -9,8 +9,7 @@ open FSharp.Compiler.Syntax
 let title suggestion = $"Replace with '%s{suggestion}'"
 
 let undefinedName =
-  [
-    "Maybe you want one of the following:"
+  [ "Maybe you want one of the following:"
     "Možná budete potřebovat něco z tohoto:"
     "Vielleicht möchten Sie eine der folgenden Bezeichnungen verwenden:"
     "Puede elegir una de las opciones siguientes:"
@@ -23,8 +22,8 @@ let undefinedName =
     "Возможно, требуется одно из следующих:"
     "Aşağıdakilerden birini arıyor olabilirsiniz:"
     "你可能需要以下之一:"
-    "您可能需要下列其中一項:"
-  ] |> List.map (fun i -> fun (j: string) -> j.Contains(i, System.StringComparison.Ordinal))
+    "您可能需要下列其中一項:" ]
+  |> List.map (fun i -> fun (j: string) -> j.Contains(i, System.StringComparison.Ordinal))
 
 /// a codefix that replaces the use of an unknown identifier with a suggested identifier
 let fix =

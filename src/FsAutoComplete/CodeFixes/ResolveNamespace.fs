@@ -13,8 +13,7 @@ open System.Text.RegularExpressions
 type LineText = string
 
 let undefinedName =
-  [
-    "not define"
+  [ "not define"
     "nedefinuje|Není definovaný|Není definované|Není definovaná|Nemáte definovaný"
     "definiert nicht|nicht.*? definiert"
     "no define|no está definido|no está definida"
@@ -27,10 +26,10 @@ let undefinedName =
     "не определяет|не определено|не определены|не определен"
     "tanımlamıyor|tanımlı değil"
     "未.*?定义"
-    "未定義"
-  ] |> List.map (fun i ->
-        let regex = Regex(i, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
-        fun (j: string) -> regex.IsMatch(j))
+    "未定義" ]
+  |> List.map (fun i ->
+    let regex = Regex(i, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
+    fun (j: string) -> regex.IsMatch(j))
 
 /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
 let fix

@@ -892,10 +892,13 @@ let private xmlDocCache =
 
 let private findCultures v =
   let rec loop state (v: System.Globalization.CultureInfo) =
-      let state' = v.Name :: state
-      if v.Parent = System.Globalization.CultureInfo.InvariantCulture then
-          "" :: state' |> List.rev
-      else loop state' v.Parent
+    let state' = v.Name :: state
+
+    if v.Parent = System.Globalization.CultureInfo.InvariantCulture then
+      "" :: state' |> List.rev
+    else
+      loop state' v.Parent
+
   loop [] v
 
 let private findLocalizedXmlFile (xmlFile: string) =
@@ -903,7 +906,7 @@ let private findLocalizedXmlFile (xmlFile: string) =
   let path = Path.GetDirectoryName xmlFile
 
   findCultures System.Globalization.CultureInfo.CurrentUICulture
-  |> List.map (fun culture -> Path.Combine (path, culture, xmlName))
+  |> List.map (fun culture -> Path.Combine(path, culture, xmlName))
   |> List.tryFind (fun i -> File.Exists i)
   |> Option.defaultValue xmlFile
 
