@@ -84,7 +84,9 @@ jobs:
 
     - name: Restore tools
       run: |
-        dotnet tool restore && dotnet paket restore
+        dotnet tool install paket --version 8.0.0-alpha002 && \
+        dotnet tool install fantomas --version 6.2.0 && \
+        dotnet paket restore
 
     - name: Check format
       run: dotnet build -t:CheckFormat
