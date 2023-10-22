@@ -233,8 +233,8 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
       async {
         while not isDisposed do
           for (a, p) in inflightEvents.Values do
-            // We don't get always get a corresponding ActivityStopped for a given Activity event so this looks at anything that hasn't had a duration incresed at all
-            // We don't seem to get a corresponding ActivityStopped on cancelled typechecks.
+            // We don't get always get a corresponding ActivityStopped for a given Activity event so this looks at anything that hasn't had a duration increased at all
+            // We don't seem to get a corresponding ActivityStopped on cancelled type-checks.
             if isStopped a then
               do! p.End()
               inflightEvents.TryRemove(a.Id) |> ignore
