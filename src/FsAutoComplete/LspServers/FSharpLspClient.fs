@@ -163,10 +163,10 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     cancellableTask {
       use! __ = fun ct -> locker.LockAsync(ct)
       let stillNeedsToSend = canReportProgress && not endSent
-      endSent <- true
 
       if stillNeedsToSend then
         do! lspClient.Progress(x.Token, WorkDoneProgressEnd.Create(?message = message))
+        endSent <- true
     }
 
   interface IAsyncDisposable with
