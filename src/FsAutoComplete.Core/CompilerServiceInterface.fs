@@ -41,7 +41,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   let mutable lastCheckResults: IMemoryCache = memoryCache ()
 
-
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
 
@@ -243,6 +242,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
+
+  member _.RemoveFileFromCache(file: string<LocalPath>) = lastCheckResults.Remove(file)
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
