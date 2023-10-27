@@ -1814,6 +1814,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
         |> AsyncAVal.forceAsync
 
+      (AVal.force checker).RemoveFileFromCache(filePath)
+
       transact (fun () ->
         openFiles.Remove filePath |> ignore<bool>
 

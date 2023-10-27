@@ -30,6 +30,9 @@ type FSharpCompilerServiceChecker =
     file: string<LocalPath> * source: ISourceText * tfm: FSIRefs.TFM -> Async<FSharpProjectOptions>
 
   member ScriptTypecheckRequirementsChanged: IEvent<unit>
+
+  member RemoveFileFromCache: file: string<LocalPath> -> unit
+
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member ClearCaches: unit -> unit
 
