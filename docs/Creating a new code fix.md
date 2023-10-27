@@ -27,7 +27,7 @@ The above command accomplishes the following tasks:
 
 Furthermore, this command updates the following files to properly register the new code fix:
 
-- `src/FsAutoComplete/LspServers/AdaptiveFSharpLspServer.fs`
+- `src/FsAutoComplete/LspServers/AdaptiveState.fs`
 - `test/FsAutoComplete.Tests.Lsp/CodeFixTests/Tests.fs`
 
 The unit test file contains a [single focused test](https://github.com/haf/expecto#focusing-tests), allowing you to promptly verify the functionality. To run this initial test, you have two options:
