@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.67.0] - 2023-10-28
+
+### Changed
+
+* [Better Completion for ExternalAutocomplete functions](https://github.com/fsharp/FsAutoComplete/pull/1178) (Thanks @Tangent-90!)
+* LSP Refactoring [1179](https://github.com/fsharp/FsAutoComplete/pull/1179) [1188](https://github.com/fsharp/FsAutoComplete/pull/1188) (Thanks @TheAngryByrd)
+* [Fix Spelling](https://github.com/fsharp/FsAutoComplete/pull/1182) (Thanks @TheAngryByrd)
+
+### Fixed
+* [Json serializer error can cause server crash ](https://github.com/fsharp/FsAutoComplete/pull/1189) (Thanks @TheAngryByrd)
+* [Fixes a race condition with ProgressListener.End](https://github.com/fsharp/FsAutoComplete/pull/1183) (Thanks @TheAngryByrd)
+
 ## [0.66.1] - 2023-10-15
 
 ### Changed
