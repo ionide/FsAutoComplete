@@ -3098,6 +3098,7 @@ module AdaptiveFSharpLspServer =
       | :? LocalRpcException -> Some()
       | :? TaskCanceledException -> Some()
       | :? OperationCanceledException -> Some()
+      | :? Newtonsoft.Json.JsonSerializationException -> Some()
       | :? System.AggregateException as aex ->
         if aex.InnerExceptions.Count = 1 then
           (|HandleableException|_|) aex.InnerException
@@ -3107,11 +3108,43 @@ module AdaptiveFSharpLspServer =
 
     let strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
 
+    let (|Flatten|_|) (e: exn) =
+      match e with
+      | :? AggregateException as aex ->
+        let aex = aex.Flatten()
+
+        if aex.InnerExceptions.Count = 1 then
+          Some aex.InnerException
+        else
+          Some e
+      | _ -> Some e
+
+    let strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
+
     { new JsonRpc(handler, ActivityTracingStrategy = strategy) with
         member this.IsFatalException(ex: Exception) =
           match ex with
           | HandleableException -> false
-          | _ -> true }
+          | _ -> true
+
+        member this.CreateErrorDetails(request: Protocol.JsonRpcRequest, ex: Exception) =
+          let isSerializable = this.ExceptionStrategy = ExceptionProcessing.ISerializable
+
+          match ex with
+          | Flatten(:? Newtonsoft.Json.JsonSerializationException as ex) ->
+
+            let data: obj = if isSerializable then ex else Protocol.CommonErrorData(ex)
+
+            Protocol.JsonRpcError.ErrorDetail(
+              Code = Protocol.JsonRpcErrorCode.ParseError,
+              Message = ex.Message,
+              Data = data
+            )
+          | _ -> base.CreateErrorDetails(request, ex)
+
+    }
+
+
 
   let startCore toolsPath workspaceLoaderFactory sourceTextFactory =
     use input = Console.OpenStandardInput()
