@@ -40,8 +40,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
-    CancellationTokenSource>
-      ()
+    CancellationTokenSource>()
 
   let rec restartAgent (fileUri: DocumentUri) =
     removeAgent fileUri
