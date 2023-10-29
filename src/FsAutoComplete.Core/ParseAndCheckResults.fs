@@ -97,10 +97,10 @@ type ParseAndCheckResults
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
         | Ok extDec -> ResultOrString.Ok(FindDeclarationResult.ExternalDeclaration extDec)
-        | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
-          ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
-        | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
-          ResultOrString.Error(sprintf "External declaration assembly '%s' not found" assy)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName asm) ->
+          ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" asm.SimpleName)
+        | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound asm) ->
+          ResultOrString.Error(sprintf "External declaration assembly '%s' not found" asm)
         | Error(Decompiler.FindExternalDeclarationError.DecompileError(Decompiler.Exception(symbol, file, exn))) ->
           Error(
             sprintf "Error while decompiling symbol '%A' in file '%s': %s\n%s" symbol file exn.Message exn.StackTrace
@@ -118,8 +118,8 @@ type ParseAndCheckResults
         | FindDeclExternalSymbol.Event(typeName, name) -> None
         | FindDeclExternalSymbol.Property(typeName, name) -> None
 
-      // attempts to manually discover symbol use and externalsymbol information for a range that doesn't exist in a local file
-      // bugfix/workaround for FCS returning invalid declfound for f# members.
+      // attempts to manually discover symbol use and external symbol information for a range that doesn't exist in a local file
+      // bugfix/workaround for FCS returning invalid decl found for f# members.
       let tryRecoverExternalSymbolForNonexistentDecl
         (rangeInNonexistentFile: FSharp.Compiler.Text.Range)
         : ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>> =
@@ -137,7 +137,7 @@ type ParseAndCheckResults
           match symbolUse with
           | None ->
             ResultOrString.Error(
-              sprintf "Range for nonexistent file found, no symboluse found: %s" rangeInNonexistentFile.FileName
+              sprintf "Range for nonexistent file found, no symbol use found: %s" rangeInNonexistentFile.FileName
             )
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
@@ -169,7 +169,7 @@ type ParseAndCheckResults
           // decl in same file
           // necessary to get decl in untitled file (-> `File.Exists range.FileName` is false)
           logger.info (
-            Log.setMessage "Got a declresult of {range} in same file"
+            Log.setMessage "Got a declResult of {range} in same file"
             >> Log.addContextDestructured "range" range
           )
 
@@ -178,7 +178,7 @@ type ParseAndCheckResults
           let rangeStr = range.ToString()
 
           logger.info (
-            Log.setMessage "Got a declresult of {range} that supposedly exists"
+            Log.setMessage "Got a declResult of {range} that supposedly exists"
             >> Log.addContextDestructured "range" rangeStr
           )
 
@@ -187,7 +187,7 @@ type ParseAndCheckResults
           let range = rangeInNonexistentFile.ToString()
 
           logger.warn (
-            Log.setMessage "Got a declresult of {range} that doesn't exist"
+            Log.setMessage "Got a declResult of {range} that doesn't exist"
             >> Log.addContextDestructured "range" range
           )
 
@@ -276,10 +276,10 @@ type ParseAndCheckResults
                 let decompile assembly externalSym =
                   match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
                   | Ok extDec -> ResultOrString.Ok(FindDeclarationResult.ExternalDeclaration extDec)
-                  | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName assy) ->
-                    ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" assy.SimpleName)
-                  | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound assy) ->
-                    ResultOrString.Error(sprintf "External declaration assembly '%s' not found" assy)
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceHasNoFileName asm) ->
+                    ResultOrString.Error(sprintf "External declaration assembly '%s' missing file name" asm.SimpleName)
+                  | Error(Decompiler.FindExternalDeclarationError.ReferenceNotFound asm) ->
+                    ResultOrString.Error(sprintf "External declaration assembly '%s' not found" asm)
                   | Error(Decompiler.FindExternalDeclarationError.DecompileError(Decompiler.Exception(symbol, file, exn))) ->
                     Error(
                       sprintf
@@ -508,13 +508,13 @@ type ParseAndCheckResults
       checkResults.GetSymbolUsesAtLocation(pos.Line, colu, lineStr, identIsland)
 
   member x.TryGetSymbolUseAndUsages (pos: Position) (lineStr: LineStr) =
-    let symboluse = x.TryGetSymbolUse pos lineStr
+    let symbolUse = x.TryGetSymbolUse pos lineStr
 
-    match symboluse with
+    match symbolUse with
     | None -> ResultOrString.Error "No symbol information found"
-    | Some symboluse ->
-      let symboluses = checkResults.GetUsesOfSymbolInFile symboluse.Symbol
-      Ok(symboluse, symboluses)
+    | Some symbolUse ->
+      let symbolUses = checkResults.GetUsesOfSymbolInFile symbolUse.Symbol
+      Ok(symbolUse, symbolUses)
 
   member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
@@ -523,18 +523,18 @@ type ParseAndCheckResults
 
       let identIsland = Array.toList identIsland
 
-      let symboluse =
+      let symbolUse =
         checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
-      match symboluse with
+      match symbolUse with
       | None -> ResultOrString.Error "No symbol information found"
-      | Some symboluse ->
-        let fsym = symboluse.Symbol
+      | Some symbolUse ->
+        let fsym = symbolUse.Symbol
 
         match fsym with
         | :? FSharpMemberOrFunctionOrValue as symbol ->
           let typ =
-            symbol.ReturnParameter.Type.Format(symboluse.DisplayContext.WithPrefixGenericParameters())
+            symbol.ReturnParameter.Type.Format(symbolUse.DisplayContext.WithPrefixGenericParameters())
 
           if symbol.IsPropertyGetterMethod then
             Ok(typ, [], [])
@@ -550,7 +550,7 @@ type ParseAndCheckResults
             let parms =
               symbol.CurriedParameterGroups
               |> Seq.map (
-                Seq.map (fun p -> p.DisplayName, p.Type.Format(symboluse.DisplayContext.WithPrefixGenericParameters()))
+                Seq.map (fun p -> p.DisplayName, p.Type.Format(symbolUse.DisplayContext.WithPrefixGenericParameters()))
                 >> Seq.toList
               )
               |> Seq.toList
@@ -564,7 +564,7 @@ type ParseAndCheckResults
               Ok(typ, [ [ ("unit", "unit") ] ], [])
             | _ -> Ok(typ, parms, generics)
         | :? FSharpField as symbol ->
-          let typ = symbol.FieldType.Format symboluse.DisplayContext
+          let typ = symbol.FieldType.Format symbolUse.DisplayContext
           Ok(typ, [], [])
         | _ -> ResultOrString.Error "Not a member, function or value"
 

@@ -8,12 +8,12 @@ open Fantomas.Core.SyntaxOak
 
 let repositoryRoot = __SOURCE_DIRECTORY__ </> ".."
 
-let AdaptiveFSharpLspServerPath =
+let AdaptiveServerStatePath =
   repositoryRoot
   </> "src"
   </> "FsAutoComplete"
   </> "LspServers"
-  </> "AdaptiveFSharpLspServer.fs"
+  </> "AdaptiveServerState.fs"
 
 
 let TestsPath =
@@ -248,15 +248,15 @@ let findTypeWithNameOfFail (typeName: string) (mn: ModuleOrNamespaceNode) : ITyp
     | _ -> None)
 
 let findArrayInAdaptiveFSharpLspServer () : ExprArrayOrListNode =
-  let oak = getOakFor AdaptiveFSharpLspServerPath
+  let oak = getOakFor AdaptiveServerStatePath
 
   // namespace FsAutoComplete.Lsp
   let ns =
     oak.ModulesOrNamespaces
     |> List.exactlyOneOrFail "Expected a single namespace in Oak."
 
-  // type AdaptiveFSharpLspServer
-  let t = findTypeWithNameOfFail "AdaptiveFSharpLspServer" ns
+  // type AdaptiveState
+  let t = findTypeWithNameOfFail "AdaptiveState" ns
 
   // let codefixes =
   let codefixesValue =
@@ -299,12 +299,12 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
   try
     let array = findArrayInAdaptiveFSharpLspServer ()
 
-    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" AdaptiveFSharpLspServerPath array
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" AdaptiveServerStatePath array
   with ex ->
     Trace.traceException ex
 
     Trace.traceError
-      $"Unable to find array of codefixes in %s{AdaptiveFSharpLspServerPath}.\nDid the code structure change?"
+      $"Unable to find array of codefixes in %s{AdaptiveServerStatePath}.\nDid the code structure change?"
 
 
 let mkCodeFixTests codeFixName =

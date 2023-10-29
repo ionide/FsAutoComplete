@@ -212,7 +212,7 @@ module DocumentationFormatter =
     with :? InvalidOperationException ->
       p.DisplayName, p.DisplayName.Length
 
-  let getUnioncaseSignature displayContext (unionCase: FSharpUnionCase) =
+  let getUnionCaseSignature displayContext (unionCase: FSharpUnionCase) =
     if unionCase.Fields.Count > 0 then
       let typeList =
         unionCase.Fields
@@ -544,9 +544,9 @@ module DocumentationFormatter =
 
     let constraints =
       match v.FullTypeSafe with
-      | Some fulltype when fulltype.IsGenericParameter ->
+      | Some fullType when fullType.IsGenericParameter ->
         let formattedParam =
-          formatGenericParameter false displayContext fulltype.GenericParameter
+          formatGenericParameter false displayContext fullType.GenericParameter
 
         if String.IsNullOrWhiteSpace formattedParam then
           None
@@ -615,7 +615,7 @@ module DocumentationFormatter =
       | _ when fse.IsInterface -> "interface"
       | _ -> "type"
 
-    let enumtip () =
+    let enumTip () =
       $" ={nl}  |"
       ++ (fse.FSharpFields
           |> Seq.filter (fun f -> not f.IsCompilerGenerated)
@@ -629,10 +629,10 @@ module DocumentationFormatter =
             | None -> field.Name)
           |> String.concat $"{nl}  | ")
 
-    let uniontip () =
+    let unionTip () =
       $" ={nl}  |"
       ++ (fse.UnionCases
-          |> Seq.map (getUnioncaseSignature displayContext)
+          |> Seq.map (getUnionCaseSignature displayContext)
           |> String.concat ($"{nl}  | "))
 
     let delegateTip () =
@@ -643,7 +643,7 @@ module DocumentationFormatter =
       $" ={nl}   delegate of{nl}{invokerSig}"
 
     let typeTip () =
-      let constrc =
+      let constructors =
         fse.MembersFunctionsAndValues
         |> Seq.filter (fun n -> n.IsConstructor && n.Accessibility.IsPublic)
         |> Seq.collect (fun f ->
@@ -731,7 +731,7 @@ module DocumentationFormatter =
           ++ fst (formatShowDocumentationLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName))
         |> Seq.toArray
 
-      { Constructors = constrc
+      { Constructors = constructors
         Fields = fields
         Functions = funcs
         Interfaces = interfaces
@@ -770,9 +770,9 @@ module DocumentationFormatter =
         basicName
 
     if fse.IsFSharpUnion then
-      (typeDisplay + uniontip ()), typeTip ()
+      (typeDisplay + unionTip ()), typeTip ()
     elif fse.IsEnum then
-      (typeDisplay + enumtip ()), EntityInfo.Empty
+      (typeDisplay + enumTip ()), EntityInfo.Empty
     elif fse.IsDelegate then
       (typeDisplay + delegateTip ()), EntityInfo.Empty
     else
@@ -921,7 +921,7 @@ module DocumentationFormatter =
       Some((signature, EntityInfo.Empty), footerForType symbol, cn)
 
     | SymbolUse.UnionCase uc ->
-      let signature = getUnioncaseSignature symbol.DisplayContext uc
+      let signature = getUnionCaseSignature symbol.DisplayContext uc
       Some((signature, EntityInfo.Empty), footerForType symbol, cn)
 
     | SymbolUse.ActivePatternCase apc ->
@@ -991,7 +991,7 @@ module DocumentationFormatter =
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | UnionCase uc ->
-      let signature = getUnioncaseSignature lastDisplayContext uc
+      let signature = getUnionCaseSignature lastDisplayContext uc
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | ActivePatternCase apc ->

@@ -317,7 +317,7 @@ type FSharpParseFileResults with
     )
 
   /// Gets the ranges of all arguments, if they can be found, for a function application at the given position.
-  member scope.GetAllArgumentsForFunctionApplicationAtPostion pos =
+  member scope.GetAllArgumentsForFunctionApplicationAtPosition pos =
     SynExprAppLocationsImpl.getAllCurriedArgsAtPosition pos scope.ParseTree
 
 
@@ -372,7 +372,7 @@ type FSharpParseFileResults with
     let rec walkBinding expr workingRange =
       match expr with
 
-      // This lets us dive into subexpressions that may contain the binding we're after
+      // This lets us dive into sub-expressions that may contain the binding we're after
       | SynExpr.Sequential(_, _, expr1, expr2, _) ->
         if Range.rangeContainsPos expr1.Range pos then
           walkBinding expr1 workingRange

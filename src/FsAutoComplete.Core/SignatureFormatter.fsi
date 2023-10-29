@@ -25,7 +25,7 @@ module SignatureFormatter =
     param: FSharpGenericParameter ->
       string
 
-  val getUnioncaseSignature: displayContext: FSharpDisplayContext -> unionCase: FSharpUnionCase -> string
+  val getUnionCaseSignature: displayContext: FSharpDisplayContext -> unionCase: FSharpUnionCase -> string
 
   val getFuncSignatureWithIdent:
     displayContext: FSharpDisplayContext -> func: FSharpMemberOrFunctionOrValue -> ident: int -> string
@@ -44,5 +44,5 @@ module SignatureFormatter =
   val getAPCaseSignature: displayContext: FSharpDisplayContext -> apc: FSharpActivePatternCase -> string
   val getEntitySignature: displayContext: FSharpDisplayContext -> fse: FSharpEntity -> string
   val footerForType: entity: FSharpSymbolUse -> string
-  ///Returns formated symbol signature and footer that can be used to enhance standard FCS' text tooltips
+  ///Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
   val getTooltipDetailsFromSymbolUse: symbol: FSharpSymbolUse -> (string * string) option

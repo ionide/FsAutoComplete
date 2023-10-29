@@ -11,7 +11,7 @@ open FSharp.UMX
 
 let title = "Add explicit type annotation"
 
-/// fix inderminate type errors by adding an explicit type to a value
+/// fix indeterminate type errors by adding an explicit type to a value
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
   (getProjectOptionsForFile: GetProjectOptionsForFile)

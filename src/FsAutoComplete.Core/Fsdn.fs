@@ -13,7 +13,7 @@ type Response =
                     class_name: string
                     id: string |} |} |}[] |}
 
-let query (querystr: string) =
+let query (queryStr: string) =
   async {
 
     let exclusionList =
@@ -38,7 +38,7 @@ let query (querystr: string) =
         "System.Reactive" ]
 
     let queryString =
-      [ "query", querystr
+      [ "query", queryStr
         "exclusion", (exclusionList |> String.concat "+")
         "respect_name_difference", "enabled"
         "greedy_matching", "enabled"
@@ -67,9 +67,9 @@ let query (querystr: string) =
 
         let info2 = v.api.name
         //return a list of strings
-        let infonamespace = info2.``namespace``
-        let infoclass = info2.class_name
-        let infomethod = info2.id
+        let infoNamespace = info2.``namespace``
+        let infoClass = info2.class_name
+        let infoMethod = info2.id
 
         let removeGenerics (s: string) =
           if not (s.Contains("<")) then
@@ -77,7 +77,7 @@ let query (querystr: string) =
           else
             s.Substring(0, s.IndexOf('<'))
 
-        let finalresp = infoclass + "." + (removeGenerics infomethod)
-        finalresp)
+        let finalResponse = infoClass + "." + (removeGenerics infoMethod)
+        finalResponse)
       |> Array.toList
   }

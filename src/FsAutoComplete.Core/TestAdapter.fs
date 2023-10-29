@@ -216,25 +216,25 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       visitExpr parent trueBranch
       falseBranchOpt |> Option.iter (visitExpr parent)
     | SynExpr.LetOrUse(bindings = bindings; body = body) ->
-      visitBindindgs parent bindings
+      visitBindings parent bindings
       visitExpr parent body
     | SynExpr.Record(_, _, fields, _) ->
       fields
       |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
       |> List.iter (visitExpr parent)
     | SynExpr.MatchLambda(_, _, clauses, _, _) -> visitMatches parent clauses
-    | SynExpr.ObjExpr(bindings = bindings) -> visitBindindgs parent bindings
+    | SynExpr.ObjExpr(bindings = bindings) -> visitBindings parent bindings
     | _ -> ()
 
   and visitBinding prefix (SynBinding(expr = body)) = visitExpr prefix body
-  and visitBindindgs prefix s = s |> List.iter (visitBinding prefix)
+  and visitBindings prefix s = s |> List.iter (visitBinding prefix)
   and visitMatch prefix (SynMatchClause(resultExpr = expr)) = visitExpr prefix expr
   and visitMatches prefix s = s |> List.iter (visitMatch prefix)
 
   let rec visitDeclarations prefix decls =
     for declaration in decls do
       match declaration with
-      | SynModuleDecl.Let(_, bindings, _) -> visitBindindgs prefix bindings
+      | SynModuleDecl.Let(_, bindings, _) -> visitBindings prefix bindings
       | SynModuleDecl.NestedModule(decls = decls) -> visitDeclarations prefix decls
       | _ -> ()
 

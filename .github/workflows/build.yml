@@ -18,11 +18,12 @@ jobs:
     env:
       TEST_TIMEOUT_MINUTES: 40
       FSAC_TEST_DEFAULT_TIMEOUT : 120000 #ms, individual test timeouts
+      DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET 8 RCs to participate in rollforward as expected.
     timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        dotnet-version: ["", "6.0.x", "7.0.x"]
+        dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
         # these entries will mesh with the above combinations
         include:
           # just use what's in the repo
@@ -32,20 +33,27 @@ jobs:
             label: "repo global.json"
             build_net7: false
             test_tfm: net6.0
-          # latest 6.0 stable
+          # latest 6.0
           - global-json-file: "global.json"
             dotnet-version: "6.0.x"
             include-prerelease: false
-            label: "6.0 stable"
+            label: "6.0"
             build_net7: false
             test_tfm: net6.0
-          # latest 7.0 preview
+          # latest 7.0
           - global-json-file: "global.json"
             dotnet-version: "7.0.x"
             include-prerelease: true
-            label: "7.0 preview"
+            label: "7.0"
             build_net7: true
             test_tfm: net7.0
+          # latest 8.0
+          - global-json-file: "global.json"
+            dotnet-version: "8.0.x"
+            include-prerelease: true
+            label: "8.0"
+            build_net8: true
+            test_tfm: net8.0
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -76,18 +84,26 @@ jobs:
       run: dotnet --info
 
     - name: Restore tools
-      run: dotnet tool restore
+      run: |
+        # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to
+        # dotnet tool restore then.
+        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.2 && dotnet paket restore
 
     - name: Check format
       run: dotnet build -t:CheckFormat
+      env:
+        DOTNET_ROLL_FORWARD: LatestMajor
+        DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
 
     - name: Run Build
       run: dotnet run --project build -t Build
       env:
         BuildNet7: ${{ matrix.build_net7 }}
+        BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}
+        BuildNet8: ${{ matrix.build_net8 }}

@@ -40,8 +40,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
-    CancellationTokenSource>
-      ()
+    CancellationTokenSource>()
 
   let rec restartAgent (fileUri: DocumentUri) =
     removeAgent fileUri
@@ -213,7 +212,7 @@ module Helpers =
           Some
             { ResolveProvider = Some true
               TriggerCharacters = Some([| '.'; ''' |])
-              AllCommitCharacters = None //TODO: what chars shoudl commit completions?
+              AllCommitCharacters = None //TODO: what chars should commit completions?
               CompletionItem = None }
         CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
         CodeActionProvider =

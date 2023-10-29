@@ -320,7 +320,7 @@ module CommandResponse =
 
   type HighlightingResponse = { Highlights: HighlightingRange[] }
 
-  type PieplineHint =
+  type PipelineHint =
     { Line: int
       Types: string[]
       PrecedingNonPipeExprLine: int option }
@@ -364,9 +364,9 @@ module CommandResponse =
 
     let mapItemResponse (p: Ionide.ProjInfo.ProjectViewerItem) : ProjectResponseItem =
       match p with
-      | Ionide.ProjInfo.ProjectViewerItem.Compile(fullpath, extraInfo) ->
+      | Ionide.ProjInfo.ProjectViewerItem.Compile(fullPath, extraInfo) ->
         { ProjectResponseItem.Name = "Compile"
-          ProjectResponseItem.FilePath = fullpath
+          ProjectResponseItem.FilePath = fullPath
           ProjectResponseItem.VirtualPath = extraInfo.Link
           ProjectResponseItem.Metadata = Map.empty }
 

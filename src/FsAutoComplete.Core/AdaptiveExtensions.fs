@@ -7,8 +7,27 @@ open System.Threading.Tasks
 open IcedTasks
 open System.Threading
 
+
+
 [<AutoOpen>]
 module AdaptiveExtensions =
+
+  type CancellationTokenSource with
+
+    /// Communicates a request for cancellation. Ignores ObjectDisposedException
+    member cts.TryCancel() =
+      try
+        cts.Cancel()
+      with :? ObjectDisposedException ->
+        ()
+
+    /// Releases all resources used by the current instance of the System.Threading.CancellationTokenSource class.
+    member cts.TryDispose() =
+      try
+        cts.Dispose()
+      with _ ->
+        ()
+
   type ChangeableHashMap<'Key, 'Value> with
 
     /// <summary>
@@ -318,8 +337,8 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
     lock x (fun () ->
       if refCount = 1 then
         refCount <- 0
-        cancel.Cancel()
-        cancel.Dispose()
+        cancel.TryCancel()
+        cancel.TryDispose()
         cancel <- null
         cache <- None
       else
@@ -369,7 +388,7 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
   /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
   member x.Cancel() =
     cancel ()
-    cts.Cancel()
+    cts.TryCancel()
 
   /// <summary>The output of the passed in task to the constructor.</summary>
   /// <returns></returns>
@@ -480,43 +499,53 @@ module AsyncAVal =
   let ofTask (value: Task<'a>) = ConstantVal(value) :> asyncaval<_>
 
   let ofCancellableTask (value: CancellableTask<'a>) =
+    let mutable cache: Option<AdaptiveCancellableTask<'a>> = None
+
     { new AbstractVal<'a>() with
         member x.Compute t =
-          let cts = new CancellationTokenSource()
+          if x.OutOfDate || Option.isNone cache then
+            let cts = new CancellationTokenSource()
 
-          let cancel () =
-            cts.Cancel()
-            cts.Dispose()
+            let cancel () =
+              cts.TryCancel()
+              cts.TryDispose()
 
-          let real =
-            task {
-              try
-                return! value cts.Token
-              finally
-                cts.Dispose()
-            }
+            let real =
+              task {
+                try
+                  return! value cts.Token
+                finally
+                  cts.TryDispose()
+              }
 
-          AdaptiveCancellableTask(cancel, real) }
+            cache <- Some(AdaptiveCancellableTask(cancel, real))
+
+          cache.Value }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
+    let mutable cache: Option<AdaptiveCancellableTask<'a>> = None
+
     { new AbstractVal<'a>() with
         member x.Compute t =
-          let cts = new CancellationTokenSource()
+          if x.OutOfDate || Option.isNone cache then
+            let cts = new CancellationTokenSource()
 
-          let cancel () =
-            cts.Cancel()
-            cts.Dispose()
+            let cancel () =
+              cts.TryCancel()
+              cts.TryDispose()
 
-          let real =
-            task {
-              try
-                return! Async.StartImmediateAsTask(value, cts.Token)
-              finally
-                cts.Dispose()
-            }
+            let real =
+              task {
+                try
+                  return! Async.StartImmediateAsTask(value, cts.Token)
+                finally
+                  cts.TryDispose()
+              }
 
-          AdaptiveCancellableTask(cancel, real) }
+            cache <- Some(AdaptiveCancellableTask(cancel, real))
+
+          cache.Value }
     :> asyncaval<_>
 
   /// <summary>
@@ -548,13 +577,9 @@ module AsyncAVal =
                 cancellableTask {
                   let! ct = CancellableTask.getCancellationToken ()
                   let it = input.GetValue t
-                  let s = ct.Register(fun () -> it.Cancel())
-
-                  try
-                    let! i = it
-                    return! mapping i
-                  finally
-                    s.Dispose()
+                  use _s = ct.Register(fun () -> it.Cancel())
+                  let! i = it
+                  return! mapping i
                 }
               )
 
@@ -570,32 +595,7 @@ module AsyncAVal =
   /// adaptive inputs.
   /// </summary>
   let mapAsync (mapping: 'a -> Async<'b>) (input: asyncaval<'a>) =
-    let mutable cache: option<RefCountingTaskCreator<'b>> = None
-
-    { new AbstractVal<'b>() with
-        member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
-            let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
-                  let! ct = CancellableTask.getCancellationToken ()
-                  let it = input.GetValue t
-                  let s = ct.Register(fun () -> it.Cancel())
-
-                  try
-                    let! i = it
-                    return! mapping i
-                  finally
-                    s.Dispose()
-                }
-              )
-
-            cache <- Some ref
-            ref.New()
-          else
-            cache.Value.New() }
-    :> asyncaval<_>
-
+    map (fun a ct -> Async.StartImmediateAsTask(mapping a, ct)) input
 
   /// <summary>
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
@@ -628,17 +628,14 @@ module AsyncAVal =
 
                   let! ct = CancellableTask.getCancellationToken ()
 
-                  let s =
+                  use _s =
                     ct.Register(fun () ->
                       ta.Cancel()
                       tb.Cancel())
 
-                  try
-                    let! va = ta
-                    let! vb = tb
-                    return! mapping va vb
-                  finally
-                    s.Dispose()
+                  let! va = ta
+                  let! vb = tb
+                  return! mapping va vb
                 }
               )
 
@@ -677,14 +674,12 @@ module AsyncAVal =
                   cancellableTask {
                     let it = value.GetValue t
                     let! ct = CancellableTask.getCancellationToken ()
-                    let s = ct.Register(fun () -> it.Cancel())
+                    use _s = ct.Register(fun () -> it.Cancel())
 
-                    try
-                      let! i = it
-                      let inner = mapping i ct
-                      return inner
-                    finally
-                      s.Dispose()
+                    let! i = it
+                    let inner = mapping i ct
+                    return inner
+
                   }
                 )
 
@@ -698,26 +693,20 @@ module AsyncAVal =
                   let innerCellTask = outerTask.New()
 
                   let! ct = CancellableTask.getCancellationToken ()
-                  let s = ct.Register(fun () -> innerCellTask.Cancel())
+                  use _s = ct.Register(fun () -> innerCellTask.Cancel())
 
-                  try
-                    let! inner = innerCellTask
-                    let innerTask = inner.GetValue t
-                    lock inners (fun () -> inners.Value <- HashSet.add inner inners.Value)
+                  let! inner = innerCellTask
+                  let innerTask = inner.GetValue t
+                  lock inners (fun () -> inners.Value <- HashSet.add inner inners.Value)
 
-                    let s2 =
-                      ct.Register(fun () ->
-                        innerTask.Cancel()
-                        lock inners (fun () -> inners.Value <- HashSet.remove inner inners.Value)
-                        inner.Outputs.Remove x |> ignore)
+                  use _s2 =
+                    ct.Register(fun () ->
+                      innerTask.Cancel()
+                      lock inners (fun () -> inners.Value <- HashSet.remove inner inners.Value)
+                      inner.Outputs.Remove x |> ignore)
 
-                    try
-                      let! innerValue = innerTask
-                      return innerValue
-                    finally
-                      s2.Dispose()
-                  finally
-                    s.Dispose()
+                  return! innerTask
+
                 }
               )
 
@@ -816,7 +805,6 @@ module AMapAsync =
         return Some v2
       | None -> return None
     }
-
 
   /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
   let tryFindAndFlatten (key: 'Key) (map: amap<'Key, asyncaval<option<'Value>>>) =

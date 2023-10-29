@@ -13,7 +13,7 @@ type AbstractClassData =
   | ExplicitImpl of
     baseTy: SynType *
     members: SynMemberDefn list *
-    /// the place where the inherit expression is declared - the codefix should insert
+    /// the place where the inherit expression is declared - the code-fix should insert
     /// at an indent of .Start.Column, but insert a newline after .End
     inheritExpressionRange: Range
 

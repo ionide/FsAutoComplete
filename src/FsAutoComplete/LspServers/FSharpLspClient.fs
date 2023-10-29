@@ -163,10 +163,10 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     cancellableTask {
       use! __ = fun ct -> locker.LockAsync(ct)
       let stillNeedsToSend = canReportProgress && not endSent
-      endSent <- true
 
       if stillNeedsToSend then
         do! lspClient.Progress(x.Token, WorkDoneProgressEnd.Create(?message = message))
+        endSent <- true
     }
 
   interface IAsyncDisposable with
@@ -314,7 +314,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =
-      // was getting a compile error for the statemachine in CI to `task`
+      // was getting a compile error for the state machine in CI to `task`
       async {
         if not isDisposed then
           isDisposed <- true

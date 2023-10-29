@@ -28,7 +28,7 @@ module SymbolUse =
           |> Option.toList
           |> List.map (fun fullName ->
             if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
-              fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
+              fullName.[0 .. fullName.Length - 3] //Get name without suffix specifying number of generic arguments (for example `'2`)
             else
               fullName)
 
@@ -272,7 +272,7 @@ module SymbolPatterns =
           |> Option.toList
           |> List.map (fun fullName ->
             if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
-              fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
+              fullName.[0 .. fullName.Length - 3] //Get name without suffix specifying number of generic arguments (for example `'2`)
             else
               fullName)
 
@@ -301,7 +301,7 @@ module SymbolPatterns =
           |> Option.toList
           |> List.map (fun fullName ->
             if ent.GenericParameters.Count > 0 && fullName.Length > 2 then
-              fullName.[0 .. fullName.Length - 3] //Get name without sufix specifing number of generic arguments (for example `'2`)
+              fullName.[0 .. fullName.Length - 3] //Get name without suffix specifying number of generic arguments (for example `'2`)
             else
               fullName)
 
