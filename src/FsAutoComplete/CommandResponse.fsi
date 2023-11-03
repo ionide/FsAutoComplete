@@ -148,6 +148,8 @@ module CommandResponse =
       Parameters: Parameter list list
       Generics: string list }
 
+  type FsprojPeek = { Path: string; CompileItems: string list }
+
   type WorkspacePeekResponse = { Found: WorkspacePeekFound list }
 
   and WorkspacePeekFound =
@@ -156,7 +158,7 @@ module CommandResponse =
 
   and WorkspacePeekFoundDirectory =
     { Directory: string
-      Fsprojs: string list }
+      Fsprojs: FsprojPeek list }
 
   and WorkspacePeekFoundSolution =
     { Path: string
