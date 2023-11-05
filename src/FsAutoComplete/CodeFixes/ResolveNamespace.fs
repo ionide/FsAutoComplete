@@ -1,5 +1,6 @@
 module FsAutoComplete.CodeFix.ResolveNamespace
 
+open System
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix
 open FsAutoComplete.CodeFix.Types
@@ -37,7 +38,10 @@ let fix
         let line = lines.GetLineString(l - 2)
 
         let isImplicitTopLevelModule =
-          not (line.StartsWith "module" && not (line.EndsWith "="))
+          not (
+            line.StartsWith("module", StringComparison.Ordinal)
+            && not (line.EndsWith("=", StringComparison.Ordinal))
+          )
 
         if isImplicitTopLevelModule then 1 else l
       | ScopeKind.TopModule -> 1
@@ -47,7 +51,11 @@ let fix
 
           lineNos
           |> List.mapi (fun i line -> i, lines.GetLineString line)
-          |> List.choose (fun (i, lineStr) -> if lineStr.StartsWith "namespace" then Some i else None)
+          |> List.choose (fun (i, lineStr) ->
+            if lineStr.StartsWith("namespace", StringComparison.Ordinal) then
+              Some i
+            else
+              None)
           |> List.tryLast
 
         match mostRecentNamespaceInScope with
@@ -78,7 +86,7 @@ let fix
     let docLine = insertPoint - 1
 
     let actualOpen =
-      if name.EndsWith word && name <> word then
+      if name.EndsWith(word, StringComparison.Ordinal) && name <> word then
         let prefix = name.Substring(0, name.Length - word.Length).TrimEnd('.')
 
         $"%s{ns}.%s{prefix}"

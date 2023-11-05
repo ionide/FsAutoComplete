@@ -542,7 +542,7 @@ type AdaptiveFSharpLspServer
 
             let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
 
-            if lineStr.StartsWith "#" then
+            if lineStr.StartsWith("#", StringComparison.Ordinal) then
               let completionList =
                 { IsIncomplete = false
                   Items = KeywordList.hashSymbolCompletionItems
@@ -737,7 +737,10 @@ type AdaptiveFSharpLspServer
           | true, s -> CoreResponse.Res(HelpText.Simple(sym, s))
           | _ ->
             let sym =
-              if sym.StartsWith "``" && sym.EndsWith "``" then
+              if
+                sym.StartsWith("``", StringComparison.Ordinal)
+                && sym.EndsWith("``", StringComparison.Ordinal)
+              then
                 sym.TrimStart([| '`' |]).TrimEnd([| '`' |])
               else
                 sym

@@ -211,7 +211,7 @@ module CommandResponse =
 
     static member IsIgnored(e: FSharpDiagnostic) =
       // FST-1027 support in Fake 5
-      e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
+      e.ErrorNumber = 213 && e.Message.StartsWith("'paket:", StringComparison.Ordinal)
 
     static member OfFSharpError(e: FSharpDiagnostic) =
       { FileName = e.FileName

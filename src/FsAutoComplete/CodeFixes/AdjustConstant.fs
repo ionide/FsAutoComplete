@@ -698,7 +698,8 @@ module private CommonFixes =
   /// -> Prepend space if leading sign in `replacement` and operator char immediately in front (in `lineStr`)
   let prependSpaceIfNecessary (range: Range) (lineStr: string) (replacement: string) =
     if
-      (replacement.StartsWith "-" || replacement.StartsWith "+")
+      (replacement.StartsWith("-", StringComparison.Ordinal)
+       || replacement.StartsWith("+", StringComparison.Ordinal))
       && range.Start.Character > 0
       && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1])
     then

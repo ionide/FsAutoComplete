@@ -1,8 +1,8 @@
 module FsAutoComplete.Tests.GoTo
 
-
-open Expecto
+open System
 open System.IO
+open Expecto
 open Helpers
 open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
@@ -69,7 +69,7 @@ let private gotoTest state =
              | Result.Error e -> failtestf "Request failed: %A" e
              | Result.Ok None -> failtest "Request none"
              | Result.Ok (Some (GotoResult.Multiple _)) -> failtest "Should only get one location"
-             | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup") ->
+             | Result.Ok (Some (GotoResult.Single r)) when r.Uri.EndsWith("startup", StringComparison.Ordinal) ->
                failtest "Should not generate the startup dummy file"
              | Result.Ok (Some (GotoResult.Single r)) ->
                Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"

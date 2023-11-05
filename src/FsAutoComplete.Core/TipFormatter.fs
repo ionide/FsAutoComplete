@@ -177,7 +177,9 @@ module private Format =
           // so render the markdown code block the best way
           // by avoid empty lines at the beginning or the end
           let formattedText =
-            match innerText.StartsWith("\n"), innerText.EndsWith("\n") with
+            match
+              innerText.StartsWith("\n", StringComparison.Ordinal), innerText.EndsWith("\n", StringComparison.Ordinal)
+            with
             | true, true -> sprintf "```%s%s```" lang innerText
             | true, false -> sprintf "```%s%s\n```" lang innerText
             | false, true -> sprintf "```%s\n%s```" lang innerText
@@ -733,7 +735,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
 
       content.Split('\n')
       |> Array.map (fun line ->
-        if not (String.IsNullOrWhiteSpace line) && line.StartsWith(tabsOffset) then
+        if
+          not (String.IsNullOrWhiteSpace line)
+          && line.StartsWith(tabsOffset, StringComparison.Ordinal)
+        then
           line.Substring(columnOffset + indentationSize)
         else
           line)
@@ -973,7 +978,7 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
       let rec findIndentationSize (lines: string list) =
         match lines with
         | head :: tail ->
-          let lesserThanIndex = head.IndexOf("<")
+          let lesserThanIndex = head.IndexOf("<", StringComparison.Ordinal)
 
           if lesserThanIndex <> -1 then
             lesserThanIndex

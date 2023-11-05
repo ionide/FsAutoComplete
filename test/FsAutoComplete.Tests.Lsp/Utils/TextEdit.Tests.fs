@@ -1,4 +1,6 @@
 module Utils.Tests.TextEdit
+
+open System
 open Expecto
 open Expecto.Logging
 open Expecto.Logging.Message
@@ -512,7 +514,7 @@ printfn "$0Result$0=%i$0" b$0
   let beforeIndexTests = testList (nameof Cursor.beforeIndex) [
     let assertBeforeIndex expected textWithCursor =
       let textWithCursor = Text.trimTripleQuotation textWithCursor
-      let idx = textWithCursor.IndexOf Cursor.Marker
+      let idx = textWithCursor.IndexOf(Cursor.Marker, StringComparison.Ordinal)
       Expect.isGreaterThanOrEqual "Text has no cursor" (idx, 0)
       let text = textWithCursor.Remove(idx, Cursor.Marker.Length)
 
@@ -669,7 +671,7 @@ printfn "Result=%i" b$0"""
       let (pos, text) = assertAndGetTextAndCursor textWithCursor
       match Cursor.tryIndexOf pos text with
       | Ok actualIndex -> 
-        let idxInText = textWithCursor.IndexOf Cursor.Marker
+        let idxInText = textWithCursor.IndexOf(Cursor.Marker, StringComparison.Ordinal)
         let errorMsg = $"wrong index. Cursor at Postion={{Line={pos.Line};Char={pos.Character}}} or Index={idxInText}"
         Expect.equal errorMsg expectedIndex actualIndex
       | Result.Error msg -> failtest $"should have found index. But was error: {msg}"
@@ -868,7 +870,7 @@ printfn "Result=%i" b
 
     testList "idx |> beforeIndex |> tryIndexOf = idx" [
       let value (textWithCursor: string) = 
-        let idx = textWithCursor.IndexOf Cursor.Marker
+        let idx = textWithCursor.IndexOf(Cursor.Marker, StringComparison.Ordinal)
         if idx < 0 then
           failtest "No cursor"
         let text = textWithCursor.Replace(Cursor.Marker, "")
@@ -1259,7 +1261,7 @@ $0printfn "$0Result=%i" b$0
           |> Text.lines
           |> Seq.indexed
           |> Seq.choose (fun (l, line) ->
-              match line.IndexOf "incrementNumber" with
+              match line.IndexOf("incrementNumber", StringComparison.Ordinal) with
               | -1 -> None
               | c -> Some (pos l c)
           )

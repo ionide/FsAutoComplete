@@ -777,7 +777,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 | MSBuildAllProjects v ->
                   yield!
                     v
-                    |> Array.filter (fun x -> x.EndsWith(".props") && isWithinObjFolder x)
+                    |> Array.filter (fun x -> x.EndsWith(".props", StringComparison.Ordinal) && isWithinObjFolder x)
                     |> Array.map (UMX.tag >> projectFileChanges)
                 | _ -> () ]
 

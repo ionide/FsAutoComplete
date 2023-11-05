@@ -68,14 +68,14 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       let toReplace, otherOpts =
         p.OtherOptions
         |> Array.partition (fun opt ->
-          opt.EndsWith "FSharp.Core.dll"
-          || opt.EndsWith "FSharp.Compiler.Interactive.Settings.dll")
+          opt.EndsWith("FSharp.Core.dll", StringComparison.Ordinal)
+          || opt.EndsWith("FSharp.Compiler.Interactive.Settings.dll", StringComparison.Ordinal))
 
       { p with
           OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
-    if s.StartsWith(prefix) then
+    if s.StartsWith(prefix, StringComparison.Ordinal) then
       Some(s.[prefix.Length ..])
     else
       None
@@ -102,7 +102,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         "mscorlib" ]
       |> List.map (fun p -> p + ".dll")
 
-    let containsBadRef (s: string) = badRefs |> List.exists (fun r -> s.EndsWith r)
+    let containsBadRef (s: string) = badRefs |> List.exists (fun r -> s.EndsWith(r, StringComparison.Ordinal))
 
     fun (projOptions: FSharpProjectOptions) ->
       { projOptions with
@@ -120,7 +120,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     { projectOptions with
         SourceFiles = files }
 
-  let (|Reference|_|) (opt: string) = if opt.StartsWith "-r:" then Some(opt.[3..]) else None
+  let (|Reference|_|) (opt: string) =
+    if opt.StartsWith("-r:", StringComparison.Ordinal) then
+      Some(opt.[3..])
+    else
+      None
 
   /// ensures that all file paths are absolute before being sent to the compiler, because compilation of scripts fails with relative paths
   let resolveRelativeFilePaths (projectOptions: FSharpProjectOptions) =

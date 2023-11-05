@@ -1,5 +1,6 @@
 module FsAutoComplete.Tests.CodeFixTests.Tests
 
+open System
 open Expecto
 open Helpers
 open Utils.ServerTests
@@ -2794,7 +2795,7 @@ let private resolveNamespaceTests state =
         ResolveNamespaces = Some true }
 
   serverTestList (nameof ResolveNamespace) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.matching (fun ca -> ca.Title.StartsWith "open")
+    [ let selectCodeFix = CodeFix.matching (fun ca -> ca.Title.StartsWith("open", StringComparison.Ordinal))
 
       testCaseAsync "doesn't fail when target not in last line"
       <| CodeFix.checkApplicable

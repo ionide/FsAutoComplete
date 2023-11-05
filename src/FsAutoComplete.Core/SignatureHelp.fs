@@ -141,7 +141,11 @@ let private getSignatureHelpForMethod
 
     let methods = methodGroup.Methods
 
-    do! Option.guard (methods.Length > 0 && not (methodGroup.MethodName.EndsWith("> )")))
+    do!
+      Option.guard (
+        methods.Length > 0
+        && not (methodGroup.MethodName.EndsWith("> )", StringComparison.Ordinal))
+      )
 
     let isStaticArgTip = lines.TryGetChar paramLocations.OpenParenLocation = Some '<'
 

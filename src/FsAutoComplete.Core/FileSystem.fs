@@ -589,7 +589,7 @@ module Tokenizer =
     ) : Range voption =
     match text[range] with
     | Error _ -> ValueNone
-    | Ok rangeText when rangeText.EndsWith "``" ->
+    | Ok rangeText when rangeText.EndsWith("``", StringComparison.Ordinal) ->
       // find matching opening backticks
 
       // backticks cannot contain linebreaks -- even for Active Pattern:

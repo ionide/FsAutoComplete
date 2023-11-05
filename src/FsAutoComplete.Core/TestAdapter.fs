@@ -1,6 +1,6 @@
 module FsAutoComplete.TestAdapter
 
-
+open System
 open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 
@@ -44,46 +44,50 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
   let mutable ident = 0
 
   let isExpectoName (str: string) =
-    str.EndsWith "testCase"
-    || str.EndsWith "ftestCase"
-    || str.EndsWith "ptestCase"
-    || str.EndsWith "testCaseAsync"
-    || str.EndsWith "ftestCaseAsync"
-    || str.EndsWith "ptestCaseAsync"
-    || str.EndsWith "testCaseTask"
-    || str.EndsWith "ftestCaseTask"
-    || str.EndsWith "ptestCaseTask"
-    || (str.EndsWith "test"
-        && not (str.EndsWith "failtest")
-        && not (str.EndsWith "skiptest"))
-    || str.EndsWith "ftest"
-    || (str.EndsWith "ptest" && not (str.EndsWith "skiptest"))
-    || str.EndsWith "testAsync"
-    || str.EndsWith "ftestAsync"
-    || str.EndsWith "ptestAsync"
-    || str.EndsWith "testTask"
-    || str.EndsWith "ftestTask"
-    || str.EndsWith "ptestTask"
-    || str.EndsWith "testProperty"
-    || str.EndsWith "ptestProperty"
-    || str.EndsWith "ftestProperty"
-    || str.EndsWith "testPropertyWithConfig"
-    || str.EndsWith "ptestPropertyWithConfig"
-    || str.EndsWith "ftestPropertyWithConfig"
-    || str.EndsWith "testPropertyWithConfigs"
-    || str.EndsWith "ptestPropertyWithConfigs"
-    || str.EndsWith "ftestPropertyWithConfigs"
-    || str.EndsWith "testTheory"
-    || str.EndsWith "ftestTheory"
-    || str.EndsWith "ptestTheory"
-    || str.EndsWith "testTheoryAsync"
-    || str.EndsWith "ftestTheoryAsync"
-    || str.EndsWith "ptestTheoryAsync"
-    || str.EndsWith "testTheoryTask"
-    || str.EndsWith "ftestTheoryTask"
-    || str.EndsWith "ptestTheoryTask"
+    str.EndsWith("testCase", StringComparison.Ordinal)
+    || str.EndsWith("ftestCase", StringComparison.Ordinal)
+    || str.EndsWith("ptestCase", StringComparison.Ordinal)
+    || str.EndsWith("testCaseAsync", StringComparison.Ordinal)
+    || str.EndsWith("ftestCaseAsync", StringComparison.Ordinal)
+    || str.EndsWith("ptestCaseAsync", StringComparison.Ordinal)
+    || str.EndsWith("testCaseTask", StringComparison.Ordinal)
+    || str.EndsWith("ftestCaseTask", StringComparison.Ordinal)
+    || str.EndsWith("ptestCaseTask", StringComparison.Ordinal)
+    || (str.EndsWith("test", StringComparison.Ordinal)
+        && not (str.EndsWith("failtest", StringComparison.Ordinal))
+        && not (str.EndsWith("skiptest", StringComparison.Ordinal)))
+    || str.EndsWith("ftest", StringComparison.Ordinal)
+    || (str.EndsWith("ptest", StringComparison.Ordinal)
+        && not (str.EndsWith("skiptest", StringComparison.Ordinal)))
+    || str.EndsWith("testAsync", StringComparison.Ordinal)
+    || str.EndsWith("ftestAsync", StringComparison.Ordinal)
+    || str.EndsWith("ptestAsync", StringComparison.Ordinal)
+    || str.EndsWith("testTask", StringComparison.Ordinal)
+    || str.EndsWith("ftestTask", StringComparison.Ordinal)
+    || str.EndsWith("ptestTask", StringComparison.Ordinal)
+    || str.EndsWith("testProperty", StringComparison.Ordinal)
+    || str.EndsWith("ptestProperty", StringComparison.Ordinal)
+    || str.EndsWith("ftestProperty", StringComparison.Ordinal)
+    || str.EndsWith("testPropertyWithConfig", StringComparison.Ordinal)
+    || str.EndsWith("ptestPropertyWithConfig", StringComparison.Ordinal)
+    || str.EndsWith("ftestPropertyWithConfig", StringComparison.Ordinal)
+    || str.EndsWith("testPropertyWithConfigs", StringComparison.Ordinal)
+    || str.EndsWith("ptestPropertyWithConfigs", StringComparison.Ordinal)
+    || str.EndsWith("ftestPropertyWithConfigs", StringComparison.Ordinal)
+    || str.EndsWith("testTheory", StringComparison.Ordinal)
+    || str.EndsWith("ftestTheory", StringComparison.Ordinal)
+    || str.EndsWith("ptestTheory", StringComparison.Ordinal)
+    || str.EndsWith("testTheoryAsync", StringComparison.Ordinal)
+    || str.EndsWith("ftestTheoryAsync", StringComparison.Ordinal)
+    || str.EndsWith("ptestTheoryAsync", StringComparison.Ordinal)
+    || str.EndsWith("testTheoryTask", StringComparison.Ordinal)
+    || str.EndsWith("ftestTheoryTask", StringComparison.Ordinal)
+    || str.EndsWith("ptestTheoryTask", StringComparison.Ordinal)
 
-  let isExpectoListName (str: string) = str.EndsWith "testList" || str.EndsWith "ftestList" || str.EndsWith "ptestList"
+  let isExpectoListName (str: string) =
+    str.EndsWith("testList", StringComparison.Ordinal)
+    || str.EndsWith("ftestList", StringComparison.Ordinal)
+    || str.EndsWith("ptestList", StringComparison.Ordinal)
 
   let (|Case|List|NotExpecto|) =
     function
@@ -266,16 +270,16 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     |> List.exists (fun a ->
       let str = a.TypeName.LongIdent |> List.last
 
-      str.idText.EndsWith "Test"
-      || str.idText.EndsWith "TestAttribute"
-      || str.idText.EndsWith "TestCase"
-      || str.idText.EndsWith "TestCaseAttribute"
-      || str.idText.EndsWith "TestCaseSource"
-      || str.idText.EndsWith "TestCaseSourceAttribute"
-      || str.idText.EndsWith "Theory"
-      || str.idText.EndsWith "TheoryAttribute"
-      || str.idText.EndsWith "Property"
-      || str.idText.EndsWith "PropertyAttribute")
+      str.idText.EndsWith("Test", StringComparison.Ordinal)
+      || str.idText.EndsWith("TestAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("TestCase", StringComparison.Ordinal)
+      || str.idText.EndsWith("TestCaseAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("TestCaseSource", StringComparison.Ordinal)
+      || str.idText.EndsWith("TestCaseSourceAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("Theory", StringComparison.Ordinal)
+      || str.idText.EndsWith("TheoryAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("Property", StringComparison.Ordinal)
+      || str.idText.EndsWith("PropertyAttribute", StringComparison.Ordinal))
 
   let getName =
     function
@@ -444,12 +448,12 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     |> List.exists (fun a ->
       let str = a.TypeName.LongIdent |> List.last
 
-      str.idText.EndsWith "Fact"
-      || str.idText.EndsWith "FactAttribute"
-      || str.idText.EndsWith "Theory"
-      || str.idText.EndsWith "TheoryAttribute"
-      || str.idText.EndsWith "Property"
-      || str.idText.EndsWith "PropertyAttribute")
+      str.idText.EndsWith("Fact", StringComparison.Ordinal)
+      || str.idText.EndsWith("FactAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("Theory", StringComparison.Ordinal)
+      || str.idText.EndsWith("TheoryAttribute", StringComparison.Ordinal)
+      || str.idText.EndsWith("Property", StringComparison.Ordinal)
+      || str.idText.EndsWith("PropertyAttribute", StringComparison.Ordinal))
 
   let getName =
     function

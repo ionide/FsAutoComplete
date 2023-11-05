@@ -142,7 +142,7 @@ let main args =
     let logLevel =
       match
         args
-        |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+        |> Array.tryFind (fun arg -> arg.StartsWith(logMarker, StringComparison.Ordinal))
         |> Option.map (fun log -> log.Substring(logMarker.Length))
       with
       | Some ("warn" | "warning") -> Logging.LogLevel.Warn
@@ -155,7 +155,7 @@ let main args =
 
     let args =
       args
-      |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
+      |> Array.filter (fun arg -> not <| arg.StartsWith(logMarker, StringComparison.Ordinal))
 
     logLevel, args
 
@@ -173,10 +173,10 @@ let main args =
 
     let toExclude =
       args
-      |> Array.filter (fun arg -> arg.StartsWith excludeMarker)
+      |> Array.filter (fun arg -> arg.StartsWith(excludeMarker, StringComparison.Ordinal))
       |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
+    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
 
     toExclude, args
 
