@@ -536,7 +536,6 @@ module Commands =
 
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
     tyRes.TryGetToolTip pos lineStr
-    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
 
   // Calculates pipeline hints for now as in fSharp/pipelineHint with a bit of formatting on the hints
   let inlineValues (contents: IFSACSourceText) (tyRes: ParseAndCheckResults) : Async<(pos * String)[]> =
@@ -546,7 +545,7 @@ module Commands =
         option {
           let! lineStr = contents.GetLine pos
 
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+          let! tip = tyRes.TryGetToolTip pos lineStr
 
           return TipFormatter.extractGenericParameters tip
         }
@@ -618,7 +617,7 @@ module Commands =
         option {
           let! lineStr = contents.GetLine pos
 
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+          let! tip = tyRes.TryGetToolTip pos lineStr
 
           return TipFormatter.extractGenericParameters tip
         }

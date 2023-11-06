@@ -14,8 +14,17 @@ open FSharp.UMX
 open CliWrap
 
 
+module ErrorMsgUtils =
+  let formatLineLookErr (x : {| FileName: string<LocalPath>; Position: FcsPos |}) =
+    let position = fcsPosToLsp x.Position
+    $"No line in {x.FileName} at position {position}"
+
+
 module Result =
   let ofStringErr r = r |> Result.mapError JsonRpc.Error.InternalErrorMessage
+
+  let lineLookupErr (r : Result<'T, {| FileName: string<LocalPath>; Position: FcsPos |}>) =
+    r |> Result.mapError (ErrorMsgUtils.formatLineLookErr >> JsonRpc.Error.InternalErrorMessage)
 
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
@@ -187,7 +196,7 @@ module Helpers =
 
   let tryGetLineStr pos (text: IFSACSourceText) =
     text.GetLine(pos)
-    |> Result.ofOption (fun () -> $"No line in {text.FileName} at position {pos}")
+    |> Result.ofOption (fun () -> {| FileName = text.FileName; Position = pos |})
 
 
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
