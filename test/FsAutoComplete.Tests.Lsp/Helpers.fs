@@ -673,7 +673,7 @@ let diagnosticsFromSource (desiredSource: String) =
     match diags
           |> Array.choose (fun d ->
             match d.Source with
-            | Some s -> if s.StartsWith desiredSource then Some d else None
+            | Some s -> if s.StartsWith(desiredSource, StringComparison.Ordinal) then Some d else None
             | None -> None)
       with
     | [||] -> None

@@ -1,6 +1,6 @@
 module FsAutoComplete.CodeFix.RemoveUnusedBinding
 
-
+open System
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
@@ -10,7 +10,6 @@ open FsAutoComplete.LspHelpers
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-
 
 let posBetween (range: Range) tester =
   Position.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
@@ -62,7 +61,9 @@ type FSharpParseFileResults with
                 else
                   // Check if it's an operator
                   match pat with
-                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when id.idText.StartsWith("op_") ->
+                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when
+                    id.idText.StartsWith("op_", StringComparison.Ordinal)
+                    ->
                     if Range.rangeContainsRange id.idRange diagnosticRange then
                       Some(FullBinding binding.RangeOfBindingWithRhs)
                     else

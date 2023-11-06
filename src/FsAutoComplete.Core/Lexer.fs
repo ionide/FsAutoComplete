@@ -1,5 +1,6 @@
 namespace FsAutoComplete
 
+open System
 open FSharp.Compiler.Tokenization
 open FsAutoComplete.Logging
 open FsAutoComplete.Logging.Types
@@ -43,14 +44,14 @@ module Lexer =
 
   [<return: Struct>]
   let (|Define|_|) (a: string) =
-    if a.StartsWith "--define:" then
+    if a.StartsWith("--define:", StringComparison.Ordinal) then
       ValueSome(a.[9..])
     else
       ValueNone
 
   [<return: Struct>]
   let (|LangVersion|_|) (a: string) =
-    if a.StartsWith "--langversion:" then
+    if a.StartsWith("--langversion:", StringComparison.Ordinal) then
       ValueSome(a.[14..])
     else
       ValueNone

@@ -445,9 +445,12 @@ module String =
 
 
   let (|StartsWith|_|) (pattern: string) (value: string) =
-    if String.IsNullOrWhiteSpace value then None
-    elif value.StartsWith pattern then Some()
-    else None
+    if String.IsNullOrWhiteSpace value then
+      None
+    elif value.StartsWith(pattern, StringComparison.Ordinal) then
+      Some()
+    else
+      None
 
   let split (splitter: char) (s: string) =
     s.Split([| splitter |], StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
@@ -461,7 +464,7 @@ module String =
          yield line.Value
          line.Value <- reader.ReadLine()
 
-       if str.EndsWith("\n") then
+       if str.EndsWith("\n", StringComparison.Ordinal) then
          // last trailing space not returned
          // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
          yield String.Empty |]
@@ -638,7 +641,7 @@ let inline fail msg = Printf.kprintf Debug.Fail msg
 
 
 let chooseByPrefix (prefix: string) (s: string) =
-  if s.StartsWith(prefix) then
+  if s.StartsWith(prefix, StringComparison.Ordinal) then
     Some(s.Substring(prefix.Length))
   else
     None
@@ -646,7 +649,7 @@ let chooseByPrefix (prefix: string) (s: string) =
 let chooseByPrefix2 prefixes (s: string) = prefixes |> List.tryPick (fun prefix -> chooseByPrefix prefix s)
 
 let splitByPrefix (prefix: string) (s: string) =
-  if s.StartsWith(prefix) then
+  if s.StartsWith(prefix, StringComparison.Ordinal) then
     Some(prefix, s.Substring(prefix.Length))
   else
     None
@@ -659,7 +662,7 @@ module Patterns =
   let (|StartsWith|_|) (pat: string) (str: string) =
     match str with
     | null -> None
-    | _ when str.StartsWith pat -> Some str
+    | _ when str.StartsWith(pat, StringComparison.Ordinal) -> Some str
     | _ -> None
 
   let (|Contains|_|) (pat: string) (str: string) =

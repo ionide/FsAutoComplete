@@ -1,7 +1,8 @@
 module FsAutoComplete.Tests.FindReferences
 
-open Expecto
+open System
 open System.IO
+open Expecto
 open FsAutoComplete
 open Helpers
 open Ionide.LanguageServerProtocol.Types
@@ -229,13 +230,13 @@ let private solutionTests state =
     let refs = Dictionary<string, IList<Location>>()
     for i in 0..(lines.Length-1) do
       let line = lines[i].TrimStart()
-      if line.StartsWith marker then
+      if line.StartsWith(marker, StringComparison.Ordinal) then
         let l = line.Substring(marker.Length).Trim()
         let splits = l.Split([|' '|], 2)
         let mark = splits[0]
         let ty = mark[0]
         let range =
-          let col = line.IndexOf mark
+          let col = line.IndexOf(mark, StringComparison.Ordinal)
           let length = mark.Length
           let line = i - 1  // marker is line AFTER actual range
           {

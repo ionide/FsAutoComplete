@@ -327,7 +327,7 @@ module private ConvertIntToOtherBase =
                   "0o173"
                   "0b1111011"
                   
-                if not (name.StartsWith "u") && name <> "byte" then
+                if not (name.StartsWith("u", StringComparison.Ordinal)) && name <> "byte" then
                   checkAll server $"with value -123"
                     $"let n = {{number}}{suffix}"
                     "123"
@@ -802,10 +802,10 @@ module private ConvertIntToOtherBase =
 module private ConvertCharToOtherForm =
   let private tryExtractChar (title: String) =
     let (start, fin) = "Convert to `", "`"
-    if title.StartsWith start && title.EndsWith fin then
+    if title.StartsWith(start, StringComparison.Ordinal) && title.EndsWith(fin, StringComparison.Ordinal) then
       let c = title.Substring(start.Length, title.Length - start.Length - fin.Length).ToString()
       let c =
-        if c.Length > 3 && c.StartsWith "'" && c.EndsWith "'B" then
+        if c.Length > 3 && c.StartsWith("'", StringComparison.Ordinal) && c.EndsWith("'B", StringComparison.Ordinal) then
           // byte char (only when converting from int to char representation. Otherwise no `B` suffix in title)
           c.Substring(1, c.Length - 2)
         else
@@ -815,11 +815,11 @@ module private ConvertCharToOtherForm =
     else
       None
   let private extractFormat (char: String) =
-    if char.StartsWith "\\u" then
+    if char.StartsWith("\\u", StringComparison.Ordinal) then
       CharFormat.Utf16Hexadecimal
-    elif char.StartsWith "\\U" then
+    elif char.StartsWith("\\U", StringComparison.Ordinal) then
       CharFormat.Utf32Hexadecimal
-    elif char.StartsWith "\\x" then
+    elif char.StartsWith("\\x", StringComparison.Ordinal) then
       CharFormat.Hexadecimal
     elif char.Length >= 2 && char[0] = '\\' && Char.IsDigit char[1] then
       CharFormat.Decimal

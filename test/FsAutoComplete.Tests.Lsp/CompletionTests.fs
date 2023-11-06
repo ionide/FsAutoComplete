@@ -1,13 +1,13 @@
 module FsAutoComplete.Tests.Completion
 
-open Expecto
+open System
 open System.IO
+open Expecto
 open Helpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
-open Utils.Server
 open Helpers.Expecto.ShadowedTimeouts
 
 let tests state =
@@ -781,7 +781,7 @@ let autoOpenTests state =
 
       let (|ContainsOpenAction|_|) (codeActions: CodeAction[]) =
         codeActions
-        |> Array.tryFind (fun ca -> ca.Kind = Some "quickfix" && ca.Title.StartsWith "open ")
+        |> Array.tryFind (fun ca -> ca.Kind = Some "quickfix" && ca.Title.StartsWith("open ", StringComparison.Ordinal))
 
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e

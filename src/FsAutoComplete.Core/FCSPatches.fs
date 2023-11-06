@@ -657,7 +657,7 @@ module LanguageVersionShim =
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   let fromFSharpProjectOptions (fpo: FSharpProjectOptions) =
     fpo.OtherOptions
-    |> Array.tryFind (fun x -> x.StartsWith("--langversion:"))
+    |> Array.tryFind (fun x -> x.StartsWith("--langversion:", StringComparison.Ordinal))
     |> Option.map (fun x -> x.Split(":")[1])
     |> Option.map (fun x -> LanguageVersionShim(x))
     |> Option.defaultWith (fun () -> defaultLanguageVersion.Value)

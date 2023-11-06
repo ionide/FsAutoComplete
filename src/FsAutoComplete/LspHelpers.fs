@@ -146,14 +146,17 @@ module Conversions =
   let applyQuery (query: string) (info: SymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
-    | [| fullName |] -> info.Name.StartsWith fullName
-    | [| moduleName; fieldName |] -> info.Name.StartsWith fieldName && info.ContainerName = Some moduleName
+    | [| fullName |] -> info.Name.StartsWith(fullName, StringComparison.Ordinal)
+    | [| moduleName; fieldName |] ->
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some moduleName
     | parts ->
       let containerName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
 
       let fieldName = Array.last parts
 
-      info.Name.StartsWith fieldName && info.ContainerName = Some containerName
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some containerName
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =

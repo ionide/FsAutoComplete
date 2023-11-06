@@ -163,7 +163,9 @@ type ParseAndCheckResults
             | FindDeclFailureReason.Unknown r -> r
 
           return ResultOrString.Error(sprintf "Could not find declaration. %s" elaboration)
-        | FindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) ->
+        | FindDeclResult.DeclFound range when
+          range.FileName.EndsWith(Range.rangeStartup.FileName, StringComparison.Ordinal)
+          ->
           return ResultOrString.Error "Could not find declaration"
         | FindDeclResult.DeclFound range when range.FileName = UMX.untag x.FileName ->
           // decl in same file

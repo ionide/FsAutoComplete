@@ -1,4 +1,6 @@
 module Utils.TextEdit
+
+open System
 open Ionide.LanguageServerProtocol.Types
 open Utils.Utils
 open Expecto
@@ -49,7 +51,7 @@ module Cursor =
   /// Note: Cursor Position is BEFORE index.
   /// Note: Index might be `text.Length` (-> Cursor AFTER last char in text)
   let tryExtractIndex (text: string) =
-    match text.IndexOf Marker with
+    match text.IndexOf(Marker, StringComparison.Ordinal) with
     | -1 -> None
     | i ->
         (i, text.Remove(i, Marker.Length))
@@ -65,7 +67,7 @@ module Cursor =
       let markersInLine =
         markers
         |> Array.choose (fun marker ->
-            match line.IndexOf marker with
+            match line.IndexOf(marker, StringComparison.Ordinal) with
             | -1 -> None
             | column -> Some (marker, column)
         )
@@ -252,7 +254,7 @@ module Cursors =
   /// Note: doesn't trim input!
   let iter (textWithCursors: string) =
     let rec collect (textsWithSingleCursor) (textWithCursors: string) =
-      match textWithCursors.IndexOf Cursor.Marker with
+      match textWithCursors.IndexOf(Cursor.Marker, StringComparison.Ordinal) with
       | -1 -> textsWithSingleCursor |> List.rev
       | i ->
         let textWithSingleCursor =

@@ -309,7 +309,7 @@ module Commands =
 
                     if
                       (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
-                      && lastIdent.EndsWith "Attribute"
+                      && lastIdent.EndsWith("Attribute", StringComparison.Ordinal)
                     then
                       yield
                         e.TopRequireQualifiedAccessParent,
@@ -706,7 +706,7 @@ module Commands =
             |> Seq.tryFind (fun l ->
               let lineStr = getLine l
               // namespace MUST be top level -> no indentation
-              lineStr.StartsWith "namespace ")
+              lineStr.StartsWith("namespace ", StringComparison.Ordinal))
             |> function
               // move to the next line below "namespace"
               | Some l -> l.IncLine()
@@ -1000,7 +1000,10 @@ module Commands =
         // -> only check if no backticks
         let newBacktickedName = newName |> PrettyNaming.NormalizeIdentifierBackticks
 
-        if newBacktickedName.StartsWith "``" && newBacktickedName.EndsWith "``" then
+        if
+          newBacktickedName.StartsWith("``", StringComparison.Ordinal)
+          && newBacktickedName.EndsWith("``", StringComparison.Ordinal)
+        then
           return newBacktickedName
         elif PrettyNaming.IsIdentifierName newName then
           return newName

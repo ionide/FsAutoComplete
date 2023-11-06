@@ -138,8 +138,8 @@ module Parser =
 
         let dotnetPath =
           if
-            Environment.ProcessPath.EndsWith("dotnet")
-            || Environment.ProcessPath.EndsWith("dotnet.exe")
+            Environment.ProcessPath.EndsWith("dotnet", StringComparison.Ordinal)
+            || Environment.ProcessPath.EndsWith("dotnet.exe", StringComparison.Ordinal)
           then
             // this is valid when not running as a global tool
             Some(FileInfo(Environment.ProcessPath))

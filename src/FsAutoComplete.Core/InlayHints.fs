@@ -148,7 +148,11 @@ module private ShouldCreate =
 
 
   [<return: Struct>]
-  let private (|StartsWith|_|) (v: string) (fullName: string) = if fullName.StartsWith v then ValueSome() else ValueNone
+  let private (|StartsWith|_|) (v: string) (fullName: string) =
+    if fullName.StartsWith(v, StringComparison.Ordinal) then
+      ValueSome()
+    else
+      ValueNone
   // doesn't differentiate between modules, types, namespaces
   // -> is just for documentation in code
   [<return: Struct>]
@@ -206,7 +210,8 @@ module private ShouldCreate =
 
   let inline private isMeaningfulName (p: FSharpParameter) = p.DisplayName.Length > 2
 
-  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) = func.CompiledName.StartsWith "op_"
+  let inline private isOperator (func: FSharpMemberOrFunctionOrValue) =
+    func.CompiledName.StartsWith("op_", StringComparison.Ordinal)
 
   /// Doesn't consider lower/upper cases:
   /// * `areSame "foo" "FOO" = true`
@@ -303,7 +308,7 @@ module private ShouldCreate =
 
   let inline private doesNotMatchArgumentText (parameterName: string) (userArgumentText: string) =
     parameterName <> userArgumentText
-    && not (userArgumentText.StartsWith parameterName)
+    && not (userArgumentText.StartsWith(parameterName, StringComparison.Ordinal))
 
   let private isParamNamePostfixOfFuncName (func: FSharpMemberOrFunctionOrValue) (paramName: string) =
     let funcName = func.DisplayName.AsSpan()
@@ -374,7 +379,7 @@ type MissingExplicitType with
       if x.SpecialRules |> List.contains RemoveOptionFromType then
         // Optional parameter:
         // `static member F(?a) =` -> `: int`, NOT `: int option`
-        if typeName.EndsWith " option" then
+        if typeName.EndsWith(" option", StringComparison.Ordinal) then
           typeName.Substring(0, typeName.Length - " option".Length)
         else
           typeName

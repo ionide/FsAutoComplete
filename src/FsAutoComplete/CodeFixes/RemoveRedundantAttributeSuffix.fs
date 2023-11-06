@@ -1,5 +1,6 @@
 ﻿module FsAutoComplete.CodeFix.RemoveRedundantAttributeSuffix
 
+open System
 open FSharp.Compiler.Syntax
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
@@ -26,7 +27,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                   attributes.Attributes
                   |> List.choose (fun a ->
                     match List.tryLast a.TypeName.LongIdent with
-                    | Some ident when ident.idText.EndsWith("Attribute") -> Some ident
+                    | Some ident when ident.idText.EndsWith("Attribute", StringComparison.Ordinal) -> Some ident
                     | _ -> None)
 
                 if List.isEmpty attributesWithRedundantSuffix then

@@ -71,7 +71,9 @@ module ProjInfoExtensions =
   type FSharpProjectOptions with
 
     member x.OutputDll =
-      x.OtherOptions |> Array.find (fun o -> o.StartsWith("-o:")) |> (fun s -> s[3..])
+      x.OtherOptions
+      |> Array.find (fun o -> o.StartsWith("-o:", StringComparison.Ordinal))
+      |> (fun s -> s[3..])
 
     member x.SourceFilesThatThisFileDependsOn(file: string<LocalPath>) =
       let untagged = UMX.untag file
