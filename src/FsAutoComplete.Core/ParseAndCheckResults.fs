@@ -319,9 +319,7 @@ type ParseAndCheckResults
   member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None ->
-      logger.info (
-          Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-        )
+      logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
       None
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
@@ -336,21 +334,14 @@ type ParseAndCheckResults
           match KeywordList.keywordTooltips.TryGetValue ident with
           | true, tip -> Some tip
           | _ ->
-            logger.info (
-                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-              )
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
             None
         | _ ->
-          logger.info (
-              Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-            )
+          logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
           None
       | _ -> Some tip
 
-  member x.TryGetToolTipEnhanced
-    (pos: Position)
-    (lineStr: LineStr)
-    : option<TryGetToolTipEnhancedResult> =
+  member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) : option<TryGetToolTipEnhancedResult> =
     let (|EmptyTooltip|_|) (ToolTipText elems) =
       match elems with
       | [] -> Some()
@@ -363,9 +354,7 @@ type ParseAndCheckResults
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (pos.Column, lineStr) with
       | None ->
-        logger.info (
-            Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-          )
+        logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
         None
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
@@ -388,21 +377,18 @@ type ParseAndCheckResults
                 SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
               |> Some
             | _ ->
-                logger.info (
-                    Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-                  )
-                None
-          | _ ->
               logger.info (
-                  Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-                )
+                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
+              )
+
               None
+          | _ ->
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+            None
         | _ ->
           match symbol with
           | None ->
-            logger.info (
-                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-              )
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
             None
           | Some symbol ->
 
@@ -415,8 +401,9 @@ type ParseAndCheckResults
             match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
             | None ->
               logger.info (
-                  Log.setMessageI $"Cannot find tooltip for {symbol:symbol} ({pos.Column:column} in {lineStr:lineString})"
-                )
+                Log.setMessageI $"Cannot find tooltip for {symbol:symbol} ({pos.Column:column} in {lineStr:lineString})"
+              )
+
               None
             | Some(signature, footer) ->
               { ToolTipText = tip

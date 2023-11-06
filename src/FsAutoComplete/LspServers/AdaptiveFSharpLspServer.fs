@@ -568,11 +568,12 @@ type AdaptiveFSharpLspServer
                 asyncResult {
 
                   let! volatileFile = state.GetOpenFileOrRead filePath
+
                   let! lineStr =
                     volatileFile.Source
                     |> tryGetLineStr pos
                     |> Result.mapError ErrorMsgUtils.formatLineLookErr
-                    //TODO ⮝⮝⮝ good candidate for better error model -- review!
+                  //TODO ⮝⮝⮝ good candidate for better error model -- review!
 
                   // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
                   // This will require the trigger character to be at the place VSCode says it is
@@ -940,8 +941,7 @@ type AdaptiveFSharpLspServer
 
             | TipFormatter.TipFormatterResult.None -> return None
 
-          | None ->
-            return None
+          | None -> return None
 
         with e ->
           trace |> Tracing.recordException e

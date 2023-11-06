@@ -534,8 +534,7 @@ module Commands =
       | Error e -> return CoreResponse.ErrorRes e
     }
 
-  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    tyRes.TryGetToolTip pos lineStr
+  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = tyRes.TryGetToolTip pos lineStr
 
   // Calculates pipeline hints for now as in fSharp/pipelineHint with a bit of formatting on the hints
   let inlineValues (contents: IFSACSourceText) (tyRes: ParseAndCheckResults) : Async<(pos * String)[]> =
