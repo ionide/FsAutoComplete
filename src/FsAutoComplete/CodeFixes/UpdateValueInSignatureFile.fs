@@ -2,30 +2,31 @@ module FsAutoComplete.CodeFix.UpdateValueInSignatureFile
 
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text
 open FsToolkit.ErrorHandling
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
-let visitSynModuleSigDecl (name: string) (decl: SynModuleSigDecl) =
-  match decl with
-  | SynModuleSigDecl.Val(valSig = SynValSig(ident = SynIdent(ident = ident)); range = m) when ident.idText = name ->
-    Some m
-  | _ -> None
-
-let visitSynModuleOrNamespaceSig (name: string) (SynModuleOrNamespaceSig(decls = decls)) =
-  decls |> List.tryPick (visitSynModuleSigDecl name)
-
-let visitParsedSigFileInput (name: string) (ParsedSigFileInput(contents = contents)) =
-  contents |> List.tryPick (visitSynModuleOrNamespaceSig name)
-
-let visitTree (name: string) (tree: ParsedInput) =
-  match tree with
-  | ParsedInput.ImplFile _ -> None
-  | ParsedInput.SigFile parsedSigFileInput -> visitParsedSigFileInput name parsedSigFileInput
-
 let title = "Update val in signature file"
+
+let assertPaths (sigPath: SyntaxVisitorPath) (implPath: SyntaxVisitorPath) =
+  let extractPath (path: SyntaxVisitorPath) =
+    path
+    |> List.collect (function
+      | SyntaxNode.SynModuleOrNamespace(SynModuleOrNamespace(longId = lid))
+      | SyntaxNode.SynModule(SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(longId = lid)))
+      | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = lid))
+      | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(moduleInfo = SynComponentInfo(longId = lid))) -> lid
+      | _ -> [])
+    |> List.map (fun ident -> ident.idText)
+    |> String.concat "."
+
+  let impl = extractPath implPath
+  let sign = extractPath sigPath
+  impl = sign
+
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "34" ]) (fun diagnostic codeActionParams ->
@@ -39,43 +40,72 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let sigTextDocumentIdentifier: TextDocumentIdentifier =
         { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
 
-      let! (implParseAndCheckResults: ParseAndCheckResults, implLine: string, implSourceText: IFSACSourceText) =
+      let! (implParseAndCheckResults: ParseAndCheckResults, implLine: string, _implSourceText: IFSACSourceText) =
         getParseResultsForFile implFileName (protocolPosToPos diagnostic.Range.Start)
 
-      let! implBindingName =
-        implSourceText.GetText(protocolRangeToRange implParseAndCheckResults.GetParseResults.FileName diagnostic.Range)
+      let mDiag =
+        protocolRangeToRange implParseAndCheckResults.GetParseResults.FileName diagnostic.Range
 
-      let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
-        getParseResultsForFile sigFileName (protocolPosToPos diagnostic.Range.Start)
+      // Find the binding name in the implementation file.
+      let impVisitor =
+        { new SyntaxVisitorBase<_>() with
+            override x.VisitBinding(path, defaultTraverse, SynBinding(headPat = pat)) =
+              match pat with
+              | SynPat.LongIdent(longDotId = SynLongIdent(id = [ ident ])) when Range.equals mDiag ident.idRange ->
+                Some(ident, path)
+              | _ -> None }
 
-      match visitTree implBindingName sigParseAndCheckResults.GetParseResults.ParseTree with
+      match SyntaxTraversal.Traverse(mDiag.Start, implParseAndCheckResults.GetParseResults.ParseTree, impVisitor) with
       | None -> return []
-      | Some mVal ->
-        let endPos = protocolPosToPos diagnostic.Range.End
+      | Some(implBindingIdent, implPath) ->
 
-        let symbolUse =
-          implParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
-            endPos.Line,
-            endPos.Column,
-            implLine,
-            [ implBindingName ]
-          )
+        // Find a matching val in the signature file.
+        let sigVisitor =
+          { new SyntaxVisitorBase<_>() with
+              override x.VisitValSig(path, defaultTraverse, SynValSig(ident = SynIdent(ident, _); range = mValSig)) =
+                if ident.idText = implBindingIdent.idText then
+                  Some(mValSig, path)
+                else
+                  None }
 
-        match symbolUse with
+        let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
+          getParseResultsForFile sigFileName (protocolPosToPos diagnostic.Range.Start)
+
+        match
+          SyntaxTraversal.Traverse(Position.pos0, sigParseAndCheckResults.GetParseResults.ParseTree, sigVisitor)
+        with
         | None -> return []
-        | Some symbolUse ->
-          match symbolUse.Symbol with
-          | :? FSharpMemberOrFunctionOrValue as mfv ->
-            match mfv.GetValSignatureText(symbolUse.DisplayContext, symbolUse.Range) with
+        | Some(mValSig, sigPath) ->
+
+          // Verify both nodes share the same path.
+          if not (assertPaths sigPath implPath) then
+            return []
+          else
+            let endPos = implBindingIdent.idRange.End
+
+            let symbolUse =
+              implParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
+                endPos.Line,
+                endPos.Column,
+                implLine,
+                [ implBindingIdent.idText ]
+              )
+
+            match symbolUse with
             | None -> return []
-            | Some valText ->
-              return
-                [ { SourceDiagnostic = None
-                    Title = title
-                    File = sigTextDocumentIdentifier
-                    Edits =
-                      [| { Range = fcsRangeToLsp mVal
-                           NewText = valText } |]
-                    Kind = FixKind.Fix } ]
-          | _ -> return []
+            | Some symbolUse ->
+              match symbolUse.Symbol with
+              | :? FSharpMemberOrFunctionOrValue as mfv ->
+                match mfv.GetValSignatureText(symbolUse.DisplayContext, symbolUse.Range) with
+                | None -> return []
+                | Some valText ->
+                  return
+                    [ { SourceDiagnostic = None
+                        Title = title
+                        File = sigTextDocumentIdentifier
+                        Edits =
+                          [| { Range = fcsRangeToLsp mValSig
+                               NewText = valText } |]
+                        Kind = FixKind.Fix } ]
+              | _ -> return []
     })
