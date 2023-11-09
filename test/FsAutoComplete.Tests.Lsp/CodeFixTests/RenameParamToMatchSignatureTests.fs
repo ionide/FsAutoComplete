@@ -13,8 +13,7 @@ open Utils.CursorbasedTests.CodeFix
 
 
 let tests state =
-  let selectCodeFix expectedName =
-    CodeFix.withTitle (RenameParamToMatchSignature.title expectedName)
+  let selectCodeFix expectedName = CodeFix.withTitle (RenameParamToMatchSignature.title expectedName)
 
   // requires `fsi` and corresponding `fs` file (and a project!)
   // -> cannot use untitled doc
@@ -33,7 +32,7 @@ let tests state =
             fsSourceWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
 
           let! (fsiDoc, diags) = server |> Server.openDocumentWithText fsiFile fsiSource
-          use fsiDoc = fsiDoc
+          use _fsiDoc = fsiDoc
           Expect.isEmpty diags "There should be no diagnostics in fsi doc"
           let! (fsDoc, diags) = server |> Server.openDocumentWithText fsFile fsSource
           use fsDoc = fsDoc
