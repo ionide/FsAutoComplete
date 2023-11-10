@@ -16,7 +16,7 @@ module AdaptiveExtensions =
     /// <summary>
     /// Adds the given key and calls the adder function if no previous key exists.
     /// Otherwise calls updater with the current key/value but does not override existing value in the map.
-    /// This is useful when the 'Value is itself a changeable value like a cval, aset, amap which should be changed
+    /// This is useful when the 'Value is itself a changeable value like a cval, cset, cmap which should be changed
     /// but the parent container doesn't need to know about those changes itself.
     /// </summary>
     member AddOrElse: key: 'Key * adder: ('Key -> 'Value) * updater: ('Key -> 'Value -> unit) -> unit
@@ -191,7 +191,7 @@ module Async =
 
 [<AutoOpen>]
 module Extensions =
-  type IcedTasks.CancellableTasks.CancellableTaskBuilderBase with
+  type IcedTasks.CancellableTaskBase.CancellableTaskBuilderBase with
 
     /// <summary>Allows implicit conversion of a AdaptiveCancellableTask to a CancellableTask in a cancellableTask CE.</summary>
     member inline Source:
