@@ -79,14 +79,6 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             // Find a matching val in the signature file.
             let sigVisitor =
               { new SyntaxVisitorBase<_>() with
-                  override x.VisitModuleSigDecl
-                    (
-                      path: SyntaxVisitorPath,
-                      defaultTraverse,
-                      synModuleSigDecl: SynModuleSigDecl
-                    ) =
-                    defaultTraverse synModuleSigDecl
-
                   override x.VisitValSig
                     (
                       path,
@@ -108,10 +100,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             | Some(mValSig, sigPath) ->
 
               // Verify both nodes share the same path.
+              // TODO: not sure how relevant this check still is.
+              // Using the mfv.SignatureLocation is probably already enough to pinpoint the correct val.
+              // This check was introduced to verify vals with the same name (but in different nested modules) are not getting mixed up.
               if not (assertPaths sigPath implPath) then
                 return []
               else
                 // Find matching symbol in signature file, we need it for its DisplayContext
+                // GetValSignatureText will take the open namespaces into account when printing the types.
+                // The implementation file might have different opens than the signature.
                 let sigSymbolUseOpt =
                   sigParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
                     mSig.End.Line,
