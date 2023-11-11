@@ -23,7 +23,7 @@ module Types =
   type IsEnabled = unit -> bool
 
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
-  type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
+  type GetFileLines = string<LocalPath> -> Async<option<IFSACSourceText>>
   type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
@@ -33,8 +33,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<option<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
 
   [<RequireQualifiedAccess>]
   type FixKind =

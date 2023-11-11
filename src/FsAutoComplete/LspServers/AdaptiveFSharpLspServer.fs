@@ -84,10 +84,10 @@ type AdaptiveFSharpLspServer
 
 
 
-  member private x.handleSemanticTokens (filePath: string<LocalPath>) range : AsyncLspResult<SemanticTokens option> =
-    asyncResult {
+  member private x.handleSemanticTokens (filePath: string<LocalPath>) range : Async<SemanticTokens option> =
+    asyncOption {
 
-      let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+      let! tyRes = state.GetOpenFileTypeCheckResults filePath
       let r = tyRes.GetCheckResults.GetSemanticClassification(range)
       let filteredRanges = Commands.scrubRanges r
 
@@ -98,8 +98,8 @@ type AdaptiveFSharpLspServer
           struct (fcsRangeToLsp item.Range, ty, mods))
 
       match encodeSemanticHighlightRanges lspTypedRanges with
-      | None -> return None
-      | Some encoded -> return (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
+      | None -> return! None
+      | Some encoded -> return! (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }
 
   member __.HandleFormatting

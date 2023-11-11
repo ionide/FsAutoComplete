@@ -196,6 +196,7 @@ module Helpers =
         >> Log.addContextDestructured "pos" pos
         >> Log.addContext "text" text.FileName
       )
+
       None
 
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag

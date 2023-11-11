@@ -1047,7 +1047,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
           return! None
     }
-    |> Async.map (Result.ofOption (fun () -> $"Could not read file: {file}"))
 
   do
     let fileShimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
@@ -1095,15 +1094,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         |> Array.Parallel.map (fun (opts, parseOpts, fileName) ->
           let fileName = UMX.tag fileName
 
-          asyncResult {
+          asyncOption {
             let! file = forceFindOpenFileOrRead fileName
             return! parseFile checker file parseOpts opts.FSharpProjectOptions
-          }
-          |> Async.map Result.toOption)
+          })
         |> Async.parallel75
     }
 
-  let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
+  let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncOption.map (fun f -> f.Source)
 
 
   let openFilesToChangesAndProjectOptions =
@@ -1323,7 +1321,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   /// Bypass Adaptive checking and tell the checker to check a file
   let bypassAdaptiveTypeCheck (filePath: string<LocalPath>) opts =
-    asyncResult {
+    asyncOption {
       try
         logger.info (
           Log.setMessage "Forced Check : {file}"
@@ -1344,7 +1342,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           >> Log.addExn e
         )
 
-        return! Error(e.ToString())
+        return! None
     }
 
 
@@ -1395,17 +1393,22 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       return results |> Result.ofOption (fun () -> $"No parse results for {filePath}")
     }
 
-  let forceGetOpenFileRecentTypeCheckResults filePath =
+  let forceGetOpenFile (getTypeCheckResults: string<LocalPath> -> asyncaval<option<ParseAndCheckResults>>) filePath =
     async {
-      let! results = getOpenFileRecentTypeCheckResults filePath |> AsyncAVal.forceAsync
-      return results |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
+      let! results = getTypeCheckResults filePath |> AsyncAVal.forceAsync
+
+      logger.info (
+        Log.setMessage "No typecheck results for {file}"
+        >> Log.addContextDestructured "file" filePath
+      )
+
+      return results
     }
 
-  let forceGetOpenFileTypeCheckResults (filePath: string<LocalPath>) =
-    async {
-      let! results = getOpenFileTypeCheckResults (filePath) |> AsyncAVal.forceAsync
-      return results |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
-    }
+  let forceGetOpenFileRecentTypeCheckResults =
+    forceGetOpenFile getOpenFileRecentTypeCheckResults
+
+  let forceGetOpenFileTypeCheckResults = forceGetOpenFile getOpenFileTypeCheckResults
 
   /// <summary>
   /// This will attempt to get typecheck results in this order
@@ -1422,23 +1425,19 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     asyncAVal {
       let! (checker: FSharpCompilerServiceChecker) = checker
 
-      let inline tryGetLastCheckResultForFile filePath =
-        checker.TryGetLastCheckResultForFile(filePath)
-        |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
-        |> async.Return
+      let inline tryGetLastCheckResultForFile filePath = checker.TryGetLastCheckResultForFile(filePath)
 
       return
         tryGetLastCheckResultForFile filePath
-        |> AsyncResult.orElseWith (fun _ -> forceGetOpenFileRecentTypeCheckResults filePath)
-        |> AsyncResult.orElseWith (fun _ -> forceGetOpenFileTypeCheckResults filePath)
+        |> Async.retn
+        |> AsyncOption.either AsyncOption.retn (forceGetOpenFileRecentTypeCheckResults filePath)
+        |> AsyncOption.either AsyncOption.retn (forceGetOpenFileTypeCheckResults filePath)
         |> Async.map (fun r ->
           Async.Start(
             async {
               // This needs to be in a try catch as it can throw on cancellation which causes the server to crash
               try
-                do!
-                  forceGetOpenFileTypeCheckResults filePath
-                  |> Async.Ignore<Result<ParseAndCheckResults, string>>
+                do! forceGetOpenFileTypeCheckResults filePath |> Async.map (ignore)
               with e ->
                 ()
             }
@@ -1471,28 +1470,33 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let getDeclarations filename = allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
-
   let forceGetProjectOptions filePath =
     asyncAVal {
       let! projects = getProjectOptionsForFile filePath
       let project = selectProject projects
 
       return
-        project
-        |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
+        match project with
+        | Some p -> Some p
+        | None ->
+          logger.info (
+            Log.setMessage "Could not find project containing {file}"
+            >> Log.addContextDestructured "file" filePath
+          )
 
+          None
     }
     |> AsyncAVal.forceAsync
 
   let forceGetFSharpProjectOptions filePath =
     forceGetProjectOptions filePath
-    |> Async.map (Result.map (fun p -> p.FSharpProjectOptions))
+    |> Async.map (Option.map (fun p -> p.FSharpProjectOptions))
 
   let codeGenServer =
     { new ICodeGenerationService with
         member x.TokenizeLine(file, i) =
           asyncOption {
-            let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
+            let! text = forceFindOpenFileOrRead file
 
             try
               let! line = text.Source.GetLine(Position.mkPos i 0)
@@ -1504,8 +1508,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         member x.GetSymbolAtPosition(file, pos) =
           asyncOption {
             try
-              let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
-              let! line = tryGetLineStr pos text.Source |> Option.ofResult
+              let! text = forceFindOpenFileOrRead file
+              let! line = tryGetLineStr pos text.Source
               return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
             with _ ->
               return! None
@@ -1516,9 +1520,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             let! symbol = x.GetSymbolAtPosition(fileName, pos)
 
             if symbol.Kind = kind then
-              let! (text) = forceFindOpenFileOrRead fileName |> Async.map Option.ofResult
-              let! line = tryGetLineStr pos text.Source |> Option.ofResult
-              let! tyRes = forceGetOpenFileTypeCheckResults fileName |> Async.map (Option.ofResult)
+              let! (text) = forceFindOpenFileOrRead fileName
+              let! line = tryGetLineStr pos text.Source
+              let! tyRes = forceGetOpenFileTypeCheckResults fileName
               let symbolUse = tyRes.TryGetSymbolUse pos line
               return! Some(symbol, symbolUse)
             else
@@ -1604,15 +1608,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         else
           // untitled script files
           match! forceGetOpenFileTypeCheckResultsStale file with
-          | Error _ -> return Seq.empty
-          | Ok tyRes ->
+          | None -> return Seq.empty
+          | Some tyRes ->
             let! ct = Async.CancellationToken
             let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
             return usages |> Seq.map (fun u -> u.Range)
       }
 
-    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
-      forceGetFSharpProjectOptions file |> Async.map Option.ofResult
+    let tryGetProjectOptionsForFsproj (file: string<LocalPath>) = forceGetFSharpProjectOptions file
 
     Commands.symbolUseWorkspace
       getDeclarationLocation
@@ -1632,16 +1635,25 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let codefixes =
 
     let tryGetParseResultsForFile filePath pos =
-      asyncResult {
-        let! (file) = forceFindOpenFileOrRead filePath
+      asyncOption {
+        let! file = forceFindOpenFileOrRead filePath
         let! lineStr = file.Source |> tryGetLineStr pos
-        and! tyRes = forceGetOpenFileTypeCheckResults filePath
+        let! tyRes = forceGetOpenFileTypeCheckResults filePath
         return tyRes, lineStr, file.Source
       }
+      // temporary bandaid to minimize code ripple
+      |> AsyncResult.ofOption (fun () -> sprintf "Could not get parse results for file: %s" (UMX.untag filePath))
 
     let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
       asyncResult {
-        let! sourceText = forceFindSourceText fileName
+        let! sourceText =
+          forceFindSourceText fileName
+          |> AsyncOption.either
+            AsyncResult.retn
+            // Temporary bandaid to minimize code ripple
+            (Error "Could not find source file when attempting to get Range in text"
+             |> Async.retn)
+
         return! sourceText.GetText(protocolRangeToRange (UMX.untag fileName) range)
       }
 
@@ -1697,8 +1709,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
         return
           match projectOptions with
-          | Ok projectOptions -> projectOptions.LanguageVersion
-          | Error _ -> LanguageVersionShim.defaultLanguageVersion.Value
+          | Some projectOptions -> projectOptions.LanguageVersion
+          | None -> LanguageVersionShim.defaultLanguageVersion.Value
       }
 
     config
@@ -1971,9 +1983,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
         updateOpenFiles file
 
-        do!
-          forceGetOpenFileTypeCheckResults filePath
-          |> Async.Ignore<Result<ParseAndCheckResults, string>>
+        do! forceGetOpenFileTypeCheckResults filePath |> Async.map ignore
 
       return ()
     }
@@ -1982,9 +1992,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     cancellableTask {
       updateTextChanges filePath (p, DateTime.UtcNow)
 
-      do!
-        forceGetOpenFileTypeCheckResults filePath
-        |> Async.Ignore<Result<ParseAndCheckResults, string>>
+      do! forceGetOpenFileTypeCheckResults filePath |> Async.map ignore
     }
 
   member x.SaveDocument(filePath: string<LocalPath>, text: string option) =
@@ -2036,7 +2044,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   member x.GetTypeCheckResultsForFile(filePath, opts) = bypassAdaptiveTypeCheck filePath opts
 
   member x.GetTypeCheckResultsForFile(filePath) =
-    asyncResult {
+    asyncOption {
       let! opts = forceGetProjectOptions filePath
       return! x.GetTypeCheckResultsForFile(filePath, opts)
     }

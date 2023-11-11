@@ -735,7 +735,7 @@ module Commands =
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
+    (tryGetFileSource: string<LocalPath> -> Async<option<IFSACSourceText>>)
     (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
     (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
@@ -744,8 +744,8 @@ module Commands =
     (text: IFSACSourceText)
     (tyRes: ParseAndCheckResults)
     (symbolUse: FSharpSymbolUse)
-    : Async<Result<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>), string>> =
-    asyncResult {
+    : Async<voption<(FSharpSymbol * IDictionary<string<LocalPath>, Range[]>)>> =
+    async {
       let symbol = symbolUse.Symbol
 
       let symbolNameCore = symbol.DisplayNameCore
@@ -753,20 +753,33 @@ module Commands =
       let tryAdjustRanges (text: IFSACSourceText, ranges: seq<Range>) =
         let ranges = ranges |> Seq.map (fun range -> range.NormalizeDriveLetterCasing())
 
+        let logStuff (range: Range) (fsacText: IFSACSourceText) =
+          commandsLogger.info (
+            Log.setMessage "Cannot adjust range {{range}} in {{file}}"
+            >> Log.addContextDestructured "range" range
+            >> Log.addContextDestructured "file" fsacText.FileName
+          )
+
         if errorOnFailureToFixRange then
           ranges
           |> Seq.map (fun range ->
             Tokenizer.tryFixupRange (symbolNameCore, range, text, includeBackticks)
-            |> Result.ofVOption (fun _ -> $"Cannot adjust range"))
-          |> Seq.sequenceResultM
-          |> Result.map (Seq.toArray)
+            |> function
+              | ValueSome range -> ValueSome range
+              | ValueNone ->
+                logStuff range text
+                ValueNone)
+          |> Seq.toList
+          |> List.sequenceVOptionM
+          |> ValueOption.map Seq.toArray
+
         else
           ranges
           |> Seq.map (fun range ->
             Tokenizer.tryFixupRange (symbolNameCore, range, text, includeBackticks)
             |> ValueOption.defaultValue range)
           |> Seq.toArray
-          |> Ok
+          |> ValueSome
 
       let! declLoc = getDeclarationLocation (symbolUse, text)
 
@@ -784,11 +797,12 @@ module Commands =
             symbolUses |> Seq.filter (fun u -> not u.IsFromDefinition)
 
         let ranges = symbolUses |> Seq.map (fun u -> u.Range)
-        // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`
-        let! ranges = tryAdjustRanges (text, ranges)
-        let ranges = dict [ (text.FileName, Seq.toArray ranges) ]
 
-        return (symbol, ranges)
+        // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`
+        return
+          tryAdjustRanges (text, ranges)
+          |> ValueOption.map (fun ranges -> (symbol, dict [ (text.FileName, ranges) ]))
+
       | scope ->
         let projectsToCheck: Async<FSharpProjectOptions list> =
           async {
@@ -822,13 +836,15 @@ module Commands =
         let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
           async {
             match! tryGetFileSource file with
-            | Error _ when errorOnFailureToFixRange -> return Error $"Cannot get source of '{file}'"
-            | Error _ -> return Ok ranges
-            | Ok text ->
-              return
-                tryAdjustRanges (text, ranges)
-                // Note: `Error` only possible when `errorOnFailureToFixRange`
-                |> Result.mapError (fun _ -> $"Cannot adjust ranges in file '{file}'")
+            | None when errorOnFailureToFixRange ->
+              commandsLogger.error (
+                Log.setMessage "Cannot get source of '{file}'"
+                >> Log.addContextDestructured "file" file
+              )
+
+              return ValueNone
+            | None -> return ValueNone
+            | Some text -> return tryAdjustRanges (text, ranges)
           }
 
         let isDeclLocation =
@@ -846,7 +862,7 @@ module Commands =
         let tryFindReferencesInFile (file: string<LocalPath>, project: FSharpProjectOptions) =
           async {
             if dict.ContainsKey file then
-              return Ok()
+              return ()
             else
               let! references = findReferencesForSymbolInFile (file, project, symbol)
 
@@ -862,29 +878,21 @@ module Commands =
               // otherwise `tryAdjustRanges` tries to get source for files like `AssemblyInfo.fs`
               //   (which fails -> error if `errorOnFailureToFixRange`)
               if references |> Array.isEmpty then
-                return Ok()
+                return ()
               else
                 let! ranges = tryAdjustRanges (file, references)
 
                 match ranges with
-                | Error msg when errorOnFailureToFixRange -> return Error msg
-                | Error _ ->
+                | ValueNone when errorOnFailureToFixRange ->
+                  commandsLogger.info (Log.setMessage "tryFindReferencesInFile failed")
+                  return ()
+                | ValueNone ->
                   dict.TryAdd(file, references) |> ignore
-                  return Ok()
-                | Ok ranges ->
+                  return ()
+                | ValueSome ranges ->
                   dict.TryAdd(file, ranges) |> ignore
-                  return Ok()
+                  return ()
           }
-          |> AsyncResult.catch string
-          |> Async.map (function
-            | Ok() -> Ok()
-            | Error e ->
-              commandsLogger.info (
-                Log.setMessage "tryFindReferencesInFile failed: {error}"
-                >> Log.addContextDestructured "error" e
-              )
-
-              if errorOnFailureToFixRange then Error e else Ok())
 
         let iterProjects (projects: FSharpProjectOptions seq) =
           // should:
@@ -896,22 +904,14 @@ module Commands =
               for file in project.SourceFiles do
                 let file = UMX.tag file
 
-                async {
-                  match! tryFindReferencesInFile (file, project) with
-                  | Ok _ -> return None
-                  | Error err -> return Some err
-
-                } ]
+                async { do! tryFindReferencesInFile (file, project) } ]
           |> Async.parallel75
           |> Async.Ignore<_>
-        // |> Async.map (function
-        //   | None -> Ok()
-        //   | Some err -> Error err)
 
         let! projects = projectsToCheck
         do! iterProjects projects
 
-        return (symbol, dict)
+        return ValueSome(symbol, dict)
     }
 
   /// * `includeDeclarations`:
@@ -935,7 +935,7 @@ module Commands =
   let symbolUseWorkspace
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
+    (tryGetFileSource: string<LocalPath> -> Async<option<IFSACSourceText>>)
     (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
     (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
@@ -945,13 +945,13 @@ module Commands =
     lineStr
     (text: IFSACSourceText)
     (tyRes: ParseAndCheckResults)
-    : Async<Result<(IDictionary<string<LocalPath>, Range[]>), string>> =
-    asyncResult {
+    : Async<(IDictionary<string<LocalPath>, Range[]>)> =
+    async {
       let multipleSymbols = tyRes.TryGetSymbolUses pos lineStr
       let result = Dictionary<string<LocalPath>, Range[]>()
 
       for symbolUse in multipleSymbols do
-        let! symbolResult =
+        let! symbolOption =
           symbolUseWorkspaceAux
             getDeclarationLocation
             findReferencesForSymbolInFile
@@ -965,11 +965,14 @@ module Commands =
             tyRes
             symbolUse
 
-        for KeyValue(k, v) in snd symbolResult do
-          if result.ContainsKey k then
-            result.[k] <- [| yield! result.[k]; yield! v |]
-          else
-            result.Add(k, v)
+        match symbolOption with
+        | ValueSome symbol ->
+          for KeyValue(k, v) in snd symbol do
+            if result.ContainsKey k then
+              result.[k] <- [| yield! result.[k]; yield! v |]
+            else
+              result.Add(k, v)
+        | ValueNone -> ()
 
       return result
     }

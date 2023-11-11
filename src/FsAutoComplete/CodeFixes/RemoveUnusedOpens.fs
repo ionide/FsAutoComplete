@@ -13,7 +13,7 @@ let title = "Remove unused open"
 /// a codefix that removes unused open statements from the source
 let fix (getFileLines: GetFileLines) : CodeFix =
   Run.ifDiagnosticByMessage "Unused open statement" (fun d codeActionParams ->
-    asyncResult {
+    asyncOption {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let! lines = getFileLines fileName
@@ -27,4 +27,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
             Title = title
             SourceDiagnostic = Some d
             Kind = FixKind.Refactor } ]
-    })
+    }
+  // Is this acceptable for now until other function shapes are fixed?
+  |> AsyncResult.ofOption (fun () -> "Could not read the file to read the file lines")
+  )
