@@ -112,7 +112,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     else
       traceNotifications <- None
 
-  /// <summary>Sets tje FSI arguments on the FSharpCompilerServiceChecker</summary>
+  /// <summary>Sets the FSI arguments on the <see cref="FSharpCompilerServiceChecker"/></summary>
   /// <param name="checker"></param>
   /// <param name="fsiCompilerToolLocations">Compiler tool locations</param>
   /// <param name="fsiExtraParameters">Any extra parameters to pass to FSI</param>

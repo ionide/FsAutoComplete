@@ -4,6 +4,7 @@ Destructurama.FSharp
 Fantomas.Client
 FSharp.Analyzers.SDK
 FSharp.Compiler.Service
+FSharp.DependencyManager.Paket
 FSharp.Core
 FSharp.UMX
 FsToolkit.ErrorHandling
