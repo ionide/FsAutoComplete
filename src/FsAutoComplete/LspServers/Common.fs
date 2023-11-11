@@ -181,13 +181,22 @@ module ObservableExtensions =
         .SelectMany(fun l -> l.ToList())
 
 module Helpers =
+
   let notImplemented<'t> = async.Return LspResult.notImplemented<'t>
   let ignoreNotification = async.Return(())
 
   let tryGetLineStr pos (text: IFSACSourceText) =
-    text.GetLine(pos)
-    |> Result.ofOption (fun () -> $"No line in {text.FileName} at position {pos}")
+    let logger = LogProvider.getLoggerByName "tryGetLineStr"
 
+    match text.GetLine(pos) with
+    | Some str -> Some str
+    | None ->
+      logger.error (
+        Log.setMessage "No line at position {pos} in {text.FileName}"
+        >> Log.addContextDestructured "pos" pos
+        >> Log.addContext "text" text.FileName
+      )
+      None
 
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
 
