@@ -753,7 +753,7 @@ module Commands =
       let tryAdjustRanges (text: IFSACSourceText, ranges: seq<Range>) =
         let ranges = ranges |> Seq.map (fun range -> range.NormalizeDriveLetterCasing())
 
-        let logStuff (range: Range) (fsacText: IFSACSourceText) =
+        let logMissingRange (range: Range) (fsacText: IFSACSourceText) =
           commandsLogger.info (
             Log.setMessage "Cannot adjust range {{range}} in {{file}}"
             >> Log.addContextDestructured "range" range
@@ -767,7 +767,7 @@ module Commands =
             |> function
               | ValueSome range -> ValueSome range
               | ValueNone ->
-                logStuff range text
+                logMissingRange range text
                 ValueNone)
           |> Seq.toList
           |> List.sequenceVOptionM
