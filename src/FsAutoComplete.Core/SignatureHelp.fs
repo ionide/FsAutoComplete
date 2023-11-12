@@ -4,12 +4,15 @@ open System
 open FSharp.Compiler.Text
 open FsToolkit.ErrorHandling
 open FsAutoComplete
+open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.FCSPatches
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Tokenization
+
+let logger = LogProvider.getLoggerByName "SignatureHelp"
 
 type SignatureHelpKind =
   | MethodCall
@@ -220,7 +223,7 @@ let getSignatureHelpFor
     triggerChar,
     possibleSessionKind
   ) =
-  asyncResult {
+  asyncOption {
     let previousNonWhitespaceChar =
       let rec loop ch pos =
         if Char.IsWhiteSpace ch then
@@ -235,13 +238,25 @@ let getSignatureHelpFor
       | None -> None
 
     let! (previousNonWhitespaceCharPos, previousNonWhitespaceChar) =
-      previousNonWhitespaceChar
-      |> Result.ofOption (fun _ -> "Couldn't find previous non-whitespace char")
+      match previousNonWhitespaceChar with
+      | Some (pos, ch) -> Some (pos, ch)
+      | None ->
+        logger.info(
+          Log.setMessage "Could not find previous non-whitespace char"
+        )
 
+        None
+
+    // Would this be better placed up a level?
     let! charAtPos =
       triggerChar
-      |> Option.orElseWith (fun _ -> lines.TryGetChar pos)
-      |> Result.ofOption (fun _ -> "Couldn't find a trigger char")
+      |> Option.orElseWith (fun _ ->
+        logger.info(
+          Log.setMessage "Could not find a trigger char"
+        )
+
+        lines.TryGetChar pos
+      )
 
     match charAtPos, possibleSessionKind with
     // Generally ' ' indicates a function application, but it's also used commonly after a comma in a method call.

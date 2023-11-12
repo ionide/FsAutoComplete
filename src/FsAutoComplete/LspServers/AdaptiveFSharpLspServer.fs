@@ -826,49 +826,43 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
+          let! result =
+            asyncOption {
+              let (filePath, pos) = getFilePathAndPosition p
+              let! volatileFile = state.GetOpenFileOrRead filePath
+              let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
-          let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+              let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
+              let! sigHelp = SignatureHelp.getSignatureHelpFor (tyRes, pos, volatileFile.Source, charAtCaret, None)
 
+              let sigs =
+                sigHelp.Methods
+                |> Array.map (fun m ->
+                  let (signature, comment) = TipFormatter.formatPlainTip m.Description
 
+                  let parameters =
+                    m.Parameters
+                    |> Array.map (fun p ->
+                      { ParameterInformation.Label = U2.First p.ParameterName
+                        Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
-          let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
+                  let d = Documentation.Markup(markdown comment)
 
-          match!
-            SignatureHelp.getSignatureHelpFor (tyRes, pos, volatileFile.Source, charAtCaret, None)
-            |> AsyncResult.ofStringErr
-          with
-          | None ->
-            ()
-            return! success None
-          | Some sigHelp ->
-            // sigHelpKind <- Some sigHelp.SigHelpKind
+                  { SignatureInformation.Label = signature
+                    Documentation = Some d
+                    Parameters = Some parameters
+                    ActiveParameter = None })
 
-            let sigs =
-              sigHelp.Methods
-              |> Array.map (fun m ->
-                let (signature, comment) = TipFormatter.formatPlainTip m.Description
+              let res =
+                { Signatures = sigs
+                  ActiveSignature = sigHelp.ActiveOverload
+                  ActiveParameter = sigHelp.ActiveParameter }
 
-                let parameters =
-                  m.Parameters
-                  |> Array.map (fun p ->
-                    { ParameterInformation.Label = U2.First p.ParameterName
-                      Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
+              return! Some res
+            }
 
-                let d = Documentation.Markup(markdown comment)
+          return! success result
 
-                { SignatureInformation.Label = signature
-                  Documentation = Some d
-                  Parameters = Some parameters
-                  ActiveParameter = None })
-
-            let res =
-              { Signatures = sigs
-                ActiveSignature = sigHelp.ActiveOverload
-                ActiveParameter = sigHelp.ActiveParameter }
-
-            return! success (Some res)
         with e ->
           trace |> Tracing.recordException e
 
