@@ -976,22 +976,22 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentPrepareRename p =
-      asyncResult {
+      asyncResultOption {
         logger.info (
           Log.setMessage "TextDocumentOnPrepareRename Request: {params}"
           >> Log.addContextDestructured "params" p
         )
 
         let (filePath, pos) = getFilePathAndPosition p
-        let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-        let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-        let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+        let! volatileFile = state.GetOpenFileOrRead filePath
+        let! lineStr = volatileFile.Source |> tryGetLineStr pos
+        let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
         let! (_, _, range) =
           Commands.renameSymbolRange state.GetDeclarationLocation false pos lineStr volatileFile.Source tyRes
           |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-        return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
+        return range |> fcsRangeToLsp |> PrepareRenameResult.Range
       }
 
     override x.TextDocumentRename(p: RenameParams) =
