@@ -62,7 +62,7 @@ type AdaptiveState =
   member GetOpenFile: filePath: string<LocalPath> -> VolatileFile option
   member GetOpenFileSource: filePath: string<LocalPath> -> Async<option<IFSACSourceText>>
   member GetOpenFileOrRead: filePath: string<LocalPath> -> Async<option<VolatileFile>>
-  member GetParseResults: filePath: string<LocalPath> -> Async<Result<FSharpParseFileResults, string>>
+  member GetParseResults: filePath: string<LocalPath> -> Async<option<FSharpParseFileResults>>
   member GetOpenFileTypeCheckResults: file: string<LocalPath> -> Async<option<ParseAndCheckResults>>
   member GetOpenFileTypeCheckResultsCached: filePath: string<LocalPath> -> Async<option<ParseAndCheckResults>>
   member GetProjectOptionsForFile: filePath: string<LocalPath> -> Async<option<FSharpProjectOptions>>

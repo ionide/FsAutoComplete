@@ -1390,7 +1390,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let forceGetParseResults filePath =
     async {
       let! results = getParseResults filePath |> AsyncAVal.forceAsync
-      return results |> Result.ofOption (fun () -> $"No parse results for {filePath}")
+      return results |> Option.orElseWith (fun () ->
+        logger.info(
+          Log.setMessage "No parse results for {file}"
+          >> Log.addContextDestructured "file" filePath
+        )
+        None
+      )
     }
 
   let forceGetOpenFile (getTypeCheckResults: string<LocalPath> -> asyncaval<option<ParseAndCheckResults>>) filePath =
@@ -1529,7 +1535,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
               return! None
           }
 
-        member x.ParseFileInProject(file) = forceGetParseResults file |> Async.map (Option.ofResult) }
+        member x.ParseFileInProject(file) = forceGetParseResults file }
 
   let getDependentProjectsOfProjects ps =
     let projectSnapshot = forceLoadProjects ()

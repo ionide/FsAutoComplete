@@ -1729,7 +1729,7 @@ type AdaptiveFSharpLspServer
       }
 
     override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "FoldingRangeParams", box rangeP ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1742,14 +1742,14 @@ type AdaptiveFSharpLspServer
           let file = rangeP.TextDocument.GetFilePath() |> Utils.normalizePath
 
           let getParseResultsForFile file =
-            asyncResult {
+            asyncOption {
               let! sourceText = state.GetOpenFileSource file
-              and! parseResults = state.GetParseResults file
+              let! parseResults = state.GetParseResults file
               return sourceText, parseResults
             }
 
-          let! scopes = Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
-          return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq |> Some
+          let! scopes = Commands.scopesForFile getParseResultsForFile file
+          return! scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq |> Some
         with e ->
           trace |> Tracing.recordException e
 

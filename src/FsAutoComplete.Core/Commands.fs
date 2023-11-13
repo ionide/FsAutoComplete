@@ -204,15 +204,12 @@ module Commands =
     }
 
   let scopesForFile
-    (getParseResultsForFile: _ -> Async<Result<IFSACSourceText * FSharpParseFileResults, _>>)
+    (getParseResultsForFile: _ -> Async<option<IFSACSourceText * FSharpParseFileResults>>)
     (file: string<LocalPath>)
     =
-    asyncResult {
-
+    asyncOption {
       let! (text, ast) = getParseResultsForFile file
-
       let ranges = Structure.getOutliningRanges (text.Lines) ast.ParseTree
-
       return ranges
     }
 
