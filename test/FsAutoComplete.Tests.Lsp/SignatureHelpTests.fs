@@ -185,8 +185,8 @@ let issuesTests server =
     "issues"
     [ testCaseAsync "issue #950 - exception when in first column in first line"
       <| testSignatureHelp' server "Syste" { Line = 0; Character = 0 } Manual (fun r ->
-        let err = Expect.wantError r "No signature help at first position"
-        Expect.equal err.Message "Couldn't find previous non-whitespace char" "Should fail because no prev char")
+        let err = Expect.wantOk r "No signature help at first position"
+        Expect.equal err None "Should return None because no prev char")
       testCaseAsync "type names aren't backticked"
       <| testSignatureHelp server """
       let count (x: int) = x
