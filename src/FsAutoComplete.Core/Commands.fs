@@ -608,11 +608,9 @@ module Commands =
     |> AsyncResult.foldResult id (fun _ -> [||])
 
 
-  let pipelineHints (tryGetFileSource: _ -> Async<Result<IFSACSourceText, _>>) (tyRes: ParseAndCheckResults) =
+  let pipelineHints (contents: IFSACSourceText) (tyRes: ParseAndCheckResults) =
     asyncResult {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
-      let! contents = tryGetFileSource tyRes.FileName
-
       let getSignatureAtPos pos =
         option {
           let! lineStr = contents.GetLine pos

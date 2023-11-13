@@ -2774,7 +2774,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpPipelineHints(p: FSharpPipelineHintRequest) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "FSharpPipelineHintRequest", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2785,15 +2785,11 @@ type AdaptiveFSharpLspServer
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
+          let! contents = state.GetOpenFileSource tyRes.FileName
+          let! res = Commands.pipelineHints contents tyRes |> AsyncResult.ofCoreResponse
 
-          match!
-            Commands.pipelineHints state.GetOpenFileSource tyRes
-            |> AsyncResult.ofCoreResponse
-          with
-          | None -> return None
-          | Some res ->
-            return Some { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+          return! Some { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
         with e ->
           trace |> Tracing.recordException e
 
