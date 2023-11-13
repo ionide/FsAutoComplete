@@ -340,7 +340,7 @@ type ParseAndCheckResults
   member x.TryGetToolTipEnhanced
     (pos: Position)
     (lineStr: LineStr)
-    : Result<option<TryGetToolTipEnhancedResult>, string> =
+    : TryGetToolTipEnhancedResult option =
     let (|EmptyTooltip|_|) (ToolTipText elems) =
       match elems with
       | [] -> Some()
@@ -348,11 +348,17 @@ type ParseAndCheckResults
       | _ -> None
 
     match Completion.atPos (pos, x.GetParseResults.ParseTree) with
-    | Completion.Context.StringLiteral -> Ok None
+    | Completion.Context.StringLiteral -> None
     | Completion.Context.SynType
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (pos.Column, lineStr) with
-      | None -> Error "Cannot find ident for tooltip"
+      | None ->
+        logger.info(
+          Log.setMessage "Cannot find identity for tooltip at {pos} and {lineStr}"
+          >> Log.addContextDestructured "pos" pos
+          >> Log.addContextDestructured "lineStr" lineStr
+        )
+        None
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -373,12 +379,23 @@ type ParseAndCheckResults
                 Footer = ""
                 SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
               |> Some
-              |> Ok
-            | _ -> Error "No tooltip information"
-          | _ -> Error "No tooltip information"
+            | _ ->
+              logger.info(
+                Log.setMessage "Could not find the identifier in the keyword list"
+              )
+              None
+          | _ ->
+            logger.info(
+                Log.setMessage "Multiple identifiers found"
+              )
+            None
         | _ ->
           match symbol with
-          | None -> Error "No tooltip information"
+          | None ->
+            logger.info(
+                Log.setMessage "No tooltip information was found due to there being no symbol usage"
+            )
+            None
           | Some symbol ->
 
             // Retrieve the FSharpSymbol instance so we can find the XmlDocSig
@@ -388,7 +405,11 @@ type ParseAndCheckResults
             let resolvedType = symbol.Symbol.GetAbbreviatedParent()
 
             match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
-            | None -> Error "No tooltip information"
+            | None ->
+              logger.info(
+                Log.setMessage "Could not find the tooltip information from the symbol use"
+              )
+              None
             | Some(signature, footer) ->
               { ToolTipText = tip
                 Signature = signature
@@ -398,7 +419,6 @@ type ParseAndCheckResults
                     {| XmlDocSig = resolvedType.XmlDocSig
                        Assembly = symbol.Symbol.Assembly.SimpleName |} }
               |> Some
-              |> Ok
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
