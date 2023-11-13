@@ -2665,7 +2665,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpDocumentation(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2676,14 +2676,14 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
           lastFSharpDocumentationTypeCheck <- Some tyRes
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
-            return
+            return!
               Some
                 { Content =
                     CommandResponse.formattedDocumentation
@@ -2693,7 +2693,7 @@ type AdaptiveFSharpLspServer
                          Signature = signature
                          Footer = footer
                          XmlKey = xmlKey |} }
-          | None -> return None
+          | None -> return! None
         with e ->
           trace |> Tracing.recordException e
 
