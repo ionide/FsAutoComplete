@@ -12,7 +12,7 @@
   </Target>
 
   <ItemGroup>
-    <ProjectsToAnalyze Include="src\**\*.fsproj" />
+    <ProjectsToAnalyze Include="src/**/*.fsproj" />
   </ItemGroup>
 
   <Target Name="AnalyzeSolution">

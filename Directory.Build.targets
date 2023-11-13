@@ -15,7 +15,7 @@
     <Exec
         IgnoreExitCode="true"
         ContinueOnError="true"
-        Command="dotnet fsharp-analyzers --project &quot;$(MSBuildProjectFile)&quot; --analyzers-path &quot;$(PkgIonide_Analyzers)\\analyzers\dotnet\fs&quot; --verbose --report &quot;../../analysisreports/$(MSBuildProjectName)-analysis.sarif&quot;">
+        Command="dotnet fsharp-analyzers --project &quot;$(MSBuildProjectFile)&quot; --analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot; --verbose --report &quot;../../analysisreports/$(MSBuildProjectName)-analysis.sarif&quot;">
         <Output TaskParameter="ExitCode" PropertyName="LastExitCode" />
     </Exec>
     <Error Condition="'$(LastExitCode)' == '-2'" Text="Problems were found $(MSBuildProjectFile)" />
