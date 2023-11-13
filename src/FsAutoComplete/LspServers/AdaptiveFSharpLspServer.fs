@@ -2213,7 +2213,7 @@ type AdaptiveFSharpLspServer
       Helpers.notImplemented
 
     override x.FSharpSignature(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
 
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -2225,13 +2225,13 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
           let! tip = Commands.typesig tyRes pos lineStr |> Result.ofCoreResponse
 
-          return
+          return!
             tip
             |> Option.map (fun tip -> { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip })
         with e ->
