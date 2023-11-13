@@ -2128,7 +2128,7 @@ type AdaptiveFSharpLspServer
 
 
     override x.TextDocumentPrepareCallHierarchy(p: CallHierarchyPrepareParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "CallHierarchyPrepareParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2144,9 +2144,9 @@ type AdaptiveFSharpLspServer
                 member __.Position = p.Position }
             |> getFilePathAndPosition
 
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = tryGetLineStr pos volatileFile.Source
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
 
@@ -2167,7 +2167,7 @@ type AdaptiveFSharpLspServer
                  SelectionRange = location.Range
                  Data = None } |]
 
-          return Some returnValue
+          return! Some returnValue
         with e ->
           trace |> Tracing.recordException e
 
