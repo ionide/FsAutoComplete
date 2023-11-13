@@ -995,7 +995,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentRename(p: RenameParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "RenameParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1006,9 +1006,9 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           // validate name and surround with backticks if necessary
           let! newName =
@@ -1022,7 +1022,6 @@ type AdaptiveFSharpLspServer
 
           let! ranges =
             state.SymbolUseWorkspace(true, true, true, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
           let! documentChanges =
             ranges
@@ -1039,7 +1038,7 @@ type AdaptiveFSharpLspServer
                 let! version =
                   async {
                     let! file = state.GetOpenFileOrRead file
-                    return file |> Option.ofResult |> Option.map (fun (f) -> f.Version)
+                    return file |> Option.map (fun (f) -> f.Version)
                   }
 
                 return
@@ -1050,8 +1049,7 @@ type AdaptiveFSharpLspServer
               })
             |> Async.parallel75
 
-
-          return
+          return!
             state.ClientCapabilities
             |> Option.map (fun clientCapabilities -> WorkspaceEdit.Create(documentChanges, clientCapabilities))
 
