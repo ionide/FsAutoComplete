@@ -125,3 +125,8 @@ jobs:
 
     - name: Run analyzers
       run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net6.0
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: analysisreports
