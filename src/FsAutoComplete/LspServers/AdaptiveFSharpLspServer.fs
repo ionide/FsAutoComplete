@@ -1097,7 +1097,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1109,11 +1109,11 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
+          return! decl |> findDeclToLspLocation |> GotoResult.Single |> Some
         with e ->
           trace |> Tracing.recordException e
 
