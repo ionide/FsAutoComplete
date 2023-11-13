@@ -197,8 +197,8 @@ module Commands =
       | Error msg -> return CoreResponse.ErrorRes msg
     }
 
-  let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
-    asyncResult {
+  let getRangesAtPosition (getParseResultsForFile: _ -> Async<option<FSharpParseFileResults>>) file positions =
+    asyncOption {
       let! ast = getParseResultsForFile file
       return positions |> List.map (FoldingRange.getRangesAtPosition ast.ParseTree)
     }

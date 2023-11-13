@@ -1763,7 +1763,7 @@ type AdaptiveFSharpLspServer
       }
 
     override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "SelectionRangeParams", box selectionRangeP ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1786,16 +1786,12 @@ type AdaptiveFSharpLspServer
           let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
 
           let getParseResultsForFile file =
-            asyncResult {
-              let! parseResults = state.GetParseResults file
-              return parseResults
-            }
+            state.GetParseResults file
 
           let! ranges =
             Commands.getRangesAtPosition getParseResultsForFile file poss
-            |> AsyncResult.ofStringErr
 
-          return ranges |> List.choose mkSelectionRanges |> Some
+          return! ranges |> List.choose mkSelectionRanges |> Some
         with e ->
           trace |> Tracing.recordException e
 
