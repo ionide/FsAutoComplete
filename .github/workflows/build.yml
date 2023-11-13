@@ -107,3 +107,6 @@ jobs:
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}
+
+    - name: Run analyzers
+      run: dotnet build -t:AnalyzeSolution

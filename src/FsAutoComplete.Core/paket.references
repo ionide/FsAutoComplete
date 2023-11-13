@@ -19,3 +19,4 @@ Microsoft.Extensions.Caching.Memory
 Microsoft.CodeAnalysis
 LinkDotNet.StringBuilder
 CommunityToolkit.HighPerformance
+Ionide.Analyzers
