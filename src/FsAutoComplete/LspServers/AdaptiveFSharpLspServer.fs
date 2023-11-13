@@ -1472,7 +1472,7 @@ type AdaptiveFSharpLspServer
           let tryGetFileVersion filePath =
             async {
               let! foo = state.GetOpenFileOrRead filePath
-              return foo |> Option.ofResult |> Option.map (fun (f) -> f.Version)
+              return foo |> Option.map (fun (f) -> f.Version)
             }
 
           let! clientCapabilities =
@@ -1559,43 +1559,48 @@ type AdaptiveFSharpLspServer
           let filePath = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
 
           try
-            let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+            let! codeLens =
+              asyncOption {
+                let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath
 
+                logger.info (
+                  Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
+                  >> Log.addContextDestructured "file" filePath
+                )
 
-            logger.info (
-              Log.setMessage "CodeLensResolve - Cached typecheck results now available for {file}."
-              >> Log.addContextDestructured "file" filePath
-            )
+                let! (sourceText: IFSACSourceText) = state.GetOpenFileSource filePath
+                let! lineStr = sourceText |> tryGetLineStr pos
 
-            let! (sourceText: IFSACSourceText) = state.GetOpenFileSource filePath |> AsyncResult.ofStringErr
-            let! lineStr = sourceText |> tryGetLineStr pos |> Result.ofStringErr
+                let typ = data.[1]
+                let! r = Async.Catch(f arg pos tyRes sourceText lineStr typ filePath)
 
-            let typ = data.[1]
-            let! r = Async.Catch(f arg pos tyRes sourceText lineStr typ filePath)
+                match r with
+                | Choice1Of2(r: LspResult<CodeLens option>) ->
+                  match r with
+                  | Ok(Some r) -> return r
+                  | _ -> return Unchecked.defaultof<_>
+                | Choice2Of2 e ->
+                  logger.error (
+                    Log.setMessage "CodeLensResolve - Child operation failed for {file}"
+                    >> Log.addContextDestructured "file" filePath
+                    >> Log.addExn e
+                  )
 
-            match r with
-            | Choice1Of2(r: LspResult<CodeLens option>) ->
-              match r with
-              | Ok(Some r) -> return r
-              | _ -> return Unchecked.defaultof<_>
-            | Choice2Of2 e ->
-              logger.error (
-                Log.setMessage "CodeLensResolve - Child operation failed for {file}"
-                >> Log.addContextDestructured "file" filePath
-                >> Log.addExn e
-              )
+                  let title = if typ = "signature" then "" else "0 References"
 
-              let title = if typ = "signature" then "" else "0 References"
+                  let codeLens =
+                    { p with
+                        Command =
+                          Some
+                            { Title = title
+                              Command = ""
+                              Arguments = None } }
 
-              let codeLens =
-                { p with
-                    Command =
-                      Some
-                        { Title = title
-                          Command = ""
-                          Arguments = None } }
+                  return codeLens
+              }
 
-              return codeLens
+            return codeLens |> Option.defaultValue (Unchecked.defaultof<_>)
+
           with e ->
             trace |> Tracing.recordException e
 
@@ -1644,41 +1649,20 @@ type AdaptiveFSharpLspServer
             elif typ = "reference" then
               let! uses =
                 state.SymbolUseWorkspace(false, true, false, pos, lineStr, sourceText, tyRes)
-                |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
-              match uses with
-              | Error msg ->
-                logger.error (
-                  Log.setMessage "CodeLensResolve - error getting symbol use for {file}"
-                  >> Log.addContextDestructured "file" file
-                  >> Log.addContextDestructured "error" msg
-                )
+              let allUses = uses.Values |> Array.concat
 
-                return
-                  success (
-                    Some
-                      { p with
-                          Command =
-                            Some
-                              { Title = ""
-                                Command = ""
-                                Arguments = None } }
-                  )
+              let cmd =
+                if Array.isEmpty allUses then
+                  { Title = "0 References"
+                    Command = ""
+                    Arguments = None }
+                else
+                  { Title = $"%d{allUses.Length} References"
+                    Command = "fsharp.showReferences"
+                    Arguments = writePayload (file, pos, allUses) }
 
-              | Ok uses ->
-                let allUses = uses.Values |> Array.concat
-
-                let cmd =
-                  if Array.isEmpty allUses then
-                    { Title = "0 References"
-                      Command = ""
-                      Arguments = None }
-                  else
-                    { Title = $"%d{allUses.Length} References"
-                      Command = "fsharp.showReferences"
-                      Arguments = writePayload (file, pos, allUses) }
-
-                return { p with Command = Some cmd } |> Some |> success
+              return { p with Command = Some cmd } |> Some |> success
             else
               logger.error (
                 Log.setMessage "CodeLensResolve - unknown type {file} - {typ}"
