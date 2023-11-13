@@ -2295,35 +2295,35 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-          let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! sideEffect =
+            asyncOption {
+              let (filePath, pos) = getFilePathAndPosition p
+              let! volatileFile = state.GetOpenFileOrRead filePath
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+              let! lineStr = volatileFile.Source |> tryGetLineStr pos
+              let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
-          match!
-            Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
-            |> AsyncResult.ofStringErr
-          with
-          | None -> return ()
-          | Some { InsertPosition = insertPos
-                   InsertText = text } ->
+              let! { InsertPosition = insertPos; InsertText = text } =
+                Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
 
-            let edit: ApplyWorkspaceEditParams =
-              { Label = Some "Generate Xml Documentation"
-                Edit =
-                  { DocumentChanges =
-                      Some
-                        [| { TextDocument =
-                               { Uri = p.TextDocument.Uri
-                                 Version = Some p.TextDocument.Version }
-                             Edits =
-                               [| { Range = fcsPosToProtocolRange insertPos
-                                    NewText = text } |] } |]
-                    Changes = None } }
+              let edit: ApplyWorkspaceEditParams =
+                  { Label = Some "Generate Xml Documentation"
+                    Edit =
+                      { DocumentChanges =
+                          Some
+                            [| { TextDocument =
+                                  { Uri = p.TextDocument.Uri
+                                    Version = Some p.TextDocument.Version }
+                                 Edits =
+                                   [| { Range = fcsPosToProtocolRange insertPos
+                                        NewText = text } |] } |]
+                        Changes = None } }
 
-            let! _ = lspClient.WorkspaceApplyEdit edit
-            return ()
+              let! _ = lspClient.WorkspaceApplyEdit edit
+              return ()
+            }
+
+          return sideEffect |> Option.defaultValue ()
 
         with e ->
           trace |> Tracing.recordException e

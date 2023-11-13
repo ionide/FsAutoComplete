@@ -1263,7 +1263,7 @@ type Commands() =
   /// for a given member, use its signature information to generate placeholder XML documentation strings.
   /// calculates the required indent and gives the position to insert the text.
   static member GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
-    asyncResult {
+    async {
       let longIdentContainsPos (longIdent: LongIdent) (pos: FSharp.Compiler.Text.pos) =
         longIdent
         |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
