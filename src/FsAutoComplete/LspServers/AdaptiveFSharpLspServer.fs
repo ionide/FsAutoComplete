@@ -1964,7 +1964,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentInlineValue(p: InlineValueParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "InlineValueParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1975,12 +1975,12 @@ type AdaptiveFSharpLspServer
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
-          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
-
-          let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
+          // Is this needed?
+          let _fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
 
           let! pipelineHints = Commands.inlineValues volatileFile.Source tyRes
 
@@ -1992,7 +1992,7 @@ type AdaptiveFSharpLspServer
               |> InlineValue.InlineValueText)
             |> Some
 
-          return hints
+          return! hints
         with e ->
           trace |> Tracing.recordException e
 
