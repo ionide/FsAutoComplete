@@ -1859,7 +1859,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "InlayHintParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1870,9 +1870,9 @@ type AdaptiveFSharpLspServer
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
           let config = state.Config
@@ -1950,7 +1950,7 @@ type AdaptiveFSharpLspServer
                   | _ -> None
                 Data = None })
 
-          return (Some hints)
+          return! (Some hints)
         with e ->
           trace |> Tracing.recordException e
 
