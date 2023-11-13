@@ -1162,7 +1162,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1173,18 +1173,18 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = tryGetLineStr pos volatileFile.Source
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           match
             tyRes.TryGetSymbolUseAndUsages pos lineStr
             |> Result.bimap CoreResponse.Res CoreResponse.InfoRes
           with
-          | CoreResponse.InfoRes msg -> return None
+          | CoreResponse.InfoRes _msg -> return! None
           | CoreResponse.ErrorRes msg -> return! LspResult.internalError msg
-          | CoreResponse.Res(symbol, uses) ->
-            return
+          | CoreResponse.Res(_symbol, uses) ->
+            return!
               uses
               |> Array.map (fun s ->
                 { DocumentHighlight.Range = fcsRangeToLsp s.Range
@@ -1200,7 +1200,6 @@ type AdaptiveFSharpLspServer
           )
 
           return! returnException e
-
       }
 
     override x.TextDocumentImplementation(p: TextDocumentPositionParams) =
