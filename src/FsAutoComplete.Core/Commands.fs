@@ -516,14 +516,15 @@ module Commands =
             && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
 
     async {
-      match tyRes.TryGetSymbolUseAndUsages pos lineStr with
-      | Ok(sym, usages) ->
-        let fsym = sym.Symbol
+      let symbolsAndUsages = tyRes.TryGetSymbolUseAndUsages pos lineStr
+      let! projectOptions = getProjectOptions tyRes.FileName
 
+      match symbolsAndUsages, projectOptions with
+      | Ok(sym, usages), Some opts ->
+        let fsym = sym.Symbol
         if fsym.IsPrivateToFile then
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
-          let! opts = getProjectOptions tyRes.FileName
           let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
@@ -531,7 +532,8 @@ module Commands =
           let! symbols = getUsesOfSymbol (tyRes.FileName, projs, sym.Symbol)
           let symbols = filterSymbols symbols
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
-      | Error e -> return CoreResponse.ErrorRes e
+      | _, None -> return CoreResponse.InfoRes "Could not find project options"
+      | Error e, _ -> return CoreResponse.ErrorRes e
     }
 
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =

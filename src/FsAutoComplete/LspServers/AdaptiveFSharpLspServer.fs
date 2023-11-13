@@ -1203,7 +1203,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentImplementation(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1214,16 +1214,16 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = tryGetLineStr pos volatileFile.Source
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           logger.info (
             Log.setMessage "TextDocumentImplementation Request: {params}"
             >> Log.addContextDestructured "params" p
           )
 
-          let getProjectOptions file = state.GetProjectOptionsForFile file |> AsyncResult.bimap id failwith //? Should we fail here?
+          let getProjectOptions file = state.GetProjectOptionsForFile file
 
           let getUsesOfSymbol (filePath, opts: _ list, symbol: FSharpSymbol) =
             state.GetUsesOfSymbol(filePath, opts, symbol)
@@ -1239,19 +1239,16 @@ type AdaptiveFSharpLspServer
             Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
             |> AsyncResult.ofCoreResponse
 
-          match res with
-          | None -> return None
-          | Some res ->
-            let ranges: FSharp.Compiler.Text.Range[] =
-              match res with
-              | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+          let ranges: FSharp.Compiler.Text.Range[] =
+            match res with
+            | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
 
-            let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+          let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
-            match mappedRanges with
-            | [||] -> return None
-            | [| single |] -> return Some(GotoResult.Single single)
-            | multiple -> return Some(GotoResult.Multiple multiple)
+          match mappedRanges with
+          | [||] -> return! None
+          | [| single |] -> return! Some(GotoResult.Single single)
+          | multiple -> return! Some(GotoResult.Multiple multiple)
         with e ->
           trace |> Tracing.recordException e
 
