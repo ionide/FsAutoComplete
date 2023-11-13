@@ -1127,7 +1127,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentReferences(p: ReferenceParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "ReferenceParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1138,18 +1138,17 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = tryGetLineStr pos volatileFile.Source
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           let! usages =
             state.SymbolUseWorkspace(true, true, false, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           let references =
             usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
 
-          return Some references
+          return! Some references
         with e ->
           trace |> Tracing.recordException e
 
