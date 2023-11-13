@@ -21,7 +21,7 @@ let fix
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
-      let! lines = getFileLines fileName
+      let! lines = getFileLines fileName |> AsyncResult.ofOption (fun _ -> "Failed to get file lines")
       // try to find the first case already written
       let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
 

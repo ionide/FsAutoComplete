@@ -33,7 +33,7 @@ let fix
         tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands)
       with
       | FindDeclResult.DeclFound declRange when declRange.FileName = UMX.untag fileName ->
-        let! projectOptions = getProjectOptionsForFile fileName
+        let! projectOptions = getProjectOptionsForFile fileName |> AsyncResult.ofOption (fun _ -> "Failed to get project options")
         let protocolDeclRange = fcsRangeToLsp declRange
         let! declText = lines.GetText declRange
 

@@ -20,7 +20,7 @@ let fix
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
-      let! opts = getProjectOptionsForFile fileName
+      let! opts = getProjectOptionsForFile fileName |> AsyncResult.ofOption (fun _ -> "Failed to get project options")
 
       match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy opts.OtherOptions with
       | Some symbol ->

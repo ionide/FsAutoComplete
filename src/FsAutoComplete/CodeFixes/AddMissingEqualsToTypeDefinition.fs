@@ -15,7 +15,7 @@ let fix (getFileLines: GetFileLines) =
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
-      let! lines = getFileLines fileName
+      let! lines = getFileLines fileName |> AsyncResult.ofOption (fun _ -> "Failed to get file lines")
 
       let! walkPos = dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "No walk pos")
 
