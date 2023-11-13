@@ -2045,7 +2045,7 @@ type AdaptiveFSharpLspServer
     override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest p
 
     override x.CallHierarchyIncomingCalls(p: CallHierarchyIncomingCallsParams) =
-      asyncResult {
+      asyncResultOption {
         // IncomingCalls is a recursive "Find All References".
         let tags = [ "CallHierarchyIncomingCalls", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -2058,10 +2058,10 @@ type AdaptiveFSharpLspServer
 
           let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
           let pos = protocolPosToPos p.Item.SelectionRange.Start
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = tryGetLineStr pos volatileFile.Source
           // Incoming file may not be "Opened" so we need to force a typecheck
-          let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetTypeCheckResultsForFile filePath
 
 
           let locationToCallHierarchyItem (loc: Location) =
@@ -2073,7 +2073,7 @@ type AdaptiveFSharpLspServer
 
               let fn = loc.Uri |> Path.FileUriToLocalPath |> Utils.normalizePath
 
-              let! parseResults = state.GetParseResults fn |> Async.map Result.toOption
+              let! parseResults = state.GetParseResults fn
 
               let! (fullBindingRange, glyph, bindingIdents) =
                 parseResults.TryRangeOfNameOfNearestOuterBindingOrMember(protocolPosToPos loc.Range.Start)
@@ -2102,7 +2102,6 @@ type AdaptiveFSharpLspServer
 
           let! usages =
             state.SymbolUseWorkspace(true, true, false, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
 
           let! references =
             usages.Values
@@ -2112,7 +2111,7 @@ type AdaptiveFSharpLspServer
             |> Async.parallel75
             |> Async.map (Array.choose id)
 
-          return Some references
+          return! Some references
         with e ->
           trace |> Tracing.recordException e
 
