@@ -570,6 +570,8 @@ type AdaptiveFSharpLspServer
                       | _ -> return None
                     }
 
+                  let config = state.Config
+
                   let getCompletions forceGetTypeCheckResultsStale =
                     asyncResult {
                       let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofOption (fun _ -> CouldNotOpenFile)
@@ -626,8 +628,6 @@ type AdaptiveFSharpLspServer
                       // If we don't get any completions, assume we need to wait for a full typecheck
                       getCompletions state.GetOpenFileTypeCheckResults
                     | _ -> getCompletions state.GetOpenFileTypeCheckResultsCached
-
-                  let config = state.Config
 
                   let getCodeToInsert (d: DeclarationListItem) =
                     match d.NamespaceToOpen with
@@ -886,80 +886,83 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-          let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+          let! result =
+            asyncOption {
+              let (filePath, pos) = getFilePathAndPosition p
+              let! volatileFile = state.GetOpenFileOrRead filePath
+              let! lineStr = volatileFile.Source |> tryGetLineStr pos
+              let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath
+              match tyRes.TryGetToolTipEnhanced pos lineStr with
+              | Some tooltipResult ->
+                logger.info (
+                  Log.setMessage "TryGetToolTipEnhanced : {params}"
+                  >> Log.addContextDestructured "params" tooltipResult
+                )
 
-          match tyRes.TryGetToolTipEnhanced pos lineStr with
-          | Ok(Some tooltipResult) ->
-            logger.info (
-              Log.setMessage "TryGetToolTipEnhanced : {params}"
-              >> Log.addContextDestructured "params" tooltipResult
-            )
+                let formatCommentStyle =
+                  let config = state.Config
 
-            let formatCommentStyle =
-              let config = state.Config
+                  if config.TooltipMode = "full" then
+                    TipFormatter.FormatCommentStyle.FullEnhanced
+                  else if config.TooltipMode = "summary" then
+                    TipFormatter.FormatCommentStyle.SummaryOnly
+                  else
+                    TipFormatter.FormatCommentStyle.Legacy
 
-              if config.TooltipMode = "full" then
-                TipFormatter.FormatCommentStyle.FullEnhanced
-              else if config.TooltipMode = "summary" then
-                TipFormatter.FormatCommentStyle.SummaryOnly
-              else
-                TipFormatter.FormatCommentStyle.Legacy
+                match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
+                | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
-            match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
-            | TipFormatter.TipFormatterResult.Success tooltipInfo ->
+                  // Display the signature as a code block
+                  let signature =
+                    tooltipResult.Signature
+                    |> TipFormatter.prepareSignature
+                    |> (fun content -> MarkedString.WithLanguage { Language = "fsharp"; Value = content })
 
-              // Display the signature as a code block
-              let signature =
-                tooltipResult.Signature
-                |> TipFormatter.prepareSignature
-                |> (fun content -> MarkedString.WithLanguage { Language = "fsharp"; Value = content })
+                  // Display each footer line as a separate line
+                  let footerLines =
+                    tooltipResult.Footer
+                    |> TipFormatter.prepareFooterLines
+                    |> Array.map MarkedString.String
 
-              // Display each footer line as a separate line
-              let footerLines =
-                tooltipResult.Footer
-                |> TipFormatter.prepareFooterLines
-                |> Array.map MarkedString.String
+                  let contents =
+                    [| signature
+                      MarkedString.String tooltipInfo.DocComment
+                      match tooltipResult.SymbolInfo with
+                      | TryGetToolTipEnhancedResult.Keyword _ -> ()
+                      | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
+                        TipFormatter.renderShowDocumentationLink
+                          tooltipInfo.HasTruncatedExamples
+                          symbolInfo.XmlDocSig
+                          symbolInfo.Assembly
+                        |> MarkedString.String
+                      yield! footerLines |]
 
-              let contents =
-                [| signature
-                   MarkedString.String tooltipInfo.DocComment
-                   match tooltipResult.SymbolInfo with
-                   | TryGetToolTipEnhancedResult.Keyword _ -> ()
-                   | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
-                     TipFormatter.renderShowDocumentationLink
-                       tooltipInfo.HasTruncatedExamples
-                       symbolInfo.XmlDocSig
-                       symbolInfo.Assembly
-                     |> MarkedString.String
-                   yield! footerLines |]
+                  let response =
+                    { Contents = MarkedStrings contents
+                      Range = None }
 
-              let response =
-                { Contents = MarkedStrings contents
-                  Range = None }
+                  return (Some response)
 
-              return (Some response)
+                | TipFormatter.TipFormatterResult.Error error ->
+                  let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
 
-            | TipFormatter.TipFormatterResult.Error error ->
-              let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
+                  let response =
+                    { Contents = MarkedStrings contents
+                      Range = None }
 
-              let response =
-                { Contents = MarkedStrings contents
-                  Range = None }
+                  return (Some response)
 
-              return (Some response)
+                | TipFormatter.TipFormatterResult.None -> return None
 
-            | TipFormatter.TipFormatterResult.None -> return None
+              // | Ok(None) ->
 
-          | Ok(None) ->
+              //   return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
+              | None ->
+                trace.RecordError("Failed retrieving tooltip information", "TextDocumentHover.Error") |> ignore<Activity>
+                logger.error (Log.setMessage "Failed with {error}" >> Log.addContext "error" "Failed retrieving tooltip information")
+                return! LspResult.internalError (string e)
+            }
 
-            return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
-          | Error e ->
-            trace.RecordError(e, "TextDocumentHover.Error") |> ignore<Activity>
-            logger.error (Log.setMessage "Failed with {error}" >> Log.addContext "error" e)
-            return! LspResult.internalError e
         with e ->
           trace |> Tracing.recordException e
 
