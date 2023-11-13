@@ -389,12 +389,12 @@ module Commands =
     }
 
   let formatSelection
-    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<IFSACSourceText, _>>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<option<IFSACSourceText>>)
     (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     (rangeToFormat: FormatSelectionRange)
-    : Async<Result<FormatDocumentResponse, string>> =
-    asyncResult {
+    : Async<FormatDocumentResponse option> =
+    asyncOption {
       try
         let filePath = (UMX.untag file)
         let! text = tryGetFileCheckerOptionsWithLines file
@@ -442,7 +442,7 @@ module Commands =
           >> Log.addExn ex
         )
 
-        return! Core.Error ex.Message
+        return! None
     }
 
   let formatDocument

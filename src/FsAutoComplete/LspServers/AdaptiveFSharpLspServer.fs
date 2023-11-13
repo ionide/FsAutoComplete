@@ -1376,7 +1376,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "DocumentRangeFormattingParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1402,8 +1402,7 @@ type AdaptiveFSharpLspServer
             let formatSelectionAsync x = fantomasService.FormatSelectionAsync x
             Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync fileName range
 
-
-          let handlerFormattedRangeDoc (sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
+          let handlerFormattedRangeDoc (_sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
             let range =
               { Start =
                   { Line = range.StartLine - 1
