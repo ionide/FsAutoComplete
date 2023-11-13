@@ -2634,7 +2634,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpHelp(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2645,13 +2645,13 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath
 
           match! Commands.Help tyRes pos lineStr |> Result.ofCoreResponse with
-          | Some t -> return Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
-          | None -> return None
+          | Some t -> return! Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+          | None -> return! None
         with e ->
           trace |> Tracing.recordException e
 
