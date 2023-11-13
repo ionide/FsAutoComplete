@@ -18,7 +18,8 @@
   <Target Name="AnalyzeSolution">
     <MSBuild
       Projects="@(ProjectsToAnalyze)"
-      Targets="AnalyzeProject" />
+      Targets="AnalyzeProject"
+      Properties="TargetFramework=net6.0" />
   </Target>
 
 </Project>

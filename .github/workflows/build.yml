@@ -109,4 +109,4 @@ jobs:
         BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run analyzers
-      run: dotnet build -t:AnalyzeSolution
+      run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net6.0
