@@ -111,7 +111,7 @@ type AdaptiveFSharpLspServer
   member __.HandleFormatting
     (
       fileName: string<LocalPath>,
-      action: unit -> Async<Result<FormatDocumentResponse, string>>,
+      action: unit -> Async<option<FormatDocumentResponse>>,
       handlerFormattedDoc: (IFSACSourceText * string) -> TextEdit[],
       handleFormattedRange: (IFSACSourceText * string * FormatSelectionRange) -> TextEdit[]
     ) : Async<LspResult<option<_>>> =
@@ -120,22 +120,19 @@ type AdaptiveFSharpLspServer
       use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
       try
-
-
-        let! res = action () |> AsyncResult.ofStringErr
-
+        let! res = action ()
         let rootPath = state.RootPath
 
         match res with
-        | (FormatDocumentResponse.Formatted(sourceText, formatted)) ->
+        | Some (FormatDocumentResponse.Formatted(sourceText, formatted)) ->
           let result = handlerFormattedDoc (sourceText, formatted)
 
           return (Some(result))
-        | (FormatDocumentResponse.FormattedRange(sourceText, formatted, range)) ->
+        | Some (FormatDocumentResponse.FormattedRange(sourceText, formatted, range)) ->
           let result = handleFormattedRange (sourceText, formatted, range)
 
           return (Some(result))
-        | FormatDocumentResponse.Ignored ->
+        | Some FormatDocumentResponse.Ignored ->
           let fileName = UMX.untag fileName |> Path.GetFileName
 
           do!
@@ -144,8 +141,8 @@ type AdaptiveFSharpLspServer
                 Message = (sprintf "\"%s\" is ignored by a .fantomasignore file." fileName) }
 
           return None
-        | FormatDocumentResponse.UnChanged -> return None
-        | FormatDocumentResponse.ToolNotPresent ->
+        | Some FormatDocumentResponse.UnChanged -> return None
+        | Some FormatDocumentResponse.ToolNotPresent ->
           let actions =
             [| if Option.isSome rootPath then
                  { Title = "Install locally" }
@@ -158,7 +155,7 @@ type AdaptiveFSharpLspServer
                 Actions = Some actions }
 
           match response with
-          | (Some { Title = "Install locally" }) ->
+          | Some { Title = "Install locally" } ->
             do!
               rootPath
               |> Option.map (fun rootPath ->
@@ -226,7 +223,7 @@ type AdaptiveFSharpLspServer
 
               )
               |> Option.defaultValue (async { return () })
-          | (Some { Title = "Install globally" }) ->
+          | Some { Title = "Install globally" } ->
             let! result =
               Cli
                 .Wrap("dotnet")
@@ -249,7 +246,8 @@ type AdaptiveFSharpLspServer
           | _ -> ()
 
           return! LspResult.internalError "Fantomas install not found."
-        | (FormatDocumentResponse.Error ex) -> return! LspResult.internalError ex
+        | Some (FormatDocumentResponse.Error ex) -> return! LspResult.internalError ex
+        | None -> return! LspResult.internalError "Did not retrieve a formatted document response"
       with e ->
         trace |> Tracing.recordException e
         logger.error (Log.setMessage "HandleFormatting Request Errored {p}" >> Log.addExn e)
@@ -1336,7 +1334,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentFormatting(p: DocumentFormattingParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "DocumentFormattingParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
