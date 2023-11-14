@@ -65,11 +65,11 @@ jobs:
 
     # setup .NET per the repo global.json
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3
 
     # setup .NET per test session
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3
       with:
         include-prerelease: ${{ matrix.include-prerelease }}
         global-json-file: ${{ matrix.global-json-file }}
