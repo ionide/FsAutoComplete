@@ -16,10 +16,14 @@
   </ItemGroup>
 
   <Target Name="AnalyzeSolution">
+    <PropertyGroup>
+      <CodeRoot>$(SolutionDir)</CodeRoot>
+      <SarifOutput>$(SolutionDir)/analysisreports</SarifOutput>
+    </PropertyGroup>
     <MSBuild
       Projects="@(ProjectsToAnalyze)"
       Targets="AnalyzeProject"
-      Properties="TargetFramework=net6.0" />
+      Properties="TargetFramework=net6.0;CodeRoot=$(CodeRoot);SarifOutput=$(SarifOutput)" />
   </Target>
 
 </Project>
