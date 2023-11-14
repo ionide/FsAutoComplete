@@ -347,6 +347,41 @@ module RoslynSourceText =
 
       member _.GetSubTextString(start, length) = sourceText.GetSubText(TextSpan(start, length)).ToString()
 
+      member this.GetSubTextFromRange(range: range) : string =
+        let totalAmountOfLines = sourceText.Lines.Count
+
+        if
+          range.StartLine = 0
+          && range.StartColumn = 0
+          && range.EndLine = 0
+          && range.EndColumn = 0
+        then
+          String.Empty
+        elif
+          range.StartLine < 1
+          || (range.StartLine - 1) > totalAmountOfLines
+          || range.EndLine < 1
+          || (range.EndLine - 1) > totalAmountOfLines
+        then
+          invalidArg (nameof range) "The range is outside the file boundaries"
+        else
+          let sourceText = this :> ISourceText
+          let startLine = range.StartLine - 1
+          let line = sourceText.GetLineString startLine
+
+          if range.StartLine = range.EndLine then
+            let length = range.EndColumn - range.StartColumn
+            line.Substring(range.StartColumn, length)
+          else
+            let firstLineContent = line.Substring(range.StartColumn)
+            let sb = System.Text.StringBuilder().AppendLine(firstLineContent)
+
+            for lineNumber in range.StartLine .. range.EndLine - 2 do
+              sb.AppendLine(sourceText.GetLineString lineNumber) |> ignore
+
+            let lastLine = sourceText.GetLineString(range.EndLine - 1)
+            sb.Append(lastLine.Substring(0, range.EndColumn)).ToString()
+
       member _.SubTextEquals(target, startIndex) =
         if startIndex < 0 || startIndex >= sourceText.Length then
           invalidArg "startIndex" "Out of range."
