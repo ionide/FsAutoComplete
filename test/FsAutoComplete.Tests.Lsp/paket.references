@@ -2,7 +2,6 @@ FSharp.Core content: once
 FSharp.Compiler.Service
 FSharp.Control.Reactive
 FSharpx.Async
-Expecto
 Expecto.Diff
 Microsoft.NET.Test.Sdk
 YoloDev.Expecto.TestSdk
@@ -10,9 +9,8 @@ AltCover
 GitHubActionsTestLogger
 CliWrap
 FSharp.Data.Adaptive
-
-Microsoft.Build copy_local:false
-Microsoft.Build.Framework copy_local:false
-Microsoft.Build.Utilities.Core copy_local:false
+Microsoft.Build copy_local: false
+Microsoft.Build.Framework copy_local: false
+Microsoft.Build.Utilities.Core copy_local: false
 Microsoft.Build.Tasks.Core copy_local: false
 NuGet.Frameworks copy_local: false
