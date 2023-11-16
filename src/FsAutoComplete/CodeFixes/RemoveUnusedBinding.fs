@@ -11,9 +11,6 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
-let posBetween (range: Range) tester =
-  Position.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
-  && Position.posGeq range.End tester
 
 type private ReplacementRangeResult =
   | FullBinding of bindingRange: Range
@@ -84,7 +81,7 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
       let fcsRange =
         protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
 
-      let! tyres, line, lines = getParseResults fileName fcsRange.Start
+      let! tyres, _line, lines = getParseResults fileName fcsRange.Start
 
       let! rangeOfBinding =
         tyres.GetParseResults.TryRangeOfBindingWithHeadPatternWithPos(fcsRange)
