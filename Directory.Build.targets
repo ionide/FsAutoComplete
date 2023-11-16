@@ -8,18 +8,10 @@
     </PropertyGroup>
 </Target>
 
-<Target
-    Name="AnalyzeProject">
-    
-    <Message Importance="High" Text="Analyzing $(MSBuildProjectFile)"/>
-    <Exec
-        IgnoreExitCode="true"
-        ContinueOnError="true"
-        Command="dotnet fsharp-analyzers --project &quot;$(MSBuildProjectFile)&quot; --analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot; --verbose --code-root $(CodeRoot) --report &quot;$(SarifOutput)/$(MSBuildProjectName)-analysis.sarif&quot;">
-        <Output TaskParameter="ExitCode" PropertyName="LastExitCode" />
-    </Exec>
-    <Error Condition="'$(LastExitCode)' == '-2'" Text="Problems were found $(MSBuildProjectFile)" />
-
-</Target>
+<PropertyGroup>
+    <SarifOutput Condition="$(SarifOutput) == ''">./</SarifOutput>
+    <CodeRoot Condition="$(CodeRoot) == ''">.</CodeRoot>
+    <FSharpAnalyzersOtherFlags>--analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot; --code-root $(CodeRoot) --report &quot;$(SarifOutput)/$(MSBuildProjectName)-$(TargetFramework).sarif&quot; --verbose</FSharpAnalyzersOtherFlags>
+</PropertyGroup>
 
 </Project>

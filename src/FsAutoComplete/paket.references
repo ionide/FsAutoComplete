@@ -22,3 +22,4 @@ Microsoft.CodeAnalysis
 LinkDotNet.StringBuilder
 CommunityToolkit.HighPerformance
 Ionide.Analyzers
+FSharp.Analyzers.Build

@@ -22,8 +22,8 @@
     </PropertyGroup>
     <MSBuild
       Projects="@(ProjectsToAnalyze)"
-      Targets="AnalyzeProject"
-      Properties="TargetFramework=net6.0;CodeRoot=$(CodeRoot);SarifOutput=$(SarifOutput)" />
+      Targets="AnalyzeFSharpProject"
+      Properties="CodeRoot=$(CodeRoot);SarifOutput=$(SarifOutput)" />
   </Target>
 
 </Project>
