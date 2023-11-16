@@ -89,6 +89,9 @@ jobs:
         # dotnet tool restore then.
         dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.3 && dotnet paket restore
 
+    - name: cat file
+      run: cat src/FsAutoComplete.Core/AbstractClassStubGenerator.fs
+
     - name: Check format
       run: dotnet build -t:CheckFormat
       env:
