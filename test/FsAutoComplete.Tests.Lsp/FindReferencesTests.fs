@@ -597,7 +597,7 @@ let tests state = testList "Find All References tests" [
 ]
 
 
-let tryFixupRangeTests (sourceTextFactoryName, sourceTextFactory : ISourceTextFactory) = testList ($"{nameof Tokenizer.tryFixupRange}.{sourceTextFactoryName}") [
+let tryFixupRangeTests (sourceTextFactory : ISourceTextFactory) = testList ($"{nameof Tokenizer.tryFixupRange}") [
   let checker = lazy (FSharpChecker.Create())
   let getSymbolUses (source : string) cursor = async {
     let checker = checker.Value
