@@ -96,6 +96,7 @@ let lspTests =
                 analyzerTests createServer
                 signatureTests createServer
                 SignatureHelp.tests createServer
+                InlineHints.tests createServer
                 CodeFixTests.Tests.tests sourceTextFactory createServer
                 Completion.tests createServer
                 GoTo.tests createServer

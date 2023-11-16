@@ -47,9 +47,9 @@ type ParseAndCheckResults =
   member TryFindIdentifierDeclaration: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
 
   member TryFindTypeDeclaration: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
-  member TryGetToolTip: pos: Position -> lineStr: LineStr -> Result<ToolTipText, string>
+  member TryGetToolTip: pos: Position -> lineStr: LineStr -> ToolTipText option
 
-  member TryGetToolTipEnhanced: pos: Position -> lineStr: LineStr -> Result<TryGetToolTipEnhancedResult option, string>
+  member TryGetToolTipEnhanced: pos: Position -> lineStr: LineStr -> TryGetToolTipEnhancedResult option
 
   member TryGetFormattedDocumentation:
     pos: Position ->
