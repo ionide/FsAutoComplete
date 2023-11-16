@@ -316,16 +316,16 @@ module private ShouldCreate =
 
     isPostfixOf funcName paramName
 
-  // /// <summary>
-  // /// We filter out parameters that generate lots of noise in hints.
-  // /// * parameter has no name
-  // /// * parameter has length > 2
-  // /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
-  // /// * param & function is "well known"/commonly used
-  // /// * parameter does match or is a pre/postfix of user-entered text
-  // /// * user-entered text does match or is a pre/postfix of parameter
-  // /// * parameter is postfix of function name
-  // /// </summary>
+  /// <summary>
+  /// We filter out parameters that generate lots of noise in hints.
+  /// * parameter has no name
+  /// * parameter has length > 2
+  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+  /// * param &amp; function is "well known"/commonly used
+  /// * parameter does match or is a pre/postfix of user-entered text
+  /// * user-entered text does match or is a pre/postfix of parameter
+  /// * parameter is postfix of function name
+  /// </summary>
   let paramHint (func: FSharpMemberOrFunctionOrValue) (p: FSharpParameter) (argumentText: string) =
     hasName p
     && isMeaningfulName p
