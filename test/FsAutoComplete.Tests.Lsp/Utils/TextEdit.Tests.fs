@@ -997,7 +997,7 @@ let b =
 printfn "Result=%i" b
 $0"""
 
-              text |> assertIndexOf 62
+              text |> assertIndexOf 61
             testCase "middle of 1st line"
             <| fun _ ->
               let text =
