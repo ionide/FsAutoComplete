@@ -11,7 +11,7 @@ let title = "Generate record stub"
 /// a codefix that generates member stubs for a record declaration
 let fix
   (getParseResultsForFile: GetParseResultsForFile)
-  (genRecordStub: _ -> _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
+  (genRecordStub: _ -> _ -> _ -> Async<CoreResponse<string * FcsPos>>)
   (getTextReplacements: unit -> Map<string, string>)
   : CodeFix =
   fun codeActionParams ->
@@ -20,9 +20,9 @@ let fix
 
       let pos = protocolPosToPos codeActionParams.Range.Start
 
-      let! (tyRes, line, lines) = getParseResultsForFile fileName pos
+      let! tyRes, _line, lines = getParseResultsForFile fileName pos
 
-      match! genRecordStub tyRes pos lines line with
+      match! genRecordStub tyRes pos lines with
       | CoreResponse.Res(text, position) ->
         let replacements = getTextReplacements ()
 

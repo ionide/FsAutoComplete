@@ -48,7 +48,7 @@ module Debug =
       return r
     }
 
-  let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
+  let toggleVerboseLogging (_verbose: bool) = () // todo: set logging latch
 
   let waitForDebugger () =
     while not (Diagnostics.Debugger.IsAttached) do

@@ -706,7 +706,7 @@ type AdaptiveFSharpLspServer
           { ci with
               Detail = Some symbolName
               Documentation = Some d }
-        | HelpText.Full(name, tip, additionalEdit) ->
+        | HelpText.Full(_name, tip, additionalEdit) ->
           let (si, comment) = TipFormatter.formatCompletionItemTip tip
 
           let edits, label =
@@ -753,7 +753,7 @@ type AdaptiveFSharpLspServer
             match state.GetAutoCompleteByDeclName sym with
             | None -> //Isn't in sync filled cache, we don't have result
               CoreResponse.ErrorRes(sprintf "No help text available for symbol '%s'" sym)
-            | Some(decl, pos, fn, _, _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
+            | Some(decl, _pos, _fn, _, _) -> //Is in sync filled cache, try to get results from async filled caches or calculate if it's not there
 
               let tip = decl.Description
 
@@ -995,7 +995,7 @@ type AdaptiveFSharpLspServer
 
           // validate name and surround with backticks if necessary
           let! newName =
-            Commands.adjustRenameSymbolNewName pos lineStr volatileFile.Source tyRes p.NewName
+            Commands.adjustRenameSymbolNewName pos lineStr tyRes p.NewName
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
           // safety check: rename valid?
@@ -1166,9 +1166,9 @@ type AdaptiveFSharpLspServer
             tyRes.TryGetSymbolUseAndUsages pos lineStr
             |> Result.bimap CoreResponse.Res CoreResponse.InfoRes
           with
-          | CoreResponse.InfoRes msg -> return None
+          | CoreResponse.InfoRes _msg -> return None
           | CoreResponse.ErrorRes msg -> return! LspResult.internalError msg
-          | CoreResponse.Res(symbol, uses) ->
+          | CoreResponse.Res(_symbol, uses) ->
             return
               uses
               |> Array.map (fun s ->
@@ -1268,7 +1268,7 @@ type AdaptiveFSharpLspServer
             return
               decls
               |> Array.collect (fun top ->
-                getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun s -> true))
+                getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
               |> U2.First
               |> Some
           | None -> return! LspResult.internalError $"No declarations for {fn}"
@@ -1394,7 +1394,7 @@ type AdaptiveFSharpLspServer
             Commands.formatSelection tryGetFileCheckerOptionsWithLines formatSelectionAsync fileName range
 
 
-          let handlerFormattedRangeDoc (sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
+          let handlerFormattedRangeDoc (_sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
             let range =
               { Start =
                   { Line = range.StartLine - 1
@@ -1992,7 +1992,7 @@ type AdaptiveFSharpLspServer
 
           let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
+          let _fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
 
           let! pipelineHints = Commands.inlineValues volatileFile.Source tyRes
 
@@ -3087,7 +3087,7 @@ type AdaptiveFSharpLspServer
       }
 
     member this.CallHierarchyOutgoingCalls
-      (arg1: CallHierarchyOutgoingCallsParams)
+      (_arg1: CallHierarchyOutgoingCallsParams)
       : AsyncLspResult<CallHierarchyOutgoingCall array option> =
       AsyncLspResult.notImplemented
 
@@ -3109,7 +3109,7 @@ module AdaptiveFSharpLspServer =
           None
       | _ -> None
 
-    let strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
+    let _strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
 
     let (|Flatten|_|) (e: exn) =
       match e with

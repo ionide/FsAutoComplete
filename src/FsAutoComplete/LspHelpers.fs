@@ -305,7 +305,7 @@ module Workspace =
           match x.Kind with
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
+          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _msbuildProj ->
             Some(
               WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                 { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
@@ -359,7 +359,7 @@ module SignatureData =
 
     let args =
       parms
-      |> List.map (fun group -> group |> List.map (fun (n, t) -> formatType t) |> String.concat " * ")
+      |> List.map (fun group -> group |> List.map (snd >> formatType) |> String.concat " * ")
       |> String.concat " -> "
 
     if String.IsNullOrEmpty args then
@@ -531,7 +531,7 @@ module ClassificationUtils =
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
     | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
-    | unknown -> SemanticTokenTypes.Text, []
+    | _unknown -> SemanticTokenTypes.Text, []
 
 type PlainNotification = { Content: string }
 

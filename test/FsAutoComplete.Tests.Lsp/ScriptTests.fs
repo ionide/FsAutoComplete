@@ -21,7 +21,11 @@ let scriptPreviewTests state =
       let scriptPath = Path.Combine(path, "Script.fsx")
 
       let! (server, events) =
-        serverInitialize path { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] } state
+        serverInitialize
+          path
+          { defaultConfigDto with
+              FSIExtraParameters = Some [| "--langversion:preview" |] }
+          state
 
       do! waitForWorkspaceFinishedParsing events
       return server, events, scriptPath
@@ -39,7 +43,7 @@ let scriptPreviewTests state =
               do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
               match! waitForParseResultsForFile "Script.fsx" events with
-              | Ok () -> () // all good, no parsing/checking errors
+              | Ok() -> () // all good, no parsing/checking errors
               | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" scriptPath errors
             }) ] ]
 
@@ -64,8 +68,7 @@ let scriptEvictionTests state =
             (async {
               let! server, events, scriptPath = server
 
-              let openScript () =
-                server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+              let openScript () = server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
               do! openScript ()
 
@@ -75,7 +78,10 @@ let scriptEvictionTests state =
 
               let configChange: DidChangeConfigurationParams =
                 let config: FSharpConfigRequest =
-                  { FSharp = Some { defaultConfigDto with FSIExtraParameters = Some [| "--nowarn:760" |] } }
+                  { FSharp =
+                      Some
+                        { defaultConfigDto with
+                            FSIExtraParameters = Some [| "--nowarn:760" |] } }
 
                 { Settings = Server.serialize config }
 
@@ -97,7 +103,7 @@ let dependencyManagerTests state =
       let workingDir =
         Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
 
-      let dependencyManagerAssemblyDir =
+      let _dependencyManagerAssemblyDir =
         Path.Combine(
           __SOURCE_DIRECTORY__,
           "..",
@@ -108,7 +114,8 @@ let dependencyManagerTests state =
         )
 
       let dependencyManagerEnabledConfig =
-        { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] }
+        { defaultConfigDto with
+            FSIExtraParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig state
       do! waitForWorkspaceFinishedParsing events
@@ -156,7 +163,8 @@ let scriptProjectOptionsCacheTests state =
         Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
 
       let previewEnabledConfig =
-        { defaultConfigDto with FSIExtraParameters = Some [| "--langversion:preview" |] }
+        { defaultConfigDto with
+            FSIExtraParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()
@@ -177,7 +185,7 @@ let scriptProjectOptionsCacheTests state =
         [ testCaseAsync
             "reopening an unchanged script file should return same project options for file"
             (async {
-              let! server, events, workingDir, testFilePath, allOpts = server
+              let! server, _events, _workingDir, testFilePath, allOpts = server
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
               do! Async.Sleep(TimeSpan.FromSeconds 3.)
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }

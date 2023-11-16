@@ -2054,7 +2054,7 @@ let private generateUnionCasesTests state =
         UnionCaseStubGenerationBody = Some "failwith \"---\"" }
 
   serverTestList (nameof GenerateUnionCases) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
+    [ let _selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
 
       testCaseAsync "can generate match cases for a simple DU"
       <| CodeFix.check
@@ -2675,8 +2675,7 @@ let private renameUnusedValue state =
 
 let private replaceWithSuggestionTests state =
   serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix replacement =
-        CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
+    [ let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
 
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
@@ -3305,50 +3304,51 @@ let private removePatternArgumentTests state =
         let (None) = None
         """ ])
 
-let tests textFactory state = testList "CodeFix-tests" [
-  HelpersTests.tests textFactory
-  AddExplicitTypeAnnotationTests.tests state
-  AdjustConstantTests.tests state
-  ToInterpolatedStringTests.tests state
-  ToInterpolatedStringTests.unavailableTests state
-  addMissingEqualsToTypeDefinitionTests state
-  addMissingFunKeywordTests state
-  addMissingInstanceMemberTests state
-  addMissingRecKeywordTests state
-  addMissingXmlDocumentationTests state
-  addNewKeywordToDisposableConstructorInvocationTests state
-  addTypeToIndeterminateValueTests state
-  changeDerefBangToValueTests state
-  changeDowncastToUpcastTests state
-  changeEqualsInFieldTypeToColonTests state
-  changePrefixNegationToInfixSubtractionTests state
-  changeRefCellDerefToNotTests state
-  changeTypeOfNameToNameOfTests state
-  convertBangEqualsToInequalityTests state
-  convertCSharpLambdaToFSharpLambdaTests state
-  convertDoubleEqualsToSingleEqualsTests state
-  convertInvalidRecordToAnonRecordTests state
-  convertPositionalDUToNamedTests state
-  convertTripleSlashCommentToXmlTaggedDocTests state
-  addPrivateAccessModifierTests state
-  GenerateAbstractClassStubTests.tests state
-  generateRecordStubTests state
-  generateUnionCasesTests state
-  generateXmlDocumentationTests state
-  ImplementInterfaceTests.tests state
-  makeDeclarationMutableTests state
-  makeOuterBindingRecursiveTests state
-  removeRedundantQualifierTests state
-  removeUnnecessaryReturnOrYieldTests state
-  removeUnusedBindingTests state
-  removeUnusedOpensTests state
-  RenameParamToMatchSignatureTests.tests state
-  renameUnusedValue state
-  replaceWithSuggestionTests state
-  resolveNamespaceTests state
-  useMutationWhenValueIsMutableTests state
-  useTripleQuotedInterpolationTests state
-  wrapExpressionInParenthesesTests state
-  removeRedundantAttributeSuffixTests state
-  removePatternArgumentTests state
-]
+let tests textFactory state =
+  testList
+    "CodeFix-tests"
+    [ HelpersTests.tests textFactory
+      AddExplicitTypeAnnotationTests.tests state
+      AdjustConstantTests.tests state
+      ToInterpolatedStringTests.tests state
+      ToInterpolatedStringTests.unavailableTests state
+      addMissingEqualsToTypeDefinitionTests state
+      addMissingFunKeywordTests state
+      addMissingInstanceMemberTests state
+      addMissingRecKeywordTests state
+      addMissingXmlDocumentationTests state
+      addNewKeywordToDisposableConstructorInvocationTests state
+      addTypeToIndeterminateValueTests state
+      changeDerefBangToValueTests state
+      changeDowncastToUpcastTests state
+      changeEqualsInFieldTypeToColonTests state
+      changePrefixNegationToInfixSubtractionTests state
+      changeRefCellDerefToNotTests state
+      changeTypeOfNameToNameOfTests state
+      convertBangEqualsToInequalityTests state
+      convertCSharpLambdaToFSharpLambdaTests state
+      convertDoubleEqualsToSingleEqualsTests state
+      convertInvalidRecordToAnonRecordTests state
+      convertPositionalDUToNamedTests state
+      convertTripleSlashCommentToXmlTaggedDocTests state
+      addPrivateAccessModifierTests state
+      GenerateAbstractClassStubTests.tests state
+      generateRecordStubTests state
+      generateUnionCasesTests state
+      generateXmlDocumentationTests state
+      ImplementInterfaceTests.tests state
+      makeDeclarationMutableTests state
+      makeOuterBindingRecursiveTests state
+      removeRedundantQualifierTests state
+      removeUnnecessaryReturnOrYieldTests state
+      removeUnusedBindingTests state
+      removeUnusedOpensTests state
+      RenameParamToMatchSignatureTests.tests state
+      renameUnusedValue state
+      replaceWithSuggestionTests state
+      resolveNamespaceTests state
+      useMutationWhenValueIsMutableTests state
+      useTripleQuotedInterpolationTests state
+      wrapExpressionInParenthesesTests state
+      removeRedundantAttributeSuffixTests state
+      removePatternArgumentTests state ]

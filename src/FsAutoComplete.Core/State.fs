@@ -16,41 +16,6 @@ open FCSPatches
 [<AutoOpen>]
 module ProjInfoExtensions =
 
-  let private internalGetCSharpReferenceInfo =
-    fun (r: FSharpReferencedProject) ->
-      let rCase, fields =
-        FSharp.Reflection.FSharpValue.GetUnionFields(
-          r,
-          typeof<FSharpReferencedProject>,
-          System.Reflection.BindingFlags.Public
-          ||| System.Reflection.BindingFlags.NonPublic
-          ||| System.Reflection.BindingFlags.Instance
-        )
-
-      if rCase.Name = "PEReference" then
-        let getStamp: unit -> DateTime = fields[0] :?> _
-        let reader = fields[1]
-        Some(getStamp, reader)
-      else
-        None
-
-  let private internalGetProjectOptions =
-    fun (r: FSharpReferencedProject) ->
-      let rCase, fields =
-        FSharp.Reflection.FSharpValue.GetUnionFields(
-          r,
-          typeof<FSharpReferencedProject>,
-          System.Reflection.BindingFlags.Public
-          ||| System.Reflection.BindingFlags.NonPublic
-          ||| System.Reflection.BindingFlags.Instance
-        )
-
-      if rCase.Name = "FSharpReference" then
-        let projOptions: FSharpProjectOptions = rCase.GetFields().[1].GetValue(box r) :?> _
-        Some projOptions
-      else
-        None
-
   type FSharpReferencedProject with
 
     member x.ProjectFilePath =
@@ -90,7 +55,7 @@ module ProjInfoExtensions =
       match Array.tryFindIndex ((=) untagged) x.SourceFiles with
       | None -> [||]
       | Some index when index < x.SourceFiles.Length -> x.SourceFiles[index + 1 ..]
-      | Some index -> [||] // at the end, so return empty list
+      | Some _ -> [||] // at the end, so return empty list
 
   type ProjectController with
 

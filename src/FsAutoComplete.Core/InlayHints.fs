@@ -100,7 +100,7 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
             match binding with
             | SynBinding(
                 headPat = SynPat.Named(range = patRange)
-                returnInfo = Some(SynBindingReturnInfo(typeName = SynType.LongIdent(idents)))) -> Some patRange
+                returnInfo = Some(SynBindingReturnInfo(typeName = SynType.LongIdent _))) -> Some patRange
             | _ -> defaultTraverse binding }
 
     let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
@@ -316,16 +316,16 @@ module private ShouldCreate =
 
     isPostfixOf funcName paramName
 
-  /// </summary>
-  /// We filter out parameters that generate lots of noise in hints.
-  /// * parameter has no name
-  /// * parameter has length > 2
-  /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
-  /// * param & function is "well known"/commonly used
-  /// * parameter does match or is a pre/postfix of user-entered text
-  /// * user-entered text does match or is a pre/postfix of parameter
-  /// * parameter is postfix of function name
-  /// </summary>
+  // /// <summary>
+  // /// We filter out parameters that generate lots of noise in hints.
+  // /// * parameter has no name
+  // /// * parameter has length > 2
+  // /// * parameter is one of a set of 'known' names that clutter (like printfn formats)
+  // /// * param & function is "well known"/commonly used
+  // /// * parameter does match or is a pre/postfix of user-entered text
+  // /// * user-entered text does match or is a pre/postfix of parameter
+  // /// * parameter is postfix of function name
+  // /// </summary>
   let paramHint (func: FSharpMemberOrFunctionOrValue) (p: FSharpParameter) (argumentText: string) =
     hasName p
     && isMeaningfulName p
@@ -620,7 +620,7 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
           | _ -> defaultTraverse expr
 
         member visitor.VisitPat(path, defaultTraverse, pat) =
-          let invalidPositionForTypeAnnotation (pos: Position) (path: SyntaxNode list) =
+          let invalidPositionForTypeAnnotation (path: SyntaxNode list) =
             match path with
             | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = true)) :: _ ->
               // use! value =
@@ -641,7 +641,7 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
           // see dotnet/fsharp#13115
           // | _ when not (rangeContainsPos pat.Range pos) -> None
           | SynPat.Named(ident = SynIdent(ident = ident)) when
-            rangeContainsPos ident.idRange pos && invalidPositionForTypeAnnotation pos path
+            rangeContainsPos ident.idRange pos && invalidPositionForTypeAnnotation path
             ->
             ExplicitType.Invalid |> Some
           | SynPat.Named(ident = SynIdent(ident = ident); isThisVal = false) when rangeContainsPos ident.idRange pos ->
@@ -770,7 +770,7 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
           match expr with
-          | SynExpr.App(isInfix = false; funcExpr = funcExpr; argExpr = argExpr; range = range) when pos = range.Start ->
+          | SynExpr.App(isInfix = false; funcExpr = funcExpr; range = range) when pos = range.Start ->
             let isInfixFuncExpr =
               match funcExpr with
               | SynExpr.App(_, isInfix, _, _, _) -> isInfix
@@ -828,7 +828,7 @@ let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
 /// `let map f v = f v` -> `f` is target
 let isPotentialTargetForTypeAnnotation
   (allowFunctionValues: bool)
-  (symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue)
+  (_symbolUse: FSharpSymbolUse, mfv: FSharpMemberOrFunctionOrValue)
   =
   //ENHANCEMENT: extract settings
   (mfv.IsValue || (allowFunctionValues && mfv.IsFunction))

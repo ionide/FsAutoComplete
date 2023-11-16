@@ -77,7 +77,7 @@ type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable
 
     match cache with
     | ValueSome(struct (a, b, _)) when Utils.cheapEqual a i -> b
-    | ValueSome(struct (a, b, c)) ->
+    | ValueSome(struct (_, _, c)) ->
       (c :> IDisposable).Dispose()
       let (b, c) = mapping i
       cache <- ValueSome(struct (i, b, c))
@@ -209,7 +209,7 @@ module AMap =
         dirty <- HashMap.empty
         d)
 
-    override x.InputChangedObject(t, o) =
+    override x.InputChangedObject(_, o) =
 #if FABLE_COMPILER
       if isNull o.Tag then
         let o = unbox<aval<'b>> o
@@ -316,7 +316,7 @@ module AMap =
     =
     let mapping =
       mapping
-      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependencies (id))
+      >> HashMap.map (fun _ v -> AVal.constant v |> AVal.mapWithAdditionalDependencies id)
 
     batchRecalcDirty mapping map
 
@@ -416,7 +416,7 @@ module Async =
       return! ct.Task |> Async.AwaitTask
     }
 
-[<AutoOpenAttribute>]
+[<AutoOpen>]
 module Extensions =
 
   type IcedTasks.CancellableTaskBase.CancellableTaskBuilderBase with
