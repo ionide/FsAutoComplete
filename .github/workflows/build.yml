@@ -118,10 +118,7 @@ jobs:
       uses: actions/setup-dotnet@v3
 
     - name: Restore tools
-      run: |
-        # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to
-        # dotnet tool restore then.
-        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fsharp-analyzers --version 0.20.0
+      run: dotnet tool restore
 
     - name: Run analyzers
       run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net6.0
