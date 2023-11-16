@@ -33,7 +33,7 @@ let private tryFindConstant ast pos =
   let rec findConst range constant =
     match constant with
     | SynConst.Measure(constant = c; constantRange = constantRange) when rangeContainsPos constantRange pos ->
-      findConst constantRange constant
+      findConst constantRange c
     | _ -> (range, constant)
 
   SyntaxTraversal.Traverse(
