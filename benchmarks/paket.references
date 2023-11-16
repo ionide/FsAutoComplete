@@ -1,4 +1,3 @@
-FSharp.Core
 BenchmarkDotNet
 Microsoft.CodeAnalysis
 FSharp.Data.Adaptive

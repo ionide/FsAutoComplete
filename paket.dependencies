@@ -28,9 +28,7 @@ nuget Microsoft.CodeAnalysis 4.5.0
 nuget FSharp.Analyzers.SDK
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
-nuget Newtonsoft.Json
 nuget FSharpLint.Core
-nuget System.Configuration.ConfigurationManager
 nuget Serilog >= 2.10.0
 nuget Serilog.Sinks.File >= 5.0.0
 nuget Serilog.Sinks.Console >= 4.0.0
@@ -49,7 +47,6 @@ nuget Dotnet.ReproducibleBuilds copy_local:true
 
 nuget Microsoft.NETFramework.ReferenceAssemblies
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
-nuget Expecto
 nuget Expecto.Diff
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
@@ -70,20 +67,14 @@ group Build
   framework: net6.0, net7.0
 
   nuget Fake.Core.Target
-  nuget Fake.Core.Process
-  nuget Fake.DotNet.Cli
   nuget Fake.Core.ReleaseNotes
   nuget Fake.DotNet.AssemblyInfoFile
   nuget Fake.DotNet.Paket
   nuget Fake.Tools.Git
-  nuget Fake.Core.Environment
   nuget Fake.Core.UserInput
-  nuget Fake.IO.FileSystem
   nuget Fake.IO.Zip
-  nuget Fake.DotNet.MsBuild
   nuget Fake.Api.GitHub
   nuget Microsoft.Build
-  nuget MSBuild.StructuredLogger
   nuget Octokit 0.48 // there's an API break in 0.50, so we need to pin this to prevent errors
   nuget Fantomas.Core 6.2.0
 

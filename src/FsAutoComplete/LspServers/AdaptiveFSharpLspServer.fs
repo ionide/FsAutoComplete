@@ -540,7 +540,7 @@ type AdaptiveFSharpLspServer
             return None // An empty file has empty completions. Otherwise we would error down there
           else
 
-            let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+            let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
 
             if lineStr.StartsWith("#", StringComparison.Ordinal) then
               let completionList =
@@ -568,7 +568,12 @@ type AdaptiveFSharpLspServer
                 asyncResult {
 
                   let! volatileFile = state.GetOpenFileOrRead filePath
-                  let! lineStr = volatileFile.Source |> tryGetLineStr pos
+
+                  let! lineStr =
+                    volatileFile.Source
+                    |> tryGetLineStr pos
+                    |> Result.mapError ErrorMsgUtils.formatLineLookErr
+                  //TODO ⮝⮝⮝ good candidate for better error model -- review!
 
                   // TextDocumentCompletion will sometimes come in before TextDocumentDidChange
                   // This will require the trigger character to be at the place VSCode says it is
@@ -874,11 +879,11 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
-          | Ok(Some tooltipResult) ->
+          | Some tooltipResult ->
             logger.info (
               Log.setMessage "TryGetToolTipEnhanced : {params}"
               >> Log.addContextDestructured "params" tooltipResult
@@ -939,13 +944,8 @@ type AdaptiveFSharpLspServer
 
             | TipFormatter.TipFormatterResult.None -> return None
 
-          | Ok(None) ->
+          | None -> return None
 
-            return! LspResult.internalError $"No TryGetToolTipEnhanced results for {filePath}"
-          | Error e ->
-            trace.RecordError(e, "TextDocumentHover.Error") |> ignore<Activity>
-            logger.error (Log.setMessage "Failed with {error}" >> Log.addContext "error" e)
-            return! LspResult.internalError e
         with e ->
           trace |> Tracing.recordException e
 
@@ -967,7 +967,7 @@ type AdaptiveFSharpLspServer
 
         let (filePath, pos) = getFilePathAndPosition p
         let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-        let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+        let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
         let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
         let! (_, _, range) =
@@ -990,7 +990,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           // validate name and surround with backticks if necessary
@@ -1064,7 +1064,7 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
           return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
@@ -1094,7 +1094,7 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
 
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
           return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
@@ -1123,7 +1123,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           let! usages =
@@ -1159,7 +1159,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match
@@ -1201,7 +1201,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           logger.info (
@@ -1560,7 +1560,7 @@ type AdaptiveFSharpLspServer
             )
 
             let! (sourceText: IFSACSourceText) = state.GetOpenFileSource filePath |> AsyncResult.ofStringErr
-            let! lineStr = sourceText |> tryGetLineStr pos |> Result.ofStringErr
+            let! lineStr = sourceText |> tryGetLineStr pos |> Result.lineLookupErr
 
             let typ = data.[1]
             let! r = Async.Catch(f arg pos tyRes sourceText lineStr typ filePath)
@@ -2071,7 +2071,7 @@ type AdaptiveFSharpLspServer
           let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
           let pos = protocolPosToPos p.Item.SelectionRange.Start
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           // Incoming file may not be "Opened" so we need to force a typecheck
           let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
 
@@ -2158,7 +2158,7 @@ type AdaptiveFSharpLspServer
             |> getFilePathAndPosition
 
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
@@ -2240,9 +2240,9 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
-          let! tip = Commands.typesig tyRes pos lineStr |> Result.ofCoreResponse
+          let tip = Commands.typesig tyRes pos lineStr
 
           return
             tip
@@ -2275,7 +2275,7 @@ type AdaptiveFSharpLspServer
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
 
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! (typ, parms, generics) = tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
@@ -2311,7 +2311,7 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match!
@@ -2659,7 +2659,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match! Commands.Help tyRes pos lineStr |> Result.ofCoreResponse with
@@ -2690,7 +2690,7 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.ofStringErr
+          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           lastFSharpDocumentationTypeCheck <- Some tyRes
 

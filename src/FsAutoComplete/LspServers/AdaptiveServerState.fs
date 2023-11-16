@@ -1634,7 +1634,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let tryGetParseResultsForFile filePath pos =
       asyncResult {
         let! (file) = forceFindOpenFileOrRead filePath
-        let! lineStr = file.Source |> tryGetLineStr pos
+
+        let! lineStr =
+          file.Source
+          |> tryGetLineStr pos
+          |> Result.mapError ErrorMsgUtils.formatLineLookErr
+        //TODO ⮝⮝⮝ good candidate for better error model -- review!
         and! tyRes = forceGetOpenFileTypeCheckResults filePath
         return tyRes, lineStr, file.Source
       }
