@@ -88,6 +88,7 @@ module Syntax =
 
     let rec walkImplFileInput (ParsedImplFileInput(contents = moduleOrNamespaceList)) =
       List.iter walkSynModuleOrNamespace moduleOrNamespaceList
+      ()
 
     and walkSynModuleOrNamespace (SynModuleOrNamespace(decls = decls; attribs = AllAttrs attrs; range = r) as s) =
       walker.WalkSynModuleOrNamespace s
@@ -96,9 +97,10 @@ module Syntax =
 
     and walkAttribute (attr: SynAttribute) = walkExpr attr.ArgExpr
 
-    and walkTyparDecl (SynTyparDecl(attributes = AllAttrs attrs; Item2 = typar)) =
+    and walkTyparDecl (SynTyparDecl(attributes = AllAttrs attrs; typar = typar; intersectionConstraints = ts)) =
       List.iter walkAttribute attrs
       walkTypar typar
+      List.iter walkType ts
 
     and walkTyparDecls (typars: SynTyparDecls) =
       typars.TyparDecls |> List.iter walkTyparDecl
@@ -155,7 +157,6 @@ module Syntax =
       | SynPat.Record(_, r) -> ()
       | SynPat.Null(r) -> ()
       | SynPat.OptionalVal(_, r) -> ()
-      | SynPat.DeprecatedCharRange(_, _, r) -> ()
       | SynPat.InstanceMember(_, _, _, accessibility, r) -> ()
       | SynPat.FromParseError(_, r) -> ()
       | SynPat.As(lpat, rpat, r) ->
@@ -223,6 +224,9 @@ module Syntax =
         walkType lhs
         walkType rhs
       | SynType.FromParseError(r) -> ()
+      | SynType.Intersection(typar, types, _, _) ->
+        Option.iter walkTypar typar
+        List.iter walkType types
 
     and walkClause (SynMatchClause(pat, e1, e2, r, _, _) as s) =
       walker.WalkClause s
@@ -245,20 +249,23 @@ module Syntax =
       walker.WalkExpr s
 
       match s with
-      | SynExpr.Typed(e, _, r) -> walkExpr e
-      | SynExpr.Paren(e, _, _, r)
-      | SynExpr.Quote(_, _, e, _, r)
-      | SynExpr.InferredUpcast(e, r)
-      | SynExpr.InferredDowncast(e, r)
-      | SynExpr.AddressOf(_, e, _, r)
-      | SynExpr.DoBang(e, r)
-      | SynExpr.YieldOrReturn(_, e, r)
-      | SynExpr.ArrayOrListComputed(_, e, r)
-      | SynExpr.ComputationExpr(_, e, r)
-      | SynExpr.Do(e, r)
-      | SynExpr.Assert(e, r)
-      | SynExpr.Lazy(e, r)
-      | SynExpr.YieldOrReturnFrom(_, e, r) -> walkExpr e
+      | SynExpr.Typed(expr = e)
+      | SynExpr.Paren(expr = e)
+      | SynExpr.InferredUpcast(expr = e)
+      | SynExpr.InferredDowncast(expr = e)
+      | SynExpr.AddressOf(expr = e)
+      | SynExpr.DoBang(expr = e)
+      | SynExpr.YieldOrReturn(expr = e)
+      | SynExpr.ArrayOrListComputed(expr = e)
+      | SynExpr.ComputationExpr(expr = e)
+      | SynExpr.Do(expr = e)
+      | SynExpr.Assert(expr = e)
+      | SynExpr.Lazy(expr = e)
+      | SynExpr.YieldOrReturnFrom(expr = e)
+      | SynExpr.DotLambda(expr = e) -> walkExpr e
+      | SynExpr.Quote(operator, _, quotedExpr, _, _) ->
+        walkExpr operator
+        walkExpr quotedExpr
       | SynExpr.SequentialOrImplicitYield(_, e1, e2, ifNotE, r) ->
         walkExpr e1
         walkExpr e2
@@ -337,7 +344,7 @@ module Syntax =
         walkType t
         walkMemberSig sign
         walkExpr e
-      | SynExpr.Const(SynConst.Measure(_, _, m), r) -> walkMeasure m
+      | SynExpr.Const(SynConst.Measure(synMeasure = m), r) -> walkMeasure m
       | SynExpr.Const(_, r) -> ()
       | SynExpr.AnonRecd(isStruct, copyInfo, recordFields, r, trivia) -> ()
       | SynExpr.Sequential(seqPoint, isTrueSeq, expr1, expr2, r) -> ()
@@ -368,22 +375,27 @@ module Syntax =
         walkExpr e1
         walkExpr e2
       | SynExpr.Typar(t, r) -> walkTypar t
+      | SynExpr.WhileBang(whileExpr = whileExpr; doExpr = doExpr) ->
+        walkExpr whileExpr
+        walkExpr doExpr
 
     and walkMeasure s =
       walker.WalkMeasure s
 
       match s with
-      | SynMeasure.Product(m1, m2, r)
-      | SynMeasure.Divide(m1, m2, r) ->
+      | SynMeasure.Product(measure1 = m1; measure2 = m2) ->
         walkMeasure m1
+        walkMeasure m2
+      | SynMeasure.Divide(m1, _, m2, r) ->
+        Option.iter walkMeasure m1
         walkMeasure m2
       | SynMeasure.Named(longIdent, r) -> ()
       | SynMeasure.Seq(ms, r) -> List.iter walkMeasure ms
-      | SynMeasure.Power(m, _, r) -> walkMeasure m
+      | SynMeasure.Power(m, _, _, r) -> walkMeasure m
       | SynMeasure.Var(ty, r) -> walkTypar ty
       | SynMeasure.Paren(m, r) -> walkMeasure m
-      | SynMeasure.One
-      | SynMeasure.Anon _ -> ()
+      | SynMeasure.One(_)
+      | SynMeasure.Anon(_) -> ()
 
     and walkSimplePat s =
       walker.WalkSimplePat s
@@ -423,14 +435,7 @@ module Syntax =
       | SynMemberSig.ValField(f, r) -> walkField f
       | SynMemberSig.NestedType(SynTypeDefnSig(typeInfo = info; typeRepr = repr; members = memberSigs), r) ->
 
-        let isTypeExtensionOrAlias =
-          match repr with
-          | SynTypeDefnSigRepr.Simple(SynTypeDefnSimpleRepr.TypeAbbrev _, _)
-          | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Abbrev, _, _)
-          | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Augmentation _, _, _) -> true
-          | _ -> false
-
-        walkComponentInfo isTypeExtensionOrAlias info
+        walkComponentInfo info
         walkTypeDefnSigRepr repr
         List.iter walkMemberSig memberSigs
 
@@ -492,7 +497,6 @@ module Syntax =
       | SynTypeDefnSimpleRepr.Exception(_) -> ()
 
     and walkComponentInfo
-      isTypeExtensionOrAlias
       (SynComponentInfo(
         attributes = AllAttrs attrs; typeParams = typars; constraints = constraints; longId = longIdent; range = r) as s)
       =
@@ -520,14 +524,7 @@ module Syntax =
     and walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, r, _) as s) =
       walker.WalkTypeDefn s
 
-      let isTypeExtensionOrAlias =
-        match repr with
-        | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Augmentation _, _, _)
-        | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Abbrev, _, _)
-        | SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.TypeAbbrev _, _) -> true
-        | _ -> false
-
-      walkComponentInfo isTypeExtensionOrAlias info
+      walkComponentInfo info
       walkTypeDefnRepr repr
       Option.iter walkMember implicitCtor
       List.iter walkMember members
@@ -538,7 +535,7 @@ module Syntax =
       match decl with
       | SynModuleDecl.NamespaceFragment fragment -> walkSynModuleOrNamespace fragment
       | SynModuleDecl.NestedModule(info, _, modules, _, r, _) ->
-        walkComponentInfo false info
+        walkComponentInfo info
         List.iter walkSynModuleDecl modules
       | SynModuleDecl.Let(_, bindings, r) -> List.iter walkBinding bindings
       | SynModuleDecl.Expr(expr, r) -> walkExpr expr
@@ -548,6 +545,7 @@ module Syntax =
       | SynModuleDecl.Exception(_, r) -> ()
       | SynModuleDecl.Open(longDotId, r) -> ()
       | SynModuleDecl.HashDirective(_, r) -> ()
+
 
     match input with
     | ParsedInput.ImplFile input -> walkImplFileInput input
@@ -627,9 +625,9 @@ module FoldingRange =
       | SynMeasure.Seq(range = r)
       | SynMeasure.Power(range = r)
       | SynMeasure.Var(range = r)
-      | SynMeasure.Paren(range = r) -> addIfInside r
-      | SynMeasure.One
-      | SynMeasure.Anon _ -> ()
+      | SynMeasure.Paren(range = r)
+      | SynMeasure.One(range = r)
+      | SynMeasure.Anon(range = r) -> addIfInside r
 
     override _.WalkSimplePat p = addIfInside p.Range
     override _.WalkField(SynField(range = r)) = addIfInside r

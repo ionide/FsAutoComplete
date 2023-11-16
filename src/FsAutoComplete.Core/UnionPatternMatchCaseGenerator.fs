@@ -60,7 +60,6 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
     | SynPat.Null _
     | SynPat.IsInst _
     | SynPat.QuoteExpr _
-    | SynPat.DeprecatedCharRange _
     | SynPat.InstanceMember _
     | SynPat.FromParseError _
     | SynPat.As _
@@ -306,7 +305,6 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynPat.InstanceMember(_, _, _, _, _)
     | SynPat.IsInst(_, _)
     | SynPat.QuoteExpr(_, _)
-    | SynPat.DeprecatedCharRange(_, _, _)
     | SynPat.ListCons _
     | SynPat.FromParseError(_, _) -> false
 

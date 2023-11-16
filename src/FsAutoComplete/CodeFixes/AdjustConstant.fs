@@ -32,8 +32,8 @@ let inline private unreachable () = invalidOp "unreachable"
 let private tryFindConstant ast pos =
   let rec findConst range constant =
     match constant with
-    | SynConst.Measure(constant, constantRange, _) when rangeContainsPos constantRange pos ->
-      findConst constantRange constant
+    | SynConst.Measure(constant = c; constantRange = constantRange) when rangeContainsPos constantRange pos ->
+      findConst constantRange c
     | _ -> (range, constant)
 
   SyntaxTraversal.Traverse(

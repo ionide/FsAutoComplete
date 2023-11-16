@@ -11,7 +11,7 @@ let title = "Add missing '=' to type definition"
 
 /// a codefix that adds in missing '=' characters in type declarations
 let fix (getFileLines: GetFileLines) =
-  Run.ifDiagnosticByCode (Set.ofList [ "3360" ]) (fun diagnostic codeActionParams ->
+  Run.ifDiagnosticByCode (Set.ofList [ "10" ]) (fun diagnostic codeActionParams ->
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
