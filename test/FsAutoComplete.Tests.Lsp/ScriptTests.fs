@@ -152,7 +152,7 @@ let dependencyManagerTests state =
               | Ok _ -> failwith "Expected to fail typechecking a script with a dependency manager that's missing"
               | Core.Result.Error e ->
                 match e with
-                | [| { Code = Some "3216" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+                | [| { Code = Some "998" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
                 | e -> failwithf "Unexpected error during typechecking: %A" e
             }) ] ]
 

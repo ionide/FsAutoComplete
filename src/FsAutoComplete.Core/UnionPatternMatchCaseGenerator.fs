@@ -2,10 +2,8 @@
 module FsAutoComplete.UnionPatternMatchCaseGenerator
 
 open System
-open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-open FSharp.Compiler.Syntax
 open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Symbols
 open FsToolkit.ErrorHandling
@@ -53,14 +51,13 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
       // The cursor should not be in the nested patterns
       Range.rangeContainsPos r cursorPos
       && List.forall (not << patIsCandidate) nestedPats
-    | SynPat.ListCons(lhsPat = lhs; rhsPat = rhs) -> patIsCandidate lhs || patIsCandidate rhs
+    | SynPat.ListCons(lhs, rhs, _, _) -> patIsCandidate lhs || patIsCandidate rhs
     | SynPat.Tuple _
     | SynPat.ArrayOrList _
     | SynPat.Record _
     | SynPat.Null _
     | SynPat.IsInst _
     | SynPat.QuoteExpr _
-    | SynPat.DeprecatedCharRange _
     | SynPat.InstanceMember _
     | SynPat.FromParseError _
     | SynPat.As _
@@ -306,7 +303,6 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynPat.InstanceMember _
     | SynPat.IsInst _
     | SynPat.QuoteExpr _
-    | SynPat.DeprecatedCharRange _
     | SynPat.ListCons _
     | SynPat.FromParseError _ -> false
 

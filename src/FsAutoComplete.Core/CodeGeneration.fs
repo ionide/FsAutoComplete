@@ -578,14 +578,14 @@ module CodeGenerationUtils =
   /// We also get the range of the leading keyword to establish indent position
   let (|MemberNamePlusRangeAndKeywordRange|_|) =
     function
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
+    | SynBinding(valData = SynValData(memberFlags = Some mf); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertyGet
       ->
       if name.StartsWith("get_", StringComparison.Ordinal) then
         Some(name, range, trivia.LeadingKeyword.Range)
       else
         Some("get_" + name, range, trivia.LeadingKeyword.Range)
-    | SynBinding(valData = SynValData(Some mf, _, _); headPat = LongIdentPattern(name, range); trivia = trivia) when
+    | SynBinding(valData = SynValData(memberFlags = Some mf); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertySet
       ->
       if name.StartsWith("set_", StringComparison.Ordinal) then
@@ -801,9 +801,11 @@ module CodeGenerationUtils =
 
   let rec (|RationalConst|) =
     function
-    | SynRationalConst.Integer i -> string i
-    | SynRationalConst.Rational(numerator, denominator, _) -> sprintf "(%i/%i)" numerator denominator
-    | SynRationalConst.Negate(RationalConst s) -> sprintf "- %s" s
+    | SynRationalConst.Integer(value = i) -> string i
+    | SynRationalConst.Rational(numerator = numerator; denominator = denominator) ->
+      sprintf "(%i/%i)" numerator denominator
+    | SynRationalConst.Negate(rationalConst = RationalConst s) -> sprintf "- %s" s
+    | SynRationalConst.Paren(rationalConst = inner) -> (|RationalConst|) inner
 
   let rec (|TypeIdent|_|) =
     function
