@@ -10,7 +10,4 @@ open FsAutoComplete.FCSPatches
 val title: string
 
 /// a codefix that replaces erroring single-quoted interpolations with triple-quoted interpolations
-val fix:
-  getParseResultsForFile: GetParseResultsForFile ->
-  getRangeText: GetRangeText ->
-    (CodeActionParams -> Async<Result<Fix list, string>>)
+val fix: getParseResultsForFile: GetParseResultsForFile -> (CodeActionParams -> Async<Result<Fix list, string>>)

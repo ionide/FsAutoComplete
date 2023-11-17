@@ -7,4 +7,4 @@ open FsAutoComplete
 
 val title: string
 /// a codefix that parenthesizes a member expression that needs it
-val fix: getRangeText: GetRangeText -> (CodeActionParams -> Async<Result<Fix list, string>>)
+val fix: (CodeActionParams -> Async<Result<Fix list, string>>)

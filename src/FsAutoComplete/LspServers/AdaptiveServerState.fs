@@ -428,7 +428,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 CommandResponse.projectLoading JsonSerializer.writeJson projectFileName
               | ProjectResponse.WorkspaceLoad(finished) ->
                 CommandResponse.workspaceLoad JsonSerializer.writeJson finished
-              | ProjectResponse.ProjectChanged(projectFileName) -> failwith "Not Implemented"
+              | ProjectResponse.ProjectChanged(_projectFileName) -> failwith "Not Implemented"
 
             logger.info (Log.setMessage "Workspace Notify {ws}" >> Log.addContextDestructured "ws" ws)
             do! ({ Content = ws }: PlainNotification) |> lspClient.NotifyWorkspace
@@ -604,7 +604,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         ()
       }
       |> fun work -> Async.StartImmediate(work, ct)
-    with :? OperationCanceledException as e ->
+    with :? OperationCanceledException ->
       ()
 
 
@@ -689,7 +689,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           |> ASet.mapAtoAMap (UMX.untag >> AdaptiveFile.GetLastWriteTimeUtc)
 
         let cb =
-          projChanges.AddCallback(fun old delta ->
+          projChanges.AddCallback(fun _old delta ->
             logger.info (
               Log.setMessage "Loading projects because of {delta}"
               >> Log.addContextDestructured "delta" delta
@@ -985,13 +985,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       // ignore if already cancelled
       ()
 
-
-  let cachedFileContents = cmap<string<LocalPath>, asyncaval<VolatileFile>> ()
-
   let resetCancellationToken filePath =
     let adder _ = new CancellationTokenSource()
 
-    let updater key value =
+    let updater _key value =
       cancelToken filePath value
       new CancellationTokenSource()
 
@@ -1143,7 +1140,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let allFSharpFilesAndProjectOptions =
     let wins =
       openFilesToChangesAndProjectOptions
-      |> AMap.map (fun k v -> v |> AsyncAVal.mapSync (fun (file, projects) _ -> Some file, projects))
+      |> AMap.map (fun _k v -> v |> AsyncAVal.mapSync (fun (file, projects) _ -> Some file, projects))
 
     let loses =
       sourceFileToProjectOptions
@@ -1157,11 +1154,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let allFilesToFSharpProjectOptions =
     allFSharpFilesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun filePath (file, options) ctok -> AsyncAVal.constant options)
+    |> AMapAsync.mapAsyncAVal (fun _filePath (_file, options) _ctok -> AsyncAVal.constant options)
 
   let allFilesParsed =
     allFSharpFilesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun filePath (file, options: LoadedProject list) ctok ->
+    |> AMapAsync.mapAsyncAVal (fun _filePath (file, options: LoadedProject list) _ctok ->
       asyncAVal {
         let! (checker: FSharpCompilerServiceChecker) = checker
 
@@ -1234,7 +1231,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let autoCompleteNamespaces =
     autoCompleteItems
-    |> AMap.choose (fun name (d, pos, fn, getLine, ast) ->
+    |> AMap.choose (fun _name (d, pos, _fn, getLine, ast) ->
 
       Commands.calculateNamespaceInsert (fun () -> Some ast) d pos getLine)
 
@@ -1439,7 +1436,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 do!
                   forceGetOpenFileTypeCheckResults filePath
                   |> Async.Ignore<Result<ParseAndCheckResults, string>>
-              with e ->
+              with _e ->
                 ()
             }
           )
@@ -1450,7 +1447,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let allFilesToDeclarations =
     allFilesParsed
-    |> AMap.map (fun k v -> v |> AsyncAVal.mapOption (fun p _ -> p.GetNavigationItems().Declarations))
+    |> AMap.map (fun _k v -> v |> AsyncAVal.mapOption (fun p _ -> p.GetNavigationItems().Declarations))
 
   let getAllDeclarations () =
     async {
@@ -1652,8 +1649,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let tryFindUnionDefinitionFromPos = tryFindUnionDefinitionFromPos codeGenServer
 
-    let getUnionPatternMatchCases tyRes pos sourceText line =
-      Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos sourceText line
+    let getUnionPatternMatchCases tyRes pos sourceText =
+      Commands.getUnionPatternMatchCases tryFindUnionDefinitionFromPos tyRes pos sourceText
 
     let unionCaseStubReplacements (config) () = Map.ofList [ "$1", config.UnionCaseStubGenerationBody ]
 
@@ -1668,8 +1665,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let tryFindRecordDefinitionFromPos =
       RecordStubGenerator.tryFindRecordDefinitionFromPos codeGenServer
 
-    let getRecordStub tyRes pos sourceText line =
-      Commands.getRecordStub (tryFindRecordDefinitionFromPos) tyRes pos sourceText line
+    let getRecordStub tyRes pos sourceText =
+      Commands.getRecordStub (tryFindRecordDefinitionFromPos) tyRes pos sourceText
 
     let getLineText (sourceText: IFSACSourceText) (range: Ionide.LanguageServerProtocol.Types.Range) =
       sourceText.GetText(protocolRangeToRange (UMX.untag sourceText.FileName) range)
@@ -1715,7 +1712,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          ReplaceWithSuggestion.fix
          RemoveRedundantQualifier.fix
          Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
-         AddNewKeywordToDisposableConstructorInvocation.fix getRangeText
+         AddNewKeywordToDisposableConstructorInvocation.fix
          Run.ifEnabled
            (fun _ -> config.UnionCaseStubGeneration)
            (GenerateUnionCases.fix
@@ -1727,10 +1724,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          ExternalSystemDiagnostics.analyzers
          Run.ifEnabled
            (fun _ -> config.InterfaceStubGeneration)
-           (ImplementInterface.fix
-             tryGetParseResultsForFile
-             forceGetFSharpProjectOptions
-             (implementInterfaceConfig config))
+           (ImplementInterface.fix tryGetParseResultsForFile (implementInterfaceConfig config))
          Run.ifEnabled
            (fun _ -> config.RecordStubGeneration)
            (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
@@ -1744,7 +1738,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          ChangePrefixNegationToInfixSubtraction.fix forceFindSourceText
          ConvertDoubleEqualsToSingleEquals.fix getRangeText
          ChangeEqualsInFieldTypeToColon.fix
-         WrapExpressionInParentheses.fix getRangeText
+         WrapExpressionInParentheses.fix
          ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
          ChangeDowncastToUpcast.fix getRangeText
          MakeDeclarationMutable.fix tryGetParseResultsForFile forceGetFSharpProjectOptions
@@ -1756,21 +1750,21 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
          AddMissingRecKeyword.fix forceFindSourceText getLineText
          ConvertBangEqualsToInequality.fix getRangeText
-         ChangeDerefBangToValue.fix tryGetParseResultsForFile getLineText
+         ChangeDerefBangToValue.fix tryGetParseResultsForFile
          RemoveUnusedBinding.fix tryGetParseResultsForFile
          AddTypeToIndeterminateValue.fix tryGetParseResultsForFile forceGetFSharpProjectOptions
          ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
          AddMissingInstanceMember.fix
          AddMissingXmlDocumentation.fix tryGetParseResultsForFile
          AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
-         ConvertPositionalDUToNamed.fix tryGetParseResultsForFile getRangeText
-         ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile getRangeText
+         ConvertPositionalDUToNamed.fix tryGetParseResultsForFile
+         ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile
          GenerateXmlDocumentation.fix tryGetParseResultsForFile
          RemoveRedundantAttributeSuffix.fix tryGetParseResultsForFile
          Run.ifEnabled
            (fun _ -> config.AddPrivateAccessModifier)
            (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
-         UseTripleQuotedInterpolation.fix tryGetParseResultsForFile getRangeText
+         UseTripleQuotedInterpolation.fix tryGetParseResultsForFile
          RenameParamToMatchSignature.fix tryGetParseResultsForFile
          RemovePatternArgument.fix tryGetParseResultsForFile
          ToInterpolatedString.fix tryGetParseResultsForFile getLanguageVersion

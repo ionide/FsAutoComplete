@@ -14,7 +14,7 @@ let title = "Generate union pattern match cases"
 let fix
   (getFileLines: GetFileLines)
   (getParseResultsForFile: GetParseResultsForFile)
-  (generateCases: _ -> _ -> _ -> _ -> Async<CoreResponse<_>>)
+  (generateCases: _ -> _ -> _ -> Async<CoreResponse<_>>)
   (getTextReplacements: unit -> Map<string, string>)
   =
   Run.ifDiagnosticByCode (Set.ofList [ "25" ]) (fun diagnostic codeActionParams ->
@@ -37,9 +37,9 @@ let fix
 
       let casePosFCS = protocolPosToPos casePos
 
-      let! (tyRes, line, lines) = getParseResultsForFile fileName casePosFCS
+      let! tyRes, _line, lines = getParseResultsForFile fileName casePosFCS
 
-      match! generateCases tyRes casePosFCS lines line |> Async.map Ok with
+      match! generateCases tyRes casePosFCS lines |> Async.map Ok with
       | CoreResponse.Res(insertString: string, insertPosition) ->
         let range =
           { Start = fcsPosToLsp insertPosition

@@ -234,7 +234,7 @@ module Parser =
       let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) = e.Level >= minLevel
 
       // will use later when a mapping-style config of { "category": "minLevel" } is established
-      let excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+      let _excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
 
       let args = ctx.ParseResult
 

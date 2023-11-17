@@ -124,15 +124,15 @@ let private toPosSeq (range: FSharp.Compiler.Text.Range, text: IFSACSourceText) 
 
 let title = "Convert to named patterns"
 
-let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
-      let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
+      let! parseAndCheck, lineStr, sourceText = getParseResultsForFile filePath fcsPos
 
-      let! (duIdent, duFields, parenRange) =
+      let! duIdent, duFields, parenRange =
         parseAndCheck.TryGetPositionalUnionPattern(fcsPos)
         |> Result.ofOption (fun _ -> "Not inside a DU pattern")
 

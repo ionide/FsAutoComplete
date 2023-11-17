@@ -878,7 +878,7 @@ module Providers =
                 true
               | None -> loggerGateway.Value.IsEnabled logger microsoftLevel
 
-        member this.OpenMappedContext (key: string) (value: obj) (destructure: bool) : IDisposable =
+        member this.OpenMappedContext (key: string) (value: obj) (_destructure: bool) : IDisposable =
           match microsoftLoggerFactory with
           | None ->
             { new IDisposable with

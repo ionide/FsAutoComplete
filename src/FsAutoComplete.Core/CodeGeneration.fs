@@ -554,7 +554,7 @@ module CodeGenerationUtils =
 
   let getAbstractNonVirtualMembers (e: FSharpEntity) =
     seq {
-      let genericParams = e.GenericParameters :> seq<_>
+      let _genericParams = e.GenericParameters :> seq<_>
       // todo: generic param instantiations?
       yield!
         e.MembersFunctionsAndValues

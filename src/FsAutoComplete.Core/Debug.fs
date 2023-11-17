@@ -48,7 +48,7 @@ module Debug =
       return r
     }
 
-  let toggleVerboseLogging (verbose: bool) = () // todo: set logging latch
+  let toggleVerboseLogging (_verbose: bool) = () // todo: set logging latch
 
   let waitForDebugger () =
     while not (Diagnostics.Debugger.IsAttached) do
@@ -56,7 +56,13 @@ module Debug =
 
   let logger = LogProvider.getLoggerByName "Debugging"
 
-  let waitForDebuggerAttached (programName) =
+  let waitForDebuggerAttached
+#if DEBUG
+    programName
+#else
+    _
+#endif
+    =
 #if DEBUG
     if not (System.Diagnostics.Debugger.IsAttached) then
       logger.info (
@@ -73,7 +79,13 @@ module Debug =
 #else
     ()
 #endif
-  let waitForDebuggerAttachedAndBreak (programName) =
+  let waitForDebuggerAttachedAndBreak
+#if DEBUG
+    programName
+#else
+    _
+#endif
+    =
 #if DEBUG
     waitForDebuggerAttached programName
     System.Diagnostics.Debugger.Break()

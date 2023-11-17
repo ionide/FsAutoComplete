@@ -65,7 +65,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | None, _
     | _, None -> p
     | Some fsc, Some fsi ->
-      let toReplace, otherOpts =
+      let _toReplace, otherOpts =
         p.OtherOptions
         |> Array.partition (fun opt ->
           opt.EndsWith("FSharp.Core.dll", StringComparison.Ordinal)
@@ -93,20 +93,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       { opts with ReferencedProjects = [||] }
     else
       opts
-
-  let filterBadRuntimeRefs =
-    let badRefs =
-      [ "System.Private"
-        "System.Runtime.WindowsRuntime"
-        "System.Runtime.WindowsRuntime.UI.Xaml"
-        "mscorlib" ]
-      |> List.map (fun p -> p + ".dll")
-
-    let containsBadRef (s: string) = badRefs |> List.exists (fun r -> s.EndsWith(r, StringComparison.Ordinal))
-
-    fun (projOptions: FSharpProjectOptions) ->
-      { projOptions with
-          OtherOptions = projOptions.OtherOptions |> Array.where (containsBadRef >> not) }
 
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
@@ -436,7 +422,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         )
     }
 
-  member __.GetDeclarations(fileName: string<LocalPath>, source, options, version) =
+  member __.GetDeclarations(fileName: string<LocalPath>, source, options, _) =
     async {
       checkerLogger.info (
         Log.setMessage "GetDeclarations - {file}"

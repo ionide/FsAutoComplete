@@ -147,7 +147,7 @@ module private LspInlayHints =
     (server: CachedServer)
     (text: string)
     (range: Range)
-    (validateInlayHints: Document -> string -> InlayHint[] -> Async<unit>)
+    (validateInlayHints: string -> InlayHint[] -> Async<unit>)
     =
     async {
       let! (doc, diags) = server |> Server.createUntitledDocument text
@@ -156,11 +156,10 @@ module private LspInlayHints =
 
       let! hints = doc |> Document.inlayHintsAt range
       let hints = hints |> Array.sortBy (fun h -> h.Position)
-      do! validateInlayHints doc text hints
+      do! validateInlayHints text hints
     }
 
   let private validateHint
-    (doc: Document)
     (expectedBase: InlayHint)
     (textAfterEdits: string option)
     (text: string)
@@ -232,12 +231,12 @@ module private LspInlayHints =
           let hint = { hint with Position = cursor }
           (hint, textAfterEdits))
 
-      let validateHints doc (text: string) (hints: InlayHint[]) =
+      let validateHints (text: string) (hints: InlayHint[]) =
         async {
           Expect.hasLength hints expected.Length "Number of actual hints and expected hints don't match"
 
           for (actual, (expected, textAfterEdits)) in Seq.zip hints expected do
-            do! validateHint doc expected textAfterEdits text actual
+            do! validateHint expected textAfterEdits text actual
         }
 
       do! checkInRange server text range validateHints

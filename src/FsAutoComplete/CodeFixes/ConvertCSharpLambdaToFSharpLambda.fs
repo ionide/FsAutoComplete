@@ -19,13 +19,12 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
 
   let (|InfixAppOfOpEqualsGreater|_|) =
     function
-    | SynExpr.App(ExprAtomicFlag.NonAtomic,
-                  false,
-                  SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, range),
-                  actualLambdaBodyExpr,
-                  _) ->
+    | SynExpr.App(
+        flag = ExprAtomicFlag.NonAtomic
+        isInfix = false
+        funcExpr = SynExpr.App(ExprAtomicFlag.NonAtomic, true, Ident "op_EqualsGreater", actualParamListExpr, range)) ->
       let opEnd = range.End
-      let opStart = Position.mkPos (range.End.Line) (range.End.Column - 2)
+      let opStart = Position.mkPos range.End.Line (range.End.Column - 2)
       let opRange = Range.mkRange range.FileName opStart opEnd
 
       let argsRange = actualParamListExpr.Range
@@ -49,7 +48,7 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
           | _ -> defaultTraverse binding }
   )
 
-let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) (_: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode
     (Set.ofList
       [ "39" // undefined value
@@ -59,7 +58,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
         let fcsPos = protocolPosToPos diagnostic.Range.Start
-        let! (tyRes, _, lines) = getParseResultsForFile fileName fcsPos
+        let! tyRes, _, _ = getParseResultsForFile fileName fcsPos
 
         match tryRangeOfParenEnclosingOpEqualsGreaterUsage tyRes.GetAST fcsPos with
         | Some(argsRange, opRange) ->

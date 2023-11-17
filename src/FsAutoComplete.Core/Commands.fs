@@ -248,7 +248,6 @@ module Commands =
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     (lines: IFSACSourceText)
-    (line: LineStr)
     =
     async {
       let doc = docForText lines tyRes
@@ -363,7 +362,6 @@ module Commands =
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     (lines: ISourceText)
-    (line: LineStr)
     =
     async {
 
@@ -560,8 +558,8 @@ module Commands =
 
       let getStartingPipe =
         function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | y :: _ when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: _ when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
@@ -632,8 +630,8 @@ module Commands =
 
       let getStartingPipe =
         function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | y :: _ when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: _ when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
@@ -714,7 +712,7 @@ module Commands =
         // adjust column
         let pos =
           match pos with
-          | Pos(1, c) -> pos
+          | Pos(1, _) -> pos
           | Pos(l, 0) ->
             let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
@@ -724,7 +722,7 @@ module Commands =
               Position.mkPos l indentation
             else
               pos
-          | Pos(_, c) -> pos
+          | Pos(_, _) -> pos
 
         { Namespace = n
           Position = pos
@@ -793,7 +791,6 @@ module Commands =
             match scope with
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
-              let output = ResizeArray<_>()
 
               let! resolvedProjects =
                 [ for project in projects do
@@ -977,7 +974,7 @@ module Commands =
   ///
   /// Also does very basic validation of `newName`:
   /// * Must be valid operator name when operator
-  let adjustRenameSymbolNewName pos lineStr (text: IFSACSourceText) (tyRes: ParseAndCheckResults) (newName: string) =
+  let adjustRenameSymbolNewName pos lineStr (tyRes: ParseAndCheckResults) (newName: string) =
     asyncResult {
       let! symbolUse =
         tyRes.TryGetSymbolUse pos lineStr

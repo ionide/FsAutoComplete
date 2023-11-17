@@ -43,8 +43,6 @@ let init args =
   Context.setExecutionContext (Context.RuntimeContext.Fake execContext)
   Target.initEnvironment ()
 
-  let fsacAssemblies = "FsAutoComplete|FsAutoComplete.Core|LanguageServerProtocol"
-
   let packAsToolProp = "PackAsTool", "true"
 
   Target.create "LspTest" (fun _ ->
