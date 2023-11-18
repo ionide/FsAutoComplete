@@ -395,7 +395,7 @@ module Commands =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> $"Could not get file lines in file: {file}")
+        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> $"Could not get file checker options in file: {file}")
         let currentCode = string text
 
         let! fantomasResponse =
@@ -451,7 +451,7 @@ module Commands =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> "Could not get file lines")
+        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> $"Could not get file checker options in file: {file}")
         let currentCode = string text
 
         let! fantomasResponse =
