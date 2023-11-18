@@ -60,7 +60,7 @@ type AdaptiveState =
   member ForgetDocument: filePath: DocumentUri -> Async<unit>
   member ParseAllFiles: unit -> Async<FSharpParseFileResults option array>
   member GetOpenFile: filePath: string<LocalPath> -> VolatileFile option
-  member GetOpenFileSource: filePath: string<LocalPath> -> Async<Result<IFSACSourceText, string>>
+  member GetOpenFileSource: filePath: string<LocalPath> -> Async<IFSACSourceText option>
   member GetOpenFileOrRead: filePath: string<LocalPath> -> Async<VolatileFile option>
   member GetParseResults: filePath: string<LocalPath> -> Async<Result<FSharpParseFileResults, string>>
   member GetOpenFileTypeCheckResults: file: string<LocalPath> -> Async<Result<ParseAndCheckResults, string>>

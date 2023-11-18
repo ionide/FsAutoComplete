@@ -17,7 +17,7 @@ module LspTypes = Ionide.LanguageServerProtocol.Types
 module Types =
   type IsEnabled = unit -> bool
   type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
-  type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
+  type GetFileLines = string<LocalPath> -> Async<IFSACSourceText option>
   type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =

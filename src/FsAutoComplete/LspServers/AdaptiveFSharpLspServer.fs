@@ -1545,7 +1545,10 @@ type AdaptiveFSharpLspServer
               >> Log.addContextDestructured "file" filePath
             )
 
-            let! (sourceText: IFSACSourceText) = state.GetOpenFileSource filePath |> AsyncResult.ofStringErr
+            let! (sourceText: IFSACSourceText) =
+              state.GetOpenFileSource filePath
+              |> AsyncResult.ofOption (fun () -> $"File {filePath} not found" |> JsonRpc.Error.InternalErrorMessage)
+
             let! lineStr = sourceText |> tryGetLineStr pos |> Result.lineLookupErr
 
             let typ = data.[1]
@@ -1737,7 +1740,7 @@ type AdaptiveFSharpLspServer
 
           let getParseResultsForFile file =
             asyncResult {
-              let! sourceText = state.GetOpenFileSource file
+              let! sourceText = state.GetOpenFileSource file |> AsyncResult.ofOption (fun _ -> $"Could not get file lines in file: {file}")
               and! parseResults = state.GetParseResults file
               return sourceText, parseResults
             }

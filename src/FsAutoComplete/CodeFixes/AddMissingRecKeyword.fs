@@ -16,7 +16,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
-      let! lines = getFileLines fileName
+      let! lines = getFileLines fileName |> AsyncResult.ofOption (fun _ -> $"Could not get file lines in file: {fileName}")
       let endOfError = diagnostic.Range.End
       // this next bit is a bit 'extra': we technically could just slap an ' rec' at the end of the error diagnostic,
       // but instead we're fancy and:

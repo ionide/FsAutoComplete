@@ -387,7 +387,7 @@ module Commands =
     }
 
   let formatSelection
-    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<IFSACSourceText, _>>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<IFSACSourceText option>)
     (formatSelectionAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     (rangeToFormat: FormatSelectionRange)
@@ -395,7 +395,7 @@ module Commands =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let! text = tryGetFileCheckerOptionsWithLines file
+        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> $"Could not get file lines in file: {file}")
         let currentCode = string text
 
         let! fantomasResponse =
@@ -444,14 +444,14 @@ module Commands =
     }
 
   let formatDocument
-    (tryGetFileCheckerOptionsWithLines: _ -> Async<Result<IFSACSourceText, _>>)
+    (tryGetFileCheckerOptionsWithLines: _ -> Async<IFSACSourceText option>)
     (formatDocumentAsync: _ -> System.Threading.Tasks.Task<FantomasResponse>)
     (file: string<LocalPath>)
     : Async<Result<FormatDocumentResponse, string>> =
     asyncResult {
       try
         let filePath = (UMX.untag file)
-        let! text = tryGetFileCheckerOptionsWithLines file
+        let! text = tryGetFileCheckerOptionsWithLines file |> AsyncResult.ofOption (fun _ -> "Could not get file lines")
         let currentCode = string text
 
         let! fantomasResponse =
@@ -605,10 +605,10 @@ module Commands =
     |> AsyncResult.foldResult id (fun _ -> [||])
 
 
-  let pipelineHints (tryGetFileSource: _ -> Async<Result<IFSACSourceText, _>>) (tyRes: ParseAndCheckResults) =
+  let pipelineHints (tryGetFileSource: _ -> Async<IFSACSourceText option>) (tyRes: ParseAndCheckResults) =
     asyncResult {
       // Debug.waitForDebuggerAttached "AdaptiveServer"
-      let! contents = tryGetFileSource tyRes.FileName
+      let! contents = tryGetFileSource tyRes.FileName |> AsyncResult.ofOption (fun _ -> $"Couldn't find file: {tyRes.FileName}")
 
       let getSignatureAtPos pos =
         option {
