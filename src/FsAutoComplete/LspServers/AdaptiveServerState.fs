@@ -1018,7 +1018,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let forceFindOpenFile filePath = findFileInOpenFiles filePath |> AVal.force
 
 
-  let forceFindOpenFileOrRead file =
+  let tryForceFindOpenFileOrRead file =
     asyncOption {
 
       match findFileInOpenFiles file |> AVal.force with
@@ -1044,7 +1044,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
           return! None
     }
-    |> Async.map (Result.ofOption (fun () -> $"Could not read file: {file}"))
 
   do
     let fileShimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
@@ -1092,15 +1091,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         |> Array.Parallel.map (fun (opts, parseOpts, fileName) ->
           let fileName = UMX.tag fileName
 
-          asyncResult {
-            let! file = forceFindOpenFileOrRead fileName
+          asyncOption {
+            let! file = tryForceFindOpenFileOrRead fileName
             return! parseFile checker file parseOpts opts.FSharpProjectOptions
           }
-          |> Async.map Result.toOption)
+        )
         |> Async.parallel75
     }
 
-  let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
+  let forceFindSourceText filePath = tryForceFindOpenFileOrRead filePath |> AsyncOption.map (fun f -> f.Source)
 
 
   let openFilesToChangesAndProjectOptions =
@@ -1329,7 +1328,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
         let checker = checker |> AVal.force
 
-        let! fileInfo = forceFindOpenFileOrRead filePath
+        let! fileInfo = tryForceFindOpenFileOrRead filePath |> AsyncResult.ofOption (fun () -> $"Could not find file {filePath}")
         // Don't cache for autocompletions as we really only want to cache "Opened" files.
         return! parseAndCheckFile checker fileInfo opts false
 
@@ -1489,7 +1488,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     { new ICodeGenerationService with
         member x.TokenizeLine(file, i) =
           asyncOption {
-            let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
+            let! (text) = tryForceFindOpenFileOrRead file
 
             try
               let! line = text.Source.GetLine(Position.mkPos i 0)
@@ -1501,7 +1500,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         member x.GetSymbolAtPosition(file, pos) =
           asyncOption {
             try
-              let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
+              let! (text) = tryForceFindOpenFileOrRead file
               let! line = tryGetLineStr pos text.Source |> Option.ofResult
               return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
             with _ ->
@@ -1513,7 +1512,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             let! symbol = x.GetSymbolAtPosition(fileName, pos)
 
             if symbol.Kind = kind then
-              let! (text) = forceFindOpenFileOrRead fileName |> Async.map Option.ofResult
+              let! (text) = tryForceFindOpenFileOrRead fileName
               let! line = tryGetLineStr pos text.Source |> Option.ofResult
               let! tyRes = forceGetOpenFileTypeCheckResults fileName |> Async.map (Option.ofResult)
               let symbolUse = tyRes.TryGetSymbolUse pos line
@@ -1630,7 +1629,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let tryGetParseResultsForFile filePath pos =
       asyncResult {
-        let! (file) = forceFindOpenFileOrRead filePath
+        let! file = tryForceFindOpenFileOrRead filePath |> AsyncResult.ofOption (fun () -> $"Could not find file {filePath}")
 
         let! lineStr =
           file.Source
@@ -1643,7 +1642,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let getRangeText fileName (range: Ionide.LanguageServerProtocol.Types.Range) =
       asyncResult {
-        let! sourceText = forceFindSourceText fileName
+        let! sourceText = forceFindSourceText fileName |> AsyncResult.ofOption (fun () -> $"Could not find file {fileName}")
         return! sourceText.GetText(protocolRangeToRange (UMX.untag fileName) range)
       }
 
@@ -2022,7 +2021,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   member x.GetOpenFileSource(filePath) = forceFindSourceText filePath
 
-  member x.GetOpenFileOrRead(filePath) = forceFindOpenFileOrRead filePath
+  member x.GetOpenFileOrRead(filePath) = tryForceFindOpenFileOrRead filePath
 
   member x.GetParseResults filePath = forceGetParseResults filePath
 

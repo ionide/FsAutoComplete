@@ -98,10 +98,10 @@ NUGET
     FSharpx.Async (1.14.1)
       FSharp.Control.AsyncSeq (>= 2.0.21)
       FSharp.Core (>= 4.6.2)
-    FsToolkit.ErrorHandling (4.4) - restriction: || (== net6.0) (== net7.0) (== net8.0) (== netstandard2.1)
-      FSharp.Core (>= 7.0) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= netstandard2.1)) (== netstandard2.1)
-    FsToolkit.ErrorHandling.TaskResult (4.4) - restriction: || (== net6.0) (== net7.0) (== net8.0) (== netstandard2.1)
-      FsToolkit.ErrorHandling (>= 4.4)
+    FsToolkit.ErrorHandling (4.11) - restriction: || (== net6.0) (== net7.0) (== net8.0) (== netstandard2.1)
+      FSharp.Core (>= 7.0.300) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= netstandard2.1)) (== netstandard2.1)
+    FsToolkit.ErrorHandling.TaskResult (4.11) - restriction: || (== net6.0) (== net7.0) (== net8.0) (== netstandard2.1)
+      FsToolkit.ErrorHandling (>= 4.11)
     Gee.External.Capstone (2.3)
     GitHubActionsTestLogger (2.0.1)
       Microsoft.TestPlatform.ObjectModel (>= 17.2)
@@ -423,7 +423,7 @@ NUGET
       System.Composition.AttributedModel (>= 6.0)
       System.Composition.Hosting (>= 6.0)
       System.Composition.Runtime (>= 6.0)
-    System.Configuration.ConfigurationManager (6.0)
+    System.Configuration.ConfigurationManager (6.0) - copy_local: false
       System.Security.Cryptography.ProtectedData (>= 6.0)
       System.Security.Permissions (>= 6.0)
     System.Diagnostics.DiagnosticSource (7.0.2)
@@ -465,7 +465,7 @@ NUGET
       System.Formats.Asn1 (>= 6.0)
       System.Memory (>= 4.5.4) - restriction: || (&& (== net6.0) (< netstandard2.1)) (&& (== net7.0) (< netstandard2.1)) (&& (== net8.0) (< netstandard2.1)) (== netstandard2.0)
       System.Security.Cryptography.Cng (>= 5.0) - restriction: || (&& (== net6.0) (< netcoreapp3.1)) (&& (== net6.0) (< netstandard2.1)) (&& (== net7.0) (< net6.0)) (&& (== net7.0) (< netcoreapp3.1)) (&& (== net7.0) (< netstandard2.1)) (&& (== net8.0) (< net6.0)) (&& (== net8.0) (< netcoreapp3.1)) (&& (== net8.0) (< netstandard2.1)) (== netstandard2.0) (== netstandard2.1)
-    System.Security.Cryptography.ProtectedData (6.0)
+    System.Security.Cryptography.ProtectedData (6.0) - copy_local: false
       System.Memory (>= 4.5.4) - restriction: || (&& (== net7.0) (< net6.0)) (&& (== net8.0) (< net6.0)) (== netstandard2.0) (== netstandard2.1)
     System.Security.Cryptography.Xml (6.0.1) - copy_local: false
       System.Memory (>= 4.5.4) - restriction: || (&& (== net7.0) (< net6.0)) (&& (== net8.0) (< net6.0)) (== netstandard2.0) (== netstandard2.1)

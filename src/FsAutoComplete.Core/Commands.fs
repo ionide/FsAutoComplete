@@ -731,7 +731,7 @@ module Commands =
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
+    (tryGetFileSource: string<LocalPath> -> Async<IFSACSourceText option>)
     (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
     (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)
@@ -817,9 +817,9 @@ module Commands =
         let tryAdjustRanges (file: string<LocalPath>, ranges: Range[]) =
           async {
             match! tryGetFileSource file with
-            | Error _ when errorOnFailureToFixRange -> return Error $"Cannot get source of '{file}'"
-            | Error _ -> return Ok ranges
-            | Ok text ->
+            | None when errorOnFailureToFixRange -> return Error $"Cannot get source of '{file}'"
+            | None -> return Ok ranges
+            | Some text ->
               return
                 tryAdjustRanges (text, ranges)
                 // Note: `Error` only possible when `errorOnFailureToFixRange`
@@ -930,7 +930,7 @@ module Commands =
   let symbolUseWorkspace
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
     (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
-    (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
+    (tryGetFileSource: string<LocalPath> -> Async<IFSACSourceText option>)
     (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
     (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
     (includeDeclarations: bool)

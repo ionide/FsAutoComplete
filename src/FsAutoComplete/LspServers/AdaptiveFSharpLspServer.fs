@@ -522,7 +522,7 @@ type AdaptiveFSharpLspServer
       }
 
     override __.TextDocumentCompletion(p: CompletionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "CompletionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -534,10 +534,10 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
           if volatileFile.Source.Length = 0 then
-            return None // An empty file has empty completions. Otherwise we would error down there
+            return! None // An empty file has empty completions. Otherwise we would error down there
           else
 
             let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
@@ -549,7 +549,7 @@ type AdaptiveFSharpLspServer
                   ItemDefaults = None }
 
 
-              return! success (Some completionList)
+              return! Some completionList
             else
               let config = state.Config
 
@@ -565,7 +565,7 @@ type AdaptiveFSharpLspServer
                 }
 
               let getCompletions forceGetTypeCheckResultsStale =
-                asyncResult {
+                asyncResultOption {
 
                   let! volatileFile = state.GetOpenFileOrRead filePath
 
@@ -654,7 +654,7 @@ type AdaptiveFSharpLspServer
                   (getCompletions state.GetOpenFileTypeCheckResultsCached)
                 |> AsyncResult.ofStringErr
               with
-              | None -> return! success (None)
+              | None -> return! None
               | Some(decls, _, shouldKeywords, typeCheckResults, _, volatileFile) ->
 
                 return!
@@ -681,7 +681,7 @@ type AdaptiveFSharpLspServer
                         Items = its
                         ItemDefaults = None }
 
-                    success (Some completionList)
+                    Some completionList
 
         with e ->
           trace |> Tracing.recordException e
@@ -801,7 +801,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentSignatureHelp(p: SignatureHelpParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "SignatureHelpParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -811,49 +811,39 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
-
-
-
+          let! volatileFile = state.GetOpenFileOrRead filePath
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
 
-          match!
+          let! sigHelp =
             SignatureHelp.getSignatureHelpFor (tyRes, pos, volatileFile.Source, charAtCaret, None)
             |> AsyncResult.ofStringErr
-          with
-          | None ->
-            ()
-            return! success None
-          | Some sigHelp ->
-            // sigHelpKind <- Some sigHelp.SigHelpKind
 
-            let sigs =
-              sigHelp.Methods
-              |> Array.map (fun m ->
-                let (signature, comment) = TipFormatter.formatPlainTip m.Description
+          let sigs =
+            sigHelp.Methods
+            |> Array.map (fun m ->
+              let (signature, comment) = TipFormatter.formatPlainTip m.Description
 
-                let parameters =
-                  m.Parameters
-                  |> Array.map (fun p ->
-                    { ParameterInformation.Label = U2.First p.ParameterName
-                      Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
+              let parameters =
+                m.Parameters
+                |> Array.map (fun p ->
+                  { ParameterInformation.Label = U2.First p.ParameterName
+                    Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
-                let d = Documentation.Markup(markdown comment)
+              let d = Documentation.Markup(markdown comment)
 
-                { SignatureInformation.Label = signature
-                  Documentation = Some d
-                  Parameters = Some parameters
-                  ActiveParameter = None })
+              { SignatureInformation.Label = signature
+                Documentation = Some d
+                Parameters = Some parameters
+                ActiveParameter = None })
 
-            let res =
-              { Signatures = sigs
-                ActiveSignature = sigHelp.ActiveOverload
-                ActiveParameter = sigHelp.ActiveParameter }
+          let res =
+            { Signatures = sigs
+              ActiveSignature = sigHelp.ActiveOverload
+              ActiveParameter = sigHelp.ActiveParameter }
 
-            return! success (Some res)
+          return! Some res
         with e ->
           trace |> Tracing.recordException e
 
@@ -867,7 +857,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -878,9 +868,9 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
           | Some tooltipResult ->
@@ -931,7 +921,7 @@ type AdaptiveFSharpLspServer
                 { Contents = MarkedStrings contents
                   Range = None }
 
-              return (Some response)
+              return! Some response
 
             | TipFormatter.TipFormatterResult.Error error ->
               let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
@@ -940,11 +930,11 @@ type AdaptiveFSharpLspServer
                 { Contents = MarkedStrings contents
                   Range = None }
 
-              return (Some response)
+              return! Some response
 
-            | TipFormatter.TipFormatterResult.None -> return None
+            | TipFormatter.TipFormatterResult.None -> return! None
 
-          | None -> return None
+          | None -> return! None
 
         with e ->
           trace |> Tracing.recordException e
@@ -959,14 +949,14 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentPrepareRename p =
-      asyncResult {
+      asyncResultOption {
         logger.info (
           Log.setMessage "TextDocumentOnPrepareRename Request: {params}"
           >> Log.addContextDestructured "params" p
         )
 
         let (filePath, pos) = getFilePathAndPosition p
-        let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+        let! volatileFile = state.GetOpenFileOrRead filePath
         let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
         let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
@@ -974,11 +964,11 @@ type AdaptiveFSharpLspServer
           Commands.renameSymbolRange state.GetDeclarationLocation false pos lineStr volatileFile.Source tyRes
           |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-        return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
+        return! range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
       }
 
     override x.TextDocumentRename(p: RenameParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "RenameParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -989,9 +979,9 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           // validate name and surround with backticks if necessary
           let! newName =
@@ -1020,9 +1010,9 @@ type AdaptiveFSharpLspServer
                 let file: string<LocalPath> = kvp.Key
 
                 let! version =
-                  async {
+                  asyncOption {
                     let! file = state.GetOpenFileOrRead file
-                    return file |> Option.ofResult |> Option.map (fun (f) -> f.Version)
+                    return file.Version
                   }
 
                 return
@@ -1034,7 +1024,7 @@ type AdaptiveFSharpLspServer
             |> Async.parallel75
 
 
-          return
+          return!
             state.ClientCapabilities
             |> Option.map (fun clientCapabilities -> WorkspaceEdit.Create(documentChanges, clientCapabilities))
 
@@ -1051,7 +1041,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentDefinition(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1062,12 +1052,12 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
+          return! decl |> findDeclToLspLocation |> GotoResult.Single |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1081,7 +1071,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1093,11 +1083,11 @@ type AdaptiveFSharpLspServer
 
           let (filePath, pos) = getFilePathAndPosition p
 
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
+          return! decl |> findDeclToLspLocation |> GotoResult.Single |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1111,7 +1101,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentReferences(p: ReferenceParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "ReferenceParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1122,9 +1112,9 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           let! usages =
             state.SymbolUseWorkspace(true, true, false, pos, lineStr, volatileFile.Source, tyRes)
@@ -1133,7 +1123,7 @@ type AdaptiveFSharpLspServer
           let references =
             usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
 
-          return Some references
+          return! Some references
         with e ->
           trace |> Tracing.recordException e
 
@@ -1147,7 +1137,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1158,18 +1148,18 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match
             tyRes.TryGetSymbolUseAndUsages pos lineStr
             |> Result.bimap CoreResponse.Res CoreResponse.InfoRes
           with
-          | CoreResponse.InfoRes _msg -> return None
+          | CoreResponse.InfoRes _msg -> return! None
           | CoreResponse.ErrorRes msg -> return! LspResult.internalError msg
           | CoreResponse.Res(_symbol, uses) ->
-            return
+            return!
               uses
               |> Array.map (fun s ->
                 { DocumentHighlight.Range = fcsRangeToLsp s.Range
@@ -1185,11 +1175,10 @@ type AdaptiveFSharpLspServer
           )
 
           return! returnException e
-
       }
 
     override x.TextDocumentImplementation(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1200,9 +1189,9 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           logger.info (
             Log.setMessage "TextDocumentImplementation Request: {params}"
@@ -1225,19 +1214,16 @@ type AdaptiveFSharpLspServer
             Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
             |> AsyncResult.ofCoreResponse
 
-          match res with
-          | None -> return None
-          | Some res ->
-            let ranges: FSharp.Compiler.Text.Range[] =
-              match res with
-              | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+          let ranges: FSharp.Compiler.Text.Range[] =
+            match res with
+            | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
 
-            let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+          let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
 
-            match mappedRanges with
-            | [||] -> return None
-            | [| single |] -> return Some(GotoResult.Single single)
-            | multiple -> return Some(GotoResult.Multiple multiple)
+          match mappedRanges with
+          | [||] -> return! None
+          | [| single |] -> return! Some(GotoResult.Single single)
+          | multiple -> return! Some(GotoResult.Multiple multiple)
         with e ->
           trace |> Tracing.recordException e
 
@@ -1421,7 +1407,7 @@ type AdaptiveFSharpLspServer
 
 
     override x.TextDocumentCodeAction(codeActionParams: CodeActionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "CodeActionParams", box codeActionParams ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1462,9 +1448,9 @@ type AdaptiveFSharpLspServer
             )
 
           let tryGetFileVersion filePath =
-            async {
+            asyncOption {
               let! foo = state.GetOpenFileOrRead filePath
-              return foo |> Option.ofResult |> Option.map (fun (f) -> f.Version)
+              return foo.Version
             }
 
           let! clientCapabilities =
@@ -1473,14 +1459,14 @@ type AdaptiveFSharpLspServer
             |> Result.ofStringErr
 
           match actions with
-          | [] -> return None
+          | [] -> return! None
           | actions ->
             let! fixes =
               actions
               |> List.map (CodeAction.OfFix tryGetFileVersion clientCapabilities)
               |> Async.parallel75
 
-            return Some(fixes |> Array.map U2.Second)
+            return! Some(fixes |> Array.map U2.Second)
         with e ->
           trace |> Tracing.recordException e
 
@@ -1871,7 +1857,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "InlayHintParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1882,9 +1868,9 @@ type AdaptiveFSharpLspServer
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           let fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
           let config = state.Config
@@ -1962,7 +1948,7 @@ type AdaptiveFSharpLspServer
                   | _ -> None
                 Data = None })
 
-          return (Some hints)
+          return! (Some hints)
         with e ->
           trace |> Tracing.recordException e
 
@@ -1976,7 +1962,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.TextDocumentInlineValue(p: InlineValueParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "InlineValueParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1987,8 +1973,7 @@ type AdaptiveFSharpLspServer
           )
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
-
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
           let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
@@ -2004,7 +1989,7 @@ type AdaptiveFSharpLspServer
               |> InlineValue.InlineValueText)
             |> Some
 
-          return hints
+          return! hints
         with e ->
           trace |> Tracing.recordException e
 
@@ -2057,7 +2042,7 @@ type AdaptiveFSharpLspServer
     override x.WorkspaceWillRenameFiles p = x.logUnimplementedRequest p
 
     override x.CallHierarchyIncomingCalls(p: CallHierarchyIncomingCallsParams) =
-      asyncResult {
+      asyncResultOption {
         // IncomingCalls is a recursive "Find All References".
         let tags = [ "CallHierarchyIncomingCalls", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -2070,11 +2055,10 @@ type AdaptiveFSharpLspServer
 
           let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
           let pos = protocolPosToPos p.Item.SelectionRange.Start
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           // Incoming file may not be "Opened" so we need to force a typecheck
           let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
-
 
           let locationToCallHierarchyItem (loc: Location) =
             asyncOption {
@@ -2124,7 +2108,7 @@ type AdaptiveFSharpLspServer
             |> Async.parallel75
             |> Async.map (Array.choose id)
 
-          return Some references
+          return! Some references
         with e ->
           trace |> Tracing.recordException e
 
@@ -2141,7 +2125,7 @@ type AdaptiveFSharpLspServer
 
 
     override x.TextDocumentPrepareCallHierarchy(p: CallHierarchyPrepareParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "CallHierarchyPrepareParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2157,9 +2141,9 @@ type AdaptiveFSharpLspServer
                 member __.Position = p.Position }
             |> getFilePathAndPosition
 
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
 
@@ -2180,7 +2164,7 @@ type AdaptiveFSharpLspServer
                  SelectionRange = location.Range
                  Data = None } |]
 
-          return Some returnValue
+          return! Some returnValue
         with e ->
           trace |> Tracing.recordException e
 
@@ -2226,7 +2210,7 @@ type AdaptiveFSharpLspServer
       Helpers.notImplemented
 
     override x.FSharpSignature(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
 
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
@@ -2238,13 +2222,13 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
 
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let tip = Commands.typesig tyRes pos lineStr
 
-          return
+          return!
             tip
             |> Option.map (fun tip -> { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip })
         with e ->
@@ -2260,7 +2244,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpSignatureData(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2274,13 +2258,13 @@ type AdaptiveFSharpLspServer
             FSharp.Compiler.Text.Position.mkPos (p.Position.Line) (p.Position.Character + 2)
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
 
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! (typ, parms, generics) = tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
 
-          return
+          return!
             Some
               { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
 
@@ -2308,19 +2292,16 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-          let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! sideEffect = asyncResultOption {
+            let (filePath, pos) = getFilePathAndPosition p
+            let! volatileFile = state.GetOpenFileOrRead filePath
 
-          let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+            let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
+            let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          match!
-            Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
-            |> AsyncResult.ofStringErr
-          with
-          | None -> return ()
-          | Some { InsertPosition = insertPos
-                   InsertText = text } ->
+            let! { InsertPosition = insertPos; InsertText = text } =
+              Commands.GenerateXmlDocumentation(tyRes, pos, lineStr)
+              //|> AsyncResult.ofStringErr
 
             let edit: ApplyWorkspaceEditParams =
               { Label = Some "Generate Xml Documentation"
@@ -2328,15 +2309,18 @@ type AdaptiveFSharpLspServer
                   { DocumentChanges =
                       Some
                         [| { TextDocument =
-                               { Uri = p.TextDocument.Uri
-                                 Version = Some p.TextDocument.Version }
+                                { Uri = p.TextDocument.Uri
+                                  Version = Some p.TextDocument.Version }
                              Edits =
-                               [| { Range = fcsPosToProtocolRange insertPos
-                                    NewText = text } |] } |]
+                                [| { Range = fcsPosToProtocolRange insertPos
+                                     NewText = text } |] } |]
                     Changes = None } }
 
             let! _ = lspClient.WorkspaceApplyEdit edit
             return ()
+          }
+
+          return sideEffect |> Option.defaultValue ()
 
         with e ->
           trace |> Tracing.recordException e
@@ -2647,7 +2631,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpHelp(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2658,13 +2642,13 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match! Commands.Help tyRes pos lineStr |> Result.ofCoreResponse with
-          | Some t -> return Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
-          | None -> return None
+          | Some t -> return! Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+          | None -> return! None
         with e ->
           trace |> Tracing.recordException e
 
@@ -2678,7 +2662,7 @@ type AdaptiveFSharpLspServer
       }
 
     override x.FSharpDocumentation(p: TextDocumentPositionParams) =
-      asyncResult {
+      asyncResultOption {
         let tags = [ "TextDocumentPositionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2689,14 +2673,14 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) = getFilePathAndPosition p
-          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! volatileFile = state.GetOpenFileOrRead filePath
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           lastFSharpDocumentationTypeCheck <- Some tyRes
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
-            return
+            return!
               Some
                 { Content =
                     CommandResponse.formattedDocumentation
@@ -2706,7 +2690,7 @@ type AdaptiveFSharpLspServer
                          Signature = signature
                          Footer = footer
                          XmlKey = xmlKey |} }
-          | None -> return None
+          | None -> return! None
         with e ->
           trace |> Tracing.recordException e
 
