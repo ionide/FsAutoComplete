@@ -287,7 +287,7 @@ module TypedAstExtensionHelpers =
       | UnionCase fsu -> fsu.XmlDoc
       | ActivePattern apc -> apc.XmlDoc
       | GenericParameter gp -> gp.XmlDoc
-      | Parameter p -> FSharpXmlDoc.None
+      | Parameter _ -> FSharpXmlDoc.None
 
   type FSharpGenericParameterMemberConstraint with
 

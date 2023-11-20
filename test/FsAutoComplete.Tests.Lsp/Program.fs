@@ -32,10 +32,10 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
-  [
-    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+  [ "Ionide WorkspaceLoader",
+    (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
     // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-  ]
+    ]
 
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
@@ -113,13 +113,7 @@ let generalTests = testList "general" [
 ]
 
 [<Tests>]
-let tests =
-  testList
-    "FSAC"
-    [
-      generalTests
-      lspTests
-    ]
+let tests = testList "FSAC" [ generalTests; lspTests ]
 
 
 [<EntryPoint>]
@@ -136,7 +130,7 @@ let main args =
         |> Array.tryFind (fun arg -> arg.StartsWith(logMarker, StringComparison.Ordinal))
         |> Option.map (fun log -> log.Substring(logMarker.Length))
       with
-      | Some ("warn" | "warning") -> Logging.LogLevel.Warn
+      | Some("warn" | "warning") -> Logging.LogLevel.Warn
       | Some "error" -> Logging.LogLevel.Error
       | Some "fatal" -> Logging.LogLevel.Fatal
       | Some "info" -> Logging.LogLevel.Info
@@ -167,7 +161,9 @@ let main args =
       |> Array.filter (fun arg -> arg.StartsWith(excludeMarker, StringComparison.Ordinal))
       |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
+    let args =
+      args
+      |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
 
     toExclude, args
 
@@ -181,7 +177,7 @@ let main args =
       fun s -> s <> null && logSourcesToExclude |> Array.contains s
     )
 
-  let argsToRemove, loaders =
+  let argsToRemove, _loaders =
     args
     |> Array.windowed 2
     |> Array.tryPick (function
@@ -198,10 +194,8 @@ let main args =
       .Filter.ByExcluding(Matching.FromSource("FileSystem"))
       .Filter.ByExcluding(sourcesToExclude)
 
-      .Destructure
-      .FSharpTypes()
-      .Destructure
-      .ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
+      .Destructure.FSharpTypes()
+      .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
         box
           {| FileName = r.FileName
              Start = r.Start
@@ -209,8 +203,7 @@ let main args =
       .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-      .WriteTo
-      .Async(fun c ->
+      .WriteTo.Async(fun c ->
         c.Console(
           outputTemplate = outputTemplate,
           standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
@@ -227,13 +220,10 @@ let main args =
 
   let cts = new CancellationTokenSource(testTimeout)
 
-  let args  =
-    [
-      CLIArguments.Printer (Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+  let args =
+    [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity logLevel
       // CLIArguments.Parallel
-    ]
+      ]
 
   runTestsWithCLIArgsAndCancel cts.Token args fixedUpArgs tests
-
-

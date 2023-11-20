@@ -81,7 +81,7 @@ let fix
       Title = $"Use %s{qual}"
       Kind = FixKind.Fix }
 
-  let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, multiple) : Fix =
+  let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, _multiple) : Fix =
     let insertPoint = adjustInsertionPoint text ctx
     let docLine = insertPoint - 1
 
@@ -129,8 +129,8 @@ let fix
       let! tyRes, line, lines = getParseResultsForFile filePath pos
 
       match! getNamespaceSuggestions tyRes pos line with
-      | CoreResponse.InfoRes msg
-      | CoreResponse.ErrorRes msg -> return []
+      | CoreResponse.InfoRes _msg
+      | CoreResponse.ErrorRes _msg -> return []
       | CoreResponse.Res(word, opens, qualifiers) ->
         let quals =
           qualifiers

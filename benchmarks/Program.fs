@@ -1,4 +1,5 @@
 ﻿namespace Benchmarks
+
 open System
 open BenchmarkDotNet
 open BenchmarkDotNet.Attributes
@@ -11,6 +12,6 @@ open System.Security.Cryptography
 module EntryPoint =
 
   [<EntryPoint>]
-  let main argv =
-    let summary = BenchmarkRunner.Run<SourceText_LineChanges_Benchmarks>();
+  let main _argv =
+    let _summary = BenchmarkRunner.Run<SourceText_LineChanges_Benchmarks>()
     0

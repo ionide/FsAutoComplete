@@ -17,7 +17,7 @@ let private testInlineHints (server : CachedServer) text checkResp =
       |> Text.trimTripleQuotation
       |> Cursor.assertExtractRange
 
-    let! (doc, diags) = server |> Server.createUntitledDocument text
+    let! doc, _diags = server |> Server.createUntitledDocument text
     use doc = doc
 
     let inlineValueRequest: InlineValueParams = {

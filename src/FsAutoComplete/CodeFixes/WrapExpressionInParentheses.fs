@@ -8,7 +8,7 @@ open FsAutoComplete
 let title = "Wrap expression in parentheses"
 
 /// a codefix that parenthesizes a member expression that needs it
-let fix (getRangeText: GetRangeText) : CodeFix =
+let fix: CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "597" ]) (fun diagnostic codeActionParams ->
     AsyncResult.retn
       [ { Title = title

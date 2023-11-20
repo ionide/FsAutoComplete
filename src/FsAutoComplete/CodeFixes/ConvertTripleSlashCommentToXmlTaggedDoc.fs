@@ -162,7 +162,7 @@ let private wrapInSummary indent comments =
     }
     |> String.concat ""
 
-let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath

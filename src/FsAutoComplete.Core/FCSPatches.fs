@@ -461,7 +461,8 @@ module SyntaxTreeOps =
       | SynExpr.YieldOrReturnFrom(_, e, _)
       | SynExpr.DoBang(e, _)
       | SynExpr.Fixed(e, _)
-      | SynExpr.Paren(e, _, _, _) -> walkExpr e
+      | SynExpr.Paren(e, _, _, _)
+      | SynExpr.DotLambda(expr = e) -> walkExpr e
 
       | SynExpr.NamedIndexedPropertySet(_, e1, e2, _)
       | SynExpr.DotSet(e1, _, e2, _)
@@ -477,7 +478,7 @@ module SyntaxTreeOps =
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
-        || walkExprs (recordFields |> List.map (fun (ident, range, expr) -> expr))
+        || walkExprs (recordFields |> List.map (fun (_ident, _range, expr) -> expr))
 
       | SynExpr.Record(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
@@ -495,7 +496,8 @@ module SyntaxTreeOps =
               yield! bindings ]
 
       | SynExpr.ForEach(enumExpr = e1; bodyExpr = e2)
-      | SynExpr.While(whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
+      | SynExpr.While(whileExpr = e1; doExpr = e2)
+      | SynExpr.WhileBang(whileExpr = e1; doExpr = e2) -> walkExpr e1 || walkExpr e2
 
       | SynExpr.For(identBody = e1; toBody = e2; doBody = e3) -> walkExpr e1 || walkExpr e2 || walkExpr e3
 
@@ -540,11 +542,11 @@ module SyntaxTreeOps =
             | SynInterpolatedStringPart.String _ -> None
             | SynInterpolatedStringPart.FillExpr(x, _) -> Some x)
         )
-      | SynExpr.IndexRange(expr1, opm, expr2, range1, range2, range3) ->
+      | SynExpr.IndexRange(expr1 = expr1; expr2 = expr2) ->
         Option.map walkExpr expr1
         |> Option.orElseWith (fun _ -> Option.map walkExpr expr2)
         |> Option.defaultValue false
-      | SynExpr.IndexFromEnd(expr, range) -> walkExpr expr
+      | SynExpr.IndexFromEnd(expr, _) -> walkExpr expr
       | SynExpr.DebugPoint(innerExpr = expr) -> walkExpr expr
       | SynExpr.Dynamic(funcExpr = funcExpr; argExpr = argExpr) -> walkExpr funcExpr || walkExpr argExpr
 

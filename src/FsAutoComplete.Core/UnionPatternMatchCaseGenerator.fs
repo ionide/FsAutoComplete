@@ -2,10 +2,8 @@
 module FsAutoComplete.UnionPatternMatchCaseGenerator
 
 open System
-open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-open FSharp.Compiler.Syntax
 open FsAutoComplete.CodeGenerationUtils
 open FSharp.Compiler.Symbols
 open FsToolkit.ErrorHandling
@@ -40,11 +38,11 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
     match pat with
     | SynPat.Paren(innerPat, _)
     | SynPat.Attrib(innerPat, _, _) -> patIsCandidate innerPat
-    | SynPat.Const(_, _) -> false
-    | SynPat.Wild(_) -> false
+    | SynPat.Const _ -> false
+    | SynPat.Wild _ -> false
     // TODO: check if we have to handle these cases
     | SynPat.Typed(innerPat, _, _) -> patIsCandidate innerPat
-    | SynPat.OptionalVal(_, _) -> false
+    | SynPat.OptionalVal _ -> false
     | SynPat.Or(lhsPat = leftPat; rhsPat = rightPat) -> patIsCandidate leftPat || patIsCandidate rightPat
     | SynPat.Ands(innerPatList, _) -> List.exists patIsCandidate innerPatList
     // This is the 'hd :: tail -> ...' pattern
@@ -53,14 +51,13 @@ let private clauseIsCandidateForCodeGen (cursorPos: Position) (SynMatchClause(pa
       // The cursor should not be in the nested patterns
       Range.rangeContainsPos r cursorPos
       && List.forall (not << patIsCandidate) nestedPats
-    | SynPat.ListCons(lhs, rhs, r, _) -> patIsCandidate lhs || patIsCandidate rhs
+    | SynPat.ListCons(lhs, rhs, _, _) -> patIsCandidate lhs || patIsCandidate rhs
     | SynPat.Tuple _
     | SynPat.ArrayOrList _
     | SynPat.Record _
     | SynPat.Null _
     | SynPat.IsInst _
     | SynPat.QuoteExpr _
-    | SynPat.DeprecatedCharRange _
     | SynPat.InstanceMember _
     | SynPat.FromParseError _
     | SynPat.As _
@@ -123,7 +120,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynMemberDefn.NestedType(typeDef, _access, _range) -> walkSynTypeDefn typeDef
       | SynMemberDefn.ValField(_field, _range) -> None
       | SynMemberDefn.LetBindings(bindings, _isStatic, _isRec, _range) -> List.tryPick walkBinding bindings
-      | SynMemberDefn.GetSetMember(_get, _set, _range, trivia) -> None
+      | SynMemberDefn.GetSetMember(_get, _set, _range, _) -> None
       | SynMemberDefn.Open _
       | SynMemberDefn.ImplicitInherit _
       | SynMemberDefn.Inherit _
@@ -243,7 +240,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 
       | SynExpr.DotSet(synExpr1, _longIdent, synExpr2, _range) -> List.tryPick walkExpr [ synExpr1; synExpr2 ]
 
-      | SynExpr.DotIndexedGet(synExpr, argList, _range, _range2) -> walkExpr argList
+      | SynExpr.DotIndexedGet(_, argList, _range, _range2) -> walkExpr argList
 
       | SynExpr.DotIndexedSet(synExpr1, argList, synExpr2, _, _range, _range2) ->
         [ synExpr1; argList; synExpr2 ] |> List.tryPick walkExpr
@@ -298,17 +295,16 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     match pat with
     | SynPat.Const(_const, _) -> false
     // TODO: figure out if these cases are supposed to happen or not
-    | SynPat.Or(_)
-    | SynPat.Ands(_, _)
-    | SynPat.LongIdent(_)
-    | SynPat.ArrayOrList(_, _, _)
-    | SynPat.Null(_)
-    | SynPat.InstanceMember(_, _, _, _, _)
-    | SynPat.IsInst(_, _)
-    | SynPat.QuoteExpr(_, _)
-    | SynPat.DeprecatedCharRange(_, _, _)
+    | SynPat.Or _
+    | SynPat.Ands _
+    | SynPat.LongIdent _
+    | SynPat.ArrayOrList _
+    | SynPat.Null _
+    | SynPat.InstanceMember _
+    | SynPat.IsInst _
+    | SynPat.QuoteExpr _
     | SynPat.ListCons _
-    | SynPat.FromParseError(_, _) -> false
+    | SynPat.FromParseError _ -> false
 
     | SynPat.Tuple(elementPats = innerPatList) -> List.forall checkPattern innerPatList
 
@@ -317,9 +313,9 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
       |> List.map (fun (_, _, innerPat) -> innerPat)
       |> List.forall checkPattern
 
-    | SynPat.OptionalVal(_, _) -> true
-    | SynPat.Named(_)
-    | SynPat.Wild(_) -> true
+    | SynPat.OptionalVal _ -> true
+    | SynPat.Named _
+    | SynPat.Wild _ -> true
     | SynPat.Typed(innerPat, _, _)
     | SynPat.Attrib(innerPat, _, _)
     | SynPat.Paren(innerPat, _) -> checkPattern innerPat
@@ -367,7 +363,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
     | SynMatchClause(pat, None, _, _, _, _) -> getCasesInPattern pat
     | _ -> []
 
-  patMatchExpr.Clauses |> List.collect (getCasesInClause) |> Set.ofList
+  patMatchExpr.Clauses |> List.collect getCasesInClause |> Set.ofList
 
 let shouldGenerateUnionPatternMatchCases (patMatchExpr: PatternMatchExpr) (entity: FSharpEntity) =
   let caseCount = entity.UnionCases.Count
@@ -506,7 +502,7 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
 let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =
   asyncOption {
     let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
-    let! symbol, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
+    let! _, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
 
 
     let! superficialTypeDefinition =
@@ -520,12 +516,12 @@ let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos d
         | _ -> return None
       }
 
-    let! realTypeDefinition = superficialTypeDefinition
+    let! _ = superficialTypeDefinition
 
     let! realTypeDefinition =
       match superficialTypeDefinition with
       | Some(AbbreviatedType(TypeWithDefinition typeDef)) when typeDef.IsFSharpUnion -> Some typeDef
-      | Some(UnionType(_)) -> superficialTypeDefinition
+      | Some(UnionType _) -> superficialTypeDefinition
       | _ -> None
 
     return patMatchExpr, realTypeDefinition, insertionParams
@@ -556,7 +552,7 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
       // De-duplicate field names if there are conflicts
       let newFieldNames =
         Seq.unfold
-          (fun ((i, currentNamesWithIndices) as _state) ->
+          (fun (i, currentNamesWithIndices as _state) ->
             if i < fieldNames.Length then
               let name = fieldNames.[i]
 

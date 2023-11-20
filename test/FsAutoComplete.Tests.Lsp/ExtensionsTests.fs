@@ -77,10 +77,7 @@ let uriTests =
 
   testList
     "Uri tests"
-    [ testList
-        "roundtrip tests"
-        (samples
-         |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
+    [ testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
       testList
         "fileName to uri tests"
         (samples
@@ -91,7 +88,14 @@ let linterTests state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
-      let! (server, events) = serverInitialize path { defaultConfigDto with Linter = Some true } state
+
+      let! (server, events) =
+        serverInitialize
+          path
+          { defaultConfigDto with
+              Linter = Some true }
+          state
+
       let path = Path.Combine(path, "Script.fsx")
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
@@ -274,14 +278,23 @@ let formattingTests state =
         do! server.TextDocumentDidOpen { TextDocument = loadDocument sourceFile }
 
         match! waitForParseResultsForFile (Path.GetFileName sourceFile) events with
-        | Ok () ->
+        | Ok() ->
           match!
             server.TextDocumentFormatting
               { TextDocument = { Uri = Path.FilePathToUri sourceFile }
-                Options = {TabSize = 4; InsertSpaces = true; TrimTrailingWhitespace = None; InsertFinalNewline = None; TrimFinalNewlines = None; AdditionalData = System.Collections.Generic.Dictionary<_,_>() } }
-            with
-          | Ok (Some [| edit |]) ->
-            let normalized = { edit with NewText = normalizeLineEndings edit.NewText }
+                Options =
+                  { TabSize = 4
+                    InsertSpaces = true
+                    TrimTrailingWhitespace = None
+                    InsertFinalNewline = None
+                    TrimFinalNewlines = None
+                    AdditionalData = System.Collections.Generic.Dictionary<_, _>() } }
+          with
+          | Ok(Some [| edit |]) ->
+            let normalized =
+              { edit with
+                  NewText = normalizeLineEndings edit.NewText }
+
             Expect.equal normalized expectedTextEdit "should replace the entire file range with the expected content"
           | Ok other -> failwithf "Invalid formatting result: %A" other
           | Result.Error e -> failwithf "Error while formatting %s: %A" sourceFile e
@@ -302,13 +315,7 @@ let analyzerTests state =
       // because the analyzer is a project this project has a reference, the analyzer can be
       // found in alongside this project, so we can use the directory this project is in
       let analyzerPath =
-        System.IO.Path.GetDirectoryName(
-          System
-            .Reflection
-            .Assembly
-            .GetExecutingAssembly()
-            .Location
-        )
+        System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
 
       let analyzerEnabledConfig =
         { defaultConfigDto with
@@ -331,7 +338,7 @@ let analyzerTests state =
         [ testCaseAsync
             "can run analyzer on file"
             (async {
-              let! (server, events, rootPath, testFilePath) = server
+              let! _server, events, _rootPath, testFilePath = server
 
               let! diagnostics =
                 analyzerDiagnostics (System.IO.Path.GetFileName testFilePath) events
@@ -363,7 +370,7 @@ let signatureTests state =
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
 
       match! waitForParseResultsForFile "Script.fsx" events with
-      | Ok () -> () // all good, no parsing/checking errors
+      | Ok() -> () // all good, no parsing/checking errors
       | Core.Result.Error errors -> failtestf "Errors while parsing script %s: %A" scriptPath errors
 
       return server, scriptPath
@@ -380,7 +387,7 @@ let signatureTests state =
             Position = { Line = line; Character = character } }
 
         match! server.FSharpSignature pos with
-        | Ok (Some { Content = content }) ->
+        | Ok(Some { Content = content }) ->
           let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>> (content)
           Expect.equal r.Kind "typesig" "Should have a kind of 'typesig'"
 
