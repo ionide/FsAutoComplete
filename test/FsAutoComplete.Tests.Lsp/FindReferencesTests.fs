@@ -626,9 +626,9 @@ let tests state =
       rangeTests state ]
 
 
-let tryFixupRangeTests (sourceTextFactoryName, sourceTextFactory: ISourceTextFactory) =
+let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
   testList
-    ($"{nameof Tokenizer.tryFixupRange}.{sourceTextFactoryName}")
+    ($"{nameof Tokenizer.tryFixupRange}")
     [ let checker = lazy (FSharpChecker.Create())
 
       let getSymbolUses (source: string) cursor =
