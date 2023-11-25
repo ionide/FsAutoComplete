@@ -26,11 +26,12 @@ module Syntax =
 
     loop [] pats
 
+  [<AbstractClass>]
   type SyntaxCollectorBase() =
     abstract WalkSynModuleOrNamespace: SynModuleOrNamespace -> unit
     default _.WalkSynModuleOrNamespace _ = ()
     abstract WalkAttribute: SynAttribute -> unit
-    default _.WalkAttribute _ = ()
+    default _.WalkAttribute(_: SynAttribute) = ()
     abstract WalkSynModuleDecl: SynModuleDecl -> unit
     default _.WalkSynModuleDecl _ = ()
     abstract WalkExpr: SynExpr -> unit
@@ -59,8 +60,10 @@ module Syntax =
     default _.WalkClause _ = ()
     abstract WalkInterpolatedStringPart: SynInterpolatedStringPart -> unit
     default _.WalkInterpolatedStringPart _ = ()
+
     abstract WalkMeasure: SynMeasure -> unit
-    default _.WalkMeasure _ = ()
+    default _.WalkMeasure(_: SynMeasure) = ()
+
     abstract WalkComponentInfo: SynComponentInfo -> unit
     default _.WalkComponentInfo _ = ()
     abstract WalkTypeDefnSigRepr: SynTypeDefnSigRepr -> unit

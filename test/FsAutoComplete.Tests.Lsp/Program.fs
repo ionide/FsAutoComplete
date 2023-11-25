@@ -135,6 +135,7 @@ let lspTests =
                   UnusedDeclarationsTests.tests createServer
                   EmptyFileTests.tests createServer
                   CallHierarchy.tests createServer
+                  NestedLanguageTests.tests createServer
                   diagnosticsTest createServer
                   ] ] ]
 

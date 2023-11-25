@@ -84,6 +84,10 @@ type NotificationEvent =
   | Canceled of errorMessage: string
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
+  | NestedLanguagesFound of
+    file: string<LocalPath> *
+    version: int *
+    nestedLanguages: NestedLanguages.NestedLanguageDocument array
 
 module Commands =
   open System.Collections.Concurrent

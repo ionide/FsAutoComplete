@@ -8,6 +8,14 @@ open System
 open System.Threading
 open IcedTasks
 
+type NestedLanguage =
+  { Language: string
+    Ranges: Types.Range[] }
+
+type TextDocumentNestedLanguages =
+  { TextDocument: VersionedTextDocumentIdentifier
+    NestedLanguages: NestedLanguage[] }
+
 type FSharpLspClient =
   new: sendServerNotification: ClientNotificationSender * sendServerRequest: ClientRequestSender -> FSharpLspClient
   inherit LspClient
@@ -32,8 +40,10 @@ type FSharpLspClient =
   member NotifyDocumentAnalyzed: p: DocumentAnalyzedNotification -> Async<unit>
   member NotifyTestDetected: p: TestDetectedNotification -> Async<unit>
   member CodeLensRefresh: unit -> Async<unit>
+  member NotifyNestedLanguages: p: TextDocumentNestedLanguages -> Async<unit>
   override WorkDoneProgressCreate: ProgressToken -> AsyncLspResult<unit>
   override Progress: ProgressToken * 'Progress -> Async<unit>
+
 
 ///<summary>
 /// Represents a progress report that can be used to report progress to the client.

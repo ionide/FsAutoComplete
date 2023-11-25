@@ -85,8 +85,7 @@ module Server =
 
       match! server.Initialize p with
       | Ok _ ->
-        do! server.Initialized()
-
+        do! server.Initialized ()
         return
           { RootPath = path
             Server = server
@@ -200,8 +199,8 @@ module Document =
   open System.Reactive.Linq
   open System.Threading.Tasks
 
-  let private typedEvents<'t> typ : _ -> System.IObservable<'t> =
-    Observable.choose (fun (typ', _o) -> if typ' = typ then Some(unbox _o) else None)
+  let typedEvents<'t> eventName : _ -> System.IObservable<'t> =
+    Observable.choose (fun (typ', _o) -> if typ' = eventName then Some(unbox _o) else None)
 
   /// `textDocument/publishDiagnostics`
   ///

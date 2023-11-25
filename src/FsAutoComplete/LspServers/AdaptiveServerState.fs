@@ -784,6 +784,19 @@ type AdaptiveState
               { File = Path.LocalPathToUri file
                 Tests = tests |> Array.map map }
               |> lspClient.NotifyTestDetected
+          | NotificationEvent.NestedLanguagesFound(file, version, nestedLanguages) ->
+            let uri = Path.LocalPathToUri file
+
+            do!
+              lspClient.NotifyNestedLanguages(
+                { TextDocument = { Version = version; Uri = uri }
+                  NestedLanguages =
+                    nestedLanguages
+                    |> Array.map (fun n ->
+                      { Language = n.Language
+                        Ranges = n.Ranges |> Array.map fcsRangeToLsp }) }
+              )
+
         with ex ->
           logger.error (
             Log.setMessage "Exception while handling command event {evt}: {ex}"
