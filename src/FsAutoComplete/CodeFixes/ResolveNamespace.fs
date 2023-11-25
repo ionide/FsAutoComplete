@@ -9,8 +9,28 @@ open FsAutoComplete.LspHelpers
 open FsAutoComplete
 open FSharp.Compiler.Text
 open FSharp.Compiler.EditorServices
+open System.Text.RegularExpressions
 
 type LineText = string
+
+let undefinedName =
+  [ "not define"
+    "nedefinuje|Není definovaný|Není definované|Není definovaná|Nemáte definovaný"
+    "definiert nicht|nicht.*? definiert"
+    "no define|no está definido|no está definida"
+    "ne définit|n'est pas défini"
+    "non definisce|non è definito|non è definita"
+    "定義(され|し)ていません"
+    "정의(하지 않|되지 않았|되어 있지 않)습니다"
+    "nie definiuje|Nie zdefiniowano|nie jest zdefiniowany"
+    "não define|não está definido"
+    "не определяет|не определено|не определены|не определен"
+    "tanımlamıyor|tanımlı değil"
+    "未.*?定义"
+    "未定義" ]
+  |> List.map (fun i ->
+    let regex = Regex(i, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
+    fun (j: string) -> regex.IsMatch(j))
 
 /// a codefix the provides suggestions for opening modules or using qualified names when an identifier is found that needs qualification
 let fix
@@ -120,7 +140,7 @@ let fix
       Title = $"open %s{actualOpen}"
       Kind = FixKind.Fix }
 
-  Run.ifDiagnosticByMessage "is not defined" (fun diagnostic codeActionParameter ->
+  Run.ifDiagnosticByCheckMessage undefinedName (fun diagnostic codeActionParameter ->
     asyncResult {
       let pos = protocolPosToPos diagnostic.Range.Start
 

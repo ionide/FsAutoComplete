@@ -162,6 +162,11 @@ module Run =
     handler: (Diagnostic -> CodeActionParams -> Async<Result<Fix list, string>>) ->
       (CodeActionParams -> Async<Result<Fix list, string>>)
 
+  val ifDiagnosticByCheckMessage:
+    checkMessageFunc: (string -> bool) list ->
+    handler: (Diagnostic -> CodeActionParams -> Async<Result<Fix list, string>>) ->
+      (CodeActionParams -> Async<Result<Fix list, string>>)
+
   val ifDiagnosticByType:
     diagnosticType: string ->
     handler: (Diagnostic -> CodeActionParams -> Async<Result<Fix list, string>>) ->
