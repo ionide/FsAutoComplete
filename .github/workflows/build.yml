@@ -65,11 +65,11 @@ jobs:
 
     # setup .NET per the repo global.json
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3
 
     # setup .NET per test session
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v3
       with:
         include-prerelease: ${{ matrix.include-prerelease }}
         global-json-file: ${{ matrix.global-json-file }}
@@ -87,7 +87,10 @@ jobs:
       run: |
         # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to
         # dotnet tool restore then.
-        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.2 && dotnet paket restore
+        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.3 && dotnet paket restore
+
+    - name: cat file
+      run: cat src/FsAutoComplete.Core/AbstractClassStubGenerator.fs
 
     - name: Check format
       run: dotnet build -t:CheckFormat
