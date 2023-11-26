@@ -91,7 +91,7 @@ module internal ClassificationUtils =
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> "variable"
     | SemanticClassificationType.Plaintext -> "text"
-    | n -> "unknown"
+    | _n -> "unknown"
 
 module CommandResponse =
   open FSharp.Compiler.Text
@@ -460,7 +460,7 @@ module CommandResponse =
             match x.Kind with
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
+            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _ ->
               Some(
                 WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                   { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }

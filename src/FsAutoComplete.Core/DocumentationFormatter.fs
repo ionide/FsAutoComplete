@@ -587,7 +587,7 @@ module DocumentationFormatter =
 
     sprintf "active pattern %s: %s" apc.Name findVal
 
-  let getAttributeSignature displayContext (attr: FSharpAttribute) =
+  let getAttributeSignature (attr: FSharpAttribute) =
     let name =
       formatShowDocumentationLink
         attr.AttributeType.DisplayName
@@ -717,8 +717,7 @@ module DocumentationFormatter =
         |> Seq.map (fun inf -> fst (format displayContext inf))
         |> Seq.toArray
 
-      let attrs =
-        fse.Attributes |> Seq.map (getAttributeSignature displayContext) |> Seq.toArray
+      let attrs = fse.Attributes |> Seq.map getAttributeSignature |> Seq.toArray
 
       let types =
         fse.NestedEntities

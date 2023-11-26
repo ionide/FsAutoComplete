@@ -13,5 +13,4 @@ val title: string
 
 val fix:
   getParseResultsForFile: GetParseResultsForFile ->
-  getLineText: GetLineText ->
     (Ionide.LanguageServerProtocol.Types.CodeActionParams -> Async<Result<Fix list, string>>)

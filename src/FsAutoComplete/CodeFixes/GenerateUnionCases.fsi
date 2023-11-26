@@ -14,6 +14,6 @@ val title: string
 val fix:
   getFileLines: GetFileLines ->
   getParseResultsForFile: GetParseResultsForFile ->
-  generateCases: (ParseAndCheckResults -> FcsPos -> IFSACSourceText -> string -> Async<CoreResponse<string * FcsPos>>) ->
+  generateCases: (ParseAndCheckResults -> FcsPos -> IFSACSourceText -> Async<CoreResponse<string * FcsPos>>) ->
   getTextReplacements: (unit -> Map<string, string>) ->
     (CodeActionParams -> Async<Result<Fix list, string>>)

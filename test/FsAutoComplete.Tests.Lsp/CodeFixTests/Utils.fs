@@ -6,13 +6,16 @@ open FsAutoComplete.Logging
 
 module Diagnostics =
   let expectCode code (diags: Diagnostic[]) =
-    Expecto.Flip.Expect.exists 
+    Expecto.Flip.Expect.exists
       $"There should be a Diagnostic with code %s{code}"
       (fun (d: Diagnostic) -> d.Code = Some code)
       diags
+
   let acceptAll = ignore
 
-  let private logger = FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.Diagnostics"
+  let private logger =
+    FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.Diagnostics"
+
   /// Usage: `(Diagnostics.log >> Diagnostics.expectCode "XXX")`
   /// Logs as `info`
   let log (diags: Diagnostic[]) =
@@ -21,10 +24,13 @@ module Diagnostics =
       >> Log.addContext "count" diags.Length
       >> Log.addContextDestructured "diags" diags
     )
+
     diags
 
 module CodeFix =
-  let private logger = FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.CodeFix"
+  let private logger =
+    FsAutoComplete.Logging.LogProvider.getLoggerByName "CodeFixes.CodeFix"
+
   /// Usage: `(CodeFix.log >> CodeFix.withTitle "XXX")`
   /// Logs as `info`
   let log (codeActions: CodeAction[]) =
@@ -33,14 +39,15 @@ module CodeFix =
       >> Log.addContext "count" codeActions.Length
       >> Log.addContextDestructured "codeActions" codeActions
     )
+
     codeActions
 
 /// `ignore testCaseAsync`
-/// 
+///
 /// Like `testCaseAsync`, but test gets completely ignored.
 /// Unlike `ptestCaseAsync` (pending), this here doesn't even show up in Expecto summary.
-/// 
+///
 /// -> Used to mark issues & shortcomings in CodeFixes, but without any (immediate) intention to fix
-///    (vs. `pending` -> marked for fixing)  
+///    (vs. `pending` -> marked for fixing)
 /// -> ~ uncommenting tests without actual uncommenting
-let itestCaseAsync name test = ()
+let itestCaseAsync _name _test = ()

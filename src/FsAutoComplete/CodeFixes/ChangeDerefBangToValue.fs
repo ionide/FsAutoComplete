@@ -30,7 +30,7 @@ let private tryGetRangeOfDeref input derefPos =
 
 let title = "Use `.Value` instead of dereference operator"
 
-let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3370" ]) (fun diagnostic codeActionParams ->
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath

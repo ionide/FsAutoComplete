@@ -20,7 +20,7 @@ let tests state =
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
 
-      let! diagnostics =
+      let! _diagnostics =
         waitForParseResultsForFile "Script.fsx" events
         |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
 
@@ -759,7 +759,7 @@ let autoOpenTests state =
     { Line = pos.Line
       Character = indentation }
 
-  let getQuickFix (server: IFSharpLspServer, path: string) (word: string, ns: string) (cursor: Position) =
+  let getQuickFix (server: IFSharpLspServer, path: string) (word: string, _ns: string) (cursor: Position) =
     async {
       let p =
         { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri path }
@@ -1062,22 +1062,31 @@ let fullNameExternalAutocompleteTest state =
 
           let count =
             items
-            |> Array.distinctBy (function Ok x -> x.Detail | Error _ -> None)
+            |> Array.distinctBy (function
+              | Ok x -> x.Detail
+              | Error _ -> None)
             |> Array.length
 
           Expect.equal count items.Length "These completions doesn't have different description"
          }
          |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
 
-      makeAutocompleteTest
-        serverConfig
-        "Check Autocomplete for System.Text.RegularExpressions.Regex"
-        (4, 5)
-        (fun res ->
-          let n = res.Items |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
-          Expect.isSome n "Completion doesn't exist"
-          Expect.equal n.Value.InsertText (Some "System.Text.RegularExpressions.Regex") "Autocomplete for Regex is not System.Text.RegularExpressions.Regex"
-          Expect.equal n.Value.FilterText (Some "RegexSystem.Text.RegularExpressions.Regex") "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
+      makeAutocompleteTest serverConfig "Check Autocomplete for System.Text.RegularExpressions.Regex" (4, 5) (fun res ->
+        let n =
+          res.Items
+          |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
+
+        Expect.isSome n "Completion doesn't exist"
+
+        Expect.equal
+          n.Value.InsertText
+          (Some "System.Text.RegularExpressions.Regex")
+          "Autocomplete for Regex is not System.Text.RegularExpressions.Regex"
+
+        Expect.equal
+          n.Value.FilterText
+          (Some "RegexSystem.Text.RegularExpressions.Regex")
+          "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
 
       makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5, 6) (fun res ->
         let n = res.Items |> Array.tryFind (fun i -> i.Label = "Result")

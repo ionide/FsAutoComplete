@@ -16,7 +16,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+      let! tyRes, _line, lines = getParseResultsForFile fileName fcsPos
       let fcsErrorPos = protocolPosToPos diagnostic.Range.Start
 
       match tyRes.GetParseResults.TryRangeOfExprInYieldOrReturn fcsErrorPos with

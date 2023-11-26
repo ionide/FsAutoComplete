@@ -22,6 +22,5 @@ val titleWithoutTypeAnnotation: string
 /// codefix that generates members for an interface implementation
 val fix:
   getParseResultsForFile: GetParseResultsForFile ->
-  getProjectOptionsForFile: GetProjectOptionsForFile ->
   config: (unit -> Config) ->
     (CodeActionParams -> Async<Result<Fix list, string>>)

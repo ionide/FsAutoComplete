@@ -10,7 +10,7 @@ open FsAutoComplete.FCSPatches
 let title = "Use triple-quoted string interpolation"
 
 /// a codefix that replaces erroring single-quoted interpolations with triple-quoted interpolations
-let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3373" ]) (fun diagnostic codeActionParams ->
     asyncResult {
       let pos = protocolPosToPos diagnostic.Range.Start

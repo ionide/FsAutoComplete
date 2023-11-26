@@ -146,12 +146,7 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
     | InterfaceData.ObjExpr(_, bindings) -> bindings |> List.tryLast
 
   match lastExistingMember with
-  | Some(SynBinding(
-      attributes = attributes
-      valData = SynValData(memberFlags = memberFlags)
-      headPat = headPat
-      expr = expr
-      trivia = trivia)) ->
+  | Some(SynBinding(attributes = attributes; valData = SynValData _; headPat = headPat; expr = expr; trivia = trivia)) ->
     // align with existing member
     // insert after last member
 
@@ -234,11 +229,7 @@ let titleWithTypeAnnotation = "Implement interface"
 let titleWithoutTypeAnnotation = "Implement interface without type annotation"
 
 /// codefix that generates members for an interface implementation
-let fix
-  (getParseResultsForFile: GetParseResultsForFile)
-  (getProjectOptionsForFile: GetProjectOptionsForFile)
-  (config: unit -> Config)
-  : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) (config: unit -> Config) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "366" ]) (fun diagnostic codeActionParams ->
     asyncResult {
       // diagnostic range:
@@ -250,7 +241,7 @@ let fix
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let startPos = protocolPosToPos codeActionParams.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName startPos
+      let! tyRes, line, lines = getParseResultsForFile fileName startPos
 
       let! interfaceData =
         InterfaceStubGenerator.TryFindInterfaceDeclaration startPos tyRes.GetAST

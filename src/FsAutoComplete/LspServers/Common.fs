@@ -102,7 +102,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
         >> Log.addContext "message" exn.Message
       ))
 
-    mailbox.Error.Add(fun exn -> restartAgent uri)
+    mailbox.Error.Add(fun _exn -> restartAgent uri)
     mailbox
 
   and getOrAddAgent fileUri =

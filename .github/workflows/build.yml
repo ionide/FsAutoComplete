@@ -84,10 +84,7 @@ jobs:
       run: dotnet --info
 
     - name: Restore tools
-      run: |
-        # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to
-        # dotnet tool restore then.
-        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.2 && dotnet paket restore
+      run: dotnet tool restore
 
     - name: Check format
       run: dotnet build -t:CheckFormat
@@ -102,7 +99,7 @@ jobs:
         BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run and report tests
-      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true
+      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}

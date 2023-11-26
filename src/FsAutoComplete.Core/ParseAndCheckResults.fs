@@ -111,12 +111,12 @@ type ParseAndCheckResults
         (sym: FindDeclExternalSymbol)
         : (string<NormalizedRepoPathSegment> * Position) option =
         match sym with
-        | FindDeclExternalSymbol.Type name -> None
-        | FindDeclExternalSymbol.Constructor(typeName, args) -> None
-        | FindDeclExternalSymbol.Method(typeName, name, paramSyms, genericArity) -> None
-        | FindDeclExternalSymbol.Field(typeName, name) -> None
-        | FindDeclExternalSymbol.Event(typeName, name) -> None
-        | FindDeclExternalSymbol.Property(typeName, name) -> None
+        | FindDeclExternalSymbol.Type _ -> None
+        | FindDeclExternalSymbol.Constructor _ -> None
+        | FindDeclExternalSymbol.Method _ -> None
+        | FindDeclExternalSymbol.Field _ -> None
+        | FindDeclExternalSymbol.Event _ -> None
+        | FindDeclExternalSymbol.Property _ -> None
 
       // attempts to manually discover symbol use and external symbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid decl found for f# members.
@@ -217,7 +217,7 @@ type ParseAndCheckResults
                     { File = UMX.untag localFilePath
                       Position = pos }
                 )
-            | Error reason ->
+            | Error _ ->
               logger.info (
                 Log.setMessage "no sourcelink info for {assembly}, decompiling instead"
                 >> Log.addContextDestructured "assembly" assembly
@@ -558,6 +558,14 @@ type ParseAndCheckResults
           if symbol.IsPropertyGetterMethod then
             Ok(typ, [], [])
           else
+            let symbol =
+              // Symbol is a property with both get and set.
+              // Take the setter symbol in this case.
+              if symbol.HasGetterMethod && symbol.HasSetterMethod then
+                symbol.SetterMethod
+              else
+                symbol
+
             let parms =
               symbol.CurriedParameterGroups
               |> Seq.map (
@@ -664,6 +672,7 @@ type ParseAndCheckResults
               | CompletionItemKind.Argument -> 4
               | CompletionItemKind.Other -> 5
               | CompletionItemKind.Method(isExtension = true) -> 6
+              | CompletionItemKind.SuggestedName -> 7
 
             let decls =
               match filter with

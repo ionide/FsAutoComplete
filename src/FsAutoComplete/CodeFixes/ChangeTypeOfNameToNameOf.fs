@@ -45,7 +45,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       let pos = protocolPosToPos codeActionParams.Range.Start
 
-      let! (tyRes, line, sourceText) = getParseResultsForFile fileName pos
+      let! tyRes, _line, sourceText = getParseResultsForFile fileName pos
 
       let! results =
         tyRes.GetParseResults.TryRangeOfTypeofWithNameAndTypeExpr(pos)

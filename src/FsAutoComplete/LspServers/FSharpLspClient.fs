@@ -132,7 +132,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
 
         match result with
         | Ok() -> canReportProgress <- true
-        | Error e -> canReportProgress <- false
+        | Error _e -> canReportProgress <- false
 
         if canReportProgress then
           do!
@@ -170,7 +170,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
     }
 
   interface IAsyncDisposable with
-    member x.DisposeAsync() = task { do! x.End () (CancellationToken.None) } |> ValueTask
+    member x.DisposeAsync() = task { do! x.End () CancellationToken.None } |> ValueTask
 
   interface IDisposable with
     member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
@@ -285,7 +285,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
               if activity.DisplayName |> isOneOf interestingActivities then
                 match inflightEvents.TryRemove(activity.Id) with
-                | true, (old, progressReport) -> do! progressReport.End()
+                | true, (_old, progressReport) -> do! progressReport.End()
                 | _ -> ()
 
             | _ -> ()
