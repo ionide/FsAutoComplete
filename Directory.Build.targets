@@ -8,5 +8,10 @@
     </PropertyGroup>
 </Target>
 
+<PropertyGroup>
+    <SarifOutput Condition="$(SarifOutput) == ''">./</SarifOutput>
+    <CodeRoot Condition="$(CodeRoot) == ''">.</CodeRoot>
+    <FSharpAnalyzersOtherFlags>--analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot; --code-root $(CodeRoot) --report &quot;$(SarifOutput)/$(MSBuildProjectName)-$(TargetFramework).sarif&quot; --verbose</FSharpAnalyzersOtherFlags>
+</PropertyGroup>
 
 </Project>

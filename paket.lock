@@ -55,6 +55,8 @@ NUGET
       StreamJsonRpc (>= 2.8.28)
     FParsec (1.1.1) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.1) (>= net5.0))
       FSharp.Core (>= 4.3.4)
+    FSharp.Analyzers.Build (0.2)
+      NETStandard.Library (>= 1.6.1)
     FSharp.Analyzers.SDK (0.11)
       FSharp.Compiler.Service (>= 41.0.1) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.1) (>= net5.0))
       FSharp.Core (>= 6.0.1) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.1) (>= net5.0))
@@ -423,7 +425,7 @@ NUGET
       System.Composition.AttributedModel (>= 6.0)
       System.Composition.Hosting (>= 6.0)
       System.Composition.Runtime (>= 6.0)
-    System.Configuration.ConfigurationManager (6.0) - copy_local: false
+    System.Configuration.ConfigurationManager (6.0)
       System.Security.Cryptography.ProtectedData (>= 6.0)
       System.Security.Permissions (>= 6.0)
     System.Diagnostics.DiagnosticSource (7.0.2)
@@ -465,7 +467,7 @@ NUGET
       System.Formats.Asn1 (>= 6.0)
       System.Memory (>= 4.5.4) - restriction: || (&& (== net6.0) (< netstandard2.1)) (&& (== net7.0) (< netstandard2.1)) (&& (== net8.0) (< netstandard2.1)) (== netstandard2.0)
       System.Security.Cryptography.Cng (>= 5.0) - restriction: || (&& (== net6.0) (< netcoreapp3.1)) (&& (== net6.0) (< netstandard2.1)) (&& (== net7.0) (< net6.0)) (&& (== net7.0) (< netcoreapp3.1)) (&& (== net7.0) (< netstandard2.1)) (&& (== net8.0) (< net6.0)) (&& (== net8.0) (< netcoreapp3.1)) (&& (== net8.0) (< netstandard2.1)) (== netstandard2.0) (== netstandard2.1)
-    System.Security.Cryptography.ProtectedData (6.0) - copy_local: false
+    System.Security.Cryptography.ProtectedData (6.0)
       System.Memory (>= 4.5.4) - restriction: || (&& (== net7.0) (< net6.0)) (&& (== net8.0) (< net6.0)) (== netstandard2.0) (== netstandard2.1)
     System.Security.Cryptography.Xml (6.0.1) - copy_local: false
       System.Memory (>= 4.5.4) - restriction: || (&& (== net7.0) (< net6.0)) (&& (== net8.0) (< net6.0)) (== netstandard2.0) (== netstandard2.1)

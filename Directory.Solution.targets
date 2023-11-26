@@ -10,4 +10,20 @@
   <Target Name="CheckFormat">
     <Exec Command="dotnet fantomas --check @(FormatInputs, ' ') " />
   </Target>
+
+  <ItemGroup>
+    <ProjectsToAnalyze Include="src/**/*.fsproj" />
+  </ItemGroup>
+
+  <Target Name="AnalyzeSolution">
+    <PropertyGroup>
+      <CodeRoot>$(SolutionDir)</CodeRoot>
+      <SarifOutput>$(SolutionDir)/analysisreports</SarifOutput>
+    </PropertyGroup>
+    <MSBuild
+      Projects="@(ProjectsToAnalyze)"
+      Targets="AnalyzeFSharpProject"
+      Properties="CodeRoot=$(CodeRoot);SarifOutput=$(SarifOutput)" />
+  </Target>
+
 </Project>
