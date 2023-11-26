@@ -1,5 +1,6 @@
 module FsAutoComplete.NestedLanguages
 
+open FsAutoComplete.Logging
 open FsToolkit.ErrorHandling
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
@@ -7,6 +8,8 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
 
 #nowarn "57" // from-end slicing
+
+let logger = LogProvider.getLoggerByName "NestedLanguages"
 
 type private StringParameter =
   { methodIdent: LongIdent
@@ -164,7 +167,7 @@ let private parametersThatAreStringSyntax
           match sym with
           | :? FSharpMemberOrFunctionOrValue as mfv ->
             let allParameters = mfv.CurriedParameterGroups |> Seq.collect id |> Seq.toArray
-            let fsharpP = allParameters |> Seq.item p.parameterPosition
+            let fsharpP = allParameters[p.parameterPosition]
 
             match fsharpP.Attributes |> Seq.tryPick (|IsStringSyntax|_|) with
             | Some language ->
@@ -181,10 +184,29 @@ let private parametersThatAreStringSyntax
 /// * find all of the interpolated strings or string literals in the file that are in parameter-application positions
 /// * get the method calls happening at those positions to check if that method has the StringSyntaxAttribute
 /// * if so, return a) the language in the StringSyntaxAttribute, and b) the range of the interpolated string
-let findNestedLanguages (tyRes: ParseAndCheckResults, text: IFSACSourceText) : NestedLanguageDocument[] Async =
+let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : NestedLanguageDocument[] Async =
   async {
     // get all string constants
     let potentialParameters = findParametersForParseTree tyRes.GetAST
-    let! actualStringSyntaxParameters = parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
+
+    logger.info (
+      Log.setMessageI
+        $"Found {potentialParameters.Length:stringParams} potential parameters in {text.FileName:filename}@{text.Version:version}"
+    )
+
+    for p in potentialParameters do
+      logger.info (
+        Log.setMessageI
+          $"Potential parameter: {p.parameterRange:range} in member {p.methodIdent:methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+      )
+
+    let! actualStringSyntaxParameters =
+      parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text.Source)
+
+    logger.info (
+      Log.setMessageI
+        $"Found {actualStringSyntaxParameters.Length:stringParams} actual parameters in {text.FileName:filename}@{text.Version:version}"
+    )
+
     return actualStringSyntaxParameters
   }

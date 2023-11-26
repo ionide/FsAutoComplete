@@ -16,7 +16,8 @@ type Document with
 
 let hasLanguages name source expectedLanguages server =
   testAsync name {
-    let! (doc, _) = server |> Server.createUntitledDocument source
+    let! (doc, diags) = server |> Server.createUntitledDocument source
+    Expect.isEmpty diags "no diagnostics"
     let! nestedLanguages = doc.NestedLanguages |> Async.AwaitObservable
 
     let mappedExpectedLanguages: FsAutoComplete.Lsp.NestedLanguage array =
@@ -35,11 +36,26 @@ let hasLanguages name source expectedLanguages server =
 let tests state =
   testList
     "nested languages"
-    [ serverTestList "class member" state defaultConfigDto None (fun server ->
-        [ hasLanguages
-            "with single string parameter"
-            """
+    [ testList
+        "BCL"
+        [ serverTestList "class member" state defaultConfigDto None (fun server ->
+            [ hasLanguages
+                "with single string parameter"
+                """
             let b = System.UriBuilder("https://google.com")
             """
-            [| ("uri", [| (1u, 38u), (1u, 58u) |]) |]
-            server ]) ]
+                [| ("uri", [| (1u, 38u), (1u, 58u) |]) |]
+                server ]) ]
+      ftestList
+        "FSharp Code"
+        [ serverTestList "class member" state defaultConfigDto None (fun server ->
+            [ hasLanguages
+                "with single string parameter"
+                """
+            type Foo() =
+              static member Uri([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+
+            let u = Foo.Uri("https://google.com")
+            """
+                [| ("uri", [| (5u, 31u), (5u, 51u) |]) |]
+                server ]) ] ]
