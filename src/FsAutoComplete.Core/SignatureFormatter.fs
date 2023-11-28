@@ -552,10 +552,12 @@ module SignatureFormatter =
 
   let getAPCaseSignature displayContext (apc: FSharpActivePatternCase) =
     let findVal =
+      let apcSearchString = $"|{apc.DisplayName}|"
+
       apc.Group.DeclaringEntity
       |> Option.bind (fun ent ->
         ent.MembersFunctionsAndValues
-        |> Seq.tryFind (fun func -> func.DisplayName.Contains apc.DisplayName)
+        |> Seq.tryFind (fun func -> func.DisplayName.Contains(apcSearchString, StringComparison.OrdinalIgnoreCase))
         |> Option.map (getFuncSignature displayContext))
       |> Option.bind (fun n ->
         try
