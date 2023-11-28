@@ -379,7 +379,28 @@ let tooltipTests state =
                 "   body             : (MailboxProcessor<string> -> Async<unit>) *"
                 "   cancellationToken: option<System.Threading.CancellationToken>"
                 "                   -> MailboxProcessor<string>" ])
-          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool" ] ]
+          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool"
+          verifySignature
+            60
+            7
+            (concatLines
+              [ "active pattern Value: "
+                "   input: Expr"
+                "       -> option<obj * System.Type>" ])
+          verifySignature
+            65
+            7
+            (concatLines
+              [ "active pattern DefaultValue: "
+                "   input: Expr"
+                "       -> option<System.Type>" ])
+          verifySignature
+            70
+            7
+            (concatLines
+              [ "active pattern ValueWithName: "
+                "   input: Expr"
+                "       -> option<obj * System.Type * string>" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
