@@ -53,3 +53,20 @@ let mailbox =
 type DiscUnionWithCaseOfLabeledTuple =
     | Case1
     | Case2 of string * newlineBefore: bool * newlineAfter: bool
+
+open FSharp.Quotations.Patterns
+
+let testActivePatternSignatureWithSubStringName (expr: Quotations.Expr) =
+  match expr with
+  | Value (o, t) -> (o, t)
+  | _ -> failwith "no value match"
+  |> ignore
+
+  match expr with
+  | DefaultValue t -> t
+  | _ -> failwith "no value match"
+  |> ignore
+
+  match expr with
+  | ValueWithName t -> t
+  | _ -> failwith "no value match"
