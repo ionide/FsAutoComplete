@@ -29,12 +29,14 @@
     <Compile Include="CodeFixes/*.fsi" />
     <Compile Include="CodeFixes/*.fs" />
     <Compile Include="LspServers/IFSharpLspServer.fs" />
+    <Compile Include="LspServers/FSharpLspClient.fsi" />
     <Compile Include="LspServers/FSharpLspClient.fs" />
     <Compile Include="LspServers/Common.fs" />
     <Compile Include="LspServers/AdaptiveServerState.fsi" />
     <Compile Include="LspServers/AdaptiveServerState.fs" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fsi" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fs" />
+    <Compile Include="Parser.fsi" />
     <Compile Include="Parser.fs" />
     <Compile Include="Program.fs" />
     <None Include="FsAutoComplete.fsproj.paket.references" />

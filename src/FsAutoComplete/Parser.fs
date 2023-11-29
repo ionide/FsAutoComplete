@@ -30,24 +30,18 @@ module Parser =
       Start: FSharp.Compiler.Text.pos
       End: FSharp.Compiler.Text.pos }
 
-  let private setArity arity (o: #Option) =
+  let setArity arity (o: #Option) =
     o.Arity <- arity
     o
 
   /// set option to expect no arguments (e.g a flag-style argument: `--verbose`)
-  let inline private zero x = setArity ArgumentArity.Zero x
+  let inline zero x = setArity ArgumentArity.Zero x
   /// set option to expect one argument (e.g a single value: `--foo bar)
-  let inline private one x = setArity ArgumentArity.ExactlyOne x
+  let inline one x = setArity ArgumentArity.ExactlyOne x
 
   /// set option to expect multiple arguments
   /// (e.g a list of values: `--foo bar baz` or `--foo bar --foo baz` depending on the style)
-  let inline private many x = setArity ArgumentArity.OneOrMore x
-
-  /// set option to allow multiple arguments per use of the option flag
-  /// (e.g. `--foo bar baz` is equivalent to `--foo bar --foo baz`)
-  let inline private multipleArgs (x: #Option) =
-    x.AllowMultipleArgumentsPerToken <- true
-    x
+  let inline many x = setArity ArgumentArity.OneOrMore x
 
   let verboseOption =
     Option<bool>([| "--verbose"; "-v"; "--debug" |], "Enable verbose logging. This is equivalent to --log-level debug.")
