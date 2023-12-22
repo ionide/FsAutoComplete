@@ -1,6 +1,7 @@
 module FsAutoComplete.CodeFix.UpdateValueInSignatureFile
 
-open FSharp.Compiler.Symbols
+open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.Diagnostics.ExtendedData
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 open FsToolkit.ErrorHandling
@@ -9,24 +10,9 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+#nowarn "57"
+
 let title = "Update val in signature file"
-
-let assertPaths (sigPath: SyntaxVisitorPath) (implPath: SyntaxVisitorPath) =
-  let extractPath (path: SyntaxVisitorPath) =
-    path
-    |> List.collect (function
-      | SyntaxNode.SynModuleOrNamespace(SynModuleOrNamespace(longId = lid))
-      | SyntaxNode.SynModule(SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(longId = lid)))
-      | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = lid))
-      | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(moduleInfo = SynComponentInfo(longId = lid))) -> lid
-      | _ -> [])
-    |> List.map (fun ident -> ident.idText)
-    |> String.concat "."
-
-  let impl = extractPath implPath
-  let sign = extractPath sigPath
-  impl = sign
-
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "34" ]) (fun diagnostic codeActionParams ->
@@ -46,91 +32,71 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let mDiag =
         protocolRangeToRange implParseAndCheckResults.GetParseResults.FileName diagnostic.Range
 
+      let! extendedDiagnosticData =
+        implParseAndCheckResults.GetCheckResults.Diagnostics
+        |> Array.tryPick (fun (diag: FSharpDiagnostic) ->
+          if diag.ErrorNumber <> 34 || not (Range.equals diag.Range mDiag) then
+            None
+          else
+            match diag.ExtendedData with
+            | Some(:? ValueNotContainedDiagnosticExtendedData as extendedData) -> Some extendedData
+            | _ -> None)
+        |> Result.ofOption (fun () -> "No extended data")
+
       // Find the binding name in the implementation file.
       let impVisitor =
         { new SyntaxVisitorBase<_>() with
             override x.VisitBinding(path, defaultTraverse, SynBinding(headPat = pat)) =
               match pat with
               | SynPat.LongIdent(longDotId = SynLongIdent(id = [ ident ])) when Range.equals mDiag ident.idRange ->
-                Some(ident, path)
+                Some ident
               | _ -> None }
 
-      match SyntaxTraversal.Traverse(mDiag.Start, implParseAndCheckResults.GetParseResults.ParseTree, impVisitor) with
-      | None -> return []
-      | Some(implBindingIdent, implPath) ->
-        let endPos = implBindingIdent.idRange.End
+      let! implBindingIdent =
+        SyntaxTraversal.Traverse(mDiag.Start, implParseAndCheckResults.GetParseResults.ParseTree, impVisitor)
+        |> Result.ofOption (fun () -> "No binding name found")
 
-        let symbolUse =
-          implParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
-            endPos.Line,
-            endPos.Column,
-            implLine,
-            [ implBindingIdent.idText ]
-          )
+      let endPos = implBindingIdent.idRange.End
 
-        match symbolUse with
-        | None -> return []
-        | Some implSymbolUse ->
+      let! symbolUse =
+        implParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
+          endPos.Line,
+          endPos.Column,
+          implLine,
+          [ implBindingIdent.idText ]
+        )
+        |> Result.ofOption (fun () -> "No symbolUse found")
 
-          match implSymbolUse.Symbol with
-          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.SignatureLocation.IsSome ->
-            let mSig = mfv.SignatureLocation.Value
+      let! valText =
+        extendedDiagnosticData.ImplementationValue.GetValSignatureText(symbolUse.DisplayContext, symbolUse.Range)
+        |> Result.ofOption (fun () -> "No val text found.")
 
-            // Find a matching val in the signature file.
-            let sigVisitor =
-              { new SyntaxVisitorBase<_>() with
-                  override x.VisitValSig
-                    (
-                      path,
-                      defaultTraverse,
-                      SynValSig(ident = SynIdent(ident, _); range = mValSig)
-                    ) =
-                    if ident.idText = implBindingIdent.idText then
-                      Some(mValSig, path)
-                    else
-                      None }
-
-            let! (sigParseAndCheckResults: ParseAndCheckResults, sigLine: string, _sigSourceText: IFSACSourceText) =
-              getParseResultsForFile sigFileName mSig.End
-
-            match
-              SyntaxTraversal.Traverse(mSig.End, sigParseAndCheckResults.GetParseResults.ParseTree, sigVisitor)
-            with
-            | None -> return []
-            | Some(mValSig, sigPath) ->
-
-              // Verify both nodes share the same path.
-              // TODO: not sure how relevant this check still is.
-              // Using the mfv.SignatureLocation is probably already enough to pinpoint the correct val.
-              // This check was introduced to verify vals with the same name (but in different nested modules) are not getting mixed up.
-              if not (assertPaths sigPath implPath) then
-                return []
+      // Find a matching val in the signature file.
+      let sigVisitor =
+        { new SyntaxVisitorBase<_>() with
+            override x.VisitValSig(path, defaultTraverse, SynValSig(range = mValSig)) =
+              if Range.rangeContainsRange mValSig extendedDiagnosticData.SignatureValue.DeclarationLocation then
+                Some mValSig
               else
-                // Find matching symbol in signature file, we need it for its DisplayContext
-                // GetValSignatureText will take the open namespaces into account when printing the types.
-                // The implementation file might have different opens than the signature.
-                let sigSymbolUseOpt =
-                  sigParseAndCheckResults.GetCheckResults.GetSymbolUseAtLocation(
-                    mSig.End.Line,
-                    mSig.End.Column,
-                    sigLine,
-                    [ implBindingIdent.idText ]
-                  )
+                None }
 
-                match sigSymbolUseOpt with
-                | None -> return []
-                | Some sigSymbolUse ->
+      let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
+        getParseResultsForFile sigFileName extendedDiagnosticData.SignatureValue.DeclarationLocation.End
 
-                  match mfv.GetValSignatureText(sigSymbolUse.DisplayContext, implSymbolUse.Range) with
-                  | None -> return []
-                  | Some valText ->
-                    return
-                      [ { SourceDiagnostic = None
-                          Title = title
-                          File = sigTextDocumentIdentifier
-                          Edits =
-                            [| { Range = fcsRangeToLsp mValSig
-                                 NewText = valText } |]
-                          Kind = FixKind.Fix } ]
-          | _ -> return []
+      let! mVal =
+        SyntaxTraversal.Traverse(
+          extendedDiagnosticData.SignatureValue.DeclarationLocation.End,
+          sigParseAndCheckResults.GetParseResults.ParseTree,
+          sigVisitor
+        )
+        |> Result.ofOption (fun () -> "No val range found in signature file")
+
+      return
+        [ { SourceDiagnostic = None
+            Title = title
+            File = sigTextDocumentIdentifier
+            Edits =
+              [| { Range = fcsRangeToLsp mVal
+                   NewText = valText } |]
+            Kind = FixKind.Fix } ]
     })

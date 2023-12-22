@@ -46,7 +46,7 @@ let tests state =
   serverTestList (nameof UpdateValueInSignatureFile) state defaultConfigDto (Some path) (fun server ->
     [ let selectCodeFix = CodeFix.withTitle UpdateValueInSignatureFile.title
 
-      ftestCaseAsync "first unit test for UpdateValueInSignatureFile"
+      testCaseAsync "first unit test for UpdateValueInSignatureFile"
       <| checkWithFsi
         server
         """
