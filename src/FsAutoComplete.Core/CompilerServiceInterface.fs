@@ -472,3 +472,5 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       fsiAdditionalArguments <- additionalArgs
       fsiAdditionalFiles <- files
       scriptTypecheckRequirementsChanged.Trigger()
+
+  member _.ParseAndCheckProject(options: FSharpProjectOptions) = checker.ParseAndCheckProject(options)

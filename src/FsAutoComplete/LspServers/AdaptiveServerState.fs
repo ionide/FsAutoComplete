@@ -1768,7 +1768,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          RenameParamToMatchSignature.fix tryGetParseResultsForFile
          RemovePatternArgument.fix tryGetParseResultsForFile
          ToInterpolatedString.fix tryGetParseResultsForFile getLanguageVersion
-         AdjustConstant.fix tryGetParseResultsForFile |])
+         AdjustConstant.fix tryGetParseResultsForFile
+         TopLevelTypes.fix forceGetFSharpProjectOptions tryGetParseResultsForFile (fun () -> AVal.force checker) |])
 
   let forgetDocument (uri: DocumentUri) =
     async {

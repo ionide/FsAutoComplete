@@ -24,6 +24,7 @@
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="LspHelpers.fsi" />
     <Compile Include="LspHelpers.fs" />
+    <Compile Include="C:\Users\nojaf\Projects\g-research-fsharp-analyzers\src\FSharp.Analyzers\TopLevelTypeAnalysis.fs" />
     <Compile Include="CodeFixes.fsi" />
     <Compile Include="CodeFixes.fs" />
     <Compile Include="CodeFixes/*.fsi" />
