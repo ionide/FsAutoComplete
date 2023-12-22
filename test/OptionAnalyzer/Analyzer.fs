@@ -117,31 +117,36 @@ let info message items =
 
 let inline (==>) x y = x, box y
 
-[<Analyzer "OptionAnalyzer">]
-let optionValueAnalyzer: Analyzer =
+[<EditorAnalyzer "OptionAnalyzer">]
+let optionValueAnalyzer: Analyzer<EditorContext> =
   fun ctx ->
-    info "analyzing {file} for uses of Option.Value" [ "file" ==> ctx.FileName ]
-    let state = ResizeArray<Range>()
+    async {
+      info "analyzing {file} for uses of Option.Value" [ "file" ==> ctx.FileName ]
+      let state = ResizeArray<Range>()
 
-    let handler (range: Range) (m: FSharpMemberOrFunctionOrValue) =
-      let rangeString =
-        sprintf "(%d,%d)-(%d,%d)" range.Start.Line range.Start.Column range.End.Line range.End.Column
+      let handler (range: Range) (m: FSharpMemberOrFunctionOrValue) =
+        let rangeString =
+          sprintf "(%d,%d)-(%d,%d)" range.Start.Line range.Start.Column range.End.Line range.End.Column
 
-      let name = String.Join(".", m.DeclaringEntity.Value.FullName, m.DisplayName)
-      info "checking value at {range} with name {name}" [ "range" ==> rangeString; "name" ==> name ]
+        let name = String.Join(".", m.DeclaringEntity.Value.FullName, m.DisplayName)
+        info "checking value at {range} with name {name}" [ "range" ==> rangeString; "name" ==> name ]
 
-      if name = "Microsoft.FSharp.Core.FSharpOption`1.Value" then
-        info "matched at range {range}" [ "range" ==> rangeString ]
-        state.Add range
+        if name = "Microsoft.FSharp.Core.FSharpOption`1.Value" then
+          info "matched at range {range}" [ "range" ==> rangeString ]
+          state.Add range
 
-    ctx.TypedTree.Declarations |> List.iter (visitDeclaration handler)
+      match ctx.TypedTree with
+      | Some tt -> tt.Declarations |> List.iter (visitDeclaration handler)
+      | None -> ()
 
-    state
-    |> Seq.map (fun r ->
-      { Type = "Option.Value analyzer"
-        Message = "Option.Value shouldn't be used"
-        Code = "OV001"
-        Severity = Warning
-        Range = r
-        Fixes = [] })
-    |> Seq.toList
+      return
+        state
+        |> Seq.map (fun r ->
+          { Type = "Option.Value analyzer"
+            Message = "Option.Value shouldn't be used"
+            Code = "OV001"
+            Severity = Warning
+            Range = r
+            Fixes = [] })
+        |> Seq.toList
+    }
