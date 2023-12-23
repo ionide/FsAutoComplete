@@ -99,9 +99,6 @@ module Conversions =
     $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
 
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) : Diagnostic =
-    // Store?
-    ignore error.ExtendedData
-
     { Range =
         { Start =
             { Line = error.StartLine - 1

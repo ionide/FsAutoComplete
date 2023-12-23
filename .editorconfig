@@ -23,3 +23,9 @@ fsharp_max_array_or_list_width=80
 fsharp_max_dot_get_expression_width=80
 fsharp_max_function_binding_width=80
 fsharp_max_value_binding_width=80
+
+[src/FsAutoComplete/CodeFixes/TopLevelTypes.fs]
+indent_size = 4
+fsharp_multiline_bracket_style = aligned
+fsharp_align_function_signature_to_indentation = true
+fsharp_experimental_keep_indent_in_branch = true

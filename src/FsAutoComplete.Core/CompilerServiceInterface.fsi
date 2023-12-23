@@ -87,3 +87,4 @@ type FSharpCompilerServiceChecker =
   member GetDotnetRoot: unit -> DirectoryInfo option
   member SetFSIAdditionalArguments: args: string array -> unit
   member ParseAndCheckProject: FSharpProjectOptions -> Async<FSharpCheckProjectResults>
+  member NotifyFileChanged: string * FSharpProjectOptions -> Async<unit>

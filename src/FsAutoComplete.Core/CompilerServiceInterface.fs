@@ -13,7 +13,7 @@ open Microsoft.Extensions.Caching.Memory
 open System
 open FsToolkit.ErrorHandling
 
-
+#nowarn "57"
 
 type Version = int
 
@@ -474,3 +474,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       scriptTypecheckRequirementsChanged.Trigger()
 
   member _.ParseAndCheckProject(options: FSharpProjectOptions) = checker.ParseAndCheckProject(options)
+
+  member _.NotifyFileChanged(fileName: string, options: FSharpProjectOptions) =
+    checker.NotifyFileChanged(fileName, options)
