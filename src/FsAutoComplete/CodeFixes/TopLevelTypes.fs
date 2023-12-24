@@ -129,14 +129,25 @@ let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit
 let private mkEditToPrivate (missingTypeInfo: MissingTypeInfo) : TextEdit list =
     match missingTypeInfo.Declaration with
     | Declaration.Binding(leadingKeyword = leadingKeyword) ->
-        match leadingKeyword with
-        | SynLeadingKeyword.Let mLet ->
-            List.singleton
+        [
+            match leadingKeyword with
+            | SynLeadingKeyword.Let _ ->
                 {
                     NewText = "let private"
-                    Range = fcsRangeToLsp mLet
+                    Range = fcsRangeToLsp leadingKeyword.Range
                 }
-        | _ -> List.empty
+            | SynLeadingKeyword.And _ ->
+                {
+                    NewText = "and private"
+                    Range = fcsRangeToLsp leadingKeyword.Range
+                }
+            | SynLeadingKeyword.LetRec _ ->
+                {
+                    NewText = "let rec private"
+                    Range = fcsRangeToLsp leadingKeyword.Range
+                }
+            | _ -> ()
+        ]
     | _ -> List.empty
 
 let fix
@@ -163,10 +174,13 @@ let fix
         let editsMkPrivate =
             missingTypeInformation
             |> List.collect (fun missingTypeInfo ->
-                if missingTypeInfo.ValueIsUsedOutsideTheFileInTheProject then
-                    mkEditsForMissingTypes missingTypeInfo
+                if
+                    (not missingTypeInfo.ValueIsUsedOutsideTheFileInTheProject
+                     && missingTypeInfo.Declaration.IsLetBinding)
+                then
+                    mkEditToPrivate missingTypeInfo
                 else
-                    mkEditToPrivate missingTypeInfo)
+                    mkEditsForMissingTypes missingTypeInfo)
             |> List.toArray
 
         let editsAddTopLevelTypes =
