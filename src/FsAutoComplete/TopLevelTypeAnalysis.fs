@@ -1,0 +1,1 @@
+C:/Users/nojaf/Projects/g-research-fsharp-analyzers/src/FSharp.Analyzers/TopLevelTypeAnalysis.fs
