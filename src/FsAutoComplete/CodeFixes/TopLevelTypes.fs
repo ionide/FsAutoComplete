@@ -44,6 +44,18 @@ let private collectMissingTypeInformation
 let titleMkPrivate = "Make as much as possible private"
 let titleAddTopLevelTypes = "Add missing top level types"
 
+let private (|OneLinerParameter|_|) (p: MissingParameterType) =
+    match p with
+    | MissingParameterType.SingleParameter info -> info.Range.EndLine = info.Range.StartLine
+    | MissingParameterType.SimpleTupleParameter items ->
+        items
+        |> List.collect (fun p -> [ p.Range.EndLine; p.Range.StartLine ])
+        |> List.distinct
+        |> List.tryExactlyOne
+        |> Option.isSome
+    | MissingParameterType.Pattern info -> info.Range.EndLine = info.Range.StartLine
+    |> fun isOneliner -> if isOneliner then Some() else None
+
 let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit list =
     [
         // generic parameters
@@ -51,11 +63,21 @@ let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit
         // parameters
         for p in missingTypeInfo.Parameters do
             // TODO: deal with multiline parameter patterns
-            if p.Range.StartLine = p.Range.EndLine && not p.AddParentheses then
+            match p with
+            | OneLinerParameter & MissingParameterType.SingleParameter info ->
                 {
-                    NewText = $"(%s{p.SourceText}: %s{p.TypeName})"
-                    Range = fcsRangeToLsp p.Range
+                    NewText = $"(%s{info.SourceText}: %s{info.TypeName})"
+                    Range = fcsRangeToLsp info.Range
                 }
+            | OneLinerParameter & MissingParameterType.SimpleTupleParameter items ->
+                yield!
+                    items
+                    |> List.map (fun item ->
+                        {
+                            NewText = $"%s{item.SourceText}: %s{item.TypeName}"
+                            Range = fcsRangeToLsp item.Range
+                        })
+            | _ -> ()
 
         // declaration specific
         match missingTypeInfo.Declaration with
