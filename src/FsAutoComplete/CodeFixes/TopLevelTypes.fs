@@ -56,9 +56,37 @@ let private (|OneLinerParameter|_|) (p: MissingParameterType) =
     | MissingParameterType.Pattern info -> info.Range.EndLine = info.Range.StartLine
     |> fun isOneliner -> if isOneliner then Some() else None
 
+let private mkGenericParameterEdits (missingTypeInfo: MissingTypeInfo) : TextEdit list =
+    if missingTypeInfo.GenericParameters.IsEmpty then
+        []
+    else
+
+    match missingTypeInfo.CurrentGenericParameters with
+    | Some _ ->
+        // TODO: update generic parameter or constraints
+        []
+    | None ->
+
+    match missingTypeInfo.Declaration with
+    | Declaration.AutoProperty _ -> []
+    | Declaration.ImplicitCtor(typeName = ident)
+    | Declaration.Binding(name = ident) ->
+        let text =
+            missingTypeInfo.GenericParameters
+            |> List.map (fun gp -> gp.Name)
+            |> String.concat ", "
+
+        [
+            {
+                NewText = $"%s{ident.idText}<%s{text}>"
+                Range = fcsRangeToLsp ident.idRange
+            }
+        ]
+
 let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit list =
     [
         // generic parameters
+        yield! mkGenericParameterEdits missingTypeInfo
 
         // parameters
         for p in missingTypeInfo.Parameters do
@@ -66,7 +94,11 @@ let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit
             match p with
             | OneLinerParameter & MissingParameterType.SingleParameter info ->
                 {
-                    NewText = $"(%s{info.SourceText}: %s{info.TypeName})"
+                    NewText =
+                        if info.InsideConstructor then
+                            $"%s{info.SourceText}: %s{info.TypeName}"
+                        else
+                            $"(%s{info.SourceText}: %s{info.TypeName})"
                     Range = fcsRangeToLsp info.Range
                 }
             | OneLinerParameter & MissingParameterType.SimpleTupleParameter items ->
@@ -85,6 +117,11 @@ let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit
             {
                 NewText = $": %s{returnType.TypeName} ="
                 Range = fcsRangeToLsp returnType.Equals
+            }
+        | Declaration.AutoProperty(ident, typeName) ->
+            {
+                NewText = $"%s{ident.idText} : %s{typeName}"
+                Range = fcsRangeToLsp ident.idRange
             }
         | _ -> ()
     ]
