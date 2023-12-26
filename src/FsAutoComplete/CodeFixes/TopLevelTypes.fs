@@ -128,8 +128,16 @@ let private mkEditsForMissingTypes (missingTypeInfo: MissingTypeInfo) : TextEdit
 
 let private mkEditToPrivate (missingTypeInfo: MissingTypeInfo) : TextEdit list =
     match missingTypeInfo.Declaration with
-    | Declaration.Binding(leadingKeyword = leadingKeyword) ->
+    | Declaration.Binding(leadingKeyword = leadingKeyword; inlineKeyword = inlineKeyword) ->
         [
+            match inlineKeyword with
+            | Some inlineKeyword ->
+                {
+                    NewText = "inline private"
+                    Range = fcsRangeToLsp inlineKeyword
+                }
+            | None ->
+
             match leadingKeyword with
             | SynLeadingKeyword.Let _ ->
                 {
@@ -174,10 +182,7 @@ let fix
         let editsMkPrivate =
             missingTypeInformation
             |> List.collect (fun missingTypeInfo ->
-                if
-                    (not missingTypeInfo.ValueIsUsedOutsideTheFileInTheProject
-                     && missingTypeInfo.Declaration.IsLetBinding)
-                then
+                if missingTypeInfo.ValueCouldBeMadePrivateToFile then
                     mkEditToPrivate missingTypeInfo
                 else
                     mkEditsForMissingTypes missingTypeInfo)
