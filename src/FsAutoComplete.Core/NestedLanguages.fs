@@ -79,7 +79,7 @@ let rec private (|IsApplicationWithStringParameters|_|) (e: SynExpr) : option<St
   // method call with multiple string or interpolated string parameters (this also covers the case when not all parameters of the member are strings)
   //   c.M("<div>", true) and/or c.M(true, "<div>")
   // piped method call with multiple string or interpolated string parameters (this also covers the case when not all parameters of the member are strings)
-  // let binding that is a string value that has the stringsyntax attribute on it - [<StringSyntax("html")>] let html = "<div />"
+  // let binding that is a string value that has the StringSyntax attribute on it - [<StringSyntax("html")>] let html = "<div />"
   // all of the above but with literals
   | _ -> None
 
@@ -158,7 +158,7 @@ let private parametersThatAreStringSyntax
         match
           checkResults.GetSymbolUseAtLocation(
             endOfFinalTextToken.Line,
-            endOfFinalTextToken.Column - 1,
+            endOfFinalTextToken.Column - 1, // TODO: check off-by-one here?
             lineText,
             precedingParts |> List.map (fun i -> i.idText)
           )
@@ -171,7 +171,7 @@ let private parametersThatAreStringSyntax
           )
 
           let sym = usage.Symbol
-          // todo: keep MRU map of symbols to parameters and MRU of parameters to stringsyntax status
+          // todo: keep MRU map of symbols to parameters and MRU of parameters to StringSyntax status
 
           match sym with
           | :? FSharpMemberOrFunctionOrValue as mfv ->
@@ -189,6 +189,71 @@ let private parametersThatAreStringSyntax
                 { Language = language
                   Ranges = rangeMinusRanges p.parameterRange p.rangesToRemove }
             | None -> ()
+          | _ -> ()
+
+    return returnVal.ToArray()
+  }
+
+let private hasSingleStringParameter  (
+    parameters: StringParameter[],
+    checkResults: FSharpCheckFileResults,
+    text: VolatileFile
+  ) : Async<NestedLanguageDocument[]> =
+  async {
+    let returnVal = ResizeArray()
+
+    for p in parameters do
+      logger.info (
+        Log.setMessageI
+          $"Checking parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+      )
+
+      let lastPart = p.methodIdent[^0]
+      let endOfFinalTextToken = lastPart.idRange.End
+
+      match text.Source.GetLine(endOfFinalTextToken) with
+      | None -> ()
+      | Some lineText ->
+
+        match
+          checkResults.GetSymbolUseAtLocation(
+            endOfFinalTextToken.Line,
+            endOfFinalTextToken.Column + 1,
+            lineText,
+            p.methodIdent |> List.map (fun x -> x.idText)
+          )
+        with
+        | None -> ()
+        | Some usage ->
+          logger.info (
+            Log.setMessageI
+              $"Found symbol use: {usage.Symbol.ToString():symbol} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+          )
+
+          let sym = usage.Symbol
+          // todo: keep MRU map of symbols to parameters and MRU of parameters to StringSyntax status
+
+          match sym with
+          | :? FSharpMemberOrFunctionOrValue as mfv ->
+            let languageName = sym.DisplayName // TODO: what about funky names?
+            let allParameters = mfv.CurriedParameterGroups |> Seq.collect id
+            let firstParameter = allParameters |> Seq.tryHead
+            let hasOthers = allParameters |> Seq.skip 1 |> Seq.isEmpty |> not
+            match hasOthers, firstParameter with
+            | _, None -> ()
+            | true, _ ->  ()
+            | false, Some fsharpP ->
+              logger.info (
+                Log.setMessageI
+                  $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+              )
+              let baseType = fsharpP.Type.StripAbbreviations()
+              if baseType.BasicQualifiedName = "System.String" then
+                returnVal.Add
+                  { Language = languageName
+                    Ranges = rangeMinusRanges p.parameterRange p.rangesToRemove }
+              else
+                ()
           | _ -> ()
 
     return returnVal.ToArray()
@@ -214,7 +279,7 @@ let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : Nest
           $"Potential parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
       )
 
-    let! actualStringSyntaxParameters = parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
+    let! actualStringSyntaxParameters = hasSingleStringParameter (potentialParameters, tyRes.GetCheckResults, text) // ||  parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
 
     logger.info (
       Log.setMessageI
