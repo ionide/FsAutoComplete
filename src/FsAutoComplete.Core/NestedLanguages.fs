@@ -148,7 +148,7 @@ let private parametersThatAreStringSyntax
           $"Checking parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
       )
 
-      let precedingParts, lastPart = p.methodIdent.[0..^1], p.methodIdent[^0]
+      let lastPart = p.methodIdent[^0]
       let endOfFinalTextToken = lastPart.idRange.End
 
       match text.Source.GetLine(endOfFinalTextToken) with
@@ -158,9 +158,9 @@ let private parametersThatAreStringSyntax
         match
           checkResults.GetSymbolUseAtLocation(
             endOfFinalTextToken.Line,
-            endOfFinalTextToken.Column - 1, // TODO: check off-by-one here?
+            endOfFinalTextToken.Column,
             lineText,
-            precedingParts |> List.map (fun i -> i.idText)
+            p.methodIdent |> List.map (fun x -> x.idText)
           )
         with
         | None -> ()
@@ -193,6 +193,9 @@ let private parametersThatAreStringSyntax
 
     return returnVal.ToArray()
   }
+
+let private safeNestedLanguageNames =
+  System.Collections.Generic.HashSet(["html"; "svg"; "css"; "sql"; "js"; "python"; "uri"; "regex"; "xml"; "json"], System.StringComparer.OrdinalIgnoreCase)
 
 let private hasSingleStringParameter  (
     parameters: StringParameter[],
@@ -236,24 +239,26 @@ let private hasSingleStringParameter  (
           match sym with
           | :? FSharpMemberOrFunctionOrValue as mfv ->
             let languageName = sym.DisplayName // TODO: what about funky names?
-            let allParameters = mfv.CurriedParameterGroups |> Seq.collect id
-            let firstParameter = allParameters |> Seq.tryHead
-            let hasOthers = allParameters |> Seq.skip 1 |> Seq.isEmpty |> not
-            match hasOthers, firstParameter with
-            | _, None -> ()
-            | true, _ ->  ()
-            | false, Some fsharpP ->
-              logger.info (
-                Log.setMessageI
-                  $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
-              )
-              let baseType = fsharpP.Type.StripAbbreviations()
-              if baseType.BasicQualifiedName = "System.String" then
-                returnVal.Add
-                  { Language = languageName
-                    Ranges = rangeMinusRanges p.parameterRange p.rangesToRemove }
-              else
-                ()
+            if safeNestedLanguageNames.Contains(languageName)
+            then
+              let allParameters = mfv.CurriedParameterGroups |> Seq.collect id
+              let firstParameter = allParameters |> Seq.tryHead
+              let hasOthers = allParameters |> Seq.skip 1 |> Seq.isEmpty |> not
+              match hasOthers, firstParameter with
+              | _, None -> ()
+              | true, _ ->  ()
+              | false, Some fsharpP ->
+                logger.info (
+                  Log.setMessageI
+                    $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+                )
+                let baseType = fsharpP.Type.StripAbbreviations()
+                if baseType.BasicQualifiedName = "System.String" then
+                  returnVal.Add
+                    { Language = languageName
+                      Ranges = rangeMinusRanges p.parameterRange p.rangesToRemove }
+                else
+                  ()
           | _ -> ()
 
     return returnVal.ToArray()
@@ -279,8 +284,9 @@ let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : Nest
           $"Potential parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
       )
 
-    let! actualStringSyntaxParameters = hasSingleStringParameter (potentialParameters, tyRes.GetCheckResults, text) // ||  parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
-
+    //let! singleStringParameters = hasSingleStringParameter (potentialParameters, tyRes.GetCheckResults, text)
+    let! actualStringSyntaxParameters = parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
+    //let actualStringSyntaxParameters = Array.append singleStringParameters stringSyntaxParameters
     logger.info (
       Log.setMessageI
         $"Found {actualStringSyntaxParameters.Length:stringParams} actual parameters in {text.FileName:filename}@{text.Version:version}"

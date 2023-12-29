@@ -38,7 +38,8 @@ let tests state =
     "nested languages"
     [ testList
         "BCL"
-        [ serverTestList "class member" state defaultConfigDto None (fun server ->
+        // pending because class members don't return attributes in the FCS Parameter API
+        [ pserverTestList "class member" state defaultConfigDto None (fun server ->
             [ hasLanguages
                 "with single string parameter"
                 """
@@ -48,59 +49,60 @@ let tests state =
                 server ]) ]
       testList
         "FSharp Code"
-        [ serverTestList "class member" state defaultConfigDto None (fun server ->
+        // pending because class members don't return attributes in the FCS Parameter API
+        [ pserverTestList "class member" state defaultConfigDto None (fun server ->
             [ hasLanguages
                 "with single string parameter"
                 """
             type Foo() =
-              member x.Uri([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+              member x.Boo([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
             let f = new Foo()
-            let u = f.Uri("https://google.com")
+            let u = f.Boo("https://google.com")
             """
-                [| ("uri", [| (5u, 31u), (5u, 51u) |]) |]
+                [| ("uri", [| (4u, 26u), (4u, 46u) |]) |]
                 server ])
 
           serverTestList "let bound function member" state defaultConfigDto None (fun server ->
             [ hasLanguages
                 "with single string parameter"
                 """
-            let foo ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
-            let u = foo "https://google.com"
+            let boo ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+            let u = boo "https://google.com"
             """
-                [| ("uri", [| (5u, 31u), (5u, 51u) |]) |]
-                server ]) ]
-      ftestList "Sql" [
-        serverTestList "loose function" state defaultConfigDto None (fun server -> [
-          hasLanguages
-                "with single string parameter and string literal"
-                """
-            let foo (s: string) = ()
-            let u = foo "https://google.com"
-            """
-                [| ("foo", [| (2u, 24u), (2u, 44u) |]) |]
+                [| ("uri", [| (2u, 24u), (2u, 44u) |]) |]
                 server
 
-          hasLanguages
-                "with single string parameter and interpolated string literal"
-                """
-            let foo (s: string) = ()
-            let u = foo $"https://{true}.com"
+              hasLanguages
+                    "with single string parameter and string literal"
+                    """
+            let uri ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>]s: string) = ()
+            let u = uri "https://google.com"
             """
-                [| ("foo", [| (2u, 24u), (2u, 35u)
-                              (2u, 39u), (2u, 45u) |]) |]
-                server
+                    [| ("uri", [| (2u, 24u), (2u, 44u) |]) |]
+                    server
 
-          hasLanguages
-                "multiple lanuages in the same document"
-                """
-            let html (s: string) = ()
-            let sql (s: string) = ()
-            let myWebPage = html "<body>WOWEE</body>"
+              hasLanguages
+                    "with single string parameter and interpolated string literal"
+                    """
+            let uri ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>]s: string) = ()
+            let u = uri $"https://{true}.com"
+            """
+                    [| ("uri", [| (2u, 24u), (2u, 35u)
+                                  (2u, 39u), (2u, 45u) |]) |]
+                    server
+
+              hasLanguages
+                    "multiple languages in the same document"
+                    """
+            let html ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("html")>]s: string) = ()
+            let sql ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("sql")>]s: string) = ()
+            let myWebPage = html "<body>wow</body>"
             let myQuery = sql "select * from accounts where net_worth > 1000000"
             """
-                [| ("html", [| (3u, 33u), (3u, 53u) |])
-                   ("sql", [| (4u, 30u), (4u, 80u) |]) |]
-                server
-        ]
+                    [| ("html", [| (3u, 33u), (3u, 51u) |])
+                       ("sql", [| (4u, 30u), (4u, 80u) |]) |]
+                    server
+          ]
         )
-      ]]
+      ]
+    ]
