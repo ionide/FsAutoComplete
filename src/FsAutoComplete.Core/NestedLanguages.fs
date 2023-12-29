@@ -26,6 +26,7 @@ let discoverRangesToRemoveForInterpolatedString (list: SynInterpolatedStringPart
 
 let private (|Ident|_|) (e: SynExpr) =
   match e with
+  | SynExpr.Ident(ident) -> Some([ ident ])
   | SynExpr.LongIdent(longDotId = SynLongIdent(id = ident)) -> Some ident
   | _ -> None
 
@@ -61,12 +62,10 @@ let rec private (|IsApplicationWithStringParameters|_|) (e: SynExpr) : option<St
     )
   // method call with interpolated string parameter - c.M $"<div>{1 + 1}"
   | SynExpr.App(
-      funcExpr = SynExpr.LongIdent(longDotId = SynLongIdent(id = ident))
+      funcExpr = Ident(ident)
       argExpr = SynExpr.Paren(expr = SynExpr.InterpolatedString(contents = parts; range = range)))
   // method call with interpolated string parameter - c.M($"<div>{1 + 1}")
-  | SynExpr.App(
-    funcExpr = SynExpr.LongIdent(longDotId = SynLongIdent(id = ident))
-    argExpr = SynExpr.InterpolatedString(contents = parts; range = range)) ->
+  | SynExpr.App(funcExpr = Ident(ident); argExpr = SynExpr.InterpolatedString(contents = parts; range = range)) ->
     let rangesToRemove = discoverRangesToRemoveForInterpolatedString parts
 
     Some(
@@ -90,10 +89,11 @@ type private StringParameterFinder() =
 
   let languages = ResizeArray<StringParameter>()
 
-  override _.WalkBinding(SynBinding(expr = expr)) =
-    match expr with
-    | IsApplicationWithStringParameters(stringParameters) -> languages.AddRange stringParameters
+  override _.WalkBinding(binding) =
+    match binding with
+    | SynBinding(expr = IsApplicationWithStringParameters(stringParameters)) -> languages.AddRange stringParameters
     | _ -> ()
+
 
   override _.WalkSynModuleDecl(decl) =
     match decl with
@@ -137,29 +137,38 @@ let private parametersThatAreStringSyntax
   (
     parameters: StringParameter[],
     checkResults: FSharpCheckFileResults,
-    text: IFSACSourceText
+    text: VolatileFile
   ) : Async<NestedLanguageDocument[]> =
   async {
     let returnVal = ResizeArray()
 
     for p in parameters do
+      logger.info (
+        Log.setMessageI
+          $"Checking parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+      )
+
       let precedingParts, lastPart = p.methodIdent.[0..^1], p.methodIdent[^0]
       let endOfFinalTextToken = lastPart.idRange.End
 
-      match text.GetLine(endOfFinalTextToken) with
+      match text.Source.GetLine(endOfFinalTextToken) with
       | None -> ()
       | Some lineText ->
 
         match
           checkResults.GetSymbolUseAtLocation(
             endOfFinalTextToken.Line,
-            endOfFinalTextToken.Column,
+            endOfFinalTextToken.Column - 1,
             lineText,
             precedingParts |> List.map (fun i -> i.idText)
           )
         with
         | None -> ()
         | Some usage ->
+          logger.info (
+            Log.setMessageI
+              $"Found symbol use: {usage.Symbol.ToString():symbol} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+          )
 
           let sym = usage.Symbol
           // todo: keep MRU map of symbols to parameters and MRU of parameters to stringsyntax status
@@ -168,6 +177,11 @@ let private parametersThatAreStringSyntax
           | :? FSharpMemberOrFunctionOrValue as mfv ->
             let allParameters = mfv.CurriedParameterGroups |> Seq.collect id |> Seq.toArray
             let fsharpP = allParameters[p.parameterPosition]
+
+            logger.info (
+              Log.setMessageI
+                $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+            )
 
             match fsharpP.Attributes |> Seq.tryPick (|IsStringSyntax|_|) with
             | Some language ->
@@ -197,11 +211,10 @@ let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : Nest
     for p in potentialParameters do
       logger.info (
         Log.setMessageI
-          $"Potential parameter: {p.parameterRange:range} in member {p.methodIdent:methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
+          $"Potential parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
       )
 
-    let! actualStringSyntaxParameters =
-      parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text.Source)
+    let! actualStringSyntaxParameters = parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
 
     logger.info (
       Log.setMessageI

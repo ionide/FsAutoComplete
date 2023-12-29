@@ -46,16 +46,26 @@ let tests state =
             """
                 [| ("uri", [| (1u, 38u), (1u, 58u) |]) |]
                 server ]) ]
-      ftestList
+      testList
         "FSharp Code"
         [ serverTestList "class member" state defaultConfigDto None (fun server ->
             [ hasLanguages
                 "with single string parameter"
                 """
             type Foo() =
-              static member Uri([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+              member x.Uri([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+            let f = new Foo()
+            let u = f.Uri("https://google.com")
+            """
+                [| ("uri", [| (5, 31), (5, 51) |]) |]
+                server ])
 
-            let u = Foo.Uri("https://google.com")
+          fserverTestList "let bound function member" state defaultConfigDto None (fun server ->
+            [ hasLanguages
+                "with single string parameter"
+                """
+            let foo ([<System.Diagnostics.CodeAnalysis.StringSyntaxAttribute("uri")>] uriString: string) = ()
+            let u = foo "https://google.com"
             """
                 [| ("uri", [| (5u, 31u), (5u, 51u) |]) |]
                 server ]) ] ]
