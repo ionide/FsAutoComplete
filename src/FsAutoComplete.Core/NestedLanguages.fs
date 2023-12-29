@@ -195,9 +195,13 @@ let private parametersThatAreStringSyntax
   }
 
 let private safeNestedLanguageNames =
-  System.Collections.Generic.HashSet(["html"; "svg"; "css"; "sql"; "js"; "python"; "uri"; "regex"; "xml"; "json"], System.StringComparer.OrdinalIgnoreCase)
+  System.Collections.Generic.HashSet(
+    [ "html"; "svg"; "css"; "sql"; "js"; "python"; "uri"; "regex"; "xml"; "json" ],
+    System.StringComparer.OrdinalIgnoreCase
+  )
 
-let private hasSingleStringParameter  (
+let private hasSingleStringParameter
+  (
     parameters: StringParameter[],
     checkResults: FSharpCheckFileResults,
     text: VolatileFile
@@ -239,20 +243,23 @@ let private hasSingleStringParameter  (
           match sym with
           | :? FSharpMemberOrFunctionOrValue as mfv ->
             let languageName = sym.DisplayName // TODO: what about funky names?
-            if safeNestedLanguageNames.Contains(languageName)
-            then
+
+            if safeNestedLanguageNames.Contains(languageName) then
               let allParameters = mfv.CurriedParameterGroups |> Seq.collect id
               let firstParameter = allParameters |> Seq.tryHead
               let hasOthers = allParameters |> Seq.skip 1 |> Seq.isEmpty |> not
+
               match hasOthers, firstParameter with
               | _, None -> ()
-              | true, _ ->  ()
+              | true, _ -> ()
               | false, Some fsharpP ->
                 logger.info (
                   Log.setMessageI
                     $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
                 )
+
                 let baseType = fsharpP.Type.StripAbbreviations()
+
                 if baseType.BasicQualifiedName = "System.String" then
                   returnVal.Add
                     { Language = languageName
