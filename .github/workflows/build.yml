@@ -58,6 +58,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - uses: actions/checkout@v4
+      if: ${{ github.event_name == 'push' }}
 
     # setup .NET per the repo global.json
     - name: Setup .NET
