@@ -57,7 +57,7 @@ jobs:
     name: Build on ${{matrix.os}} for ${{ matrix.label }} ${{ matrix.workspace-loader }} ${{ matrix.use-transparent-compiler }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     # setup .NET per the repo global.json
     - name: Setup .NET
