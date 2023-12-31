@@ -14,15 +14,71 @@ let logger = LogProvider.getLoggerByName "NestedLanguages"
 type private StringParameter =
   { methodIdent: LongIdent
     parameterRange: Range
-    rangesToRemove: Range[]
+    rangesToRemove: Range array
     parameterPosition: int }
 
-let discoverRangesToRemoveForInterpolatedString (list: SynInterpolatedStringPart list) =
-  list
-  |> List.choose (function
-    | SynInterpolatedStringPart.FillExpr(fillExpr = e) -> Some e.Range
-    | _ -> None)
-  |> List.toArray
+
+/// for virtual documents based on interpolated strings we need to remove two kinds of trivia from the overall string portions.
+/// * for interpolation expressions we need to remove the entire range of the expression - this will be invisible to the virtual document since it is F# code.
+/// * for string literals, we need to remove the prefix/suffix tokens (quotes, interpolation brackets, format specifiers, etc) so that the only content visible
+/// to the virtual document is the actual string content.
+///
+/// FEATURE GAP: we don't know in the AST the locations of the string trivia, so we can't support format specifiers or variable-length
+///              interpolation start/end tokens.
+let private discoverRangesToRemoveForInterpolatedString
+  (stringKind: SynStringKind)
+  (parts: SynInterpolatedStringPart[])
+  =
+  parts
+  |> Array.indexed
+  |> Array.collect (fun (index, part) ->
+    match part with
+    | SynInterpolatedStringPart.FillExpr(fillExpr = e) -> [| e.Range |]
+    // for the first part we have whatever 'leading' element on the left and a trailing interpolation piece (which can include a format specifier) on the right
+    | SynInterpolatedStringPart.String(range = range) when index = 0 ->
+      [|
+         // leading tokens adjustment
+         // GAP: we don't know how many interpolation $ or " there are, so we are guessing
+         match stringKind with
+         | SynStringKind.Regular ->
+           // 'regular' means $" leading identifier
+           range.WithEnd(range.Start.WithColumn(range.StartColumn + 2))
+         | SynStringKind.TripleQuote ->
+           // 'triple quote' means $""" leading identifier
+           range.WithEnd(range.Start.WithColumn(range.StartColumn + 4))
+         // there's no such thing as a verbatim interpolated string
+         | SynStringKind.Verbatim -> ()
+
+         // trailing token adjustment- only an opening bracket {
+         // GAP: this is the feature gap - we don't know about format specifiers
+         range.WithStart(range.End.WithColumn(range.EndColumn - 1))
+
+         |]
+    // for the last part we have a single-character interpolation bracket on the left and the 'trailing' string elements on the right
+    | SynInterpolatedStringPart.String(range = range) when index = parts.Length - 1 ->
+      [|
+         // leading token adjustment - only a closing bracket }
+         range.WithEnd(range.Start.WithColumn(range.StartColumn + 1))
+
+         // trailing tokens adjustment
+         // GAP: we don't know how many """ to adjust for triple-quote interpolated string endings
+         match stringKind with
+         | SynStringKind.Regular ->
+           // 'regular' means trailing identifier "
+           range.WithStart(range.End.WithColumn(range.EndColumn - 1))
+         | SynStringKind.TripleQuote ->
+           // 'triple quote' means trailing identifier """
+           range.WithStart(range.End.WithColumn(range.EndColumn - 3))
+         // no such thing as verbatim interpolated strings
+         | SynStringKind.Verbatim -> () |]
+    // for all other parts we have a single-character interpolation bracket on the left and a trailing interpolation piece (which can include a format specifier) on the right
+    | SynInterpolatedStringPart.String(range = range) ->
+      [|
+         // leading token adjustment - only a closing bracket }
+         range.WithEnd(range.Start.WithColumn(range.StartColumn + 1))
+         // trailing token adjustment- only an opening bracket {
+         // GAP: this is the feature gap - we don't know about format specifiers here
+         range.WithStart(range.End.WithColumn(range.EndColumn - 1)) |])
 
 let private (|Ident|_|) (e: SynExpr) =
   match e with
@@ -30,7 +86,24 @@ let private (|Ident|_|) (e: SynExpr) =
   | SynExpr.LongIdent(longDotId = SynLongIdent(id = ident)) -> Some ident
   | _ -> None
 
-let rec private (|IsApplicationWithStringParameters|_|) (e: SynExpr) : option<StringParameter[]> =
+/// in order for nested documents to be recognized as their document types, the string quotes (and other tokens) need to be removed
+/// from the actual string content.
+let private removeStringTokensFromStringRange (kind: SynStringKind) (range: Range) : Range array =
+  match kind with
+  | SynStringKind.Regular ->
+    // we need to trim the double-quote off of the start and end
+    [| Range.mkRange range.FileName range.Start (range.Start.WithColumn(range.StartColumn + 1))
+       Range.mkRange range.FileName (range.End.WithColumn(range.EndColumn - 1)) range.End |]
+  | SynStringKind.Verbatim ->
+    // we need to trim the @+double-quote off of the start and double-quote off the end
+    [| Range.mkRange range.FileName range.Start (range.Start.WithColumn(range.StartColumn + 2))
+       Range.mkRange range.FileName (range.End.WithColumn(range.EndColumn - 1)) range.End |]
+  | SynStringKind.TripleQuote ->
+    // we need to trim the @+double-quote off of the start and double-quote off the end
+    [| Range.mkRange range.FileName range.Start (range.Start.WithColumn(range.StartColumn + 2))
+       Range.mkRange range.FileName (range.End.WithColumn(range.EndColumn - 1)) range.End |]
+
+let rec private (|IsApplicationWithStringParameters|_|) (e: SynExpr) : StringParameter array option =
   match e with
   // lines inside a binding
   // let doThing () =
@@ -39,34 +112,46 @@ let rec private (|IsApplicationWithStringParameters|_|) (e: SynExpr) : option<St
   //    "<div>" |> c.M
   //    $"<div>{1 + 1}" |> c.M
   | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
-    [| match e1 with
-       | IsApplicationWithStringParameters(stringParameter) -> yield! stringParameter
-       | _ -> ()
+    let e1Parameters =
+      match e1 with
+      | IsApplicationWithStringParameters(stringParameter) when not (Array.isEmpty stringParameter) ->
+        ValueSome stringParameter
+      | _ -> ValueNone
 
-       match e2 with
-       | IsApplicationWithStringParameters(stringParameter) -> yield! stringParameter
-       | _ -> () |]
-    // TODO: check if the array would be empty and return none
-    |> Some
+    let e2Parameters =
+      match e2 with
+      | IsApplicationWithStringParameters(stringParameter) when not (Array.isEmpty stringParameter) ->
+        ValueSome stringParameter
+      | _ -> ValueNone
+
+    match e1Parameters, e2Parameters with
+    | ValueNone, ValueNone -> None
+    | ValueSome e1Parameters, ValueNone -> Some e1Parameters
+    | ValueNone, ValueSome e2Parameters -> Some e2Parameters
+    | ValueSome e1Parameters, ValueSome e2Parameters -> Some(Array.append e1Parameters e2Parameters)
 
   // method call with string parameter - c.M("<div>")
   | SynExpr.App(
-      funcExpr = Ident(ident); argExpr = SynExpr.Paren(expr = SynExpr.Const(SynConst.String(_text, _kind, range), _)))
+      funcExpr = Ident(ident); argExpr = SynExpr.Paren(expr = SynExpr.Const(SynConst.String(_text, kind, range), _)))
   // method call with string parameter - c.M "<div>"
-  | SynExpr.App(funcExpr = Ident(ident); argExpr = SynExpr.Const(SynConst.String(_text, _kind, range), _)) ->
+  | SynExpr.App(funcExpr = Ident(ident); argExpr = SynExpr.Const(SynConst.String(_text, kind, range), _)) ->
     Some(
       [| { methodIdent = ident
            parameterRange = range
-           rangesToRemove = [||]
+           rangesToRemove = removeStringTokensFromStringRange kind range
            parameterPosition = 0 } |]
     )
   // method call with interpolated string parameter - c.M $"<div>{1 + 1}"
   | SynExpr.App(
       funcExpr = Ident(ident)
-      argExpr = SynExpr.Paren(expr = SynExpr.InterpolatedString(contents = parts; range = range)))
+      argExpr = SynExpr.Paren(
+        expr = SynExpr.InterpolatedString(contents = parts; synStringKind = stringKind; range = range)))
   // method call with interpolated string parameter - c.M($"<div>{1 + 1}")
-  | SynExpr.App(funcExpr = Ident(ident); argExpr = SynExpr.InterpolatedString(contents = parts; range = range)) ->
-    let rangesToRemove = discoverRangesToRemoveForInterpolatedString parts
+  | SynExpr.App(
+    funcExpr = Ident(ident)
+    argExpr = SynExpr.InterpolatedString(contents = parts; synStringKind = stringKind; range = range)) ->
+    let rangesToRemove =
+      discoverRangesToRemoveForInterpolatedString stringKind (Array.ofList parts)
 
     Some(
       [| { methodIdent = ident
@@ -117,9 +202,11 @@ let private (|IsStringSyntax|_|) (a: FSharpAttribute) =
     | _ -> None
   | _ -> None
 
-type NestedLanguageDocument = { Language: string; Ranges: Range[] }
+type NestedLanguageDocument =
+  { Language: string
+    Ranges: Range array }
 
-let rangeMinusRanges (totalRange: Range) (rangesToRemove: Range[]) : Range[] =
+let rangeMinusRanges (totalRange: Range) (rangesToRemove: Range array) : Range array =
   match rangesToRemove with
   | [||] -> [| totalRange |]
   | _ ->
@@ -127,18 +214,22 @@ let rangeMinusRanges (totalRange: Range) (rangesToRemove: Range[]) : Range[] =
     let mutable currentStart = totalRange.Start
 
     for r in rangesToRemove do
-      returnVal.Add(Range.mkRange totalRange.FileName currentStart r.Start)
-      currentStart <- r.End
+      if currentStart = r.Start then
+        // no gaps, so just advance the current pointer
+        currentStart <- r.End
+      else
+        returnVal.Add(Range.mkRange totalRange.FileName currentStart r.Start)
+        currentStart <- r.End
 
-    returnVal.Add(Range.mkRange totalRange.FileName currentStart totalRange.End)
+    // only need to add the final range if there is a gap between where we are and the end of the string
+    if currentStart <> totalRange.End then
+      returnVal.Add(Range.mkRange totalRange.FileName currentStart totalRange.End)
+
     returnVal.ToArray()
 
 let private parametersThatAreStringSyntax
-  (
-    parameters: StringParameter[],
-    checkResults: FSharpCheckFileResults,
-    text: VolatileFile
-  ) : Async<NestedLanguageDocument[]> =
+  (parameters: StringParameter array, checkResults: FSharpCheckFileResults, text: VolatileFile)
+  : NestedLanguageDocument array Async =
   async {
     let returnVal = ResizeArray()
 
@@ -194,90 +285,12 @@ let private parametersThatAreStringSyntax
     return returnVal.ToArray()
   }
 
-let private safeNestedLanguageNames =
-  System.Collections.Generic.HashSet(
-    [ "html"; "svg"; "css"; "sql"; "js"; "python"; "uri"; "regex"; "xml"; "json" ],
-    System.StringComparer.OrdinalIgnoreCase
-  )
-
-let private hasSingleStringParameter
-  (
-    parameters: StringParameter[],
-    checkResults: FSharpCheckFileResults,
-    text: VolatileFile
-  ) : Async<NestedLanguageDocument[]> =
-  async {
-    let returnVal = ResizeArray()
-
-    for p in parameters do
-      logger.info (
-        Log.setMessageI
-          $"Checking parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
-      )
-
-      let lastPart = p.methodIdent[^0]
-      let endOfFinalTextToken = lastPart.idRange.End
-
-      match text.Source.GetLine(endOfFinalTextToken) with
-      | None -> ()
-      | Some lineText ->
-
-        match
-          checkResults.GetSymbolUseAtLocation(
-            endOfFinalTextToken.Line,
-            endOfFinalTextToken.Column + 1,
-            lineText,
-            p.methodIdent |> List.map (fun x -> x.idText)
-          )
-        with
-        | None -> ()
-        | Some usage ->
-          logger.info (
-            Log.setMessageI
-              $"Found symbol use: {usage.Symbol.ToString():symbol} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
-          )
-
-          let sym = usage.Symbol
-          // todo: keep MRU map of symbols to parameters and MRU of parameters to StringSyntax status
-
-          match sym with
-          | :? FSharpMemberOrFunctionOrValue as mfv ->
-            let languageName = sym.DisplayName // TODO: what about funky names?
-
-            if safeNestedLanguageNames.Contains(languageName) then
-              let allParameters = mfv.CurriedParameterGroups |> Seq.collect id
-              let firstParameter = allParameters |> Seq.tryHead
-              let hasOthers = allParameters |> Seq.skip 1 |> Seq.isEmpty |> not
-
-              match hasOthers, firstParameter with
-              | _, None -> ()
-              | true, _ -> ()
-              | false, Some fsharpP ->
-                logger.info (
-                  Log.setMessageI
-                    $"Found parameter: {fsharpP.ToString():symbol} with {fsharpP.Attributes.Count:attributeCount} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
-                )
-
-                let baseType = fsharpP.Type.StripAbbreviations()
-
-                if baseType.BasicQualifiedName = "System.String" then
-                  returnVal.Add
-                    { Language = languageName
-                      Ranges = rangeMinusRanges p.parameterRange p.rangesToRemove }
-                else
-                  ()
-          | _ -> ()
-
-    return returnVal.ToArray()
-  }
-
 /// to find all of the nested language highlights, we're going to do the following:
 /// * find all of the interpolated strings or string literals in the file that are in parameter-application positions
 /// * get the method calls happening at those positions to check if that method has the StringSyntaxAttribute
 /// * if so, return a) the language in the StringSyntaxAttribute, and b) the range of the interpolated string
-let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : NestedLanguageDocument[] Async =
+let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : NestedLanguageDocument array Async =
   async {
-    // get all string constants
     let potentialParameters = findParametersForParseTree tyRes.GetAST
 
     logger.info (
@@ -291,9 +304,8 @@ let findNestedLanguages (tyRes: ParseAndCheckResults, text: VolatileFile) : Nest
           $"Potential parameter: {p.parameterRange.ToString():range} in member {p.methodIdent.ToString():methodName} of {text.FileName:filename}@{text.Version:version} -> {text.Source[p.parameterRange]:sourceText}"
       )
 
-    //let! singleStringParameters = hasSingleStringParameter (potentialParameters, tyRes.GetCheckResults, text)
     let! actualStringSyntaxParameters = parametersThatAreStringSyntax (potentialParameters, tyRes.GetCheckResults, text)
-    //let actualStringSyntaxParameters = Array.append singleStringParameters stringSyntaxParameters
+
     logger.info (
       Log.setMessageI
         $"Found {actualStringSyntaxParameters.Length:stringParams} actual parameters in {text.FileName:filename}@{text.Version:version}"
