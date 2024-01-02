@@ -127,11 +127,20 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
          yield! fsiExtraParameters |]
 
-  let analyzersClient =
+  let mutable analyzersClient =
     FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
       Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
       Set.empty
     )
+
+  let setAnalyzersClient excludeAnalyzers =
+    let client =
+      FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
+        Set.ofArray excludeAnalyzers
+      )
+
+    analyzersClient <- client
 
   /// <summary>Loads F# Analyzers from the configured directories</summary>
   /// <param name="config">The FSharpConfig</param>
@@ -140,6 +149,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let loadAnalyzers (config: FSharpConfig) (rootPath: string option) =
     if config.EnableAnalyzers then
       Loggers.analyzers.info (Log.setMessageI $"Using analyzer roots of {config.AnalyzersPath:roots}")
+      setAnalyzersClient config.ExcludeAnalyzers // ToDo: add a setter method to the Client to update ExcludeAnalyzers
 
       config.AnalyzersPath
       |> Array.iter (fun analyzerPath ->

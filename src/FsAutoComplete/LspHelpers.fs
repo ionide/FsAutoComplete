@@ -661,6 +661,7 @@ type FSharpConfigDto =
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
     AnalyzersPath: string[] option
+    ExcludeAnalyzers: string[] option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
@@ -800,6 +801,7 @@ type FSharpConfig =
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
     AnalyzersPath: string[]
+    ExcludeAnalyzers: string[]
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
@@ -846,6 +848,7 @@ type FSharpConfig =
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
       AnalyzersPath = [||]
+      ExcludeAnalyzers = [||]
       DisableInMemoryProjectReferences = false
       LineLens = { Enabled = "never"; Prefix = "" }
       UseSdkScripts = true
@@ -894,6 +897,7 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false
       AnalyzersPath = defaultArg dto.AnalyzersPath [||]
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers [||]
       DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
       LineLens =
         { Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
@@ -999,6 +1003,7 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
       EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
       AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers x.ExcludeAnalyzers
       DisableInMemoryProjectReferences =
         defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
       LineLens =
