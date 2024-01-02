@@ -230,6 +230,7 @@ let defaultConfigDto: FSharpConfigDto =
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
     AnalyzersPath = None
+    ExcludeAnalyzers = None
     DisableInMemoryProjectReferences = None
     AutomaticWorkspaceInit = Some true
     InterfaceStubGeneration = None
