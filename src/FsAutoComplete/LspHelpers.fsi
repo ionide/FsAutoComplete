@@ -292,6 +292,7 @@ type FSharpConfigDto =
     EnableAnalyzers: bool option
     AnalyzersPath: string[] option
     ExcludeAnalyzers: string[] option
+    IncludeAnalyzers: string[] option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
@@ -391,6 +392,7 @@ type FSharpConfig =
     EnableAnalyzers: bool
     AnalyzersPath: string[]
     ExcludeAnalyzers: string[]
+    IncludeAnalyzers: string[]
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
