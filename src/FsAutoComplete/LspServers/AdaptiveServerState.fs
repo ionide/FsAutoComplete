@@ -142,16 +142,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let excludeInclude =
         match config.ExcludeAnalyzers, config.IncludeAnalyzers with
-        | [||], [||] -> None
-        | e, [||] -> Some(FSharp.Analyzers.SDK.ExcludeInclude.Exclude(Set.ofArray e))
-        | [||], i -> Some(FSharp.Analyzers.SDK.ExcludeInclude.Include(Set.ofArray i))
+        | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.Exclude(Set.ofArray e)
+        | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.Include(Set.ofArray i)
         | i, _e ->
           Loggers.analyzers.warn (
             Log.setMessage
               "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
           )
 
-          Some(FSharp.Analyzers.SDK.ExcludeInclude.Include(Set.ofArray i))
+          FSharp.Analyzers.SDK.ExcludeInclude.Include(Set.ofArray i)
 
       config.AnalyzersPath
       |> Array.iter (fun analyzerPath ->
