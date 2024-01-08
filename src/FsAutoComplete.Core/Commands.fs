@@ -1144,14 +1144,13 @@ module Commands =
       content: ISourceText,
       pt,
       tast,
-      _symbols,
-      _getAllEntities
+      checkFileResults: FSharpCheckFileResults
     ) =
     let ctx: SDK.EditorContext =
       { FileName = UMX.untag file
         SourceText = content
         ParseFileResults = pt
-        CheckFileResults = None
+        CheckFileResults = Some checkFileResults
         TypedTree = Some tast
         CheckProjectResults = None }
 

@@ -393,8 +393,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 volatileFile.Source,
                 parseAndCheck.GetParseResults,
                 tast,
-                parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
-                parseAndCheck.GetAllEntities
+                parseAndCheck.GetCheckResults
               )
 
             let! ct = Async.CancellationToken
