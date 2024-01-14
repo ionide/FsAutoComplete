@@ -1,7 +1,6 @@
 module Utils.CursorbasedTests
 
 open Expecto
-open Expecto.Diff
 open Ionide.LanguageServerProtocol.Types
 open FsToolkit.ErrorHandling
 open Utils.Utils
@@ -34,6 +33,7 @@ module CodeFix =
 
   let checkFixAt
     (doc: Document, diagnostics: Diagnostic[])
+    (editsFrom: VersionedTextDocumentIdentifier)
     (beforeWithoutCursor: string, cursorRange: Range)
     (validateDiagnostics: Diagnostic[] -> unit)
     (chooseFix: ChooseFix)
@@ -100,7 +100,7 @@ module CodeFix =
         let edits =
           codeAction.Edit
           |> Option.defaultWith (fun _ -> failCodeFixTest "Code action doesn't contain any edits")
-          |> WorkspaceEdit.tryExtractTextEditsInSingleFile doc.VersionedTextDocumentIdentifier
+          |> WorkspaceEdit.tryExtractTextEditsInSingleFile editsFrom
           |> Result.valueOr failCodeFixTest
 
         // apply fix
@@ -124,7 +124,14 @@ module CodeFix =
       let! (doc, diags) = server |> Server.createUntitledDocument text
       use doc = doc // ensure doc gets closed (disposed) after test
 
-      do! checkFixAt (doc, diags) (text, range) validateDiagnostics chooseFix (expected ())
+      do!
+        checkFixAt
+          (doc, diags)
+          doc.VersionedTextDocumentIdentifier
+          (text, range)
+          validateDiagnostics
+          chooseFix
+          (expected ())
     }
 
   /// Checks a CodeFix (CodeAction) for validity.
@@ -206,7 +213,15 @@ module CodeFix =
               $"Cursor {i} at {pos}"
               (async {
                 let! (doc, diags) = doc
-                do! checkFixAt (doc, diags) (beforeWithoutCursor, range) validateDiagnostics chooseFix expected
+
+                do!
+                  checkFixAt
+                    (doc, diags)
+                    doc.VersionedTextDocumentIdentifier
+                    (beforeWithoutCursor, range)
+                    validateDiagnostics
+                    chooseFix
+                    expected
               }) ])
 
     /// One test for each Cursor.

@@ -40,6 +40,7 @@ let tests state =
           do!
             checkFixAt
               (fsDoc, diags)
+              fsDoc.VersionedTextDocumentIdentifier
               (fsSource, cursor)
               (Diagnostics.expectCode "3218")
               selectCodeFix

@@ -47,7 +47,14 @@ module private ConvertIntToOtherBase =
           else
             ExpectedResult.After expected
 
-        do! checkFixAt (doc, diags) (source, cursor) Diagnostics.acceptAll (selectIntCodeFix base') expected
+        do!
+          checkFixAt
+            (doc, diags)
+            doc.VersionedTextDocumentIdentifier
+            (source, cursor)
+            Diagnostics.acceptAll
+            (selectIntCodeFix base')
+            expected
       })
 
   /// empty `expectedXXX`: there should be no corresponding Fix
@@ -941,7 +948,14 @@ module private ConvertCharToOtherForm =
           else
             ExpectedResult.After expected
 
-        do! checkFixAt (doc, diags) (source, cursor) Diagnostics.acceptAll (selectCharCodeFix (format)) expected
+        do!
+          checkFixAt
+            (doc, diags)
+            doc.VersionedTextDocumentIdentifier
+            (source, cursor)
+            Diagnostics.acceptAll
+            (selectCharCodeFix (format))
+            expected
       })
 
   let check
