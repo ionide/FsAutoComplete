@@ -266,7 +266,7 @@ type FSACDto =
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    ExcludeProjectDirectories: string[] option
+    ExcludeProjectDirectories: string array option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     FullNameExternalAutocomplete: bool option
@@ -290,13 +290,15 @@ type FSharpConfigDto =
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
-    AnalyzersPath: string[] option
+    AnalyzersPath: string array option
+    ExcludeAnalyzers: string array option
+    IncludeAnalyzers: string array option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
-    FSIExtraParameters: string[] option
-    FSICompilerToolLocations: string[] option
+    FSIExtraParameters: string array option
+    FSICompilerToolLocations: string array option
     TooltipMode: string option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
@@ -361,7 +363,7 @@ type DebugConfig =
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    ExcludeProjectDirectories: string[]
+    ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     FullNameExternalAutocomplete: bool
@@ -388,13 +390,15 @@ type FSharpConfig =
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
-    AnalyzersPath: string[]
+    AnalyzersPath: string array
+    ExcludeAnalyzers: string array
+    IncludeAnalyzers: string array
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
-    FSIExtraParameters: string[]
-    FSICompilerToolLocations: string[]
+    FSIExtraParameters: string array
+    FSICompilerToolLocations: string array
     TooltipMode: string
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig

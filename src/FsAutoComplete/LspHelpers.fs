@@ -636,7 +636,7 @@ type FSACDto =
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    ExcludeProjectDirectories: string[] option
+    ExcludeProjectDirectories: string array option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     FullNameExternalAutocomplete: bool option
@@ -660,13 +660,15 @@ type FSharpConfigDto =
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
-    AnalyzersPath: string[] option
+    AnalyzersPath: string array option
+    ExcludeAnalyzers: string array option
+    IncludeAnalyzers: string array option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
-    FSIExtraParameters: string[] option
-    FSICompilerToolLocations: string[] option
+    FSIExtraParameters: string array option
+    FSICompilerToolLocations: string array option
     TooltipMode: string option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
@@ -772,7 +774,7 @@ let tryCreateRegex (pattern: string) =
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    ExcludeProjectDirectories: string[]
+    ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     FullNameExternalAutocomplete: bool
@@ -799,13 +801,15 @@ type FSharpConfig =
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
-    AnalyzersPath: string[]
+    AnalyzersPath: string array
+    ExcludeAnalyzers: string array
+    IncludeAnalyzers: string array
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
-    FSIExtraParameters: string[]
-    FSICompilerToolLocations: string[]
+    FSIExtraParameters: string array
+    FSICompilerToolLocations: string array
     TooltipMode: string
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
@@ -846,6 +850,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
       AnalyzersPath = [||]
+      ExcludeAnalyzers = [||]
+      IncludeAnalyzers = [||]
       DisableInMemoryProjectReferences = false
       LineLens = { Enabled = "never"; Prefix = "" }
       UseSdkScripts = true
@@ -894,6 +900,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false
       AnalyzersPath = defaultArg dto.AnalyzersPath [||]
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers [||]
+      IncludeAnalyzers = defaultArg dto.IncludeAnalyzers [||]
       DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
       LineLens =
         { Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
@@ -999,6 +1007,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
       EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
       AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers x.ExcludeAnalyzers
+      IncludeAnalyzers = defaultArg dto.IncludeAnalyzers x.IncludeAnalyzers
       DisableInMemoryProjectReferences =
         defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
       LineLens =

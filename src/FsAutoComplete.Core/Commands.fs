@@ -1137,14 +1137,22 @@ module Commands =
 
 
 
-  let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEntities) =
-    let ctx: SDK.Context =
+  let analyzerHandler
+    (
+      client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
+      file: string<LocalPath>,
+      content: ISourceText,
+      pt,
+      tast,
+      checkFileResults: FSharpCheckFileResults
+    ) =
+    let ctx: SDK.EditorContext =
       { FileName = UMX.untag file
-        Content = content
-        ParseTree = pt
-        TypedTree = tast
-        Symbols = symbols
-        GetAllEntities = getAllEntities }
+        SourceText = content
+        ParseFileResults = pt
+        CheckFileResults = Some checkFileResults
+        TypedTree = Some tast
+        CheckProjectResults = None }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
@@ -1168,20 +1176,20 @@ module Commands =
 
         []
 
-    try
-      SDK.Client.runAnalyzersSafely ctx
-      |> List.collect extractResultsFromAnalyzer
-      |> List.toArray
-    with ex ->
-      Loggers.analyzers.error (
-        Log.setMessage "Error while processing analyzers for {file}: {message}"
-        >> Log.addContextDestructured "message" ex.Message
-        >> Log.addExn ex
-        >> Log.addContextDestructured "file" file
-      )
+    async {
+      try
+        let! r = client.RunAnalyzersSafely ctx
+        return r |> List.collect extractResultsFromAnalyzer |> List.toArray
+      with ex ->
+        Loggers.analyzers.error (
+          Log.setMessage "Error while processing analyzers for {file}: {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+          >> Log.addContextDestructured "file" file
+        )
 
-      [||]
-
+        return [||]
+    }
 
 type Commands() =
 

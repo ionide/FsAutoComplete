@@ -127,6 +127,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
          yield! fsiExtraParameters |]
 
+  let analyzersClient =
+    FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
+      Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
+    )
+
   /// <summary>Loads F# Analyzers from the configured directories</summary>
   /// <param name="config">The FSharpConfig</param>
   /// <param name="rootPath">The RootPath</param>
@@ -134,6 +139,18 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let loadAnalyzers (config: FSharpConfig) (rootPath: string option) =
     if config.EnableAnalyzers then
       Loggers.analyzers.info (Log.setMessageI $"Using analyzer roots of {config.AnalyzersPath:roots}")
+
+      let excludeInclude =
+        match config.ExcludeAnalyzers, config.IncludeAnalyzers with
+        | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.ExcludeFilter(fun (s: string) -> Array.contains s e)
+        | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
+        | _e, i ->
+          Loggers.analyzers.warn (
+            Log.setMessage
+              "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
+          )
+
+          FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
 
       config.AnalyzersPath
       |> Array.iter (fun analyzerPath ->
@@ -152,7 +169,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
           Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
 
-          let (dllCount, analyzerCount) = dir |> FSharp.Analyzers.SDK.Client.loadAnalyzers
+          let (dllCount, analyzerCount) = analyzersClient.LoadAnalyzers(dir, excludeInclude)
 
           Loggers.analyzers.info (
             Log.setMessageI
@@ -369,14 +386,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             // Since analyzers are not async, we need to switch to a new thread to not block threadpool
             do! Async.SwitchToNewThread()
 
-            let res =
+            let! res =
               Commands.analyzerHandler (
+                analyzersClient,
                 file,
-                volatileFile.Source.ToString().Split("\n"),
-                parseAndCheck.GetParseResults.ParseTree,
+                volatileFile.Source,
+                parseAndCheck.GetParseResults,
                 tast,
-                parseAndCheck.GetCheckResults.PartialAssemblySignature.Entities |> Seq.toList,
-                parseAndCheck.GetAllEntities
+                parseAndCheck.GetCheckResults
               )
 
             let! ct = Async.CancellationToken
@@ -552,6 +569,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
                   let severity =
                     match m.Severity with
+                    | FSharp.Analyzers.SDK.Hint -> DiagnosticSeverity.Hint
                     | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
                     | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
                     | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
