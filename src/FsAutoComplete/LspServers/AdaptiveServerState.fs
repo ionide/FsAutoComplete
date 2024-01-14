@@ -1362,7 +1362,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         return! Error(e.ToString())
     }
 
-
   let openFilesToRecentCheckedFilesResults =
     openFilesToChangesAndProjectOptions
     |> AMapAsync.mapAsyncAVal (fun _ (info, projectOptions) _ ->
@@ -1421,6 +1420,35 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       let! results = getOpenFileTypeCheckResults (filePath) |> AsyncAVal.forceAsync
       return results |> Result.ofOption (fun () -> $"No typecheck results for {filePath}")
     }
+
+
+  let forceGetProjectOptions filePath =
+    asyncAVal {
+      let! projects = getProjectOptionsForFile filePath
+      let project = selectProject projects
+
+      return
+        project
+        |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
+
+    }
+    |> AsyncAVal.forceAsync
+
+  let forceGetFSharpProjectOptions filePath =
+    forceGetProjectOptions filePath
+    |> Async.map (Result.map (fun p -> p.FSharpProjectOptions))
+
+
+  let forceGetOpenFileTypeCheckResultsOrCheck file =
+    async {
+      match! forceGetOpenFileTypeCheckResults file with
+      | Ok x -> return Ok x
+      | Error _ ->
+        match! forceGetFSharpProjectOptions file with
+        | Ok opts -> return! bypassAdaptiveTypeCheck file opts
+        | Error e -> return Error e
+    }
+
 
   /// <summary>
   /// This will attempt to get typecheck results in this order
@@ -1487,21 +1515,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let getDeclarations filename = allFilesToDeclarations |> AMapAsync.tryFindAndFlatten filename
 
 
-  let forceGetProjectOptions filePath =
-    asyncAVal {
-      let! projects = getProjectOptionsForFile filePath
-      let project = selectProject projects
-
-      return
-        project
-        |> Result.ofOption (fun () -> $"Could not find project containing {filePath}")
-
-    }
-    |> AsyncAVal.forceAsync
-
-  let forceGetFSharpProjectOptions filePath =
-    forceGetProjectOptions filePath
-    |> Async.map (Result.map (fun p -> p.FSharpProjectOptions))
 
   let codeGenServer =
     { new ICodeGenerationService with
@@ -1646,7 +1659,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let codefixes =
 
-    let tryGetParseResultsForFile filePath pos =
+    let tryGetParseAndCheckResultsForFile filePath pos =
       asyncResult {
         let! (file) = forceFindOpenFileOrRead filePath
 
@@ -1655,7 +1668,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           |> tryGetLineStr pos
           |> Result.mapError ErrorMsgUtils.formatLineLookErr
         //TODO ⮝⮝⮝ good candidate for better error model -- review!
-        and! tyRes = forceGetOpenFileTypeCheckResults filePath
+        and! tyRes = forceGetOpenFileTypeCheckResultsOrCheck filePath
         return tyRes, lineStr, file.Source
       }
 
@@ -1726,30 +1739,32 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix forceFindSourceText)
          Run.ifEnabled
            (fun _ -> config.ResolveNamespaces)
-           (ResolveNamespace.fix tryGetParseResultsForFile Commands.getNamespaceSuggestions)
+           (ResolveNamespace.fix tryGetParseAndCheckResultsForFile Commands.getNamespaceSuggestions)
          ReplaceWithSuggestion.fix
          RemoveRedundantQualifier.fix
-         Run.ifEnabled (fun _ -> config.UnusedDeclarationsAnalyzer) (RenameUnusedValue.fix tryGetParseResultsForFile)
+         Run.ifEnabled
+           (fun _ -> config.UnusedDeclarationsAnalyzer)
+           (RenameUnusedValue.fix tryGetParseAndCheckResultsForFile)
          AddNewKeywordToDisposableConstructorInvocation.fix
          Run.ifEnabled
            (fun _ -> config.UnionCaseStubGeneration)
            (GenerateUnionCases.fix
              forceFindSourceText
-             tryGetParseResultsForFile
+             tryGetParseAndCheckResultsForFile
              getUnionPatternMatchCases
              (unionCaseStubReplacements config))
          ExternalSystemDiagnostics.linter
          ExternalSystemDiagnostics.analyzers
          Run.ifEnabled
            (fun _ -> config.InterfaceStubGeneration)
-           (ImplementInterface.fix tryGetParseResultsForFile (implementInterfaceConfig config))
+           (ImplementInterface.fix tryGetParseAndCheckResultsForFile (implementInterfaceConfig config))
          Run.ifEnabled
            (fun _ -> config.RecordStubGeneration)
-           (GenerateRecordStub.fix tryGetParseResultsForFile getRecordStub (recordStubReplacements config))
+           (GenerateRecordStub.fix tryGetParseAndCheckResultsForFile getRecordStub (recordStubReplacements config))
          Run.ifEnabled
            (fun _ -> config.AbstractClassStubGeneration)
            (GenerateAbstractClassStub.fix
-             tryGetParseResultsForFile
+             tryGetParseAndCheckResultsForFile
              getAbstractClassStub
              (abstractClassStubReplacements config))
          AddMissingEqualsToTypeDefinition.fix forceFindSourceText
@@ -1757,37 +1772,37 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          ConvertDoubleEqualsToSingleEquals.fix getRangeText
          ChangeEqualsInFieldTypeToColon.fix
          WrapExpressionInParentheses.fix
-         ChangeRefCellDerefToNot.fix tryGetParseResultsForFile
+         ChangeRefCellDerefToNot.fix tryGetParseAndCheckResultsForFile
          ChangeDowncastToUpcast.fix getRangeText
-         MakeDeclarationMutable.fix tryGetParseResultsForFile forceGetFSharpProjectOptions
-         UseMutationWhenValueIsMutable.fix tryGetParseResultsForFile
-         ConvertInvalidRecordToAnonRecord.fix tryGetParseResultsForFile
-         RemoveUnnecessaryReturnOrYield.fix tryGetParseResultsForFile getLineText
-         ConvertCSharpLambdaToFSharpLambda.fix tryGetParseResultsForFile getLineText
+         MakeDeclarationMutable.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
+         UseMutationWhenValueIsMutable.fix tryGetParseAndCheckResultsForFile
+         ConvertInvalidRecordToAnonRecord.fix tryGetParseAndCheckResultsForFile
+         RemoveUnnecessaryReturnOrYield.fix tryGetParseAndCheckResultsForFile getLineText
+         ConvertCSharpLambdaToFSharpLambda.fix tryGetParseAndCheckResultsForFile getLineText
          AddMissingFunKeyword.fix forceFindSourceText getLineText
-         MakeOuterBindingRecursive.fix tryGetParseResultsForFile getLineText
+         MakeOuterBindingRecursive.fix tryGetParseAndCheckResultsForFile getLineText
          AddMissingRecKeyword.fix forceFindSourceText getLineText
          ConvertBangEqualsToInequality.fix getRangeText
-         ChangeDerefBangToValue.fix tryGetParseResultsForFile
-         RemoveUnusedBinding.fix tryGetParseResultsForFile
-         AddTypeToIndeterminateValue.fix tryGetParseResultsForFile forceGetFSharpProjectOptions
-         ChangeTypeOfNameToNameOf.fix tryGetParseResultsForFile
+         ChangeDerefBangToValue.fix tryGetParseAndCheckResultsForFile
+         RemoveUnusedBinding.fix tryGetParseAndCheckResultsForFile
+         AddTypeToIndeterminateValue.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
+         ChangeTypeOfNameToNameOf.fix tryGetParseAndCheckResultsForFile
          AddMissingInstanceMember.fix
-         AddMissingXmlDocumentation.fix tryGetParseResultsForFile
-         AddExplicitTypeAnnotation.fix tryGetParseResultsForFile
-         ConvertPositionalDUToNamed.fix tryGetParseResultsForFile
-         ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseResultsForFile
-         GenerateXmlDocumentation.fix tryGetParseResultsForFile
-         RemoveRedundantAttributeSuffix.fix tryGetParseResultsForFile
+         AddMissingXmlDocumentation.fix tryGetParseAndCheckResultsForFile
+         AddExplicitTypeAnnotation.fix tryGetParseAndCheckResultsForFile
+         ConvertPositionalDUToNamed.fix tryGetParseAndCheckResultsForFile
+         ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseAndCheckResultsForFile
+         GenerateXmlDocumentation.fix tryGetParseAndCheckResultsForFile
+         RemoveRedundantAttributeSuffix.fix tryGetParseAndCheckResultsForFile
          Run.ifEnabled
            (fun _ -> config.AddPrivateAccessModifier)
-           (AddPrivateAccessModifier.fix tryGetParseResultsForFile symbolUseWorkspace)
-         UseTripleQuotedInterpolation.fix tryGetParseResultsForFile
-         RenameParamToMatchSignature.fix tryGetParseResultsForFile
-         RemovePatternArgument.fix tryGetParseResultsForFile
-         ToInterpolatedString.fix tryGetParseResultsForFile getLanguageVersion
-         AdjustConstant.fix tryGetParseResultsForFile
-         UpdateValueInSignatureFile.fix tryGetParseResultsForFile |])
+           (AddPrivateAccessModifier.fix tryGetParseAndCheckResultsForFile symbolUseWorkspace)
+         UseTripleQuotedInterpolation.fix tryGetParseAndCheckResultsForFile
+         RenameParamToMatchSignature.fix tryGetParseAndCheckResultsForFile
+         RemovePatternArgument.fix tryGetParseAndCheckResultsForFile
+         ToInterpolatedString.fix tryGetParseAndCheckResultsForFile getLanguageVersion
+         AdjustConstant.fix tryGetParseAndCheckResultsForFile
+         UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
