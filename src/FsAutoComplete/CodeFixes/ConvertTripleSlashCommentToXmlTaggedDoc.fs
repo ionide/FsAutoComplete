@@ -134,7 +134,7 @@ let private collectCommentContents
       match currentLine with
       | None -> acc
       | Some line ->
-        let idx = line.IndexOf("///")
+        let idx = line.IndexOf("///", StringComparison.Ordinal)
 
         if idx >= 0 then
           let existingComment = line.TrimStart().Substring(3).TrimStart()
@@ -162,7 +162,7 @@ let private wrapInSummary indent comments =
     }
     |> String.concat ""
 
-let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRangeText) : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -177,7 +177,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getRangeText: GetRange
         let origCommentContents =
           collectCommentContents d.Range.Start d.Range.End sourceText
 
-        let indent = lineStr.IndexOf("///")
+        let indent = lineStr.IndexOf("///", StringComparison.Ordinal)
         let summaryXmlDoc = wrapInSummary indent origCommentContents
 
         let range =

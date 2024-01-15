@@ -14,35 +14,35 @@ open FSharp.UMX
 
 module Expecto =
   open System.Threading.Tasks
-  let inline testBuilderWithTimeout (ts : TimeSpan) name testCase focus =
-    TestLabel(name, TestCase (Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
 
-  let inline testCaseWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Sync test) Normal
-  let inline ftestCaseWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Sync test) Focused
-  let inline ptestCaseWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Sync test) Pending
+  let inline testBuilderWithTimeout (ts: TimeSpan) name testCase focus =
+    TestLabel(name, TestCase(Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
 
-  let inline testCaseAsyncWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Async test) Normal
-  let inline ftestCaseAsyncWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Async test) Focused
-  let inline ptestCaseAsyncWithTimeout (ts : TimeSpan) name test =
-    testBuilderWithTimeout ts name (Async test) Pending
+  let inline testCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Normal
+  let inline ftestCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Focused
+  let inline ptestCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Pending
 
-  let inline testCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>) =
+  let inline testCaseAsyncWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Async test) Normal
+  let inline ftestCaseAsyncWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Async test) Focused
+  let inline ptestCaseAsyncWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Async test) Pending
+
+  let inline testCaseTaskWithTimeout (ts: TimeSpan) name (test: unit -> Task<unit>) =
     testCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
-  let inline ftestCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>)  =
+
+  let inline ftestCaseTaskWithTimeout (ts: TimeSpan) name (test: unit -> Task<unit>) =
     ftestCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
-  let inline ptestCaseTaskWithTimeout (ts : TimeSpan) name (test : unit -> Task<unit>)  =
+
+  let inline ptestCaseTaskWithTimeout (ts: TimeSpan) name (test: unit -> Task<unit>) =
     ptestCaseAsyncWithTimeout ts name (async.Delay(fun () -> Async.AwaitTask(test ())))
 
   // millisecond
   let DEFAULT_TIMEOUT =
     Environment.GetEnvironmentVariable "FSAC_TEST_DEFAULT_TIMEOUT"
     |> Option.ofObj
-    |> Option.bind(fun x -> match Int32.TryParse x with | (true, v) -> Some v | _ -> None )
+    |> Option.bind (fun x ->
+      match Int32.TryParse x with
+      | (true, v) -> Some v
+      | _ -> None)
     |> Option.defaultValue (60000)
     |> TimeSpan.FromMilliseconds
 
@@ -159,17 +159,16 @@ type Async =
   /// previous execution.
   static member Cache(input: Async<'T>) =
     let agent =
-      MailboxProcessor<AsyncReplyChannel<_>>.Start
-        (fun agent ->
-          async {
-            let! repl = agent.Receive()
-            let! res = input |> Async.Catch
-            repl.Reply(res)
+      MailboxProcessor<AsyncReplyChannel<_>>.Start(fun agent ->
+        async {
+          let! repl = agent.Receive()
+          let! res = input |> Async.Catch
+          repl.Reply(res)
 
-            while true do
-              let! repl = agent.Receive()
-              repl.Reply(res)
-          })
+          while true do
+            let! repl = agent.Receive()
+            repl.Reply(res)
+        })
 
     async {
       let! result = agent.PostAndAsyncReply(id)
@@ -231,6 +230,8 @@ let defaultConfigDto: FSharpConfigDto =
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
     AnalyzersPath = None
+    ExcludeAnalyzers = None
+    IncludeAnalyzers = None
     DisableInMemoryProjectReferences = None
     AutomaticWorkspaceInit = Some true
     InterfaceStubGeneration = None
@@ -343,9 +344,7 @@ let clientCaps: ClientCapabilities =
         CompletionItemKind = Some cikCaps
         ContextSupport = Some true
         InsertTextMode = Some InsertTextMode.AsIs
-        CompletionList = Some {
-          ItemDefaults = None
-        } }
+        CompletionList = Some { ItemDefaults = None } }
 
     let hoverCaps: HoverCapabilities =
       { DynamicRegistration = Some true
@@ -368,7 +367,7 @@ let clientCaps: ClientCapabilities =
         SymbolKind = Some skCaps
         HierarchicalDocumentSymbolSupport = Some false
         TagSupport = None
-        LabelSupport = Some true  }
+        LabelSupport = Some true }
 
     let foldingRangeCaps: FoldingRangeCapabilities =
       { DynamicRegistration = Some true
@@ -403,7 +402,7 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         ResolveSupport = None }
 
-    let inlineValueCaps: InlineValueClientCapabilities =
+    let _inlineValueCaps: InlineValueClientCapabilities =
       { DynamicRegistration = Some true
         ResolveSupport = None }
 
@@ -430,16 +429,12 @@ let clientCaps: ClientCapabilities =
         LinkSupport = Some false }
 
     let docLinkCaps: DocumentLinkCapabilities =
-      {
-        DynamicRegistration = Some true
-        TooltipSupport = Some true
-      }
+      { DynamicRegistration = Some true
+        TooltipSupport = Some true }
 
     let diagCaps: DiagnosticCapabilities =
-      {
-        DynamicRegistration = Some true
-        RelatedDocumentSupport = Some true
-      }
+      { DynamicRegistration = Some true
+        RelatedDocumentSupport = Some true }
 
     { Synchronization = Some syncCaps
       PublishDiagnostics = Some publishDiagCaps
@@ -470,8 +465,7 @@ let clientCaps: ClientCapabilities =
       LinkedEditingRange = Some dynCaps
       Moniker = Some dynCaps
       InlineValue = Some dynCaps
-      Diagnostic = Some diagCaps
-       }
+      Diagnostic = Some diagCaps }
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
@@ -486,8 +480,7 @@ open FsAutoComplete.CommandResponse
 open CliWrap
 open CliWrap.Buffered
 
-let logEvent (name, payload) =
-  logger.Value.Debug("{name}: {payload}", name, payload)
+let logEvent (name, payload) = logger.Value.Debug("{name}: {payload}", name, payload)
 
 let logDotnetRestore section line =
   if not (String.IsNullOrWhiteSpace(line)) then
@@ -504,15 +497,12 @@ let runProcess (workingDir: string) (exePath: string) (args: string) =
     let! ctok = Async.CancellationToken
 
     let! result =
-      Cli.Wrap(exePath).WithArguments(args).WithWorkingDirectory(
-        workingDir
-      )
-        .WithValidation(
-        CommandResultValidation.None
-      )
-        .ExecuteBufferedAsync(
-        ctok
-      )
+      Cli
+        .Wrap(exePath)
+        .WithArguments(args)
+        .WithWorkingDirectory(workingDir)
+        .WithValidation(CommandResultValidation.None)
+        .ExecuteBufferedAsync(ctok)
         .Task
       |> Async.AwaitTask
 
@@ -525,15 +515,17 @@ let inline expectExitCodeZero (r: BufferedCommandResult) =
     0
     $"Expected exit code zero but was %i{r.ExitCode}.\nStdOut: %s{r.StandardOutput}\nStdErr: %s{r.StandardError}"
 
-let dotnetRestore dir = async {
-  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "restore -v d"
-  return expectExitCodeZero r
-}
+let dotnetRestore dir =
+  async {
+    let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "restore -v d"
+    return expectExitCodeZero r
+  }
 
-let dotnetToolRestore dir = async {
-  let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "tool restore"
-  return expectExitCodeZero r
-}
+let dotnetToolRestore dir =
+  async {
+    let! r = runProcess (DirectoryInfo(dir).FullName) "dotnet" "tool restore"
+    return expectExitCodeZero r
+  }
 
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
@@ -565,10 +557,10 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
     let! result = server.Initialize p
 
     match result with
-    | Result.Ok res ->
+    | Result.Ok _res ->
       do! server.Initialized(InitializedParams())
       return (server, clientNotifications)
-    | Result.Error e -> return failwith "Initialization failed"
+    | Result.Error _e -> return failwith "Initialization failed"
   }
 
 let loadDocument path : TextDocumentItem =
@@ -600,8 +592,8 @@ let waitForWorkspaceFinishedParsing (events: ClientEvents) =
     match name with
     | "fsharp/notifyWorkspace" ->
       match unbox payload with
-      | (UnwrappedPlainNotification "workspaceLoad"
-                                    (workspaceLoadResponse: FsAutoComplete.CommandResponse.WorkspaceLoadResponse)) ->
+      | (UnwrappedPlainNotification "workspaceLoad" (workspaceLoadResponse:
+                                      FsAutoComplete.CommandResponse.WorkspaceLoadResponse)) ->
         if workspaceLoadResponse.Status = "finished" then
           Some()
         else
@@ -619,13 +611,10 @@ let waitForWorkspaceFinishedParsing (events: ClientEvents) =
 let private typedEvents<'t> (typ: string) : IObservable<string * obj> -> IObservable<'t> =
   Observable.choose (fun (typ', _o) -> if typ' = typ then Some(unbox _o) else None)
 
-let private payloadAs<'t> = Observable.map (fun (_typ, o) -> unbox<'t> o)
-
 let private getDiagnosticsEvents: IObservable<string * obj> -> IObservable<_> =
   typedEvents<Ionide.LanguageServerProtocol.Types.PublishDiagnosticsParams> "textDocument/publishDiagnostics"
 
-let private fileName (u: DocumentUri) =
-  u.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
+let private fileName (u: DocumentUri) = u.Split([| '/'; '\\' |], StringSplitOptions.RemoveEmptyEntries) |> Array.last
 
 /// note that the files here are intended to be the filename only., not the full URI.
 let private matchFiles (files: string Set) =
@@ -670,40 +659,38 @@ let fileDiagnosticsForUri (uri: string) =
 
 let diagnosticsFromSource (desiredSource: String) =
   Observable.choose (fun (diags: Diagnostic[]) ->
-    match diags
-          |> Array.choose (fun d ->
-            match d.Source with
-            | Some s -> if s.StartsWith desiredSource then Some d else None
-            | None -> None)
-      with
+    match
+      diags
+      |> Array.choose (fun d ->
+        match d.Source with
+        | Some s ->
+          if s.StartsWith(desiredSource, StringComparison.Ordinal) then
+            Some d
+          else
+            None
+        | None -> None)
+    with
     | [||] -> None
     | diags -> Some diags)
 
-let analyzerDiagnostics file =
-  fileDiagnostics file >> diagnosticsFromSource "F# Analyzers"
+let analyzerDiagnostics file = fileDiagnostics file >> diagnosticsFromSource "F# Analyzers"
 
-let linterDiagnostics file =
-  fileDiagnostics file >> diagnosticsFromSource "F# Linter"
+let linterDiagnostics file = fileDiagnostics file >> diagnosticsFromSource "F# Linter"
 
-let fsacDiagnostics file =
-  fileDiagnostics file >> diagnosticsFromSource "FSAC"
+let fsacDiagnostics file = fileDiagnostics file >> diagnosticsFromSource "FSAC"
 
-let compilerDiagnostics file =
-  fileDiagnostics file >> diagnosticsFromSource "F# Compiler"
+let compilerDiagnostics file = fileDiagnostics file >> diagnosticsFromSource "F# Compiler"
 
 let diagnosticsToResult =
   Observable.map (function
     | [||] -> Ok()
     | diags -> Core.Error diags)
 
-let waitForParseResultsForFile file =
-  fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
+let waitForParseResultsForFile file = fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
-let waitForFsacDiagnosticsForFile file =
-  fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
+let waitForFsacDiagnosticsForFile file = fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
-let waitForCompilerDiagnosticsForFile file =
-  compilerDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
+let waitForCompilerDiagnosticsForFile file = compilerDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
 let waitForParsedScript (event: ClientEvents) =
   event
@@ -721,8 +708,7 @@ let waitForTestDetected (fileName: string) (events: ClientEvents) : Async<TestDe
     testNotificationFileName = fileName)
   |> Async.AwaitObservable
 
-let waitForEditsForFile file =
-  workspaceEdits >> editsFor file >> Async.AwaitObservable
+let waitForEditsForFile file = workspaceEdits >> editsFor file >> Async.AwaitObservable
 
 let trySerialize (t: string) : 't option =
   try
@@ -732,7 +718,7 @@ let trySerialize (t: string) : 't option =
 
 let (|As|_|) (m: PlainNotification) : 't option =
   match trySerialize m.Content with
-  | Some (r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
+  | Some(r: FsAutoComplete.CommandResponse.ResponseMsg<'t>) -> Some r.Data
   | None -> None
 
 let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =

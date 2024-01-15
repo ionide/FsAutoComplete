@@ -248,7 +248,6 @@ module Commands =
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     (lines: IFSACSourceText)
-    (line: LineStr)
     =
     async {
       let doc = docForText lines tyRes
@@ -309,7 +308,7 @@ module Commands =
 
                     if
                       (e.Kind LookupType.Fuzzy) = EntityKind.Attribute
-                      && lastIdent.EndsWith "Attribute"
+                      && lastIdent.EndsWith("Attribute", StringComparison.Ordinal)
                     then
                       yield
                         e.TopRequireQualifiedAccessParent,
@@ -363,7 +362,6 @@ module Commands =
     (tyRes: ParseAndCheckResults)
     (pos: Position)
     (lines: ISourceText)
-    (line: LineStr)
     =
     async {
 
@@ -534,9 +532,7 @@ module Commands =
       | Error e -> return CoreResponse.ErrorRes e
     }
 
-  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr =
-    tyRes.TryGetToolTip pos lineStr
-    |> Result.bimap CoreResponse.Res CoreResponse.ErrorRes
+  let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = tyRes.TryGetToolTip pos lineStr
 
   // Calculates pipeline hints for now as in fSharp/pipelineHint with a bit of formatting on the hints
   let inlineValues (contents: IFSACSourceText) (tyRes: ParseAndCheckResults) : Async<(pos * String)[]> =
@@ -546,7 +542,7 @@ module Commands =
         option {
           let! lineStr = contents.GetLine pos
 
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+          let! tip = tyRes.TryGetToolTip pos lineStr
 
           return TipFormatter.extractGenericParameters tip
         }
@@ -562,8 +558,8 @@ module Commands =
 
       let getStartingPipe =
         function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | y :: _ when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: _ when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
@@ -618,7 +614,7 @@ module Commands =
         option {
           let! lineStr = contents.GetLine pos
 
-          let! tip = tyRes.TryGetToolTip pos lineStr |> Option.ofResult
+          let! tip = tyRes.TryGetToolTip pos lineStr
 
           return TipFormatter.extractGenericParameters tip
         }
@@ -634,8 +630,8 @@ module Commands =
 
       let getStartingPipe =
         function
-        | y :: xs when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
-        | x :: y :: xs when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | y :: _ when y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
+        | x :: y :: _ when x.TokenName.ToUpper() = "WHITESPACE" && y.TokenName.ToUpper() = "INFIX_BAR_OP" -> Some y
         | _ -> None
 
       let folder (lastExpressionLine, lastExpressionLineWasPipe, acc) (currentIndex, currentTokens) =
@@ -706,7 +702,7 @@ module Commands =
             |> Seq.tryFind (fun l ->
               let lineStr = getLine l
               // namespace MUST be top level -> no indentation
-              lineStr.StartsWith "namespace ")
+              lineStr.StartsWith("namespace ", StringComparison.Ordinal))
             |> function
               // move to the next line below "namespace"
               | Some l -> l.IncLine()
@@ -716,7 +712,7 @@ module Commands =
         // adjust column
         let pos =
           match pos with
-          | Pos(1, c) -> pos
+          | Pos(1, _) -> pos
           | Pos(l, 0) ->
             let prev = getLine (pos.DecLine())
             let indentation = detectIndentation prev
@@ -726,7 +722,7 @@ module Commands =
               Position.mkPos l indentation
             else
               pos
-          | Pos(_, c) -> pos
+          | Pos(_, _) -> pos
 
         { Namespace = n
           Position = pos
@@ -795,7 +791,6 @@ module Commands =
             match scope with
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
-              let output = ResizeArray<_>()
 
               let! resolvedProjects =
                 [ for project in projects do
@@ -979,7 +974,7 @@ module Commands =
   ///
   /// Also does very basic validation of `newName`:
   /// * Must be valid operator name when operator
-  let adjustRenameSymbolNewName pos lineStr (text: IFSACSourceText) (tyRes: ParseAndCheckResults) (newName: string) =
+  let adjustRenameSymbolNewName pos lineStr (tyRes: ParseAndCheckResults) (newName: string) =
     asyncResult {
       let! symbolUse =
         tyRes.TryGetSymbolUse pos lineStr
@@ -1000,7 +995,10 @@ module Commands =
         // -> only check if no backticks
         let newBacktickedName = newName |> PrettyNaming.NormalizeIdentifierBackticks
 
-        if newBacktickedName.StartsWith "``" && newBacktickedName.EndsWith "``" then
+        if
+          newBacktickedName.StartsWith("``", StringComparison.Ordinal)
+          && newBacktickedName.EndsWith("``", StringComparison.Ordinal)
+        then
           return newBacktickedName
         elif PrettyNaming.IsIdentifierName newName then
           return newName
@@ -1139,14 +1137,22 @@ module Commands =
 
 
 
-  let analyzerHandler (file: string<LocalPath>, content, pt, tast, symbols, getAllEntities) =
-    let ctx: SDK.Context =
+  let analyzerHandler
+    (
+      client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
+      file: string<LocalPath>,
+      content: ISourceText,
+      pt,
+      tast,
+      checkFileResults: FSharpCheckFileResults
+    ) =
+    let ctx: SDK.EditorContext =
       { FileName = UMX.untag file
-        Content = content
-        ParseTree = pt
-        TypedTree = tast
-        Symbols = symbols
-        GetAllEntities = getAllEntities }
+        SourceText = content
+        ParseFileResults = pt
+        CheckFileResults = Some checkFileResults
+        TypedTree = Some tast
+        CheckProjectResults = None }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
@@ -1170,20 +1176,20 @@ module Commands =
 
         []
 
-    try
-      SDK.Client.runAnalyzersSafely ctx
-      |> List.collect extractResultsFromAnalyzer
-      |> List.toArray
-    with ex ->
-      Loggers.analyzers.error (
-        Log.setMessage "Error while processing analyzers for {file}: {message}"
-        >> Log.addContextDestructured "message" ex.Message
-        >> Log.addExn ex
-        >> Log.addContextDestructured "file" file
-      )
+    async {
+      try
+        let! r = client.RunAnalyzersSafely ctx
+        return r |> List.collect extractResultsFromAnalyzer |> List.toArray
+      with ex ->
+        Loggers.analyzers.error (
+          Log.setMessage "Error while processing analyzers for {file}: {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+          >> Log.addContextDestructured "file" file
+        )
 
-      [||]
-
+        return [||]
+    }
 
 type Commands() =
 

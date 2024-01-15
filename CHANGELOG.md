@@ -1,5 +1,44 @@
 # Changelog
 
+
+## [0.69.0] - 2024-01-14
+
+### Added
+
+- [Codefix: Update value in signature file](https://github.com/fsharp/FsAutoComplete/pull/1161) and [1220](https://github.com/fsharp/FsAutoComplete/pull/1220) (thanks @nojaf)
+
+### Changed
+
+- [Analyzers: Update analyzers support to 0.23.0](https://github.com/fsharp/FsAutoComplete/pull/1217) (thanks @dawedawe)
+
+### Fixed
+
+- [fix and improves l10n](https://github.com/fsharp/FsAutoComplete/pull/1181) (thanks @Tangent-90)
+- [Fix AP signatures for APs with names which are substrings of other APs](https://github.com/fsharp/FsAutoComplete/pull/1211) (thanks @dawedawe)
+- [fixing caching of cancelled cached tasks](https://github.com/fsharp/FsAutoComplete/pull/1221) (thanks @TheAngryByrd)
+
+### Internal
+
+
+## [0.68.0] - 2023-11-17
+
+### Added
+
+* [Dotnet 8 support](https://github.com/fsharp/FsAutoComplete/pull/1175) (Thanks @baronfel & @TheAngryByrd)
+* [F# 8 Support](https://github.com/fsharp/FsAutoComplete/pull/1180) (Thanks @baronfel & @nojaf & @dawedawe)
+
+### Changed
+
+* [Updates Ionide.LanguageServerProtocol to 0.4.20](https://github.com/fsharp/FsAutoComplete/pull/1190) (Thanks @TheAngryByrd)
+* [Update IcedTasks 0.9.2](https://github.com/fsharp/FsAutoComplete/pull/1197) (Thanks @TheAngryByrd)
+* [Paket Simplify](https://github.com/fsharp/FsAutoComplete/pull/1204) (Thanks @1eyewonder)
+
+### Fixed
+
+- [Do ordinal string comparisons](https://github.com/fsharp/FsAutoComplete/pull/1193) (Thanks @dawedawe)
+- [fix typo in FullNameExternalAutocomplete default value](https://github.com/fsharp/FsAutoComplete/pull/1196) (Thanks @MrLuje)
+* [Fix tooltip errorhandling]()(https://github.com/fsharp/FsAutoComplete/pull/1195) (Thanks @pblasucci & @TheAngryByrd)
+
 ## [0.67.0] - 2023-10-28
 
 ### Changed

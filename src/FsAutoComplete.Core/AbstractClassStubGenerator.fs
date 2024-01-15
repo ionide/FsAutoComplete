@@ -35,7 +35,7 @@ let private (|ExplicitCtor|_|) =
   | _ -> None
 
 /// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
-let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, trivia)) =
+let private walkTypeDefn (SynTypeDefn(_, repr, members, implicitCtor, _, _)) =
   option {
     let reprMembers =
       match repr with
@@ -47,7 +47,7 @@ let private walkTypeDefn (SynTypeDefn(info, repr, members, implicitCtor, range, 
     let! inheritType, inheritMemberRange = // this must exist for abstract types
       allMembers
       |> List.tryPick (function
-        | SynMemberDefn.ImplicitInherit(inheritType, inheritArgs, alias, range) -> Some(inheritType, range)
+        | SynMemberDefn.ImplicitInherit(inheritType, _, _, range) -> Some(inheritType, range)
         | _ -> None)
 
     let furthestMemberToSkip, otherMembers =
@@ -82,13 +82,14 @@ let private tryFindAbstractClassExprInParsedInput
     { new SyntaxVisitorBase<_>() with
         member _.VisitExpr(path, traverseExpr, defaultTraverse, expr) =
           match expr with
-          | SynExpr.ObjExpr(baseTy, constructorArgs, withKeyword, bindings, members, extraImpls, newExprRange, range) ->
+          | SynExpr.ObjExpr(
+              objType = baseTy; withKeyword = withKeyword; bindings = bindings; newExprRange = newExprRange) ->
             Some(AbstractClassData.ObjExpr(baseTy, bindings, newExprRange, withKeyword))
           | _ -> defaultTraverse expr
 
         override _.VisitModuleDecl(_, defaultTraverse, decl) =
           match decl with
-          | SynModuleDecl.Types(types, m) -> List.tryPick walkTypeDefn types
+          | SynModuleDecl.Types(types, _) -> List.tryPick walkTypeDefn types
           | _ -> defaultTraverse decl }
   )
 
@@ -104,12 +105,12 @@ let tryFindAbstractClassExprInBufferAtPos
     return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
   }
 
-let getMemberNameAndRanges (abstractClassData) =
+let getMemberNameAndRanges abstractClassData =
   match abstractClassData with
   | AbstractClassData.ExplicitImpl(members = members) ->
     members
     |> Seq.choose (function
-      | (SynMemberDefn.Member(binding, _)) -> Some binding
+      | SynMemberDefn.Member(binding, _) -> Some binding
       | _ -> None)
     |> Seq.choose (|MemberNamePlusRangeAndKeywordRange|_|)
     |> Seq.toList
@@ -130,7 +131,7 @@ let inferStartColumn
     | AbstractClassData.ExplicitImpl(inheritExpressionRange = inheritRange) ->
       // 'interface ISomething with' is often in a new line, we use the indentation of that line
       inheritRange.StartColumn
-    | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = withKeyword; bindings = bindings) ->
+    | AbstractClassData.ObjExpr(newExpression = newExpr; withKeyword = withKeyword; bindings = _) ->
       // two cases here to consider:
       // * has a with keyword on same line as newExpr
       match withKeyword with
@@ -153,19 +154,19 @@ let writeAbstractClassStub
   (codeGenServer: ICodeGenerationService)
   (checkResultForFile: ParseAndCheckResults)
   (doc: IFSACSourceText)
-  (lineStr: string)
+  (_: string)
   (abstractClassData: AbstractClassData)
   =
   asyncOption {
     let pos =
       Position.mkPos
         abstractClassData.AbstractTypeIdentRange.Start.Line
-        (abstractClassData.AbstractTypeIdentRange.End.Column)
+        abstractClassData.AbstractTypeIdentRange.End.Column
 
-    let! (_lexerSym, usages) = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FileName, pos, SymbolKind.Ident)
+    let! _lexerSym, usages = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FileName, pos, SymbolKind.Ident)
     let! usage = usages
 
-    let! (displayContext, entity) =
+    let! displayContext, entity =
       asyncOption {
         // need the enclosing entity because we're always looking at a ctor, which isn't an Entity, but a MemberOrFunctionOrValue
         match usage.Symbol with
@@ -178,7 +179,7 @@ let writeAbstractClassStub
         | _ -> return! None
       }
 
-    let getMemberByLocation (name: string, range: Range, keywordRange: Range) =
+    let getMemberByLocation (_: string, range: Range, _: Range) =
       match doc.GetLine range.Start with
       | Some lineText ->
         match Lexer.getSymbol range.Start.Line range.Start.Column lineText SymbolLookupKind.ByLongIdent [||] with

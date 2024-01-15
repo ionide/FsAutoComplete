@@ -16,7 +16,7 @@ type private TriggerType =
 
 let private testSignatureHelp' (server: CachedServer) text pos triggerType checkResp =
   async {
-    let! (doc, diags) = server |> Server.createUntitledDocument text
+    let! (doc, _diags) = server |> Server.createUntitledDocument text
     use doc = doc
 
     let sigHelpRequest: SignatureHelpParams =
@@ -27,7 +27,7 @@ let private testSignatureHelp' (server: CachedServer) text pos triggerType check
             { TriggerKind =
                 match triggerType with
                 | Manual -> SignatureHelpTriggerKind.Invoked
-                | Char c -> SignatureHelpTriggerKind.TriggerCharacter
+                | Char _c -> SignatureHelpTriggerKind.TriggerCharacter
               TriggerCharacter =
                 match triggerType with
                 | Manual -> None
@@ -45,9 +45,7 @@ let private wantSignatureHelp = Flip.Expect.wantOk "unexpected request error"
 let private testSignatureHelp (server: CachedServer) textWithCursor triggerType checkResp =
   async {
     let (pos, text) =
-      textWithCursor
-      |> Text.trimTripleQuotation
-      |> Cursor.assertExtractPosition
+      textWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractPosition
 
     let checkResp = wantSignatureHelp >> checkResp
     return! testSignatureHelp' server text pos triggerType checkResp
@@ -148,17 +146,15 @@ let private overloadEdgeCasesTests server =
 
             testCaseAsync $"Can get overloads at whitespace position {c - 37} of unattached parens"
             <| testSignatureHelp'
-                 server
-                 text
-                 pos
-                 Manual
-                 (wantSignatureHelp
-                  >> fun resp ->
-                       Expect.isSome
-                         resp
-                         $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
+              server
+              text
+              pos
+              Manual
+              (wantSignatureHelp
+               >> fun resp ->
+                 Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
 
-                       Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ]
+                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ]
       testList
         "attached parens"
         [ let text = "let _____ = new System.IO.MemoryStream(42)"
@@ -168,17 +164,15 @@ let private overloadEdgeCasesTests server =
 
             testCaseAsync $"Can get overloads at whitespace position {c - 39} of attached parens"
             <| testSignatureHelp'
-                 server
-                 text
-                 pos
-                 Manual
-                 (wantSignatureHelp
-                  >> fun resp ->
-                       Expect.isSome
-                         resp
-                         $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
+              server
+              text
+              pos
+              Manual
+              (wantSignatureHelp
+               >> fun resp ->
+                 Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
 
-                       Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ] ]
+                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ] ]
 
 let issuesTests server =
   testList
@@ -201,9 +195,7 @@ let issuesTests server =
           "val count: x: int -> int"
           "Should have no backticks because signatures are only ever rendered in `code` form")
       testCaseAsync "issue #1040" // IndexOutOfRangeException
-        <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs ->
-          Expect.isSome sigs "Should have sigs"
-        ) ]
+      <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs -> Expect.isSome sigs "Should have sigs") ]
 
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server ->

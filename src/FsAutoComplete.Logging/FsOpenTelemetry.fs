@@ -6,7 +6,6 @@ open System
 open System.Diagnostics
 open System.Runtime.CompilerServices
 open System.Collections.Generic
-open Microsoft.FSharp.Quotations.Patterns
 
 
 // Thanks https://github.com/fsprojects/FSharp.UMX
@@ -604,9 +603,7 @@ type ActivityExtensions =
 
   /// <summary>https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/exceptions.md#semantic-conventions-for-exceptions</summary>
   /// <param name="span">The span to add the error information to</param>
-  /// <param name="errorMessage">The exception message.</param>
-  /// <param name="errorType">The type of the exception (its fully-qualified class name, if applicable). The dynamic type of the exception should be preferred over the static type in languages that support it.</param>
-  /// <param name="stacktrace">A stacktrace as a string in the natural representation for the language runtime. The representation is to be determined and documented by each language SIG.</param>
+  /// <param name="e">The exception message.</param>
   /// <param name="escaped">SHOULD be set to true if the exception event is recorded at a point where it is known that the exception is escaping the scope of the span. </param>
   [<Extension>]
   static member inline RecordExceptions(span: Activity, e: exn, ?escaped: bool) =
@@ -659,7 +656,7 @@ type ActivitySourceExtensions =
       ?startTime: DateTimeOffset,
       [<CallerMemberName>] ?memberName: string,
       [<CallerFilePath>] ?path: string,
-      [<CallerLineNumberAttribute>] ?line: int
+      [<CallerLineNumber>] ?line: int
     ) =
 
     let name_space =
@@ -699,7 +696,6 @@ type ActivitySourceExtensions =
   /// <summary>This should be used by methods in classes. Creates and starts a new System.Diagnostics.Activity object if there is any listener to the Activity events, returns null otherwise.</summary>
   /// <param name="tracer">Provides APIs to create and start System.Diagnostics.Activity objects.</param>
   /// <param name="ty">The type where the trace is located.</param>
-  /// <param name="name_space">The namespace where this code is located.</param>
   /// <param name="activityKind">The System.Diagnostics.ActivityKind</param>
   /// <param name="parentContext">The parent System.Diagnostics.ActivityContext object to initialize the created Activity object with.</param>
   /// <param name="tags">The optional tags list to initialize the created Activity object with.</param>
@@ -721,7 +717,7 @@ type ActivitySourceExtensions =
       ?startTime: DateTimeOffset,
       [<CallerMemberName>] ?memberName: string,
       [<CallerFilePath>] ?path: string,
-      [<CallerLineNumberAttribute>] ?line: int
+      [<CallerLineNumber>] ?line: int
     ) =
     let name_space = ty.FullName
     let name = $"{name_space}.{memberName.Value}"
@@ -763,7 +759,7 @@ type ActivitySourceExtensions =
       ?startTime: DateTimeOffset,
       [<CallerMemberName>] ?memberName: string,
       [<CallerFilePath>] ?path: string,
-      [<CallerLineNumberAttribute>] ?line: int
+      [<CallerLineNumber>] ?line: int
     ) =
     let ty = typeof<'typAr>
 
@@ -801,7 +797,7 @@ type ActivitySourceExtensions =
       ?startTime: DateTimeOffset,
       [<CallerMemberName>] ?memberName: string,
       [<CallerFilePath>] ?path: string,
-      [<CallerLineNumberAttribute>] ?line: int
+      [<CallerLineNumber>] ?line: int
     ) =
 
     tracer.StartActivityExt(

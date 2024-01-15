@@ -167,7 +167,7 @@ module SignatureFormatter =
       let typeList =
         unionCase.Fields
         |> Seq.map (fun unionField ->
-          if unionField.Name.StartsWith "Item" then //TODO: Some better way of detecting default names for the union cases' fields
+          if unionField.Name.StartsWith("Item", StringComparison.Ordinal) then //TODO: Some better way of detecting default names for the union cases' fields
             formatFSharpType displayContext unionField.FieldType
           else
             unionField.Name + ":" ++ (formatFSharpType displayContext unionField.FieldType))
@@ -178,7 +178,7 @@ module SignatureFormatter =
       unionCase.DisplayName
 
   let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident: int) =
-    let maybeGetter = func.LogicalName.StartsWith "get_"
+    let maybeGetter = func.LogicalName.StartsWith("get_", StringComparison.Ordinal)
     let indent = String.replicate ident " "
 
     let functionName =
@@ -190,7 +190,7 @@ module SignatureFormatter =
           |> FSharpKeywords.NormalizeIdentifierBackticks
         elif func.IsOperatorOrActivePattern then
           $"( {func.DisplayNameCore} )"
-        elif func.DisplayName.StartsWith "( " then
+        elif func.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
           FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         else
           FSharpKeywords.NormalizeIdentifierBackticks func.DisplayName
@@ -377,9 +377,12 @@ module SignatureFormatter =
           "new"
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
-        elif func.DisplayName.StartsWith "( " then
+        elif func.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
           FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
-        elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then
+        elif
+          func.LogicalName.StartsWith("get_", StringComparison.Ordinal)
+          || func.LogicalName.StartsWith("set_", StringComparison.Ordinal)
+        then
           PrettyNaming.TryChopPropertyName func.DisplayName
           |> Option.defaultValue func.DisplayName
         else
@@ -515,7 +518,7 @@ module SignatureFormatter =
     let prefix = if v.IsMutable then "val mutable" else "val"
 
     let name =
-      (if v.DisplayName.StartsWith "( " then
+      (if v.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
          v.LogicalName
        else
          v.DisplayName)
@@ -549,10 +552,12 @@ module SignatureFormatter =
 
   let getAPCaseSignature displayContext (apc: FSharpActivePatternCase) =
     let findVal =
+      let apcSearchString = $"|{apc.DisplayName}|"
+
       apc.Group.DeclaringEntity
       |> Option.bind (fun ent ->
         ent.MembersFunctionsAndValues
-        |> Seq.tryFind (fun func -> func.DisplayName.Contains apc.DisplayName)
+        |> Seq.tryFind (fun func -> func.DisplayName.Contains(apcSearchString, StringComparison.OrdinalIgnoreCase))
         |> Option.map (getFuncSignature displayContext))
       |> Option.bind (fun n ->
         try

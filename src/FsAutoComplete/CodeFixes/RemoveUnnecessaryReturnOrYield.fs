@@ -1,5 +1,6 @@
 module FsAutoComplete.CodeFix.RemoveUnnecessaryReturnOrYield
 
+open System
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
@@ -15,7 +16,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+      let! tyRes, _line, lines = getParseResultsForFile fileName fcsPos
       let fcsErrorPos = protocolPosToPos diagnostic.Range.Start
 
       match tyRes.GetParseResults.TryRangeOfExprInYieldOrReturn fcsErrorPos with
@@ -26,13 +27,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
         let! errorText = getLineText lines diagnostic.Range
 
         let! title =
-          if errorText.StartsWith "return!" then
+          if errorText.StartsWith("return!", StringComparison.Ordinal) then
             Ok(title "return!")
-          elif errorText.StartsWith "yield!" then
+          elif errorText.StartsWith("yield!", StringComparison.Ordinal) then
             Ok(title "yield!")
-          elif errorText.StartsWith "return" then
+          elif errorText.StartsWith("return", StringComparison.Ordinal) then
             Ok(title "return")
-          elif errorText.StartsWith "yield" then
+          elif errorText.StartsWith("yield", StringComparison.Ordinal) then
             Ok(title "yield")
           else
             Error "unknown start token for remove return or yield codefix"

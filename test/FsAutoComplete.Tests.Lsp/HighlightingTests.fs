@@ -20,18 +20,16 @@ let tests state =
       do! server.TextDocumentDidOpen tdop
 
       match! waitForParseResultsForFile "Script.fsx" event with
-      | Ok () -> return server
+      | Ok() -> return server
       | Error errors ->
         let errorStrings =
-          errors
-          |> Array.map (fun e -> e.DebuggerDisplay)
-          |> String.concat "\n\t* "
+          errors |> Array.map (fun e -> e.DebuggerDisplay) |> String.concat "\n\t* "
 
         return failtestf "Errors while parsing highlighting script:\n\t* %s" errorStrings
     }
     |> Async.Cache
 
-  let decodeHighlighting (data: uint32 []) =
+  let decodeHighlighting (data: uint32[]) =
     let zeroLine = [| 0u; 0u; 0u; 0u; 0u |]
 
     let lines = Array.append [| zeroLine |] (Array.chunkBySize 5 data)
@@ -76,7 +74,7 @@ let tests state =
       let! highlights = server.TextDocumentSemanticTokensFull p
 
       match highlights with
-      | Ok (Some highlights) ->
+      | Ok(Some highlights) ->
         let decoded = highlights.Data |> decodeHighlighting
         // printfn "%A" decoded
         return decoded
@@ -94,7 +92,7 @@ let tests state =
   let tokenIsOfType
     ((line, char) as pos)
     testTokenType
-    (highlights: (Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier) [] Async)
+    (highlights: (Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier)[] Async)
     =
     testCaseAsync
       $"can find token of type {testTokenType} at %A{pos}"
@@ -109,7 +107,7 @@ let tests state =
       })
 
   /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
-  let tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType =
+  let _tokenIsOfTypeInRange ((startLine, startChar), (endLine, endChar)) ((line, char)) testTokenType =
     testCaseAsync
       $"can find token of type {testTokenType} in a subrange from ({startLine}, {startChar})-({endLine}, {endChar})"
       (async {
@@ -127,8 +125,8 @@ let tests state =
           server.TextDocumentSemanticTokensRange
             { Range = range
               TextDocument = { Uri = Path.FilePathToUri scriptPath } }
-          with
-        | Ok (Some highlights) ->
+        with
+        | Ok(Some highlights) ->
           let decoded = decodeHighlighting highlights.Data
 
           Expect.exists

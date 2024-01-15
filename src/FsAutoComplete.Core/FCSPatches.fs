@@ -478,7 +478,7 @@ module SyntaxTreeOps =
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
-        || walkExprs (recordFields |> List.map (fun (ident, range, expr) -> expr))
+        || walkExprs (recordFields |> List.map (fun (_ident, _range, expr) -> expr))
 
       | SynExpr.Record(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
@@ -542,11 +542,11 @@ module SyntaxTreeOps =
             | SynInterpolatedStringPart.String _ -> None
             | SynInterpolatedStringPart.FillExpr(x, _) -> Some x)
         )
-      | SynExpr.IndexRange(expr1, opm, expr2, range1, range2, range3) ->
+      | SynExpr.IndexRange(expr1 = expr1; expr2 = expr2) ->
         Option.map walkExpr expr1
         |> Option.orElseWith (fun _ -> Option.map walkExpr expr2)
         |> Option.defaultValue false
-      | SynExpr.IndexFromEnd(expr, range) -> walkExpr expr
+      | SynExpr.IndexFromEnd(expr, _) -> walkExpr expr
       | SynExpr.DebugPoint(innerExpr = expr) -> walkExpr expr
       | SynExpr.Dynamic(funcExpr = funcExpr; argExpr = argExpr) -> walkExpr funcExpr || walkExpr argExpr
 
@@ -659,7 +659,7 @@ module LanguageVersionShim =
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   let fromFSharpProjectOptions (fpo: FSharpProjectOptions) =
     fpo.OtherOptions
-    |> Array.tryFind (fun x -> x.StartsWith("--langversion:"))
+    |> Array.tryFind (fun x -> x.StartsWith("--langversion:", StringComparison.Ordinal))
     |> Option.map (fun x -> x.Split(":")[1])
     |> Option.map (fun x -> LanguageVersionShim(x))
     |> Option.defaultWith (fun () -> defaultLanguageVersion.Value)

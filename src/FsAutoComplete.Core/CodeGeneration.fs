@@ -302,8 +302,10 @@ module CodeGenerationUtils =
     let displayName = v.DisplayName
 
     if
-      (v.IsPropertyGetterMethod && displayName.StartsWith("get_"))
-      || (v.IsPropertySetterMethod && displayName.StartsWith("set_"))
+      (v.IsPropertyGetterMethod
+       && displayName.StartsWith("get_", StringComparison.Ordinal))
+      || (v.IsPropertySetterMethod
+          && displayName.StartsWith("set_", StringComparison.Ordinal))
     then
       displayName.[4..]
     else
@@ -328,7 +330,7 @@ module CodeGenerationUtils =
 
       (if String.IsNullOrWhiteSpace(args) then
          ""
-       elif args.StartsWith("(") then
+       elif args.StartsWith("(", StringComparison.Ordinal) then
          args
        elif v.CurriedParameterGroups.Count > 1 && (not verboseMode) then
          " " + args
@@ -345,7 +347,10 @@ module CodeGenerationUtils =
         | _, _, ".ctor", _ -> "new" + parArgs
         // Properties (skipping arguments)
         | _, true, _, name when v.IsPropertyGetterMethod || v.IsPropertySetterMethod ->
-          if name.StartsWith("get_") || name.StartsWith("set_") then
+          if
+            name.StartsWith("get_", StringComparison.Ordinal)
+            || name.StartsWith("set_", StringComparison.Ordinal)
+          then
             name.[4..]
           else
             name
@@ -549,7 +554,7 @@ module CodeGenerationUtils =
 
   let getAbstractNonVirtualMembers (e: FSharpEntity) =
     seq {
-      let genericParams = e.GenericParameters :> seq<_>
+      let _genericParams = e.GenericParameters :> seq<_>
       // todo: generic param instantiations?
       yield!
         e.MembersFunctionsAndValues
@@ -576,14 +581,14 @@ module CodeGenerationUtils =
     | SynBinding(valData = SynValData(memberFlags = Some mf); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertyGet
       ->
-      if name.StartsWith("get_") then
+      if name.StartsWith("get_", StringComparison.Ordinal) then
         Some(name, range, trivia.LeadingKeyword.Range)
       else
         Some("get_" + name, range, trivia.LeadingKeyword.Range)
     | SynBinding(valData = SynValData(memberFlags = Some mf); headPat = LongIdentPattern(name, range); trivia = trivia) when
       mf.MemberKind = SynMemberKind.PropertySet
       ->
-      if name.StartsWith("set_") then
+      if name.StartsWith("set_", StringComparison.Ordinal) then
         Some(name, range, trivia.LeadingKeyword.Range)
       else
         Some("set_" + name, range, trivia.LeadingKeyword.Range)
@@ -594,9 +599,12 @@ module CodeGenerationUtils =
   let normalizeEventName (m: FSharpMemberOrFunctionOrValue) =
     let name = m.DisplayName
 
-    if name.StartsWith("add_") then name.[4..]
-    elif name.StartsWith("remove_") then name.[7..]
-    else name
+    if name.StartsWith("add_", StringComparison.Ordinal) then
+      name.[4..]
+    elif name.StartsWith("remove_", StringComparison.Ordinal) then
+      name.[7..]
+    else
+      name
 
   /// Ideally this info should be returned in error symbols from FCS.
   /// Because it isn't, we implement a crude way of getting member signatures:

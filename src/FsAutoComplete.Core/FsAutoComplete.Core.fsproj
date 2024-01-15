@@ -50,6 +50,7 @@
     <Compile Include="State.fs" />
     <Compile Include="CodeGeneration.fsi" />
     <Compile Include="CodeGeneration.fs" />
+    <Compile Include="UnionPatternMatchCaseGenerator.fsi" />
     <Compile Include="UnionPatternMatchCaseGenerator.fs" />
     <Compile Include="RecordStubGenerator.fs" />
     <Compile Include="AbstractClassStubGenerator.fs" />

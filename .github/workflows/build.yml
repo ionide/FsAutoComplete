@@ -84,16 +84,10 @@ jobs:
       run: dotnet --info
 
     - name: Restore tools
-      run: |
-        # can't do a tool restore here due to an 8.0.100 rc2 bug - this is fixed in GA so can go back to
-        # dotnet tool restore then.
-        dotnet tool install paket --version 8.0.0-alpha002 && dotnet tool install fantomas --version 6.2.3 && dotnet paket restore
-
-    - name: cat file
-      run: cat src/FsAutoComplete.Core/AbstractClassStubGenerator.fs
+      run: dotnet tool restore
 
     - name: Check format
-      run: dotnet build -t:CheckFormat
+      run: dotnet fantomas --check src
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
@@ -110,3 +104,23 @@ jobs:
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}
+
+  analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+
+    - name: Restore tools
+      run: dotnet tool restore
+
+    - name: Run analyzers
+      run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net6.0
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: analysisreports

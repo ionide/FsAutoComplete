@@ -32,7 +32,7 @@ let initTests createServer =
       let tempDir =
         Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
 
-      let (server: IFSharpLspServer, event) = createServer ()
+      let (server: IFSharpLspServer, _event) = createServer ()
 
       let p: InitializeParams =
         { ProcessId = Some 1
@@ -59,9 +59,11 @@ let initTests createServer =
 
         Expect.equal
           res.Capabilities.CodeActionProvider
-          (Some (U2.Second
-            { CodeActionOptions.ResolveProvider = None
-              CodeActionOptions.CodeActionKinds = None }))
+          (Some(
+            U2.Second
+              { CodeActionOptions.ResolveProvider = None
+                CodeActionOptions.CodeActionKinds = None }
+          ))
           "Code Action Provider"
 
         Expect.equal
@@ -75,15 +77,18 @@ let initTests createServer =
         Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
         Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
         Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
-        Expect.equal res.Capabilities.DocumentSymbolProvider (Some (U2.Second { Label = Some "F#" })) "Document Symbol Provider"
+
+        Expect.equal
+          res.Capabilities.DocumentSymbolProvider
+          (Some(U2.Second { Label = Some "F#" }))
+          "Document Symbol Provider"
+
         Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
         Expect.equal res.Capabilities.Experimental None "Experimental"
         Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
         Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
         Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
-        Expect.equal res.Capabilities.RenameProvider (Some(U2.Second {
-          PrepareProvider = Some true
-        })) "Rename Provider"
+        Expect.equal res.Capabilities.RenameProvider (Some(U2.Second { PrepareProvider = Some true })) "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
@@ -100,9 +105,14 @@ let initTests createServer =
 
         Expect.equal res.Capabilities.TextDocumentSync (Some td) "Text Document Provider"
         Expect.equal res.Capabilities.TypeDefinitionProvider (Some true) "Type Definition Provider"
-        Expect.equal res.Capabilities.WorkspaceSymbolProvider (Some (U2.Second { ResolveProvider = Some true })) "Workspace Symbol Provider"
+
+        Expect.equal
+          res.Capabilities.WorkspaceSymbolProvider
+          (Some(U2.Second { ResolveProvider = Some true }))
+          "Workspace Symbol Provider"
+
         Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
-      | Result.Error e -> failtest "Initialization failed"
+      | Result.Error _e -> failtest "Initialization failed"
     })
 
 ///Tests for getting document symbols
@@ -110,7 +120,7 @@ let documentSymbolTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DocumentSymbolTest")
-      let! (server, event) = serverInitialize path defaultConfigDto state
+      let! (server, _event) = serverInitialize path defaultConfigDto state
       let path = Path.Combine(path, "Script.fsx")
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
       do! server.TextDocumentDidOpen tdop
@@ -137,7 +147,7 @@ let documentSymbolTest state =
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok(Some(U2.Second res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+          | Result.Ok(Some(U2.Second _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =
@@ -177,29 +187,32 @@ let tooltipTests state =
   let (|Signature|_|) (hover: Hover) =
     match hover with
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
-                                    MarkedString.String docComment
-                                    MarkedString.String fullname
-                                    MarkedString.String assembly |] } -> Some tooltip
+                                    MarkedString.String _docComment
+                                    MarkedString.String _fullname
+                                    MarkedString.String _assembly |] } -> Some tooltip
     | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
-                                    MarkedString.String docComment
-                                    MarkedString.String showDocumentationLink
-                                    MarkedString.String fullname
-                                    MarkedString.String assembly |] } -> Some tooltip
+                                    MarkedString.String _docComment
+                                    MarkedString.String _showDocumentationLink
+                                    MarkedString.String _fullname
+                                    MarkedString.String _assembly |] } -> Some tooltip
     | _ -> None
 
   let (|Description|_|) (hover: Hover) =
     match hover with
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
+                                                                Value = _tooltip }
                                     MarkedString.String description |] } -> Some description
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
+                                                                Value = _tooltip }
                                     MarkedString.String description
-                                    MarkedString.String fullname
-                                    MarkedString.String assembly |] } -> Some description
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
+                                    MarkedString.String _fullname
+                                    MarkedString.String _assembly |] } -> Some description
+    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
+                                                                Value = _tooltip }
                                     MarkedString.String description
-                                    MarkedString.String showDocumentationLink
-                                    MarkedString.String fullname
-                                    MarkedString.String assembly |] } -> Some description
+                                    MarkedString.String _showDocumentationLink
+                                    MarkedString.String _fullname
+                                    MarkedString.String _assembly |] } -> Some description
     | _ -> None
 
   let server =
@@ -258,12 +271,6 @@ let tooltipTests state =
 
   let verifyDescription line character expectedDescription =
     verifyDescriptionImpl testCaseAsync line character expectedDescription
-
-  let pverifyDescription reason line character expectedDescription =
-    verifyDescriptionImpl ptestCaseAsync line character expectedDescription
-
-  let fverifyDescription line character expectedDescription =
-    verifyDescriptionImpl ftestCaseAsync line character expectedDescription
 
   testSequenced
   <| testList
@@ -372,7 +379,28 @@ let tooltipTests state =
                 "   body             : (MailboxProcessor<string> -> Async<unit>) *"
                 "   cancellationToken: option<System.Threading.CancellationToken>"
                 "                   -> MailboxProcessor<string>" ])
-          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool" ] ]
+          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool"
+          verifySignature
+            60
+            7
+            (concatLines
+              [ "active pattern Value: "
+                "   input: Expr"
+                "       -> option<obj * System.Type>" ])
+          verifySignature
+            65
+            7
+            (concatLines
+              [ "active pattern DefaultValue: "
+                "   input: Expr"
+                "       -> option<System.Type>" ])
+          verifySignature
+            70
+            7
+            (concatLines
+              [ "active pattern ValueWithName: "
+                "   input: Expr"
+                "       -> option<obj * System.Type * string>" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

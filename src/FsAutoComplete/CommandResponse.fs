@@ -91,7 +91,7 @@ module internal ClassificationUtils =
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> "variable"
     | SemanticClassificationType.Plaintext -> "text"
-    | n -> "unknown"
+    | _n -> "unknown"
 
 module CommandResponse =
   open FSharp.Compiler.Text
@@ -211,7 +211,7 @@ module CommandResponse =
 
     static member IsIgnored(e: FSharpDiagnostic) =
       // FST-1027 support in Fake 5
-      e.ErrorNumber = 213 && e.Message.StartsWith "'paket:"
+      e.ErrorNumber = 213 && e.Message.StartsWith("'paket:", StringComparison.Ordinal)
 
     static member OfFSharpError(e: FSharpDiagnostic) =
       { FileName = e.FileName
@@ -460,7 +460,7 @@ module CommandResponse =
             match x.Kind with
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
+            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _ ->
               Some(
                 WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                   { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }

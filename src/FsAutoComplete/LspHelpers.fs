@@ -146,14 +146,17 @@ module Conversions =
   let applyQuery (query: string) (info: SymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
-    | [| fullName |] -> info.Name.StartsWith fullName
-    | [| moduleName; fieldName |] -> info.Name.StartsWith fieldName && info.ContainerName = Some moduleName
+    | [| fullName |] -> info.Name.StartsWith(fullName, StringComparison.Ordinal)
+    | [| moduleName; fieldName |] ->
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some moduleName
     | parts ->
       let containerName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
 
       let fieldName = Array.last parts
 
-      info.Name.StartsWith fieldName && info.ContainerName = Some containerName
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some containerName
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
@@ -302,7 +305,7 @@ module Workspace =
           match x.Kind with
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat msbuildProj ->
+          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _msbuildProj ->
             Some(
               WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                 { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
@@ -356,7 +359,7 @@ module SignatureData =
 
     let args =
       parms
-      |> List.map (fun group -> group |> List.map (fun (n, t) -> formatType t) |> String.concat " * ")
+      |> List.map (fun group -> group |> List.map (snd >> formatType) |> String.concat " * ")
       |> String.concat " -> "
 
     if String.IsNullOrEmpty args then
@@ -528,7 +531,7 @@ module ClassificationUtils =
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
     | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
-    | unknown -> SemanticTokenTypes.Text, []
+    | _unknown -> SemanticTokenTypes.Text, []
 
 type PlainNotification = { Content: string }
 
@@ -633,7 +636,7 @@ type FSACDto =
 type FSharpConfigDto =
   { AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
-    ExcludeProjectDirectories: string[] option
+    ExcludeProjectDirectories: string array option
     KeywordsAutocomplete: bool option
     ExternalAutocomplete: bool option
     FullNameExternalAutocomplete: bool option
@@ -657,13 +660,15 @@ type FSharpConfigDto =
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
-    AnalyzersPath: string[] option
+    AnalyzersPath: string array option
+    ExcludeAnalyzers: string array option
+    IncludeAnalyzers: string array option
     DisableInMemoryProjectReferences: bool option
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
-    FSIExtraParameters: string[] option
-    FSICompilerToolLocations: string[] option
+    FSIExtraParameters: string array option
+    FSICompilerToolLocations: string array option
     TooltipMode: string option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
@@ -769,7 +774,7 @@ let tryCreateRegex (pattern: string) =
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
-    ExcludeProjectDirectories: string[]
+    ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
     ExternalAutocomplete: bool
     FullNameExternalAutocomplete: bool
@@ -796,13 +801,15 @@ type FSharpConfig =
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
-    AnalyzersPath: string[]
+    AnalyzersPath: string array
+    ExcludeAnalyzers: string array
+    IncludeAnalyzers: string array
     DisableInMemoryProjectReferences: bool
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
-    FSIExtraParameters: string[]
-    FSICompilerToolLocations: string[]
+    FSIExtraParameters: string array
+    FSICompilerToolLocations: string array
     TooltipMode: string
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
@@ -843,6 +850,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
       AnalyzersPath = [||]
+      ExcludeAnalyzers = [||]
+      IncludeAnalyzers = [||]
       DisableInMemoryProjectReferences = false
       LineLens = { Enabled = "never"; Prefix = "" }
       UseSdkScripts = true
@@ -864,7 +873,7 @@ type FSharpConfig =
       ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories [||]
       KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
       ExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
-      FullNameExternalAutocomplete = defaultArg dto.ExternalAutocomplete false
+      FullNameExternalAutocomplete = defaultArg dto.FullNameExternalAutocomplete false
       IndentationSize = defaultArg dto.IndentationSize 4
       Linter = defaultArg dto.Linter false
       LinterConfig = dto.LinterConfig
@@ -891,6 +900,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false
       AnalyzersPath = defaultArg dto.AnalyzersPath [||]
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers [||]
+      IncludeAnalyzers = defaultArg dto.IncludeAnalyzers [||]
       DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
       LineLens =
         { Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
@@ -996,6 +1007,8 @@ type FSharpConfig =
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
       EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers
       AnalyzersPath = defaultArg dto.AnalyzersPath x.AnalyzersPath
+      ExcludeAnalyzers = defaultArg dto.ExcludeAnalyzers x.ExcludeAnalyzers
+      IncludeAnalyzers = defaultArg dto.IncludeAnalyzers x.IncludeAnalyzers
       DisableInMemoryProjectReferences =
         defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
       LineLens =

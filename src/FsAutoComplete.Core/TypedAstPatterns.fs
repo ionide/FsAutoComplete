@@ -70,7 +70,7 @@ module SymbolUse =
     | :? FSharpParameter as param -> Some param
     | _ -> None
 
-  let (|StaticParameter|_|) (symbol: FSharpSymbolUse) = Some
+  let (|StaticParameter|_|) (_symbol: FSharpSymbolUse) = Some
 
 
   let (|UnionCase|_|) (symbol: FSharpSymbolUse) =
@@ -411,7 +411,7 @@ module SymbolPatterns =
     else
       None
 
-  let (|ProvidedType|_|) (e: FSharpEntity) = None
+  let (|ProvidedType|_|) (_e: FSharpEntity) = None
 
 
   let (|ByRef|_|) (e: FSharpEntity) = if e.IsByRef then Some() else None
@@ -421,7 +421,7 @@ module SymbolPatterns =
 
   let (|Namespace|_|) (entity: FSharpEntity) = if entity.IsNamespace then Some() else None
 
-  let (|ProvidedAndErasedType|_|) (entity: FSharpEntity) = None
+  let (|ProvidedAndErasedType|_|) (_entity: FSharpEntity) = None
 
   let (|Enum|_|) (entity: FSharpEntity) = if entity.IsEnum then Some() else None
 

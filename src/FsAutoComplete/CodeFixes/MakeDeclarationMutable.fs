@@ -19,11 +19,11 @@ let fix
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+      let! tyRes, line, _lines = getParseResultsForFile fileName fcsPos
       let! opts = getProjectOptionsForFile fileName
 
       match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy opts.OtherOptions with
-      | Some symbol ->
+      | Some _symbol ->
         match! tyRes.TryFindDeclaration fcsPos line with
         | FindDeclarationResult.Range declRange when declRange.FileName = (UMX.untag fileName) ->
           let lspRange = fcsRangeToLsp declRange

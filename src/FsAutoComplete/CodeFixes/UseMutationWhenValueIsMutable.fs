@@ -17,7 +17,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+      let! tyRes, _line, lines = getParseResultsForFile fileName fcsPos
 
       match walkForwardUntilCondition lines diagnostic.Range.Start System.Char.IsWhiteSpace with
       | None -> return []

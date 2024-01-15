@@ -1,5 +1,6 @@
 module FsAutoComplete.CodeFix.RenameParamToMatchSignature
 
+open System
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
@@ -27,8 +28,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           let head = "The argument names in the signature '"
           let mid = "' and implementation '"
 
-          if msg.StartsWith head then
-            match msg.IndexOf mid with
+          if msg.StartsWith(head, StringComparison.Ordinal) then
+            match msg.IndexOf(mid, StringComparison.Ordinal) with
             | -1 -> None
             | i -> msg.Substring(head.Length, i - head.Length) |> Some
           else

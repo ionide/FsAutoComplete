@@ -61,12 +61,12 @@ module DotnetNewTemplate =
     let parseTemplateOutput (x: string) =
       let xs =
         x.Split(Environment.NewLine)
-        |> Array.skipWhile (fun n -> not (n.StartsWith "Template"))
+        |> Array.skipWhile (fun n -> not (n.StartsWith("Template", StringComparison.Ordinal)))
         |> Array.filter (fun n -> not (n.StartsWith ' ' || String.IsNullOrWhiteSpace n))
 
       let header = xs.[0]
       let body = xs.[2..]
-      let nameLength = header.IndexOf("Short")
+      let nameLength = header.IndexOf("Short", StringComparison.Ordinal)
 
       let body =
         body
@@ -130,8 +130,11 @@ module DotnetNewTemplate =
     let templates =
       templateDetails ()
       |> List.map (fun t -> t, extractDetailedString t)
-      |> List.filter (fun (t, strings) -> strings |> List.exists (nameMatch userInput))
-      |> List.map (fun (t, strings) -> t)
+      |> List.choose (fun (t, strings) ->
+        if strings |> List.exists (nameMatch userInput) then
+          Some t
+        else
+          None)
 
     match templates with
     | [] -> failwithf "No template exists with name : %s" userInput

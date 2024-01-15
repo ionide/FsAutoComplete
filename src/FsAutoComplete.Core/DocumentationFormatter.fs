@@ -104,7 +104,7 @@ module DocumentationFormatter =
       let t = Regex.Replace(org, """<.*>""", "<")
 
       [ yield formatShowDocumentationLink t xmlDocSig assemblyName
-        if t.EndsWith "<" then
+        if t.EndsWith("<", StringComparison.Ordinal) then
           yield! renderedGenericArgumentTypes |> Seq.intersperse (", ", 2)
 
           yield formatShowDocumentationLink ">" xmlDocSig assemblyName ]
@@ -217,7 +217,7 @@ module DocumentationFormatter =
       let typeList =
         unionCase.Fields
         |> Seq.map (fun unionField ->
-          if unionField.Name.StartsWith "Item" then //TODO: Some better way of detecting default names for the union cases' fields
+          if unionField.Name.StartsWith("Item", StringComparison.Ordinal) then //TODO: Some better way of detecting default names for the union cases' fields
             unionField.FieldType |> format displayContext |> fst
 
           else
@@ -231,7 +231,7 @@ module DocumentationFormatter =
       unionCase.DisplayName
 
   let getFuncSignatureWithIdent displayContext (func: FSharpMemberOrFunctionOrValue) (ident: int) =
-    let maybeGetter = func.LogicalName.StartsWith "get_"
+    let maybeGetter = func.LogicalName.StartsWith("get_", StringComparison.Ordinal)
     let indent = String.replicate ident " "
 
     let functionName =
@@ -243,7 +243,7 @@ module DocumentationFormatter =
           |> FSharpKeywords.NormalizeIdentifierBackticks
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
-        elif func.DisplayName.StartsWith "( " then
+        elif func.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
           FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
         else
           FSharpKeywords.NormalizeIdentifierBackticks func.DisplayName
@@ -416,9 +416,12 @@ module DocumentationFormatter =
           "new"
         elif func.IsOperatorOrActivePattern then
           func.DisplayName
-        elif func.DisplayName.StartsWith "( " then
+        elif func.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
           FSharpKeywords.NormalizeIdentifierBackticks func.LogicalName
-        elif func.LogicalName.StartsWith "get_" || func.LogicalName.StartsWith "set_" then
+        elif
+          func.LogicalName.StartsWith("get_", StringComparison.Ordinal)
+          || func.LogicalName.StartsWith("set_", StringComparison.Ordinal)
+        then
           PrettyNaming.TryChopPropertyName func.DisplayName
           |> Option.defaultValue func.DisplayName
         else
@@ -536,7 +539,7 @@ module DocumentationFormatter =
     let prefix = if v.IsMutable then "val mutable" else "val"
 
     let name =
-      (if v.DisplayName.StartsWith "( " then
+      (if v.DisplayName.StartsWith("( ", StringComparison.Ordinal) then
          v.LogicalName
        else
          v.DisplayName)
@@ -584,7 +587,7 @@ module DocumentationFormatter =
 
     sprintf "active pattern %s: %s" apc.Name findVal
 
-  let getAttributeSignature displayContext (attr: FSharpAttribute) =
+  let getAttributeSignature (attr: FSharpAttribute) =
     let name =
       formatShowDocumentationLink
         attr.AttributeType.DisplayName
@@ -714,8 +717,7 @@ module DocumentationFormatter =
         |> Seq.map (fun inf -> fst (format displayContext inf))
         |> Seq.toArray
 
-      let attrs =
-        fse.Attributes |> Seq.map (getAttributeSignature displayContext) |> Seq.toArray
+      let attrs = fse.Attributes |> Seq.map getAttributeSignature |> Seq.toArray
 
       let types =
         fse.NestedEntities
@@ -782,7 +784,10 @@ module DocumentationFormatter =
 
     /// trims the leading 'Microsoft.' from the full name of the symbol
     member m.SafeFullName =
-      if m.FullName.StartsWith "Microsoft." && m.Assembly.SimpleName = "FSharp.Core" then
+      if
+        m.FullName.StartsWith("Microsoft.", StringComparison.Ordinal)
+        && m.Assembly.SimpleName = "FSharp.Core"
+      then
         m.FullName.Substring "Microsoft.".Length
       else
         m.FullName

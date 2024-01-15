@@ -15,7 +15,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
 
       let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (tyRes, line, lines) = getParseResultsForFile fileName fcsPos
+      let! tyRes, _line, _lines = getParseResultsForFile fileName fcsPos
 
       match tyRes.GetParseResults.TryRangeOfRefCellDereferenceContainingPos fcsPos with
       | Some derefRange ->

@@ -13,7 +13,7 @@ module SymbolUse =
   val (|MemberFunctionOrValue|_|): symbol: FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option
   val (|ActivePattern|_|): (FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option)
   val (|Parameter|_|): symbol: FSharpSymbolUse -> FSharpParameter option
-  val (|StaticParameter|_|): symbol: FSharpSymbolUse -> ('a -> 'a option)
+  val (|StaticParameter|_|): FSharpSymbolUse -> ('a -> 'a option)
   val (|UnionCase|_|): symbol: FSharpSymbolUse -> FSharpUnionCase option
   val (|Constructor|_|): (FSharpSymbolUse -> FSharpMemberOrFunctionOrValue option)
   val (|TypeAbbreviation|_|): (FSharpSymbolUse -> FSharpEntity option)
@@ -56,12 +56,12 @@ module SymbolPatterns =
   val (|Interface|_|): e: FSharpEntity -> unit option
   val (|AbstractClass|_|): e: FSharpEntity -> unit option
   val (|FSharpType|_|): e: FSharpEntity -> unit option
-  val (|ProvidedType|_|): e: FSharpEntity -> 'a option
+  val (|ProvidedType|_|): FSharpEntity -> 'a option
   val (|ByRef|_|): e: FSharpEntity -> unit option
   val (|Array|_|): e: FSharpEntity -> unit option
   val (|FSharpModule|_|): entity: FSharpEntity -> unit option
   val (|Namespace|_|): entity: FSharpEntity -> unit option
-  val (|ProvidedAndErasedType|_|): entity: FSharpEntity -> 'a option
+  val (|ProvidedAndErasedType|_|): FSharpEntity -> 'a option
   val (|Enum|_|): entity: FSharpEntity -> unit option
   val (|Tuple|_|): ty: FSharpType option -> unit option
   val (|RefCell|_|): ty: FSharpType -> unit option

@@ -698,7 +698,8 @@ module private CommonFixes =
   /// -> Prepend space if leading sign in `replacement` and operator char immediately in front (in `lineStr`)
   let prependSpaceIfNecessary (range: Range) (lineStr: string) (replacement: string) =
     if
-      (replacement.StartsWith "-" || replacement.StartsWith "+")
+      (replacement.StartsWith("-", StringComparison.Ordinal)
+       || replacement.StartsWith("+", StringComparison.Ordinal))
       && range.Start.Character > 0
       && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1])
     then
@@ -771,7 +772,6 @@ module private CommonFixes =
   let replaceWithNamedConstantFix
     doc
     (pos: FcsPos)
-    (lineStr: String)
     (parseAndCheck: ParseAndCheckResults)
     (constant: SynConst)
     (constantRange: Range)
@@ -831,7 +831,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -841,7 +840,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -851,7 +849,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -870,7 +867,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -880,7 +876,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -890,7 +885,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -903,7 +897,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -913,7 +906,6 @@ module private CommonFixes =
         replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant
           constantRange
@@ -938,7 +930,7 @@ module private CharFix =
 
     mkFix doc data [||]
 
-  let convertToOtherFormatFixes doc (lineStr: String) (constant: CharConstant) =
+  let convertToOtherFormatFixes doc (constant: CharConstant) =
     [ let mkFix' title replacement =
         let edits =
           [| { Range = constant.ValueRange.ToRangeInside constant.Range
@@ -989,7 +981,7 @@ module private CharFix =
 
   let all doc (lineStr: String) (error: bool) (constant: CharConstant) =
     [ if not error then
-        yield! convertToOtherFormatFixes doc lineStr constant
+        yield! convertToOtherFormatFixes doc constant
 
       if DEBUG then
         debugFix doc lineStr constant ]
@@ -1421,7 +1413,6 @@ module private IntFix =
         CommonFixes.replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant.Constant
           constant.Range
@@ -1432,7 +1423,6 @@ module private IntFix =
         CommonFixes.replaceWithNamedConstantFix
           doc
           pos
-          lineStr
           parseAndCheck
           constant.Constant
           constant.Range
@@ -1598,7 +1588,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
     asyncResult {
       let filePath = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
-      let! (parseAndCheck, lineStr, sourceText) = getParseResultsForFile filePath fcsPos
+      let! (parseAndCheck, lineStr, _sourceText) = getParseResultsForFile filePath fcsPos
 
       match tryFindConstant parseAndCheck.GetAST fcsPos with
       | None -> return []
@@ -1658,7 +1648,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             let constant = CharConstant.parse (lineStr, range, constant, char value)
             CharFix.all doc lineStr error constant
           | IntConstant constant -> IntFix.all doc fcsPos lineStr parseAndCheck error constant
-          | SynConst.UserNum(_, _) ->
+          | SynConst.UserNum _ ->
             let constant = IntConstant.parse (lineStr, range, constant)
             IntFix.all doc fcsPos lineStr parseAndCheck error constant
           | SynConst.Single _

@@ -1,5 +1,6 @@
 ﻿module FsAutoComplete.CodeFix.ToInterpolatedString
 
+open System
 open System.Text.RegularExpressions
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
@@ -87,7 +88,9 @@ let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText:
     parseAndCheck.TryGetSymbolUse functionIdent.idRange.End lineStr
     |> Option.bind (fun symbolUse ->
       match symbolUse.Symbol with
-      | :? FSharpMemberOrFunctionOrValue as mfv when mfv.Assembly.QualifiedName.StartsWith("FSharp.Core") ->
+      | :? FSharpMemberOrFunctionOrValue as mfv when
+        mfv.Assembly.QualifiedName.StartsWith("FSharp.Core", StringComparison.Ordinal)
+        ->
         // Verify the function is from F# Core.
         Some(functionIdent, mString, xs, mLastArg)
       | _ -> None))

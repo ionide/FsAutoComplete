@@ -32,23 +32,16 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
-  [
-    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+  [ "Ionide WorkspaceLoader",
+    (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
     // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-  ]
+    ]
 
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
   Helpers.createAdaptiveServer (fun () -> workspaceLoaderFactory toolsPath) sourceTextFactory
 
-let lspServers =
-  [
-    "AdaptiveLspServer", adaptiveLspServerFactory
-    ]
-
-let sourceTextFactories: (string * ISourceTextFactory) list = [
-  "RoslynSourceText", RoslynSourceTextFactory()
-]
+let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
@@ -57,78 +50,70 @@ let lspTests =
   testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
-        for (lspName, lspFactory) in lspServers do
-          for (sourceTextName, sourceTextFactory) in sourceTextFactories do
 
-            testList
-              $"{loaderName}.{lspName}.{sourceTextName}"
-              [
-                Templates.tests ()
-                let createServer () =
-                  lspFactory toolsPath workspaceLoaderFactory sourceTextFactory
+        testList
+          $"{loaderName}"
+          [
+            Templates.tests ()
+            let createServer () =
+              adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory
 
-                initTests createServer
-                closeTests createServer
+            initTests createServer
+            closeTests createServer
 
-                Utils.Tests.Server.tests createServer
-                Utils.Tests.CursorbasedTests.tests createServer
+            Utils.Tests.Server.tests createServer
+            Utils.Tests.CursorbasedTests.tests createServer
 
-                CodeLens.tests createServer
-                documentSymbolTest createServer
-                Completion.autocompleteTest createServer
-                Completion.autoOpenTests createServer
-                Completion.fullNameExternalAutocompleteTest createServer
-                foldingTests createServer
-                tooltipTests createServer
-                Highlighting.tests createServer
-                scriptPreviewTests createServer
-                scriptEvictionTests createServer
-                scriptProjectOptionsCacheTests createServer
-                dependencyManagerTests createServer
-                interactiveDirectivesUnitTests
+            CodeLens.tests createServer
+            documentSymbolTest createServer
+            Completion.autocompleteTest createServer
+            Completion.autoOpenTests createServer
+            Completion.fullNameExternalAutocompleteTest createServer
+            foldingTests createServer
+            tooltipTests createServer
+            Highlighting.tests createServer
+            scriptPreviewTests createServer
+            scriptEvictionTests createServer
+            scriptProjectOptionsCacheTests createServer
+            dependencyManagerTests createServer
+            interactiveDirectivesUnitTests
 
-                // commented out because FSDN is down
-                //fsdnTest createServer
+            // commented out because FSDN is down
+            //fsdnTest createServer
 
-                //linterTests createServer
-                uriTests
-                formattingTests createServer
-                analyzerTests createServer
-                signatureTests createServer
-                SignatureHelp.tests createServer
-                CodeFixTests.Tests.tests sourceTextFactory createServer
-                Completion.tests createServer
-                GoTo.tests createServer
+            //linterTests createServer
+            uriTests
+            formattingTests createServer
+            analyzerTests createServer
+            signatureTests createServer
+            SignatureHelp.tests createServer
+            InlineHints.tests createServer
+            CodeFixTests.Tests.tests sourceTextFactory createServer
+            Completion.tests createServer
+            GoTo.tests createServer
 
-                FindReferences.tests createServer
-                Rename.tests createServer
+            FindReferences.tests createServer
+            Rename.tests createServer
 
-                InfoPanelTests.docFormattingTest createServer
-                DetectUnitTests.tests createServer
-                XmlDocumentationGeneration.tests createServer
-                InlayHintTests.tests createServer
-                DependentFileChecking.tests createServer
-                UnusedDeclarationsTests.tests createServer
-                EmptyFileTests.tests createServer
-                CallHierarchy.tests createServer
-                ] ]
+            InfoPanelTests.docFormattingTest createServer
+            DetectUnitTests.tests createServer
+            XmlDocumentationGeneration.tests createServer
+            InlayHintTests.tests createServer
+            DependentFileChecking.tests createServer
+            UnusedDeclarationsTests.tests createServer
+            EmptyFileTests.tests createServer
+            CallHierarchy.tests createServer
+            ] ]
 
 /// Tests that do not require a LSP server
 let generalTests = testList "general" [
   testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
-  for (name, factory) in sourceTextFactories do
-    InlayHintTests.explicitTypeInfoTests (name, factory)
-    FindReferences.tryFixupRangeTests (name, factory)
+  InlayHintTests.explicitTypeInfoTests sourceTextFactory
+  FindReferences.tryFixupRangeTests sourceTextFactory
 ]
 
 [<Tests>]
-let tests =
-  testList
-    "FSAC"
-    [
-      generalTests
-      lspTests
-    ]
+let tests = testList "FSAC" [ generalTests; lspTests ]
 
 
 [<EntryPoint>]
@@ -142,10 +127,10 @@ let main args =
     let logLevel =
       match
         args
-        |> Array.tryFind (fun arg -> arg.StartsWith logMarker)
+        |> Array.tryFind (fun arg -> arg.StartsWith(logMarker, StringComparison.Ordinal))
         |> Option.map (fun log -> log.Substring(logMarker.Length))
       with
-      | Some ("warn" | "warning") -> Logging.LogLevel.Warn
+      | Some("warn" | "warning") -> Logging.LogLevel.Warn
       | Some "error" -> Logging.LogLevel.Error
       | Some "fatal" -> Logging.LogLevel.Fatal
       | Some "info" -> Logging.LogLevel.Info
@@ -155,7 +140,7 @@ let main args =
 
     let args =
       args
-      |> Array.filter (fun arg -> not <| arg.StartsWith logMarker)
+      |> Array.filter (fun arg -> not <| arg.StartsWith(logMarker, StringComparison.Ordinal))
 
     logLevel, args
 
@@ -173,10 +158,12 @@ let main args =
 
     let toExclude =
       args
-      |> Array.filter (fun arg -> arg.StartsWith excludeMarker)
+      |> Array.filter (fun arg -> arg.StartsWith(excludeMarker, StringComparison.Ordinal))
       |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-    let args = args |> Array.filter (fun arg -> not <| arg.StartsWith excludeMarker)
+    let args =
+      args
+      |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
 
     toExclude, args
 
@@ -190,7 +177,7 @@ let main args =
       fun s -> s <> null && logSourcesToExclude |> Array.contains s
     )
 
-  let argsToRemove, loaders =
+  let argsToRemove, _loaders =
     args
     |> Array.windowed 2
     |> Array.tryPick (function
@@ -207,10 +194,8 @@ let main args =
       .Filter.ByExcluding(Matching.FromSource("FileSystem"))
       .Filter.ByExcluding(sourcesToExclude)
 
-      .Destructure
-      .FSharpTypes()
-      .Destructure
-      .ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
+      .Destructure.FSharpTypes()
+      .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
         box
           {| FileName = r.FileName
              Start = r.Start
@@ -218,8 +203,7 @@ let main args =
       .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-      .WriteTo
-      .Async(fun c ->
+      .WriteTo.Async(fun c ->
         c.Console(
           outputTemplate = outputTemplate,
           standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
@@ -236,13 +220,10 @@ let main args =
 
   let cts = new CancellationTokenSource(testTimeout)
 
-  let args  =
-    [
-      CLIArguments.Printer (Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+  let args =
+    [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity logLevel
       // CLIArguments.Parallel
-    ]
+      ]
 
   runTestsWithCLIArgsAndCancel cts.Token args fixedUpArgs tests
-
-

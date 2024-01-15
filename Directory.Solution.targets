@@ -1,13 +1,25 @@
 <Project>
-  <ItemGroup>
-    <FormatInputs Include="src/**/*.fs;src/**/*.fsi" Exclude="src/**/obj/**/*.fs" />
-  </ItemGroup>
-
   <Target Name="Format">
-    <Exec Command="dotnet fantomas @(FormatInputs, ' ') " />
+    <Exec Command="dotnet fantomas src" />
   </Target>
 
   <Target Name="CheckFormat">
-    <Exec Command="dotnet fantomas --check @(FormatInputs, ' ') " />
+    <Exec Command="dotnet fantomas --check src" />
   </Target>
+
+  <ItemGroup>
+    <ProjectsToAnalyze Include="src/**/*.fsproj" />
+  </ItemGroup>
+
+  <Target Name="AnalyzeSolution">
+    <PropertyGroup>
+      <CodeRoot>$(SolutionDir)</CodeRoot>
+      <SarifOutput>$(SolutionDir)/analysisreports</SarifOutput>
+    </PropertyGroup>
+    <MSBuild
+      Projects="@(ProjectsToAnalyze)"
+      Targets="AnalyzeFSharpProject"
+      Properties="CodeRoot=$(CodeRoot);SarifOutput=$(SarifOutput)" />
+  </Target>
+
 </Project>

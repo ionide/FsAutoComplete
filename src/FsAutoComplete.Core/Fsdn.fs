@@ -67,7 +67,7 @@ let query (queryStr: string) =
 
         let info2 = v.api.name
         //return a list of strings
-        let infoNamespace = info2.``namespace``
+        let _infoNamespace = info2.``namespace``
         let infoClass = info2.class_name
         let infoMethod = info2.id
 

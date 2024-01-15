@@ -1,6 +1,6 @@
 module FsAutoComplete.CodeFix.RemoveUnusedBinding
 
-
+open System
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
@@ -11,10 +11,6 @@ open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
-
-let posBetween (range: Range) tester =
-  Position.posGeq tester range.Start // positions on this one are flipped to simulate Pos.posLte, because that doesn't exist
-  && Position.posGeq range.End tester
 
 type private ReplacementRangeResult =
   | FullBinding of bindingRange: Range
@@ -62,7 +58,9 @@ type FSharpParseFileResults with
                 else
                   // Check if it's an operator
                   match pat with
-                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when id.idText.StartsWith("op_") ->
+                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when
+                    id.idText.StartsWith("op_", StringComparison.Ordinal)
+                    ->
                     if Range.rangeContainsRange id.idRange diagnosticRange then
                       Some(FullBinding binding.RangeOfBindingWithRhs)
                     else
@@ -83,7 +81,7 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
       let fcsRange =
         protocolRangeToRange (codeActionParams.TextDocument.GetFilePath()) diagnostic.Range
 
-      let! tyres, line, lines = getParseResults fileName fcsRange.Start
+      let! tyres, _line, lines = getParseResults fileName fcsRange.Start
 
       let! rangeOfBinding =
         tyres.GetParseResults.TryRangeOfBindingWithHeadPatternWithPos(fcsRange)

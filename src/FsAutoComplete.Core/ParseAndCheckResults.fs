@@ -111,12 +111,12 @@ type ParseAndCheckResults
         (sym: FindDeclExternalSymbol)
         : (string<NormalizedRepoPathSegment> * Position) option =
         match sym with
-        | FindDeclExternalSymbol.Type name -> None
-        | FindDeclExternalSymbol.Constructor(typeName, args) -> None
-        | FindDeclExternalSymbol.Method(typeName, name, paramSyms, genericArity) -> None
-        | FindDeclExternalSymbol.Field(typeName, name) -> None
-        | FindDeclExternalSymbol.Event(typeName, name) -> None
-        | FindDeclExternalSymbol.Property(typeName, name) -> None
+        | FindDeclExternalSymbol.Type _ -> None
+        | FindDeclExternalSymbol.Constructor _ -> None
+        | FindDeclExternalSymbol.Method _ -> None
+        | FindDeclExternalSymbol.Field _ -> None
+        | FindDeclExternalSymbol.Event _ -> None
+        | FindDeclExternalSymbol.Property _ -> None
 
       // attempts to manually discover symbol use and external symbol information for a range that doesn't exist in a local file
       // bugfix/workaround for FCS returning invalid decl found for f# members.
@@ -163,7 +163,9 @@ type ParseAndCheckResults
             | FindDeclFailureReason.Unknown r -> r
 
           return ResultOrString.Error(sprintf "Could not find declaration. %s" elaboration)
-        | FindDeclResult.DeclFound range when range.FileName.EndsWith(Range.rangeStartup.FileName) ->
+        | FindDeclResult.DeclFound range when
+          range.FileName.EndsWith(Range.rangeStartup.FileName, StringComparison.Ordinal)
+          ->
           return ResultOrString.Error "Could not find declaration"
         | FindDeclResult.DeclFound range when range.FileName = UMX.untag x.FileName ->
           // decl in same file
@@ -215,7 +217,7 @@ type ParseAndCheckResults
                     { File = UMX.untag localFilePath
                       Position = pos }
                 )
-            | Error reason ->
+            | Error _ ->
               logger.info (
                 Log.setMessage "no sourcelink info for {assembly}, decompiling instead"
                 >> Log.addContextDestructured "assembly" assembly
@@ -318,7 +320,9 @@ type ParseAndCheckResults
 
   member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with
-    | None -> ResultOrString.Error "Cannot find ident for tooltip"
+    | None ->
+      logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+      None
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -330,15 +334,16 @@ type ParseAndCheckResults
         match identIsland with
         | [ ident ] ->
           match KeywordList.keywordTooltips.TryGetValue ident with
-          | true, tip -> Ok tip
-          | _ -> ResultOrString.Error "No tooltip information"
-        | _ -> ResultOrString.Error "No tooltip information"
-      | _ -> Ok(tip)
+          | true, tip -> Some tip
+          | _ ->
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+            None
+        | _ ->
+          logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+          None
+      | _ -> Some tip
 
-  member x.TryGetToolTipEnhanced
-    (pos: Position)
-    (lineStr: LineStr)
-    : Result<option<TryGetToolTipEnhancedResult>, string> =
+  member x.TryGetToolTipEnhanced (pos: Position) (lineStr: LineStr) : option<TryGetToolTipEnhancedResult> =
     let (|EmptyTooltip|_|) (ToolTipText elems) =
       match elems with
       | [] -> Some()
@@ -346,11 +351,13 @@ type ParseAndCheckResults
       | _ -> None
 
     match Completion.atPos (pos, x.GetParseResults.ParseTree) with
-    | Completion.Context.StringLiteral -> Ok None
+    | Completion.Context.StringLiteral -> None
     | Completion.Context.SynType
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (pos.Column, lineStr) with
-      | None -> Error "Cannot find ident for tooltip"
+      | None ->
+        logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+        None
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -371,12 +378,20 @@ type ParseAndCheckResults
                 Footer = ""
                 SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
               |> Some
-              |> Ok
-            | _ -> Error "No tooltip information"
-          | _ -> Error "No tooltip information"
+            | _ ->
+              logger.info (
+                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
+              )
+
+              None
+          | _ ->
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+            None
         | _ ->
           match symbol with
-          | None -> Error "No tooltip information"
+          | None ->
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+            None
           | Some symbol ->
 
             // Retrieve the FSharpSymbol instance so we can find the XmlDocSig
@@ -386,7 +401,12 @@ type ParseAndCheckResults
             let resolvedType = symbol.Symbol.GetAbbreviatedParent()
 
             match SignatureFormatter.getTooltipDetailsFromSymbolUse symbol with
-            | None -> Error "No tooltip information"
+            | None ->
+              logger.info (
+                Log.setMessageI $"Cannot find tooltip for {symbol:symbol} ({pos.Column:column} in {lineStr:lineString})"
+              )
+
+              None
             | Some(signature, footer) ->
               { ToolTipText = tip
                 Signature = signature
@@ -396,7 +416,6 @@ type ParseAndCheckResults
                     {| XmlDocSig = resolvedType.XmlDocSig
                        Assembly = symbol.Symbol.Assembly.SimpleName |} }
               |> Some
-              |> Ok
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
     match Lexer.findLongIdents (pos.Column, lineStr) with

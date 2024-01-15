@@ -177,7 +177,9 @@ module private Format =
           // so render the markdown code block the best way
           // by avoid empty lines at the beginning or the end
           let formattedText =
-            match innerText.StartsWith("\n"), innerText.EndsWith("\n") with
+            match
+              innerText.StartsWith("\n", StringComparison.Ordinal), innerText.EndsWith("\n", StringComparison.Ordinal)
+            with
             | true, true -> sprintf "```%s%s```" lang innerText
             | true, false -> sprintf "```%s%s\n```" lang innerText
             | false, true -> sprintf "```%s\n%s```" lang innerText
@@ -733,7 +735,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
 
       content.Split('\n')
       |> Array.map (fun line ->
-        if not (String.IsNullOrWhiteSpace line) && line.StartsWith(tabsOffset) then
+        if
+          not (String.IsNullOrWhiteSpace line)
+          && line.StartsWith(tabsOffset, StringComparison.Ordinal)
+        then
           line.Substring(columnOffset + indentationSize)
         else
           line)
@@ -890,6 +895,26 @@ let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<
 let private xmlDocCache =
   Collections.Concurrent.ConcurrentDictionary<string, Map<string, XmlDocMember>>()
 
+let private findCultures v =
+  let rec loop state (v: System.Globalization.CultureInfo) =
+    let state' = v.Name :: state
+
+    if v.Parent = System.Globalization.CultureInfo.InvariantCulture then
+      "" :: state' |> List.rev
+    else
+      loop state' v.Parent
+
+  loop [] v
+
+let private findLocalizedXmlFile (xmlFile: string) =
+  let xmlName = Path.GetFileName xmlFile
+  let path = Path.GetDirectoryName xmlFile
+
+  findCultures System.Globalization.CultureInfo.CurrentUICulture
+  |> List.map (fun culture -> Path.Combine(path, culture, xmlName))
+  |> List.tryFind (fun i -> File.Exists i)
+  |> Option.defaultValue xmlFile
+
 let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
   //Workaround for netstandard.dll
@@ -902,6 +927,8 @@ let private getXmlDoc dllFile =
       Path.Combine(Path.GetDirectoryName(xmlFile), "netstandard.xml")
     else
       xmlFile
+
+  let xmlFile = findLocalizedXmlFile xmlFile
 
   if xmlDocCache.ContainsKey xmlFile then
     Some xmlDocCache.[xmlFile]
@@ -973,7 +1000,7 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
       let rec findIndentationSize (lines: string list) =
         match lines with
         | head :: tail ->
-          let lesserThanIndex = head.IndexOf("<")
+          let lesserThanIndex = head.IndexOf("<", StringComparison.Ordinal)
 
           if lesserThanIndex <> -1 then
             lesserThanIndex

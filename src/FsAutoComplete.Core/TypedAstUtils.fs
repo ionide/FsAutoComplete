@@ -57,8 +57,8 @@ module TypedAstUtils =
     |> Option.isSome
 
   let isOperator (name: string) =
-    name.StartsWith "( "
-    && name.EndsWith " )"
+    name.StartsWith("( ", StringComparison.Ordinal)
+    && name.EndsWith(" )", StringComparison.Ordinal)
     && name.Length > 4
     && name.Substring(2, name.Length - 4)
        |> String.forall (fun c -> c <> ' ' && not (Char.IsLetter c))
@@ -190,10 +190,14 @@ module TypedAstExtensionHelpers =
     member x.IsConstructor = x.CompiledName = ".ctor"
 
     member x.IsOperatorOrActivePattern =
-      x.CompiledName.StartsWith "op_"
+      x.CompiledName.StartsWith("op_", StringComparison.Ordinal)
       || let name = x.DisplayName in
 
-         if name.StartsWith "( " && name.EndsWith " )" && name.Length > 4 then
+         if
+           name.StartsWith("( ", StringComparison.Ordinal)
+           && name.EndsWith(" )", StringComparison.Ordinal)
+           && name.Length > 4
+         then
            name.Substring(2, name.Length - 4) |> String.forall (fun c -> c <> ' ')
          else
            false
@@ -283,7 +287,7 @@ module TypedAstExtensionHelpers =
       | UnionCase fsu -> fsu.XmlDoc
       | ActivePattern apc -> apc.XmlDoc
       | GenericParameter gp -> gp.XmlDoc
-      | Parameter p -> FSharpXmlDoc.None
+      | Parameter _ -> FSharpXmlDoc.None
 
   type FSharpGenericParameterMemberConstraint with
 
