@@ -305,15 +305,22 @@ type AdaptiveFSharpLspServer
             | Some false -> None
             | None -> None
 
-          let actualRootPath =
-            match p.RootUri with
-            | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
-            | None -> p.RootPath
+          let workspaceRoot =
+            match p.WorkspaceFolders with
+            | None | Some [||] ->
+              match p.RootUri with
+              | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
+              | None -> p.RootPath
+            | Some folders -> Some folders[0].Uri
 
           let projs =
-            match p.RootPath, c.AutomaticWorkspaceInit with
+            match workspaceRoot, c.AutomaticWorkspaceInit with
+            // if no workspace root available, or one is available but we don't want to automatically
+            // initialize the workspace, then we don't have any projects to initialize.
+            // in this case we need the client to call WorkspacePeek/WorkspaceLoad explicitly
             | None, _
-            | _, false -> state.WorkspacePaths
+            | _, false -> WorkspaceChosen.NotChosen
+            // otherwise, try to infer the workspace from the automatic workspace information
             | Some actualRootPath, true ->
               let peeks =
                 WorkspacePeek.peek
@@ -342,7 +349,7 @@ type AdaptiveFSharpLspServer
               |> WorkspaceChosen.Projs
 
           transact (fun () ->
-            state.RootPath <- actualRootPath
+            state.RootPath <- workspaceRoot
             state.ClientCapabilities <- p.Capabilities
             lspClient.ClientCapabilities <- p.Capabilities
 
