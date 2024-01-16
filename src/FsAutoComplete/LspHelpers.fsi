@@ -57,14 +57,19 @@ module Conversions =
   val urlForCompilerCode: number: int -> string
   val fcsErrorToDiagnostic: error: FSharpDiagnostic -> Diagnostic
 
-  val getSymbolInformations:
+  val getWorkspaceSymbols:
     uri: DocumentUri ->
     glyphToSymbolKind: (FSharpGlyph -> SymbolKind option) ->
     topLevel: NavigationTopLevelDeclaration ->
-    symbolFilter: (SymbolInformation -> bool) ->
-      SymbolInformation array
+    symbolFilter: (WorkspaceSymbol -> bool) ->
+      WorkspaceSymbol array
 
-  val applyQuery: query: string -> info: SymbolInformation -> bool
+  val getDocumentSymbol:
+    glyphToSymbolKind: (FSharpGlyph -> SymbolKind option) ->
+    topLevelItem: NavigationTopLevelDeclaration ->
+      DocumentSymbol
+
+  val applyQuery: query: string -> info: WorkspaceSymbol -> bool
 
   val getCodeLensInformation:
     uri: DocumentUri -> typ: string -> topLevel: NavigationTopLevelDeclaration -> CodeLens array

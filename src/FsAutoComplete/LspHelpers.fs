@@ -18,6 +18,7 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
+#nowarn "44" // We're not using the Deprecated member of DocumentSymbol here, but it's still required to be _set_.
 
 module FcsPos =
   let subtractColumn (pos: FcsPos) (column: int) = FcsPos.mkPos pos.Line (pos.Column - column)
@@ -115,13 +116,13 @@ module Conversions =
       Data = None
       CodeDescription = Some { Href = Some(Uri(urlForCompilerCode error.ErrorNumber)) } }
 
-  let getSymbolInformations
+  let getWorkspaceSymbols
     (uri: DocumentUri)
     (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
     (topLevel: NavigationTopLevelDeclaration)
-    (symbolFilter: SymbolInformation -> bool)
-    : SymbolInformation[] =
-    let inner (container: string option) (decl: NavigationItem) : SymbolInformation option =
+    (symbolFilter: WorkspaceSymbol -> bool)
+    : WorkspaceSymbol[] =
+    let inner (container: string option) (decl: NavigationItem) : WorkspaceSymbol option =
       // We should nearly always have a kind, if the client doesn't send weird capabilities,
       // if we don't why not assume module...
       let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
@@ -130,20 +131,48 @@ module Conversions =
         { Uri = uri
           Range = fcsRangeToLsp decl.Range }
 
-      let sym: SymbolInformation =
+      let sym: WorkspaceSymbol =
         { Name = decl.LogicalName
-          Kind = kind
-          Location = location
           ContainerName = container
+          Location = U2.First location
+          Kind = kind
           Tags = None
-          Deprecated = None }
+          Data = None }
 
       if symbolFilter sym then Some sym else None
 
     [| yield! inner None topLevel.Declaration |> Option.toArray
        yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName)) |]
 
-  let applyQuery (query: string) (info: SymbolInformation) =
+  let getDocumentSymbol
+    (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
+    (topLevelItem: NavigationTopLevelDeclaration)
+    : DocumentSymbol =
+    let makeChildDocumentSymbol (item: NavigationItem) : DocumentSymbol =
+      { Name = item.LogicalName
+        Detail = None
+        Kind = defaultArg (glyphToSymbolKind item.Glyph) SymbolKind.Module
+        Deprecated = None
+        Range = fcsRangeToLsp item.Range
+        SelectionRange = fcsRangeToLsp item.Range
+        Children = None
+        Tags = None }
+
+    { Name = topLevelItem.Declaration.LogicalName
+      // TODO: what Detail actually influences
+      Detail = None
+      Kind = defaultArg (glyphToSymbolKind topLevelItem.Declaration.Glyph) SymbolKind.Module
+      Deprecated = None
+      // TODO: it would be good if we could get just the 'interesting' part of the Declaration.Range here for the SelectionRange
+      Range = fcsRangeToLsp topLevelItem.Declaration.Range
+      SelectionRange = fcsRangeToLsp topLevelItem.Declaration.Range
+      Children =
+        match topLevelItem.Nested with
+        | [||] -> None
+        | children -> Some(Array.map makeChildDocumentSymbol children)
+      Tags = None }
+
+  let applyQuery (query: string) (info: WorkspaceSymbol) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
     | [| fullName |] -> info.Name.StartsWith(fullName, StringComparison.Ordinal)

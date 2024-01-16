@@ -24,6 +24,8 @@ open FSharpx.Control
 open Utils.Tests
 open Helpers.Expecto.ShadowedTimeouts
 
+#nowarn "44" //we're testing so need to be able to use deprecated fields
+
 ///Test for initialization of the server
 let initTests createServer =
   testCaseAsync

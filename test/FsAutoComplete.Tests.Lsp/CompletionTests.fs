@@ -10,6 +10,8 @@ open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
 
+#nowarn "44" //we're testing so need to be able to use deprecated fields
+
 let tests state =
   let server =
     async {
@@ -781,7 +783,9 @@ let autoOpenTests state =
 
       let (|ContainsOpenAction|_|) (codeActions: CodeAction[]) =
         codeActions
-        |> Array.tryFind (fun ca -> ca.Kind = Some "quickfix" && ca.Title.StartsWith("open ", StringComparison.Ordinal))
+        |> Array.tryFind (fun ca ->
+          ca.Kind = Some "quickfix"
+          && ca.Title.StartsWith("open ", StringComparison.Ordinal))
 
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e

@@ -6,6 +6,10 @@ open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
 
+// 44 is the 'This construct is deprecated' error - we've addressed these by moving to TextEdit for the completionItems here,
+// but the helper function for the CompletionItem record has to init the field to None, so it's still being counted as used.
+#nowarn "44"
+
 module KeywordList =
 
   let keywordDescriptions = FSharpKeywords.KeywordsWithDescription |> dict
@@ -39,7 +43,13 @@ module KeywordList =
       "line", "Indicates the original source code line" ]
     |> dict
 
-  let hashSymbolCompletionItems =
+  let private textEdit text pos : U2<TextEdit, _> =
+    U2.First(
+      { Range = { Start = pos; End = pos }
+        NewText = text }
+    )
+
+  let hashSymbolCompletionItems pos =
     hashDirectives
     |> Seq.map (fun kv ->
       let label = "#" + kv.Key
@@ -47,7 +57,7 @@ module KeywordList =
       { CompletionItem.Create(kv.Key) with
           Data = Some(Newtonsoft.Json.Linq.JValue(label))
           Kind = Some CompletionItemKind.Keyword
-          InsertText = Some kv.Key
+          TextEdit = Some(textEdit kv.Value pos)
           FilterText = Some kv.Key
           SortText = Some kv.Key
           Documentation = Some(Documentation.String kv.Value)
@@ -57,13 +67,13 @@ module KeywordList =
   let allKeywords: string list =
     keywordDescriptions |> Seq.map ((|KeyValue|) >> fst) |> Seq.toList
 
-  let keywordCompletionItems =
+  let keywordCompletionItems pos =
     allKeywords
     |> List.mapi (fun id k ->
       { CompletionItem.Create(k) with
           Data = Some(Newtonsoft.Json.Linq.JValue(k))
           Kind = Some CompletionItemKind.Keyword
-          InsertText = Some k
+          TextEdit = Some(textEdit k pos)
           SortText = Some(sprintf "1000000%d" id)
           FilterText = Some k
           Label = k })

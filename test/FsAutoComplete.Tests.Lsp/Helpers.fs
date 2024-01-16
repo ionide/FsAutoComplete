@@ -12,6 +12,8 @@ open FSharp.Control.Reactive
 open System.Threading
 open FSharp.UMX
 
+#nowarn "44" //we're testing so need to be able to use deprecated fields
+
 module Expecto =
   open System.Threading.Tasks
 
