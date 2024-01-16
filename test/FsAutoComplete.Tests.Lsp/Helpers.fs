@@ -553,7 +553,7 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
           Some
             [| { Uri = Path.FilePathToUri path
                  Name = "Test Folder" } |]
-        trace = None
+        trace = Some "verbose"
         Locale = None }
 
     let! result = server.Initialize p

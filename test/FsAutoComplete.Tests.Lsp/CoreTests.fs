@@ -31,14 +31,13 @@ let initTests createServer =
   testCaseAsync
     "InitTest"
     (async {
-      let tempDir =
-        Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
+      use tempDir = DisposableDirectory.Create()
 
       let (server: IFSharpLspServer, _event) = createServer ()
 
       let p: InitializeParams =
         { ProcessId = Some 1
-          RootPath = Some __SOURCE_DIRECTORY__
+          RootPath = None
           Locale = None
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
@@ -49,9 +48,9 @@ let initTests createServer =
                 Version = Some "0.0.0" }
           WorkspaceFolders =
             Some
-              [| { Uri = Path.FilePathToUri tempDir
+              [| { Uri = Path.FilePathToUri tempDir.DirectoryInfo.FullName
                    Name = "Test Folder" } |]
-          trace = None }
+          trace = Some "verbose" }
 
       let! result = server.Initialize p
 
@@ -114,7 +113,7 @@ let initTests createServer =
           "Workspace Symbol Provider"
 
         Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
-      | Result.Error _e -> failtest "Initialization failed"
+      | Result.Error e -> failtest e.Message
     })
 
 ///Tests for getting document symbols
@@ -142,14 +141,15 @@ let documentSymbolTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(U2.First res)) ->
+          | Result.Ok(Some(U2.First _)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+
+          | Result.Ok(Some(U2.Second res)) ->
             Expect.equal res.Length 15 "Document Symbol has all symbols"
 
             Expect.exists
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok(Some(U2.Second _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =

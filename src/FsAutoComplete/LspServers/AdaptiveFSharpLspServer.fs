@@ -1266,6 +1266,7 @@ type AdaptiveFSharpLspServer
           return! returnException e
       }
 
+    /// This is mostly used to power the per-document @-based searching in VSCode. Open the Command Palette, type a query starting with @SOME_MEMBER_NAME, and quickly go to that member in the current file
     override __.TextDocumentDocumentSymbol(p: DocumentSymbolParams) =
       asyncResult {
         let tags = [ "DocumentSymbolParams", box p ]
@@ -1299,6 +1300,8 @@ type AdaptiveFSharpLspServer
           return! returnException e
       }
 
+
+    /// This is used to power the "Go to symbol in workspace" feature in VSCode. Open the Command Palette, type a query starting with #SOME_MEMBER_NAME, and quickly go to that member in the entire workspace
     override __.WorkspaceSymbol(symbolRequest: WorkspaceSymbolParams) =
       asyncResult {
         let tags = [ "WorkspaceSymbolParams", box symbolRequest ]
