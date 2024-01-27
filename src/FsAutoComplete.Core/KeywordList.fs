@@ -29,7 +29,7 @@ module KeywordList =
 
   let hashDirectives =
     [ "r", "References an assembly, or a nuget: package, or a paket: reference"
-      "load", "Reference other .fsx scripts or .fs files, by compiling and running them"
+      "load", "References a source .fsx script or .fs file, by compiling and running it."
       "I", "Specifies an assembly search path in quotation marks."
       "light", "Enables or disables lightweight syntax, for compatibility with other versions of ML"
       "if", "Supports conditional compilation"
