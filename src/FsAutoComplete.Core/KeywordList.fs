@@ -28,14 +28,16 @@ module KeywordList =
     |> dict
 
   let hashDirectives =
-    [ "r", "References an assembly"
-      "load", "Reads a source file, compiles it, and runs it."
+    [ "r", "References an assembly, or a nuget: package, or a paket: reference"
+      "load", "Reference other .fsx scripts or .fs files, by compiling and running them"
       "I", "Specifies an assembly search path in quotation marks."
       "light", "Enables or disables lightweight syntax, for compatibility with other versions of ML"
       "if", "Supports conditional compilation"
       "else", "Supports conditional compilation"
       "endif", "Supports conditional compilation"
       "nowarn", "Disables a compiler warning or warnings"
+      "quit", "exits the interactive session"
+      "time", "toggles whether to display performance information"
       "line", "Indicates the original source code line" ]
     |> dict
 
