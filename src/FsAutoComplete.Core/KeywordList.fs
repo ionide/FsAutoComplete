@@ -28,7 +28,7 @@ module KeywordList =
     |> dict
 
   let hashDirectives =
-    [ "r", "References an assembly, or a nuget: package, or a paket: reference"
+    [ "r", "References an assembly or a nuget: package"
       "load", "References a source .fsx script or .fs file, by compiling and running it."
       "I", "Specifies an assembly search path in quotation marks."
       "light", "Enables or disables lightweight syntax, for compatibility with other versions of ML"
