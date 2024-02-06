@@ -773,7 +773,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             for p in projectOptions do
               logger.info (
                 Log.setMessage "Found BaseIntermediateOutputPath of {path}"
-                >> Log.addContextDestructured "path" p.Properties
+                >> Log.addContextDestructured "path" ((|BaseIntermediateOutputPath|_|) p.Properties)
               )
 
             // Collect other files that should trigger a reload of a project
@@ -853,7 +853,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           let ws =
             { ProjectFileName = projectFileName
               ProjectFiles = responseFiles
-              OutFileOpt = Option.ofObj projectOption.TargetPath
+              OutFileOpt = Option.ofObj projectOption.ResolvedTargetPath
               References = references
               Extra = projectOption
               ProjectItems = projViewerItemsNormalized.Items
