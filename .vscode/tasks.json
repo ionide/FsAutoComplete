@@ -1,19 +1,31 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-      {
-        "label": "format codebase",
-        "command": "dotnet",
-        "args": [
-          "build",
-          "-t",
-          "Format"
-        ],
-        "detail": "Format all source code using Fantomas",
-        "type": "shell",
-        "problemMatcher": []
-      }
-    ]
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "format codebase",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "-t",
+        "Format"
+      ],
+      "detail": "Format all source code using Fantomas",
+      "type": "shell",
+      "problemMatcher": []
+    },
+    {
+      "type": "msbuild",
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "label": "Build: FsAutoComplete.fsproj",
+      "detail": "Build the FsAutoComplete.fsproj project using dotnet build"
+    }
+  ]
 }

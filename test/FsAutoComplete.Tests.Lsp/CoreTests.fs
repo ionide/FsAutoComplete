@@ -144,15 +144,19 @@ let documentSymbolTest state =
           | Result.Ok(Some(U2.First _)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
 
           | Result.Ok(Some(U2.Second res)) ->
+
             // have to unroll the document symbols since they are properly heirarchical now
-            Expect.equal res.Length 4 "Document Symbol has all parent symbols"
-            let allSymbols = 
-              res
-              |> Array.collect (fun s -> 
-                match s.Children with
-                | None -> [| s |]
-                | Some children -> Array.append [| s |] children)
-              |> Array.sort
+            let all (s: DocumentSymbol) =
+              [| yield s
+                 yield!
+                   (match s.Children with
+                    | Some c -> c
+                    | None -> [||]) |]
+
+            let allSymbols = res |> Array.collect all
+
+            Expect.equal allSymbols.Length 15 "Document Symbol has all symbols"
+
             Expect.exists
               allSymbols
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)

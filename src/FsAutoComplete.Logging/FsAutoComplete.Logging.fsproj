@@ -11,4 +11,8 @@
     <Compile Include="FsOpenTelemetry.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+
+  <Target Name="Blah" AfterTargets="AfterBuild">
+    <Warning Message="farts" />
+  </Target>
 </Project>

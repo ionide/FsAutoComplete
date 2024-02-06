@@ -20,7 +20,7 @@ open Ionide.ProjInfo.Logging
 let private logger = LogProvider.getLoggerByName "Utils.Server"
 
 type Server =
-  { RootPath: string option
+  { RootPath: string
     Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int }
@@ -55,22 +55,24 @@ module Server =
         >> Log.addContextDestructured "path" path
       )
 
-      match path with
-      | None -> ()
-      | Some path ->
-        dotnetCleanup path
+      let path =
+        match path with
+        | Some p -> p
+        | None -> DisposableDirectory.Create().DirectoryInfo.FullName
 
-        for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-          do! file |> Path.GetDirectoryName |> dotnetRestore
+      dotnetCleanup path
+
+      for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+        do! file |> Path.GetDirectoryName |> dotnetRestore
 
       let (server: IFSharpLspServer, events: IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
       let p: InitializeParams =
         { ProcessId = Some 1
-          RootPath = path
+          RootPath = None
           Locale = None
-          RootUri = path |> Option.map (sprintf "file://%s")
+          RootUri = None
           InitializationOptions = Some(Server.serialize config)
           Capabilities = Some clientCaps
           ClientInfo =
@@ -78,10 +80,9 @@ module Server =
               { Name = "FSAC Tests"
                 Version = Some "0.0.0" }
           WorkspaceFolders =
-            path
-            |> Option.map (fun p ->
-              [| { Uri = Path.FilePathToUri p
-                   Name = "Test Folder" } |])
+            Some
+              [| { Uri = Path.FilePathToUri path
+                   Name = "Test Folder" } |]
           trace = None }
 
       match! server.Initialize p with
@@ -100,8 +101,7 @@ module Server =
     async {
       let! server = initialize path config createServer
 
-      if path |> Option.isSome then
-        do! waitForWorkspaceFinishedParsing server.Events
+      do! waitForWorkspaceFinishedParsing server.Events
 
       return server
     }
@@ -151,8 +151,7 @@ module Server =
         if Path.IsPathRooted path then
           path
         else
-          Expect.isSome server.RootPath "relative path is only possible when `server.RootPath` is specified!"
-          Path.Combine(server.RootPath.Value, path)
+          Path.Combine(server.RootPath, path)
 
       let doc =
         server
@@ -180,10 +179,9 @@ module Server =
   let openDocumentWithText path (initialText: string) (server: CachedServer) =
     async {
       let! server = server
-      assert (server.RootPath |> Option.isSome)
 
       let fullPath =
-        Path.Combine(server.RootPath.Value, path)
+        Path.Combine(server.RootPath, path)
         |> Utils.normalizePath
         |> FSharp.UMX.UMX.untag
 

@@ -23,41 +23,25 @@ let cleanableTestList
   (cleanup: Async<'a> -> Async<unit>)
   (tests: Async<'a> -> Test list)
   =
-  let value =
-    if cacheValue then
-      initialize |> Async.Cache
-    else
-      initialize
+  let value = if cacheValue then initialize |> Async.Cache else initialize
   let tests = tests value
 
-  testSequenced <| runner name [
-    yield! tests
+  testSequenced
+  <| runner
+    name
+    [ yield! tests
 
-    if not (tests |> List.isEmpty) then
-      testCaseAsync "cleanup" (cleanup value)
-  ]
+      if not (tests |> List.isEmpty) then
+        testCaseAsync "cleanup" (cleanup value) ]
 
-let private serverTestList'
-  runner
-  name
-  createServer
-  config
-  path
-  tests
-  =
+let private serverTestList' runner name createServer config path tests =
   // path must be "absolutely normalized". `..` (parent) isn't valid -> Uri in FSAC and uri in doc are otherwise different, which leads to infinte waiting or timeouts.
   let path = path |> Option.map (System.IO.Path.GetFullPath)
 
   let init = Server.create path config createServer
   let cleanup = Server.shutdown
 
-  cleanableTestList
-    runner
-    name
-    init
-    false
-    cleanup
-    tests
+  cleanableTestList runner name init false cleanup tests
 
 /// ## Example
 /// ```fsharp
@@ -81,20 +65,11 @@ let private documentTestList'
   (getDocument: CachedServer -> Async<Document * Diagnostic[]>)
   tests
   =
-  let doc =
-    server
-    |> getDocument
-    |> Async.Cache
+  let doc = server |> getDocument |> Async.Cache
   let init = doc
   let cleanup = Async.map fst >> Async.bind Document.close
 
-  cleanableTestList
-    runner
-    name
-    init
-    false
-    cleanup
-    tests
+  cleanableTestList runner name init false cleanup tests
 
 /// Note: Not intended for changing document: always same (initial) diags
 ///

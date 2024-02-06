@@ -531,18 +531,19 @@ let dotnetToolRestore dir =
 
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
-    dotnetCleanup path
 
-    for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-      do! file |> Path.GetDirectoryName |> dotnetRestore
+    let d = DisposableDirectory.From path
+
+    for file in d.DirectoryInfo.GetFiles("*.fsproj", SearchOption.AllDirectories) do
+      do! file.DirectoryName |> dotnetRestore
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
       { ProcessId = Some 1
-        RootPath = Some path
-        RootUri = Some(sprintf "file://%s" path)
+        RootPath = None
+        RootUri = None
         InitializationOptions = Some(Server.serialize config)
         Capabilities = Some clientCaps
         ClientInfo =
@@ -551,7 +552,7 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
               Version = Some "0.0.0" }
         WorkspaceFolders =
           Some
-            [| { Uri = Path.FilePathToUri path
+            [| { Uri = Path.FilePathToUri d.DirectoryInfo.FullName
                  Name = "Test Folder" } |]
         trace = Some "verbose"
         Locale = None }
