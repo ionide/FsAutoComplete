@@ -71,14 +71,27 @@ let private mkGenericParameterEdits (missingTypeInfo: MissingTypeInfo) : TextEdi
     | Declaration.AutoProperty _ -> []
     | Declaration.ImplicitCtor(typeName = ident)
     | Declaration.Binding(name = ident) ->
-        let text =
+        let parameters =
             missingTypeInfo.GenericParameters
             |> List.map (fun gp -> gp.Name)
             |> String.concat ", "
 
+        let constraints =
+            let allConstraintsTexts =
+                missingTypeInfo.GenericParameters
+                |> List.collect (fun gp -> gp.MissingConstraints)
+
+            if allConstraintsTexts.IsEmpty then
+                ""
+            else
+
+            allConstraintsTexts
+            |> String.concat " and "
+            |> sprintf " when %s"
+
         [
             {
-                NewText = $"%s{ident.idText}<%s{text}>"
+                NewText = $"%s{ident.idText}<%s{parameters}%s{constraints}>"
                 Range = fcsRangeToLsp ident.idRange
             }
         ]
