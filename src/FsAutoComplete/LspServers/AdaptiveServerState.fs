@@ -168,12 +168,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
               System.IO.Path.Combine(workspacePath, analyzerPath)
 
           Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
-
-          let (dllCount, analyzerCount) = analyzersClient.LoadAnalyzers(dir, excludeInclude)
+          let assemblyLoadStats = analyzersClient.LoadAnalyzers(dir, excludeInclude)
 
           Loggers.analyzers.info (
             Log.setMessageI
-              $"From {analyzerPath:name}: {dllCount:dllNo} dlls including {analyzerCount:analyzersNo} analyzers"
+              $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers"
           ))
 
     else
@@ -569,10 +568,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
                   let severity =
                     match m.Severity with
-                    | FSharp.Analyzers.SDK.Hint -> DiagnosticSeverity.Hint
-                    | FSharp.Analyzers.SDK.Info -> DiagnosticSeverity.Information
-                    | FSharp.Analyzers.SDK.Warning -> DiagnosticSeverity.Warning
-                    | FSharp.Analyzers.SDK.Error -> DiagnosticSeverity.Error
+                    | FSharp.Analyzers.SDK.Severity.Hint -> DiagnosticSeverity.Hint
+                    | FSharp.Analyzers.SDK.Severity.Info -> DiagnosticSeverity.Information
+                    | FSharp.Analyzers.SDK.Severity.Warning -> DiagnosticSeverity.Warning
+                    | FSharp.Analyzers.SDK.Severity.Error -> DiagnosticSeverity.Error
 
                   let fixes =
                     match m.Fixes with
