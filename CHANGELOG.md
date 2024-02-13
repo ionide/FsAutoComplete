@@ -6,6 +6,13 @@
 
 * [Analyzers: Update analyzers support to 0.24.0](https://github.com/fsharp/FsAutoComplete/pull/1229) (thanks @nojaf)
 
+
+## [0.70.0] - 2024-02-06
+
+### Changed
+
+* [Update Ionide.ProjInfo and enable support for Reference Assemblies where they exist](https://github.com/fsharp/FsAutoComplete/pull/1228)
+
 ## [0.69.0] - 2024-01-14
 
 ### Added

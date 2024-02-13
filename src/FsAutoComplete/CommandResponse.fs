@@ -146,17 +146,27 @@ module CommandResponse =
       Version: string
       FullPath: string }
 
+  /// a structure containing the data needed to render project trees for a solution explorer
   type ProjectResponse =
-    { Project: ProjectFilePath
+    {
+      /// the fully qualified path to the project file
+      Project: ProjectFilePath
+      /// the list of fully-qualified paths of the files in the project
       Files: List<SourceFilePath>
+      /// the fully-qualified path to the primary output (executable, library, etc.) of the project.
+      /// note that this is _not_ a reference assembly
       Output: string
       ProjectReferences: List<ProjectReference>
       PackageReferences: List<PackageReference>
       References: List<ProjectFilePath>
       OutputType: ProjectOutputType
+      /// a useful subset of project file properties for this permutation of the project
       Info: ProjectResponseInfoDotnetSdk
+      /// the list of items in the project, such as compile items, content items, etc. this
+      /// should be a superset of data like the Files, Project/Package References, etc
       Items: List<ProjectResponseItem>
-      AdditionalInfo: Map<string, string> }
+      AdditionalInfo: Map<string, string>
+    }
 
   and ProjectOutputType =
     | Library
