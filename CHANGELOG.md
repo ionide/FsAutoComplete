@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+* [Analyzers: Update analyzers support to 0.24.0](https://github.com/fsharp/FsAutoComplete/pull/1229) (thanks @nojaf)
+
+
 ## [0.70.0] - 2024-02-06
 
 ### Changed
