@@ -853,7 +853,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           let ws =
             { ProjectFileName = projectFileName
               ProjectFiles = responseFiles
-              OutFileOpt = Option.ofObj projectOption.ResolvedTargetPath
+              OutFileOpt = Option.ofObj projectOption.TargetPath
               References = references
               Extra = projectOption
               ProjectItems = projViewerItemsNormalized.Items
