@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.70.1] - 2024-02-13
+
+### Fixed
+
+* [Fix the OutputPath returned from Project data so that it uses the executable/loadable assembly instead of reference assemblies.](https://github.com/fsharp/FsAutoComplete/pull/1230/)
+
 ### Changed
 
 * [Analyzers: Update analyzers support to 0.24.0](https://github.com/fsharp/FsAutoComplete/pull/1229) (thanks @nojaf)
