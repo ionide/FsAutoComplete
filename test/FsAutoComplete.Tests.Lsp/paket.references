@@ -9,6 +9,11 @@ AltCover
 GitHubActionsTestLogger
 CliWrap
 FSharp.Data.Adaptive
+Serilog
+Destructurama.FSharp
+Serilog.Sinks.Async
+Serilog.Sinks.Console
+
 Microsoft.Build copy_local: false
 Microsoft.Build.Framework copy_local: false
 Microsoft.Build.Utilities.Core copy_local: false
