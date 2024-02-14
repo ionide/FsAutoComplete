@@ -93,7 +93,7 @@ jobs:
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
 
     - name: Run Build
-      run: dotnet build
+      run: dotnet build -c Release
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}
