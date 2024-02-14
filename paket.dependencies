@@ -67,20 +67,9 @@ group Build
   source https://api.nuget.org/v3/index.json
   storage: none
 
-  framework: net6.0, net7.0
+  framework: net7.0
 
   nuget Fake.Core.Target
-  nuget Fake.Core.ReleaseNotes
-  nuget Fake.DotNet.AssemblyInfoFile
-  nuget Fake.DotNet.Paket
+  nuget Fake.IO.FileSystem
   nuget Fake.Tools.Git
-  nuget Fake.Core.UserInput
-  nuget Fake.IO.Zip
-  nuget Fake.Api.GitHub
-  nuget Microsoft.Build
-  nuget Octokit 0.48 // there's an API break in 0.50, so we need to pin this to prevent errors
   nuget Fantomas.Core 6.2.0
-
-  nuget NuGet.Versioning 6.7.0
-  nuget NuGet.Common 6.7.0
-  nuget NuGet.Protocol 6.7.0

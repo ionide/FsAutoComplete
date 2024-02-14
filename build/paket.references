@@ -1,11 +1,5 @@
 group Build
 Fake.Core.Target
-Fake.Core.ReleaseNotes
-Fake.DotNet.AssemblyInfoFile
-Fake.DotNet.Paket
+Fake.IO.FileSystem
 Fake.Tools.Git
-Fake.Core.UserInput
-Fake.IO.Zip
-Fake.Api.GitHub
-Microsoft.Build
 Fantomas.Core

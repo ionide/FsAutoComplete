@@ -26,7 +26,7 @@ jobs:
           run: dotnet tool restore
 
         - name: Run Build
-          run: dotnet run --project build -t Release
+          run: dotnet pack
           env:
             VersionSuffix: "beta${{ steps.date.outputs.date }}"
 
