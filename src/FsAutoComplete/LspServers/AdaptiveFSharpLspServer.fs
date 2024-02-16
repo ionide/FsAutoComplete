@@ -40,6 +40,7 @@ open IcedTasks
 open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
 open Helpers
+open System.Runtime.ExceptionServices
 
 type AdaptiveFSharpLspServer
   (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
@@ -47,6 +48,7 @@ type AdaptiveFSharpLspServer
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
   let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
+
 
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
@@ -62,8 +64,8 @@ type AdaptiveFSharpLspServer
   [<return: Struct>]
   let rec (|Cancelled|_|) (e: exn) =
     match e with
-    | :? TaskCanceledException -> ValueSome()
-    | :? OperationCanceledException -> ValueSome()
+    | :? TaskCanceledException -> ValueSome(e)
+    | :? OperationCanceledException -> ValueSome(e)
     | :? System.AggregateException as aex ->
       if aex.InnerExceptions.Count = 1 then
         (|Cancelled|_|) aex.InnerException
@@ -71,10 +73,19 @@ type AdaptiveFSharpLspServer
         ValueNone
     | _ -> ValueNone
 
-  let returnException e =
+  let logException e cfg =
     match e with
-    | Cancelled -> LspResult.requestCancelled
-    | e -> LspResult.internalError (string e)
+    | Cancelled e -> logger.warn (cfg >> Log.addExn e)
+    | e -> logger.error (cfg >> Log.addExn e)
+
+  let returnException e logCfg =
+    match e with
+    | Cancelled e ->
+      logger.warn (logCfg >> Log.addExn e)
+      LspResult.requestCancelled
+    | e ->
+      logger.error (logCfg >> Log.addExn e)
+      LspResult.internalError (string e)
 
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
@@ -246,8 +257,8 @@ type AdaptiveFSharpLspServer
         | (FormatDocumentResponse.Error ex) -> return! LspResult.internalError ex
       with e ->
         trace |> Tracing.recordException e
-        logger.error (Log.setMessage "HandleFormatting Request Errored {p}" >> Log.addExn e)
-        return! returnException e
+        let logCfg = Log.setMessage "HandleFormatting Request Errored"
+        return! returnException e logCfg
     }
 
   member __.ScriptFileProjectOptions = state.ScriptFileProjectOptions.Publish
@@ -370,13 +381,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "Initialize Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.Initialized(p: InitializedParams) =
@@ -392,11 +401,10 @@ type AdaptiveFSharpLspServer
 
           trace |> Tracing.recordException e
 
-          logger.error (
-            Log.setMessage "Initialized Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
+          logException
+            e
+            (Log.setMessage "Initialized Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
 
           return ()
       }
@@ -420,11 +428,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
-            Log.setMessage "TextDocumentDidOpen Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
+          logException
+            e
+            (Log.setMessage "TextDocumentDidOpen Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
 
           return ()
       }
@@ -447,12 +454,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
-            Log.setMessage "TextDocumentDidClose Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
-
+          logException e
+            (Log.setMessage "TextDocumentDidClose Request Errored {p}"
+            >> Log.addContextDestructured "p" p)
           return ()
       }
 
@@ -475,10 +479,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          logException e (
             Log.setMessage "TextDocumentDidChange Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
           )
 
           return ()
@@ -512,10 +515,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          logException e (
             Log.setMessage "TextDocumentDidSave Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
           )
 
         return ()
@@ -686,13 +688,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentCompletion Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.CompletionItemResolve(ci: CompletionItem) =
@@ -791,13 +791,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "CompletionItemResolve Request Errored {p}"
             >> Log.addContextDestructured "p" ci
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentSignatureHelp(p: SignatureHelpParams) =
@@ -857,13 +855,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentSignatureHelp Request: {params}"
             >> Log.addContextDestructured "params" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentHover(p: TextDocumentPositionParams) =
@@ -949,13 +945,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentHover Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentPrepareRename p =
@@ -1041,13 +1035,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentRename Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentDefinition(p: TextDocumentPositionParams) =
@@ -1071,13 +1063,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentDefinition Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
@@ -1101,13 +1091,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentTypeDefinition Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentReferences(p: ReferenceParams) =
@@ -1137,13 +1125,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentReferences Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
@@ -1178,13 +1164,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentDocumentHighlight Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
 
       }
 
@@ -1241,13 +1225,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentImplementation Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.TextDocumentDocumentSymbol(p: DocumentSymbolParams) =
@@ -1262,26 +1244,23 @@ type AdaptiveFSharpLspServer
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+          let! decls = state.GetDeclarations fn |> AsyncResult.ofStringErr
 
-          match! state.GetDeclarations fn with
-          | Some decls ->
-            return
-              decls
-              |> Array.collect (fun top ->
-                getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
-              |> U2.First
-              |> Some
-          | None -> return! LspResult.internalError $"No declarations for {fn}"
+          return
+            decls
+            |> Array.collect (fun top ->
+              getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
+            |> U2.First
+            |> Some
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentDocumentSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" p
             >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -1315,13 +1294,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "WorkspaceSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" symbolRequest
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentFormatting(p: DocumentFormattingParams) =
@@ -1357,13 +1334,12 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentFormatting Request Errored {p}"
             >> Log.addContextDestructured "p" p
             >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentRangeFormatting(p: DocumentRangeFormattingParams) =
@@ -1410,13 +1386,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentRangeFormatting Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -1437,10 +1411,15 @@ type AdaptiveFSharpLspServer
               async {
                 try
                   return! codeFix codeActionParams
-                with e ->
+                with
+                | Cancelled e ->
+                  ExceptionDispatchInfo.Capture(e).Throw()
+                  return failwith "Unreachable"
+                | e ->
                   logger.error (
                     Log.setMessage "Exception in CodeFix: {error}"
-                    >> Log.addContextDestructured "error" (e.ToString())
+                    >> Log.addContextDestructured "error" (e.Message)
+                    >> Log.addExn e
                   )
 
                   return Ok []
@@ -1484,13 +1463,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentCodeAction Request Errored {p}"
             >> Log.addContextDestructured "p" codeActionParams
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.TextDocumentCodeLens(p: CodeLensParams) =
@@ -1505,30 +1482,26 @@ type AdaptiveFSharpLspServer
           )
 
           let fn = p.TextDocument.GetFilePath() |> Utils.normalizePath
+          let! decls = state.GetDeclarations fn |> AsyncResult.ofStringErr
 
-          match! state.GetDeclarations(fn) with
-          | None -> return None
-          | Some decls ->
-            let config = state.Config
+          let config = state.Config
 
-            let res =
-              [| if config.LineLens.Enabled <> "replaceCodeLens" then
-                   if config.CodeLenses.Signature.Enabled then
-                     yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
-                 if config.CodeLenses.References.Enabled then
-                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
+          let res =
+            [| if config.LineLens.Enabled <> "replaceCodeLens" then
+                 if config.CodeLenses.Signature.Enabled then
+                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
+               if config.CodeLenses.References.Enabled then
+                 yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
 
-            return Some res
+          return Some res
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentCodeLens Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.CodeLensResolve(p: CodeLens) =
@@ -1591,13 +1564,11 @@ type AdaptiveFSharpLspServer
           with e ->
             trace |> Tracing.recordException e
 
-            logger.error (
+            let logCfg =
               Log.setMessage "CodeLensResolve - Operation failed on {file}"
               >> Log.addContextDestructured "file" filePath
-              >> Log.addExn e
-            )
 
-            return! returnException e
+            return! returnException e logCfg
         }
 
       let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
@@ -1700,10 +1671,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          logException e (
             Log.setMessage "WorkspaceDidChangeWatchedFiles Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
           )
       }
 
@@ -1729,10 +1699,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          logException e (
             Log.setMessage "WorkspaceDidChangeConfiguration Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
           )
       }
 
@@ -1761,13 +1730,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentFoldingRange Request Errored {p}"
             >> Log.addContextDestructured "p" rangeP
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.TextDocumentSelectionRange(selectionRangeP: SelectionRangeParams) =
@@ -1807,13 +1774,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentSelectionRange Request Errored {p}"
             >> Log.addContextDestructured "p" selectionRangeP
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentSemanticTokensFull(p: SemanticTokensParams) : AsyncLspResult<SemanticTokens option> =
@@ -1833,13 +1798,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentSemanticTokensFull Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -1861,13 +1824,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentSemanticTokensRange Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentInlayHint(p: InlayHintParams) : AsyncLspResult<InlayHint[] option> =
@@ -1966,13 +1927,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentInlayHint Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentInlineValue(p: InlineValueParams) =
@@ -2008,13 +1967,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "TextDocumentInlineValue Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     //unsupported -- begin
@@ -2128,13 +2085,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "CallHierarchyIncomingCalls Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
 
       }
 
@@ -2184,13 +2139,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "CallHierarchyPrepareParams Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.TextDocumentPrepareTypeHierarchy p = x.logUnimplementedRequest p
@@ -2250,13 +2203,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpSignature Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.FSharpSignatureData(p: TextDocumentPositionParams) =
@@ -2287,13 +2238,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpSignatureData Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -2341,13 +2290,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDocumentationGenerator Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpLineLens(p: ProjectParms) =
@@ -2363,23 +2310,20 @@ type AdaptiveFSharpLspServer
 
           let fn = p.Project.GetFilePath() |> Utils.normalizePath
 
-          match! state.GetDeclarations fn with
-          | None -> return! LspResult.internalError $"No declarations found for {fn}"
-          | Some decls ->
-            let decls = decls |> Array.map (fun d -> d, fn)
+          let! decls = state.GetDeclarations fn |> AsyncResult.ofStringErr
 
-            return Some { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
+          let decls = decls |> Array.map (fun d -> d, fn)
+
+          return Some { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
 
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpLineLense Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpWorkspaceLoad(p: WorkspaceLoadParms) =
@@ -2406,13 +2350,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpWorkspaceLoad Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
 
       }
 
@@ -2444,13 +2386,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpWorkspacePeek Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpProject(p: ProjectParms) =
@@ -2484,13 +2424,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpWorkspacePeek Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
 
       }
 
@@ -2520,13 +2458,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDotnetNewList Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpDotnetNewRun(p: DotnetNewRunRequest) =
@@ -2549,13 +2485,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDotnetNewRun Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpDotnetAddProject(p: DotnetProjectRequest) =
@@ -2579,13 +2513,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDotnetAddProject Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpDotnetRemoveProject(p: DotnetProjectRequest) =
@@ -2608,13 +2540,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDotnetRemoveProject Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FSharpDotnetSlnAdd(p: DotnetProjectRequest) =
@@ -2637,13 +2567,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDotnetSlnAdd Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.FSharpHelp(p: TextDocumentPositionParams) =
@@ -2668,13 +2596,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpHelp Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.FSharpDocumentation(p: TextDocumentPositionParams) =
@@ -2710,13 +2636,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDocumentation Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.FSharpDocumentationSymbol(p: DocumentationForSymbolRequest) =
@@ -2756,13 +2680,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpDocumentationSymbol Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.LoadAnalyzers(path) =
@@ -2810,13 +2732,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FSharpPipelineHints Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FsProjMoveFileUp(p: DotnetFileRequest) =
@@ -2839,13 +2759,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjMoveFileUp Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -2869,13 +2787,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjMoveFileDown Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -2899,13 +2815,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjAddFileAbove Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FsProjAddFileBelow(p: DotnetFile2Request) =
@@ -2928,13 +2842,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjAddFileBelow Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override __.FsProjRenameFile(p: DotnetRenameFileRequest) =
@@ -2957,13 +2869,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjRenameFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
 
@@ -2987,13 +2897,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjAddFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override _.FsProjRemoveFile(p: DotnetFileRequest) =
@@ -3022,13 +2930,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjRemoveFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override _.FsProjAddExistingFile(p: DotnetFileRequest) =
@@ -3051,13 +2957,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          let logCfg =
             Log.setMessage "FsProjAddExistingFile Request Errored {p}"
             >> Log.addContextDestructured "p" p
-            >> Log.addExn e
-          )
 
-          return! returnException e
+          return! returnException e logCfg
       }
 
     override x.Dispose() = disposables.Dispose()
@@ -3077,10 +2981,9 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logger.error (
+          logException e (
             Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
             >> Log.addContextDestructured "token" token
-            >> Log.addExn e
           )
 
         return ()
