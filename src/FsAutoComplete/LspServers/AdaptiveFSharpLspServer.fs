@@ -75,16 +75,15 @@ type AdaptiveFSharpLspServer
 
   let logException e cfg =
     match e with
-    | Cancelled e -> logger.warn (cfg >> Log.addExn e)
+    | Cancelled e -> logger.info (cfg >> Log.addExn e)
     | e -> logger.error (cfg >> Log.addExn e)
 
   let returnException e logCfg =
+    logException e logCfg
     match e with
-    | Cancelled e ->
-      logger.warn (logCfg >> Log.addExn e)
+    | Cancelled _ ->
       LspResult.requestCancelled
     | e ->
-      logger.error (logCfg >> Log.addExn e)
       LspResult.internalError (string e)
 
 
