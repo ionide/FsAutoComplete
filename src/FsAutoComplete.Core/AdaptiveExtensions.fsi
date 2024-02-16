@@ -110,11 +110,7 @@ module AMap =
 
     override InputChangedObject: t: obj * o: FSharp.Data.Adaptive.IAdaptiveObject -> unit
 
-  val tryFindR:
-    reason: 'a ->
-    key   : 'Key ->
-    map   : amap<'Key,'Value>
-          -> aval<Result<'Value,'a>>
+  val tryFindR: reason: 'a -> key: 'Key -> map: amap<'Key, 'Value> -> aval<Result<'Value, 'a>>
 
   /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
   val tryFindAndFlatten:
@@ -323,9 +319,7 @@ module AsyncAVal =
     f: ('a -> System.Threading.CancellationToken -> 'b) -> value: asyncaval<'a option> -> asyncaval<'b option>
 
   val mapResult:
-    f    : ('a -> CancellationToken -> 'b) ->
-    value: asyncaval<Result<'a,'Error>>
-        -> asyncaval<Result<'b,'Error>>
+    f: ('a -> CancellationToken -> 'b) -> value: asyncaval<Result<'a, 'Error>> -> asyncaval<Result<'b, 'Error>>
 
 type AsyncAValBuilder =
 
@@ -369,6 +363,7 @@ module AsyncAValBuilderExtensions =
 
 module AMapAsync =
   open FSharp.Data.Adaptive
+
   /// <summary>
   /// Adaptively maps over the given map lifting the value in the map to be an asyncaval.
   /// </summary>
@@ -396,6 +391,6 @@ module AMapAsync =
 
   val tryFindAndFlattenR:
     reason: 'Error ->
-    key   : 'Key ->
-    map   : amap<'Key,asyncaval<Result<'Value,'Error>>>
-          -> asyncaval<Result<'Value,'Error>>
+    key: 'Key ->
+    map: amap<'Key, asyncaval<Result<'Value, 'Error>>> ->
+      asyncaval<Result<'Value, 'Error>>

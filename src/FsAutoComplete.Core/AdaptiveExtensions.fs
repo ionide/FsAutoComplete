@@ -285,11 +285,12 @@ module AMap =
       HashMap.union removeOps changes |> HashMapDelta
 
 
-  let tryFindR (reason: 'a) (key: 'Key) (map: amap<'Key, 'Value>) : aval<Result<'Value,'a>> = aval {
-    match! AMap.tryFind key map with
-    | Some x -> return Ok x
-    | None -> return Error reason
-  }
+  let tryFindR (reason: 'a) (key: 'Key) (map: amap<'Key, 'Value>) : aval<Result<'Value, 'a>> =
+    aval {
+      match! AMap.tryFind key map with
+      | Some x -> return Ok x
+      | None -> return Error reason
+    }
 
   /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
   let tryFindAndFlatten (key: 'Key) (map: amap<'Key, aval<option<'Value>>>) =
@@ -750,7 +751,10 @@ module AsyncAVal =
 
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// optional adaptive inputs.
-  let mapResult (f: 'a -> CancellationToken -> 'b) (value: asyncaval<Result<'a, 'Error>>) : asyncaval<Result<'b, 'Error>> =
+  let mapResult
+    (f: 'a -> CancellationToken -> 'b)
+    (value: asyncaval<Result<'a, 'Error>>)
+    : asyncaval<Result<'b, 'Error>> =
     mapSync (fun data ctok -> data |> Result.map (fun d -> f d ctok)) value
 
 type AsyncAValBuilder() =

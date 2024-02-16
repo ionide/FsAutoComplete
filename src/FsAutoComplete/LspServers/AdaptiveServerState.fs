@@ -70,15 +70,17 @@ type LoadedProject =
 /// The reality is a file can be in multiple projects
 /// This is extracted to make it easier to do some type of customized select in the future
 type IFindProject =
-  abstract member FindProject: sourceFile : string<LocalPath> * projects : LoadedProject seq  -> Result<LoadedProject, string>
+  abstract member FindProject:
+    sourceFile: string<LocalPath> * projects: LoadedProject seq -> Result<LoadedProject, string>
 
-type FindFirstProject () =
-    interface IFindProject with
-      member x.FindProject(sourceFile, projects) =
-        projects
-        |> Seq.sortBy(fun p -> p.ProjectFileName)
-        |> Seq.tryFind(fun p -> p.SourceFiles |> Array.exists (fun f -> f = UMX.untag sourceFile))
-        |> Result.ofOption (fun () -> $"Couldn't find a corresponding project for {sourceFile}. Have the projects loaded yet or have you tried restoring your project/solution?")
+type FindFirstProject() =
+  interface IFindProject with
+    member x.FindProject(sourceFile, projects) =
+      projects
+      |> Seq.sortBy (fun p -> p.ProjectFileName)
+      |> Seq.tryFind (fun p -> p.SourceFiles |> Array.exists (fun f -> f = UMX.untag sourceFile))
+      |> Result.ofOption (fun () ->
+        $"Couldn't find a corresponding project for {sourceFile}. Have the projects loaded yet or have you tried restoring your project/solution?")
 
 
 type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory, workspaceLoader: IWorkspaceLoader)
@@ -88,7 +90,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let disposables = new Disposables.CompositeDisposable()
 
 
-  let projectSelector = cval<IFindProject> (FindFirstProject ())
+  let projectSelector = cval<IFindProject> (FindFirstProject())
 
   let rootPath = cval<string option> None
 
@@ -1165,7 +1167,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         else
           let! projs =
             sourceFileToProjectOptions
-            |> AMap.tryFindR $"Couldn't find {filePath} in LoadedProjects. Have the projects loaded yet or have you tried restoring your project/solution?" filePath
+            |> AMap.tryFindR
+              $"Couldn't find {filePath} in LoadedProjects. Have the projects loaded yet or have you tried restoring your project/solution?"
+              filePath
 
 
           return file, projs
@@ -1232,8 +1236,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           v
           |> Result.bind (findProject k)
           |> Result.toOption
-          |> Option.map (fun v -> k, v)
-        )
+          |> Option.map (fun v -> k, v))
     }
 
   let getAllProjectOptions () =
@@ -1400,9 +1403,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           result {
             let! projectOptions = projectOptions
             let! opts = selectProject.FindProject(file, projectOptions)
+
             return!
               checker.TryGetRecentCheckResultsForFile(file, opts.FSharpProjectOptions, info.Source)
-              |> Result.ofOption (fun () -> $"No recent typecheck results for {file}. This may be ok if the file has not been checked yet.")
+              |> Result.ofOption (fun () ->
+                $"No recent typecheck results for {file}. This may be ok if the file has not been checked yet.")
           }
       })
 
@@ -1428,17 +1433,21 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       })
 
-  let getParseResults filePath = allFilesParsed |> AMapAsync.tryFindAndFlattenR $"No parse results found for {filePath}" filePath
+  let getParseResults filePath =
+    allFilesParsed
+    |> AMapAsync.tryFindAndFlattenR $"No parse results found for {filePath}" filePath
 
   let getOpenFileTypeCheckResults filePath =
     openFilesToCheckedFilesResults
     |> AMapAsync.tryFindAndFlattenR $"No check results found for {filePath}" (filePath)
 
   let getOpenFileRecentTypeCheckResults filePath =
-    openFilesToRecentCheckedFilesResults |> AMapAsync.tryFindAndFlattenR $"No recent typecheck results for {filePath}. This may be ok if the file has not been checked yet." (filePath)
+    openFilesToRecentCheckedFilesResults
+    |> AMapAsync.tryFindAndFlattenR
+      $"No recent typecheck results for {filePath}. This may be ok if the file has not been checked yet."
+      (filePath)
 
-  let forceGetParseResults filePath =
-    getParseResults filePath |> AsyncAVal.forceAsync
+  let forceGetParseResults filePath = getParseResults filePath |> AsyncAVal.forceAsync
 
 
   let forceGetOpenFileRecentTypeCheckResults filePath =
@@ -1456,11 +1465,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     asyncAVal {
       let! projects = getProjectOptionsForFile filePath
       and! selectProject = projectSelector
+
       match projects with
-      | Ok projects ->
-        return selectProject.FindProject(filePath, projects)
-      | Error e ->
-        return Error e
+      | Ok projects -> return selectProject.FindProject(filePath, projects)
+      | Error e -> return Error e
     }
     |> AsyncAVal.forceAsync
 
@@ -1497,7 +1505,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let inline tryGetLastCheckResultForFile filePath =
         checker.TryGetLastCheckResultForFile(filePath)
-        |> Result.ofOption (fun () -> $"No cached typecheck results for {filePath}. This may be ok if the file has not been checked yet.")
+        |> Result.ofOption (fun () ->
+          $"No cached typecheck results for {filePath}. This may be ok if the file has not been checked yet.")
         |> async.Return
 
       return
@@ -1543,7 +1552,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     }
 
-  let getDeclarations filename = allFilesToDeclarations |> AMapAsync.tryFindAndFlattenR $"Could not find getDeclarations for {filename}" filename
+  let getDeclarations filename =
+    allFilesToDeclarations
+    |> AMapAsync.tryFindAndFlattenR $"Could not find getDeclarations for {filename}" filename
 
 
 
@@ -1623,6 +1634,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       async {
         let! projects = getProjectOptionsForFile file |> AsyncAVal.forceAsync
         let selectProject = projectSelector |> AVal.force
+
         return
           projects
           |> Result.bind (fun p -> selectProject.FindProject(file, p))
@@ -1868,7 +1880,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             else
               let! projectOptions = getProjectOptionsForFile file
 
-              match projectOptions |> Result.bind (fun projs -> selectProject.FindProject(file, projs)) with
+              match
+                projectOptions
+                |> Result.bind (fun projs -> selectProject.FindProject(file, projs))
+              with
               | Error _ -> return true
               | Ok projectOptions ->
                 if doesNotExist (UMX.tag projectOptions.ProjectFileName) then
@@ -1977,8 +1992,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         |> Array.map (fun (proj, file) ->
           let file = UMX.tag file
 
-          let token =
-            getOpenFileTokenOrDefault filePath
+          let token = getOpenFileTokenOrDefault filePath
 
           bypassAdaptiveTypeCheck (file) (proj)
           |> Async.withCancellation token

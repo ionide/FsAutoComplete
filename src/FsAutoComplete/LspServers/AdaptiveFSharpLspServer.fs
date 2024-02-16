@@ -80,11 +80,10 @@ type AdaptiveFSharpLspServer
 
   let returnException e logCfg =
     logException e logCfg
+
     match e with
-    | Cancelled _ ->
-      LspResult.requestCancelled
-    | e ->
-      LspResult.internalError (string e)
+    | Cancelled _ -> LspResult.requestCancelled
+    | e -> LspResult.internalError (string e)
 
 
   let getFilePathAndPosition (p: ITextDocumentPositionParams) =
@@ -453,9 +452,11 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e
+          logException
+            e
             (Log.setMessage "TextDocumentDidClose Request Errored {p}"
-            >> Log.addContextDestructured "p" p)
+             >> Log.addContextDestructured "p" p)
+
           return ()
       }
 
@@ -478,10 +479,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e (
-            Log.setMessage "TextDocumentDidChange Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-          )
+          logException
+            e
+            (Log.setMessage "TextDocumentDidChange Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
 
           return ()
       }
@@ -514,10 +515,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e (
-            Log.setMessage "TextDocumentDidSave Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-          )
+          logException
+            e
+            (Log.setMessage "TextDocumentDidSave Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
 
         return ()
       }
@@ -1670,10 +1671,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e (
-            Log.setMessage "WorkspaceDidChangeWatchedFiles Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-          )
+          logException
+            e
+            (Log.setMessage "WorkspaceDidChangeWatchedFiles Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
       }
 
     override __.WorkspaceDidChangeConfiguration(p: DidChangeConfigurationParams) =
@@ -1698,10 +1699,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e (
-            Log.setMessage "WorkspaceDidChangeConfiguration Request Errored {p}"
-            >> Log.addContextDestructured "p" p
-          )
+          logException
+            e
+            (Log.setMessage "WorkspaceDidChangeConfiguration Request Errored {p}"
+             >> Log.addContextDestructured "p" p)
       }
 
     override __.TextDocumentFoldingRange(rangeP: FoldingRangeParams) =
@@ -2980,10 +2981,10 @@ type AdaptiveFSharpLspServer
         with e ->
           trace |> Tracing.recordException e
 
-          logException e (
-            Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
-            >> Log.addContextDestructured "token" token
-          )
+          logException
+            e
+            (Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
+             >> Log.addContextDestructured "token" token)
 
         return ()
       }
