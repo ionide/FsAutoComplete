@@ -115,7 +115,7 @@ type AdaptiveState =
   member GetDeclarationLocation:
     symbolUse: FSharpSymbolUse * text: IFSACSourceText -> Async<Option<SymbolLocation.SymbolDeclarationLocation>>
 
-  member GetDeclarations: filename: string<LocalPath> -> Async<NavigationTopLevelDeclaration array option>
+  member GetDeclarations: filename: string<LocalPath> -> Async<Result<NavigationTopLevelDeclaration array, string>>
   member GetAllDeclarations: unit -> Async<(string<LocalPath> * NavigationTopLevelDeclaration array) array>
   member GlyphToSymbolKind: (FSharpGlyph -> SymbolKind option)
   interface IDisposable
