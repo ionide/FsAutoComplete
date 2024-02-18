@@ -3372,7 +3372,7 @@ let private removeUnnecessaryParenthesesTests state =
           (
               let y = 99
               y - x
-        $0)
+          )$0
         """
         (Diagnostics.expectCode "FSAC0004")
         selector
