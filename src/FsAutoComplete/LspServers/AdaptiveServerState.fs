@@ -348,6 +348,24 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
       }
 
+    let checkUnnecessaryParentheses =
+      async {
+        try
+          use progress = new ServerProgressReport(lspClient)
+          do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
+
+          let! unnecessaryParentheses = UnnecessaryParentheses.getUnnecessaryParentheses getSourceLine tyRes.GetAST
+
+          let! ct = Async.CancellationToken
+
+          notifications.Trigger(
+            NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version),
+            ct
+          )
+        with e ->
+          logger.error (Log.setMessage "checkUnnecessaryParentheses failed" >> Log.addExn e)
+      }
+
     let inline isNotExcluded (exclusions: Regex array) =
       exclusions |> Array.exists (fun r -> r.IsMatch filePathUntag) |> not
 
@@ -366,7 +384,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           config.SimplifyNameAnalyzer
           && isNotExcluded config.SimplifyNameAnalyzerExclusions
         then
-          checkSimplifiedNames ]
+          checkSimplifiedNames
+        if config.UnnecessaryParenthesesAnalyzer then
+          checkUnnecessaryParentheses ]
 
     async {
       do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
@@ -524,6 +544,24 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                     CodeDescription = None })
 
             diagnosticCollections.SetFor(uri, "F# simplify names", version, diags)
+
+          | NotificationEvent.UnnecessaryParentheses(file, ranges, version) ->
+            let uri = Path.LocalPathToUri file
+
+            let diags =
+              ranges
+              |> Array.map (fun range ->
+                { Diagnostic.Range = fcsRangeToLsp range
+                  Code = Some "FSAC0004"
+                  Severity = Some DiagnosticSeverity.Hint
+                  Source = Some "FSAC"
+                  Message = "Parentheses can be removed"
+                  RelatedInformation = Some [||]
+                  Tags = Some [| DiagnosticTag.Unnecessary |]
+                  Data = None
+                  CodeDescription = None })
+
+            diagnosticCollections.SetFor(uri, "F# unnecessary parentheses", version, diags)
 
           // | NotificationEvent.Lint (file, warnings) ->
           //     let uri = Path.LocalPathToUri file
@@ -1848,7 +1886,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          RemovePatternArgument.fix tryGetParseAndCheckResultsForFile
          ToInterpolatedString.fix tryGetParseAndCheckResultsForFile getLanguageVersion
          AdjustConstant.fix tryGetParseAndCheckResultsForFile
-         UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile |])
+         UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile
+         RemoveUnnecessaryParentheses.fix forceFindSourceText |])
 
   let forgetDocument (uri: DocumentUri) =
     async {

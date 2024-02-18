@@ -151,8 +151,16 @@ module private LspInlayHints =
     =
     async {
       let! (doc, diags) = server |> Server.createUntitledDocument text
+
+      let pertinentDiags =
+        diags
+        |> Array.filter (function
+          // Ignore extra parens diagnostics here.
+          | { Code = Some "FSAC0004" } -> false
+          | _ -> true)
+
       use doc = doc
-      Expect.hasLength diags 0 "Should not have had check errors"
+      Expect.hasLength pertinentDiags 0 "Should not have had check errors"
 
       let! hints = doc |> Document.inlayHintsAt range
       let hints = hints |> Array.sortBy (fun h -> h.Position)

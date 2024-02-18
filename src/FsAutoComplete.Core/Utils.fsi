@@ -181,6 +181,14 @@ type ReadOnlySpanExtensions =
   [<Extension>]
   static member LastLine: text: ReadOnlySpan<char> -> ReadOnlySpan<char>
 
+#if !NET7_0_OR_GREATER
+  [<Extension>]
+  static member IndexOfAnyExcept: span: ReadOnlySpan<char> * value0: char * value1: char -> int
+
+  [<Extension>]
+  static member LastIndexOfAnyExcept: span: ReadOnlySpan<char> * value0: char * value1: char -> int
+#endif
+
 type ConcurrentDictionary<'key, 'value> with
 
   member TryFind: key: 'key -> 'value option
