@@ -71,7 +71,7 @@ module private Patterns =
       if startLineNo = endLineNo then
         ValueNone
       else
-        let rec loop innerOffsides (pos: FcsPos) startCol =
+        let rec loop innerOffsides (pos: FcsPos) (startCol: int) =
           if pos.Line <= endLineNo then
             match sourceText.GetLine pos with
             | None -> ValueNone
