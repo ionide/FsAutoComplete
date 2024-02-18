@@ -112,8 +112,8 @@ let fix (getFileLines: GetFileLines) : CodeFix =
 
         let newText =
           let (|ShouldPutSpaceBefore|_|) (s: string) =
-            // "……(……)"
-            //  ↑↑ ↑
+            // ……(……)
+            // ↑↑ ↑
             (sourceText.TryGetChar((protocolPosToPos d.Range.Start).IncColumn -1),
              sourceText.TryGetChar((protocolPosToPos d.Range.Start)))
             ||> Option.map2 (fun twoBefore oneBefore ->
@@ -133,8 +133,8 @@ let fix (getFileLines: GetFileLines) : CodeFix =
             |> Option.flatten
 
           let (|ShouldPutSpaceAfter|_|) (s: string) =
-            // "(……)…"
-            //    ↑ ↑
+            // (……)…
+            //   ↑ ↑
             sourceText.TryGetChar((protocolPosToPos d.Range.End).IncColumn 1)
             |> Option.bind (fun endChar ->
               match s[s.Length - 1], endChar with
