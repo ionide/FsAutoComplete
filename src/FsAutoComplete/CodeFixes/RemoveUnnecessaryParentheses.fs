@@ -33,51 +33,56 @@ module private Patterns =
     ///     …
     ///     )
     [<return: Struct>]
-    let (|TrailingOpen|_|) (range: Range) (sourceText: IFSACSourceText) =
-      let line = sourceText.Lines[range.Start.Line]
+    let (|TrailingOpen|_|) (range: FcsRange) (sourceText: IFSACSourceText) =
+      match sourceText.GetLine range.Start with
+      | Some line ->
+        if
+          line.AsSpan(0, range.Start.Column).LastIndexOfAnyExcept(' ', '(') >= 0
+          && line.AsSpan(range.Start.Column).IndexOfAnyExcept('(', ' ') < 0
+        then
+          ValueSome TrailingOpen
+        else
+          ValueNone
 
-      if
-        line.AsSpan(0, range.Start.Character).LastIndexOfAnyExcept(' ', '(') >= 0
-        && line.AsSpan(range.Start.Character).IndexOfAnyExcept('(', ' ') < 0
-      then
-        ValueSome TrailingOpen
-      else
-        ValueNone
+      | None -> ValueNone
 
     /// Trim only spaces from the start if there is something else
     /// before the open paren on the same line (or else we could move
     /// the whole inner expression up a line); otherwise trim all whitespace
-    // from start and end.
-    let (|Trim|) (range: Range) (sourceText: IFSACSourceText) =
-      let line = sourceText.Lines[range.Start.Line]
+    /// from start and end.
+    let (|Trim|) (range: FcsRange) (sourceText: IFSACSourceText) =
+      match sourceText.GetLine range.Start with
+      | Some line ->
+        if line.AsSpan(0, range.Start.Column).LastIndexOfAnyExcept(' ', '(') >= 0 then
+          fun (s: string) -> s.TrimEnd().TrimStart ' '
+        else
+          fun (s: string) -> s.Trim()
 
-      if line.AsSpan(0, range.Start.Character).LastIndexOfAnyExcept(' ', '(') >= 0 then
-        fun (s: string) -> s.TrimEnd().TrimStart ' '
-      else
-        fun (s: string) -> s.Trim()
+      | None -> id
 
     /// Returns the offsides diff if the given span contains an expression
     /// whose indentation would be made invalid if the open paren
     /// were removed (because the offside line would be shifted).
     [<return: Struct>]
-    let (|OffsidesDiff|_|) (range: Range) (sourceText: IFSACSourceText) =
-      let startLineNo = range.Start.Line
-      let endLineNo = range.End.Line
+    let (|OffsidesDiff|_|) (range: FcsRange) (sourceText: IFSACSourceText) =
+      let startLineNo = range.StartLine
+      let endLineNo = range.EndLine
 
       if startLineNo = endLineNo then
         ValueNone
       else
-        let rec loop innerOffsides lineNo startCol =
-          if lineNo <= endLineNo then
-            let line = sourceText.Lines[lineNo]
-
-            match line.AsSpan(startCol).IndexOfAnyExcept(' ', ')') with
-            | -1 -> loop innerOffsides (lineNo + 1) 0
-            | i -> loop (i + startCol) (lineNo + 1) 0
+        let rec loop innerOffsides (pos: FcsPos) startCol =
+          if pos.Line <= endLineNo then
+            match sourceText.GetLine pos with
+            | None -> ValueNone
+            | Some line ->
+              match line.AsSpan(startCol).IndexOfAnyExcept(' ', ')') with
+              | -1 -> loop innerOffsides (pos.IncLine()) 0
+              | i -> loop (i + startCol) (pos.IncLine()) 0
           else
-            ValueSome(range.Start.Character - innerOffsides)
+            ValueSome(range.StartColumn - innerOffsides)
 
-        loop range.Start.Character startLineNo (range.Start.Character + 1)
+        loop range.StartColumn range.Start (range.StartColumn + 1)
 
     let (|ShiftLeft|NoShift|ShiftRight|) n =
       if n < 0 then ShiftLeft -n
@@ -88,10 +93,11 @@ module private Patterns =
 let fix (getFileLines: GetFileLines) : CodeFix =
   Run.ifDiagnosticByCode (Set.singleton "FSAC0004") (fun d codeActionParams ->
     asyncResult {
-      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> normalizePath
+      let range = protocolRangeToRange (string fileName) d.Range
 
       let! sourceText = getFileLines fileName
-      let! txt = sourceText.GetText(protocolRangeToRange (string fileName) d.Range)
+      let! txt = sourceText.GetText range
 
       let firstChar = txt[0]
       let lastChar = txt[txt.Length - 1]
@@ -100,9 +106,9 @@ let fix (getFileLines: GetFileLines) : CodeFix =
       | '(', ')' ->
         let adjusted =
           match sourceText with
-          | TrailingOpen d.Range -> txt[1 .. txt.Length - 2].TrimEnd()
+          | TrailingOpen range -> txt[1 .. txt.Length - 2].TrimEnd()
 
-          | Trim d.Range trim & OffsidesDiff d.Range spaces ->
+          | Trim range trim & OffsidesDiff range spaces ->
             match spaces with
             | NoShift -> trim txt[1 .. txt.Length - 2]
             | ShiftLeft spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n" + String(' ', spaces), "\n"))
@@ -114,8 +120,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
           let (|ShouldPutSpaceBefore|_|) (s: string) =
             // ……(……)
             // ↑↑ ↑
-            (sourceText.TryGetChar((protocolPosToPos d.Range.Start).IncColumn -1),
-             sourceText.TryGetChar((protocolPosToPos d.Range.Start)))
+            (sourceText.TryGetChar(range.Start.IncColumn -1), sourceText.TryGetChar range.Start)
             ||> Option.map2 (fun twoBefore oneBefore ->
               match twoBefore, oneBefore, s[0] with
               | _, _, ('\n' | '\r') -> None
@@ -135,7 +140,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
           let (|ShouldPutSpaceAfter|_|) (s: string) =
             // (……)…
             //   ↑ ↑
-            sourceText.TryGetChar((protocolPosToPos d.Range.End).IncColumn 1)
+            sourceText.TryGetChar(range.End.IncColumn 1)
             |> Option.bind (fun endChar ->
               match s[s.Length - 1], endChar with
               | '>', ('|' | ']') -> Some ShouldPutSpaceAfter
