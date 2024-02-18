@@ -3306,7 +3306,11 @@ let private removePatternArgumentTests state =
         """ ])
 
 let private removeUnnecessaryParenthesesTests state =
-  serverTestList (nameof RemoveUnnecessaryParentheses) state defaultConfigDto None (fun server ->
+  let config =
+    { defaultConfigDto with
+        UnnecessaryParenthesesAnalyzer = Some true }
+
+  serverTestList (nameof RemoveUnnecessaryParentheses) state config None (fun server ->
     [ let selector =
         CodeFix.ofKind "quickfix"
         >> CodeFix.withTitle RemoveUnnecessaryParentheses.title
@@ -3357,6 +3361,26 @@ let private removeUnnecessaryParenthesesTests state =
         selector
         """
         [| <@ 1 @> |]
+        """
+
+      testCaseAsync "Handles multiline expr well"
+      <| CodeFix.check
+        server
+        """
+        let _ =
+          let x = 3
+          (
+              let y = 99
+              y - x
+        $0)
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        let _ =
+          let x = 3
+          let y = 99
+          y - x
         """ ])
 
 let tests textFactory state =
