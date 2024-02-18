@@ -15,10 +15,18 @@
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
     <Authors>FsAutoComplete contributors</Authors>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="../../README.md" Pack="true" PackagePath="\" />
-    <None Include="logo.png" Pack="true" PackagePath="\" />
+    <None
+        Include="../../README.md"
+        Pack="true"
+        PackagePath="\" />
+    <None
+        Include="logo.png"
+        Pack="true"
+        PackagePath="\" />
     <Compile Include="CommandResponse.fsi" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
@@ -55,12 +63,17 @@
     <!-- This rollforward enables us to actually run on the .net 6 runtime without
          retargeting the whole app, minimizing packaged binary size. -->
     <RollForward>LatestMajor</RollForward>
-    <!-- workaround for not being able to have p2p dependencies in tool output dir https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
-    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+    <!-- workaround for not being able to have p2p dependencies in tool output dir
+    https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
+    <TargetsForTfmSpecificBuildOutput>
+      $(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
-  <!-- workaround for not being able to have p2p dependencies in tool output dir https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
-  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+  <!-- workaround for not being able to have p2p dependencies in tool output dir
+  https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
+  <Target
+      Name="CopyProjectReferencesToPackage"
+      DependsOnTargets="ResolveReferences">
     <ItemGroup>
       <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
     </ItemGroup>

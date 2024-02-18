@@ -22,7 +22,10 @@ jobs:
     timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os:
+          - windows-latest
+          - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
+          - ubuntu-latest
         dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
         # these entries will mesh with the above combinations
         include:
@@ -93,7 +96,7 @@ jobs:
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
 
     - name: Run Build
-      run: dotnet run --project build -t Build
+      run: dotnet build -c Release
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}

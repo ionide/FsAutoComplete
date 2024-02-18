@@ -347,10 +347,8 @@ module RoslynSourceText =
 
       member _.GetSubTextString(start, length) = sourceText.GetSubText(TextSpan(start, length)).ToString()
 
-      member x.GetSubTextFromRange(range: range) : string =
-        match (x :> IFSACSourceText).GetText(range) with
-        | Ok t -> t
-        | _ -> invalidArg (nameof range) "The range is outside the file boundaries"
+      member _.GetSubTextFromRange(range: FSharp.Compiler.Text.Range) =
+        range.ToRoslynTextSpan(sourceText) |> sourceText.GetSubText |> string
 
       member _.SubTextEquals(target, startIndex) =
         if startIndex < 0 || startIndex >= sourceText.Length then

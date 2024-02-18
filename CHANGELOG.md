@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+## [0.70.1] - 2024-02-13
+
+### Fixed
+
+* [Fix the OutputPath returned from Project data so that it uses the executable/loadable assembly instead of reference assemblies.](https://github.com/fsharp/FsAutoComplete/pull/1230/)
+
+### Changed
+
+* [Analyzers: Update analyzers support to 0.24.0](https://github.com/fsharp/FsAutoComplete/pull/1229) (thanks @nojaf)
+
+
+## [0.70.0] - 2024-02-06
+
+### Changed
+
+* [Update Ionide.ProjInfo and enable support for Reference Assemblies where they exist](https://github.com/fsharp/FsAutoComplete/pull/1228)
 
 ## [0.69.0] - 2024-01-14
 

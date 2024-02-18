@@ -19,19 +19,9 @@ module ProjInfoExtensions =
   type FSharpReferencedProject with
 
     member x.ProjectFilePath =
-      let rCase, fields =
-        FSharp.Reflection.FSharpValue.GetUnionFields(
-          x,
-          typeof<FSharpReferencedProject>,
-          System.Reflection.BindingFlags.Public
-          ||| System.Reflection.BindingFlags.NonPublic
-          ||| System.Reflection.BindingFlags.Instance
-        )
-
-      if rCase.Name = "FSharpReference" then
-        (fields[1] :?> FSharpProjectOptions).ProjectFileName |> Some
-      else
-        None
+      match x with
+      | FSharpReferencedProject.FSharpReference(options = options) -> options.ProjectFileName |> Some
+      | _ -> None
 
   type FSharpProjectOptions with
 
