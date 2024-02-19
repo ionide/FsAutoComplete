@@ -287,6 +287,7 @@ type FSharpConfigDto =
     UnusedDeclarationsAnalyzerExclusions: string array option
     SimplifyNameAnalyzer: bool option
     SimplifyNameAnalyzerExclusions: string array option
+    UnnecessaryParenthesesAnalyzer: bool option
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
@@ -387,6 +388,7 @@ type FSharpConfig =
     UnusedDeclarationsAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     SimplifyNameAnalyzer: bool
     SimplifyNameAnalyzerExclusions: System.Text.RegularExpressions.Regex array
+    UnnecessaryParenthesesAnalyzer: bool
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool

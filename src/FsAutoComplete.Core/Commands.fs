@@ -80,6 +80,7 @@ type NotificationEvent =
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
   | UnusedDeclarations of file: string<LocalPath> * decls: range[] * version: int
   | SimplifyNames of file: string<LocalPath> * names: SimplifyNames.SimplifiableRange[] * version: int
+  | UnnecessaryParentheses of file: string<LocalPath> * ranges: range[] * version: int
   | Canceled of errorMessage: string
   | FileParsed of string<LocalPath>
   | TestDetected of file: string<LocalPath> * tests: TestAdapter.TestAdapterEntry<range>[]
