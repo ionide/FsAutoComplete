@@ -35,6 +35,7 @@ open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
 open FsAutoComplete.Lsp
 open FsAutoComplete.Lsp.Helpers
+open FSharp.Compiler.Syntax
 
 
 [<RequireQualifiedAccess>]
@@ -354,7 +355,23 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
-          let! unnecessaryParentheses = UnnecessaryParentheses.getUnnecessaryParentheses getSourceLine tyRes.GetAST
+          let unnecessaryParentheses =
+            (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
+            ||> ParsedInput.fold (fun ranges path node ->
+              match node with
+              | SyntaxNode.SynExpr(SynExpr.Paren(expr = inner; rightParenRange = Some _; range = range)) when
+                not (SynExpr.shouldBeParenthesizedInContext getSourceLine path inner)
+                ->
+                ignore (ranges.Add range)
+                ranges
+
+              | SyntaxNode.SynPat(SynPat.Paren(inner, range)) when
+                not (SynPat.shouldBeParenthesizedInContext path inner)
+                ->
+                ignore (ranges.Add range)
+                ranges
+
+              | _ -> ranges)
 
           let! ct = Async.CancellationToken
 
@@ -1593,8 +1610,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let getDeclarations filename =
     allFilesToDeclarations
     |> AMapAsync.tryFindAndFlattenR $"Could not find getDeclarations for {filename}" filename
-
-
 
   let codeGenServer =
     { new ICodeGenerationService with
