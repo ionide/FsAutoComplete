@@ -459,15 +459,8 @@ let private rangeTests state =
       let (source, cursors) = sourceWithCursors |> extractRanges
       let! (doc, diags) = server |> Server.createUntitledDocument source
 
-      let pertinentDiags =
-        diags
-        |> Array.filter (function
-          // Ignore extra parens diagnostics here.
-          | { Code = Some "FSAC0004" } -> false
-          | _ -> true)
-
       use doc = doc
-      Expect.hasLength pertinentDiags 0 "There should be no diags"
+      Expect.hasLength diags 0 "There should be no diags"
 
       let request: ReferenceParams =
         { TextDocument = doc.TextDocumentIdentifier
