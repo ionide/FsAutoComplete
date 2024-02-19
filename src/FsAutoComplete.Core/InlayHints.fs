@@ -80,16 +80,9 @@ type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
             | SynExpr.Typed(_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
             | _ -> defaultTraverse expr
 
-          override _.VisitSimplePats(_path, pats) =
-            match pats with
-            | [] -> None
-            | _ ->
-              let exprFunc pat =
-                match pat with
-                | SynSimplePat.Typed(_pat, _targetExpr, range) when Position.posEq range.Start pos -> Some range
-                | _ -> None
-
-              pats |> List.tryPick exprFunc
+          override visitor.VisitSimplePats(_path, pat) =
+            let path = SyntaxNode.SynPat pat :: _path
+            visitor.VisitPat(path, defaultTraversePat visitor path, pat)
 
           override visitor.VisitPat(path, defaultTraverse, pat) =
             match pat with
@@ -582,6 +575,20 @@ let rec private getParensForIdentPat (text: IFSACSourceText) (pat: SynPat) (path
     getParensForPatternWithIdent patternRange identStart path
   | _ -> failwith "Pattern must be Named or OptionalVal!"
 
+[<return: Struct>]
+let rec private (|Typed|_|) pat =
+  match pat with
+  | SynPat.Typed _ -> ValueSome()
+  | SynPat.Attrib(pat = pat) -> (|Typed|_|) pat
+  | _ -> ValueNone
+
+[<return: Struct>]
+let rec (|NamedPat|_|) pat =
+  match pat with
+  | SynPat.Named(ident = SynIdent(ident = ident)) -> ValueSome ident
+  | SynPat.Attrib(pat = pat) -> (|NamedPat|_|) pat
+  | _ -> ValueNone
+
 let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Position) : ExplicitType option =
   SyntaxTraversal.Traverse(
     pos,
@@ -677,71 +684,56 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               |> Some
           | _ -> defaultTraversePat visitor path pat
 
-        member _.VisitSimplePats(path, pats) =
-          // SynSimplePats at:
-          // * Primary ctor:
-          //    * SynMemberDefn.ImplicitCtor.ctorArgs
-          //    * SynTypeDefnSimpleRepr.General.implicitCtorSynPats
-          // * Lambda: SynExpr.Lambda.args
-          //   * issue: might or might not be actual identifier
-          //      * `let f1 = fun v -> v + 1`
-          //         -> `v` is in `args` (-> SynSimplePat)
-          //      * `let f2 = fun (Value v) -> v + 1`
-          //        -> compiler generated `_arg1` in `args`,
-          //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
-          option {
-            let! pat = pats |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
+        member _.VisitSimplePats(path, pat) =
+          let (|ImplicitCtorPath|_|) (path: SyntaxNode) =
+            match path with
+            // normal ctor in type: `type A(v) = ...`
+            | SyntaxNode.SynMemberDefn(SynMemberDefn.ImplicitCtor _) -> Some()
+            //TODO: when? example?
+            | SyntaxNode.SynTypeDefn(SynTypeDefn(
+                typeRepr = SynTypeDefnRepr.Simple(
+                  simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some(ctorPats))))) when
+              rangeContainsPos ctorPats.Range pos
+              ->
+              Some()
+            | _ -> None
 
-            let rec tryGetIdent pat =
-              match pat with
-              | SynSimplePat.Id(ident = ident) when rangeContainsPos ident.idRange pos -> Some pat
-              | SynSimplePat.Attrib(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
-              | SynSimplePat.Typed(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+          let (|SpecificPat|_|) (pats: SynPat list) =
+            pats
+            |> List.tryPick (fun pat -> if rangeContainsPos pat.Range pos then Some pat else None)
+
+          match pat with
+          | Typed
+          | SynPat.Paren(pat = Typed) -> Some ExplicitType.Exists
+          | SynPat.Paren(pat = innerPat) ->
+            match path with
+            | ImplicitCtorPath :: _ ->
+              // ok, deal with constructor parameters
+              // * named pats
+              match innerPat with
+              // single ctor arg
+              | NamedPat ident ->
+                ExplicitType.Missing
+                  { Ident = ident.idRange
+                    InsertAt = ident.idRange.End
+                    Parens = Parens.Forbidden
+                    SpecialRules = [] }
+                |> Some
+              // multiple ctor args
+              // * arg in question already has a type
+              | SynPat.Tuple(elementPats = SpecificPat Typed) -> Some ExplicitType.Exists
+              // * arg in question doesn't have a type
+              | SynPat.Tuple(elementPats = SpecificPat(NamedPat ident)) ->
+                ExplicitType.Missing
+                  { Ident = ident.idRange
+                    InsertAt = ident.idRange.End
+                    Parens = Parens.Forbidden
+                    SpecialRules = [] }
+                |> Some
               | _ -> None
 
-            let! ident = tryGetIdent pat
-
-            match ident with
-            | SynSimplePat.Id(isCompilerGenerated = false) ->
-              let rec isTyped =
-                function
-                | SynSimplePat.Typed _ -> true
-                | SynSimplePat.Id _ -> false
-                | SynSimplePat.Attrib(pat = pat) -> isTyped pat
-
-              let typed = isTyped pat
-
-              if typed then
-                return ExplicitType.Exists
-              else
-                let isCtor =
-                  path
-                  |> List.tryHead
-                  |> Option.map (function
-                    // normal ctor in type: `type A(v) = ...`
-                    | SyntaxNode.SynMemberDefn(SynMemberDefn.ImplicitCtor _) -> true
-                    //TODO: when? example?
-                    | SyntaxNode.SynTypeDefn(SynTypeDefn(
-                        typeRepr = SynTypeDefnRepr.Simple(
-                          simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some(ctorPats))))) when
-                      rangeContainsPos ctorPats.Range pos
-                      ->
-                      true
-                    | _ -> false)
-                  |> Option.defaultValue false
-
-                if isCtor then
-                  return
-                    ExplicitType.Missing
-                      { Ident = ident.Range
-                        InsertAt = ident.Range.End
-                        Parens = Parens.Forbidden
-                        SpecialRules = [] }
-                else
-                  // lambda
-                  return! None
-            | _ -> return! None
-          } }
+            | _ -> None
+          | _ -> None }
   )
 
 ///<returns>

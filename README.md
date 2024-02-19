@@ -30,8 +30,7 @@ Requirements:
    Minimum: >= 6.0, Recommended: >= 7.0 
 
 1. Restore dotnet tools to install local Paket `dotnet tool restore`
-2. Build FSAC with `dotnet run --project build`
-3. Optionally specify a target with the `-t` parameter: `dotnet run --project build -t ....`
+2. Build FSAC with `dotnet build`
 
 * To build release fsautocomplete binaries in `~/bin` directory, use the `LocalRelease` target
 * To build, run all tests and create packages, use the `All` target

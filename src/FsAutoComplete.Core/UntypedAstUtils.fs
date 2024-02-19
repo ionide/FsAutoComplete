@@ -445,9 +445,9 @@ module Syntax =
       match s with
       | SynMemberDefn.AbstractSlot(valSig, _, _, _) -> walkValSig valSig
       | SynMemberDefn.Member(binding, _) -> walkBinding binding
-      | SynMemberDefn.ImplicitCtor(_, AllAttrs attrs, AllSimplePats pats, _, _, _, _) ->
+      | SynMemberDefn.ImplicitCtor(attributes = AllAttrs attrs; ctorArgs = ctorPattern) ->
         List.iter walkAttribute attrs
-        List.iter walkSimplePat pats
+        walkPat ctorPattern
       | SynMemberDefn.ImplicitInherit(t, e, _, _) ->
         walkType t
         walkExpr e

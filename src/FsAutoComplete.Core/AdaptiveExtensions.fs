@@ -8,7 +8,6 @@ open IcedTasks
 open System.Threading
 
 
-
 [<AutoOpen>]
 module AdaptiveExtensions =
 
@@ -286,6 +285,13 @@ module AMap =
       HashMap.union removeOps changes |> HashMapDelta
 
 
+  let tryFindR (reason: 'a) (key: 'Key) (map: amap<'Key, 'Value>) : aval<Result<'Value, 'a>> =
+    aval {
+      match! AMap.tryFind key map with
+      | Some x -> return Ok x
+      | None -> return Error reason
+    }
+
   /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
   let tryFindAndFlatten (key: 'Key) (map: amap<'Key, aval<option<'Value>>>) =
     aval {
@@ -293,6 +299,7 @@ module AMap =
       | Some x -> return! x
       | None -> return None
     }
+
 
   /// Adaptively looks up the given key in the map and binds the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
   let tryFindA (key: 'Key) (map: amap<'Key, #aval<'Value>>) =
@@ -741,6 +748,15 @@ module AsyncAVal =
   let mapOption (f: 'a -> CancellationToken -> 'b) (value: asyncaval<'a option>) : asyncaval<'b option> =
     mapSync (fun data ctok -> data |> Option.map (fun d -> f d ctok)) value
 
+
+  /// Returns a new async adaptive value that adaptively applies the mapping function to the given
+  /// optional adaptive inputs.
+  let mapResult
+    (f: 'a -> CancellationToken -> 'b)
+    (value: asyncaval<Result<'a, 'Error>>)
+    : asyncaval<Result<'b, 'Error>> =
+    mapSync (fun data ctok -> data |> Result.map (fun d -> f d ctok)) value
+
 type AsyncAValBuilder() =
   member inline x.MergeSources(v1: asyncaval<'T1>, v2: asyncaval<'T2>) =
     (v1, v2)
@@ -828,4 +844,13 @@ module AMapAsync =
       match! AMap.tryFind key map with
       | Some x -> return! x
       | None -> return None
+    }
+
+
+  /// Adaptively looks up the given key in the map and flattens the value to be easily worked with. Note that this operation should not be used extensively since its resulting aval will be re-evaluated upon every change of the map.
+  let tryFindAndFlattenR reason (key: 'Key) (map: amap<'Key, asyncaval<Result<'Value, 'Error>>>) =
+    asyncAVal {
+      match! AMap.tryFind key map with
+      | Some x -> return! x
+      | None -> return Error reason
     }

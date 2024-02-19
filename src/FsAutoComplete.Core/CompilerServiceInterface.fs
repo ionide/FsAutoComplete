@@ -422,14 +422,14 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         )
     }
 
-  member __.GetDeclarations(fileName: string<LocalPath>, source, options, _) =
+  member __.GetDeclarations(fileName: string<LocalPath>, source: ISourceText, options: FSharpParsingOptions, _) =
     async {
       checkerLogger.info (
         Log.setMessage "GetDeclarations - {file}"
         >> Log.addContextDestructured "file" fileName
       )
 
-      let! parseResult = checker.ParseFile(UMX.untag fileName, source, options)
+      let! parseResult = checker.ParseFile(UMX.untag fileName, source, options, userOpName = "getDeclarations")
       return parseResult.GetNavigationItems().Declarations
     }
 

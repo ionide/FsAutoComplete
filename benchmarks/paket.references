@@ -1,3 +1,5 @@
 BenchmarkDotNet
 Microsoft.CodeAnalysis
 FSharp.Data.Adaptive
+Ionide.LanguageServerProtocol
+FSharp.UMX
