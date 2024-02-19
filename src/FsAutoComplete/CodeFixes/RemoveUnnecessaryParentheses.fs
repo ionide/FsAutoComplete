@@ -162,7 +162,5 @@ let fix (getFileLines: GetFileLines) : CodeFix =
               SourceDiagnostic = Some d
               Kind = FixKind.Fix } ]
 
-      | notParens ->
-        System.Diagnostics.Debug.Fail $"%A{notParens} <> ('(', ')')"
-        return []
+      | _notParens -> return []
     })
