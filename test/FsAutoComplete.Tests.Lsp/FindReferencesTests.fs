@@ -378,27 +378,27 @@ let private untitledTests state =
           open System
           open System.Threading.Tasks
           let _ = task {
-            do! Task.$<De$0lay>$ (TimeSpan.MaxValue)
-            do! Task.$<``Delay``>$ (TimeSpan.MaxValue)
-            do! System.Threading.Tasks.Task.$<Delay>$ (TimeSpan.MaxValue)
+            do! Task.$<De$0lay>$ TimeSpan.MaxValue
+            do! Task.$<``Delay``>$ TimeSpan.MaxValue
+            do! System.Threading.Tasks.Task.$<Delay>$ TimeSpan.MaxValue
             do!
               System
                 .Threading
                 .Tasks
                 .Task
-                .$<Delay>$ (TimeSpan.MaxValue)
+                .$<Delay>$ TimeSpan.MaxValue
           }
           """
                """
           open System
           open System.Threading.Tasks
           let _ = task {
-            do! Task.$<Delay>$ (TimeSpan.MaxValue)
+            do! Task.$<Delay>$ TimeSpan.MaxValue
             printfn "..."
-            do! Threading.Tasks.Task.$<Delay>$ (TimeSpan.MaxValue)
+            do! Threading.Tasks.Task.$<Delay>$ TimeSpan.MaxValue
           }
           let _ = task {
-            do! Task.$<Delay>$ (TimeSpan.MaxValue)
+            do! Task.$<Delay>$ TimeSpan.MaxValue
           }
           """
                // No Task.Delay
@@ -458,6 +458,7 @@ let private rangeTests state =
     async {
       let (source, cursors) = sourceWithCursors |> extractRanges
       let! (doc, diags) = server |> Server.createUntitledDocument source
+
       use doc = doc
       Expect.hasLength diags 0 "There should be no diags"
 

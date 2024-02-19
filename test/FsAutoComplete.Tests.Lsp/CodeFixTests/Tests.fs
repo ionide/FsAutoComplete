@@ -2794,7 +2794,8 @@ let private resolveNamespaceTests state =
         ResolveNamespaces = Some true }
 
   serverTestList (nameof ResolveNamespace) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.matching (fun ca -> ca.Title.StartsWith("open", StringComparison.Ordinal))
+    [ let selectCodeFix =
+        CodeFix.matching (fun ca -> ca.Title.StartsWith("open", StringComparison.Ordinal))
 
       testCaseAsync "doesn't fail when target not in last line"
       <| CodeFix.checkApplicable
@@ -3304,6 +3305,84 @@ let private removePatternArgumentTests state =
         let (None) = None
         """ ])
 
+let private removeUnnecessaryParenthesesTests state =
+  let config =
+    { defaultConfigDto with
+        UnnecessaryParenthesesAnalyzer = Some true }
+
+  serverTestList (nameof RemoveUnnecessaryParentheses) state config None (fun server ->
+    [ let selector =
+        CodeFix.ofKind "quickfix"
+        >> CodeFix.withTitle RemoveUnnecessaryParentheses.title
+
+      testCaseAsync "Can remove unnecessary parentheses"
+      <| CodeFix.check
+        server
+        """
+        let x = $0(3)
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        let x = 3
+        """
+
+      testCaseAsync "Adds space after"
+      <| CodeFix.check
+        server
+        """
+        $0(int)3.14
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        int 3.14
+        """
+
+      testCaseAsync "Adds space before"
+      <| CodeFix.check
+        server
+        """
+        int$0(3.14)
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        int 3.14
+        """
+
+      testCaseAsync "Adds space before and after"
+      <| CodeFix.check
+        server
+        """
+        [|$0(<@ 1 @>)|]
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        [| <@ 1 @> |]
+        """
+
+      testCaseAsync "Handles multiline expr well"
+      <| CodeFix.check
+        server
+        """
+        let _ =
+          let x = 3
+          (
+              let y = 99
+              y - x
+          )$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        let _ =
+          let x = 3
+          let y = 99
+          y - x
+        """ ])
+
 let tests textFactory state =
   testList
     "CodeFix-tests"
@@ -3352,4 +3431,5 @@ let tests textFactory state =
       wrapExpressionInParenthesesTests state
       removeRedundantAttributeSuffixTests state
       removePatternArgumentTests state
-      UpdateValueInSignatureFileTests.tests state ]
+      UpdateValueInSignatureFileTests.tests state
+      removeUnnecessaryParenthesesTests state ]
