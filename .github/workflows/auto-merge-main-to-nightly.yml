@@ -1,0 +1,27 @@
+name: Auto Merge Main to Nightly
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+            ref: nightly
+            fetch-depth: 0 # need all history to merge main
+
+      - name: Merge main to nightly
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git merge origin/main -m "merge main to nightly" --no-edit
+          git push origin nightly
