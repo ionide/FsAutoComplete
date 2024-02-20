@@ -1,74 +1,17 @@
 module FsAutoComplete.CodeFix.RemoveUnusedBinding
 
-open System
 open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Navigation
 open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-
 
 type private ReplacementRangeResult =
   | FullBinding of bindingRange: Range
   | Pattern of patternRange: Range
-
-type FSharpParseFileResults with
-
-  member private this.TryRangeOfBindingWithHeadPatternWithPos(diagnosticRange: range) =
-    SyntaxTraversal.Traverse(
-      diagnosticRange.Start,
-      this.ParseTree,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
-
-          override _.VisitPat(_, defaultTraverse, pat: SynPat) =
-            // if the diagnostic was for this specific pattern in its entirety, then we're don
-            if Range.equals pat.Range diagnosticRange then
-              Some(Pattern diagnosticRange)
-            else
-              match pat with
-              | SynPat.Paren(inner, m) ->
-                // otherwise if the pattern inside a parens
-                if Range.rangeContainsRange m diagnosticRange then
-                  // explicitly matches
-                  if
-                    Range.equals inner.Range diagnosticRange
-                  // then return the range of the parens, so the entire pattern gets removed
-                  then
-                    Some(Pattern m)
-                  else
-                    defaultTraverse inner
-                else
-                  defaultTraverse inner
-              | pat -> defaultTraverse pat
-
-          override _.VisitBinding(_, defaultTraverse, binding) =
-            match binding with
-            | SynBinding(kind = SynBindingKind.Normal; headPat = pat) as binding ->
-              // walk the patterns in the binding first, to allow the parameter traversal a chance to fire
-              match defaultTraverse binding with
-              | None ->
-                // otherwise if the diagnostic was in this binding's head pattern then do teh replacement
-                if Range.rangeContainsRange binding.RangeOfHeadPattern diagnosticRange then
-                  Some(FullBinding binding.RangeOfBindingWithRhs)
-                else
-                  // Check if it's an operator
-                  match pat with
-                  | SynPat.LongIdent(longDotId = SynLongIdent(id = [ id ])) when
-                    id.idText.StartsWith("op_", StringComparison.Ordinal)
-                    ->
-                    if Range.rangeContainsRange id.idRange diagnosticRange then
-                      Some(FullBinding binding.RangeOfBindingWithRhs)
-                    else
-                      defaultTraverse binding
-                  | _ -> defaultTraverse binding
-              | Some range -> Some range
-            | _ -> defaultTraverse binding }
-    )
 
 let titleParameter = "Remove unused parameter"
 let titleBinding = "Remove unused binding"
@@ -84,7 +27,22 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
       let! tyres, _line, lines = getParseResults fileName fcsRange.Start
 
       let! rangeOfBinding =
-        tyres.GetParseResults.TryRangeOfBindingWithHeadPatternWithPos(fcsRange)
+        (fcsRange.Start, tyres.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun path node ->
+          let (|LongIdentRange|) (idents: Ident list) = (Range.range0, idents) ||> List.fold (fun acc ident -> Range.unionRanges acc ident.idRange)
+
+          match node, path with
+          | SyntaxNode.SynPat pat, SyntaxNode.SynBinding(SynBinding(kind = SynBindingKind.Normal; headPat = SynPat.Named(range = nameRange) as headPat) as binding) :: _
+          | SyntaxNode.SynPat pat, SyntaxNode.SynBinding(SynBinding(kind = SynBindingKind.Normal; headPat = SynPat.LongIdent(longDotId = SynLongIdent(id = LongIdentRange nameRange)) as headPat) as binding) :: _ ->
+            if obj.ReferenceEquals(pat, headPat)
+              && Range.rangeContainsRange nameRange fcsRange then
+              Some(FullBinding binding.RangeOfBindingWithRhs)
+            else
+              None
+
+          | SyntaxNode.SynPat pat, _ when Range.rangeContainsRange pat.Range fcsRange -> Some(Pattern pat.Range)
+
+          | _ -> None)
         |> Result.ofOption (fun () -> "no binding range found")
 
       match rangeOfBinding with

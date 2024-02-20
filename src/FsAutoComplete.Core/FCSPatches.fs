@@ -339,18 +339,6 @@ type FSharpParseFileResults with
             | _ -> defaultTraverse expr }
     )
 
-  /// Attempts to find the range of the string interpolation that contains a given position.
-  member scope.TryRangeOfStringInterpolationContainingPos pos =
-    SyntaxTraversal.Traverse(
-      pos,
-      scope.ParseTree,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(_, _, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.InterpolatedString(range = range) when Range.rangeContainsPos range pos -> Some range
-            | _ -> defaultTraverse expr }
-    )
-
   member scope.ClassifyBinding(binding: SynBinding) =
     match binding with
     | SynBinding(valData = SynValData(memberFlags = None)) -> FSharpGlyph.Delegate

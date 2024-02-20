@@ -57,21 +57,17 @@ let (|FunctionBindingWithMissingTypes|_|) =
 /// <param name="cursorPos">Expected to be between the start of the leading keyword and the end of the function name.</param>
 let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sourceText lineStr cursorPos =
   let bindingInfo =
-    SyntaxTraversal.Traverse(
-      cursorPos,
-      parseAndCheck.GetAST,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(path, traverseSynExpr, defaultTraverse, expr) = defaultTraverse expr
-
-          member _.VisitBinding(path, defaultTraverse, binding) =
-            match binding with
-            | FunctionBindingWithMissingTypes(bindingStartRange,
-                                              headPatRangeOpt,
-                                              totalParameterCount,
-                                              nonTypedParameters) when rangeContainsPos bindingStartRange cursorPos ->
-              Some(bindingStartRange, headPatRangeOpt, totalParameterCount, nonTypedParameters)
-            | _ -> defaultTraverse binding }
-    )
+    (cursorPos, parseAndCheck.GetParseResults.ParseTree)
+    ||> ParsedInput.tryPick (fun _path node ->
+      match node with
+      | SyntaxNode.SynBinding(FunctionBindingWithMissingTypes(bindingStartRange,
+                                                              headPatRangeOpt,
+                                                              totalParameterCount,
+                                                              nonTypedParameters)) when
+        rangeContainsPos bindingStartRange cursorPos
+        ->
+        Some(bindingStartRange, headPatRangeOpt, totalParameterCount, nonTypedParameters)
+      | _ -> None)
 
   match bindingInfo with
   | None -> []

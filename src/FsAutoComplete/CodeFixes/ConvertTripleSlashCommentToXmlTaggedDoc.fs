@@ -26,99 +26,26 @@ let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Po
 
   not xmlDoc.IsEmpty && containsPosAndNoSummaryPresent xmlDoc
 
-let private isLowerAstElemWithPreXmlDoc input pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitBinding(_, defaultTraverse, synBinding) =
-          match synBinding with
-          | SynBinding(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-          | _ -> defaultTraverse synBinding
-
-        member _.VisitComponentInfo(_, synComponentInfo) =
-          match synComponentInfo with
-          | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-          | _ -> None
-
-        member _.VisitRecordDefn(_, fields, _) =
-          let isInLine c =
-            match c with
-            | SynField(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-            | _ -> None
-
-          fields |> List.tryPick isInLine
-
-        member _.VisitUnionDefn(_, cases, _) =
-          let isInLine c =
-            match c with
-            | SynUnionCase(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-            | _ -> None
-
-          cases |> List.tryPick isInLine
-
-        member _.VisitEnumDefn(_, cases, _) =
-          let isInLine b =
-            match b with
-            | SynEnumCase(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-            | _ -> None
-
-          cases |> List.tryPick isInLine
-
-        member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
-          let isInLine b =
-            match b with
-            | SynBinding(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-            | _ -> defaultTraverse b
-
-          bindings |> List.tryPick isInLine
-
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
-  )
-
-let private isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-
-        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
-          match synModuleOrNamespace with
-          | SynModuleOrNamespace(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc -> Some xmlDoc
-          | SynModuleOrNamespace(decls = decls) ->
-
-            let rec findNested decls =
-              decls
-              |> List.tryPick (fun d ->
-                match d with
-                | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
-                  match moduleInfo with
-                  | SynComponentInfo(xmlDoc = xmlDoc) when containsPosAndNotEmptyAndNotElaborated pos xmlDoc ->
-                    Some xmlDoc
-                  | _ -> findNested decls
-                | SynModuleDecl.Types(typeDefns = typeDefns) ->
-                  typeDefns
-                  |> List.tryPick (fun td ->
-                    match td with
-                    | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
-                      members
-                      |> List.tryPick (fun m ->
-                        match m with
-                        | SynMemberDefn.AutoProperty(xmlDoc = xmlDoc) when
-                          containsPosAndNotEmptyAndNotElaborated pos xmlDoc
-                          ->
-                          Some xmlDoc
-                        | _ -> None)
-                    | _ -> None)
-                | _ -> None)
-
-            findNested decls }
-  )
-
 let private isAstElemWithPreXmlDoc input pos =
-  match isLowerAstElemWithPreXmlDoc input pos with
-  | Some xml -> Some xml
-  | _ -> isModuleOrNamespaceOrAutoPropertyWithPreXmlDoc input pos
+  let (|Unelaborated|_|) xmlDoc = if containsPosAndNotEmptyAndNotElaborated pos xmlDoc then Some xmlDoc else None
+  let (|AnyUnelaborated|_|) getXmlDoc = List.tryPick (getXmlDoc >> (|Unelaborated|_|))
+  let field (SynField(xmlDoc = xmlDoc)) = xmlDoc
+  let unionCase (SynUnionCase(xmlDoc = xmlDoc)) = xmlDoc
+  let enumCase (SynEnumCase(xmlDoc = xmlDoc)) = xmlDoc
+
+  (pos, input)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynModuleOrNamespace(SynModuleOrNamespace(xmlDoc = Unelaborated xmlDoc))
+    | SyntaxNode.SynModule(SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(xmlDoc = Unelaborated xmlDoc)))
+    | SyntaxNode.SynMemberDefn(SynMemberDefn.AutoProperty(xmlDoc = Unelaborated xmlDoc))
+    | SyntaxNode.SynBinding(SynBinding(xmlDoc = Unelaborated xmlDoc))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(xmlDoc = Unelaborated xmlDoc)))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(recordFields = AnyUnelaborated field xmlDoc), _)))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(unionCases = AnyUnelaborated unionCase xmlDoc), _)))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Enum(cases = AnyUnelaborated enumCase xmlDoc), _))) ->
+      Some xmlDoc
+    | _ -> None)
 
 let private collectCommentContents
   (startPos: FSharp.Compiler.Text.Position)
