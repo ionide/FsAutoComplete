@@ -14,7 +14,7 @@ type Version = int
 
 type FSharpCompilerServiceChecker =
   new:
-    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool -> FSharpCompilerServiceChecker
+    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * documentSource : DocumentSource -> FSharpCompilerServiceChecker
 
   member DisableInMemoryProjectReferences: bool with get, set
 
@@ -40,7 +40,7 @@ type FSharpCompilerServiceChecker =
   /// <param name="options">Parsing options for the project or script.</param>
   /// <returns></returns>
   member ParseFile:
-    filePath: string<LocalPath> * source: ISourceText * options: FSharpParsingOptions -> Async<FSharpParseFileResults>
+    filePath: string<LocalPath> * source: ISourceText * options: FSharpProjectOptions -> Async<FSharpParseFileResults>
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
@@ -78,7 +78,7 @@ type FSharpCompilerServiceChecker =
     file: string * project: FSharpProjectOptions * symbol: FSharpSymbol -> Async<seq<range>>
 
   member GetDeclarations:
-    fileName: string<LocalPath> * source: ISourceText * options: FSharpParsingOptions * version: 'a ->
+    fileName: string<LocalPath> * source: ISourceText * options: FSharpProjectOptions * version: 'a ->
       Async<NavigationTopLevelDeclaration array>
 
   member SetDotnetRoot: dotnetBinary: FileInfo * cwd: DirectoryInfo -> unit

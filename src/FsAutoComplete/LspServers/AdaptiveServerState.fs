@@ -36,6 +36,7 @@ open FsAutoComplete.FCSPatches
 open FsAutoComplete.Lsp
 open FsAutoComplete.Lsp.Helpers
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.CodeAnalysis
 
 
 [<RequireQualifiedAccess>]
@@ -59,14 +60,20 @@ type LoadedProject =
 
   override x.GetHashCode() = x.FSharpProjectOptions.GetHashCode()
 
+
   override x.Equals(other: obj) =
     match other with
     | :? LoadedProject as other -> (x :> IEquatable<_>).Equals other
     | _ -> false
 
+  member x.GetSnapshot(documentSource) =
+    FSharpProjectSnapshot.FromOptions(x.FSharpProjectOptions, documentSource)
+
   member x.SourceFiles = x.FSharpProjectOptions.SourceFiles
   member x.ProjectFileName = x.FSharpProjectOptions.ProjectFileName
   static member op_Implicit(x: LoadedProject) = x.FSharpProjectOptions
+
+
 
 /// The reality is a file can be in multiple projects
 /// This is extracted to make it easier to do some type of customized select in the future
@@ -96,10 +103,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let rootPath = cval<string option> None
 
   let config = cval<FSharpConfig> FSharpConfig.Default
+  let documentSource = cval<DocumentSource> DocumentSource.FileSystem
 
   let checker =
-    config
-    |> AVal.map (fun c -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount, c.Fsac.ParallelReferenceResolution)
+
+    (config, documentSource)
+    ||> AVal.map2 (fun c ds -> c.EnableAnalyzers, c.Fsac.CachedTypeCheckCount, c.Fsac.ParallelReferenceResolution, ds)
     |> AVal.map (FSharpCompilerServiceChecker)
 
   let configChanges =
@@ -1138,7 +1147,16 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
     |> Async.map (Result.ofOption (fun () -> $"Could not read file: {file}"))
 
+  let documentSourceLookup (filePath: string) =
+    asyncOption {
+      let! file = forceFindOpenFileOrRead (Utils.normalizePath filePath)
+      let! file = Result.toOption file
+      return file.Source :> ISourceText
+    }
+
   do
+    transact ( fun () ->
+      documentSource.Value <- DocumentSource.Custom documentSourceLookup )
     let fileShimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
     // let cachedFileContents = cachedFileContents |> cmap.mapA (fun _ v -> v)
 
@@ -1160,7 +1178,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   /// <returns></returns>
   let parseFile (checker: FSharpCompilerServiceChecker) (source: VolatileFile) parseOpts options =
     async {
-      let! result = checker.ParseFile(source.FileName, source.Source, parseOpts)
+      let! result = checker.ParseFile(source.FileName, source.Source, options)
 
       let! ct = Async.CancellationToken
       fileParsed.Trigger(result, options, ct)
