@@ -244,7 +244,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       let path = UMX.untag filePath
       let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
       return! checker.ParseFile(path, snapshot)
-      // return! checker.ParseFile(path, source, options)
+    // return! checker.ParseFile(path, source, options)
     }
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
@@ -274,7 +274,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       try
         let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
-        let! (p,c) = checker.ParseAndCheckFileInProject(path,snapshot, userOpName = opName)
+        let! (p, c) = checker.ParseAndCheckFileInProject(path, snapshot, userOpName = opName)
         // let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
@@ -332,37 +332,40 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | _ -> None
 
   member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText) =
-    let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
+    async {
+      let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
-    checkerLogger.info (
-      Log.setMessage "{opName} - {hash}"
-      >> Log.addContextDestructured "opName" opName
-      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+      checkerLogger.info (
+        Log.setMessage "{opName} - {hash}"
+        >> Log.addContextDestructured "opName" opName
+        >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
 
-    )
+      )
 
-    let options = clearProjectReferences options
+      let options = clearProjectReferences options
 
-    let result =
-      // TODO: Should this be snapshottable? (is that a word?)
-      checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
-      |> Option.map (fun (pr, cr, version) ->
-        checkerLogger.info (
-          Log.setMessage "{opName} - got results - {version}"
-          >> Log.addContextDestructured "opName" opName
-          >> Log.addContextDestructured "version" version
-        )
+      let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
 
-        ParseAndCheckResults(pr, cr, entityCache))
+      return
+        checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
+        // checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
+        |> Option.map (fun (pr, cr) ->
+          checkerLogger.info (
+            Log.setMessage "{opName} - got results - {version}"
+            >> Log.addContextDestructured "opName" opName
+          )
 
-    checkerLogger.info (
-      Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
-      >> Log.addContextDestructured "opName" opName
-      >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
-      >> Log.addContextDestructured "cacheHit" result.IsSome
-    )
+          ParseAndCheckResults(pr, cr, entityCache))
+    }
 
-    result
+  // checkerLogger.info (
+  //   Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
+  //   >> Log.addContextDestructured "opName" opName
+  //   >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
+  //   >> Log.addContextDestructured "cacheHit" result.IsSome
+  // )
+
+  // result
 
   member x.GetUsesOfSymbol
     (
@@ -406,17 +409,18 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         Log.setMessage "FindReferencesForSymbolInFile - {file}"
         >> Log.addContextDestructured "file" file
       )
+
       let! snapshot = FSharpProjectSnapshot.FromOptions(project, documentSource)
       return! checker.FindBackgroundReferencesInFile(file, snapshot, symbol, userOpName = "find references")
-      // return!
-      //   checker.FindBackgroundReferencesInFile(
-      //     file,
-      //     project,
-      //     symbol,
-      //     canInvalidateProject = false,
-      //     // fastCheck = true,
-      //     userOpName = "find references"
-      //   )
+    // return!
+    //   checker.FindBackgroundReferencesInFile(
+    //     file,
+    //     project,
+    //     symbol,
+    //     canInvalidateProject = false,
+    //     // fastCheck = true,
+    //     userOpName = "find references"
+    //   )
     }
 
   member this.GetDeclarations(fileName: string<LocalPath>, source: ISourceText, options: FSharpProjectOptions, _) =

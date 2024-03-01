@@ -14,7 +14,8 @@ type Version = int
 
 type FSharpCompilerServiceChecker =
   new:
-    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * documentSource : DocumentSource -> FSharpCompilerServiceChecker
+    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * documentSource: DocumentSource ->
+      FSharpCompilerServiceChecker
 
   member DisableInMemoryProjectReferences: bool with get, set
 
@@ -68,7 +69,7 @@ type FSharpCompilerServiceChecker =
   member TryGetLastCheckResultForFile: file: string<LocalPath> -> ParseAndCheckResults option
 
   member TryGetRecentCheckResultsForFile:
-    file: string<LocalPath> * options: FSharpProjectOptions * source: ISourceText -> ParseAndCheckResults option
+    file: string<LocalPath> * options: FSharpProjectOptions * source: ISourceText -> Async<ParseAndCheckResults option>
 
   member GetUsesOfSymbol:
     file: string<LocalPath> * options: (string * FSharpProjectOptions) seq * symbol: FSharpSymbol ->

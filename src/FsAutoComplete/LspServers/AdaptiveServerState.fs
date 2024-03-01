@@ -66,8 +66,7 @@ type LoadedProject =
     | :? LoadedProject as other -> (x :> IEquatable<_>).Equals other
     | _ -> false
 
-  member x.GetSnapshot(documentSource) =
-    FSharpProjectSnapshot.FromOptions(x.FSharpProjectOptions, documentSource)
+  member x.GetSnapshot(documentSource) = FSharpProjectSnapshot.FromOptions(x.FSharpProjectOptions, documentSource)
 
   member x.SourceFiles = x.FSharpProjectOptions.SourceFiles
   member x.ProjectFileName = x.FSharpProjectOptions.ProjectFileName
@@ -1155,8 +1154,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
   do
-    transact ( fun () ->
-      documentSource.Value <- DocumentSource.Custom documentSourceLookup )
+    transact (fun () -> documentSource.Value <- DocumentSource.Custom documentSourceLookup)
     let fileShimChanges = openFilesWithChanges |> AMap.mapA (fun _ v -> v)
     // let cachedFileContents = cachedFileContents |> cmap.mapA (fun _ v -> v)
 
@@ -1491,14 +1489,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         let! checker = checker
         and! selectProject = projectSelector
 
-        return
-          result {
+        return!
+          asyncResult {
             let! projectOptions = projectOptions
             let! opts = selectProject.FindProject(file, projectOptions)
 
             return!
               checker.TryGetRecentCheckResultsForFile(file, opts.FSharpProjectOptions, info.Source)
-              |> Result.ofOption (fun () ->
+              |> AsyncResult.ofOption (fun () ->
                 $"No recent typecheck results for {file}. This may be ok if the file has not been checked yet.")
           }
       })
