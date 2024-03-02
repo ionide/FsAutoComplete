@@ -668,7 +668,6 @@ module Completion =
       |> ParsedInput.tryNode pos
       |> Option.bind (fun (node, _path) ->
         match node with
-        | SyntaxNode.SynType _ -> Some Context.SynType
         | SyntaxNode.SynExpr(SynExpr.Const(SynConst.String _, _)) -> Some Context.StringLiteral
         | _ -> None))
     |> Option.defaultValue Context.Unknown

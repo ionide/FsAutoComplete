@@ -69,36 +69,6 @@ type Hint =
 
 let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
-type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
-  // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
-  // so that they are considered logically the same as a 'typed' SynPat
-  member x.IsTypeAnnotationGivenAtPositionPatched pos =
-    let visitor: SyntaxVisitorBase<Range> =
-      { new SyntaxVisitorBase<_>() with
-          override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.Typed(_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraverse expr
-
-          override visitor.VisitSimplePats(_path, pat) =
-            let path = SyntaxNode.SynPat pat :: _path
-            visitor.VisitPat(path, defaultTraversePat visitor path, pat)
-
-          override visitor.VisitPat(path, defaultTraverse, pat) =
-            match pat with
-            | SynPat.Typed(_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraversePat visitor path pat
-
-          override _.VisitBinding(_path, defaultTraverse, binding) =
-            match binding with
-            | SynBinding(
-                headPat = SynPat.Named(range = patRange)
-                returnInfo = Some(SynBindingReturnInfo(typeName = SynType.LongIdent _))) -> Some patRange
-            | _ -> defaultTraverse binding }
-
-    let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
-    result.IsSome
-
 let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
@@ -756,56 +726,29 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
 /// ```
 ///</returns>
 let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.App(isInfix = false; funcExpr = funcExpr; range = range) when pos = range.Start ->
-            let isInfixFuncExpr =
-              match funcExpr with
-              | SynExpr.App(_, isInfix, _, _, _) -> isInfix
-              | _ -> false
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    let rec (|IgnoreParens|) =
+      function
+      | SynExpr.Paren(expr = expr)
+      | expr -> expr
 
-            if isInfixFuncExpr then
-              traverseSynExpr funcExpr
-            else
-              let rec withoutParens =
-                function
-                | SynExpr.Paren(expr = expr) -> withoutParens expr
-                | expr -> expr
-              // f a (b,c)
-              // ^^^^^^^^^ App
-              // ... func
-              //     ----- arg
-              // ^^^ App
-              // . func
-              //   - arg
-              let rec findArgs expr =
-                match expr with
-                | SynExpr.Const(constant = SynConst.Unit) -> []
-                | SynExpr.Paren(expr = expr) -> findArgs expr
-                | SynExpr.App(funcExpr = funcExpr; argExpr = argExpr) ->
-                  let otherArgRanges = findArgs funcExpr
+    let rec (|Arg|) =
+      function
+      | IgnoreParens(SynExpr.Tuple(isStruct = false; exprs = exprs)) as arg ->
+        arg.Range, exprs |> List.map (fun e -> e.Range)
+      | expr -> expr.Range, [ expr.Range ]
 
-                  let argRange =
-                    let argRange = argExpr.Range
+    let rec (|Args|) =
+      function
+      | IgnoreParens(SynExpr.App(funcExpr = Args args; argExpr = Arg arg)) -> arg :: args
+      | _ -> []
 
-                    let tupleArgs =
-                      match argExpr |> withoutParens with
-                      | SynExpr.Tuple(exprs = exprs) -> exprs |> List.map (fun e -> e.Range)
-                      | _ -> argRange |> List.singleton
-
-                    (argRange, tupleArgs)
-
-                  argRange :: otherArgRanges
-                | _ -> []
-
-              findArgs expr |> Some
-          | _ -> defaultTraverse expr }
-  )
-  |> Option.map List.rev
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.App(funcExpr = SynExpr.App(isInfix = true; argExpr = Args args); range = m))
+    | SyntaxNode.SynExpr(SynExpr.App(funcExpr = SynExpr.App(isInfix = true; funcExpr = Args args); range = m))
+    | SyntaxNode.SynExpr(SynExpr.App(isInfix = false; range = m) & Args args) when m.Start = pos -> Some(List.rev args)
+    | _ -> None)
 
 /// Note: No exhausting check. Doesn't check for:
 /// * is already typed (-> done by getting `ExplicitType`)
