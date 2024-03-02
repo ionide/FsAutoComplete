@@ -71,28 +71,6 @@ let private walkTypeDefn (SynTypeDefn(_, repr, members, implicitCtor, _, _)) =
 
   }
 
-/// find the declaration of the abstract class being filled in at the given position
-let private tryFindAbstractClassExprInParsedInput
-  (pos: Position)
-  (parsedInput: ParsedInput)
-  : AbstractClassData option =
-  SyntaxTraversal.Traverse(
-    pos,
-    parsedInput,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(path, traverseExpr, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.ObjExpr(
-              objType = baseTy; withKeyword = withKeyword; bindings = bindings; newExprRange = newExprRange) ->
-            Some(AbstractClassData.ObjExpr(baseTy, bindings, newExprRange, withKeyword))
-          | _ -> defaultTraverse expr
-
-        override _.VisitModuleDecl(_, defaultTraverse, decl) =
-          match decl with
-          | SynModuleDecl.Types(types, _) -> List.tryPick walkTypeDefn types
-          | _ -> defaultTraverse decl }
-  )
-
 /// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
 /// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
 let tryFindAbstractClassExprInBufferAtPos
@@ -102,7 +80,16 @@ let tryFindAbstractClassExprInBufferAtPos
   =
   asyncOption {
     let! parseResults = codeGenService.ParseFileInProject document.FileName
-    return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
+
+    return!
+      (pos, parseResults.ParseTree)
+      ||> ParsedInput.tryPick (fun _path node ->
+        match node with
+        | SyntaxNode.SynExpr(SynExpr.ObjExpr(
+            objType = baseTy; withKeyword = withKeyword; bindings = bindings; newExprRange = newExprRange)) ->
+          Some(ObjExpr(baseTy, bindings, newExprRange, withKeyword))
+        | SyntaxNode.SynModule(SynModuleDecl.Types(types, _)) -> List.tryPick walkTypeDefn types
+        | _ -> None)
   }
 
 let getMemberNameAndRanges abstractClassData =

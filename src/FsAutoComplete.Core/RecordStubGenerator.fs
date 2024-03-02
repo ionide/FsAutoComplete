@@ -185,37 +185,26 @@ let formatRecord
   writer.Dump()
 
 
-let walkAndFindRecordBinding (pos, input) =
-  let walker =
-    { new SyntaxVisitorBase<RecordExpr>() with
-        member x.VisitExpr
-          (
-            path: SyntaxVisitorPath,
-            traverseSynExpr: (SynExpr -> _ option),
-            defaultTraverse: (SynExpr -> _ option),
-            synExpr: SynExpr
-          ) =
-          match synExpr with
-          | SynExpr.Record(recordFields = recordFields; copyInfo = copyInfo) ->
-            Some
-              { Expr = synExpr
-                CopyExprOption = copyInfo
-                FieldExprList = recordFields
-                LastKnownGoodPosForSymbolLookup =
-                  recordFields
-                  |> List.tryLast
-                  |> Option.map (function
-                    | SynExprRecordField(fieldName = (id, _)) -> id.Range.Start)
-                  |> Option.defaultValue synExpr.Range.Start }
-          | _ -> defaultTraverse synExpr }
-
-  SyntaxTraversal.Traverse(pos, input, walker)
-
 let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncOption {
     let! parseResults = codeGenService.ParseFileInProject(document.FullName)
 
-    let! found = walkAndFindRecordBinding (pos, parseResults.ParseTree)
+    let! found =
+      (pos, parseResults.ParseTree)
+      ||> ParsedInput.tryPick (fun _path node ->
+        match node with
+        | SyntaxNode.SynExpr(SynExpr.Record(recordFields = recordFields; copyInfo = copyInfo) as synExpr) ->
+          Some
+            { Expr = synExpr
+              CopyExprOption = copyInfo
+              FieldExprList = recordFields
+              LastKnownGoodPosForSymbolLookup =
+                recordFields
+                |> List.tryLast
+                |> Option.map (fun (SynExprRecordField(fieldName = (id, _))) -> id.Range.Start)
+                |> Option.defaultValue synExpr.Range.Start }
+        | _ -> None)
+
     return found
   }
 
