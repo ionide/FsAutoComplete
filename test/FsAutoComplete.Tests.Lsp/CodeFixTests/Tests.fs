@@ -3381,6 +3381,28 @@ let private removeUnnecessaryParenthesesTests state =
           let x = 3
           let y = 99
           y - x
+        """
+
+      testCaseAsync "Handles sensitive multiline expr well"
+      <| CodeFix.check
+        server
+        """
+        let longVarName1 = 1
+        let longVarName2 = 2
+        (
+          longFunctionName
+            longVarName1
+            longVarName2
+        )$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        let longVarName1 = 1
+        let longVarName2 = 2
+        longFunctionName
+          longVarName1
+          longVarName2
         """ ])
 
 let tests textFactory state =
