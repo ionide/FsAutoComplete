@@ -98,7 +98,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
           else
             let outerOffsides = range.StartColumn
 
-            let rec loop innerOffsides lineNo startCol =
+            let rec loop innerOffsides lineNo (startCol: int) =
               if lineNo <= endLineNo then
                 let line = sourceText.Lines[lineNo].ToString()
 
