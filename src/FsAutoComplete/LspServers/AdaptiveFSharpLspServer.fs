@@ -2046,7 +2046,9 @@ type AdaptiveFSharpLspServer
               let! parseResults = state.GetParseResults fn |> Async.map Result.toOption
 
               let! (fullBindingRange, glyph, bindingIdents) =
-                (protocolPosToPos loc.Range.Start, parseResults.ParseTree)
+                let pos = protocolPosToPos loc.Range.Start
+
+                (pos, parseResults.ParseTree)
                 ||> ParsedInput.tryPickLast (fun _path node ->
                   let (|BindingClass|) =
                     function
@@ -2054,7 +2056,7 @@ type AdaptiveFSharpLspServer
                     | _ -> FSharpGlyph.Method
 
                   match node with
-                  | SyntaxNode.SynBinding(SynBinding(headPat = pat) & BindingClass glyph as b) when
+                  | SyntaxNode.SynBinding(SynBinding(headPat = pat) as b & BindingClass glyph) when
                     Range.rangeContainsPos b.RangeOfBindingWithRhs pos
                     ->
                     match pat with
