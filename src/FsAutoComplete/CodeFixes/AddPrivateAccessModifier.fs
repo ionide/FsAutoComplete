@@ -132,65 +132,62 @@ let private getRangesAndPlacement input pos =
           | _ -> None)
       | _ -> None)
 
-  let visitor =
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitBinding(path, _, synBinding) =
-          match synBinding with
-          // explicit Ctor
-          | SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor }))) -> None
-          // let bindings, members
-          | SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s when
-            rangeContainsPos s.RangeOfHeadPattern pos
-            ->
-            if isLetInsideObjectModel path pos then
-              None
-            else
-              match headPat with
-              | SynPat.LongIdent(longDotId = longDotId; accessibility = None) ->
-                let posValidInSynLongIdent =
-                  longDotId.LongIdent
-                  |> List.skip (if longDotId.LongIdent.Length > 1 then 1 else 0)
-                  |> List.exists (fun i -> rangeContainsPos i.idRange pos)
+  (pos, input)
+  ||> ParsedInput.tryPick (fun path node ->
+    match node with
+    // explicit Ctor
+    | SyntaxNode.SynBinding(SynBinding(
+        valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor })))) -> None
+    | SyntaxNode.SynBinding(SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s) when
+      rangeContainsPos s.RangeOfHeadPattern pos
+      ->
+      if isLetInsideObjectModel path pos then
+        None
+      else
+        match headPat with
+        | SynPat.LongIdent(longDotId = longDotId; accessibility = None) ->
+          let posValidInSynLongIdent =
+            longDotId.LongIdent
+            |> List.skip (if longDotId.LongIdent.Length > 1 then 1 else 0)
+            |> List.exists (fun i -> rangeContainsPos i.idRange pos)
 
-                if not posValidInSynLongIdent then
-                  None
-                else
-                  let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
+          if not posValidInSynLongIdent then
+            None
+          else
+            let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
-                  match tryGetDeclContainingRange path pos with
-                  | Some r -> Some(editRange, r, Before)
-                  | _ -> None
-              | SynPat.Named(accessibility = None; isThisVal = false) ->
-                let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
+            match tryGetDeclContainingRange path pos with
+            | Some r -> Some(editRange, r, Before)
+            | _ -> None
+        | SynPat.Named(accessibility = None; isThisVal = false) ->
+          let editRange = s.RangeOfHeadPattern.WithEnd s.RangeOfHeadPattern.Start
 
-                match tryGetDeclContainingRange path pos with
-                | Some r -> Some(editRange, r, Before)
-                | _ -> None
-              | _ -> None
+          match tryGetDeclContainingRange path pos with
+          | Some r -> Some(editRange, r, Before)
           | _ -> None
+        | _ -> None
 
-        member _.VisitModuleOrNamespace(path, synModuleOrNamespace) =
-          match synModuleOrNamespace with
-          | SynModuleOrNamespace(
-              longId = longId
-              attribs = attribs
-              accessibility = None
-              trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) as mOrN when
-            longIdentContainsPos longId pos
-            ->
-            let editRange = getEditRangeForModule attribs r pos.Line
+    | SyntaxNode.SynModuleOrNamespace(SynModuleOrNamespace(
+        longId = longId
+        attribs = attribs
+        accessibility = None
+        trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) as mOrN) when
+      longIdentContainsPos longId pos
+      ->
+      let editRange = getEditRangeForModule attribs r pos.Line
 
-            if path.Length = 0 then // Top level module
-              Some(editRange, mOrN.Range, After)
-            else
-              match tryGetDeclContainingRange path pos with
-              | Some r -> Some(editRange, r, After)
-              | _ -> None
-          | SynModuleOrNamespace(decls = decls) as mOrN ->
-            let path = SyntaxNode.SynModuleOrNamespace mOrN :: path
-            findNested path decls }
+      if path.Length = 0 then // Top level module
+        Some(editRange, mOrN.Range, After)
+      else
+        match tryGetDeclContainingRange path pos with
+        | Some r -> Some(editRange, r, After)
+        | _ -> None
 
-  SyntaxTraversal.Traverse(pos, input, visitor)
+    | SyntaxNode.SynModuleOrNamespace(SynModuleOrNamespace(decls = decls) as mOrN) ->
+      let path = SyntaxNode.SynModuleOrNamespace mOrN :: path
+      findNested path decls
+
+    | _ -> None)
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: SymbolUseWorkspace) : CodeFix =
   fun codeActionParams ->
