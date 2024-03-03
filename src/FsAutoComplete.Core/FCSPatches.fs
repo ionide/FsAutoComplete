@@ -4,9 +4,7 @@
 module FsAutoComplete.FCSPatches
 
 open FSharp.Compiler.Syntax
-open FSharp.Compiler.Text
 open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.EditorServices
 
 module internal SynExprAppLocationsImpl =
   let rec private searchSynArgExpr traverseSynExpr expr ranges =
@@ -34,26 +32,6 @@ module internal SynExprAppLocationsImpl =
       match inner with
       | None -> Some(e.Range :: ranges), Some inner
       | _ -> None, Some inner
-
-type FSharpParseFileResults with
-
-  member scope.ClassifyBinding(binding: SynBinding) =
-    match binding with
-    | SynBinding(valData = SynValData(memberFlags = None)) -> FSharpGlyph.Delegate
-    | _ -> FSharpGlyph.Method
-
-  member scope.TryRangeOfNameOfNearestOuterBindingOrMember pos =
-    (pos, scope.ParseTree)
-    ||> ParsedInput.tryPickLast (fun _path node ->
-      match node with
-      | SyntaxNode.SynBinding(SynBinding(headPat = pat) as b) when Range.rangeContainsPos b.RangeOfBindingWithRhs pos ->
-        match pat with
-        | SynPat.LongIdent(longDotId = longIdentWithDots) ->
-          Some(b.RangeOfBindingWithRhs, scope.ClassifyBinding b, longIdentWithDots.LongIdent)
-        | SynPat.Named(ident = SynIdent(ident, _); isThisVal = false) ->
-          Some(b.RangeOfBindingWithRhs, scope.ClassifyBinding b, [ ident ])
-        | _ -> None
-      | _ -> None)
 
 module SyntaxTreeOps =
   open FSharp.Compiler.Syntax
