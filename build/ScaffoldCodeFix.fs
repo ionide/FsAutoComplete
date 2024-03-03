@@ -73,7 +73,7 @@ let fix
       // We will query the syntax tree to verify this is the case.
       let maybeFunctionNameRange =
         (fcsPos, parseAndCheckResults.GetParseResults.ParseTree)
-        ||> ParsedInput.tryPick (fun path node ->
+        ||> ParsedInput.tryPick (fun _path node ->
           match node with
           // We know that `a` will be part of a `SynPat.LongIdent`
           // This was visible in the online tool.
