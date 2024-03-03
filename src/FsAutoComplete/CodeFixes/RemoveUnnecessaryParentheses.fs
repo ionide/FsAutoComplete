@@ -46,19 +46,19 @@ module private Patterns =
 
       | None -> ValueNone
 
-  [<NoEquality; NoComparison>]
-  type private InnerOffsides =
-    /// We haven't found an inner construct yet.
-    | NoneYet
+[<NoEquality; NoComparison>]
+type private InnerOffsides =
+  /// We haven't found an inner construct yet.
+  | NoneYet
 
-    /// The start column of the first inner construct we find.
-    /// This may not be on the same line as the open paren.
-    | FirstLine of col: int
+  /// The start column of the first inner construct we find.
+  /// This may not be on the same line as the open paren.
+  | FirstLine of col: int
 
-    /// The leftmost start column of an inner construct on a line
-    /// following the first inner construct we found.
-    /// We keep the first column of the first inner construct for comparison at the end.
-    | FollowingLine of firstLine: int * followingLine: int
+  /// The leftmost start column of an inner construct on a line
+  /// following the first inner construct we found.
+  /// We keep the first column of the first inner construct for comparison at the end.
+  | FollowingLine of firstLine: int * followingLine: int
 
 /// A codefix that removes unnecessary parentheses from the source.
 let fix (getFileLines: GetFileLines) : CodeFix =
@@ -79,25 +79,24 @@ let fix (getFileLines: GetFileLines) : CodeFix =
         /// before the open paren on the same line (or else we could move
         /// the whole inner expression up a line); otherwise trim all whitespace
         /// from start and end.
-        let (|Trim|) (sourceText: SourceText) =
-          let linePosition = sourceText.Lines.GetLinePosition context.Span.Start
-          let line = (sourceText.Lines.GetLineFromPosition context.Span.Start).ToString()
+        let (|Trim|) (sourceText: IFSACSourceText) =
+          match sourceText.GetLine range.Start with
+          | Some line ->
+            if line.AsSpan(0, range.Start.Column).LastIndexOfAnyExcept(' ', '(') >= 0 then
+              fun (s: string) -> s.TrimEnd().TrimStart ' '
+            else
+              fun (s: string) -> s.Trim()
 
-          if line.AsSpan(0, linePosition.Character).LastIndexOfAnyExcept(' ', '(') >= 0 then
-            fun (s: string) -> s.TrimEnd().TrimStart ' '
-          else
-            fun (s: string) -> s.Trim()
+          | None -> id
 
-        let (|ShiftLeft|NoShift|ShiftRight|) (sourceText: SourceText) =
-          let startLinePosition = sourceText.Lines.GetLinePosition context.Span.Start
-          let endLinePosition = sourceText.Lines.GetLinePosition context.Span.End
-          let startLineNo = startLinePosition.Line
-          let endLineNo = endLinePosition.Line
+        let (|ShiftLeft|NoShift|ShiftRight|) (sourceText: IFSACSourceText) =
+          let startLineNo = range.StartLine
+          let endLineNo = range.EndLine
 
           if startLineNo = endLineNo then
             NoShift
           else
-            let outerOffsides = startLinePosition.Character
+            let outerOffsides = range.StartColumn
 
             let rec loop innerOffsides lineNo startCol =
               if lineNo <= endLineNo then
@@ -114,7 +113,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
               else
                 innerOffsides
 
-            match loop NoneYet startLineNo (startLinePosition.Character + 1) with
+            match loop NoneYet startLineNo (range.StartColumn + 1) with
             | NoneYet -> NoShift
             | FirstLine innerOffsides when innerOffsides < outerOffsides -> ShiftRight(outerOffsides - innerOffsides)
             | FirstLine innerOffsides -> ShiftLeft(innerOffsides - outerOffsides)
@@ -127,7 +126,7 @@ let fix (getFileLines: GetFileLines) : CodeFix =
 
         let adjusted =
           match sourceText with
-          | TrailingOpen context.Span -> txt[1 .. txt.Length - 2].TrimEnd()
+          | TrailingOpen range -> txt[1 .. txt.Length - 2].TrimEnd()
           | Trim trim & NoShift -> trim txt[1 .. txt.Length - 2]
           | Trim trim & ShiftLeft spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n" + String(' ', spaces), "\n"))
           | Trim trim & ShiftRight spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n", "\n" + String(' ', spaces)))
