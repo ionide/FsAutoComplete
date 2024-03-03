@@ -29,13 +29,19 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
       let! rangeOfBinding =
         (fcsRange.Start, tyres.GetParseResults.ParseTree)
         ||> ParsedInput.tryPick (fun path node ->
-          let (|LongIdentRange|) (idents: Ident list) = (Range.range0, idents) ||> List.fold (fun acc ident -> Range.unionRanges acc ident.idRange)
+          let (|LongIdentRange|) (idents: Ident list) =
+            (Range.range0, idents)
+            ||> List.fold (fun acc ident -> Range.unionRanges acc ident.idRange)
 
           match node, path with
-          | SyntaxNode.SynPat pat, SyntaxNode.SynBinding(SynBinding(kind = SynBindingKind.Normal; headPat = SynPat.Named(range = nameRange) as headPat) as binding) :: _
-          | SyntaxNode.SynPat pat, SyntaxNode.SynBinding(SynBinding(kind = SynBindingKind.Normal; headPat = SynPat.LongIdent(longDotId = SynLongIdent(id = LongIdentRange nameRange)) as headPat) as binding) :: _ ->
-            if obj.ReferenceEquals(pat, headPat)
-              && Range.rangeContainsRange nameRange fcsRange then
+          | SyntaxNode.SynPat pat,
+            SyntaxNode.SynBinding(SynBinding(
+              kind = SynBindingKind.Normal; headPat = SynPat.Named(range = nameRange) as headPat) as binding) :: _
+          | SyntaxNode.SynPat pat,
+            SyntaxNode.SynBinding(SynBinding(
+              kind = SynBindingKind.Normal
+              headPat = SynPat.LongIdent(longDotId = SynLongIdent(id = LongIdentRange nameRange)) as headPat) as binding) :: _ ->
+            if obj.ReferenceEquals(pat, headPat) && Range.rangeContainsRange nameRange fcsRange then
               Some(FullBinding binding.RangeOfBindingWithRhs)
             else
               None

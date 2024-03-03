@@ -27,7 +27,12 @@ let private containsPosAndNotEmptyAndNotElaborated (pos: FSharp.Compiler.Text.Po
   not xmlDoc.IsEmpty && containsPosAndNoSummaryPresent xmlDoc
 
 let private isAstElemWithPreXmlDoc input pos =
-  let (|Unelaborated|_|) xmlDoc = if containsPosAndNotEmptyAndNotElaborated pos xmlDoc then Some xmlDoc else None
+  let (|Unelaborated|_|) xmlDoc =
+    if containsPosAndNotEmptyAndNotElaborated pos xmlDoc then
+      Some xmlDoc
+    else
+      None
+
   let (|AnyUnelaborated|_|) getXmlDoc = List.tryPick (getXmlDoc >> (|Unelaborated|_|))
   let field (SynField(xmlDoc = xmlDoc)) = xmlDoc
   let unionCase (SynUnionCase(xmlDoc = xmlDoc)) = xmlDoc
@@ -41,9 +46,12 @@ let private isAstElemWithPreXmlDoc input pos =
     | SyntaxNode.SynMemberDefn(SynMemberDefn.AutoProperty(xmlDoc = Unelaborated xmlDoc))
     | SyntaxNode.SynBinding(SynBinding(xmlDoc = Unelaborated xmlDoc))
     | SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(xmlDoc = Unelaborated xmlDoc)))
-    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(recordFields = AnyUnelaborated field xmlDoc), _)))
-    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(unionCases = AnyUnelaborated unionCase xmlDoc), _)))
-    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Enum(cases = AnyUnelaborated enumCase xmlDoc), _))) ->
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(
+      typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(recordFields = AnyUnelaborated field xmlDoc), _)))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(
+      typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(unionCases = AnyUnelaborated unionCase xmlDoc), _)))
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(
+      typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Enum(cases = AnyUnelaborated enumCase xmlDoc), _))) ->
       Some xmlDoc
     | _ -> None)
 
