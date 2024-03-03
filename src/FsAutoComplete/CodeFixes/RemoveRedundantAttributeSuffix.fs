@@ -17,31 +17,50 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       let! parseAndCheck, _, _ = getParseResultsForFile filePath fcsPos
 
-      let isAttributeWithRedundantSuffix =
-        SyntaxTraversal.Traverse(
-          fcsPos,
-          parseAndCheck.GetParseResults.ParseTree,
-          { new SyntaxVisitorBase<_>() with
-              member _.VisitAttributeApplication(path, attributes) =
-                let attributesWithRedundantSuffix =
-                  attributes.Attributes
-                  |> List.choose (fun a ->
-                    match List.tryLast a.TypeName.LongIdent with
-                    | Some ident when ident.idText.EndsWith("Attribute", StringComparison.Ordinal) -> Some ident
-                    | _ -> None)
+      return
+        (fcsPos, parseAndCheck.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun _path node ->
+          let (|RecordFieldAttributes|) =
+            List.collect (fun (SynField(attributes = attributes)) -> attributes)
 
-                if List.isEmpty attributesWithRedundantSuffix then
-                  None
-                else
-                  Some attributesWithRedundantSuffix }
-        )
+          let (|UnionFieldAttributes|) =
+            List.collect (fun (SynUnionCase(attributes = attributes)) -> attributes)
 
-      match isAttributeWithRedundantSuffix with
-      | None -> return []
-      | Some redundantSuffixIdents ->
-        return
-          redundantSuffixIdents
-          |> List.map (fun ident ->
+          let (|EnumFieldAttributes|) =
+            List.collect (fun (SynEnumCase(attributes = attributes)) -> attributes)
+
+          let (|Suffixed|): SynAttributes -> Ident list =
+            List.collect (fun { Attributes = attributes } ->
+              attributes
+              |> List.choose (fun attr ->
+                attr.TypeName.LongIdent
+                |> List.tryLast
+                |> Option.filter (fun ident -> ident.idText.EndsWith("Attribute", StringComparison.Ordinal))))
+
+          match node with
+          | SyntaxNode.SynModule(SynModuleDecl.Attributes(attributes = Suffixed(_ :: _ as attributes)))
+          | SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(attributes = Suffixed(_ :: _ as attributes))))
+          | SyntaxNode.SynTypeDefn(SynTypeDefn(
+            typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(
+                                                recordFields = RecordFieldAttributes(Suffixed(_ :: _ as attributes))),
+                                              _)))
+          | SyntaxNode.SynTypeDefn(SynTypeDefn(
+            typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(
+                                                unionCases = UnionFieldAttributes(Suffixed(_ :: _ as attributes))),
+                                              _)))
+          | SyntaxNode.SynTypeDefn(SynTypeDefn(
+            typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Enum(
+                                                cases = EnumFieldAttributes(Suffixed(_ :: _ as attributes))),
+                                              _)))
+          | SyntaxNode.SynMemberDefn(SynMemberDefn.AutoProperty(attributes = Suffixed(_ :: _ as attributes)))
+          | SyntaxNode.SynMemberDefn(SynMemberDefn.AbstractSlot(
+            slotSig = SynValSig(attributes = Suffixed(_ :: _ as attributes))))
+          | SyntaxNode.SynBinding(SynBinding(attributes = Suffixed(_ :: _ as attributes)))
+          | SyntaxNode.SynPat(SynPat.Attrib(attributes = Suffixed(_ :: _ as attributes))) -> Some attributes
+          | _ -> None)
+        |> Option.toList
+        |> List.collect (
+          List.map (fun ident ->
             let updateText = ident.idText.Replace("Attribute", "")
 
             { Edits =
@@ -51,4 +70,5 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               Title = title
               SourceDiagnostic = None
               Kind = FixKind.Refactor })
+        )
     }

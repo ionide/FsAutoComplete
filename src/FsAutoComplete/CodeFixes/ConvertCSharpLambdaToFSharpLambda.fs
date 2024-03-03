@@ -32,21 +32,11 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
       Some(argsRange, opRange)
     | _ -> None
 
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, _, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.Paren(InfixAppOfOpEqualsGreater(argsRange, opRange), _, _, _) -> Some(argsRange, opRange)
-          | _ -> defaultTraverse expr
-
-        member _.VisitBinding(_path, defaultTraverse, binding) =
-          match binding with
-          | SynBinding(kind = SynBindingKind.Normal; expr = InfixAppOfOpEqualsGreater(argsRange, opRange)) ->
-            Some(argsRange, opRange)
-          | _ -> defaultTraverse binding }
-  )
+  (pos, input)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynExpr(InfixAppOfOpEqualsGreater(argsRange, opRange)) -> Some(argsRange, opRange)
+    | _ -> None)
 
 let fix (getParseResultsForFile: GetParseResultsForFile) (_: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode

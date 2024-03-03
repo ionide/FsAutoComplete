@@ -21,7 +21,7 @@ let languageFeature = lazy (LanguageFeatureShim("StringInterpolation"))
 let specifierRegex =
   Regex(@"\%(\+|\-)?\.?\d*(b|s|c|d|i|u|x|X|o|B|e|E|f|F|g|G|M|O|A)")
 
-let validFunctionNames = set [| "printf"; "printfn"; "sprintf" |]
+let validFunctionNames = set [| nameof printf; nameof printfn; nameof sprintf |]
 
 let inline synExprNeedsSpaces synExpr =
   match synExpr with
@@ -32,56 +32,50 @@ let inline synExprNeedsSpaces synExpr =
 
 let tryFindSprintfApplication (parseAndCheck: ParseAndCheckResults) (sourceText: IFSACSourceText) lineStr fcsPos =
   let application =
-    SyntaxTraversal.Traverse(
-      fcsPos,
-      parseAndCheck.GetParseResults.ParseTree,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(path, traverseSynExpr, defaultTraverse, synExpr) =
-            match synExpr with
-            | SynExpr.App(ExprAtomicFlag.NonAtomic,
-                          false,
-                          SynExpr.Ident(functionIdent),
-                          SynExpr.Const(SynConst.String(synStringKind = SynStringKind.Regular), mString),
-                          mApp) ->
-              // Don't trust the value of SynConst.String, it is already a somewhat optimized version of what the user actually code.
-              match sourceText.GetText mString with
-              | Error _ -> None
-              | Ok formatString ->
-                if
-                  validFunctionNames.Contains functionIdent.idText
-                  && rangeContainsPos mApp fcsPos
-                  && mApp.StartLine = mApp.EndLine // only support single line for now
-                then
-                  // Find all the format parameters in the source string
-                  // Things like `%i` or `%s`
-                  let arguments =
-                    specifierRegex.Matches(formatString) |> Seq.cast<Match> |> Seq.toList
+    (fcsPos, parseAndCheck.GetAST)
+    ||> ParsedInput.tryPick (fun path node ->
+      match node with
+      | SyntaxNode.SynExpr(SynExpr.App(ExprAtomicFlag.NonAtomic,
+                                       false,
+                                       SynExpr.Ident(functionIdent),
+                                       SynExpr.Const(SynConst.String(synStringKind = SynStringKind.Regular), mString),
+                                       mApp)) ->
+        match sourceText.GetText mString with
+        | Error _ -> None
+        | Ok formatString ->
+          if
+            validFunctionNames.Contains functionIdent.idText
+            && rangeContainsPos mApp fcsPos
+            && mApp.StartLine = mApp.EndLine // only support single line for now
+          then
+            // Find all the format parameters in the source string
+            // Things like `%i` or `%s`
+            let arguments =
+              specifierRegex.Matches(formatString) |> Seq.cast<Match> |> Seq.toList
 
-                  if arguments.IsEmpty || path.Length < arguments.Length then
-                    None
-                  else
-                    let xs =
-                      let argumentsInPath = List.take arguments.Length path
+            if arguments.IsEmpty || path.Length < arguments.Length then
+              None
+            else
+              let xs =
+                let argumentsInPath = List.take arguments.Length path
 
-                      (arguments, argumentsInPath)
-                      ||> List.zip
-                      |> List.choose (fun (regexMatch, node) ->
-                        match node with
-                        | SyntaxNode.SynExpr(SynExpr.App(argExpr = ae)) ->
-                          Some(regexMatch, ae.Range, synExprNeedsSpaces ae)
-                        | _ -> None)
+                (arguments, argumentsInPath)
+                ||> List.zip
+                |> List.choose (fun (regexMatch, node) ->
+                  match node with
+                  | SyntaxNode.SynExpr(SynExpr.App(argExpr = ae)) -> Some(regexMatch, ae.Range, synExprNeedsSpaces ae)
+                  | _ -> None)
 
-                    List.tryLast xs
-                    |> Option.bind (fun (_, mLastArg, _) ->
-                      // Ensure the last argument of the current application is also on the same line.
-                      if mApp.StartLine <> mLastArg.EndLine then
-                        None
-                      else
-                        Some(functionIdent, mString, xs, mLastArg))
-                else
+              List.tryLast xs
+              |> Option.bind (fun (_, mLastArg, _) ->
+                // Ensure the last argument of the current application is also on the same line.
+                if mApp.StartLine <> mLastArg.EndLine then
                   None
-            | _ -> defaultTraverse synExpr }
-    )
+                else
+                  Some(functionIdent, mString, xs, mLastArg))
+          else
+            None
+      | _ -> None)
 
   application
   |> Option.bind (fun (functionIdent, mString, xs, mLastArg) ->

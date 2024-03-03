@@ -5,36 +5,7 @@ open FsToolkit.ErrorHandling
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Syntax
-
-type FSharpParseFileResults with
-
-  member this.TryRangeOfTypeofWithNameAndTypeExpr pos =
-    SyntaxTraversal.Traverse(
-      pos,
-      this.ParseTree,
-      { new SyntaxVisitorBase<_>() with
-          member _.VisitExpr(_path, _, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.DotGet(expr, _, _, range) ->
-              match expr with
-              | SynExpr.TypeApp(SynExpr.Ident(ident), _, typeArgs, _, _, _, _) ->
-                let onlyOneTypeArg =
-                  match typeArgs with
-                  | [] -> false
-                  | [ _ ] -> true
-                  | _ -> false
-
-                if ident.idText = "typeof" && onlyOneTypeArg then
-                  Some
-                    {| NamedIdentRange = typeArgs.Head.Range
-                       FullExpressionRange = range |}
-                else
-                  defaultTraverse expr
-              | _ -> defaultTraverse expr
-            | _ -> defaultTraverse expr }
-    )
 
 let title = "Use 'nameof'"
 
@@ -48,7 +19,18 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let! tyRes, _line, sourceText = getParseResultsForFile fileName pos
 
       let! results =
-        tyRes.GetParseResults.TryRangeOfTypeofWithNameAndTypeExpr(pos)
+        (pos, tyRes.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun _path node ->
+          let (|Ident|) (ident: Ident) = ident.idText
+
+          match node with
+          | SyntaxNode.SynExpr(SynExpr.DotGet(
+              expr = SynExpr.TypeApp(expr = SynExpr.Ident(Ident "typeof"); typeArgs = [ typeArg ]); range = range)) ->
+            Some
+              {| NamedIdentRange = typeArg.Range
+                 FullExpressionRange = range |}
+
+          | _ -> None)
         |> Result.ofOption (fun _ -> "no typeof expr found")
 
       let! typeName = sourceText.GetText results.NamedIdentRange

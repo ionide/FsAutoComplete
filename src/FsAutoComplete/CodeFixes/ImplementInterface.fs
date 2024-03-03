@@ -14,23 +14,18 @@ open FSharp.Compiler.Text
 /// `pos` is expected to be on the leading `{` (main interface) or `interface` (additional interfaces)
 /// -> `diagnostic.Range.Start`
 let private tryFindInterfaceDeclarationInObjectExpression (pos: Position) (ast: ParsedInput) =
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, _, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.ObjExpr(objType = ty; bindings = binds; extraImpls = ifaces) ->
-            ifaces
-            |> List.tryPick (fun (SynInterfaceImpl(interfaceTy = ty; bindings = binds; range = range)) ->
-              if Range.rangeContainsPos range pos then
-                Some(InterfaceData.ObjExpr(ty, binds))
-              else
-                None)
-            |> Option.orElseWith (fun _ -> Some(InterfaceData.ObjExpr(ty, binds)))
-
-          | _ -> defaultTraverse expr }
-  )
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.ObjExpr(objType = ty; bindings = binds; extraImpls = ifaces)) ->
+      ifaces
+      |> List.tryPick (fun (SynInterfaceImpl(interfaceTy = ty; bindings = binds; range = range)) ->
+        if Range.rangeContainsPos range pos then
+          Some(InterfaceData.ObjExpr(ty, binds))
+        else
+          None)
+      |> Option.orElseWith (fun () -> Some(InterfaceData.ObjExpr(ty, binds)))
+    | _ -> None)
 
 /// `pos`: on corresponding interface identifier
 ///
@@ -43,71 +38,41 @@ let private tryFindInterfaceDeclarationInObjectExpression (pos: Position) (ast: 
 /// * range of `with` keyword if exists
 /// -> pos for append
 let private tryFindInterfaceStartAndWith (pos: Position) (ast: ParsedInput) =
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, _, defaultTraverse, expr) =
-          match expr with
-          // main interface
-          | SynExpr.ObjExpr(objType = ty; withKeyword = withRange; newExprRange = startingAtNewRange) when
-            Range.rangeContainsPos ty.Range pos
-            ->
-            // { new IDisposable with }
-            //   ^
-            let start = startingAtNewRange.Start
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.ObjExpr(objType = ty; withKeyword = withRange; newExprRange = startingAtNewRange)) when
+      Range.rangeContainsPos ty.Range pos
+      ->
+      // { new IDisposable with }
+      //   ^
+      let start = startingAtNewRange.Start
+      Some(start, withRange)
+
+    | SyntaxNode.SynExpr(SynExpr.ObjExpr(extraImpls = ifaces)) ->
+      ifaces
+      |> List.tryPick
+        (fun (SynInterfaceImpl(interfaceTy = ty; withKeyword = withRange; range = startingAtInterfaceRange)) ->
+          if Range.rangeContainsPos ty.Range pos then
+            //   { new IDisposable with
+            //       member this.Dispose() = ()
+            //     interface ICloneable with
+            //     ^
+            //   }
+            let start = startingAtInterfaceRange.Start
             Some(start, withRange)
-          // secondary interface
-          | SynExpr.ObjExpr(extraImpls = ifaces) ->
-            ifaces
-            |> List.tryPick
-              (fun (SynInterfaceImpl(interfaceTy = ty; withKeyword = withRange; range = startingAtInterfaceRange)) ->
-                if Range.rangeContainsPos ty.Range pos then
-                  //   { new IDisposable with
-                  //       member this.Dispose() = ()
-                  //     interface ICloneable with
-                  //     ^
-                  //   }
-                  let start = startingAtInterfaceRange.Start
-                  Some(start, withRange)
-                else
-                  None)
-            |> Option.orElseWith (fun _ -> defaultTraverse expr)
-          | _ -> defaultTraverse expr
+          else
+            None)
 
-        member _.VisitModuleDecl(_, defaultTraverse, synModuleDecl) =
-          match synModuleDecl with
-          | SynModuleDecl.Types(typeDefns, _) ->
-            let typeDefn =
-              typeDefns
-              |> List.tryFind (fun typeDef -> Range.rangeContainsPos typeDef.Range pos)
+    | SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty; withKeyword = withRange; range = range)) when
+      Range.rangeContainsPos ty.Range pos
+      ->
+      // interface IDisposable with
+      // ^
+      let start = range.Start
+      Some(start, withRange)
 
-            match typeDefn with
-            | Some(SynTypeDefn(typeRepr = typeRepr; members = members)) ->
-              let tryFindInMemberDefns (members: SynMemberDefns) =
-                members
-                |> List.tryPick (function
-                  | SynMemberDefn.Interface(interfaceType = ty; withKeyword = withRange; range = range) when
-                    Range.rangeContainsPos ty.Range pos
-                    ->
-                    // interface IDisposable with
-                    // ^
-                    let start = range.Start
-                    Some(start, withRange)
-                  | _ -> None)
-
-              match typeRepr with
-              | SynTypeDefnRepr.ObjectModel(members = members) ->
-                // in class (-> in typeRepr)
-                tryFindInMemberDefns members
-              | _ -> None
-              |> Option.orElseWith (fun _ ->
-                // in union, records (-> in members)
-                tryFindInMemberDefns members)
-              |> Option.orElseWith (fun _ -> defaultTraverse synModuleDecl)
-            | _ -> defaultTraverse synModuleDecl
-          | _ -> defaultTraverse synModuleDecl }
-  )
+    | _ -> None)
 
 type private InsertionData =
   {

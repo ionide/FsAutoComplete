@@ -36,34 +36,27 @@ let private tryFindConstant ast pos =
       findConst constantRange c
     | _ -> (range, constant)
 
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, _, defaultTraverse, expr) =
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.Const(constant, range))
+    | SyntaxNode.SynPat(SynPat.Const(constant, range)) when rangeContainsPos range pos ->
+      Some(findConst range constant)
+
+    | SyntaxNode.SynTypeDefn(SynTypeDefn(typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Enum(cases, _), _))) ->
+      cases
+      |> List.tryPick (fun (SynEnumCase(valueExpr = expr)) ->
+        let rec tryFindConst (expr: SynExpr) =
           match expr with
-          //                                     without: matches when `pos` in comment after constant
-          | SynExpr.Const(constant, range) when rangeContainsPos range pos -> findConst range constant |> Some
-          | _ -> defaultTraverse expr
+          | SynExpr.Const(constant, range) when rangeContainsPos range pos -> Some(findConst range constant)
+          | SynExpr.Paren(expr = expr) -> tryFindConst expr
+          | SynExpr.App(funcExpr = funcExpr) when rangeContainsPos funcExpr.Range pos -> tryFindConst funcExpr
+          | SynExpr.App(argExpr = argExpr) when rangeContainsPos argExpr.Range pos -> tryFindConst argExpr
+          | _ -> None
 
-        member _.VisitEnumDefn(_, cases, _) =
-          cases
-          |> List.tryPick (fun (SynEnumCase(valueExpr = expr)) ->
-            let rec tryFindConst (expr: SynExpr) =
-              match expr with
-              | SynExpr.Const(constant, range) when rangeContainsPos range pos -> findConst range constant |> Some
-              | SynExpr.Paren(expr = expr) -> tryFindConst expr
-              | SynExpr.App(funcExpr = funcExpr) when rangeContainsPos funcExpr.Range pos -> tryFindConst funcExpr
-              | SynExpr.App(argExpr = argExpr) when rangeContainsPos argExpr.Range pos -> tryFindConst argExpr
-              | _ -> None
+        tryFindConst expr)
 
-            tryFindConst expr)
-
-        member _.VisitPat(_, defaultTraverse, synPat) =
-          match synPat with
-          | SynPat.Const(constant, range) when rangeContainsPos range pos -> findConst range constant |> Some
-          | _ -> defaultTraverse synPat }
-  )
+    | _ -> None)
 
 /// Computes the absolute of `n`
 ///

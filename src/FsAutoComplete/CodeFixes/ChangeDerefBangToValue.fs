@@ -11,22 +11,16 @@ open FSharp.UMX
 
 /// adopted from `dotnet/fsharp` -> `FSharp.Compiler.CodeAnalysis.FSharpParseFileResults.TryRangeOfExpressionBeingDereferencedContainingPos`
 let private tryGetRangeOfDeref input derefPos =
-  SyntaxTraversal.Traverse(
-    derefPos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, _, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.App(_, false, SynExpr.LongIdent(longDotId = SynLongIdent(id = [ funcIdent ])), expr, _) ->
-            if
-              funcIdent.idText = "op_Dereference"
-              && rangeContainsPos funcIdent.idRange derefPos
-            then
-              Some(funcIdent.idRange, expr.Range)
-            else
-              None
-          | _ -> defaultTraverse expr }
-  )
+  (derefPos, input)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.App(_, false, SynExpr.LongIdent(longDotId = SynLongIdent(id = [ funcIdent ])), expr, _)) when
+      funcIdent.idText = "op_Dereference"
+      && rangeContainsPos funcIdent.idRange derefPos
+      ->
+      Some(funcIdent.idRange, expr.Range)
+
+    | _ -> None)
 
 let title = "Use `.Value` instead of dereference operator"
 

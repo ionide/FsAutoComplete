@@ -30,6 +30,7 @@ open CliWrap
 open CliWrap.Buffered
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Syntax
 open Fantomas.Client.Contracts
 open Fantomas.Client.LSPFantomasService
 
@@ -2045,7 +2046,26 @@ type AdaptiveFSharpLspServer
               let! parseResults = state.GetParseResults fn |> Async.map Result.toOption
 
               let! (fullBindingRange, glyph, bindingIdents) =
-                parseResults.TryRangeOfNameOfNearestOuterBindingOrMember(protocolPosToPos loc.Range.Start)
+                let pos = protocolPosToPos loc.Range.Start
+
+                (pos, parseResults.ParseTree)
+                ||> ParsedInput.tryPickLast (fun _path node ->
+                  let (|BindingClass|) =
+                    function
+                    | SynBinding(valData = SynValData(memberFlags = None)) -> FSharpGlyph.Delegate
+                    | _ -> FSharpGlyph.Method
+
+                  match node with
+                  | SyntaxNode.SynBinding(SynBinding(headPat = pat) as b & BindingClass glyph) when
+                    Range.rangeContainsPos b.RangeOfBindingWithRhs pos
+                    ->
+                    match pat with
+                    | SynPat.LongIdent(longDotId = longIdentWithDots) ->
+                      Some(b.RangeOfBindingWithRhs, glyph, longIdentWithDots.LongIdent)
+                    | SynPat.Named(ident = SynIdent(ident, _); isThisVal = false) ->
+                      Some(b.RangeOfBindingWithRhs, glyph, [ ident ])
+                    | _ -> None
+                  | _ -> None)
 
               // We only want to use the last identifiers range because if we have a member like `self.MyMember`
               // F# Find Usages only works with the last identifier's range so we want to use `MyMember`.

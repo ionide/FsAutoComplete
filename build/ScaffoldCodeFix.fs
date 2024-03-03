@@ -38,47 +38,12 @@ let mkCodeFixImplementation codeFixName =
 
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text
 open FsToolkit.ErrorHandling
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-
-// The syntax tree can be an intimidating set of types to work with.
-// It is a tree structure but it consists out of many different types.
-// See https://fsharp.github.io/fsharp-compiler-docs/reference/fsharp-compiler-syntax.html
-// It can be useful to inspect a syntax tree via a code sample using https://fsprojects.github.io/fantomas-tools/#/ast
-// For example `let a b c = ()` in
-// https://fsprojects.github.io/fantomas-tools/#/ast?data=N4KABGBEAmCmBmBLAdrAzpAXFSAacUiaAYmolmPAIYA2as%%2BEkAxgPZwWQ2wAuYVYAEZhmYALxgAFAEo8BSLAAeAByrJoFHgCcArrBABfIA
-// Let's say we want to find the (FCS) range for identifier `a`.
-let visitSyntaxTree
-  (cursor: FSharp.Compiler.Text.pos)
-  (tree: ParsedInput)
-  =
-  // We will use a syntax visitor to traverse the tree from the top to the node of interest.
-  // See https://github.com/dotnet/fsharp/blob/main/src/Compiler/Service/ServiceParseTreeWalk.fsi
-  // We implement the different members of interest and allow the default traversal to move to the lower levels we care about.
-  let visitor =
-    // A visitor will report the first item it finds.
-    // Think of it as `List.tryPick`
-    // It is not an ideal solution to find all nodes inside a tree, be aware of that.
-    // For example finding all function names.
-    {{ new SyntaxVisitorBase<FSharp.Compiler.Text.range>() with
-        // We know that `a` will be part of a `SynPat.LongIdent`
-        // This was visible in the online tool.
-        member _.VisitPat(path, defaultTraverse, synPat) =
-          match synPat with
-          | SynPat.LongIdent(longDotId = SynLongIdent(id = [ functionNameIdent ])) ->
-            // When our code fix operates on the user's code there is no way of knowing what will be inside the syntax tree.
-            // So we need to be careful and verify that the pattern is indeed matching the position of the cursor.
-            if FSharp.Compiler.Text.Range.rangeContainsPos functionNameIdent.idRange cursor then
-              Some functionNameIdent.idRange
-            else
-              None
-          | _ -> None }}
-
-  // Invoke the visitor and kick off the traversal.
-  SyntaxTraversal.Traverse(cursor, tree, visitor)
 
 // TODO: add proper title for code fix
 let title = "%s{codeFixName} Codefix"
@@ -98,9 +63,29 @@ let fix
       let! (parseAndCheckResults:ParseAndCheckResults, line:string, sourceText:IFSACSourceText) =
         getParseResultsForFile fileName fcsPos
 
-      // As an example, we want to check whether the users cursor is inside a function definition name.
-      // We will traverse the syntax tree to verify this is the case.
-      match visitSyntaxTree fcsPos parseAndCheckResults.GetParseResults.ParseTree with
+      // The syntax tree can be an intimidating set of types to work with.
+      // It is a tree structure but it consists out of many different types.
+      // See https://fsharp.github.io/fsharp-compiler-docs/reference/fsharp-compiler-syntax.html
+      // It can be useful to inspect a syntax tree via a code sample using https://fsprojects.github.io/fantomas-tools/#/ast
+      // For example `let a b c = ()` in
+      // https://fsprojects.github.io/fantomas-tools/#/ast?data=N4KABGBEAmCmBmBLAdrAzpAXFSAacUiaAYmolmPAIYA2as%%2BEkAxgPZwWQ2wAuYVYAEZhmYALxgAFAEo8BSLAAeAByrJoFHgCcArrBABfIA
+      // Let's say we want to find the (FCS) range for identifier `a` if the user's cursor is inside the function name.
+      // We will query the syntax tree to verify this is the case.
+      let maybeFunctionNameRange =
+        (fcsPos, parseAndCheckResults.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun _path node ->
+          match node with
+          // We know that `a` will be part of a `SynPat.LongIdent`
+          // This was visible in the online tool.
+          | SyntaxNode.SynPat(SynPat.LongIdent(longDotId = SynLongIdent(id = [ functionNameIdent ]))) when
+            // When our code fix operates on the user's code there is no way of knowing what will be inside the syntax tree.
+            // So we need to be careful and verify that the pattern is indeed matching the position of the cursor.
+            Range.rangeContainsPos functionNameIdent.idRange fcsPos
+            ->
+            Some functionNameIdent.idRange
+          | _ -> None)
+
+      match maybeFunctionNameRange with
       | None ->
         // The cursor is not in a position we are interested in.
         // This code fix should not trigger any suggestions so we return an empty list.
