@@ -11,6 +11,8 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
+let mkLongIdRange (lid : LongIdent) = lid |> List.map (fun ident -> ident.idRange) |> List.reduce Range.unionRanges
+
 // TODO: add proper title for code fix
 let title = "AddTypeAliasToSignatureFile Codefix"
 
@@ -55,18 +57,21 @@ let fix
 
                 let typeDefnInfo =
                     (fcsPos, parseAndCheckResults.GetParseResults.ParseTree)
-                    ||> ParsedInput.tryPick (fun path node ->
+                    ||> ParsedInput.tryPick (fun _path node ->
                         match node with
                         | SyntaxNode.SynTypeDefn (SynTypeDefn (
                             typeInfo = SynComponentInfo (longId = [ typeIdent ])
                             typeRepr = SynTypeDefnRepr.Simple (simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _)
-                            range = m)) when (Range.rangeContainsPos m fcsPos) -> Some (typeIdent, m, path)
+                            range = m
+                            trivia = trivia)) when (Range.rangeContainsPos m fcsPos) ->
+                            let mFull = Range.unionRanges trivia.LeadingKeyword.Range m
+                            Some (typeIdent, mFull)
                         | _ -> None
                     )
 
                 match typeDefnInfo with
                 | None -> return []
-                | Some (typeName, mTypeDefn, implPath) ->
+                | Some (typeName, mTypeDefn) ->
 
                 match parseAndCheckResults.TryGetSymbolUseFromIdent sourceText typeName with
                 | None -> return []
@@ -96,24 +101,64 @@ let fix
                           _sigLine : string,
                           _sigSourceText : IFSACSourceText) = getParseResultsForFile sigFileName (Position.mkPos 1 0)
 
+                    let parentSigLocation =
+                        entity.DeclaringEntity
+                        |> Option.bind (fun parentEntity ->
+                            match parentEntity.SignatureLocation with
+                            | Some sigLocation when Utils.isSignatureFile sigLocation.FileName -> Some sigLocation
+                            | _ -> None
+                        )
+
+                    match parentSigLocation with
+                    | None -> return []
+                    | Some parentSigLocation ->
+
                     // Find a good location to insert the type alias
-                    ignore (sigTextDocumentIdentifier, sigParseAndCheckResults, mTypeDefn, implPath)
+                    let mInsert =
+                        (parentSigLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
+                        ||> ParsedInput.tryPick (fun _path node ->
+                            match node with
+                            | SyntaxNode.SynModuleOrNamespaceSig (SynModuleOrNamespaceSig (
+                                longId = longId ; decls = decls))
+                            | SyntaxNode.SynModuleSigDecl (SynModuleSigDecl.NestedModule (
+                                moduleInfo = SynComponentInfo (longId = longId) ; moduleDecls = decls)) ->
+                                let mSigName = mkLongIdRange longId
+
+                                // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.
+                                if not (Range.rangeContainsRange mSigName parentSigLocation) then
+                                    None
+                                else
+
+                                decls
+                                // Skip open statements
+                                |> List.tryFind (
+                                    function
+                                    | SynModuleSigDecl.Open _ -> false
+                                    | _ -> true
+                                )
+                                |> Option.map (fun mdl -> mdl.Range.StartRange)
+
+                            | _ -> None
+                        )
+
+                    match mInsert with
+                    | None -> return []
+                    | Some mInsert ->
+
+                    let newText = String.Concat (sourceText.GetSubTextFromRange mTypeDefn, "\n\n")
 
                     return
                         [
                             {
                                 SourceDiagnostic = None
                                 Title = title
-                                File = codeActionParams.TextDocument
-                                // Based on conditional logic, you typically want to suggest a text edit to the user.
+                                File = sigTextDocumentIdentifier
                                 Edits =
                                     [|
-                                    // {
-                                    //     // When dealing with FCS, we typically want to use the FCS flavour of range.
-                                    //     // However, to interact correctly with the LSP protocol, we need to return an LSP range.
-                                    //     Range = fcsRangeToLsp mBindingName
-                                    //     NewText = "Text replaced by AddTypeAliasToSignatureFile"
-                                    // }
+                                        {
+                                            Range = fcsRangeToLsp mInsert
+                                            NewText = newText
+                                        }
                                     |]
                                 Kind = FixKind.Fix
                             }
