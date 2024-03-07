@@ -1903,7 +1903,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          AdjustConstant.fix tryGetParseAndCheckResultsForFile
          UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile
          RemoveUnnecessaryParentheses.fix forceFindSourceText
-         AddTypeAliasToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile |])
+         AddTypeAliasToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
+         UpdateTypeAbbreviationInSignatureFile.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {

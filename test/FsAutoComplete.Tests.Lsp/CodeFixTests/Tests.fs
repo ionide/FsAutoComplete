@@ -3433,4 +3433,5 @@ let tests textFactory state =
       removePatternArgumentTests state
       UpdateValueInSignatureFileTests.tests state
       removeUnnecessaryParenthesesTests state
-      AddTypeAliasToSignatureFileTests.tests state ]
+      AddTypeAliasToSignatureFileTests.tests state
+      UpdateTypeAbbreviationInSignatureFileTests.tests state ]
