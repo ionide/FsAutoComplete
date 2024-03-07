@@ -1,20 +1,49 @@
 module private FsAutoComplete.Tests.CodeFixTests.AddTypeAliasToSignatureFileTests
 
+open System.IO
 open Expecto
 open Helpers
 open Utils.ServerTests
 open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
-let tests state =
-  serverTestList (nameof AddTypeAliasToSignatureFile) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddTypeAliasToSignatureFile.title
+let path =
+    Path.Combine (__SOURCE_DIRECTORY__, @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
 
-      ftestCaseAsync "first unit test for AddTypeAliasToSignatureFile"
-      <| CodeFix.check
-        server
-        "let a$0 b c = ()"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "let Text replaced by AddTypeAliasToSignatureFile b c = ()"
-    ])
+let tests state =
+    serverTestList
+        (nameof AddTypeAliasToSignatureFile)
+        state
+        defaultConfigDto
+        (Some path)
+        (fun server ->
+            [
+                let selectCodeFix = CodeFix.withTitle AddTypeAliasToSignatureFile.title
+
+                ftestCaseAsync
+                    "Sample use-case for AddTypeAliasToSignatureFile"
+                    (CodeFix.checkCodeFixInImplementationAndVerifySignature
+                        server
+                        """
+module Foo
+
+open Foo
+"""
+                        """
+module Foo
+
+open Foo
+
+type Bar = $0int
+"""
+                        Diagnostics.acceptAll
+                        selectCodeFix
+                        """
+module Foo
+
+open Foo
+
+type Bar = int
+""")
+            ]
+        )

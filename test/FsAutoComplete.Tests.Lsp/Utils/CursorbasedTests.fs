@@ -56,8 +56,6 @@ module CodeFix =
         | Some(Helpers.CodeActions actions), _ -> actions
         | Some _, _ -> failwith "Expected some code actions from the server"
 
-
-
       // select code action to use
       let codeActions = chooseFix allCodeActions
 
@@ -179,6 +177,36 @@ module CodeFix =
   let matching cond (fixes: CodeAction array) = fixes |> Array.filter cond
   let withTitle title = matching (fun f -> f.Title = title)
   let ofKind kind = matching (fun f -> f.Kind = Some kind)
+
+  let checkCodeFixInImplementationAndVerifySignature
+    (server: CachedServer)
+    (fsiSource: string)
+    (fsSourceWithCursor: string)
+    (validateDiagnostics: Diagnostic[] -> unit)
+    (selectCodeFix: ChooseFix)
+    (fsiSourceExpected: string)
+    : Async<unit> =
+    async {
+      let fsiFile, fsFile = ("Code.fsi", "Code.fs")
+      let fsiSource = fsiSource |> Text.trimTripleQuotation
+
+      let cursor, fsSource =
+        fsSourceWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
+
+      let! fsiDoc, _diags = server |> Server.openDocumentWithText fsiFile fsiSource
+      use fsiDoc = fsiDoc
+      let! fsDoc, diags = server |> Server.openDocumentWithText fsFile fsSource
+      use fsDoc = fsDoc
+
+      do!
+        checkFixAt
+          (fsDoc, diags)
+          fsiDoc.VersionedTextDocumentIdentifier
+          (fsiSource, cursor)
+          validateDiagnostics
+          selectCodeFix
+          (After(fsiSourceExpected |> Text.trimTripleQuotation))
+    }
 
   /// Bundled tests in Expecto test
   module private Test =

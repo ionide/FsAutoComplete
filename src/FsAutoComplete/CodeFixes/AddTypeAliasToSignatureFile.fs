@@ -13,8 +13,27 @@ open FsAutoComplete.LspHelpers
 
 let mkLongIdRange (lid : LongIdent) = lid |> List.map (fun ident -> ident.idRange) |> List.reduce Range.unionRanges
 
+let (|AllOpenOrHashDirective|_|) (decls : SynModuleSigDecl list) : range option =
+    match decls with
+    | [] -> None
+    | decls ->
+
+    let allOpenOrHashDirective =
+        decls
+        |> List.forall (
+            function
+            | SynModuleSigDecl.Open _
+            | SynModuleSigDecl.HashDirective _ -> true
+            | _ -> false
+        )
+
+    if not allOpenOrHashDirective then
+        None
+    else
+        Some (List.last decls).Range.EndRange
+
 // TODO: add proper title for code fix
-let title = "AddTypeAliasToSignatureFile Codefix"
+let title = "Add type alias to signature file"
 
 let codeFixForImplementationFileWithSignature
     (getProjectOptionsForFile : GetProjectOptionsForFile)
@@ -114,7 +133,7 @@ let fix
                     | Some parentSigLocation ->
 
                     // Find a good location to insert the type alias
-                    let mInsert =
+                    let insertText =
                         (parentSigLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
                         ||> ParsedInput.tryPick (fun _path node ->
                             match node with
@@ -129,6 +148,14 @@ let fix
                                     None
                                 else
 
+                                let aliasText = sourceText.GetSubTextFromRange mTypeDefn
+
+                                match decls with
+                                | [] -> failwith "todo: empty module"
+                                | AllOpenOrHashDirective mLastDecl ->
+                                    Some (mLastDecl, String.Concat ("\n\n", sourceText.GetSubTextFromRange mTypeDefn))
+                                | decls ->
+
                                 decls
                                 // Skip open statements
                                 |> List.tryFind (
@@ -136,16 +163,13 @@ let fix
                                     | SynModuleSigDecl.Open _ -> false
                                     | _ -> true
                                 )
-                                |> Option.map (fun mdl -> mdl.Range.StartRange)
-
+                                |> Option.map (fun mdl -> mdl.Range.StartRange, String.Concat (aliasText, "\n\n"))
                             | _ -> None
                         )
 
-                    match mInsert with
+                    match insertText with
                     | None -> return []
-                    | Some mInsert ->
-
-                    let newText = String.Concat (sourceText.GetSubTextFromRange mTypeDefn, "\n\n")
+                    | Some (mInsert, newText) ->
 
                     return
                         [
