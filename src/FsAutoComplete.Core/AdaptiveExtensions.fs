@@ -589,7 +589,7 @@ module AsyncAVal =
     else
       { new AbstractVal<'a>() with
           member x.Compute t =
-            let real = Task.FromResult(value.GetValue t)
+            let real = Task.Run(fun () -> value.GetValue t)
             AdaptiveCancellableTask(id, real) }
       :> asyncaval<_>
 
