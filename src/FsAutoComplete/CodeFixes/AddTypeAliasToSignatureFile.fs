@@ -79,10 +79,10 @@ let fix
           match node with
           | SyntaxNode.SynTypeDefn(SynTypeDefn(
               typeInfo = SynComponentInfo(longId = [ typeIdent ])
-              typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _)
-              trivia = trivia) as tdn) when (Range.rangeContainsPos tdn.FullRange fcsPos) ->
-            let mFull = Range.unionRanges trivia.LeadingKeyword.Range tdn.FullRange
-            Some(typeIdent, mFull)
+              typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _)) as tdn) when
+            (Range.rangeContainsPos tdn.FullRange fcsPos)
+            ->
+            Some(typeIdent, tdn.FullRange)
           | _ -> None)
 
       match typeDefnInfo with
@@ -171,7 +171,8 @@ let fix
                           decls
                           // Skip open statements
                           |> List.tryFind (function
-                            | SynModuleSigDecl.Open _ -> false
+                            | SynModuleSigDecl.Open _
+                            | SynModuleSigDecl.HashDirective _ -> false
                             | _ -> true)
                           |> Option.map (fun mdl ->
                             let offset =
