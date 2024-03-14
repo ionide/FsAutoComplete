@@ -519,6 +519,10 @@ type ParseAndCheckResults
       let identIsland = Array.toList identIsland
       checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
+  member x.TryGetSymbolUseFromIdent (sourceText: ISourceText) (ident: Ident) : FSharpSymbolUse option =
+    let line = sourceText.GetLineString(ident.idRange.EndLine - 1)
+    x.GetCheckResults.GetSymbolUseAtLocation(ident.idRange.EndLine, ident.idRange.EndColumn, line, [ ident.idText ])
+
   member __.TryGetSymbolUses (pos: Position) (lineStr: LineStr) : FSharpSymbolUse list =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> []

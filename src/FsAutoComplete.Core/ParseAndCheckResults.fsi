@@ -67,6 +67,8 @@ type ParseAndCheckResults =
 
   member TryGetSymbolUse: pos: Position -> lineStr: LineStr -> FSharpSymbolUse option
 
+  member TryGetSymbolUseFromIdent: ISourceText -> Ident -> FSharpSymbolUse option
+
   member TryGetSymbolUses: pos: Position -> lineStr: LineStr -> FSharpSymbolUse list
 
   member TryGetSymbolUseAndUsages:
