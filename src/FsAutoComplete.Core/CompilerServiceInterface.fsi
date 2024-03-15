@@ -4,14 +4,11 @@ open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Utils
 open FSharp.Compiler.Text
-open FsAutoComplete.Logging
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.UMX
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
-open Microsoft.Extensions.Caching.Memory
-open System
-open FsToolkit.ErrorHandling
+open FSharp.Compiler.Diagnostics
 
 type Version = int
 
@@ -27,7 +24,8 @@ type FSharpCompilerServiceChecker =
       (FSharpProjectOptions * FSharpProjectOptions list) option
 
   member GetProjectOptionsFromScript:
-    file: string<LocalPath> * source: ISourceText * tfm: FSIRefs.TFM -> Async<FSharpProjectOptions>
+    file: string<LocalPath> * source: ISourceText * tfm: FSIRefs.TFM ->
+      Async<FSharpProjectOptions * FSharpDiagnostic list>
 
   member ScriptTypecheckRequirementsChanged: IEvent<unit>
 

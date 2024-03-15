@@ -689,6 +689,8 @@ let diagnosticsToResult =
 
 let waitForParseResultsForFile file = fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
+let waitForDiagnosticErrorForFile file = fileDiagnostics file >> Observable.choose (function | [||] -> None | diags -> Some diags) >> diagnosticsToResult >> Async.AwaitObservable
+
 let waitForFsacDiagnosticsForFile file = fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
 let waitForCompilerDiagnosticsForFile file = compilerDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable

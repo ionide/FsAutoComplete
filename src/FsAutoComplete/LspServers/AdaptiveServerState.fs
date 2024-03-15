@@ -1186,22 +1186,40 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           and! tfmConfig = tfmConfig
 
           let! projs =
-            asyncOption {
+            asyncResult {
               let cts = getOpenFileTokenOrDefault filePath
               use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts)
 
-              let! opts =
-                checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
-                |> Async.withCancellation linkedCts.Token
+              try
+                let! (opts, errors) =
+                  checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
+                  |> Async.withCancellation linkedCts.Token
 
-              opts |> scriptFileProjectOptions.Trigger
+                opts |> scriptFileProjectOptions.Trigger
+                let diags = errors |> Array.ofList |> Array.map fcsErrorToDiagnostic
 
-              return
-                { FSharpProjectOptions = opts
-                  LanguageVersion = LanguageVersionShim.fromFSharpProjectOptions opts }
+                diagnosticCollections.SetFor(
+                  Path.LocalPathToUri filePath,
+                  "F# Script Project Options",
+                  file.Version,
+                  diags
+                )
+
+                return
+                  { FSharpProjectOptions = opts
+                    LanguageVersion = LanguageVersionShim.fromFSharpProjectOptions opts }
+                  |> List.singleton
+              with e ->
+                logger.error (
+                  Log.setMessage "Error getting project options for {filePath}"
+                  >> Log.addContextDestructured "filePath" filePath
+                  >> Log.addExn e
+                )
+
+                return! Error $"Error getting project options for {filePath} - {e.Message}"
             }
 
-          return file, (Option.toList projs |> Ok)
+          return file, projs
         else
           let! projs =
             sourceFileToProjectOptions
