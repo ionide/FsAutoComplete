@@ -21,7 +21,7 @@ let tests state =
       do! server.TextDocumentDidOpen tdop
 
       let! _diagnostics =
-        waitForParseResultsForFile "Script.fsx" events
+        waitForDiagnosticErrorForFile "Script.fsx" events
         |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") (fun e -> e)
 
       return (server, path)
@@ -743,7 +743,7 @@ let autoOpenTests state =
       do! server.TextDocumentDidOpen tdop
 
       do!
-        waitForParseResultsForFile scriptName events
+        waitForDiagnosticErrorForFile scriptName events
         |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
         |> Async.Ignore
 
