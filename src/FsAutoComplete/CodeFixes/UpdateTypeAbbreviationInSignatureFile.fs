@@ -8,6 +8,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
+open FsAutoComplete.Patterns.SymbolUse
 
 let title = "Update type abbreviation in signature file"
 
@@ -39,50 +40,40 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       | None -> return []
       | Some(typeName, mImplBody) ->
         match implParseAndCheckResults.TryGetSymbolUseFromIdent implSourceText typeName with
-        | None -> return []
-        | Some typeSymbolUse ->
-          match typeSymbolUse.Symbol with
-          | :? FSharpEntity as entity ->
-            match entity.SignatureLocation with
-            | None -> return []
-            | Some signatureLocation ->
-              if not (Utils.isSignatureFile signatureLocation.FileName) then
-                // A little weird
-                return []
-              else
-                let sigFilePath = $"%s{implFilePath}i"
-                let sigFileName = Utils.normalizePath sigFilePath
+        | Some(IsInSignature signatureLocation) ->
+          let sigFilePath = $"%s{implFilePath}i"
+          let sigFileName = Utils.normalizePath sigFilePath
 
-                let sigTextDocumentIdentifier: TextDocumentIdentifier =
-                  { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+          let sigTextDocumentIdentifier: TextDocumentIdentifier =
+            { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
 
-                let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
-                  getParseResultsForFile sigFileName (Position.mkPos 1 0)
+          let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
+            getParseResultsForFile sigFileName (Position.mkPos 1 0)
 
-                let mSigTypeAbbrev =
-                  (signatureLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
-                  ||> ParsedInput.tryPick (fun _path node ->
-                    match node with
-                    | SyntaxNode.SynTypeDefnSig(SynTypeDefnSig(
-                        typeInfo = SynComponentInfo(longId = [ typeIdent ])
-                        typeRepr = SynTypeDefnSigRepr.Simple(repr = SynTypeDefnSimpleRepr.TypeAbbrev _; range = m))) when
-                      Range.equals typeIdent.idRange signatureLocation
-                      ->
-                      Some m
-                    | _ -> None)
+          let mSigTypeAbbrev =
+            (signatureLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
+            ||> ParsedInput.tryPick (fun _path node ->
+              match node with
+              | SyntaxNode.SynTypeDefnSig(SynTypeDefnSig(
+                  typeInfo = SynComponentInfo(longId = [ typeIdent ])
+                  typeRepr = SynTypeDefnSigRepr.Simple(repr = SynTypeDefnSimpleRepr.TypeAbbrev _; range = m))) when
+                Range.equals typeIdent.idRange signatureLocation
+                ->
+                Some m
+              | _ -> None)
 
-                match mSigTypeAbbrev with
-                | None -> return []
-                | Some mSigTypeAbbrev ->
-                  let newText = implSourceText.GetSubTextFromRange mImplBody
+          match mSigTypeAbbrev with
+          | None -> return []
+          | Some mSigTypeAbbrev ->
+            let newText = implSourceText.GetSubTextFromRange mImplBody
 
-                  return
-                    [ { SourceDiagnostic = None
-                        Title = title
-                        File = sigTextDocumentIdentifier
-                        Edits =
-                          [| { Range = fcsRangeToLsp mSigTypeAbbrev
-                               NewText = newText } |]
-                        Kind = FixKind.Fix } ]
-          | _ -> return []
+            return
+              [ { SourceDiagnostic = None
+                  Title = title
+                  File = sigTextDocumentIdentifier
+                  Edits =
+                    [| { Range = fcsRangeToLsp mSigTypeAbbrev
+                         NewText = newText } |]
+                  Kind = FixKind.Fix } ]
+        | _ -> return []
     })
