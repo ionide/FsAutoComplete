@@ -15,7 +15,7 @@ let tests state =
     let selectCodeFix = CodeFix.withTitle UpdateTypeAbbreviationInSignatureFile.title
 
     let test name sigBefore impl sigAfter =
-      ftestCaseAsync
+      testCaseAsync
         name
         (CodeFix.checkCodeFixInImplementationAndVerifySignature
           server
