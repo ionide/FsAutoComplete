@@ -11,6 +11,8 @@
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SemaphoreSlimLocks.fsi" />
+    <Compile Include="SemaphoreSlimLocks.fs" />
     <Compile Include="AdaptiveExtensions.fsi" />
     <Compile Include="AdaptiveExtensions.fs" />
     <Compile Include="Consts.fs" />

@@ -17,8 +17,7 @@ let getDeclarationLocation
     currentDocument: IFSACSourceText,
     getProjectOptions,
     projectsThatContainFile: string<LocalPath> -> Async<FSharpProjectOptions list>,
-    getDependentProjectsOfProjects
-  // state: State
+    getDependentProjectsOfProjects: FSharpProjectOptions list -> Async<FSharpProjectOptions list>
   ) : Async<Option<SymbolDeclarationLocation>> =
   asyncOption {
 
@@ -61,8 +60,7 @@ let getDeclarationLocation
         match! projectsThatContainFile (taggedFilePath) with
         | [] -> return! None
         | projectsThatContainFile ->
-          let projectsThatDependOnContainingProjects =
-            getDependentProjectsOfProjects projectsThatContainFile
+          let! projectsThatDependOnContainingProjects = getDependentProjectsOfProjects projectsThatContainFile
 
           match projectsThatDependOnContainingProjects with
           | [] -> return (SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))

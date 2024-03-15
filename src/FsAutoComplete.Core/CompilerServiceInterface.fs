@@ -12,6 +12,10 @@ open FSharp.Compiler.Symbols
 open Microsoft.Extensions.Caching.Memory
 open System
 open FsToolkit.ErrorHandling
+open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
+open System.Collections.Generic
+open System.Threading
+open IcedTasks
 
 
 
@@ -89,11 +93,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       | StartsWith "--load:" file -> args, Array.append files [| file |]
       | arg -> Array.append args [| arg |], files)
 
-  let clearProjectReferences (opts: FSharpProjectOptions) =
-    if disableInMemoryProjectReferences then
-      { opts with ReferencedProjects = [||] }
-    else
-      opts
 
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFiles (projectOptions: FSharpProjectOptions) =
@@ -123,6 +122,68 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
             match opt with
             | Reference r -> $"-r:{Path.GetFullPath r}"
             | opt -> opt) }
+
+  let snapshotAccumulatorDef =
+    Dictionary<FSharpProjectOptions, FSharpProjectSnapshot>()
+
+  let optionsLocker = new SemaphoreSlim(1, 1)
+
+  member _.FromOptions(options: FSharpProjectOptions array, documentSource: DocumentSource) =
+    asyncEx {
+
+      let! ct = Async.CancellationToken
+      use! _lock = optionsLocker.LockAsync(ct)
+      snapshotAccumulatorDef.Clear()
+      // TODO: Figure out why we can't just recreate the subgraph of snapshots
+      // for opt in options do
+      //   snapshotAccumulatorDef.Remove(opt) |> ignore
+      // checker.ClearCache(options)
+      return!
+        options
+        |> Array.map (fun opt ->
+          async {
+            let! sn =
+              FSharpProjectSnapshot.FromOptions(
+                opt,
+                (fun _ fileName ->
+
+                  FSharpFileSnapshot.CreateFromDocumentSource(fileName, documentSource)
+                  |> async.Return),
+                snapshotAccumulator = snapshotAccumulatorDef
+              )
+
+            return opt, sn
+          })
+        |> Async.Sequential
+    }
+
+  member _.FromOption
+    (
+      options: FSharpProjectOptions,
+      documentSource: DocumentSource,
+      ?snapshotAccumulator: Dictionary<FSharpProjectOptions, FSharpProjectSnapshot>
+    ) =
+    asyncEx {
+      let! ct = Async.CancellationToken
+      use! _lock = optionsLocker.LockAsync(ct)
+      let useDefaultCache = snapshotAccumulator.IsNone
+      let snapshotAccumulator = defaultArg snapshotAccumulator snapshotAccumulatorDef
+
+      if useDefaultCache then
+        snapshotAccumulator.Remove options |> ignore // We need to recreate the snapshot when files change
+
+      let! sn =
+        FSharpProjectSnapshot.FromOptions(
+          options,
+          (fun _ fileName ->
+
+            FSharpFileSnapshot.CreateFromDocumentSource(fileName, documentSource)
+            |> async.Return),
+          snapshotAccumulator = snapshotAccumulator
+        )
+
+      return sn
+    }
 
   member __.DisableInMemoryProjectReferences
     with get () = disableInMemoryProjectReferences
@@ -226,6 +287,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   member _.ClearCaches() =
     lastCheckResults.Dispose()
     lastCheckResults <- memoryCache ()
+    snapshotAccumulatorDef.Clear()
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
@@ -234,17 +296,18 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   /// <param name="source">The source to be parsed.</param>
   /// <param name="options">Parsing options for the project or script.</param>
   /// <returns></returns>
-  member __.ParseFile(filePath: string<LocalPath>, source: ISourceText, options: FSharpProjectOptions) =
+  member x.ParseFile(filePath: string<LocalPath>, source: ISourceText, options: FSharpProjectSnapshot) =
     async {
+      let _source = source
+
       checkerLogger.info (
         Log.setMessage "ParseFile - {file}"
         >> Log.addContextDestructured "file" filePath
       )
 
       let path = UMX.untag filePath
-      let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
-      return! checker.ParseFile(path, snapshot)
-    // return! checker.ParseFile(path, source, options)
+      // let! snapshot = x.FromOption(options, documentSource)
+      return! checker.ParseFile(path, options)
     }
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
@@ -253,29 +316,32 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   /// <param name="source">The source for the file.</param>
   /// <param name="options">The options for the project or script.</param>
   /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
+  /// <param name="snapshotAccumulator">A dictionary to store the snapshots for the project options</param>
   /// <remarks>Note: all files except the one being checked are read from the FileSystem API</remarks>
   /// <returns>Result of ParseAndCheckResults</returns>
-  member __.ParseAndCheckFileInProject
+  member x.ParseAndCheckFileInProject
     (
       filePath: string<LocalPath>,
       version: int,
       source: ISourceText,
-      options: FSharpProjectOptions,
-      ?shouldCache: bool
+      options: FSharpProjectSnapshot,
+      ?shouldCache: bool,
+      ?snapshotAccumulator: Dictionary<FSharpProjectOptions, FSharpProjectSnapshot>
     ) =
     asyncResult {
+      let _source = source
+      let _snapshotAccumulator = snapshotAccumulator
+      let _version = version
       let shouldCache = defaultArg shouldCache false
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
       checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
-      let options = clearProjectReferences options
       let path = UMX.untag filePath
 
       try
-        let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
-        let! (p, c) = checker.ParseAndCheckFileInProject(path, snapshot, userOpName = opName)
-        // let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
+        // let! snapshot = x.FromOptions(options, documentSource, ?snapshotAccumulator = snapshotAccumulator)
+        let! (p, c) = checker.ParseAndCheckFileInProject(path, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
 
@@ -331,7 +397,12 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | (true, v) -> Some v
     | _ -> None
 
-  member __.TryGetRecentCheckResultsForFile(file: string<LocalPath>, options, source: ISourceText) =
+  member x.TryGetRecentCheckResultsForFile
+    (
+      file: string<LocalPath>,
+      options: FSharpProjectOptions,
+      source: ISourceText
+    ) =
     async {
       let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
@@ -342,13 +413,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       )
 
-      let options = clearProjectReferences options
-
-      let! snapshot = FSharpProjectSnapshot.FromOptions(options, documentSource)
+      let! snapshot = x.FromOption(options, documentSource)
 
       return
         checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
-        // checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, sourceText = source, userOpName = opName)
         |> Option.map (fun (pr, cr) ->
           checkerLogger.info (
             Log.setMessage "{opName} - got results - {version}"
@@ -357,15 +425,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
           ParseAndCheckResults(pr, cr, entityCache))
     }
-
-  // checkerLogger.info (
-  //   Log.setMessage "{opName} - {hash} - cacheHit {cacheHit}"
-  //   >> Log.addContextDestructured "opName" opName
-  //   >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
-  //   >> Log.addContextDestructured "cacheHit" result.IsSome
-  // )
-
-  // result
 
   member x.GetUsesOfSymbol
     (
@@ -382,10 +441,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some(opts, []) ->
-        let opts = clearProjectReferences opts
-        let! snapshot = FSharpProjectSnapshot.FromOptions(opts, documentSource)
+        let! snapshot = x.FromOption(opts, documentSource)
         let! res = checker.ParseAndCheckProject(snapshot)
-        // let! res = checker.ParseAndCheckProject opts
         return res.GetUsesOfSymbol symbol
       | Some(opts, dependentProjects) ->
         let! res =
@@ -393,9 +450,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
           |> List.map (fun (opts) ->
             async {
 
-              let! snapshot = FSharpProjectSnapshot.FromOptions(opts, documentSource)
+              let! snapshot = x.FromOption(opts, documentSource)
               let! res = checker.ParseAndCheckProject(snapshot)
-              // let! res = checker.ParseAndCheckProject opts
               return res.GetUsesOfSymbol symbol
             })
           |> Async.parallel75
@@ -403,36 +459,27 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         return res |> Array.concat
     }
 
-  member _.FindReferencesForSymbolInFile(file, project, symbol) =
+  member x.FindReferencesForSymbolInFile(file, project: FSharpProjectOptions, symbol) =
     async {
       checkerLogger.info (
         Log.setMessage "FindReferencesForSymbolInFile - {file}"
         >> Log.addContextDestructured "file" file
       )
 
-      let! snapshot = FSharpProjectSnapshot.FromOptions(project, documentSource)
+      let! snapshot = x.FromOption(project, documentSource)
       return! checker.FindBackgroundReferencesInFile(file, snapshot, symbol, userOpName = "find references")
-    // return!
-    //   checker.FindBackgroundReferencesInFile(
-    //     file,
-    //     project,
-    //     symbol,
-    //     canInvalidateProject = false,
-    //     // fastCheck = true,
-    //     userOpName = "find references"
-    //   )
     }
 
-  member this.GetDeclarations(fileName: string<LocalPath>, source: ISourceText, options: FSharpProjectOptions, _) =
-    async {
-      checkerLogger.info (
-        Log.setMessage "GetDeclarations - {file}"
-        >> Log.addContextDestructured "file" fileName
-      )
+  // member this.GetDeclarations(fileName: string<LocalPath>, source: ISourceText, options: FSharpProjectOptions, _) =
+  //   async {
+  //     checkerLogger.info (
+  //       Log.setMessage "GetDeclarations - {file}"
+  //       >> Log.addContextDestructured "file" fileName
+  //     )
 
-      let! parseResult = this.ParseFile(fileName, source, options)
-      return parseResult.GetNavigationItems().Declarations
-    }
+  //     let! parseResult = this.ParseFile(fileName, source, options)
+  //     return parseResult.GetNavigationItems().Declarations
+  //   }
 
   member __.SetDotnetRoot(dotnetBinary: FileInfo, cwd: DirectoryInfo) =
     match Ionide.ProjInfo.SdkDiscovery.versionAt cwd dotnetBinary with

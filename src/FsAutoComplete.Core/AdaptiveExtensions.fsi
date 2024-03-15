@@ -2,6 +2,14 @@ namespace FsAutoComplete.Adaptive
 
 [<AutoOpen>]
 module AdaptiveExtensions =
+
+  type System.Threading.CancellationTokenSource with
+
+    /// Communicates a request for cancellation. Ignores ObjectDisposedException
+    member TryCancel: unit -> unit
+    /// Releases all resources used by the current instance of the System.Threading.CancellationTokenSource class.
+    member TryDispose: unit -> unit
+
   type FSharp.Data.Adaptive.ChangeableHashMap<'Key, 'Value> with
 
     /// <summary>
@@ -63,7 +71,7 @@ module AVal =
     /// Creates an observable with the given object and will be executed whenever the object gets marked out-of-date. Note that it does not trigger when the object is currently out-of-date.
     /// </summary>
     /// <param name="aval">The aval to get out-of-date information from.</param>
-    val onOutOfDateWeak: aval: 'a -> System.IObservable<'a> when 'a :> FSharp.Data.Adaptive.aval<'b>
+    val onOutOfDateWeak: aval: 'a -> System.IObservable<'a> when 'a :> FSharp.Data.Adaptive.IAdaptiveObject
 
     /// <summary>Creates an observable on the aval that will be executed whenever the avals value changed.</summary>
     /// <param name="aval">The aval to get out-of-date information from.</param>
@@ -268,6 +276,7 @@ module AsyncAVal =
   val ofTask: value: System.Threading.Tasks.Task<'a> -> asyncaval<'a>
 
   val ofCancellableTask: value: IcedTasks.CancellableTasks.CancellableTask<'a> -> asyncaval<'a>
+  val ofCancellableValueTask: value: IcedTasks.CancellableValueTasks.CancellableValueTask<'a> -> asyncaval<'a>
 
   val ofAsync: value: Async<'a> -> asyncaval<'a>
 
@@ -355,6 +364,7 @@ module AsyncAValBuilderExtensions =
     member inline Source: value: System.Threading.Tasks.Task<'T> -> asyncaval<'T>
     member inline Source: value: Async<'T> -> asyncaval<'T>
     member inline Source: value: CancellableTask<'T> -> asyncaval<'T>
+    member inline Source: value: CancellableValueTask<'T> -> asyncaval<'T>
 
     member inline BindReturn:
       value: asyncaval<'T1> * mapping: ('T1 -> System.Threading.CancellationToken -> 'T2) -> asyncaval<'T2>
