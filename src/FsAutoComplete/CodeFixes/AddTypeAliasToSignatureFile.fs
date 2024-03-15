@@ -1,7 +1,6 @@
 module FsAutoComplete.CodeFix.AddTypeAliasToSignatureFile
 
 open System
-open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 open FSharp.Compiler.CodeAnalysis
@@ -10,6 +9,7 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
+open FsAutoComplete.Patterns.SymbolUse
 
 let mkLongIdRange (lid: LongIdent) = lid |> List.map (fun ident -> ident.idRange) |> List.reduce Range.unionRanges
 
@@ -90,111 +90,88 @@ let fix
       | Some(typeName, mTypeDefn) ->
 
         match parseAndCheckResults.TryGetSymbolUseFromIdent sourceText typeName with
-        | None -> return []
-        | Some typeSymbolUse ->
+        | Some(IsParentInSignature parentSigLocation) ->
 
-          match typeSymbolUse.Symbol with
-          | :? FSharpEntity as entity ->
-            let isPartOfSignature =
-              match entity.SignatureLocation with
-              | None -> false
-              | Some sigLocation -> Utils.isSignatureFile sigLocation.FileName
+          let implFilePath = codeActionParams.TextDocument.GetFilePath()
+          let sigFilePath = $"%s{implFilePath}i"
+          let sigFileName = Utils.normalizePath sigFilePath
 
-            if isPartOfSignature then
-              return []
-            else
+          let sigTextDocumentIdentifier: TextDocumentIdentifier =
+            { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
 
-              let implFilePath = codeActionParams.TextDocument.GetFilePath()
-              let sigFilePath = $"%s{implFilePath}i"
-              let sigFileName = Utils.normalizePath sigFilePath
+          let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, sigSourceText: IFSACSourceText) =
+            getParseResultsForFile sigFileName (Position.mkPos 1 0)
 
-              let sigTextDocumentIdentifier: TextDocumentIdentifier =
-                { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+          // Find a good location to insert the type alias
+          let insertText =
+            (parentSigLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
+            ||> ParsedInput.tryPick (fun _path node ->
+              match node with
+              | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = longId; decls = decls))
+              | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
+                moduleInfo = SynComponentInfo(longId = longId); moduleDecls = decls)) ->
+                let mSigName = mkLongIdRange longId
 
-              let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, sigSourceText: IFSACSourceText) =
-                getParseResultsForFile sigFileName (Position.mkPos 1 0)
+                // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.
+                if not (Range.rangeContainsRange mSigName parentSigLocation) then
+                  None
+                else
 
-              let parentSigLocation =
-                entity.DeclaringEntity
-                |> Option.bind (fun parentEntity ->
-                  match parentEntity.SignatureLocation with
-                  | Some sigLocation when Utils.isSignatureFile sigLocation.FileName -> Some sigLocation
-                  | _ -> None)
+                  let aliasText =
+                    let text = sourceText.GetSubTextFromRange mTypeDefn
 
-              match parentSigLocation with
-              | None -> return []
-              | Some parentSigLocation ->
+                    if not (text.StartsWith("and", StringComparison.Ordinal)) then
+                      text
+                    else
+                      String.Concat("type", text.Substring 3)
 
-                // Find a good location to insert the type alias
-                let insertText =
-                  (parentSigLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
-                  ||> ParsedInput.tryPick (fun _path node ->
+                  match decls with
+                  | [] ->
                     match node with
-                    | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = longId; decls = decls))
+                    | SyntaxNode.SynModuleOrNamespaceSig nm ->
+                      Some(nm.Range.EndRange, String.Concat("\n\n", aliasText))
+
                     | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                      moduleInfo = SynComponentInfo(longId = longId); moduleDecls = decls)) ->
-                      let mSigName = mkLongIdRange longId
+                        range = mNested
+                        trivia = { ModuleKeyword = Some mModule
+                                   EqualsRange = Some mEquals })) ->
+                      let moduleEqualsText =
+                        sigSourceText.GetSubTextFromRange(Range.unionRanges mModule mEquals)
+                      // Can this grabbed from configuration?
+                      let indent = "    "
 
-                      // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.
-                      if not (Range.rangeContainsRange mSigName parentSigLocation) then
-                        None
-                      else
+                      Some(mNested, String.Concat(moduleEqualsText, "\n", indent, aliasText))
+                    | _ -> None
+                  | AllOpenOrHashDirective mLastDecl -> Some(mLastDecl, String.Concat("\n\n", aliasText))
+                  | decls ->
 
-                        let aliasText =
-                          let text = sourceText.GetSubTextFromRange mTypeDefn
+                    decls
+                    // Skip open statements
+                    |> List.tryFind (function
+                      | SynModuleSigDecl.Open _
+                      | SynModuleSigDecl.HashDirective _ -> false
+                      | _ -> true)
+                    |> Option.map (fun mdl ->
+                      let offset =
+                        if mdl.Range.StartColumn = 0 then
+                          String.Empty
+                        else
+                          String.replicate mdl.Range.StartColumn " "
 
-                          if not (text.StartsWith("and", StringComparison.Ordinal)) then
-                            text
-                          else
-                            String.Concat("type", text.Substring 3)
+                      mdl.Range.StartRange, String.Concat(aliasText, "\n\n", offset))
+              | _ -> None)
 
-                        match decls with
-                        | [] ->
-                          match node with
-                          | SyntaxNode.SynModuleOrNamespaceSig nm ->
-                            Some(nm.Range.EndRange, String.Concat("\n\n", aliasText))
+          match insertText with
+          | None -> return []
+          | Some(mInsert, newText) ->
 
-                          | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                              range = mNested
-                              trivia = { ModuleKeyword = Some mModule
-                                         EqualsRange = Some mEquals })) ->
-                            let moduleEqualsText =
-                              sigSourceText.GetSubTextFromRange(Range.unionRanges mModule mEquals)
-                            // Can this grabbed from configuration?
-                            let indent = "    "
-
-                            Some(mNested, String.Concat(moduleEqualsText, "\n", indent, aliasText))
-                          | _ -> None
-                        | AllOpenOrHashDirective mLastDecl -> Some(mLastDecl, String.Concat("\n\n", aliasText))
-                        | decls ->
-
-                          decls
-                          // Skip open statements
-                          |> List.tryFind (function
-                            | SynModuleSigDecl.Open _
-                            | SynModuleSigDecl.HashDirective _ -> false
-                            | _ -> true)
-                          |> Option.map (fun mdl ->
-                            let offset =
-                              if mdl.Range.StartColumn = 0 then
-                                String.Empty
-                              else
-                                String.replicate mdl.Range.StartColumn " "
-
-                            mdl.Range.StartRange, String.Concat(aliasText, "\n\n", offset))
-                    | _ -> None)
-
-                match insertText with
-                | None -> return []
-                | Some(mInsert, newText) ->
-
-                  return
-                    [ { SourceDiagnostic = None
-                        Title = title
-                        File = sigTextDocumentIdentifier
-                        Edits =
-                          [| { Range = fcsRangeToLsp mInsert
-                               NewText = newText } |]
-                        Kind = FixKind.Fix } ]
-          | _ -> return []
+            return
+              [ { SourceDiagnostic = None
+                  Title = title
+                  File = sigTextDocumentIdentifier
+                  Edits =
+                    [| { Range = fcsRangeToLsp mInsert
+                         NewText = newText } |]
+                  Kind = FixKind.Fix } ]
+        | _ -> return []
     })
