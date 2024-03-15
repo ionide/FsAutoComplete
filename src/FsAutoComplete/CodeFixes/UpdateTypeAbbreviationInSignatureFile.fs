@@ -9,8 +9,7 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
-// TODO: add proper title for code fix
-let title = "UpdateTypeAbbreviationInSignatureFile Codefix"
+let title = "Update type abbreviation in signature file"
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "318" ]) (fun diagnostic codeActionParams ->
