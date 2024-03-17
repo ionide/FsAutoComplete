@@ -333,7 +333,7 @@ let analyzerTests state =
 
   testList
     "analyzer integration"
-    [ testList
+    [ ptestList
         "tests"
         [ testCaseAsync
             "can run analyzer on file"
