@@ -111,6 +111,7 @@ val fsacDiagnostics: file: string -> (IObservable<string * obj> -> IObservable<D
 val compilerDiagnostics: file: string -> (IObservable<string * obj> -> IObservable<Diagnostic array>)
 val diagnosticsToResult: (IObservable<Diagnostic array> -> IObservable<Result<unit, Diagnostic array>>)
 val waitForParseResultsForFile: file: string -> (IObservable<string * obj> -> Async<Result<unit, Diagnostic array>>)
+val waitForDiagnosticErrorForFile: file: string -> (IObservable<string * obj> -> Async<Result<unit, Diagnostic array>>)
 val waitForFsacDiagnosticsForFile: file: string -> (IObservable<string * obj> -> Async<Result<unit, Diagnostic array>>)
 
 val waitForCompilerDiagnosticsForFile:

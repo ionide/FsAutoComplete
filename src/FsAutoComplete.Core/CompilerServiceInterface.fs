@@ -211,24 +211,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     }
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) =
-    async {
-      let! (projOptions, errors) =
-        match tfm with
-        | FSIRefs.TFM.NetFx -> self.GetNetFxScriptOptions(file, source)
-        | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
+    match tfm with
+    | FSIRefs.TFM.NetFx -> self.GetNetFxScriptOptions(file, source)
+    | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
 
-      match errors with
-      | [] -> ()
-      | errs ->
-        optsLogger.info (
-          Log.setLogLevel LogLevel.Error
-          >> Log.setMessage "Resolved {opts} with {errors}"
-          >> Log.addContextDestructured "opts" projOptions
-          >> Log.addContextDestructured "errors" errs
-        )
-
-      return projOptions
-    }
 
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish

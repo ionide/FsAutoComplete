@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [0.71.0] - 2024-03-07
+
+### Added
+
+* [Add unnecessary parentheses analyzer & code fix](https://github.com/fsharp/FsAutoComplete/pull/1235) (thanks @brianrourkeboll)
+
+### Fixed
+
+* [Fix debugger regression](https://github.com/fsharp/FsAutoComplete/pull/1230/files) (thanks @baronfel)
+
+### Changed
+
+* [Slightly better Project Loading messages](https://github.com/fsharp/FsAutoComplete/pull/1234) (thanks @TheAngryByrd)
+* [add missing keyword list and extra information](https://github.com/fsharp/FsAutoComplete/pull/1226) (thanks @jkone27)
+* [Speed up project load times](https://github.com/fsharp/FsAutoComplete/pull/1245) (thanks @TheAngryByrd)
+
 ## [0.70.1] - 2024-02-13
 
 ### Fixed
