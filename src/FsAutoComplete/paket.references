@@ -1,7 +1,7 @@
 CliWrap
 Destructurama.FSharp
 Fantomas.Client
-FSharp.Analyzers.SDK
+#FSharp.Analyzers.SDK
 FSharp.UMX
 FsToolkit.ErrorHandling.TaskResult
 IcedTasks
