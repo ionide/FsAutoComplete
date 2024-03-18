@@ -176,3 +176,9 @@ module Run =
     codes: Set<string> ->
     handler: (Diagnostic -> CodeActionParams -> Async<Result<Fix list, string>>) ->
       (CodeActionParams -> Async<Result<Fix list, string>>)
+
+  val ifImplementationFileBackedBySignature:
+    getProjectOptionsForFile: GetProjectOptionsForFile ->
+    codeFix: CodeFix ->
+    codeActionParams: CodeActionParams ->
+      Async<Result<Fix list, string>>

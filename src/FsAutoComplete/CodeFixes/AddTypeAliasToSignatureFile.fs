@@ -3,7 +3,6 @@ module FsAutoComplete.CodeFix.AddTypeAliasToSignatureFile
 open System
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
-open FSharp.Compiler.CodeAnalysis
 open FsToolkit.ErrorHandling
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
@@ -38,33 +37,11 @@ type SynTypeDefn with
 
 let title = "Add type alias to signature file"
 
-let codeFixForImplementationFileWithSignature
-  (getProjectOptionsForFile: GetProjectOptionsForFile)
-  (codeFix: CodeFix)
-  (codeActionParams: CodeActionParams)
-  : Async<Result<Fix list, string>> =
-  async {
-    let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-    let! project = getProjectOptionsForFile fileName
-
-    match project with
-    | Error _ -> return Ok []
-    | Ok projectOptions ->
-
-      let signatureFile = String.Concat(fileName, "i")
-      let hasSig = projectOptions.SourceFiles |> Array.contains signatureFile
-
-      if not hasSig then
-        return Ok []
-      else
-        return! codeFix codeActionParams
-  }
-
 let fix
   (getProjectOptionsForFile: GetProjectOptionsForFile)
   (getParseResultsForFile: GetParseResultsForFile)
   : CodeFix =
-  codeFixForImplementationFileWithSignature getProjectOptionsForFile (fun (codeActionParams: CodeActionParams) ->
+  Run.ifImplementationFileBackedBySignature getProjectOptionsForFile (fun (codeActionParams: CodeActionParams) ->
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       // The converted LSP start position to an FCS start position.
