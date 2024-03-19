@@ -46,48 +46,19 @@ module private Patterns =
 
       | None -> ValueNone
 
-    /// Trim only spaces from the start if there is something else
-    /// before the open paren on the same line (or else we could move
-    /// the whole inner expression up a line); otherwise trim all whitespace
-    /// from start and end.
-    let (|Trim|) (range: FcsRange) (sourceText: IFSACSourceText) =
-      match sourceText.GetLine range.Start with
-      | Some line ->
-        if line.AsSpan(0, range.Start.Column).LastIndexOfAnyExcept(' ', '(') >= 0 then
-          fun (s: string) -> s.TrimEnd().TrimStart ' '
-        else
-          fun (s: string) -> s.Trim()
+[<NoEquality; NoComparison>]
+type private InnerOffsides =
+  /// We haven't found an inner construct yet.
+  | NoneYet
 
-      | None -> id
+  /// The start column of the first inner construct we find.
+  /// This may not be on the same line as the open paren.
+  | FirstLine of col: int
 
-    /// Returns the offsides diff if the given span contains an expression
-    /// whose indentation would be made invalid if the open paren
-    /// were removed (because the offside line would be shifted).
-    [<return: Struct>]
-    let (|OffsidesDiff|_|) (range: FcsRange) (sourceText: IFSACSourceText) =
-      let startLineNo = range.StartLine
-      let endLineNo = range.EndLine
-
-      if startLineNo = endLineNo then
-        ValueNone
-      else
-        let rec loop innerOffsides (pos: FcsPos) (startCol: int) =
-          if pos.Line <= endLineNo then
-            match sourceText.GetLine pos with
-            | None -> ValueNone
-            | Some line ->
-              match line.AsSpan(startCol).IndexOfAnyExcept(' ', ')') with
-              | -1 -> loop innerOffsides (pos.IncLine()) 0
-              | i -> loop (i + startCol) (pos.IncLine()) 0
-          else
-            ValueSome(range.StartColumn - innerOffsides)
-
-        loop range.StartColumn range.Start (range.StartColumn + 1)
-
-    let (|ShiftLeft|NoShift|ShiftRight|) n =
-      if n < 0 then ShiftLeft -n
-      elif n = 0 then NoShift
-      else ShiftRight n
+  /// The leftmost start column of an inner construct on a line
+  /// following the first inner construct we found.
+  /// We keep the first column of the first inner construct for comparison at the end.
+  | FollowingLine of firstLine: int * followingLine: int
 
 /// A codefix that removes unnecessary parentheses from the source.
 let fix (getFileLines: GetFileLines) : CodeFix =
@@ -104,17 +75,61 @@ let fix (getFileLines: GetFileLines) : CodeFix =
 
       match firstChar, lastChar with
       | '(', ')' ->
+        /// Trim only spaces from the start if there is something else
+        /// before the open paren on the same line (or else we could move
+        /// the whole inner expression up a line); otherwise trim all whitespace
+        /// from start and end.
+        let (|Trim|) (sourceText: IFSACSourceText) =
+          match sourceText.GetLine range.Start with
+          | Some line ->
+            if line.AsSpan(0, range.Start.Column).LastIndexOfAnyExcept(' ', '(') >= 0 then
+              fun (s: string) -> s.TrimEnd().TrimStart ' '
+            else
+              fun (s: string) -> s.Trim()
+
+          | None -> id
+
+        let (|ShiftLeft|NoShift|ShiftRight|) (sourceText: IFSACSourceText) =
+          let startLineNo = range.StartLine
+          let endLineNo = range.EndLine
+
+          if startLineNo = endLineNo then
+            NoShift
+          else
+            let outerOffsides = range.StartColumn
+
+            let rec loop innerOffsides lineNo (startCol: int) =
+              if lineNo <= endLineNo then
+                let line = sourceText.Lines[lineNo].ToString()
+
+                match line.AsSpan(startCol).IndexOfAnyExcept(' ', ')') with
+                | -1 -> loop innerOffsides (lineNo + 1) 0
+                | i ->
+                  match innerOffsides with
+                  | NoneYet -> loop (FirstLine(i + startCol)) (lineNo + 1) 0
+                  | FirstLine innerOffsides -> loop (FollowingLine(innerOffsides, i + startCol)) (lineNo + 1) 0
+                  | FollowingLine(firstLine, innerOffsides) ->
+                    loop (FollowingLine(firstLine, min innerOffsides (i + startCol))) (lineNo + 1) 0
+              else
+                innerOffsides
+
+            match loop NoneYet startLineNo (range.StartColumn + 1) with
+            | NoneYet -> NoShift
+            | FirstLine innerOffsides when innerOffsides < outerOffsides -> ShiftRight(outerOffsides - innerOffsides)
+            | FirstLine innerOffsides -> ShiftLeft(innerOffsides - outerOffsides)
+            | FollowingLine(firstLine, followingLine) ->
+              match firstLine - outerOffsides with
+              | 0 -> NoShift
+              | 1 when firstLine < followingLine -> NoShift
+              | primaryOffset when primaryOffset < 0 -> ShiftRight -primaryOffset
+              | primaryOffset -> ShiftLeft primaryOffset
+
         let adjusted =
           match sourceText with
           | TrailingOpen range -> txt[1 .. txt.Length - 2].TrimEnd()
-
-          | Trim range trim & OffsidesDiff range spaces ->
-            match spaces with
-            | NoShift -> trim txt[1 .. txt.Length - 2]
-            | ShiftLeft spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n" + String(' ', spaces), "\n"))
-            | ShiftRight spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n", "\n" + String(' ', spaces)))
-
-          | _ -> txt[1 .. txt.Length - 2].Trim()
+          | Trim trim & NoShift -> trim txt[1 .. txt.Length - 2]
+          | Trim trim & ShiftLeft spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n" + String(' ', spaces), "\n"))
+          | Trim trim & ShiftRight spaces -> trim (txt[1 .. txt.Length - 2].Replace("\n", "\n" + String(' ', spaces)))
 
         let newText =
           let (|ShouldPutSpaceBefore|_|) (s: string) =
