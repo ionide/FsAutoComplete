@@ -26,6 +26,12 @@ let (|SignatureValText|_|) (displayContext: FSharpDisplayContext) (symbolUse: FS
 
 let mkLongIdRange (lid: LongIdent) = lid |> List.map (fun ident -> ident.idRange) |> List.reduce Range.unionRanges
 
+[<RequireQualifiedAccess>]
+type InsertLocation =
+  /// Could be parent node or last sibling
+  | AfterNode of columnOffset: int * endRange: range
+  | ReplaceEmptyNestedModule of moduleKeywordStart: int * afterEqualsTillEnd: range
+
 let fix
   (getProjectOptionsForFile: GetProjectOptionsForFile)
   (getParseResultsForFile: GetParseResultsForFile)
@@ -86,33 +92,57 @@ let fix
             match bindingSymbolUse with
             | SignatureValText parentSigSymbolUse.DisplayContext valText ->
               // Find the end of the parent (in the signature file)
-              let mParentEnd =
+              let insertLocation: InsertLocation option =
                 (parentSigLocation.Start, sigParseAndCheckResults.GetParseResults.ParseTree)
                 ||> ParsedInput.tryPick (fun _path node ->
                   match node with
-                  | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = longId; range = mParent))
+                  | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(
+                      longId = longId; range = mParent; decls = decls))
                   | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                    moduleInfo = SynComponentInfo(longId = longId); range = mParent)) ->
+                    moduleInfo = SynComponentInfo(longId = longId); range = mParent; moduleDecls = decls)) ->
                     let mSigName = mkLongIdRange longId
 
                     // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.
                     if not (Range.rangeContainsRange mSigName parentSigLocation) then
                       None
                     else
-                      Some mParent.EndRange
+                      // Use the last decl to get the indentation right in case of a nested module.
+                      match List.tryLast decls with
+                      | None ->
+                        match node with
+                        | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
+                            trivia = { ModuleKeyword = Some mk
+                                       EqualsRange = Some mEq }
+                            range = mFull)) ->
+                          let mAfterEqualsTillEnd = Range.unionRanges mEq.EndRange mFull.EndRange
+                          Some(InsertLocation.ReplaceEmptyNestedModule(mk.StartColumn, mAfterEqualsTillEnd))
+                        | _ -> Some(InsertLocation.AfterNode(mParent.StartColumn, mParent.EndRange))
+                      | Some lastDecl ->
+                        Some(InsertLocation.AfterNode(lastDecl.Range.StartColumn, lastDecl.Range.EndRange))
+
                   | _ -> None)
 
-              match mParentEnd with
+              match insertLocation with
               | None -> return []
-              | Some mParentEnd ->
+              | Some insertLocation ->
+
+                let newText, m =
+                  match insertLocation with
+                  | InsertLocation.AfterNode(columnOffset, endRange) ->
+                    let indent = String.replicate columnOffset " "
+                    $"\n\n%s{indent}{valText}", endRange
+                  | InsertLocation.ReplaceEmptyNestedModule(columnOffset, mReplace) ->
+                    // TODO: can we get the indent_size from configuration??
+                    let indent = String.replicate (columnOffset + 4) " "
+                    $"\n%s{indent}%s{valText}", mReplace
 
                 return
                   [ { SourceDiagnostic = None
                       Title = title
                       File = sigTextDocumentIdentifier
                       Edits =
-                        [| { Range = fcsRangeToLsp mParentEnd
-                             NewText = $"\n\n{valText}" } |]
+                        [| { Range = fcsRangeToLsp m
+                             NewText = newText } |]
                       Kind = FixKind.Fix } ]
             | _ -> return []
         | _ -> return []
