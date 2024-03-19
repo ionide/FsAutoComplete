@@ -131,6 +131,7 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
 module Snapshots =
   open FsAutoComplete
+  open System.Threading
 
   let loadFromDotnetDll (p: Types.ProjectOptions) : ProjectSnapshot.FSharpReferencedProjectSnapshot =
     /// because only a successful compilation will be written to a DLL, we can rely on
@@ -229,8 +230,12 @@ module Snapshots =
       let! writeTime = AdaptiveFile.GetLastWriteTimeUtc fileName
       and! sourceTextFactory = sourceTextFactory
       let getSource () = task {
-        let! text = File.ReadAllTextAsync fileName
-        return sourceTextFactory.Create((normalizePath fileName), text) :> ISourceTextNew
+        // let! text = File.ReadAllTextAsync fileName
+        let fileName = normalizePath fileName
+        use s = File.openFileStreamForReadingAsync fileName
+
+        let! source = sourceTextFactory.Create(fileName, s) CancellationToken.None
+        return source :> ISourceTextNew
       }
       // printfn "Creating source text for %s" fileName
       return ProjectSnapshot.FSharpFileSnapshot.Create(fileName, string writeTime.Ticks, getSource)
@@ -532,6 +537,9 @@ let snapshotTests loaders toolsPath =
         Expect.equal ls1.ProjectId ls2.ProjectId "Project Id name should be the same"
         Expect.equal ls1.SourceFiles.Length 3 "Source files length should be 3"
         Expect.equal ls1.SourceFiles.Length ls2.SourceFiles.Length "Source files length should be the same"
+        let ls1File = ls1.SourceFiles |> Seq.find (fun x -> x.FileName = libraryFile.FullName)
+        let ls2File = ls2.SourceFiles |> Seq.find (fun x -> x.FileName = libraryFile.FullName)
+        Expect.notEqual ls1File.Version ls2File.Version "Library source file version should not be the same"
         Expect.equal ls1.ReferencedProjects.Length ls2.ReferencedProjects.Length "Referenced projects length should be the same"
         Expect.equal ls1.ReferencedProjects.Length 0 "Referenced projects length should be 0"
         Expect.notEqual ls1.Stamp ls2.Stamp "Stamp should not be the same"
@@ -543,6 +551,11 @@ let snapshotTests loaders toolsPath =
         Expect.equal cs1.ProjectId cs2.ProjectId "Project Id name should be the same"
         Expect.equal cs1.SourceFiles.Length 3 "Source files length should be 3"
         Expect.equal cs1.SourceFiles.Length cs2.SourceFiles.Length "Source files length should be the same"
+        let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
+        let cs1File = cs1.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
+        let cs2File = cs2.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
+        Expect.equal cs1File.Version cs2File.Version "Console source file version should be the same"
+
         Expect.equal cs1.ReferencedProjects.Length cs2.ReferencedProjects.Length "Referenced projects length should be the same"
         Expect.equal cs1.ReferencedProjects.Length 1 "Referenced projects length should be 1"
         let refLib1 = cs1.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get
