@@ -89,7 +89,7 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         IO.Path.GetTempPath() </> Guid.NewGuid().ToString("n") </> name, true
       | None ->
         IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n")), false
-    printfn "Creating directory %s" tempPath
+    // printfn "Creating directory %s" tempPath
     IO.Directory.CreateDirectory tempPath |> ignore
     new DisposableDirectory(tempPath, deleteParentDir)
 
@@ -108,7 +108,7 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      printfn "Deleting directory %s" dirToDelete.FullName
+      // printfn "Deleting directory %s" dirToDelete.FullName
       IO.Directory.Delete(dirToDelete.FullName, true)
 
 type Async =
