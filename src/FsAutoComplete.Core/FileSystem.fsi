@@ -98,6 +98,8 @@ type IFSACSourceText =
 
   inherit ISourceText
 
+  inherit ISourceTextNew
+
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
   abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
