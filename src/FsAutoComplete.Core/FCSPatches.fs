@@ -282,7 +282,7 @@ module LanguageVersionShim =
   /// <returns></returns>
   let defaultLanguageVersion = lazy (LanguageVersionShim("latest"))
 
-  let internal formOtherOptions (options : string seq) =
+  let fromOtherOptions (options : string seq) =
     options
     |> Seq.tryFind (fun x -> x.StartsWith("--langversion:", StringComparison.Ordinal))
     |> Option.map (fun x -> x.Split(":")[1])
@@ -294,7 +294,7 @@ module LanguageVersionShim =
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   let fromFSharpProjectOptions (fpo: FSharpProjectOptions) =
     fpo.OtherOptions
-    |> formOtherOptions
+    |> fromOtherOptions
 
 
   /// <summary>Tries to parse out "--langversion:" from OtherOptions if it can't find it, returns defaultLanguageVersion</summary>
@@ -302,4 +302,4 @@ module LanguageVersionShim =
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   let fromFSharpProjectSnapshot (fpo: FSharpProjectSnapshot) =
     fpo.OtherOptions
-    |> formOtherOptions
+    |> fromOtherOptions

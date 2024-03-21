@@ -1202,7 +1202,7 @@ type AdaptiveFSharpLspServer
           let getAllProjects () =
             state.GetFilesToProject()
             |> Async.map (
-              Array.map (fun (file, proj) -> UMX.untag file, proj.FSharpProjectOptions)
+              Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectSnapshot)
               >> Array.toList
             )
 

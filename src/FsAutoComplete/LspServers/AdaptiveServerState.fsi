@@ -30,7 +30,9 @@ type AdaptiveWorkspaceChosen =
 
 [<CustomEquality; NoComparison>]
 type LoadedProject =
-  { FSharpProjectOptions: FSharpProjectSnapshot
+  {
+    ProjectOptions : Types.ProjectOptions
+    FSharpProjectSnapshot: aval<FSharpProjectSnapshot>
     LanguageVersion: LanguageVersionShim }
 
   interface IEquatable<LoadedProject>
@@ -38,7 +40,7 @@ type LoadedProject =
   override Equals: other: obj -> bool
   member SourceFiles: string array
   member ProjectFileName: string
-  static member op_Implicit: x: LoadedProject -> FSharpProjectSnapshot
+  // static member op_Implicit: x: LoadedProject -> FSharpProjectSnapshot
 
 type AdaptiveState =
   new:

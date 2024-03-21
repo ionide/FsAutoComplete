@@ -238,7 +238,8 @@ module Async =
   /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
   let parallel75 computations =
     let maxConcurrency =
-      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+      2
+      // Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
     Async.Parallel(computations, int maxConcurrency)
 
