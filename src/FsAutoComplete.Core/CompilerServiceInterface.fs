@@ -21,7 +21,7 @@ open IcedTasks
 
 type Version = int
 
-type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution, documentSource) =
+type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution) =
   let checker =
     FSharpChecker.Create(
       projectCacheSize = 200,
@@ -189,7 +189,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     with get () = disableInMemoryProjectReferences
     and set (value) = disableInMemoryProjectReferences <- value
 
-  static member GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectOptions>) =
+  static member GetDependingProjects (file: string<LocalPath>) (options: seq<string * FSharpProjectSnapshot>) =
     let project =
       options
       |> Seq.tryFind (fun (k, _) -> (UMX.untag k).ToUpperInvariant() = (UMX.untag file).ToUpperInvariant())
@@ -203,8 +203,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
           |> Seq.distinctBy (fun o -> o.ProjectFileName)
           |> Seq.filter (fun o ->
             o.ReferencedProjects
-            |> Array.map (fun p -> Path.GetFullPath p.OutputFile)
-            |> Array.contains option.ProjectFileName) ])
+            |> List.map (fun p -> Path.GetFullPath p.OutputFile)
+            |> List.contains option.ProjectFileName) ])
 
   member private __.GetNetFxScriptOptions(file: string<LocalPath>, source) =
     async {
@@ -278,10 +278,42 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
 
 
+  member self.GetProjectSnapshotFromScript(file: string<LocalPath>, source, tfm : FSIRefs.TFM) = async {
+      let _tfm = tfm
+      let allFlags =
+        Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+      let! (snap, errors) = checker. GetProjectSnapshotFromScript(
+          UMX.untag file,
+          source,
+          assumeDotNetFramework = false,
+          useSdkRefs = true,
+          useFsiAuxLib = true,
+          otherFlags = allFlags,
+          userOpName = "getNetCoreScriptOptions"
+        )
+      match errors with
+      | [] -> ()
+      | errs ->
+        optsLogger.info (
+          Log.setLogLevel LogLevel.Error
+          >> Log.setMessage "Resolved {opts} with {errors}"
+          >> Log.addContextDestructured "opts" snap
+          >> Log.addContextDestructured "errors" errs
+        )
+
+      return snap
+  }
+
+
   member __.ScriptTypecheckRequirementsChanged =
     scriptTypecheckRequirementsChanged.Publish
 
   member _.RemoveFileFromCache(file: string<LocalPath>) = lastCheckResults.Remove(file)
+
+  member _.ClearCache(snap : FSharpProjectSnapshot seq) =
+    snap
+    |> Seq.map(_.Identifier)
+    |> checker.ClearCache
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
@@ -400,7 +432,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   member x.TryGetRecentCheckResultsForFile
     (
       file: string<LocalPath>,
-      options: FSharpProjectOptions,
+      options: FSharpProjectSnapshot,
       source: ISourceText
     ) =
     async {
@@ -413,10 +445,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       )
 
-      let! snapshot = x.FromOption(options, documentSource)
 
       return
-        checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
+        checker.TryGetRecentCheckResultsForFile(UMX.untag file, options, opName)
         |> Option.map (fun (pr, cr) ->
           checkerLogger.info (
             Log.setMessage "{opName} - got results - {version}"
@@ -429,7 +460,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   member x.GetUsesOfSymbol
     (
       file: string<LocalPath>,
-      options: (string * FSharpProjectOptions) seq,
+      options: (string * FSharpProjectSnapshot) seq,
       symbol: FSharpSymbol
     ) =
     async {
@@ -441,8 +472,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       match FSharpCompilerServiceChecker.GetDependingProjects file options with
       | None -> return [||]
       | Some(opts, []) ->
-        let! snapshot = x.FromOption(opts, documentSource)
-        let! res = checker.ParseAndCheckProject(snapshot)
+        // let! snapshot = x.FromOption(opts, documentSource)
+        let! res = checker.ParseAndCheckProject(opts)
         return res.GetUsesOfSymbol symbol
       | Some(opts, dependentProjects) ->
         let! res =
@@ -450,8 +481,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
           |> List.map (fun (opts) ->
             async {
 
-              let! snapshot = x.FromOption(opts, documentSource)
-              let! res = checker.ParseAndCheckProject(snapshot)
+              // let! snapshot = x.FromOption(opts, documentSource)
+              let! res = checker.ParseAndCheckProject(opts)
               return res.GetUsesOfSymbol symbol
             })
           |> Async.parallel75
@@ -459,15 +490,15 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         return res |> Array.concat
     }
 
-  member x.FindReferencesForSymbolInFile(file, project: FSharpProjectOptions, symbol) =
+  member x.FindReferencesForSymbolInFile(file, project: FSharpProjectSnapshot, symbol) =
     async {
       checkerLogger.info (
         Log.setMessage "FindReferencesForSymbolInFile - {file}"
         >> Log.addContextDestructured "file" file
       )
 
-      let! snapshot = x.FromOption(project, documentSource)
-      return! checker.FindBackgroundReferencesInFile(file, snapshot, symbol, userOpName = "find references")
+      // let! snapshot = x.FromOption(project, documentSource)
+      return! checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
     }
 
   // member this.GetDeclarations(fileName: string<LocalPath>, source: ISourceText, options: FSharpProjectOptions, _) =

@@ -12,7 +12,7 @@ type AdaptiveFSharpLspServer =
 
   interface IFSharpLspServer
 
-  member ScriptFileProjectOptions: IEvent<FSharpProjectOptions>
+  member ScriptFileProjectOptions: IEvent<FSharpProjectSnapshot>
 
 module AdaptiveFSharpLspServer =
   open System.Threading.Tasks

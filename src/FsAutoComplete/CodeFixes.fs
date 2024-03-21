@@ -19,6 +19,7 @@ module LspTypes = Ionide.LanguageServerProtocol.Types
 module Types =
   open FsAutoComplete.FCSPatches
   open System.Threading.Tasks
+  open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
   type IsEnabled = unit -> bool
 
@@ -34,7 +35,7 @@ module Types =
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
   type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
+    string<LocalPath> -> Async<ResultOrString<FSharpProjectSnapshot>>
 
   [<RequireQualifiedAccess>]
   type FixKind =

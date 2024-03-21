@@ -15,23 +15,30 @@ type Version = int
 
 type FSharpCompilerServiceChecker =
   new:
-    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * documentSource: DocumentSource ->
+    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool ->
       FSharpCompilerServiceChecker
 
   member DisableInMemoryProjectReferences: bool with get, set
 
   static member GetDependingProjects:
-    file: string<LocalPath> ->
-    options: seq<string * FSharpProjectOptions> ->
-      (FSharpProjectOptions * FSharpProjectOptions list) option
+    file   : string<LocalPath> ->
+    options: seq<string * FSharpProjectSnapshot>
+         -> option<FSharpProjectSnapshot * list<FSharpProjectSnapshot>>
 
   member GetProjectOptionsFromScript:
     file: string<LocalPath> * source: ISourceText * tfm: FSIRefs.TFM ->
       Async<FSharpProjectOptions * FSharpDiagnostic list>
 
+  member GetProjectSnapshotFromScript:
+    file: string<LocalPath> * source: ISourceTextNew * tfm: FSIRefs.TFM -> Async<FSharpProjectSnapshot>
+
   member ScriptTypecheckRequirementsChanged: IEvent<unit>
 
   member RemoveFileFromCache: file: string<LocalPath> -> unit
+
+  member ClearCache:
+   snap: seq<FSharpProjectSnapshot>
+      -> unit
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member ClearCaches: unit -> unit
@@ -82,14 +89,14 @@ type FSharpCompilerServiceChecker =
   member TryGetLastCheckResultForFile: file: string<LocalPath> -> ParseAndCheckResults option
 
   member TryGetRecentCheckResultsForFile:
-    file: string<LocalPath> * options: FSharpProjectOptions * source: ISourceText -> Async<ParseAndCheckResults option>
+    file: string<LocalPath> * options: FSharpProjectSnapshot * source: ISourceText -> Async<ParseAndCheckResults option>
 
   member GetUsesOfSymbol:
-    file: string<LocalPath> * options: (string * FSharpProjectOptions) seq * symbol: FSharpSymbol ->
+    file: string<LocalPath> * options: (string * FSharpProjectSnapshot) seq * symbol: FSharpSymbol ->
       Async<FSharpSymbolUse array>
 
   member FindReferencesForSymbolInFile:
-    file: string * project: FSharpProjectOptions * symbol: FSharpSymbol -> Async<seq<range>>
+    file: string * project: FSharpProjectSnapshot * symbol: FSharpSymbol -> Async<seq<range>>
 
   // member GetDeclarations:
   //   fileName: string<LocalPath> * source: ISourceText * options: FSharpProjectOptions * version: 'a ->

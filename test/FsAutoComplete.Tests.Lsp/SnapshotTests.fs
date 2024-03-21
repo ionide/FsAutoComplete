@@ -4,7 +4,8 @@ open System.IO
 open Ionide.ProjInfo
 open FsAutoComplete.Utils
 open FSharp.Data.Adaptive
-open  FsAutoComplete.Adaptive
+open FsAutoComplete.Adaptive
+open FsAutoComplete.ProjectWorkspace
 open System
 open FSharp.Compiler.Text
 open Ionide.ProjInfo.ProjectLoader
@@ -12,43 +13,13 @@ open Ionide.ProjInfo.Types
 open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 open FSharp.Compiler.CodeAnalysis
 open IcedTasks
+open FSharp.UMX
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 
-let rec findAllDependenciesOfAndIncluding key findNextKeys items =
-    amap {
-        // printfn "findAllDependenciesOfAndIncluding %A" key
-        let! item = AMap.tryFind key items
-        match item with
-        | None ->
-            ()
-        | Some item ->
-            yield key, item
-            let! dependencies =
-                item
-                |> AVal.map(
-                    findNextKeys
-                    >> Seq.map (fun newKey -> findAllDependenciesOfAndIncluding newKey findNextKeys items)
-                    >> Seq.fold(AMap.union) AMap.empty
-                )
-            yield! dependencies
-    }
 
-let rec findAllDependentsOfAndIncluding key findNextKeys items =
-    amap {
-        // printfn "findAllDependentsOfAndIncluding %A" key
-        let immediateDependents =
-            items
-            |> AMap.filterA (fun _ v -> v |> AVal.map (findNextKeys >> Seq.exists ((=) key)))
-        yield! immediateDependents
-        let! dependentOfDependents =
-            immediateDependents
-            |> AMap.map (fun nextKey _ -> findAllDependentsOfAndIncluding nextKey findNextKeys items)
-            |> AMap.fold(fun acc _ x -> AMap.union acc x) AMap.empty
-        yield! dependentOfDependents
-    }
 
 module Dotnet =
   let restore (projectPath : FileInfo) = async {
@@ -119,7 +90,7 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
       let loaded = projects |> List.map (fun p -> p.FullName) |> loader.LoadProjects |> Seq.cache
       onLoadCallback ()
       loaded
-      |> Seq.map(fun l -> l.ProjectFileName, AVal.constant l)
+      |> Seq.map(fun l -> normalizePath l.ProjectFileName, l)
       // projects
       // |> List.map(fun p -> p.FullName, AVal.constant(p, loaded |> Seq.find(fun l -> l.ProjectFileName = p.FullName)))
     )
@@ -128,220 +99,6 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
   loadedProjectsA
 
 
-
-module Snapshots =
-  open FsAutoComplete
-  open System.Threading
-
-  let loadFromDotnetDll (p: Types.ProjectOptions) : ProjectSnapshot.FSharpReferencedProjectSnapshot =
-    /// because only a successful compilation will be written to a DLL, we can rely on
-    /// the file metadata for things like write times
-    let projectFile = FileInfo p.TargetPath
-
-    let getStamp () =
-      projectFile.Refresh ()
-      projectFile.LastWriteTimeUtc
-
-    let getStream (_ctok: System.Threading.CancellationToken) =
-      try
-        projectFile.OpenRead() :> Stream |> Some
-      with _ ->
-        None
-
-    let delayedReader = DelayedILModuleReader(p.TargetPath, getStream)
-
-    ProjectSnapshot.FSharpReferencedProjectSnapshot.PEReference(getStamp, delayedReader)
-
-  let makeAdaptiveFCSSnapshot
-    projectFileName
-    projectId
-    sourceFiles
-    referencePaths
-    otherOptions
-    referencedProjects
-    isIncompleteTypeCheckEnvironment
-    useScriptResolutionRules
-    loadTime
-    unresolvedReferences
-    originalLoadReferences
-      =
-      aval {
-        let! projectFileName = projectFileName
-        and! projectId = projectId
-        and! sourceFiles = sourceFiles
-        and! referencePaths = referencePaths
-        and! otherOptions = otherOptions
-        and! referencedProjects = referencedProjects
-        and! isIncompleteTypeCheckEnvironment = isIncompleteTypeCheckEnvironment
-        and! useScriptResolutionRules = useScriptResolutionRules
-        and! loadTime = loadTime
-        and! unresolvedReferences = unresolvedReferences
-        and! originalLoadReferences = originalLoadReferences
-
-        // printfn "Snapshot %A" projectFileName
-        let snap = FSharpProjectSnapshot.Create(
-          projectFileName,
-          projectId,
-          sourceFiles,
-          referencePaths,
-          otherOptions,
-          referencedProjects  ,
-          isIncompleteTypeCheckEnvironment,
-          useScriptResolutionRules,
-          loadTime,
-          unresolvedReferences,
-          originalLoadReferences,
-          Some (DateTime.UtcNow.Ticks)
-        )
-
-        return snap
-      }
-
-  let makeAdaptiveFCSSnapshot2
-      projectFileName
-      projectId
-      (sourceFiles: aset<aval<FSharpFileSnapshot>>)
-      (referencePaths: aset<aval<ReferenceOnDisk>>)
-      (otherOptions: aset<aval<string>>)
-      (referencedProjects: aset<aval<FSharpReferencedProjectSnapshot>>)
-      isIncompleteTypeCheckEnvironment
-      useScriptResolutionRules
-      loadTime
-      unresolvedReferences
-      originalLoadReferences
-        =
-      let flattenASet (s: aset<aval<'a>>) = s |> ASet.mapA id |> ASet.toAVal |> AVal.map HashSet.toList
-      makeAdaptiveFCSSnapshot
-        projectFileName
-        projectId
-        (flattenASet sourceFiles)
-        (flattenASet referencePaths)
-        (flattenASet otherOptions)
-        (flattenASet referencedProjects)
-        isIncompleteTypeCheckEnvironment
-        useScriptResolutionRules
-        loadTime
-        unresolvedReferences
-        originalLoadReferences
-
-
-  let private createFSharpFileSnapshotOnDisk (sourceTextFactory : aval<ISourceTextFactory>) fileName  =
-    aval {
-      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc fileName
-      and! sourceTextFactory = sourceTextFactory
-      let getSource () = task {
-        // let! text = File.ReadAllTextAsync fileName
-        let fileName = normalizePath fileName
-        use s = File.openFileStreamForReadingAsync fileName
-
-        let! source = sourceTextFactory.Create(fileName, s) CancellationToken.None
-        return source :> ISourceTextNew
-      }
-      // printfn "Creating source text for %s" fileName
-      return ProjectSnapshot.FSharpFileSnapshot.Create(fileName, string writeTime.Ticks, getSource)
-    }
-
-  let private createReferenceOnDisk path : aval<ProjectSnapshot.ReferenceOnDisk> =
-    aval {
-      let! lastModified = AdaptiveFile.GetLastWriteTimeUtc path
-      return { LastModified = lastModified; Path = path }
-    }
-
-  let private createReferencedProjectsFSharpReference projectOutputFile (snapshot: aval<FSharpProjectSnapshot>) =
-    aval {
-      let! projectOutputFile = projectOutputFile
-      and! snapshot = snapshot
-      return FSharpReferencedProjectSnapshot.FSharpReference(projectOutputFile, snapshot)
-    }
-
-  let rec private createReferences
-    (cachedSnapshots: ChangeableHashMap<string,aval<FSharpProjectSnapshot>>)
-    (sourceTextFactory: aval<ISourceTextFactory>)
-    (loadedProjectsA: amap<string,aval<ProjectOptions>>)
-    (p : ProjectOptions) =
-    let deps =
-      loadedProjectsA
-      |> findAllDependenciesOfAndIncluding
-        p.ProjectFileName
-        (fun p -> p.ReferencedProjects |> List.map(_.ProjectFileName))
-    deps
-    |> AMap.filter(fun k _ -> k <> p.ProjectFileName)
-    |> AMap.mapAVal(fun _ p -> aval {
-      if p.ProjectFileName.EndsWith ".fsproj" then
-        let snapshot = optionsToSnapshot cachedSnapshots sourceTextFactory (createReferences cachedSnapshots sourceTextFactory deps) p
-        return! createReferencedProjectsFSharpReference (AVal.constant p.ResolvedTargetPath) snapshot
-      else
-        // TODO: Find if this needs to be adaptive or if `getStamp` in a PEReference will be enough
-        return loadFromDotnetDll p
-    })
-    |> AMap.toASetValues
-
-  and optionsToSnapshot
-    (cachedSnapshots : ChangeableHashMap<_,_>)
-    (sourceTextFactory: aval<ISourceTextFactory>)
-    (mapReferences: ProjectOptions -> aset<aval<FSharpReferencedProjectSnapshot>>)
-    (p : ProjectOptions) =
-
-    // printfn "optionsToSnapshot - enter %A" p.ProjectFileName
-    aval {
-      match! cachedSnapshots |> AMap.tryFind p.ProjectFileName with
-      | Some x ->
-        // printfn "optionsToSnapshot - Cache hit  %A" p.ProjectFileName
-        return! x
-      | None ->
-        // printfn "optionsToSnapshot - Cache miss %A" p.ProjectFileName
-        let projectName = p.ProjectFileName
-        let projectId = p.ProjectId |> AVal.constant
-
-        let sourceFiles =
-          // TODO Make it use "open files" and file system files
-          p.SourceFiles
-          |> ASet.ofList
-          |> ASet.map(createFSharpFileSnapshotOnDisk sourceTextFactory)
-
-        let references, otherOptions = p.OtherOptions |> List.partition (fun x -> x.StartsWith("-r:"))
-        let otherOptions = otherOptions |> ASet.ofList |> ASet.map(AVal.constant)
-        let referencePaths =
-          references
-          |> ASet.ofList
-          |> ASet.map(fun referencePath ->
-            let path = referencePath.Substring(3) // remove "-r:"
-            createReferenceOnDisk path
-          )
-        let referencedProjects = mapReferences p
-        let isIncompleteTypeCheckEnvironment = AVal.constant false
-        let useScriptResolutionRules = AVal.constant false
-        let loadTime = AVal.constant p.LoadTime
-        let unresolvedReferences = AVal.constant None
-        let originalLoadReferences = AVal.constant []
-
-        let snap =
-          makeAdaptiveFCSSnapshot2
-            (AVal.constant projectName)
-            projectId
-            sourceFiles
-            referencePaths
-            otherOptions
-            referencedProjects
-            isIncompleteTypeCheckEnvironment
-            useScriptResolutionRules
-            loadTime
-            unresolvedReferences
-            originalLoadReferences
-
-        transact <| fun () ->
-          cachedSnapshots.Add(projectName, snap) |> ignore<_>
-
-        return! snap
-    }
-
-  let createSnapshot
-    (cachedSnapshots: ChangeableHashMap<string,aval<FSharpProjectSnapshot>>)
-    (sourceTextFactory: aval<ISourceTextFactory>)
-    (loadedProjectsA: amap<string,aval<ProjectOptions>>)
-    (projectOptions: ProjectOptions) =
-    let mapReferences = createReferences cachedSnapshots sourceTextFactory loadedProjectsA
-    optionsToSnapshot cachedSnapshots sourceTextFactory mapReferences projectOptions
 
 
 let snapshotTests loaders toolsPath =
@@ -403,15 +160,14 @@ let snapshotTests loaders toolsPath =
 
 
         let snaps =
-          let cache = ChangeableHashMap()
-          loadedProjectsA |> AMap.mapAVal (fun _ v -> Snapshots.createSnapshot cache (AVal.constant sourceTextFactory) loadedProjectsA v)
+          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
         let snapshots = snaps |> AMap.force
 
-        let (project, snapshotA) = snapshots |> Seq.head
+        let (project, (_, snapshotA)) = snapshots |> Seq.head
         let snapshot = snapshotA |> AVal.force
         Expect.equal 1 loadedCalls "Loaded Projects should only get called 1 time"
-        Expect.equal snapshot.ProjectFileName project "Snapshot should have the same project file name as the project"
+        Expect.equal snapshot.ProjectFileName (UMX.untag project) "Snapshot should have the same project file name as the project"
         Expect.equal (Seq.length snapshot.SourceFiles) 3 "Snapshot should have the same number of source files as the project"
         Expect.equal (Seq.length snapshot.ReferencedProjects) 0 "Snapshot should have the same number of referenced projects as the project"
       }
@@ -428,23 +184,20 @@ let snapshotTests loaders toolsPath =
 
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
-        let cache = ChangeableHashMap()
-
         let snapsA =
-          loadedProjectsA
-          |> AMap.mapAVal (fun _ v -> Snapshots.createSnapshot cache (AVal.constant sourceTextFactory) loadedProjectsA v)
+          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
-        let snapshots = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal ls1 ls2 "library should be the same"
 
-        let cs1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal cs1 cs2 "console should be the same"
       }
@@ -460,13 +213,9 @@ let snapshotTests loaders toolsPath =
 
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
-        let cache = ChangeableHashMap()
-
         let snapsA =
-          loadedProjectsA
-          |> AMap.mapAVal (fun _ v -> Snapshots.createSnapshot cache (AVal.constant sourceTextFactory) loadedProjectsA v)
-
-        let snapshots = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
         // printfn "Setting last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
@@ -476,15 +225,15 @@ let snapshotTests loaders toolsPath =
         // printfn "last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal ls1 ls2 "library should be the same"
 
-        let cs1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal cs1.ProjectFileName cs2.ProjectFileName "Project file name should be the same"
         Expect.equal cs1.ProjectId cs2.ProjectId "Project Id name should be the same"
@@ -498,7 +247,6 @@ let snapshotTests loaders toolsPath =
         Expect.equal refLib2 ls2 "Referenced library should be the same as library snapshot"
         Expect.equal refLib1 refLib2 "Referenced library in both snapshots should be the same as library did not change in this test"
         Expect.notEqual cs1.Stamp cs2.Stamp "Stamp should not be the same"
-
       }
 
       testCaseAsync "Cached Adaptive Snapshot - MultiProject - Updating Source file in Library recreates Library and Console snapshot" <| asyncEx {
@@ -512,13 +260,11 @@ let snapshotTests loaders toolsPath =
 
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
-        let cache = ChangeableHashMap()
 
         let snapsA =
-          loadedProjectsA
-          |> AMap.mapAVal (fun _ v -> Snapshots.createSnapshot cache (AVal.constant sourceTextFactory) loadedProjectsA v)
+          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
-        let snapshots = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
         // printfn "Setting last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
@@ -527,10 +273,10 @@ let snapshotTests loaders toolsPath =
         libraryFile.Refresh()
         // printfn "last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ v -> v) |> AMap.force
+        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.notEqual ls1 ls2 "library should not be the same"
         Expect.equal ls1.ProjectFileName ls2.ProjectFileName "Project file name should be the same"
@@ -544,8 +290,8 @@ let snapshotTests loaders toolsPath =
         Expect.equal ls1.ReferencedProjects.Length 0 "Referenced projects length should be 0"
         Expect.notEqual ls1.Stamp ls2.Stamp "Stamp should not be the same"
 
-        let cs1 = snapshots |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find ((Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal cs1.ProjectFileName cs2.ProjectFileName "Project file name should be the same"
         Expect.equal cs1.ProjectId cs2.ProjectId "Project Id name should be the same"
@@ -555,7 +301,6 @@ let snapshotTests loaders toolsPath =
         let cs1File = cs1.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
         let cs2File = cs2.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
         Expect.equal cs1File.Version cs2File.Version "Console source file version should be the same"
-
         Expect.equal cs1.ReferencedProjects.Length cs2.ReferencedProjects.Length "Referenced projects length should be the same"
         Expect.equal cs1.ReferencedProjects.Length 1 "Referenced projects length should be 1"
         let refLib1 = cs1.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get

@@ -19,14 +19,8 @@
     <PackAsTool>true</PackAsTool>
   </PropertyGroup>
   <ItemGroup>
-    <None
-        Include="../../README.md"
-        Pack="true"
-        PackagePath="\" />
-    <None
-        Include="logo.png"
-        Pack="true"
-        PackagePath="\" />
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+    <None Include="logo.png" Pack="true" PackagePath="\" />
     <Compile Include="CommandResponse.fsi" />
     <Compile Include="CommandResponse.fs" />
     <Compile Include="JsonSerializer.fs" />
@@ -39,6 +33,7 @@
     <Compile Include="LspServers/IFSharpLspServer.fs" />
     <Compile Include="LspServers/FSharpLspClient.fsi" />
     <Compile Include="LspServers/FSharpLspClient.fs" />
+    <Compile Include="LspServers\ProjectWorkspace.fs" />
     <Compile Include="LspServers/Common.fs" />
     <Compile Include="LspServers/AdaptiveServerState.fsi" />
     <Compile Include="LspServers/AdaptiveServerState.fs" />
@@ -68,17 +63,12 @@
     <TargetsForTfmSpecificBuildOutput>
       $(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
-
   <!-- workaround for not being able to have p2p dependencies in tool output dir
   https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
-  <Target
-      Name="CopyProjectReferencesToPackage"
-      DependsOnTargets="ResolveReferences">
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
     <ItemGroup>
-      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths -&gt; WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
     </ItemGroup>
   </Target>
-
-
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

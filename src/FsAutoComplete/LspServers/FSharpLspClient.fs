@@ -149,16 +149,19 @@ open System.Diagnostics.Tracing
 open System.Collections.Concurrent
 open System.Diagnostics
 open Ionide.ProjInfo.Logging
+open System.Text.RegularExpressions
 
 
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
 type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
+  let traceNamespace = traceNamespace |> Array.map(fun x -> Regex(x, RegexOptions.Compiled))
+
   let isOneOf list string = list |> Array.exists (fun f -> f string)
 
   let strEquals (other: string) (this: string) = this.Equals(other, StringComparison.InvariantCultureIgnoreCase)
 
-  let strContains (substring: string) (str: string) = str.Contains(substring)
+  let strContains (substring: Regex) (str: string) = substring.IsMatch str
 
   let interestingActivities = traceNamespace |> Array.map strContains
 

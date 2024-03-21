@@ -676,7 +676,7 @@ module AsyncAVal =
   /// adaptive inputs.
   /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =
-    map (fun a ct -> Task.FromResult(mapping a ct)) input
+    map (fun a ct -> Task.Run(fun () -> mapping a ct)) input
 
   /// <summary>
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
