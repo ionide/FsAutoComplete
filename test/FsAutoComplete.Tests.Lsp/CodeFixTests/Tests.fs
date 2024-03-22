@@ -3435,4 +3435,5 @@ let tests textFactory state =
       removeUnnecessaryParenthesesTests state
       AddTypeAliasToSignatureFileTests.tests state
       UpdateTypeAbbreviationInSignatureFileTests.tests state
-      AddBindingToSignatureFileTests.tests state ]
+      AddBindingToSignatureFileTests.tests state
+      ReplaceLambdaWithDotLambdaTests.tests state ]
