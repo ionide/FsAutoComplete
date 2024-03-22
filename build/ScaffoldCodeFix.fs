@@ -299,7 +299,7 @@ let wireCodeFixInAdaptiveFSharpLspServer codeFixName =
   try
     let array = findArrayInAdaptiveFSharpLspServer ()
 
-    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseResultsForFile" AdaptiveServerStatePath array
+    appendItemToArrayOrList $"%s{codeFixName}.fix tryGetParseAndCheckResultsForFile" AdaptiveServerStatePath array
   with ex ->
     Trace.traceException ex
 
