@@ -3454,4 +3454,5 @@ let tests textFactory state =
       removeRedundantAttributeSuffixTests state
       removePatternArgumentTests state
       UpdateValueInSignatureFileTests.tests state
-      removeUnnecessaryParenthesesTests state ]
+      removeUnnecessaryParenthesesTests state
+      ExprTypeMismatchTests.tests state ]
