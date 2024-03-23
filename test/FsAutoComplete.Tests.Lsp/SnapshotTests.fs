@@ -217,11 +217,11 @@ let snapshotTests loaders toolsPath =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
         let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let libraryFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
+        let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
         // printfn "Setting last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
-        do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
-        libraryFile.Refresh()
+        do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
+        consoleFile.Refresh()
         // printfn "last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
 
@@ -311,5 +311,51 @@ let snapshotTests loaders toolsPath =
         Expect.notEqual cs1.Stamp cs2.Stamp "Stamp should not be the same"
 
       }
+
+      (*
+        Depending on the tree structure of the project, certain things will cause a reload of the project
+        and certain certain things will only cause a snapshot to be updated.
+
+        Also depending on the structure and update only subgraphs should change and not the entire graph.
+        We need to reason about each scenario below and create multiple tests for them based on different structures.
+
+        Also performance of bigger project graphs should be tested.
+      *)
+
+      // Add Project
+      // - Should cause a project reload
+      // Delete project
+      // - Should cause a project reload
+      // Rename Project
+      // - Should practically be "Delete" then "Add"
+      // - Unsure how this works with regards to updating all references to the project in other projects or solution files
+      // Move project
+      // - Should practically be "Delete" then "Add"
+      // - Unsure how this works with regards to updating all references to the project in other projects or solution files
+
+      // Add file
+      // - Should cause a project reload as this is a project file change
+      // Delete file
+      // - Should cause a project reload as this is a project file change
+      // Rename file
+      // - Should practically be "Delete" then "Add"
+      // Move file order
+      // - Should practically be "Delete" then "Add"
+      // Update file
+      // - Should cause a snapshot update and all depending snapshots but not a project reload
+
+      // Add package
+      // - Should cause a project reload
+      // Remove package
+      // - Should cause a project reload
+      // Update package
+      // - Should cause a project reload
+
+      // Add reference
+      // - Should cause a project reload
+      // Remove reference
+      // - Should cause a project reload
+      // Build referenced project that isn't fsproj
+      // - Probably should only cause a snapshot update but might depend on what was done the csproj as well
     ]
 ]
