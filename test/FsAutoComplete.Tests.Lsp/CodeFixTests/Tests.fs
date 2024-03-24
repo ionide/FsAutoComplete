@@ -3436,4 +3436,5 @@ let tests textFactory state =
       AddTypeAliasToSignatureFileTests.tests state
       UpdateTypeAbbreviationInSignatureFileTests.tests state
       AddBindingToSignatureFileTests.tests state
-      ReplaceLambdaWithDotLambdaTests.tests state ]
+      ReplaceLambdaWithDotLambdaTests.tests state
+      NegateBooleanExpressionTests.tests state ]

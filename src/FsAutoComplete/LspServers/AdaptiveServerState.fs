@@ -1925,7 +1925,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
          AddTypeAliasToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
          UpdateTypeAbbreviationInSignatureFile.fix tryGetParseAndCheckResultsForFile
          AddBindingToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
-         ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile |])
+         ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
+         NegateBooleanExpression.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
