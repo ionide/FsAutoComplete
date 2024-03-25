@@ -65,13 +65,9 @@ let mkFix (codeActionParams: CodeActionParams) (sourceText: ISourceText) fixData
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun (codeActionParams: CodeActionParams) ->
     asyncResult {
-      // Most code fixes have some general setup.
-      // We initially want to detect the state of the current code and whether we can propose any text edits to the user.
-
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-      // The converted LSP start position to an FCS start position.
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
-      // The syntax tree and typed tree, current line and sourceText of the current file.
+
       let! (parseAndCheckResults: ParseAndCheckResults, _line: string, sourceText: IFSACSourceText) =
         getParseResultsForFile fileName fcsPos
 
