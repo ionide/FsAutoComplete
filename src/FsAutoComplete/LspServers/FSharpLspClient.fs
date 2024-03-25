@@ -155,7 +155,8 @@ open System.Text.RegularExpressions
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
 type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) =
 
-  let traceNamespace = traceNamespace |> Array.map(fun x -> Regex(x, RegexOptions.Compiled))
+  let traceNamespace =
+    traceNamespace |> Array.map (fun x -> Regex(x, RegexOptions.Compiled))
 
   let isOneOf list string = list |> Array.exists (fun f -> f string)
 

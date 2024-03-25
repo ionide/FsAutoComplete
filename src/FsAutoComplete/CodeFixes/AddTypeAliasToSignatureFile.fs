@@ -51,7 +51,9 @@ let codeFixForImplementationFileWithSignature
     | Ok projectOptions ->
 
       let signatureFile = String.Concat(fileName, "i")
-      let hasSig = projectOptions.SourceFiles |> List.exists(fun s -> s.FileName = signatureFile )
+
+      let hasSig =
+        projectOptions.SourceFiles |> List.exists (fun s -> s.FileName = signatureFile)
 
       if not hasSig then
         return Ok []

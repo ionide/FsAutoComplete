@@ -1,13 +1,15 @@
 namespace FsAutoComplete.CodeFix
 
+#nowarn "57"
+
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Logging
 open FSharp.UMX
-open FsToolkit.ErrorHandling
 open FSharp.Compiler.Text
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -27,8 +29,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectSnapshot>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<FSharpProjectSnapshot>>
 
   [<RequireQualifiedAccess>]
   type FixKind =

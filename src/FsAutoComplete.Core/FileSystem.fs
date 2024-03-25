@@ -385,8 +385,9 @@ module RoslynSourceText =
 
       member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
         sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
+
     interface ISourceTextNew with
-        member this.GetChecksum() = sourceText.GetChecksum()
+      member this.GetChecksum() = sourceText.GetChecksum()
 
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText

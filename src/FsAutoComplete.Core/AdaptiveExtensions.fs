@@ -616,6 +616,13 @@ module AsyncAVal =
           AdaptiveCancellableTask(cancel, real) }
     :> asyncaval<_>
 
+  // Getting values from AVals can block the current thread. We do a lot of conversions between AVals and AsyncAvals
+  // so we need to make sure we don't block the threads with too many of these conversions otherwise we might start
+  // having threadpool exhaustion issues.
+  let avalSyncLock =
+    // Should have enough parallelism to allow others to finish but not too much to cause threadpool exhaustion
+    new SemaphoreSlim(Environment.ProcessorCount, Environment.ProcessorCount)
+
   /// <summary>
   /// Creates an async adaptive value evaluation the given value.
   /// </summary>
@@ -623,12 +630,28 @@ module AsyncAVal =
     if value.IsConstant then
       ConstantVal(Task.FromResult(AVal.force value)) :> asyncaval<_>
     else
+
       { new AbstractVal<'a>() with
           member x.Compute t =
+            let cts = new CancellationTokenSource()
+
+            let cancel () =
+              cts.TryCancel()
+              cts.TryDispose()
             let real =
-              // if out of date, assume it needs to run on the threadpool and not the current thread
-              Task.Run(fun () -> value.GetValue t)
-            AdaptiveCancellableTask(id, real) }
+              task {
+                do! avalSyncLock.WaitAsync(cts.Token)
+                try
+                  // Start this work on the threadpool so we can return AdaptiveCancellableTask and let the system cancel if needed
+                  // We do this because tasks will stay on the current thread unless there is an yield or await in them.
+                  return! Task.Run((fun () -> cts.Token.ThrowIfCancellationRequested(); value.GetValue t), cts.Token)
+                finally
+                  avalSyncLock.Release() |> ignore
+                  cts.TryDispose()
+              }
+
+            AdaptiveCancellableTask(cancel, real)
+            }
       :> asyncaval<_>
 
 

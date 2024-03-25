@@ -1,8 +1,6 @@
 namespace FsAutoComplete.ProjectWorkspace
+
 open System
-
-
-
 
 module Snapshots =
   open System
@@ -123,7 +121,8 @@ module Snapshots =
 
   // Could be configurable but this is a good default
   // https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector#large-object-heap-threshold
-  let [<Literal>] LargeObjectHeapThreshold = 85000
+  [<Literal>]
+  let LargeObjectHeapThreshold = 85000
 
   let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) fileName =
     aval {
@@ -190,7 +189,9 @@ module Snapshots =
     )
 
     loadedProjectsA
-    |> AMap.filter (fun k _ -> p.ReferencedProjects |> List.exists (fun x -> normalizePath x.ProjectFileName = k))
+    |> AMap.filter (fun k _ ->
+      p.ReferencedProjects
+      |> List.exists (fun x -> normalizePath x.ProjectFileName = k))
     |> AMap.map (fun _ proj ->
       if proj.ProjectFileName.EndsWith ".fsproj" then
 
@@ -228,6 +229,7 @@ module Snapshots =
         Log.setMessage "optionsToSnapshot - Cache hit - {projectFileName}"
         >> Log.addContextDestructured "projectFileName" p.ProjectFileName
       )
+
       snapshot
     | _ ->
       aval {
@@ -235,11 +237,12 @@ module Snapshots =
           Log.setMessage "optionsToSnapshot - Cache miss - {projectFileName}"
           >> Log.addContextDestructured "projectFileName" p.ProjectFileName
         )
+
         let projectName = AVal.constant p.ProjectFileName
         let projectId = p.ProjectId |> AVal.constant
 
 
-        let sourceFiles =  // alist because order matters for the F# Compiler
+        let sourceFiles = // alist because order matters for the F# Compiler
           p.SourceFiles
           |> AList.ofList
           |> AList.map (fun sourcePath ->
