@@ -180,4 +180,24 @@ type X() =
 
 let b = not (X().Y())"
 
+        testCaseAsync "negate instance member invocation"
+        <| CodeFix.check
+          server
+          "
+open System.Collections.Generic
+
+let foo () =
+    let dict = dict []
+    dict.TryAdd$0(\"foo\", \"bar\")
+    ()"
+          Diagnostics.acceptAll
+          selectCodeFix
+          "
+open System.Collections.Generic
+
+let foo () =
+    let dict = dict []
+    (not (dict.TryAdd(\"foo\", \"bar\")))
+    ()"
+
         ])

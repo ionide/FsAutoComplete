@@ -85,6 +85,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                   Path = path
                   NeedsParensAfterNot = true }
 
+            // X.Y()
+            | SynExpr.App(funcExpr = SynExpr.LongIdent(longDotId = LastIdentFromSynLongIdent ident))
+
             // X().Y()
             | SynExpr.App(funcExpr = SynExpr.DotGet(longDotId = LastIdentFromSynLongIdent ident))
 
