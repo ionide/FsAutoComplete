@@ -32,4 +32,14 @@ let tests state =
         "let a6 = [1] |> List.map(fun x -> x$0.ToString())"
         Diagnostics.acceptAll
         selectCodeFix
-        "let a6 = [1] |> List.map _.ToString()" ])
+        "let a6 = [1] |> List.map _.ToString()"
+
+      testCaseAsync "fun x -> x.ToString()"
+      <| CodeFix.check
+        server
+        "let a6 = fun$0 x -> x.ToString()"
+        Diagnostics.acceptAll
+        selectCodeFix
+        "let a6 = _.ToString()"
+
+      ])
