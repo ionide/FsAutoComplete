@@ -12,7 +12,7 @@ open FsAutoComplete.LspHelpers
 
 let title = "Negate boolean expression"
 
-let booleanOperators = set [ "||"; "&&"; "=" ] // TODO: probably some others
+let booleanOperators = set [ "||"; "&&"; "="; "<>" ]
 
 [<return: Struct>]
 let (|BooleanOperator|_|) =
@@ -76,50 +76,32 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         getParseResultsForFile fileName fcsPos
 
       let optFixData =
-        ParsedInput.tryNode fcsPos parseAndCheckResults.GetParseResults.ParseTree
-        |> Option.bind (fun (node, path) ->
-
+        (fcsPos, parseAndCheckResults.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun path node ->
           match node with
           | SyntaxNode.SynExpr e ->
-            match e, path with
-            // &&
-            | BooleanOperator operator,
-              SyntaxNode.SynExpr(SynExpr.App(isInfix = true)) :: SyntaxNode.SynExpr(SynExpr.App(isInfix = false) as e) :: rest ->
+            match e with
+            // a && b
+            | SynExpr.App(isInfix = false; funcExpr = SynExpr.App(isInfix = true; funcExpr = BooleanOperator operator)) ->
               Some
                 { Expr = e
                   Ident = operator
-                  Path = rest
+                  Path = path
                   NeedsParensAfterNot = true }
 
-            // $0X().Y
-            | SynExpr.Ident _,
-              SyntaxNode.SynExpr(SynExpr.App _) :: SyntaxNode.SynExpr(SynExpr.DotGet(
-                longDotId = LastIdentFromSynLongIdent ident) as e) :: rest ->
+            // X().Y()
+            | SynExpr.App(funcExpr = SynExpr.DotGet(longDotId = LastIdentFromSynLongIdent ident))
+
+            // X().Y
+            | SynExpr.DotGet(longDotId = LastIdentFromSynLongIdent ident) ->
               Some
                 { Expr = e
                   Ident = ident
-                  Path = rest
+                  Path = path
                   NeedsParensAfterNot = true }
 
-            // X$0()
-            | SynExpr.Ident ident, SyntaxNode.SynExpr(SynExpr.App _ as e) :: rest ->
-              Some
-                { Expr = e
-                  Ident = ident
-                  Path = rest
-                  NeedsParensAfterNot = true }
-
-            // X()$0
-            | (SynExpr.Const(constant = SynConst.Unit) | SynExpr.Paren _),
-              SyntaxNode.SynExpr(SynExpr.App(funcExpr = SynExpr.Ident ident) as e) :: rest ->
-              Some
-                { Expr = e
-                  Ident = ident
-                  Path = rest
-                  NeedsParensAfterNot = true }
-
-            // X().Y$0
-            | SynExpr.DotGet(longDotId = LastIdentFromSynLongIdent ident), path ->
+            // X()
+            | SynExpr.App(funcExpr = SynExpr.Ident ident) ->
               Some
                 { Expr = e
                   Ident = ident
@@ -127,14 +109,14 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                   NeedsParensAfterNot = true }
 
             // a.Y
-            | SynExpr.LongIdent(isOptional = false; longDotId = LastIdentFromSynLongIdent ident), path ->
+            | SynExpr.LongIdent(isOptional = false; longDotId = LastIdentFromSynLongIdent ident) ->
               Some
                 { Expr = e
                   Ident = ident
                   Path = path
                   NeedsParensAfterNot = false }
             // a
-            | SynExpr.Ident ident, path ->
+            | SynExpr.Ident ident ->
               Some
                 { Expr = e
                   Ident = ident

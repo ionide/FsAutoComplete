@@ -16,7 +16,7 @@ let tests state =
     (fun server ->
       [ let selectCodeFix = CodeFix.withTitle NegateBooleanExpression.title
 
-        ftestCaseAsync "negate single identifier"
+        testCaseAsync "negate single identifier"
         <| CodeFix.check
           server
           "let a = false
@@ -26,7 +26,7 @@ let b = a$0"
           "let a = false
 let b = not a"
 
-        ftestCaseAsync "negate boolean expression"
+        testCaseAsync "negate boolean expression"
         <| CodeFix.check
           server
           "let a = false
@@ -36,7 +36,7 @@ let b = a $0|| false"
           "let a = false
 let b = not (a || false)"
 
-        ftestCaseAsync "negate longdotident expression"
+        testCaseAsync "negate longdotident expression"
         <| CodeFix.check
           server
           "
@@ -52,7 +52,7 @@ module A =
 
 let b = not A.a"
 
-        ftestCaseAsync "negate record field"
+        testCaseAsync "negate record field"
         <| CodeFix.check
           server
           "
@@ -68,7 +68,7 @@ type X = { Y: bool }
 let a = { Y = true }
 let b = not a.Y"
 
-        ftestCaseAsync "negate class property"
+        testCaseAsync "negate class property"
         <| CodeFix.check
           server
           "
@@ -84,7 +84,7 @@ type X() =
 
 let b = not (X().Y)"
 
-        ftestCaseAsync "negate class property, cursor at start"
+        testCaseAsync "negate class property, cursor at start"
         <| CodeFix.check
           server
           "
@@ -100,7 +100,7 @@ type X() =
 
 let b = not (X().Y)"
 
-        ftestCaseAsync "negate unit function call"
+        testCaseAsync "negate unit function call"
         <| CodeFix.check
           server
           "
@@ -112,7 +112,7 @@ let b = a$0 ()"
 let a () = false
 let b = not (a ())"
 
-        ftestCaseAsync "negate unit function call, cursor at end"
+        testCaseAsync "negate unit function call, cursor at end"
         <| CodeFix.check
           server
           "
@@ -124,7 +124,7 @@ let b = a ()$0"
 let a () = false
 let b = not (a ())"
 
-        ftestCaseAsync "negate unit function call, cursor at end"
+        testCaseAsync "negate non-unit function call, cursor at end"
         <| CodeFix.check
           server
           "
@@ -136,19 +136,19 @@ let b = a 4$0"
 let a _ = false
 let b = not (a 4)"
 
-        ftestCaseAsync "negate unit function call, cursor at end"
+        testCaseAsync "negate non-unit function call, cursor in middle"
         <| CodeFix.check
           server
           "
 let a _ = false
-let b = a 4$0"
+let b = a $0 4"
           Diagnostics.acceptAll
           selectCodeFix
           "
 let a _ = false
-let b = not (a 4)"
+let b = not (a  4)"
 
-        ftestCaseAsync "negate unit member invocation"
+        testCaseAsync "negate unit member invocation"
         <| CodeFix.check
           server
           "
@@ -164,7 +164,7 @@ type X() =
 
 let b = not (X().Y())"
 
-        ftestCaseAsync "negate unit member invocation, cursor at end"
+        testCaseAsync "negate unit member invocation, cursor at end"
         <| CodeFix.check
           server
           "
