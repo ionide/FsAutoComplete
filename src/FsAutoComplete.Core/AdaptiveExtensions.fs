@@ -638,20 +638,27 @@ module AsyncAVal =
             let cancel () =
               cts.TryCancel()
               cts.TryDispose()
+
             let real =
               task {
                 do! avalSyncLock.WaitAsync(cts.Token)
+
                 try
                   // Start this work on the threadpool so we can return AdaptiveCancellableTask and let the system cancel if needed
                   // We do this because tasks will stay on the current thread unless there is an yield or await in them.
-                  return! Task.Run((fun () -> cts.Token.ThrowIfCancellationRequested(); value.GetValue t), cts.Token)
+                  return!
+                    Task.Run(
+                      (fun () ->
+                        cts.Token.ThrowIfCancellationRequested()
+                        value.GetValue t),
+                      cts.Token
+                    )
                 finally
                   avalSyncLock.Release() |> ignore
                   cts.TryDispose()
               }
 
-            AdaptiveCancellableTask(cancel, real)
-            }
+            AdaptiveCancellableTask(cancel, real) }
       :> asyncaval<_>
 
 

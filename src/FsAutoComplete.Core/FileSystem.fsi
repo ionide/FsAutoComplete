@@ -104,6 +104,11 @@ type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
   abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
 
+
+module SourceTextFactory =
+  val readFile:
+    fileName: string<LocalPath> -> sourceTextFactory: ISourceTextFactory -> CancellableValueTask<IFSACSourceText>
+
 type RoslynSourceTextFactory =
   new: unit -> RoslynSourceTextFactory
   interface ISourceTextFactory

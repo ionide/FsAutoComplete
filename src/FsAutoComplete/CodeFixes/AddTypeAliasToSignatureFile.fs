@@ -37,29 +37,29 @@ type SynTypeDefn with
 
 let title = "Add type alias to signature file"
 
-let codeFixForImplementationFileWithSignature
-  (getProjectOptionsForFile: GetProjectOptionsForFile)
-  (codeFix: CodeFix)
-  (codeActionParams: CodeActionParams)
-  : Async<Result<Fix list, string>> =
-  async {
-    let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-    let! project = getProjectOptionsForFile fileName
+// let codeFixForImplementationFileWithSignature
+//   (getProjectOptionsForFile: GetProjectOptionsForFile)
+//   (codeFix: CodeFix)
+//   (codeActionParams: CodeActionParams)
+//   : Async<Result<Fix list, string>> =
+//   async {
+//     let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+//     let project = getProjectOptionsForFile fileName
 
-    match project with
-    | Error _ -> return Ok []
-    | Ok projectOptions ->
+//     match project with
+//     | Error _ -> return Ok []
+//     | Ok projectOptions ->
 
-      let signatureFile = String.Concat(fileName, "i")
+//       let signatureFile = String.Concat(fileName, "i")
 
-      let hasSig =
-        projectOptions.SourceFiles |> List.exists (fun s -> s.FileName = signatureFile)
+//       let hasSig =
+//         projectOptions.SourceFiles |> List.exists (fun s -> s.FileName = signatureFile)
 
-      if not hasSig then
-        return Ok []
-      else
-        return! codeFix codeActionParams
-  }
+//       if not hasSig then
+//         return Ok []
+//       else
+//         return! codeFix codeActionParams
+//   }
 
 let fix
   (getProjectOptionsForFile: GetProjectOptionsForFile)

@@ -119,36 +119,18 @@ module Snapshots =
       unresolvedReferences
       originalLoadReferences
 
-  // Could be configurable but this is a good default
-  // https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector#large-object-heap-threshold
-  [<Literal>]
-  let LargeObjectHeapThreshold = 85000
-
   let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) fileName =
     aval {
       let! writeTime = AdaptiveFile.GetLastWriteTimeUtc fileName
       and! sourceTextFactory = sourceTextFactory
 
-      let getSource () =
-        task {
+      let fileNorm = normalizePath fileName
 
-          let file = Utils.normalizePath fileName
+      let getSource () = task {
+        let! sourceText = SourceTextFactory.readFile fileNorm sourceTextFactory CancellationToken.None
+        return sourceText :> ISourceTextNew
+      }
 
-          // use large object heap hits or threadpool hits? Which is worse? Choose your foot gun.
-
-          if FileInfo(fileName).Length >= LargeObjectHeapThreshold then
-            // Roslyn SourceText doesn't actually support async streaming reads but avoids the large object heap hit
-            // so we have to block a thread.
-            use s = File.openFileStreamForReadingAsync file
-            let! source = sourceTextFactory.Create (file, s) CancellationToken.None
-            return source :> ISourceTextNew
-          else
-            // otherwise it'll be under the LOH threshold and the current thread isn't blocked
-            let! text = File.ReadAllTextAsync fileName
-            let source = sourceTextFactory.Create(file, text)
-            return source :> ISourceTextNew
-        }
-      // printfn "Creating source text for %s" fileName
       return ProjectSnapshot.FSharpFileSnapshot.Create(fileName, string writeTime.Ticks, getSource)
     }
 

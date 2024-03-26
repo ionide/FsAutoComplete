@@ -38,7 +38,6 @@ open FsAutoComplete.Lsp.Helpers
 open FSharp.Compiler.Syntax
 open FsAutoComplete.ProjectWorkspace
 
-
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
   | Projs of HashSet<string<LocalPath>>
@@ -48,8 +47,6 @@ type WorkspaceChosen =
 type AdaptiveWorkspaceChosen =
   | Projs of amap<string<LocalPath>, DateTime>
   | NotChosen
-
-
 
 [<AutoOpen>]
 module Helpers3 =
@@ -61,6 +58,10 @@ module Helpers3 =
       match x with
       | FSharpReferencedProjectSnapshot.FSharpReference(snapshot = snapshot) -> snapshot.ProjectFileName |> Some
       | _ -> None
+
+  type FSharpProjectSnapshot with
+
+    member x.SourcePaths = x.SourceFiles |> List.map (fun f -> normalizePath f.FileName)
 
 [<CustomEquality; NoComparison>]
 type LoadedProject =
@@ -722,12 +723,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     AdaptiveFile.GetLastWriteTimeUtc(UMX.untag filePath)
     |> AVal.map (fun writeTime -> filePath, writeTime)
 
-  let readFileFromDisk lastTouched (file: string<LocalPath>) =
+  let createVolatileFileFromDisk lastTouched (file: string<LocalPath>) =
     async {
       if File.Exists(UMX.untag file) then
-        use s = File.openFileStreamForReadingAsync file
-
-        let! source = sourceTextFactory.Create(file, s) |> Async.AwaitCancellableValueTask
+        let! source = SourceTextFactory.readFile file sourceTextFactory
 
         return
           { LastTouched = lastTouched
@@ -739,12 +738,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           { LastTouched = DateTime.UtcNow
             Source = sourceTextFactory.Create(file, "")
             Version = 0 }
-    }
-
-  let getLatestFileChange (filePath: string<LocalPath>) =
-    asyncAVal {
-      let! (_, lastTouched) = getLastUTCChangeForFile filePath
-      return! readFileFromDisk lastTouched filePath
     }
 
   let addAValLogging cb (aval: aval<_>) =
@@ -823,9 +816,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let (|MSBuildAllProjects|_|) (props: list<Types.Property>) =
     tryFindProp "MSBuildAllProjects" props
     |> Option.map (fun v -> v.Split(';', StringSplitOptions.RemoveEmptyEntries))
-
-
-
 
   let loadProjects (loader: IWorkspaceLoader) binlogConfig projects =
     logger.info (Log.setMessageI $"Enter loading projects")
@@ -1068,7 +1058,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   //   |> disposables.Add
 
 
-  let sourceFileToProjectOptions =
+  let sourceFileToLoadedProjects =
 
     amap {
       let! snaps = loadedProjects |> AMap.toAVal
@@ -1082,6 +1072,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           |> List.map (fun source -> Utils.normalizePath source, (proj))
           |> List.groupByFst)
     }
+
+  let sourceFileToLoadedProject =
+    sourceFileToLoadedProjects
+    |> AMap.mapA (fun sourceFile loadedProjects ->
+      projectSelector
+      |> AVal.map (fun selectProject -> selectProject.FindProject(sourceFile, loadedProjects)))
 
   let cancelToken filePath version (cts: CancellationTokenSource) =
 
@@ -1151,7 +1147,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
           let lastTouched = File.getLastWriteTimeOrDefaultNow file
 
-          return! readFileFromDisk lastTouched file
+          return! createVolatileFileFromDisk lastTouched file
 
         with e ->
           logger.warn (
@@ -1183,9 +1179,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   /// <param name="source">The source to be parsed.</param>
   /// <param name="snap"></param>
   /// <returns></returns>
-  let parseFile (checker: FSharpCompilerServiceChecker) (source: VolatileFile) snap =
+  let parseFile (checker: FSharpCompilerServiceChecker) (source) snap =
     async {
-      let! result = checker.ParseFile(source.FileName, source.Source, snap)
+      let! result = checker.ParseFile(source, snap)
 
       let! ct = Async.CancellationToken
       fileParsed.Trigger(result, snap, ct)
@@ -1210,22 +1206,17 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       return
         projects
         |> HashSet.toArray
-        |> Array.collect (fun (snap) -> snap.SourceFiles |> List.toArray |> Array.map (fun s -> snap, s))
+        |> Array.collect (fun (snap) -> snap.SourcePaths |> List.toArray |> Array.map (fun s -> snap, s))
         |> Array.map (fun (snap, fileName) ->
-          let fileName = UMX.tag fileName.FileName
 
-          asyncResult {
-            let! file = forceFindOpenFileOrRead fileName
-            return! parseFile checker file snap
-          }
-          |> Async.map Result.toOption)
+          parseFile checker fileName snap)
         |> Async.parallel75
     }
 
   let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
 
 
-  let openFilesToChangesAndProjectOptions =
+  let openFilesToChangesAndLoadedProject =
     openFilesWithChanges
     |> AMapAsync.mapAVal (fun filePath file ctok ->
       asyncAVal {
@@ -1233,7 +1224,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           let! (checker: FSharpCompilerServiceChecker) = checker
           and! tfmConfig = tfmConfig
 
-          let! projs =
+          let! proj =
             asyncResult {
               let cts = getOpenFileTokenOrDefault filePath
               use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts)
@@ -1293,7 +1284,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                   { FSharpProjectSnapshot = AVal.constant opts
                     LanguageVersion = LanguageVersionShim.fromFSharpProjectSnapshot opts
                     ProjectOptions = projectOptions }
-                  |> List.singleton
 
               with e ->
                 logger.error (
@@ -1305,57 +1295,45 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 return! Error $"Error getting project options for {filePath} - {e.Message}"
             }
 
-          return file, projs
+          return file, proj
         else
-          let! projs =
-            sourceFileToProjectOptions
+          let! proj =
+            sourceFileToLoadedProject
             |> AMap.tryFindR
               $"Couldn't find {filePath} in LoadedProjects. Have the projects loaded yet or have you tried restoring your project/solution?"
               filePath
+            |> AVal.map (Result.bind id)
 
 
-          return file, projs
+          return file, proj
       })
 
   let allFSharpFilesAndProjectOptions =
     let wins =
-      openFilesToChangesAndProjectOptions
-      |> AMap.map (fun _k v -> v |> AsyncAVal.mapSync (fun (file, projects) _ -> file, projects))
+      openFilesToChangesAndLoadedProject
+      |> AMap.map (fun _ v -> v |> AsyncAVal.mapSync (fun (_, projects) _ -> projects))
 
-    let loses =
-      sourceFileToProjectOptions
-      |> AMap.map (fun filePath v ->
-        asyncAVal {
-          let! file = getLatestFileChange filePath
-          return (file, Ok v)
-        })
+    let loses = sourceFileToLoadedProject |> AMap.map (fun _ v -> AsyncAVal.constant v)
 
     AMap.union loses wins
 
-  let allFilesToFSharpProjectOptions =
-    allFSharpFilesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun _filePath (_file, options) _ctok -> AsyncAVal.constant options)
 
   let allFilesParsed =
     allFSharpFilesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun _filePath (file, options: Result<LoadedProject list, string>) _ctok ->
+    |> AMapAsync.mapAsyncAVal (fun filePath (loadedProject: Result<LoadedProject, string>) _ctok ->
       asyncAVal {
         let! (checker: FSharpCompilerServiceChecker) = checker
-        and! selectProject = projectSelector
-
-        let loadedProject =
-          options |> Result.bind (fun p -> selectProject.FindProject(file.FileName, p))
 
         match loadedProject with
         | Ok x ->
           let! snap = x.FSharpProjectSnapshot
-          let! r = parseFile checker file snap
+          let! r = parseFile checker filePath snap
           return Ok r
         | Error e -> return Error e
       })
 
-  let getAllFilesToProjectOptions () =
-    allFilesToFSharpProjectOptions
+  let getAllFilesToLoadedProject () =
+    allFSharpFilesAndProjectOptions
     // |> AMap.toASetValues
     |> AMap.force
     |> HashMap.toArray
@@ -1368,23 +1346,17 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let getAllFilesToProjectOptionsSelected () =
     async {
-      let! set = getAllFilesToProjectOptions ()
-      let selectProject = projectSelector |> AVal.force
-      let findProject file projects = selectProject.FindProject(file, projects)
+      let! set = getAllFilesToLoadedProject ()
 
       return
         set
-        |> Array.choose (fun (k, v) ->
-          v
-          |> Result.bind (findProject k)
-          |> Result.toOption
-          |> Option.map (fun v -> k, v))
+        |> Array.choose (fun (k, v) -> v |> Result.toOption |> Option.map (fun v -> k, v))
     }
 
   let getAllProjectOptions () =
     async {
       let! set =
-        allFilesToFSharpProjectOptions
+        allFSharpFilesAndProjectOptions
         |> AMap.toASetValues
         |> ASet.force
         |> HashSet.toArray
@@ -1393,7 +1365,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let set = set |> Array.choose (Result.toOption)
 
-      return set |> Array.collect (List.toArray)
+      return set
     }
 
   let getAllFSharpProjectOptions () =
@@ -1401,9 +1373,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     |> Async.map (Array.map (fun x -> AVal.force x.FSharpProjectSnapshot))
 
 
-  let getProjectOptionsForFile (filePath: string<LocalPath>) =
+  let getLoadedProjectForFile (filePath: string<LocalPath>) =
     asyncAVal {
-      match! allFilesToFSharpProjectOptions |> AMapAsync.tryFindA filePath with
+      match! allFSharpFilesAndProjectOptions |> AMapAsync.tryFindA filePath with
       | Some projs -> return projs
       | None -> return Error $"Couldn't find project for {filePath}. Have you tried restoring your project/solution?"
     }
@@ -1430,19 +1402,19 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   /// <summary>Gets Parse and Check results of a given file while also handling other concerns like Progress, Logging, Eventing.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
   /// <param name="file">The name of the file in the project whose source to find a typecheck.</param>
-  /// <param name="options">The options for the project or script.</param>
+  /// <param name="snapshot">The options for the project or script.</param>
   /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
   /// <returns></returns>
   let parseAndCheckFile
     (checker: FSharpCompilerServiceChecker)
     (file: VolatileFile)
-    (options: FSharpProjectSnapshot)
+    (snapshot: FSharpProjectSnapshot)
     shouldCache
     =
     async {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
-          SemanticConventions.projectFilePath, box (options.ProjectFileName) ]
+          SemanticConventions.projectFilePath, box (snapshot.ProjectFileName) ]
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -1462,13 +1434,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Source.FileName}")
 
       let! result =
-        checker.ParseAndCheckFileInProject(
-          file.Source.FileName,
-          (file.Source.GetHashCode()),
-          file.Source,
-          options,
-          shouldCache = shouldCache
-        )
+        checker.ParseAndCheckFileInProject(file.Source.FileName, snapshot, shouldCache = shouldCache)
         |> Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Source.FileName}"
 
       do! progressReport.End($"Typechecked {file.Source.FileName}")
@@ -1491,7 +1457,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         )
 
 
-        fileParsed.Trigger(parseAndCheck.GetParseResults, options, ct)
+        fileParsed.Trigger(parseAndCheck.GetParseResults, snapshot, ct)
         fileChecked.Trigger(parseAndCheck, file, ct)
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
@@ -1534,21 +1500,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
   let openFilesToRecentCheckedFilesResults =
-    openFilesToChangesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun _ (info, projectOptions) _ ->
+    openFilesToChangesAndLoadedProject
+    |> AMapAsync.mapAsyncAVal (fun _ (info, loadedProject) _ ->
       asyncAVal {
         let file = info.Source.FileName
         let! checker = checker
-        and! selectProject = projectSelector
 
-        let options =
-          result {
-            let! projectOptions = projectOptions
-            let! opts = selectProject.FindProject(file, projectOptions)
-            return opts
-          }
-
-        match options with
+        match loadedProject with
         | Ok x ->
           let! snap = x.FSharpProjectSnapshot
 
@@ -1560,18 +1518,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       })
 
   let openFilesToCheckedFilesResults =
-    openFilesToChangesAndProjectOptions
-    |> AMapAsync.mapAsyncAVal (fun _ (info, projectOptions) ctok ->
+    openFilesToChangesAndLoadedProject
+    |> AMapAsync.mapAsyncAVal (fun _ (info, loadedProject) ctok ->
       asyncAVal {
         let file = info.FileName
         let! checker = checker
-        and! selectProject = projectSelector
 
-        let options =
-          projectOptions |> Result.bind (fun p -> selectProject.FindProject(file, p))
-
-
-        match options with
+        match loadedProject with
         | Error e -> return Error e
         | Ok x ->
           let! snap = x.FSharpProjectSnapshot
@@ -1616,16 +1569,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
 
 
-  let forceGetProjectOptions filePath =
-    asyncAVal {
-      let! projects = getProjectOptionsForFile filePath
-      and! selectProject = projectSelector
-
-      match projects with
-      | Ok projects -> return selectProject.FindProject(filePath, projects)
-      | Error e -> return Error e
-    }
-    |> AsyncAVal.forceAsync
+  let forceGetProjectOptions filePath = getLoadedProjectForFile filePath |> AsyncAVal.forceAsync
 
   let forceGetFSharpProjectOptions filePath =
     forceGetProjectOptions filePath
@@ -1786,12 +1730,10 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let getDeclarationLocation (symbolUse, text) =
     let getProjectOptions file =
       async {
-        let! projects = getProjectOptionsForFile file |> AsyncAVal.forceAsync
-        let selectProject = projectSelector |> AVal.force
+        let! projects = getLoadedProjectForFile file |> AsyncAVal.forceAsync
 
         return
           projects
-          |> Result.bind (fun p -> selectProject.FindProject(file, p))
           |> Result.toOption
           |> Option.map (fun project -> AVal.force project.FSharpProjectSnapshot)
 
@@ -1799,9 +1741,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let projectsThatContainFile file =
       async {
-        let! projects = getProjectOptionsForFile file |> AsyncAVal.forceAsync
-        let projects = projects |> Result.toOption |> Option.defaultValue []
-        return projects |> List.map (fun p -> AVal.force p.FSharpProjectSnapshot)
+        let! project = getLoadedProjectForFile file |> AsyncAVal.forceAsync
+
+        let projects =
+          project
+          |> Result.map (fun p -> AVal.force p.FSharpProjectSnapshot |> List.singleton)
+
+        return projects |> Result.defaultWith (fun _ -> [])
       }
 
     SymbolLocation.getDeclarationLocation (
@@ -2038,12 +1984,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             if isInside (rootDir, fileDir) then
               return false
             else
-              let! projectOptions = getProjectOptionsForFile file
+              let! projectOptions = getLoadedProjectForFile file
 
-              match
-                projectOptions
-                |> Result.bind (fun projs -> selectProject.FindProject(file, projs))
-              with
+              match projectOptions with
               | Error _ -> return true
               | Ok projectOptions ->
                 if doesNotExist (UMX.tag projectOptions.ProjectFileName) then
@@ -2090,49 +2033,40 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let getDependentFilesForFile file =
     async {
-      let! projects = getProjectOptionsForFile file |> AsyncAVal.forceAsync
-      let projects = projects |> Result.toOption |> Option.defaultValue []
+      let! project = getLoadedProjectForFile file |> AsyncAVal.forceAsync
 
-      return
-        projects
-        |> List.toArray
-        |> Array.collect (fun proj ->
-          logger.info (
-            Log.setMessage "Source Files: {sourceFiles}"
-            >> Log.addContextDestructured "sourceFiles" proj.SourceFiles
-          )
+      match project with
+      | Ok project ->
+        let sourceFiles = project.SourceFiles
+        let idx = sourceFiles |> Array.findIndex (fun x -> x = UMX.untag file)
 
-          let sourceFiles = proj.SourceFiles
-          let idx = sourceFiles |> Array.findIndex (fun x -> x = UMX.untag file)
-
+        return
           sourceFiles
           |> Array.splitAt idx
           |> snd
-          |> Array.map (fun sourceFile -> AVal.force proj.FSharpProjectSnapshot, sourceFile))
-        |> Array.distinct
+          |> Array.map (fun sourceFile -> AVal.force project.FSharpProjectSnapshot, sourceFile)
+
+      | Error _ -> return Array.empty
+
     }
 
 
 
   let bypassAdaptiveAndCheckDependenciesForFile (sourceFilePath: string<LocalPath>) =
-    async {
+    asyncResult {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag sourceFilePath) ]
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
       let! dependentFiles = getDependentFilesForFile sourceFilePath
 
-      let! projs = getProjectOptionsForFile sourceFilePath |> AsyncAVal.forceAsync
+      let! loadedProject = getLoadedProjectForFile sourceFilePath |> AsyncAVal.forceAsync
 
       let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
 
-      let projs =
-        projs
-        |> Result.toOption
-        |> Option.defaultValue []
-        |> List.map (fun x -> AVal.force x.FSharpProjectSnapshot)
+      let snap = AVal.force loadedProject.FSharpProjectSnapshot
 
-      let dependentProjects = projs |> getDependentProjectsOfProjects
+      let dependentProjects = [ snap ] |> getDependentProjectsOfProjects
 
       let dependentProjectsAndSourceFiles =
         dependentProjects
@@ -2195,6 +2129,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           message = $"0/{checksToPerform.Length} remaining",
           percentage = percentage 0 checksToPerform.Length
         )
+        |> Async.AwaitCancellableTask
 
       do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
 
@@ -2276,7 +2211,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         textChanges.Remove filePath |> ignore<bool>)
 
       let! _ = forceGetOpenFileTypeCheckResults filePath
-      do! bypassAdaptiveAndCheckDependenciesForFile filePath
+      let! _ = bypassAdaptiveAndCheckDependenciesForFile filePath
+      return ()
     }
 
 
@@ -2284,8 +2220,6 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   member x.ForgetDocument(filePath) = forgetDocument filePath
 
   member x.ParseAllFiles() = parseAllFiles () |> AsyncAVal.forceAsync
-
-  member x.GetOpenFile(filePath) = forceFindOpenFile filePath
 
   member x.GetOpenFileSource(filePath) = forceFindSourceText filePath
 

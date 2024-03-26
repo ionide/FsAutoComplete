@@ -194,7 +194,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       let allModifications =
         // filterBadRuntimeRefs >>
-        addLoadedFiles  >> fixupFsharpCoreAndFSIPaths
+        addLoadedFiles >> fixupFsharpCoreAndFSIPaths
 
       let modified = allModifications snapshot
 
@@ -207,9 +207,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     }
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm: FSIRefs.TFM) =
-        match tfm with
-        | FSIRefs.TFM.NetFx -> self.GetNetFxScriptOptions(file, source)
-        | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
+    match tfm with
+    | FSIRefs.TFM.NetFx -> self.GetNetFxScriptOptions(file, source)
+    | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
 
 
   member __.ScriptTypecheckRequirementsChanged =
@@ -217,10 +217,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   member _.RemoveFileFromCache(file: string<LocalPath>) = lastCheckResults.Remove(file)
 
-  member _.ClearCache(snap : FSharpProjectSnapshot seq) =
-    snap
-    |> Seq.map(fun x -> x.Identifier)
-    |> checker.ClearCache
+  member _.ClearCache(snap: FSharpProjectSnapshot seq) = snap |> Seq.map (fun x -> x.Identifier) |> checker.ClearCache
 
   /// This function is called when the entire environment is known to have changed for reasons not encoded in the ProjectOptions of any project/compilation.
   member _.ClearCaches() =
@@ -231,12 +228,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
   /// <param name="filePath"> The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
-  /// <param name="source">The source to be parsed.</param>
   /// <param name="snapshot">Parsing options for the project or script.</param>
   /// <returns></returns>
-  member x.ParseFile(filePath: string<LocalPath>, source: ISourceText, snapshot: FSharpProjectSnapshot) =
+  member x.ParseFile(filePath: string<LocalPath>, snapshot: FSharpProjectSnapshot) =
     async {
-      let _source = source
       checkerLogger.info (
         Log.setMessage "ParseFile - {file}"
         >> Log.addContextDestructured "file" filePath
@@ -248,8 +243,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
-  /// <param name="version">An integer that can be used to indicate the version of the file. This will be returned by TryGetRecentCheckResultsForFile when looking up the file</param>
-  /// <param name="source">The source for the file.</param>
   /// <param name="snapshot">The snapshot for the project or script.</param>
   /// <param name="shouldCache">Determines if the typecheck should be cached for autocompletions.</param>
   /// <remarks>Note: all files except the one being checked are read from the FileSystem API</remarks>
@@ -257,14 +250,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   member _.ParseAndCheckFileInProject
     (
       filePath: string<LocalPath>,
-      version: int,
-      source: ISourceText,
       snapshot: FSharpProjectSnapshot,
       ?shouldCache: bool
     ) =
     asyncResult {
-      let _source = source
-      let _version = version
       let shouldCache = defaultArg shouldCache false
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
 
@@ -435,8 +424,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     else
       let additionalArgs, files = processFSIArgs args
       fsiAdditionalArguments <- additionalArgs
+
       fsiAdditionalFiles <-
         files
         |> Array.map (fun f -> FSharpFileSnapshot.CreateFromFileSystem(System.IO.Path.GetFullPath f))
         |> Array.toList
+
       scriptTypecheckRequirementsChanged.Trigger()
