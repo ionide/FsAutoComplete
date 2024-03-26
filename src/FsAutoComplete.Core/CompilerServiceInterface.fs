@@ -318,33 +318,20 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | (true, v) -> Some v
     | _ -> None
 
-  member _.TryGetRecentCheckResultsForFile
-    (
-      file: string<LocalPath>,
-      snapshot: FSharpProjectSnapshot,
-      source: ISourceText
-    ) =
-    async {
-      let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
+  member _.TryGetRecentCheckResultsForFile(file: string<LocalPath>, snapshot: FSharpProjectSnapshot) =
+    let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
+    checkerLogger.info (Log.setMessage "{opName} - {hash}" >> Log.addContextDestructured "opName" opName)
+
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
+    |> Option.map (fun (pr, cr) ->
       checkerLogger.info (
-        Log.setMessage "{opName} - {hash}"
+        Log.setMessage "{opName} - got results - {version}"
         >> Log.addContextDestructured "opName" opName
-        >> Log.addContextDestructured "hash" (source.GetHashCode() |> int)
-
       )
 
+      ParseAndCheckResults(pr, cr, entityCache))
 
-      return
-        checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
-        |> Option.map (fun (pr, cr) ->
-          checkerLogger.info (
-            Log.setMessage "{opName} - got results - {version}"
-            >> Log.addContextDestructured "opName" opName
-          )
-
-          ParseAndCheckResults(pr, cr, entityCache))
-    }
 
   member _.GetUsesOfSymbol
     (

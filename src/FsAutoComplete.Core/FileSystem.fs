@@ -399,7 +399,7 @@ module SourceTextFactory =
   [<Literal>]
   let LargeObjectHeapThreshold = 85000
 
-  let readFile (fileName: string<LocalPath>) (sourceTextFactory : ISourceTextFactory) =
+  let readFile (fileName: string<LocalPath>) (sourceTextFactory: ISourceTextFactory) =
     cancellableValueTask {
       let file = UMX.untag fileName
 
@@ -409,7 +409,7 @@ module SourceTextFactory =
         // Roslyn SourceText doesn't actually support async streaming reads but avoids the large object heap hit
         // so we have to block a thread.
         use s = File.openFileStreamForReadingAsync fileName
-        let! source = sourceTextFactory.Create (fileName, s)
+        let! source = sourceTextFactory.Create(fileName, s)
         return source
       else
         // otherwise it'll be under the LOH threshold and the current thread isn't blocked

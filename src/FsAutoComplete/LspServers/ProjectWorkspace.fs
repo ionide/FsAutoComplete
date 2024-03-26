@@ -126,10 +126,11 @@ module Snapshots =
 
       let fileNorm = normalizePath fileName
 
-      let getSource () = task {
-        let! sourceText = SourceTextFactory.readFile fileNorm sourceTextFactory CancellationToken.None
-        return sourceText :> ISourceTextNew
-      }
+      let getSource () =
+        task {
+          let! sourceText = SourceTextFactory.readFile fileNorm sourceTextFactory CancellationToken.None
+          return sourceText :> ISourceTextNew
+        }
 
       return ProjectSnapshot.FSharpFileSnapshot.Create(fileName, string writeTime.Ticks, getSource)
     }

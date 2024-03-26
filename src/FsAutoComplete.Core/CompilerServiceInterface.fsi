@@ -65,8 +65,7 @@ type FSharpCompilerServiceChecker =
   member TryGetLastCheckResultForFile: file: string<LocalPath> -> ParseAndCheckResults option
 
   member TryGetRecentCheckResultsForFile:
-    file: string<LocalPath> * snapshot: FSharpProjectSnapshot * source: ISourceText ->
-      Async<ParseAndCheckResults option>
+    file: string<LocalPath> * snapshot: FSharpProjectSnapshot -> ParseAndCheckResults option
 
   member GetUsesOfSymbol:
     file: string<LocalPath> * snapshots: (string * FSharpProjectSnapshot) seq * symbol: FSharpSymbol ->
