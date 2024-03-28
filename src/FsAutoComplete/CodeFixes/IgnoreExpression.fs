@@ -2,6 +2,7 @@ module FsAutoComplete.CodeFix.IgnoreExpression
 
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
+open FSharp.UMX
 open FsToolkit.ErrorHandling
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.CodeFix.Types
@@ -15,12 +16,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
     asyncResult {
       let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
+      let mDiag = protocolRangeToRange (UMX.untag fileName) diagnostic.Range
+
+      // Only do single line for now
+      if mDiag.StartLine <> mDiag.EndLine then
+        return []
+      else
 
       let! (parseAndCheckResults: ParseAndCheckResults, _line: string, sourceText: IFSACSourceText) =
         getParseResultsForFile fileName fcsPos
-
-      let mDiag =
-        protocolRangeToRange parseAndCheckResults.GetParseResults.FileName diagnostic.Range
 
       let mExprOpt =
         (fcsPos, parseAndCheckResults.GetParseResults.ParseTree)
@@ -32,27 +36,24 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       match mExprOpt with
       | None -> return []
       | Some(path, expr) ->
-        // Only do single line for now
-        if expr.Range.StartLine <> expr.Range.EndLine then
-          return []
+
+      let needsParentheses =
+        SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString path expr
+
+      let newText =
+        let currentText = sourceText.GetSubTextFromRange expr.Range
+
+        if not needsParentheses then
+          $"%s{currentText} |> ignore"
         else
-          let needsParentheses =
-            SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString path expr
+          $"(%s{currentText}) |> ignore"
 
-          let newText =
-            let currentText = sourceText.GetSubTextFromRange expr.Range
-
-            if not needsParentheses then
-              $"%s{currentText} |> ignore"
-            else
-              $"(%s{currentText}) |> ignore"
-
-          return
-            [ { SourceDiagnostic = None
-                Title = title
-                File = codeActionParams.TextDocument
-                Edits =
-                  [| { Range = fcsRangeToLsp expr.Range
-                       NewText = newText } |]
-                Kind = FixKind.Fix } ]
+      return
+        [ { SourceDiagnostic = None
+            Title = title
+            File = codeActionParams.TextDocument
+            Edits =
+              [| { Range = fcsRangeToLsp expr.Range
+                   NewText = newText } |]
+            Kind = FixKind.Fix } ]
     })
