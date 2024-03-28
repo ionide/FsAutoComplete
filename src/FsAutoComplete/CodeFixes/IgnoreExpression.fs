@@ -1,6 +1,7 @@
 module FsAutoComplete.CodeFix.IgnoreExpression
 
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.SyntaxTrivia
 open FSharp.Compiler.Text
 open FSharp.UMX
 open FsToolkit.ErrorHandling
@@ -38,7 +39,43 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       | Some(path, expr) ->
 
       let needsParentheses =
-        SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString path expr
+        // expr |> ignore
+        let exprInPipe =
+          let lineNumber = expr.Range.StartLine
+
+          let mkRangeInFile (offset: int) (length: int) : range =
+            Range.mkRange
+              expr.Range.FileName
+              (Position.mkPos lineNumber (expr.Range.EndColumn + offset))
+              (Position.mkPos lineNumber (expr.Range.EndColumn + offset + length))
+
+          let mPipe = mkRangeInFile 2 2
+          let mIgnore = mkRangeInFile 5 6
+
+          SynExpr.App(
+            ExprAtomicFlag.NonAtomic,
+            false,
+            SynExpr.App(
+              ExprAtomicFlag.NonAtomic,
+              true,
+              SynExpr.LongIdent(
+                false,
+                SynLongIdent(
+                  [ FSharp.Compiler.Syntax.Ident("op_PipeRight", mPipe) ],
+                  [],
+                  [ Some(IdentTrivia.OriginalNotation "|>") ]
+                ),
+                None,
+                mPipe
+              ),
+              expr, // The expr that will now be piped into ignore.
+              Range.unionRanges expr.Range mPipe
+            ),
+            SynExpr.Ident(FSharp.Compiler.Syntax.Ident("ignore", mIgnore)),
+            Range.unionRanges expr.Range mIgnore
+          )
+
+        SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString path exprInPipe
 
       let newText =
         let currentText = sourceText.GetSubTextFromRange expr.Range
