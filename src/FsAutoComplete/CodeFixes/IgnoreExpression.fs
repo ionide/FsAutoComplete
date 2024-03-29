@@ -39,8 +39,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       | Some(path, expr) ->
 
       let needsParentheses =
-        // expr |> ignore
-        let exprInPipe =
+        let appPipe, appIgnore =
           let lineNumber = expr.Range.StartLine
 
           let mkRangeInFile (offset: int) (length: int) : range =
@@ -52,9 +51,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           let mPipe = mkRangeInFile 2 2
           let mIgnore = mkRangeInFile 5 6
 
-          SynExpr.App(
-            ExprAtomicFlag.NonAtomic,
-            false,
+          let appPipe =
             SynExpr.App(
               ExprAtomicFlag.NonAtomic,
               true,
@@ -70,12 +67,23 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               ),
               expr, // The expr that will now be piped into ignore.
               Range.unionRanges expr.Range mPipe
-            ),
-            SynExpr.Ident(FSharp.Compiler.Syntax.Ident("ignore", mIgnore)),
-            Range.unionRanges expr.Range mIgnore
-          )
+            )
 
-        SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString path exprInPipe
+          let appIgnore =
+            SynExpr.App(
+              ExprAtomicFlag.NonAtomic,
+              false,
+              appPipe,
+              SynExpr.Ident(FSharp.Compiler.Syntax.Ident("ignore", mIgnore)),
+              Range.unionRanges expr.Range mIgnore
+            )
+
+          appPipe, appIgnore
+
+        let pathWithPipeIgnore =
+          SyntaxNode.SynExpr appPipe :: SyntaxNode.SynExpr appIgnore :: path
+
+        SynExpr.shouldBeParenthesizedInContext sourceText.GetLineString pathWithPipeIgnore expr
 
       let newText =
         let currentText = sourceText.GetSubTextFromRange expr.Range
