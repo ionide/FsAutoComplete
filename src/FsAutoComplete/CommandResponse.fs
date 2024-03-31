@@ -168,7 +168,7 @@ module CommandResponse =
       AdditionalInfo: Map<string, string>
     }
 
-  and ProjectOutputType =
+  and [<Struct>] ProjectOutputType =
     | Library
     | Exe
     | Custom of string

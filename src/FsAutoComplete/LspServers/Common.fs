@@ -29,8 +29,11 @@ module Result =
 
   let lineLookupErr
     (r:
-      Result<'T, {| FileName: string<LocalPath>
-                    Position: FcsPos |}>)
+      Result<
+        'T,
+        {| FileName: string<LocalPath>
+           Position: FcsPos |}
+       >)
     =
     r
     |> Result.mapError (ErrorMsgUtils.formatLineLookErr >> JsonRpc.Error.InternalErrorMessage)
@@ -57,8 +60,10 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     Map.toArray diags |> Array.collect (snd >> snd) |> sendDiagnostics uri
 
   let agents =
-    System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, MailboxProcessor<DiagnosticMessage> *
-    CancellationTokenSource>()
+    System.Collections.Concurrent.ConcurrentDictionary<
+      DocumentUri,
+      MailboxProcessor<DiagnosticMessage> * CancellationTokenSource
+     >()
 
   let rec restartAgent (fileUri: DocumentUri) =
     removeAgent fileUri

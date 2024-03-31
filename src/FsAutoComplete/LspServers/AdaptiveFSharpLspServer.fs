@@ -262,10 +262,8 @@ type AdaptiveFSharpLspServer
   member __.ScriptFileProjectOptions = state.ScriptFileProjectOptions.Publish
 
   member private x.logUnimplementedRequest<'t, 'u>
-    (
-      argValue: 't,
-      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
-    ) =
+    (argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string)
+    =
     logger.info (
       Log.setMessage $"{caller} request: {{params}}"
       >> Log.addContextDestructured "params" argValue
@@ -274,10 +272,8 @@ type AdaptiveFSharpLspServer
     Helpers.notImplemented<'u>
 
   member private x.logIgnoredNotification<'t>
-    (
-      argValue: 't,
-      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
-    ) =
+    (argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string)
+    =
     logger.info (
       Log.setMessage $"{caller} request: {{params}}"
       >> Log.addContextDestructured "params" argValue

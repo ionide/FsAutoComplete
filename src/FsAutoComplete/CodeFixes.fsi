@@ -31,6 +31,7 @@ module Types =
     string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
 
   [<RequireQualifiedAccess>]
+  [<Struct>]
   type FixKind =
     | Fix
     | Refactor

@@ -585,11 +585,8 @@ module Tokenizer =
   ///
   /// based on: `dotnet/fsharp` `Tokenizer.fixupSpan`
   let private tryFixupRangeBySplittingAtDot
-    (
-      range: Range,
-      text: IFSACSourceText,
-      includeBackticks: bool
-    ) : Range voption =
+    (range: Range, text: IFSACSourceText, includeBackticks: bool)
+    : Range voption =
     match text[range] with
     | Error _ -> ValueNone
     | Ok rangeText when rangeText.EndsWith("``", StringComparison.Ordinal) ->
@@ -651,12 +648,8 @@ module Tokenizer =
   ///
   /// returns `None` iff `range` isn't inside `text` -> `range` & `text` for different states
   let tryFixupRange
-    (
-      symbolNameCore: string,
-      range: Range,
-      text: IFSACSourceText,
-      includeBackticks: bool
-    ) : Range voption =
+    (symbolNameCore: string, range: Range, text: IFSACSourceText, includeBackticks: bool)
+    : Range voption =
     // first: try match symbolNameCore in last line
     // usually identifier cannot contain linebreak -> is in last line of range
     // Exception: Active Pattern can span multiple lines: `(|Even|Odd|)` -> `(|Even|\n  Odd|)` is valid too
