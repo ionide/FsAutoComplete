@@ -1002,62 +1002,71 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     asyncAVal {
       let! wsp =
 
-            adaptiveWorkspacePaths
-            |> addAValLogging (fun () ->
-              logger.info (Log.setMessage "Loading projects because adaptiveWorkspacePaths change"))
+        adaptiveWorkspacePaths
+        |> addAValLogging (fun () ->
+          logger.info (Log.setMessage "Loading projects because adaptiveWorkspacePaths change"))
 
 
       match wsp with
       | AdaptiveWorkspaceChosen.NotChosen -> return AMap.empty
       | AdaptiveWorkspaceChosen.Projs projects ->
-        let! projects = asyncAVal {
-          let! loader =
-            loader
-            |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because WorkspaceLoader change"))
-          and! binlogConfig =
-            // AVal.constant Ionide.ProjInfo.BinaryLogGeneration.Off
-            binlogConfig
-            |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
+        let! projects =
+          asyncAVal {
+            let! loader =
+              loader
+              |> addAValLogging (fun () ->
+                logger.info (Log.setMessage "Loading projects because WorkspaceLoader change"))
 
-          let! projects =
-            loadProjects loader binlogConfig projects
-            |> AMap.toAVal // need to convert to AVal to re-evaluate all snapshots when projects change
-            |> AsyncAVal.ofAVal // need to go async to allow awaiting on a single value which will keep the threadpool from being exhausted
+            and! binlogConfig =
+              // AVal.constant Ionide.ProjInfo.BinaryLogGeneration.Off
+              binlogConfig
+              |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
+
+            let! projects =
+              loadProjects loader binlogConfig projects
+              |> AMap.toAVal // need to convert to AVal to re-evaluate all snapshots when projects change
+              |> AsyncAVal.ofAVal // need to go async to allow awaiting on a single value which will keep the threadpool from being exhausted
 
 
 
-          and! checker = checker
-          checker.ClearCaches()
-          return projects
+            and! checker = checker
+            checker.ClearCaches()
+            return projects
 
-        }
+          }
 
 
 
         logger.info (Log.setMessageI $"After loading projects and before creating snapshots")
-        return Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projects)
+
+        return
+          Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projects)
     }
 
-  let loadedProjects = asyncAVal {
-    let! snapshots = snapshots
-    return
-      snapshots
-      |> AMap.map (fun _ (proj, snap) ->
-        { ProjectOptions = proj
-          FSharpProjectSnapshot = snap
-          LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
+  let loadedProjects =
+    asyncAVal {
+      let! snapshots = snapshots
 
-  }
+      return
+        snapshots
+        |> AMap.map (fun _ (proj, snap) ->
+          { ProjectOptions = proj
+            FSharpProjectSnapshot = snap
+            LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
 
-  let getAllLoadedProjects = asyncAVal {
-    let! loadedProjects = loadedProjects
-    return!
-      loadedProjects
-      |> AMap.mapA (fun _ v -> v.FSharpProjectSnapshot |> AVal.map (fun _ -> v))
-      |> AMap.toAVal
-      |> AVal.map HashMap.toValueList
+    }
 
-  }
+  let getAllLoadedProjects =
+    asyncAVal {
+      let! loadedProjects = loadedProjects
+
+      return!
+        loadedProjects
+        |> AMap.mapA (fun _ v -> v.FSharpProjectSnapshot |> AVal.map (fun _ -> v))
+        |> AMap.toAVal
+        |> AVal.map HashMap.toValueList
+
+    }
 
 
   /// <summary>
@@ -1076,22 +1085,24 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   //   |> disposables.Add
 
 
-  let sourceFileToProjectOptions = asyncAVal {
-    let! loadedProjects = loadedProjects
-    return
-      amap {
-        let! snaps = loadedProjects |> AMap.toAVal
+  let sourceFileToProjectOptions =
+    asyncAVal {
+      let! loadedProjects = loadedProjects
 
-        yield!
-          snaps
-          |> HashMap.toList
-          |> List.collect (fun (_, proj) ->
-            proj.SourceFiles
-            |> Array.toList
-            |> List.map (fun source -> Utils.normalizePath source, (proj))
-            |> List.groupByFst)
-      }
-  }
+      return
+        amap {
+          let! snaps = loadedProjects |> AMap.toAVal
+
+          yield!
+            snaps
+            |> HashMap.toList
+            |> List.collect (fun (_, proj) ->
+              proj.SourceFiles
+              |> Array.toList
+              |> List.map (fun source -> Utils.normalizePath source, (proj))
+              |> List.groupByFst)
+        }
+    }
 
   let cancelToken filePath version (cts: CancellationTokenSource) =
 
@@ -1314,6 +1325,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           return file, projs
         else
           let! sourceFileToProjectOptions = sourceFileToProjectOptions
+
           let! projs =
             sourceFileToProjectOptions
             |> AMap.tryFindR
@@ -1324,61 +1336,68 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           return file, projs
       })
 
-  let allFSharpFilesAndProjectOptions = asyncAVal {
-    let wins =
-      openFilesToChangesAndProjectOptions
-      |> AMap.map (fun _k v -> v |> AsyncAVal.mapSync (fun (_, projects) _ -> projects))
+  let allFSharpFilesAndProjectOptions =
+    asyncAVal {
+      let wins =
+        openFilesToChangesAndProjectOptions
+        |> AMap.map (fun _k v -> v |> AsyncAVal.mapSync (fun (_, projects) _ -> projects))
 
-    let! sourceFileToProjectOptions = sourceFileToProjectOptions
+      let! sourceFileToProjectOptions = sourceFileToProjectOptions
 
-    let loses =
-      sourceFileToProjectOptions |> AMap.map (fun _ v -> AsyncAVal.constant (Ok v))
+      let loses =
+        sourceFileToProjectOptions |> AMap.map (fun _ v -> AsyncAVal.constant (Ok v))
 
-    return AMap.union loses wins
-  }
+      return AMap.union loses wins
+    }
 
-  let allFilesToFSharpProjectOptions = asyncAVal {
-    let! allFSharpFilesAndProjectOptions = allFSharpFilesAndProjectOptions
-    return
-      allFSharpFilesAndProjectOptions
-      |> AMapAsync.mapAsyncAVal (fun _filePath (options) _ctok -> AsyncAVal.constant options)
-  }
+  let allFilesToFSharpProjectOptions =
+    asyncAVal {
+      let! allFSharpFilesAndProjectOptions = allFSharpFilesAndProjectOptions
 
-  let allFilesParsed = asyncAVal {
-    let! allFSharpFilesAndProjectOptions = allFSharpFilesAndProjectOptions
-    return
-      allFSharpFilesAndProjectOptions
-      |> AMapAsync.mapAsyncAVal (fun filePath (options: Result<LoadedProject list, string>) _ctok ->
-        asyncAVal {
-          let! (checker: FSharpCompilerServiceChecker) = checker
-          and! selectProject = projectSelector
+      return
+        allFSharpFilesAndProjectOptions
+        |> AMapAsync.mapAsyncAVal (fun _filePath (options) _ctok -> AsyncAVal.constant options)
+    }
 
-          let loadedProject =
-            options |> Result.bind (fun p -> selectProject.FindProject(filePath, p))
+  let allFilesParsed =
+    asyncAVal {
+      let! allFSharpFilesAndProjectOptions = allFSharpFilesAndProjectOptions
 
-          match loadedProject with
-          | Ok x ->
-            let! snap = x.FSharpProjectSnapshot
-            let! r = parseFile checker filePath snap
-            return Ok r
-          | Error e -> return Error e
-        })
-  }
+      return
+        allFSharpFilesAndProjectOptions
+        |> AMapAsync.mapAsyncAVal (fun filePath (options: Result<LoadedProject list, string>) _ctok ->
+          asyncAVal {
+            let! (checker: FSharpCompilerServiceChecker) = checker
+            and! selectProject = projectSelector
 
-  let getAllFilesToProjectOptions () = async {
-    let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
-    return!
-      allFilesToFSharpProjectOptions
-      // |> AMap.toASetValues
-      |> AMap.force
-      |> HashMap.toArray
-      |> Array.map (fun (sourceTextPath, projects) ->
-        async {
-          let! projs = AsyncAVal.forceAsync projects
-          return sourceTextPath, projs
-        })
-      |> Async.parallel75
-  }
+            let loadedProject =
+              options |> Result.bind (fun p -> selectProject.FindProject(filePath, p))
+
+            match loadedProject with
+            | Ok x ->
+              let! snap = x.FSharpProjectSnapshot
+              let! r = parseFile checker filePath snap
+              return Ok r
+            | Error e -> return Error e
+          })
+    }
+
+  let getAllFilesToProjectOptions () =
+    async {
+      let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
+
+      return!
+        allFilesToFSharpProjectOptions
+        // |> AMap.toASetValues
+        |> AMap.force
+        |> HashMap.toArray
+        |> Array.map (fun (sourceTextPath, projects) ->
+          async {
+            let! projs = AsyncAVal.forceAsync projects
+            return sourceTextPath, projs
+          })
+        |> Async.parallel75
+    }
 
 
   let getAllFilesToProjectOptionsSelected () =
@@ -1399,6 +1418,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let getAllProjectOptions () =
     async {
       let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
+
       let! set =
         allFilesToFSharpProjectOptions
         |> AMap.toASetValues
@@ -1420,6 +1440,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let getProjectOptionsForFile (filePath: string<LocalPath>) =
     asyncAVal {
       let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions
+
       match! allFilesToFSharpProjectOptions |> AMapAsync.tryFindA filePath with
       | Some projs -> return projs
       | None -> return Error $"Couldn't find project for {filePath}. Have you tried restoring your project/solution?"
@@ -1599,12 +1620,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       })
 
-  let getParseResults filePath = asyncAVal {
-    let! allFilesParsed = allFilesParsed
-    return!
-      allFilesParsed
-      |> AMapAsync.tryFindAndFlattenR $"No parse results found for {filePath}" filePath
-  }
+  let getParseResults filePath =
+    asyncAVal {
+      let! allFilesParsed = allFilesParsed
+
+      return!
+        allFilesParsed
+        |> AMapAsync.tryFindAndFlattenR $"No parse results found for {filePath}" filePath
+    }
 
   let getOpenFileTypeCheckResults filePath =
     openFilesToCheckedFilesResults
@@ -1699,16 +1722,19 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
     |> AsyncAVal.forceAsync
 
-  let allFilesToDeclarations = asyncAVal {
-    let! allFilesParsed = allFilesParsed
-    return
-      allFilesParsed
-      |> AMap.map (fun _k v -> v |> AsyncAVal.mapResult (fun p _ -> p.GetNavigationItems().Declarations))
-  }
+  let allFilesToDeclarations =
+    asyncAVal {
+      let! allFilesParsed = allFilesParsed
+
+      return
+        allFilesParsed
+        |> AMap.map (fun _k v -> v |> AsyncAVal.mapResult (fun p _ -> p.GetNavigationItems().Declarations))
+    }
 
   let getAllDeclarations () =
     async {
       let! allFilesToDeclarations = allFilesToDeclarations |> AsyncAVal.forceAsync
+
       let! results =
         allFilesToDeclarations
         |> AMap.force
@@ -1727,7 +1753,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
   let getDeclarations filename =
     allFilesToDeclarations
-    |> AsyncAVal.bind(fun a _ -> AMapAsync.tryFindAndFlattenR $"Could not find getDeclarations for {filename}" filename a)
+    |> AsyncAVal.bind (fun a _ ->
+      AMapAsync.tryFindAndFlattenR $"Could not find getDeclarations for {filename}" filename a)
 
   let codeGenServer =
     { new ICodeGenerationService with
@@ -1768,40 +1795,41 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
         member x.ParseFileInProject(file) = forceGetParseResults file |> Async.map (Option.ofResult) }
 
-  let getDependentProjectsOfProjects (ps: FSharpProjectSnapshot list) = async {
-    let! projectSnapshot = forceLoadProjects ()
+  let getDependentProjectsOfProjects (ps: FSharpProjectSnapshot list) =
+    async {
+      let! projectSnapshot = forceLoadProjects ()
 
-    let allDependents = System.Collections.Generic.HashSet<_>()
+      let allDependents = System.Collections.Generic.HashSet<_>()
 
-    let currentPass = ResizeArray()
-    currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
+      let currentPass = ResizeArray()
+      currentPass.AddRange(ps |> List.map (fun p -> p.ProjectFileName))
 
-    let mutable continueAlong = true
+      let mutable continueAlong = true
 
-    while continueAlong do
-      let dependents =
-        projectSnapshot
-        |> Seq.filter (fun p ->
-          (AVal.force p.FSharpProjectSnapshot).ReferencedProjects
-          |> Seq.exists (fun r ->
-            match r.ProjectFilePath with
-            | None -> false
-            | Some p -> currentPass.Contains(p)))
+      while continueAlong do
+        let dependents =
+          projectSnapshot
+          |> Seq.filter (fun p ->
+            (AVal.force p.FSharpProjectSnapshot).ReferencedProjects
+            |> Seq.exists (fun r ->
+              match r.ProjectFilePath with
+              | None -> false
+              | Some p -> currentPass.Contains(p)))
 
-      if Seq.isEmpty dependents then
-        continueAlong <- false
-        currentPass.Clear()
-      else
-        for d in dependents do
-          allDependents.Add(AVal.force d.FSharpProjectSnapshot) |> ignore<bool>
+        if Seq.isEmpty dependents then
+          continueAlong <- false
+          currentPass.Clear()
+        else
+          for d in dependents do
+            allDependents.Add(AVal.force d.FSharpProjectSnapshot) |> ignore<bool>
 
-        currentPass.Clear()
-        currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
+          currentPass.Clear()
+          currentPass.AddRange(dependents |> Seq.map (fun p -> p.ProjectFileName))
 
-    return
-      Seq.toList allDependents
-      |> List.filter (fun p -> p.ProjectFileName.EndsWith(".fsproj"))
-  }
+      return
+        Seq.toList allDependents
+        |> List.filter (fun p -> p.ProjectFileName.EndsWith(".fsproj"))
+    }
 
   let getDeclarationLocation (symbolUse, text) =
     let getProjectOptions file =

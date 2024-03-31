@@ -215,63 +215,63 @@ module Snapshots =
 
       snapshot
     | _ ->
-        logger.debug (
-          Log.setMessage "optionsToSnapshot - Cache miss - {projectFileName}"
-          >> Log.addContextDestructured "projectFileName" p.ProjectFileName
-        )
+      logger.debug (
+        Log.setMessage "optionsToSnapshot - Cache miss - {projectFileName}"
+        >> Log.addContextDestructured "projectFileName" p.ProjectFileName
+      )
 
-        let projectName = AVal.constant p.ProjectFileName
-        let projectId = p.ProjectId |> AVal.constant
+      let projectName = AVal.constant p.ProjectFileName
+      let projectId = p.ProjectId |> AVal.constant
 
 
-        let sourceFiles = // alist because order matters for the F# Compiler
-          p.SourceFiles
-          |> AList.ofList
-          |> AList.map (fun sourcePath ->
-            let normPath = Utils.normalizePath sourcePath
+      let sourceFiles = // alist because order matters for the F# Compiler
+        p.SourceFiles
+        |> AList.ofList
+        |> AList.map (fun sourcePath ->
+          let normPath = Utils.normalizePath sourcePath
 
-            aval {
-              match! inMemorySourceFiles |> AMap.tryFind normPath with
-              | Some volatileFile -> return! volatileFile |> AVal.map createFSharpFileSnapshotInMemory
-              | None -> return! createFSharpFileSnapshotOnDisk sourceTextFactory sourcePath
-            })
+          aval {
+            match! inMemorySourceFiles |> AMap.tryFind normPath with
+            | Some volatileFile -> return! volatileFile |> AVal.map createFSharpFileSnapshotInMemory
+            | None -> return! createFSharpFileSnapshotOnDisk sourceTextFactory sourcePath
+          })
 
-        let references, otherOptions =
-          p.OtherOptions |> List.partition (fun x -> x.StartsWith("-r:"))
+      let references, otherOptions =
+        p.OtherOptions |> List.partition (fun x -> x.StartsWith("-r:"))
 
-        let otherOptions = otherOptions |> ASet.ofList |> ASet.map (AVal.constant)
+      let otherOptions = otherOptions |> ASet.ofList |> ASet.map (AVal.constant)
 
-        let referencePaths =
-          references
-          |> ASet.ofList
-          |> ASet.map (fun referencePath ->
-            referencePath.Substring(3) // remove "-r:"
-            |> createReferenceOnDisk)
+      let referencePaths =
+        references
+        |> ASet.ofList
+        |> ASet.map (fun referencePath ->
+          referencePath.Substring(3) // remove "-r:"
+          |> createReferenceOnDisk)
 
-        let referencedProjects = mapReferences p
-        let isIncompleteTypeCheckEnvironment = AVal.constant false
-        let useScriptResolutionRules = AVal.constant false
-        let loadTime = AVal.constant p.LoadTime
-        let unresolvedReferences = AVal.constant None
-        let originalLoadReferences = AVal.constant []
+      let referencedProjects = mapReferences p
+      let isIncompleteTypeCheckEnvironment = AVal.constant false
+      let useScriptResolutionRules = AVal.constant false
+      let loadTime = AVal.constant p.LoadTime
+      let unresolvedReferences = AVal.constant None
+      let originalLoadReferences = AVal.constant []
 
-        let snap =
-          makeAdaptiveFCSSnapshot2
-            projectName
-            projectId
-            sourceFiles
-            referencePaths
-            otherOptions
-            referencedProjects
-            isIncompleteTypeCheckEnvironment
-            useScriptResolutionRules
-            loadTime
-            unresolvedReferences
-            originalLoadReferences
+      let snap =
+        makeAdaptiveFCSSnapshot2
+          projectName
+          projectId
+          sourceFiles
+          referencePaths
+          otherOptions
+          referencedProjects
+          isIncompleteTypeCheckEnvironment
+          useScriptResolutionRules
+          loadTime
+          unresolvedReferences
+          originalLoadReferences
 
-        cachedSnapshots.Add(normPath, snap)
+      cachedSnapshots.Add(normPath, snap)
 
-        snap
+      snap
 
   let createSnapshots
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)
