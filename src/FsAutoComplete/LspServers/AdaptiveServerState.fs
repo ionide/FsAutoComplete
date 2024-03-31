@@ -845,8 +845,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
                 | MSBuildAllProjects v ->
                   yield!
                     v
-                    |> Array.filter (fun x -> x.EndsWith(".props", StringComparison.Ordinal) && isWithinObjFolder x)
-                    |> Array.map (UMX.tag >> projectFileChanges)
+                    |> Array.choose (fun x ->
+                      if x.EndsWith(".props", StringComparison.Ordinal) && isWithinObjFolder x then
+                        UMX.tag x |> projectFileChanges |> Some
+                      else
+                        None)
                 | _ -> () ]
 
             HashMap.ofList
@@ -1323,11 +1326,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
   let autoCompleteItems
-    : cmap<DeclName, DeclarationListItem *
-      Position *
-      string<LocalPath> *
-      (Position -> option<string>) *
-      FSharp.Compiler.Syntax.ParsedInput> =
+    : cmap<
+        DeclName,
+        DeclarationListItem *
+        Position *
+        string<LocalPath> *
+        (Position -> option<string>) *
+        FSharp.Compiler.Syntax.ParsedInput
+       > =
     cmap ()
 
   let getAutoCompleteByDeclName name = autoCompleteItems |> AMap.tryFind name
@@ -2201,15 +2207,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   member x.GetAutoCompleteNamespacesByDeclName declName = getAutoCompleteNamespacesByDeclName declName |> AVal.force
 
   member x.SymbolUseWorkspace
-    (
-      includeDeclarations,
-      includeBackticks,
-      errorOnFailureToFixRange,
-      pos,
-      lineStr,
-      text,
-      tyRes
-    ) =
+    (includeDeclarations, includeBackticks, errorOnFailureToFixRange, pos, lineStr, text, tyRes)
+    =
     symbolUseWorkspace includeDeclarations includeBackticks errorOnFailureToFixRange pos lineStr text tyRes
 
   member x.GetDeclarationLocation(symbolUse, text) = getDeclarationLocation (symbolUse, text)

@@ -108,8 +108,10 @@ val prepareFooterLines: footerText: string -> string array
 val tryFormatTipEnhanced:
   toolTipText: ToolTipText ->
   formatCommentStyle: FormatCommentStyle ->
-    TipFormatterResult<{| DocComment: string
-                          HasTruncatedExamples: bool |}>
+    TipFormatterResult<
+      {| DocComment: string
+         HasTruncatedExamples: bool |}
+     >
 
 /// <summary>
 /// Generate the 'Show documentation' link for the tooltip.

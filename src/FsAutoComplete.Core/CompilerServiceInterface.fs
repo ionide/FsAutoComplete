@@ -253,13 +253,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
   /// <remarks>Note: all files except the one being checked are read from the FileSystem API</remarks>
   /// <returns>Result of ParseAndCheckResults</returns>
   member __.ParseAndCheckFileInProject
-    (
-      filePath: string<LocalPath>,
-      version,
-      source: ISourceText,
-      options,
-      ?shouldCache: bool
-    ) =
+    (filePath: string<LocalPath>, version, source: ISourceText, options, ?shouldCache: bool)
+    =
     asyncResult {
       let shouldCache = defaultArg shouldCache false
       let opName = sprintf "ParseAndCheckFileInProject - %A" filePath
@@ -359,11 +354,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     result
 
   member x.GetUsesOfSymbol
-    (
-      file: string<LocalPath>,
-      options: (string * FSharpProjectOptions) seq,
-      symbol: FSharpSymbol
-    ) =
+    (file: string<LocalPath>, options: (string * FSharpProjectOptions) seq, symbol: FSharpSymbol)
+    =
     async {
       checkerLogger.info (
         Log.setMessage "GetUsesOfSymbol - {file}"

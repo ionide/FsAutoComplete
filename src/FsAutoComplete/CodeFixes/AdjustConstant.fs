@@ -274,6 +274,7 @@ module private Char =
   let inline isSingleQuote c = c = '\''
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CharFormat =
   /// `ç`
   | Char
@@ -345,6 +346,7 @@ module private CharConstant =
       ValueRange = valueRange
       SuffixRange = suffixRange }
 
+[<Struct>]
 type private Sign =
   | Negative
   | Positive
@@ -364,6 +366,7 @@ module private Sign =
       Positive, range.EmptyAtStart, range
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Base =
   /// No prefix
   | Decimal
@@ -437,10 +440,11 @@ module private IntConstant =
       SuffixRange = suffixRange }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type private FloatValue =
-  | Float of float
-  | Float32 of float32
-  | Decimal of decimal
+  | Float of f: float
+  | Float32 of f32: float32
+  | Decimal of d: decimal
 
   static member from(f: float) = FloatValue.Float f
   static member from(f: float32) = FloatValue.Float32 f
@@ -588,6 +592,7 @@ module private DigitGroup =
     else
       []
 
+  [<Struct>]
   type Direction =
     /// thousands -> left of `.`
     | RightToLeft

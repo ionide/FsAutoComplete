@@ -7,11 +7,12 @@ open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open Newtonsoft.Json.Linq
 
-let private (|Payload|_|) (tok: JToken) : 't option =
+[<return: Struct>]
+let private (|Payload|_|) (tok: JToken) : 't voption =
   try
-    Some(Ionide.LanguageServerProtocol.Server.deserialize tok: 't)
+    ValueSome(Ionide.LanguageServerProtocol.Server.deserialize tok: 't)
   with e ->
-    None
+    ValueNone
 
 let private mapExternalDiagnostic diagnosticType =
   Run.ifDiagnosticByType diagnosticType (fun diagnostic codeActionParams ->

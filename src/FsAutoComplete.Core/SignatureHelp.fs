@@ -27,12 +27,8 @@ type SignatureHelpInfo =
   }
 
 let private getSignatureHelpForFunctionApplication
-  (
-    tyRes: ParseAndCheckResults,
-    caretPos: Position,
-    endOfPreviousIdentPos: Position,
-    lines: IFSACSourceText
-  ) : Async<SignatureHelpInfo option> =
+  (tyRes: ParseAndCheckResults, caretPos: Position, endOfPreviousIdentPos: Position, lines: IFSACSourceText)
+  : Async<SignatureHelpInfo option> =
   asyncOption {
     let! lineStr = lines.GetLine endOfPreviousIdentPos
 
@@ -124,12 +120,8 @@ let private getSignatureHelpForFunctionApplication
   }
 
 let private getSignatureHelpForMethod
-  (
-    tyRes: ParseAndCheckResults,
-    caretPos: Position,
-    lines: IFSACSourceText,
-    triggerChar
-  ) =
+  (tyRes: ParseAndCheckResults, caretPos: Position, lines: IFSACSourceText, triggerChar)
+  =
   asyncOption {
     let! paramLocations = tyRes.GetParseResults.FindParameterLocations caretPos
     let names = paramLocations.LongId
@@ -213,13 +205,8 @@ let private getSignatureHelpForMethod
   }
 
 let getSignatureHelpFor
-  (
-    tyRes: ParseAndCheckResults,
-    pos: Position,
-    lines: IFSACSourceText,
-    triggerChar,
-    possibleSessionKind
-  ) =
+  (tyRes: ParseAndCheckResults, pos: Position, lines: IFSACSourceText, triggerChar, possibleSessionKind)
+  =
   asyncResult {
     let previousNonWhitespaceChar =
       let rec loop ch pos =

@@ -4,6 +4,7 @@ open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CharFormat =
   /// `ç`
   | Char
@@ -17,6 +18,7 @@ type CharFormat =
   | Utf32Hexadecimal
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Base =
   /// No prefix
   | Decimal

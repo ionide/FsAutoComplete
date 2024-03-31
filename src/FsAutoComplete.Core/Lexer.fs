@@ -89,10 +89,8 @@ module Lexer =
   let inline private isPunctuation t = t.ColorClass = FSharpTokenColorKind.Punctuation
 
   let inline private (|GenericTypeParameterPrefix|StaticallyResolvedTypeParameterPrefix|ActivePattern|Other|)
-    (
-      (token: FSharpTokenInfo),
-      (lineStr: string)
-    ) =
+    ((token: FSharpTokenInfo), (lineStr: string))
+    =
     if token.Tag = FSharpTokenTag.QUOTE then
       GenericTypeParameterPrefix
     elif token.Tag = FSharpTokenTag.INFIX_AT_HAT_OP then
