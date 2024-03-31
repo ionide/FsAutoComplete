@@ -401,7 +401,6 @@ let tests state =
     findArrayInAdaptiveFSharpLspServer () |> ignore
     findListInTests () |> ignore
 
-
 pipeline "EnsureRepoConfig" {
   description "Configure custom git hooks, currently only used to ensure that code is formatted before pushing"
   workingDir __SOURCE_DIRECTORY__
@@ -430,6 +429,18 @@ pipeline "EnsureCanScaffoldCodeFix" {
   workingDir __SOURCE_DIRECTORY__
   stage "Ensure" { run (fun _ -> ScaffoldCodeFix.ensureScaffoldStillWorks ()) }
   runIfOnlySpecified true
+}
+
+pipeline "Build" {
+  description "Default build pipeline"
+  workingDir __SOURCE_DIRECTORY__
+
+  stage "Build" {
+    run "dotnet tool restore"
+    run "dotnet build"
+  }
+
+  runIfOnlySpecified false
 }
 
 tryPrintPipelineCommandHelp ()
