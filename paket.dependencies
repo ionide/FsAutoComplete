@@ -61,15 +61,3 @@ nuget CommunityToolkit.HighPerformance
 nuget System.Security.Cryptography.Pkcs 6.0.4
 nuget System.Net.Http 4.3.4 # pinned for security reasons
 nuget System.Text.RegularExpressions 4.3.1 # pinned for security reasons
-
-
-group Build
-  source https://api.nuget.org/v3/index.json
-  storage: none
-
-  framework: net7.0
-
-  nuget Fake.Core.Target
-  nuget Fake.IO.FileSystem
-  nuget Fake.Tools.Git
-  nuget Fantomas.Core 6.2.0
