@@ -34,10 +34,10 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 let loaders =
-  [ "Ionide WorkspaceLoader",
-    (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-    "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-    ]
+  [
+    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+  ]
 
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
@@ -116,120 +116,121 @@ let generalTests = testList "general" [
 
 [<Tests>]
 let tests = testList "FSAC" [
-  // generalTests; lspTests
+    generalTests
+    lspTests
     SnapshotTests.snapshotTests loaders toolsPath
   ]
 
 
 [<EntryPoint>]
 let main args =
-  // let outputTemplate =
-  //   "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+  let outputTemplate =
+    "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
-  // let parseLogLevel (args: string[]) =
-  //   let logMarker = "--log="
+  let parseLogLevel (args: string[]) =
+    let logMarker = "--log="
 
-  //   let logLevel =
-  //     match
-  //       args
-  //       |> Array.tryFind (fun arg -> arg.StartsWith(logMarker, StringComparison.Ordinal))
-  //       |> Option.map (fun log -> log.Substring(logMarker.Length))
-  //     with
-  //     | Some("warn" | "warning") -> Logging.LogLevel.Warn
-  //     | Some "error" -> Logging.LogLevel.Error
-  //     | Some "fatal" -> Logging.LogLevel.Fatal
-  //     | Some "info" -> Logging.LogLevel.Info
-  //     | Some "verbose" -> Logging.LogLevel.Verbose
-  //     | Some "debug" -> Logging.LogLevel.Debug
-  //     | _ -> Logging.LogLevel.Warn
+    let logLevel =
+      match
+        args
+        |> Array.tryFind (fun arg -> arg.StartsWith(logMarker, StringComparison.Ordinal))
+        |> Option.map (fun log -> log.Substring(logMarker.Length))
+      with
+      | Some("warn" | "warning") -> Logging.LogLevel.Warn
+      | Some "error" -> Logging.LogLevel.Error
+      | Some "fatal" -> Logging.LogLevel.Fatal
+      | Some "info" -> Logging.LogLevel.Info
+      | Some "verbose" -> Logging.LogLevel.Verbose
+      | Some "debug" -> Logging.LogLevel.Debug
+      | _ -> Logging.LogLevel.Warn
 
-  //   let args =
-  //     args
-  //     |> Array.filter (fun arg -> not <| arg.StartsWith(logMarker, StringComparison.Ordinal))
+    let args =
+      args
+      |> Array.filter (fun arg -> not <| arg.StartsWith(logMarker, StringComparison.Ordinal))
 
-  //   logLevel, args
+    logLevel, args
 
-  // let expectoToSerilogLevel =
-  //   function
-  //   | Logging.LogLevel.Debug -> LogEventLevel.Debug
-  //   | Logging.LogLevel.Verbose -> LogEventLevel.Verbose
-  //   | Logging.LogLevel.Info -> LogEventLevel.Information
-  //   | Logging.LogLevel.Warn -> LogEventLevel.Warning
-  //   | Logging.LogLevel.Error -> LogEventLevel.Error
-  //   | Logging.LogLevel.Fatal -> LogEventLevel.Fatal
+  let expectoToSerilogLevel =
+    function
+    | Logging.LogLevel.Debug -> LogEventLevel.Debug
+    | Logging.LogLevel.Verbose -> LogEventLevel.Verbose
+    | Logging.LogLevel.Info -> LogEventLevel.Information
+    | Logging.LogLevel.Warn -> LogEventLevel.Warning
+    | Logging.LogLevel.Error -> LogEventLevel.Error
+    | Logging.LogLevel.Fatal -> LogEventLevel.Fatal
 
-  // let parseLogExcludes (args: string[]) =
-  //   let excludeMarker = "--exclude-from-log="
+  let parseLogExcludes (args: string[]) =
+    let excludeMarker = "--exclude-from-log="
 
-  //   let toExclude =
-  //     args
-  //     |> Array.filter (fun arg -> arg.StartsWith(excludeMarker, StringComparison.Ordinal))
-  //     |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
+    let toExclude =
+      args
+      |> Array.filter (fun arg -> arg.StartsWith(excludeMarker, StringComparison.Ordinal))
+      |> Array.collect (fun arg -> arg.Substring(excludeMarker.Length).Split(','))
 
-  //   let args =
-  //     args
-  //     |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
+    let args =
+      args
+      |> Array.filter (fun arg -> not <| arg.StartsWith(excludeMarker, StringComparison.Ordinal))
 
-  //   toExclude, args
+    toExclude, args
 
-  // let logLevel, args = parseLogLevel args
-  // let switch = LoggingLevelSwitch(expectoToSerilogLevel logLevel)
-  // let logSourcesToExclude, args = parseLogExcludes args
+  let logLevel, args = parseLogLevel args
+  let switch = LoggingLevelSwitch(expectoToSerilogLevel logLevel)
+  let logSourcesToExclude, args = parseLogExcludes args
 
-  // let sourcesToExclude =
-  //   Matching.WithProperty<string>(
-  //     Constants.SourceContextPropertyName,
-  //     fun s -> s <> null && logSourcesToExclude |> Array.contains s
-  //   )
+  let sourcesToExclude =
+    Matching.WithProperty<string>(
+      Constants.SourceContextPropertyName,
+      fun s -> s <> null && logSourcesToExclude |> Array.contains s
+    )
 
-  // let argsToRemove, _loaders =
-  //   args
-  //   |> Array.windowed 2
-  //   |> Array.tryPick (function
-  //     | [| "--loader"; "ionide" |] as args -> Some(args, [ "Ionide WorkspaceLoader", WorkspaceLoader.Create ])
-  //     | [| "--loader"; "graph" |] as args ->
-  //       Some(args, [ "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create ])
-  //     | _ -> None)
-  //   |> Option.defaultValue ([||], loaders)
+  let argsToRemove, _loaders =
+    args
+    |> Array.windowed 2
+    |> Array.tryPick (function
+      | [| "--loader"; "ionide" |] as args -> Some(args, [ "Ionide WorkspaceLoader", WorkspaceLoader.Create ])
+      | [| "--loader"; "graph" |] as args ->
+        Some(args, [ "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create ])
+      | _ -> None)
+    |> Option.defaultValue ([||], loaders)
 
-  // let serilogLogger =
-  //   LoggerConfiguration()
-  //     .Enrich.FromLogContext()
-  //     .MinimumLevel.ControlledBy(switch)
-  //     .Filter.ByExcluding(Matching.FromSource("FileSystem"))
-  //     .Filter.ByExcluding(sourcesToExclude)
+  let serilogLogger =
+    LoggerConfiguration()
+      .Enrich.FromLogContext()
+      .MinimumLevel.ControlledBy(switch)
+      .Filter.ByExcluding(Matching.FromSource("FileSystem"))
+      .Filter.ByExcluding(sourcesToExclude)
 
-  //     .Destructure.FSharpTypes()
-  //     .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
-  //       box
-  //         {| FileName = r.FileName
-  //            Start = r.Start
-  //            End = r.End |})
-  //     .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
-  //     .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
-  //     .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-  //     .WriteTo.Async(fun c ->
-  //       c.Console(
-  //         outputTemplate = outputTemplate,
-  //         standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
-  //         theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
-  //       )
-  //       |> ignore)
-  //     .CreateLogger() // make it so that every console log is logged to stderr
+      .Destructure.FSharpTypes()
+      .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
+        box
+          {| FileName = r.FileName
+             Start = r.Start
+             End = r.End |})
+      .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
+      .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
+      .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
+      .WriteTo.Async(fun c ->
+        c.Console(
+          outputTemplate = outputTemplate,
+          standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
+          theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
+        )
+        |> ignore)
+      .CreateLogger() // make it so that every console log is logged to stderr
 
-  // // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests
-  // Serilog.Log.Logger <- serilogLogger
-  // LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
+  // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests
+  Serilog.Log.Logger <- serilogLogger
+  LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
 
-  // let fixedUpArgs = args |> Array.except argsToRemove
+  let fixedUpArgs = args |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
 
   let cliArgs =
     [
-    // CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+      CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
-  //     // CLIArguments.Parallel
-      ]
+      CLIArguments.Parallel
+    ]
 
-  runTestsWithCLIArgsAndCancel cts.Token cliArgs args  tests
+  runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
