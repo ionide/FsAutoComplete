@@ -119,12 +119,12 @@ module Snapshots =
       unresolvedReferences
       originalLoadReferences
 
-  let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) fileName =
+  let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) sourceFilePath =
     aval {
-      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc fileName
+      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc sourceFilePath
       and! sourceTextFactory = sourceTextFactory
 
-      let fileNorm = normalizePath fileName
+      let fileNorm = normalizePath sourceFilePath
 
       let getSource () =
         task {
@@ -132,7 +132,7 @@ module Snapshots =
           return sourceText :> ISourceTextNew
         }
 
-      return ProjectSnapshot.FSharpFileSnapshot.Create(fileName, string writeTime.Ticks, getSource)
+      return ProjectSnapshot.FSharpFileSnapshot.Create(sourceFilePath, string writeTime.Ticks, getSource)
     }
 
   let private createFSharpFileSnapshotInMemory (v: VolatileFile) =
@@ -215,7 +215,6 @@ module Snapshots =
 
       snapshot
     | _ ->
-      aval {
         logger.debug (
           Log.setMessage "optionsToSnapshot - Cache miss - {projectFileName}"
           >> Log.addContextDestructured "projectFileName" p.ProjectFileName
@@ -272,8 +271,7 @@ module Snapshots =
 
         cachedSnapshots.Add(normPath, snap)
 
-        return! snap
-      }
+        snap
 
   let createSnapshots
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)

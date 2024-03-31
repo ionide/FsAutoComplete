@@ -33,6 +33,7 @@
     <Compile Include="LspServers/IFSharpLspServer.fs" />
     <Compile Include="LspServers/FSharpLspClient.fsi" />
     <Compile Include="LspServers/FSharpLspClient.fs" />
+    <Compile Include="LspServers\ProjectWorkspace.fsi" />
     <Compile Include="LspServers\ProjectWorkspace.fs" />
     <Compile Include="LspServers/Common.fs" />
     <Compile Include="LspServers/AdaptiveServerState.fsi" />
@@ -49,7 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
-  </ItemGroup>
+      </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>fsautocomplete</AssemblyName>
     <PackageId>fsautocomplete</PackageId>
