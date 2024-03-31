@@ -19,6 +19,10 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishSelfContained>true</PublishSelfContained>
+    <DebugType>embedded</DebugType>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
     <None
@@ -71,6 +75,11 @@
       $(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
+  <ItemGroup Label="Trimming Settings">
+    <TrimmerRootAssembly Include="Serilog" />
+    <TrimmerRootAssembly Include="Ionide.ProjInfo.ProjectSystem" />
+  </ItemGroup>
+
   <!-- workaround for not being able to have p2p dependencies in tool output dir
   https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
   <Target
@@ -83,17 +92,32 @@
 
   <Target Name="BuildAllStandloneApplications">
     <ItemGroup>
+      <!-- Make MSBuild Items out of the RIDs so we can batch across them -->
       <_RIDS Include="$(RuntimeIdentifiers)" />
+      <!-- Make MSBuild Items out of the TFMs so we can batch across them. Create NUM_RIDS items
+      per-TFM because we want to build each TFM for all supported platforms. -->
+      <_TFMS
+          Include="$(TargetFrameworks)"
+          RID="%(_RIDS.Identity)" />
+      <!-- Turn the _TFMS items into requests to build this project (fsautocomplete.fsproj) with
+      different parameters. This pattern is often used to to parallel builds of the same project in
+      MSBuild logic. -->
       <_RIDSpecificFSACBuild
           Include="$(MSBuildThisFile)"
-          AdditionalProperties="RuntimeIdentifier=%(_RIDS.Identity)" />
+          AdditionalProperties="RuntimeIdentifier=%(_TFMS.RID);TargetFramework=%(_TFMS.Identity)" />
     </ItemGroup>
 
+    <!-- Ask MSBuild to build all of the requests we just made. The MSBuild Task recognizes the
+    AdditionalProperties metadata and will apply that to each specific build, we can specify the things
+    that are common to all of the builds here.  Unsetting RuntimeIdentifiers and TargetFrameworks
+    ensures that the SDK targets detect that these are single-RID/single-TFM builds accurately, and
+    since we're pretty certain there are no data dependencies here we can have the builds operate in
+    parallel. -->
     <MSBuild
         Projects="@(_RIDSpecificFSACBuild)"
         Targets="Publish"
-        Properties="Configuration=Release;PublishSingleFile=true;PublishTrimmed=true;"
-        RemoveProperties="RuntimeIdentifiers"
+        Properties="Configuration=Release;SelfContained=true"
+        RemoveProperties="RuntimeIdentifiers;TargetFrameworks"
         BuildInParallel="true" />
   </Target>
 
