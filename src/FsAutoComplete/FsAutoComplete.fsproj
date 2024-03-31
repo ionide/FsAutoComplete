@@ -2,9 +2,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildNet7)' == 'true'">net6.0;net7.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildNet8)' == 'true'">net6.0;net7.0;net8.0</TargetFrameworks>
+    <RuntimeIdentifiers>
+      win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64;linux-musl-x64;linux-musl-arm64</RuntimeIdentifiers>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -79,6 +81,21 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="BuildAllStandloneApplications">
+    <ItemGroup>
+      <_RIDS Include="$(RuntimeIdentifiers)" />
+      <_RIDSpecificFSACBuild
+          Include="$(MSBuildThisFile)"
+          AdditionalProperties="RuntimeIdentifier=%(_RIDS.Identity)" />
+    </ItemGroup>
+
+    <MSBuild
+        Projects="@(_RIDSpecificFSACBuild)"
+        Targets="Publish"
+        Properties="Configuration=Release;PublishSingleFile=true;PublishTrimmed=true;"
+        RemoveProperties="RuntimeIdentifiers"
+        BuildInParallel="true" />
+  </Target>
 
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

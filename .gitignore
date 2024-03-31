@@ -47,3 +47,4 @@ test/FsAutoComplete.Tests.Lsp/TestResults/
 BenchmarkDotNet.Artifacts/
 
 *.sarif
+artifacts
