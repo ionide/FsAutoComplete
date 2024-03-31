@@ -165,7 +165,8 @@ let foldingTests state =
     }
     |> Async.Cache
 
-  testList
+  testSequenced
+  <| testList
     "folding tests"
     [ testCaseAsync
         "can get ranges for sample file"
