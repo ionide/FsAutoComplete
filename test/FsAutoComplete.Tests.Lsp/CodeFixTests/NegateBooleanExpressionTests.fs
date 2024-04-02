@@ -7,7 +7,7 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
 let tests state =
-  serverTestList
+  fserverTestList
     (nameof NegateBooleanExpression)
     state
     { defaultConfigDto with
