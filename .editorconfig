@@ -23,3 +23,6 @@ fsharp_max_array_or_list_width=80
 fsharp_max_dot_get_expression_width=80
 fsharp_max_function_binding_width=80
 fsharp_max_value_binding_width=80
+
+[src/FsAutoComplete/CodeFixes/*.fs]
+fsharp_experimental_keep_indent_in_branch = true

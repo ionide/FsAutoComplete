@@ -24,7 +24,7 @@ let b = a$0"
           Diagnostics.acceptAll
           selectCodeFix
           "let a = false
-let b = not a"
+let b = not (a)"
 
         testCaseAsync "negate boolean expression"
         <| CodeFix.check
@@ -50,7 +50,7 @@ let b = $0A.a"
 module A =
   let a = false
 
-let b = not A.a"
+let b = not (A.a)"
 
         testCaseAsync "negate record field"
         <| CodeFix.check
@@ -66,7 +66,7 @@ let b = $0a.Y"
 type X = { Y: bool }
 
 let a = { Y = true }
-let b = not a.Y"
+let b = not (a.Y)"
 
         testCaseAsync "negate class property"
         <| CodeFix.check
