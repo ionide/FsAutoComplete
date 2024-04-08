@@ -46,6 +46,7 @@ module Title =
 
     module Separate =
       val decimal3: string
+      val decimal4: string
       val hexadecimal4: string
       val hexadecimal2: string
       val octal3: string
@@ -55,6 +56,7 @@ module Title =
   module Float =
     module Separate =
       val all3: string
+      val all4: string
 
   module Char =
     module Convert =

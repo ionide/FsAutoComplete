@@ -539,6 +539,7 @@ module Title =
 
     module Separate =
       let decimal3 = "Separate thousands (3)"
+      let decimal4 = "Separate ten thousands (4)"
       let hexadecimal4 = "Separate words (4)"
       let hexadecimal2 = "Separate bytes (2)"
       let octal3 = "Separate digit groups (3)"
@@ -548,6 +549,7 @@ module Title =
   module Float =
     module Separate =
       let all3 = "Separate digit groups (3)"
+      let all4 = "Separate digit groups (4)"
 
   module Char =
     module Convert =
@@ -1374,7 +1376,9 @@ module private IntFix =
           List.empty
 
       match constant.Base with
-      | Base.Decimal -> [ yield! tryMkFix Title.Int.Separate.decimal3 3 ]
+      | Base.Decimal ->
+        [ yield! tryMkFix Title.Int.Separate.decimal3 3
+          yield! tryMkFix Title.Int.Separate.decimal4 4 ]
       | Base.Hexadecimal ->
         [ yield! tryMkFix Title.Int.Separate.hexadecimal4 4
           yield! tryMkFix Title.Int.Separate.hexadecimal2 2 ]
@@ -1514,29 +1518,31 @@ module private FloatFix =
     if text.Contains '_' then
       []
     else
-      let edits =
-        [| if constant.IntRange.Length > 3 then
+      let makeFloatSepFix len =
+        [| if constant.IntRange.Length > len then
              let range = constant.IntRange.ToRangeInside constant.Range
              let n = range.SpanIn(lineStr).ToString()
 
              { Range = range
-               NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft }
-           if constant.DecimalRange.Length > 3 then
+               NewText = DigitGroup.addSeparator n len DigitGroup.RightToLeft }
+           if constant.DecimalRange.Length > len then
              let range = constant.DecimalRange.ToRangeInside constant.Range
              let n = range.SpanIn(lineStr).ToString()
 
              { Range = range
-               NewText = DigitGroup.addSeparator n 3 DigitGroup.LeftToRight }
-           if constant.ExponentRange.Length > 3 then
+               NewText = DigitGroup.addSeparator n len DigitGroup.LeftToRight }
+           if constant.ExponentRange.Length > len then
              let range = constant.ExponentRange.ToRangeInside constant.Range
              let n = range.SpanIn(lineStr).ToString()
 
              { Range = range
-               NewText = DigitGroup.addSeparator n 3 DigitGroup.RightToLeft } |]
+               NewText = DigitGroup.addSeparator n len DigitGroup.RightToLeft } |]
 
-      match edits with
-      | [||] -> []
-      | _ -> mkFix doc Title.Float.Separate.all3 edits |> List.singleton
+      [ Title.Float.Separate.all3, 3; Title.Float.Separate.all4, 4 ]
+      |> List.choose (fun (title, len) ->
+        match makeFloatSepFix len with
+        | [||] -> None
+        | edits -> Some(mkFix doc title edits))
 
   /// Removes or adds digit group separators (`_`)
   let digitGroupFixes doc (lineStr: String) (constant: FloatConstant) =
