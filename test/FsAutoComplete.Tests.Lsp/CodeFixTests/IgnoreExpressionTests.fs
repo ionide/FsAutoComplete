@@ -58,4 +58,18 @@ let foo () =
     dict.TryAdd(\"foo\", \"bar\") |> ignore
     ()"
 
+      testCaseAsync "ignore tuple"
+      <| CodeFix.check
+        server
+        "
+let _ =
+    1, 2$0
+    null"
+        Diagnostics.acceptAll
+        selectCodeFix
+        "
+let _ =
+    (1, 2) |> ignore
+    null"
+
       ])
