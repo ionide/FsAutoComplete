@@ -21,7 +21,7 @@ let a b =
         selectCodeFix
         "
 let a b =
-    (9) |> ignore
+    9 |> ignore
     null"
 
       testCaseAsync "ignore infix application"
@@ -35,7 +35,7 @@ let a b =
         selectCodeFix
         "
 let a b =
-    (0 / 9) |> ignore
+    0 / 9 |> ignore
     null"
 
       testCaseAsync "ignore member invocation"
@@ -55,7 +55,7 @@ open System.Collections.Generic
 
 let foo () =
     let dict = dict []
-    (dict.TryAdd(\"foo\", \"bar\")) |> ignore
+    dict.TryAdd(\"foo\", \"bar\") |> ignore
     ()"
 
       ])
