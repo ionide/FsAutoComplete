@@ -23,3 +23,5 @@ type B() =
     member val Value = Some "" with get,set
 let b = B()
 b.Value |> ignore
+
+let cc = GoToCSharp.Class1()
