@@ -9,8 +9,8 @@ module Syntax =
   /// An recursive pattern that collect all sequential expressions to avoid StackOverflowException
   let rec (|Sequentials|_|) =
     function
-    | SynExpr.Sequential(_, _, e, Sequentials es, _) -> Some(e :: es)
-    | SynExpr.Sequential(_, _, e1, e2, _) -> Some [ e1; e2 ]
+    | SynExpr.Sequential(expr1 = e; expr2 = Sequentials es) -> Some(e :: es)
+    | SynExpr.Sequential(expr1 = e1; expr2 = e2) -> Some [ e1; e2 ]
     | _ -> None
 
   let (|ConstructorPats|) =
