@@ -21,6 +21,16 @@ type ReplaceInfo =
   | RawLambda of range
   | ParenLambda of lpr: range * lambdaRange: range * rpr: range
 
+[<RequireQualifiedAccess; NoComparison; NoEquality; Struct>]
+type DotLambdaReplaceInfo =
+  | NotNeedParen of range
+  | NeedParen of underscoreRange: range * endRange: range
+
+[<RequireQualifiedAccess; NoComparison; NoEquality; Struct>]
+type FixType =
+  | ReplaceToDotLambda of replaceInfo: ReplaceInfo
+  | ReplaceToLambda of dotLambdaReplaceInfo: DotLambdaReplaceInfo
+
 let tryFindLambda (cursor: pos) (tree: ParsedInput) =
   (cursor, tree)
   ||> ParsedInput.tryPick (fun path node ->
@@ -46,12 +56,27 @@ let tryFindLambda (cursor: pos) (tree: ParsedInput) =
 
           match List.tryHead path with
           | Some(SyntaxNode.SynExpr(SynExpr.Paren(leftParenRange = lpr; rightParenRange = Some rpr))) ->
-            Some(ReplaceInfo.ParenLambda(lpr, mLambda, rpr))
-          | _ -> Some(ReplaceInfo.RawLambda mLambda)
+            ReplaceInfo.ParenLambda(lpr, mLambda, rpr) |> FixType.ReplaceToDotLambda |> Some
+          | _ -> ReplaceInfo.RawLambda mLambda |> FixType.ReplaceToDotLambda |> Some
       | _ -> None
+
+    | SyntaxNode.SynExpr(SynExpr.DotLambda(
+        range = mLambda; trivia = { FSharp.Compiler.SyntaxTrivia.SynExprDotLambdaTrivia.UnderscoreRange = m })) ->
+
+      match List.tryHead path with
+      | Some(SyntaxNode.SynExpr(SynExpr.Paren _)) ->
+        DotLambdaReplaceInfo.NotNeedParen m |> FixType.ReplaceToLambda |> Some
+      | _ ->
+        let (Pos(line, column)) = mLambda.End
+        let posEnd = Position.mkPos line (column + 1)
+
+        DotLambdaReplaceInfo.NeedParen(m, mkRange m.FileName posEnd posEnd)
+        |> FixType.ReplaceToLambda
+        |> Some
     | _ -> None)
 
-let title = "Replace lambda with _."
+let titleReplaceToDotLambda = "Replace lambda with _."
+let titleReplaceToLambda = "Replace _. with lambda"
 
 let languageFeature = lazy LanguageFeatureShim("AccessorFunctionShorthand")
 
@@ -72,7 +97,7 @@ let fix (getLanguageVersion: GetLanguageVersion) (getParseResultsForFile: GetPar
 
         match tryFindLambda fcsPos parseAndCheckResults.GetParseResults.ParseTree with
         | None -> return []
-        | Some replaceInfo ->
+        | Some(FixType.ReplaceToDotLambda replaceInfo) ->
           let edits =
             match replaceInfo with
             | ReplaceInfo.RawLambda m ->
@@ -88,7 +113,26 @@ let fix (getLanguageVersion: GetLanguageVersion) (getParseResultsForFile: GetPar
 
           return
             [ { SourceDiagnostic = None
-                Title = title
+                Title = titleReplaceToDotLambda
+                File = codeActionParams.TextDocument
+                Edits = edits
+                Kind = FixKind.Fix } ]
+        | Some(FixType.ReplaceToLambda replaceInfo) ->
+          let edits =
+            match replaceInfo with
+            | DotLambdaReplaceInfo.NeedParen(m, mEnd) ->
+              [| { Range = fcsRangeToLsp m
+                   NewText = "(fun _i -> _i" }
+                 { Range = fcsRangeToLsp mEnd
+                   NewText = ")" } |]
+
+            | DotLambdaReplaceInfo.NotNeedParen m ->
+              [| { Range = fcsRangeToLsp m
+                   NewText = "fun _i -> _i" } |]
+
+          return
+            [ { SourceDiagnostic = None
+                Title = titleReplaceToLambda
                 File = codeActionParams.TextDocument
                 Edits = edits
                 Kind = FixKind.Fix } ]
