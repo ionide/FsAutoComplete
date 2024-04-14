@@ -67,10 +67,7 @@ let tryFindLambda (cursor: pos) (tree: ParsedInput) =
       | Some(SyntaxNode.SynExpr(SynExpr.Paren _)) ->
         DotLambdaReplaceInfo.NotNeedParen m |> FixType.ReplaceToLambda |> Some
       | _ ->
-        let (Pos(line, column)) = mLambda.End
-        let posEnd = Position.mkPos line (column + 1)
-
-        DotLambdaReplaceInfo.NeedParen(m, mkRange m.FileName posEnd posEnd)
+        DotLambdaReplaceInfo.NeedParen(m, mkRange m.FileName mLambda.End mLambda.End)
         |> FixType.ReplaceToLambda
         |> Some
     | _ -> None)
