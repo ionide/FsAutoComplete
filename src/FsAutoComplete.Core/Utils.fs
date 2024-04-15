@@ -67,6 +67,7 @@ module Seq =
 
 module ProcessHelper =
   open IcedTasks
+
   let WaitForExitAsync (p: Process) =
     asyncEx {
       let tcs = TaskCompletionSource<obj>()

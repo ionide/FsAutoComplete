@@ -96,7 +96,9 @@ type FindFirstProject() =
       |> Seq.sortBy (fun p -> p.ProjectFileName)
       |> Seq.tryFind (fun p -> p.SourceFilesTagged |> Array.exists (fun f -> f = sourceFile))
       |> Result.ofOption (fun () ->
-        let allProjects = String.join ", " (projects |> Seq.map (fun p -> p.ProjectFileName))
+        let allProjects =
+          String.join ", " (projects |> Seq.map (fun p -> p.ProjectFileName))
+
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
 
@@ -1024,8 +1026,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             let! projects =
               // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
               // and when other adaptive values await on this, the scheduler won't block those other tasks
-              loadProjects loader binlogConfig projects
-              |> AMap.toAVal
+              loadProjects loader binlogConfig projects |> AMap.toAVal
 
             and! checker = checker
             checker.ClearCaches()
@@ -1079,11 +1080,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   //   |> Observable.subscribe (fun _ -> forceLoadProjects () |> ignore<list<LoadedProject>>)
   //   |> disposables.Add
 
-  let AMapReKeyMany f map =
-        map
-        |> AMap.toASet
-        |> ASet.collect f
-        |> AMap.ofASet
+  let AMapReKeyMany f map = map |> AMap.toASet |> ASet.collect f |> AMap.ofASet
 
   let sourceFileToProjectOptions =
     asyncAVal {
@@ -1091,11 +1088,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let sourceFileToProjectOptions =
         loadedProjects
-        |> AMapReKeyMany(fun (_,v) ->
-          v.SourceFilesTagged
-          |> ASet.ofArray
-          |> ASet.map(fun source -> source, v)
-        )
+        |> AMapReKeyMany(fun (_, v) -> v.SourceFilesTagged |> ASet.ofArray |> ASet.map (fun source -> source, v))
         |> AMap.map' HashSet.toList
 
       return sourceFileToProjectOptions
@@ -1477,13 +1470,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     =
     asyncEx {
       let tags =
-        [
-          SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
+        [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
           SemanticConventions.projectFilePath, box (options.ProjectFileName)
           "source.text", box (file.Source.String)
           "source.version", box (file.Version)
 
-        ]
+          ]
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
@@ -2185,7 +2177,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let dependentProjectsAndSourceFiles =
         dependentProjects
-        |> List.collect (fun (snap) -> snap.SourceFiles |> List.map (fun sourceFile -> snap, Utils.normalizePath sourceFile.FileName))
+        |> List.collect (fun (snap) ->
+          snap.SourceFiles
+          |> List.map (fun sourceFile -> snap, Utils.normalizePath sourceFile.FileName))
         |> List.toArray
 
       let mutable checksCompleted = 0
@@ -2203,6 +2197,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
           |> Array.filter (fun (_, file) ->
             let file = UMX.untag file
+
             file.Contains "AssemblyInfo.fs" |> not
             && file.Contains "AssemblyAttributes.fs" |> not)
 

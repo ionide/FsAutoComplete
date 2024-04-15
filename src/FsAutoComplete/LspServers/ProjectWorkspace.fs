@@ -119,7 +119,10 @@ module Snapshots =
       unresolvedReferences
       originalLoadReferences
 
-  let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) (sourceFilePath: string<LocalPath>) =
+  let private createFSharpFileSnapshotOnDisk
+    (sourceTextFactory: aval<ISourceTextFactory>)
+    (sourceFilePath: string<LocalPath>)
+    =
     aval {
       let file = UMX.untag sourceFilePath
       let! writeTime = AdaptiveFile.GetLastWriteTimeUtc file
@@ -236,8 +239,7 @@ module Snapshots =
             | None -> return! createFSharpFileSnapshotOnDisk sourceTextFactory sourcePath
           })
 
-      let references =
-        p.OtherOptions |> List.filter (fun x -> x.StartsWith("-r:"))
+      let references = p.OtherOptions |> List.filter (fun x -> x.StartsWith("-r:"))
 
       let otherOptions = p.OtherOptions |> ASet.ofList |> ASet.map (AVal.constant)
 
@@ -292,7 +294,5 @@ module Snapshots =
       let optionsToSnapshot =
         optionsToSnapshot cachedSnapshots inMemorySourceFiles sourceTextFactory mapReferences
 
-      ps
-      |> HashMap.map (fun _ v -> (v, optionsToSnapshot v))
-    )
+      ps |> HashMap.map (fun _ v -> (v, optionsToSnapshot v)))
     |> AMap.ofAVal

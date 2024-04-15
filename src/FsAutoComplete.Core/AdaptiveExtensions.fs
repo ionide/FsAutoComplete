@@ -27,9 +27,9 @@ module AdaptiveExtensions =
 
     member cts.TryDispose() =
       // try
-        if not <| isNull cts then
-          cts.Dispose()
-      // with _ -> ()
+      if not <| isNull cts then
+        cts.Dispose()
+  // with _ -> ()
 
 
   type TaskCompletionSource<'a> with
@@ -37,28 +37,14 @@ module AdaptiveExtensions =
     /// https://github.com/dotnet/runtime/issues/47998
     member tcs.TrySetFromTask(real: Task<'a>) =
 
-      real.ContinueWith(fun (task : Task<_>) ->
+      real.ContinueWith(fun (task: Task<_>) ->
         match task.Status with
         | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
-        | TaskStatus.Canceled -> tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken) |> ignore<bool>
-        | TaskStatus.Faulted ->
-          logger.error(
-            Log.setMessage "Error in TrySetFromTask with {count}"
-            >> Log.addExn task.Exception.InnerException
-            >> Log.addContext "count" task.Exception.InnerExceptions.Count
-          )
-          logger.warn(
-            Log.setMessage "task.Exception.StackTrace {trace}"
-            >> Log.addContext "trace" task.Exception.StackTrace
-          )
-          logger.warn(
-            Log.setMessage "task.Exception.StackTrace {trace}"
-            >> Log.addContext "trace" task.Exception.InnerException.StackTrace
-          )
-          // if task.Exception.StackTrace = null then
-          tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
-          // else
-          //   tcs.TrySetException(task.Exception) |> ignore<bool>
+        | TaskStatus.Canceled ->
+          tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken)
+          |> ignore<bool>
+        | TaskStatus.Faulted -> tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
+
         | _ -> ())
       |> ignore<Task>
 
@@ -416,9 +402,9 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
       if real.IsCompleted then
         real
       else
-          cachedTcs <- new TaskCompletionSource<'a>()
-          cachedTcs.TrySetFromTask real
-          cachedTcs.Task
+        cachedTcs <- new TaskCompletionSource<'a>()
+        cachedTcs.TrySetFromTask real
+        cachedTcs.Task
 
     cached <-
       match cached with
@@ -434,12 +420,12 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
     cached
 
   /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
-  member x.Cancel(cancellationToken : CancellationToken) =
+  member x.Cancel(cancellationToken: CancellationToken) =
     lock x (fun () ->
       cancel ()
+
       if not <| isNull cachedTcs then
-        cachedTcs.TrySetCanceled(cancellationToken) |> ignore<bool>
-    )
+        cachedTcs.TrySetCanceled(cancellationToken) |> ignore<bool>)
 
   /// <summary>The output of the passed in task to the constructor.</summary>
   /// <returns></returns>
@@ -684,13 +670,11 @@ module AsyncAVal =
         member x.Compute t =
           if x.OutOfDate || Option.isNone cache then
             let ref =
-              RefCountingTaskCreator(
-                fun ct -> task {
+              RefCountingTaskCreator(fun ct ->
+                task {
                   let v = input.GetValue t
 
-                  use _s =
-                    ct.Register(fun () ->
-                      v.Cancel(ct))
+                  use _s = ct.Register(fun () -> v.Cancel(ct))
 
                   let! i = v.Task
 
@@ -700,8 +684,7 @@ module AsyncAVal =
                     let! b = mapping i ct
                     dataCache <- ValueSome(struct (i, b))
                     return b
-                }
-              )
+                })
 
             cache <- Some ref
             ref.New()
@@ -736,8 +719,8 @@ module AsyncAVal =
         member x.Compute t =
           if x.OutOfDate || Option.isNone cache then
             let ref =
-              RefCountingTaskCreator(
-                fun ct -> task {
+              RefCountingTaskCreator(fun ct ->
+                task {
                   let ta = ca.GetValue t
                   let tb = cb.GetValue t
 
@@ -755,8 +738,7 @@ module AsyncAVal =
                     let! vc = mapping ia ib ct
                     dataCache <- ValueSome(struct (ia, ib, vc))
                     return vc
-                }
-              )
+                })
 
             cache <- Some ref
             ref.New()
@@ -790,12 +772,10 @@ module AsyncAVal =
           if x.OutOfDate then
             if Interlocked.Exchange(&inputChanged, 0) = 1 || Option.isNone cache then
               let outerTask =
-                RefCountingTaskCreator(
-                  fun ct -> task {
+                RefCountingTaskCreator(fun ct ->
+                  task {
                     let v = value.GetValue t
-                    use _s =
-                      ct.Register(fun () ->
-                        v.Cancel(ct))
+                    use _s = ct.Register(fun () -> v.Cancel(ct))
 
                     let! i = v.Task
 
@@ -806,22 +786,19 @@ module AsyncAVal =
                       outerDataCache <- Some(i, inner)
                       return inner
 
-                  }
-                )
+                  })
 
               cache <- Some outerTask
 
             let outerTask = cache.Value
 
             let ref =
-              RefCountingTaskCreator(
-                fun ct -> task {
+              RefCountingTaskCreator(fun ct ->
+                task {
 
                   let inner = outerTask.New()
 
-                  use _s =
-                    ct.Register(fun () ->
-                      inner.Cancel(ct))
+                  use _s = ct.Register(fun () -> inner.Cancel(ct))
 
                   let! inner = inner.Task
 
@@ -836,8 +813,7 @@ module AsyncAVal =
 
                   return! innerTask.Task
 
-                }
-              )
+                })
 
             innerCache <- Some ref
 

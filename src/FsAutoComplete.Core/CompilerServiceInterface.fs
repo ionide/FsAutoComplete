@@ -318,26 +318,19 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     | (true, v) -> Some v
     | _ -> None
 
-  member _.TryGetRecentCheckResultsForFile
-    (
-      file: string<LocalPath>,
-      snapshot: FSharpProjectSnapshot
-    ) =
-      let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
+  member _.TryGetRecentCheckResultsForFile(file: string<LocalPath>, snapshot: FSharpProjectSnapshot) =
+    let opName = sprintf "TryGetRecentCheckResultsForFile - %A" file
 
+    checkerLogger.info (Log.setMessage "{opName} - {hash}" >> Log.addContextDestructured "opName" opName)
+
+    checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
+    |> Option.map (fun (pr, cr) ->
       checkerLogger.info (
-        Log.setMessage "{opName} - {hash}"
+        Log.setMessage "{opName} - got results - {version}"
         >> Log.addContextDestructured "opName" opName
       )
 
-      checker.TryGetRecentCheckResultsForFile(UMX.untag file, snapshot, opName)
-      |> Option.map (fun (pr, cr) ->
-        checkerLogger.info (
-          Log.setMessage "{opName} - got results - {version}"
-          >> Log.addContextDestructured "opName" opName
-        )
-
-        ParseAndCheckResults(pr, cr, entityCache))
+      ParseAndCheckResults(pr, cr, entityCache))
 
 
   member _.GetUsesOfSymbol
@@ -370,34 +363,35 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         return res |> Array.concat
     }
 
-  member x.FindReferencesForSymbolInFile(file : string<LocalPath>, project: FSharpProjectSnapshot, symbol) =
+  member x.FindReferencesForSymbolInFile(file: string<LocalPath>, project: FSharpProjectSnapshot, symbol) =
     async {
       checkerLogger.info (
         Log.setMessage "FindReferencesForSymbolInFile - {file} - {projectFile}"
         >> Log.addContextDestructured "file" file
         >> Log.addContextDestructured "projectFile" project.ProjectFileName
       )
+
       let file = UMX.untag file
-      // let file =
-      //   file.Substring(0, 1).ToUpper() + file.Substring(1)
+
       try
-        // let! _ = checker.ParseAndCheckFileInProject(file, project)
         let! results = checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
 
         checkerLogger.info (
           Log.setMessage "FindReferencesForSymbolInFile - {file} - {projectFile}  - {results}"
           >> Log.addContextDestructured "file" file
-        >> Log.addContextDestructured "projectFile" project.ProjectFileName
+          >> Log.addContextDestructured "projectFile" project.ProjectFileName
           >> Log.addContextDestructured "results" results
         )
+
         return results
       with e ->
         checkerLogger.error (
           Log.setMessage "FindReferencesForSymbolInFile - {file} - {projectFile}"
-        >> Log.addContextDestructured "projectFile" project.ProjectFileName
+          >> Log.addContextDestructured "projectFile" project.ProjectFileName
           >> Log.addContextDestructured "file" file
           >> Log.addExn e
         )
+
         return [||]
     }
 
