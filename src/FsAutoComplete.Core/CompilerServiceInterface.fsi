@@ -72,7 +72,7 @@ type FSharpCompilerServiceChecker =
       Async<FSharpSymbolUse array>
 
   member FindReferencesForSymbolInFile:
-    file: string * project: FSharpProjectSnapshot * symbol: FSharpSymbol -> Async<seq<range>>
+    file: string<LocalPath> * project: FSharpProjectSnapshot * symbol: FSharpSymbol -> Async<seq<range>>
 
   // member GetDeclarations:
   //   fileName: string<LocalPath> * source: ISourceText * snapshot: FSharpProjectOptions * version: 'a ->

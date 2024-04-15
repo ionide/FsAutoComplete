@@ -141,7 +141,7 @@ type ParseAndCheckResults
             )
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
-            | Some fullFilePath -> Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
+            | Some fullFilePath -> Ok(Utils.normalizePath fullFilePath, getFileName rangeInNonexistentFile)
             | None ->
               ResultOrString.Error(
                 sprintf
@@ -770,4 +770,4 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults: FSharpCheckFileResults = checkResults
   member __.GetParseResults: FSharpParseFileResults = parseResults
-  member __.FileName: string<LocalPath> = UMX.tag parseResults.FileName
+  member __.FileName: string<LocalPath> = Utils.normalizePath parseResults.FileName

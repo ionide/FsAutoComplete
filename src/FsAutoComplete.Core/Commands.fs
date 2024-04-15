@@ -799,7 +799,7 @@ module Commands =
 
                     yield!
                       project.ReferencedProjects
-                      |> List.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                      |> List.map (fun p -> Utils.normalizePath p.OutputFile |> tryGetProjectOptionsForFsproj) ]
                 |> Async.parallel75
 
 
@@ -890,7 +890,7 @@ module Commands =
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
           [ for project in projects do
               for file in project.SourceFiles do
-                let file = UMX.tag file.FileName
+                let file = Utils.normalizePath file.FileName
 
                 async {
                   match! tryFindReferencesInFile (file, project) with

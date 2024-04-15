@@ -45,7 +45,7 @@ let getDeclarationLocation
         else
           loc.FileName
 
-      let taggedFilePath = UMX.tag normalizedPath
+      let taggedFilePath = Utils.normalizePath normalizedPath
 
       if isScript && taggedFilePath = currentDocument.FileName then
         return SymbolDeclarationLocation.CurrentDocument
