@@ -252,7 +252,6 @@ let main args =
       CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
       CLIArguments.Parallel
-      CLIArguments.ActivitySource activitySource
     ]
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
