@@ -119,20 +119,19 @@ module Snapshots =
       unresolvedReferences
       originalLoadReferences
 
-  let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) sourceFilePath =
+  let private createFSharpFileSnapshotOnDisk (sourceTextFactory: aval<ISourceTextFactory>) (sourceFilePath: string<LocalPath>) =
     aval {
-      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc sourceFilePath
+      let file = UMX.untag sourceFilePath
+      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc file
       and! sourceTextFactory = sourceTextFactory
-
-      let fileNorm = normalizePath sourceFilePath
 
       let getSource () =
         task {
-          let! sourceText = SourceTextFactory.readFile fileNorm sourceTextFactory CancellationToken.None
+          let! sourceText = SourceTextFactory.readFile sourceFilePath sourceTextFactory CancellationToken.None
           return sourceText :> ISourceTextNew
         }
 
-      return ProjectSnapshot.FSharpFileSnapshot.Create(sourceFilePath, string writeTime.Ticks, getSource)
+      return ProjectSnapshot.FSharpFileSnapshot.Create(file, string writeTime.Ticks, getSource)
     }
 
   let private createFSharpFileSnapshotInMemory (v: VolatileFile) =
@@ -141,6 +140,7 @@ module Snapshots =
     // it's useful for keeping the cache consistent in FCS so when someone opens a file we don't need to re-issue type-checks
     let version = v.LastTouched.Ticks
     let getSource () = v.Source :> ISourceTextNew |> Task.FromResult
+
     ProjectSnapshot.FSharpFileSnapshot.Create(file, string version, getSource)
 
   let private createReferenceOnDisk path : aval<ProjectSnapshot.ReferenceOnDisk> =
@@ -221,25 +221,25 @@ module Snapshots =
       )
 
       let projectName = AVal.constant p.ProjectFileName
-      let projectId = p.ProjectId |> AVal.constant
+      let projectId = AVal.constant p.ProjectId
 
 
       let sourceFiles = // alist because order matters for the F# Compiler
         p.SourceFiles
         |> AList.ofList
+        |> AList.map Utils.normalizePath
         |> AList.map (fun sourcePath ->
-          let normPath = Utils.normalizePath sourcePath
 
           aval {
-            match! inMemorySourceFiles |> AMap.tryFind normPath with
+            match! inMemorySourceFiles |> AMap.tryFind sourcePath with
             | Some volatileFile -> return! volatileFile |> AVal.map createFSharpFileSnapshotInMemory
             | None -> return! createFSharpFileSnapshotOnDisk sourceTextFactory sourcePath
           })
 
-      let references, otherOptions =
-        p.OtherOptions |> List.partition (fun x -> x.StartsWith("-r:"))
+      let references =
+        p.OtherOptions |> List.filter (fun x -> x.StartsWith("-r:"))
 
-      let otherOptions = otherOptions |> ASet.ofList |> ASet.map (AVal.constant)
+      let otherOptions = p.OtherOptions |> ASet.ofList |> ASet.map (AVal.constant)
 
       let referencePaths =
         references
@@ -278,14 +278,21 @@ module Snapshots =
     (sourceTextFactory: aval<ISourceTextFactory>)
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
     =
-    let cachedSnapshots = Dictionary<_, _>()
 
-    let mapReferences =
-      createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA
-
-    let optionsToSnapshot =
-      optionsToSnapshot cachedSnapshots inMemorySourceFiles sourceTextFactory mapReferences
 
     loadedProjectsA
     |> AMap.filter (fun k _ -> (UMX.untag k).EndsWith ".fsproj")
-    |> AMap.map (fun _ v -> v, optionsToSnapshot v)
+    |> AMap.toAVal
+    |> AVal.map (fun ps ->
+      let cachedSnapshots = Dictionary<_, _>()
+
+      let mapReferences =
+        createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA
+
+      let optionsToSnapshot =
+        optionsToSnapshot cachedSnapshots inMemorySourceFiles sourceTextFactory mapReferences
+
+      ps
+      |> HashMap.map (fun _ v -> (v, optionsToSnapshot v))
+    )
+    |> AMap.ofAVal
