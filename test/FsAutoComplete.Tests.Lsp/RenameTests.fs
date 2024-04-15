@@ -291,7 +291,6 @@ let private crossProjectTests state =
             { TextDocument = { Uri = normalizePathCasing usageFile }
               Position = { Line = 6; Character = 28 }
               NewName = "sup" }
-
           let! res = server.TextDocumentRename(renameHelloUsageInUsageFile)
 
           match res with

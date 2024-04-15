@@ -57,7 +57,7 @@ module Expecto =
     let ptestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
     let ftestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
 
-let rec private copyDirectory (sourceDir : DirectoryInfo) destDir =
+let rec private copyDirectory (sourceDir: DirectoryInfo) destDir =
   // Get the subdirectories for the specified directory.
   // let dir = DirectoryInfo(sourceDir)
 
@@ -82,18 +82,16 @@ let rec private copyDirectory (sourceDir : DirectoryInfo) destDir =
     copyDirectory dir tempPath)
 
 type DisposableDirectory(directory: string, deleteParentDir) =
-  static member Create(?name : string) =
+  static member Create(?name: string) =
     let tempPath, deleteParentDir =
       match name with
-      | Some name ->
-        IO.Path.GetTempPath() </> Guid.NewGuid().ToString("n") </> name, true
-      | None ->
-        IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n")), false
+      | Some name -> IO.Path.GetTempPath() </> Guid.NewGuid().ToString("n") </> name, true
+      | None -> IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n")), false
     // printfn "Creating directory %s" tempPath
     IO.Directory.CreateDirectory tempPath |> ignore
     new DisposableDirectory(tempPath, deleteParentDir)
 
-  static member From (sourceDir: DirectoryInfo) =
+  static member From(sourceDir: DirectoryInfo) =
     let self = DisposableDirectory.Create(sourceDir.Name)
     copyDirectory sourceDir self.DirectoryInfo.FullName
     self
@@ -108,8 +106,21 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      // printfn "Deleting directory %s" dirToDelete.FullName
-      IO.Directory.Delete(dirToDelete.FullName, true)
+      let mutable attempts = 5
+
+      while attempts > 0 do
+        try
+          // Handle odd cases with windows file locking
+          IO.Directory.Delete(dirToDelete.FullName, true)
+          attempts <- 0
+        with _ ->
+          attempts <- attempts - 1
+          if attempts = 0 then
+            reraise ()
+          Thread.Sleep(15)
+
+
+
 
 type Async =
   /// Behaves like AwaitObservable, but calls the specified guarding function
@@ -700,7 +711,13 @@ let diagnosticsToResult =
 
 let waitForParseResultsForFile file = fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
-let waitForDiagnosticErrorForFile file = fileDiagnostics file >> Observable.choose (function | [||] -> None | diags -> Some diags) >> diagnosticsToResult >> Async.AwaitObservable
+let waitForDiagnosticErrorForFile file =
+  fileDiagnostics file
+  >> Observable.choose (function
+    | [||] -> None
+    | diags -> Some diags)
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
 
 let waitForFsacDiagnosticsForFile file = fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 

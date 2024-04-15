@@ -98,7 +98,7 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
   loadedProjectsA
 
-
+let normalizeUntag = normalizePath >> UMX.untag
 
 
 let snapshotTests loaders toolsPath =
@@ -283,8 +283,8 @@ let snapshotTests loaders toolsPath =
         Expect.equal ls1.ProjectId ls2.ProjectId "Project Id name should be the same"
         Expect.equal ls1.SourceFiles.Length 3 "Source files length should be 3"
         Expect.equal ls1.SourceFiles.Length ls2.SourceFiles.Length "Source files length should be the same"
-        let ls1File = ls1.SourceFiles |> Seq.find (fun x -> x.FileName = libraryFile.FullName)
-        let ls2File = ls2.SourceFiles |> Seq.find (fun x -> x.FileName = libraryFile.FullName)
+        let ls1File = ls1.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
+        let ls2File = ls2.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
         Expect.notEqual ls1File.Version ls2File.Version "Library source file version should not be the same"
         Expect.equal ls1.ReferencedProjects.Length ls2.ReferencedProjects.Length "Referenced projects length should be the same"
         Expect.equal ls1.ReferencedProjects.Length 0 "Referenced projects length should be 0"
@@ -298,8 +298,8 @@ let snapshotTests loaders toolsPath =
         Expect.equal cs1.SourceFiles.Length 3 "Source files length should be 3"
         Expect.equal cs1.SourceFiles.Length cs2.SourceFiles.Length "Source files length should be the same"
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-        let cs1File = cs1.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
-        let cs2File = cs2.SourceFiles |> Seq.find (fun x -> x.FileName = consoleFile.FullName)
+        let cs1File = cs1.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
+        let cs2File = cs2.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
         Expect.equal cs1File.Version cs2File.Version "Console source file version should be the same"
         Expect.equal cs1.ReferencedProjects.Length cs2.ReferencedProjects.Length "Referenced projects length should be the same"
         Expect.equal cs1.ReferencedProjects.Length 1 "Referenced projects length should be 1"

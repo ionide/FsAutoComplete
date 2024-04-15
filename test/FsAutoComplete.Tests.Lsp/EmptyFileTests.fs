@@ -26,7 +26,8 @@ let tests state =
   let server1 = createServer()
   let server2 = createServer()
 
-  testList
+  testSequenced
+  <| testList
     "empty file features"
     [ testList
         "tests"

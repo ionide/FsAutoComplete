@@ -3384,6 +3384,7 @@ let private removeUnnecessaryParenthesesTests state =
         """ ])
 
 let tests textFactory state =
+  testSequenced <|
   testList
     "CodeFix-tests"
     [ HelpersTests.tests textFactory
