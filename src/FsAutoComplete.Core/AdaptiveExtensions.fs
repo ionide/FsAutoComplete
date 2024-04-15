@@ -7,39 +7,60 @@ open System.Threading.Tasks
 open IcedTasks
 open System.Threading
 open FsAutoComplete
-
+open FsAutoComplete.Logging
+open FsAutoComplete.Logging.Types
 
 [<AutoOpen>]
 module AdaptiveExtensions =
+  let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
+  open System.Runtime.ExceptionServices
 
   type CancellationTokenSource with
 
     member cts.TryCancel() =
       try
-        cts.Cancel()
+        if not <| isNull cts then
+          cts.Cancel()
       with
       | :? ObjectDisposedException
       | :? NullReferenceException -> ()
 
     member cts.TryDispose() =
       // try
-      cts.Dispose()
-  // with _ -> ()
+        if not <| isNull cts then
+          cts.Dispose()
+      // with _ -> ()
 
 
   type TaskCompletionSource<'a> with
 
     /// https://github.com/dotnet/runtime/issues/47998
     member tcs.TrySetFromTask(real: Task<'a>) =
-      task {
-        try
-          let! r = real
-          tcs.TrySetResult r |> ignore<bool>
-        with
-        | :? OperationCanceledException as x -> tcs.TrySetCanceled(x.CancellationToken) |> ignore<bool>
-        | ex -> tcs.TrySetException ex |> ignore<bool>
-      }
-      |> ignore<Task<unit>>
+
+      real.ContinueWith(fun (task : Task<_>) ->
+        match task.Status with
+        | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
+        | TaskStatus.Canceled -> tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken) |> ignore<bool>
+        | TaskStatus.Faulted ->
+          logger.error(
+            Log.setMessage "Error in TrySetFromTask with {count}"
+            >> Log.addExn task.Exception.InnerException
+            >> Log.addContext "count" task.Exception.InnerExceptions.Count
+          )
+          logger.warn(
+            Log.setMessage "task.Exception.StackTrace {trace}"
+            >> Log.addContext "trace" task.Exception.StackTrace
+          )
+          logger.warn(
+            Log.setMessage "task.Exception.StackTrace {trace}"
+            >> Log.addContext "trace" task.Exception.InnerException.StackTrace
+          )
+          // if task.Exception.StackTrace = null then
+          tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
+          // else
+          //   tcs.TrySetException(task.Exception) |> ignore<bool>
+        | _ -> ())
+      |> ignore<Task>
 
   type ChangeableHashMap<'Key, 'Value> with
 
@@ -386,7 +407,8 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
 /// Upon cancellation, it will run the cancel function passed in and set cancellation for the task completion source.
 /// </remarks>
 and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
-  let cts = new CancellationTokenSource()
+  // let cts = new CancellationTokenSource()
+  let mutable cachedTcs: TaskCompletionSource<'a> = null
   let mutable cached: Task<'a> = null
 
   let getTask () =
@@ -394,14 +416,9 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
       if real.IsCompleted then
         real
       else
-        task {
-          let tcs = new TaskCompletionSource<'a>()
-          use _s = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
-
-          tcs.TrySetFromTask real
-
-          return! tcs.Task
-        }
+          cachedTcs <- new TaskCompletionSource<'a>()
+          cachedTcs.TrySetFromTask real
+          cachedTcs.Task
 
     cached <-
       match cached with
@@ -417,10 +434,12 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
     cached
 
   /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
-  member x.Cancel() =
+  member x.Cancel(cancellationToken : CancellationToken) =
     lock x (fun () ->
       cancel ()
-      cts.TryCancel())
+      if not <| isNull cachedTcs then
+        cachedTcs.TrySetCanceled(cancellationToken) |> ignore<bool>
+    )
 
   /// <summary>The output of the passed in task to the constructor.</summary>
   /// <returns></returns>
@@ -435,17 +454,17 @@ module CancellableTask =
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
     fun (ctok: CancellationToken) ->
       task {
-        use _ = ctok.Register(fun () -> ct.Cancel())
+        use _ = ctok.Register(fun () -> ct.Cancel(ctok))
         return! ct.Task
       }
 
 module Async =
   /// <summary>Converts AdaptiveCancellableTask to an Async.</summary>
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
-    async {
+    asyncEx {
       let! ctok = Async.CancellationToken
-      use _ = ctok.Register(fun () -> ct.Cancel())
-      return! ct.Task |> Async.AwaitTask
+      use _ = ctok.Register(fun () -> ct.Cancel(ctok))
+      return! ct.Task
     }
 
 [<AutoOpen>]
@@ -479,7 +498,7 @@ module AsyncAVal =
   /// This follows Async semantics and is not already running.
   /// </remarks>
   let forceAsync (value: asyncaval<_>) =
-    async {
+    asyncEx {
       let ct = value.GetValue(AdaptiveToken.Top)
       return! Async.ofAdaptiveCancellableTask ct
     }
@@ -666,13 +685,19 @@ module AsyncAVal =
           if x.OutOfDate || Option.isNone cache then
             let ref =
               RefCountingTaskCreator(
-                cancellableTask {
-                  let! i = input.GetValue t
+                fun ct -> task {
+                  let v = input.GetValue t
+
+                  use _s =
+                    ct.Register(fun () ->
+                      v.Cancel(ct))
+
+                  let! i = v.Task
 
                   match dataCache with
                   | ValueSome(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
                   | _ ->
-                    let! b = mapping i
+                    let! b = mapping i ct
                     dataCache <- ValueSome(struct (i, b))
                     return b
                 }
@@ -712,16 +737,14 @@ module AsyncAVal =
           if x.OutOfDate || Option.isNone cache then
             let ref =
               RefCountingTaskCreator(
-                cancellableTask {
+                fun ct -> task {
                   let ta = ca.GetValue t
                   let tb = cb.GetValue t
 
-                  let! ct = CancellableTask.getCancellationToken ()
-
                   use _s =
                     ct.Register(fun () ->
-                      ta.Cancel()
-                      tb.Cancel())
+                      ta.Cancel(ct)
+                      tb.Cancel(ct))
 
                   let! ia = ta.Task
                   let! ib = tb.Task
@@ -768,13 +791,17 @@ module AsyncAVal =
             if Interlocked.Exchange(&inputChanged, 0) = 1 || Option.isNone cache then
               let outerTask =
                 RefCountingTaskCreator(
-                  cancellableTask {
-                    let! i = value.GetValue t
+                  fun ct -> task {
+                    let v = value.GetValue t
+                    use _s =
+                      ct.Register(fun () ->
+                        v.Cancel(ct))
+
+                    let! i = v.Task
 
                     match outerDataCache with
                     | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
                     | _ ->
-                      let! ct = CancellableTask.getCancellationToken ()
                       let inner = mapping i ct
                       outerDataCache <- Some(i, inner)
                       return inner
@@ -788,16 +815,22 @@ module AsyncAVal =
 
             let ref =
               RefCountingTaskCreator(
-                cancellableTask {
-                  let! ct = CancellableTask.getCancellationToken ()
+                fun ct -> task {
 
-                  let! inner = outerTask.New()
+                  let inner = outerTask.New()
+
+                  use _s =
+                    ct.Register(fun () ->
+                      inner.Cancel(ct))
+
+                  let! inner = inner.Task
+
                   lock inners (fun () -> inners.Value <- HashSet.add inner inners.Value)
                   let innerTask = inner.GetValue t
 
                   use _s2 =
                     ct.Register(fun () ->
-                      innerTask.Cancel()
+                      innerTask.Cancel(ct)
                       lock inners (fun () -> inners.Value <- HashSet.remove inner inners.Value)
                       inner.Outputs.Remove x |> ignore)
 

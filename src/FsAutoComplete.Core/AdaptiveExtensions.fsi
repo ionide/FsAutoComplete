@@ -1,5 +1,7 @@
 namespace FsAutoComplete.Adaptive
 
+open System.Threading
+
 [<AutoOpen>]
 module AdaptiveExtensions =
 
@@ -178,7 +180,7 @@ and [<Class>] AdaptiveCancellableTask<'a> =
   new: cancel: (unit -> unit) * real: System.Threading.Tasks.Task<'a> -> AdaptiveCancellableTask<'a>
 
   /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
-  member Cancel: unit -> unit
+  member Cancel: CancellationToken -> unit
 
   /// <summary>The output of the passed in task to the constructor.</summary>
   /// <returns></returns>

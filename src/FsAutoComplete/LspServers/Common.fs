@@ -143,13 +143,14 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
 
 module Async =
   open System.Threading.Tasks
+  open IcedTasks
 
   let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
 
   let inline logCancelled e = logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
-    async {
+    asyncEx {
       let! ct2 = Async.CancellationToken
       use cts = CancellationTokenSource.CreateLinkedTokenSource(ct, ct2)
       let tcs = new TaskCompletionSource<'a>()
@@ -165,7 +166,7 @@ module Async =
         }
 
       Async.Start(a, cts.Token)
-      return! tcs.Task |> Async.AwaitTask
+      return! tcs.Task
     }
 
   let withCancellationSafe ct work =

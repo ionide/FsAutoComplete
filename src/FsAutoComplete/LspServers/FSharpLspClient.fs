@@ -288,13 +288,13 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
   interface IAsyncDisposable with
     member this.DisposeAsync() : ValueTask =
       // was getting a compile error for the state machine in CI to `task`
-      async {
+      asyncEx {
         if not isDisposed then
           isDisposed <- true
           dispose listener
 
           for (a, p) in inflightEvents.Values do
-            do! (disposeAsync p).AsTask() |> Async.AwaitTask
+            do! (disposeAsync p).AsTask()
             inflightEvents.TryRemove(a.Id) |> ignore
       }
       |> Async.StartImmediateAsTask

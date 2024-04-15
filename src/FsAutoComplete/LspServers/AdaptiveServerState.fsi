@@ -37,7 +37,6 @@ type LoadedProject =
   interface IEquatable<LoadedProject>
   override GetHashCode: unit -> int
   override Equals: other: obj -> bool
-  member SourceFiles: string array
   member ProjectFileName: string
 // static member op_Implicit: x: LoadedProject -> FSharpProjectSnapshot
 

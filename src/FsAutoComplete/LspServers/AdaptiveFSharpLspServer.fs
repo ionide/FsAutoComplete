@@ -166,7 +166,7 @@ type AdaptiveFSharpLspServer
             do!
               rootPath
               |> Option.map (fun rootPath ->
-                async {
+                asyncEx {
                   let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
 
                   if not (File.Exists dotConfig) then
@@ -177,7 +177,6 @@ type AdaptiveFSharpLspServer
                         .WithWorkingDirectory(rootPath)
                         .ExecuteBufferedAsync()
                         .Task
-                      |> Async.AwaitTask
 
                     if result.ExitCode <> 0 then
                       fantomasLogger.warn (
@@ -195,7 +194,6 @@ type AdaptiveFSharpLspServer
                           .WithWorkingDirectory(rootPath)
                           .ExecuteBufferedAsync()
                           .Task
-                        |> Async.AwaitTask
 
                       if result.ExitCode <> 0 then
                         fantomasLogger.warn (
@@ -211,7 +209,6 @@ type AdaptiveFSharpLspServer
                       .WithWorkingDirectory(rootPath)
                       .ExecuteBufferedAsync()
                       .Task
-                    |> Async.AwaitTask
 
                   if result.ExitCode = 0 then
                     fantomasLogger.info (Log.setMessage (sprintf "fantomas was installed locally at %A" rootPath))
@@ -237,7 +234,6 @@ type AdaptiveFSharpLspServer
                 .WithArguments("tool install -g fantomas")
                 .ExecuteBufferedAsync()
                 .Task
-              |> Async.AwaitTask
 
             if result.ExitCode = 0 then
               fantomasLogger.info (Log.setMessage "fantomas was installed globally")
