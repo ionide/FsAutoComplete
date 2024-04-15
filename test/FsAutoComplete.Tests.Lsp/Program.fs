@@ -121,9 +121,29 @@ let tests = testList "FSAC" [
     SnapshotTests.snapshotTests loaders toolsPath
   ]
 
+open OpenTelemetry
+open OpenTelemetry.Resources
+open OpenTelemetry.Trace
+open OpenTelemetry.Logs
+open OpenTelemetry.Metrics
+open System.Diagnostics
+open FsAutoComplete.Telemetry
 
 [<EntryPoint>]
 let main args =
+  let serviceName = "FsAutoComplete.Tests.Lsp"
+  use traceProvider =
+    let version = FsAutoComplete.Utils.Version.info().Version
+    Sdk
+      .CreateTracerProviderBuilder()
+      .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+      .SetResourceBuilder(
+        ResourceBuilder
+          .CreateDefault()
+          .AddService(serviceName = serviceName, serviceVersion = version)
+      )
+      .AddOtlpExporter()
+      .Build()
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
@@ -225,12 +245,16 @@ let main args =
   let fixedUpArgs = args |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
+  use activitySource = new ActivitySource(serviceName)
 
   let cliArgs =
     [
       CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
       CLIArguments.Parallel
+      CLIArguments.ActivitySource activitySource
     ]
-
+  // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
+  // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
+  use span = activitySource.StartActivity("runTests")
   runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
