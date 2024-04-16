@@ -471,7 +471,6 @@ let closeTests state =
 let diagnosticsTest state =
   let server =
     async {
-      printfn "starting..."
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DiagnosticFormatting")
       let! (server, events) = serverInitialize path defaultConfigDto state
       let path = Path.Combine(path, "Program.fs")
@@ -490,7 +489,6 @@ let diagnosticsTest state =
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
 
-          printfn "waiting for compiler..."
           let! compilerResults = waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
 
           match! compilerResults with
