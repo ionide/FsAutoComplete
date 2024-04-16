@@ -103,25 +103,20 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 let normalizeUntag = normalizePath >> UMX.untag
 
 let awaitFileChanged (file : FileInfo) =
+  let originalLastWriteTime = file.LastWriteTimeUtc
+  let mutable lastWriteTime = file.LastWriteTimeUtc
   // The AdaptiveFile implementation uses FileSystemWatcher under the hood to watch for file changes.
   // The problem is on different operating systems the file system watcher behaves differently.
   // Our tests may run quicker than the file system watcher can pick up the changes
-  // So we need to wait for a file system watcher to pick up the changes
-  // Better than using a sleep is to use a task completion source to signal when the file system watcher has picked up the changes
+  // So we need to wait for a change to happen before we continue.
+  // FileSystemWatcher doesn't seem to work so we're going to poll the file for changes.
+
   task {
-    ignore file
-    // let tcs = new TaskCompletionSource<unit>()
-    // let handleChange _ =
-    //   tcs.TrySetResult () |> ignore<bool>
-    // use fsi = new FileSystemWatcher(file.Directory.FullName, file.Name)
-    // // fsi.NotifyFilter <- NotifyFilters.Attributes ||| NotifyFilters.FileName ||| NotifyFilters.DirectoryName
-    // fsi.Changed.Add handleChange
-    // fsi.Created.Add handleChange
-    // fsi.Deleted.Add handleChange
-    // fsi.Renamed.Add handleChange
-    // fsi.EnableRaisingEvents <- true
-    // do! tcs.Task
-    do! Task.Delay(250) // if this works kill me
+    while lastWriteTime = originalLastWriteTime do
+      do! Task.Delay(15)
+      file.Refresh()
+      lastWriteTime <- file.LastWriteTimeUtc
+
   }
 
 let snapshotTests loaders toolsPath =

@@ -2679,11 +2679,11 @@ let private replaceWithSuggestionTests state =
 
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
-
+        let messages = diags |> Array.map (fun d -> d.Message) |> String.concat "\n"
         Expect.exists
           diags
           (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
-          "Diagnostic with code 39 should suggest name"
+          $"Diagnostic with code 39 should suggest name: Contained {messages}"
 
       testCaseAsync "can change Min to min"
       <| CodeFix.check
