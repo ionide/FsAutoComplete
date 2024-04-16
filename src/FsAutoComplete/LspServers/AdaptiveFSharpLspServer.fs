@@ -1947,8 +1947,6 @@ type AdaptiveFSharpLspServer
 
           let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let _fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
-
           let! pipelineHints = Commands.inlineValues volatileFile.Source tyRes
 
           let hints =
@@ -3007,8 +3005,6 @@ module AdaptiveFSharpLspServer =
         else
           None
       | _ -> None
-
-    let _strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
 
     let (|Flatten|_|) (e: exn) =
       match e with
