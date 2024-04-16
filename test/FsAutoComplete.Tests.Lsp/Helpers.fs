@@ -106,11 +106,11 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      let mutable attempts = 5
+      let mutable attempts = 25
 
+      // Handle odd cases with windows file locking
       while attempts > 0 do
         try
-          // Handle odd cases with windows file locking
           IO.Directory.Delete(dirToDelete.FullName, true)
           attempts <- 0
         with _ ->

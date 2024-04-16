@@ -14,6 +14,7 @@ open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 open FSharp.Compiler.CodeAnalysis
 open IcedTasks
 open FSharp.UMX
+open System.Threading.Tasks
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -100,6 +101,25 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
 let normalizeUntag = normalizePath >> UMX.untag
 
+let awaitFileChanged (file : FileInfo) =
+  // The AdaptiveFile implementation uses FileSystemWatcher under the hood to watch for file changes.
+  // The problem is on different operating systems the file system watcher behaves differently.
+  // Our tests may run quicker than the file system watcher can pick up the changes
+  // So we need to wait for a file system watcher to pick up the changes
+  // Better than using a sleep is to use a task completion source to signal when the file system watcher has picked up the changes
+  task {
+    let tcs = new TaskCompletionSource<unit>()
+    let handleChange _ =
+      tcs.TrySetResult () |> ignore<bool>
+    use fsi = new FileSystemWatcher(file.Directory.FullName, file.Name)
+    fsi.NotifyFilter <- NotifyFilters.Attributes ||| NotifyFilters.FileName ||| NotifyFilters.DirectoryName
+    fsi.Changed.Add handleChange
+    fsi.Created.Add handleChange
+    fsi.Deleted.Add handleChange
+    fsi.Renamed.Add handleChange
+    fsi.EnableRaisingEvents <- true
+    do! tcs.Task
+  }
 
 let snapshotTests loaders toolsPath =
 
@@ -218,11 +238,10 @@ let snapshotTests loaders toolsPath =
         let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-        // printfn "Setting last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
-
+        let fileChanged = awaitFileChanged consoleFile
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
+        do! fileChanged
         consoleFile.Refresh()
-        // printfn "last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
 
         let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
@@ -260,18 +279,16 @@ let snapshotTests loaders toolsPath =
 
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
-
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
         let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
-        // printfn "Setting last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
-
+        let fileChanged = awaitFileChanged libraryFile
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
+        do! fileChanged
         libraryFile.Refresh()
-        // printfn "last write time for %s %A" libraryFile.FullName libraryFile.LastWriteTime
 
         let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
