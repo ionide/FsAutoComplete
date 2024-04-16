@@ -480,13 +480,13 @@ let diagnosticsTest state =
     }
     |> Async.Cache
 
-  ftestList
+  testList
     "Diagnostics formatting Tests"
     [ testCaseAsync
         "replacing unicode paragraph by newline"
         (async {
           let! (server, events, path) = server
-          
+
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
 
@@ -494,8 +494,15 @@ let diagnosticsTest state =
           let! compilerResults = waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
 
           match! compilerResults with
-          | Ok () -> failtest "should get an F# compiler checking error"
+          | Ok() -> failtest "should get an F# compiler checking error"
           | Core.Result.Error errors ->
-            Expect.exists errors (fun error -> error.Code = Some "39" || error.Code = Some "41") "should have an error FS0039(identifier not defined) or FS0041(a unique overload for method 'TryParse' could not be determined based on type information prior to this program point)"
-            Expect.all errors (fun error -> not <| error.Message.Contains(unicodeParagraphCharacter)) "message should not contains unicode paragraph characters"
+            Expect.exists
+              errors
+              (fun error -> error.Code = Some "39" || error.Code = Some "41")
+              "should have an error FS0039(identifier not defined) or FS0041(a unique overload for method 'TryParse' could not be determined based on type information prior to this program point)"
+
+            Expect.all
+              errors
+              (fun error -> not <| error.Message.Contains(unicodeParagraphCharacter))
+              "message should not contains unicode paragraph characters"
         }) ]
