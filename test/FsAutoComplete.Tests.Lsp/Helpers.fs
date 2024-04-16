@@ -51,11 +51,11 @@ module Expecto =
 
     let testCase = testCaseWithTimeout DEFAULT_TIMEOUT
     let ptestCase = ptestCaseWithTimeout DEFAULT_TIMEOUT
-    let ftestCase = ptestCaseWithTimeout DEFAULT_TIMEOUT
+    let ftestCase = ftestCaseWithTimeout DEFAULT_TIMEOUT
 
     let testCaseAsync = testCaseAsyncWithTimeout DEFAULT_TIMEOUT
     let ptestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
-    let ftestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
+    let ftestCaseAsync = ftestCaseAsyncWithTimeout DEFAULT_TIMEOUT
 
 let rec private copyDirectory sourceDir destDir =
   // Get the subdirectories for the specified directory.
