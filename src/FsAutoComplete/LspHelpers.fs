@@ -100,8 +100,8 @@ module Conversions =
 
   [<Literal>]
   let unicodeParagraphCharacter: string = "\u001d"
-  let private handleUnicodeParagraph (message: string) =
-    message.Replace(unicodeParagraphCharacter, Environment.NewLine)
+
+  let private handleUnicodeParagraph (message: string) = message.Replace(unicodeParagraphCharacter, Environment.NewLine)
 
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
     { Range =
