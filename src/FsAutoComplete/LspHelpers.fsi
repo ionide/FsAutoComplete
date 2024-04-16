@@ -35,6 +35,8 @@ module Conversions =
   val fcsPosToProtocolRange: pos: FcsPos -> Range
   val fcsRangeToLspLocation: range: FcsRange -> Location
   val findDeclToLspLocation: decl: FsAutoComplete.FindDeclarationResult -> Location
+  [<Literal>]
+  val unicodeParagraphCharacter: string = "\u001d"
 
   type TextDocumentIdentifier with
 

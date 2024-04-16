@@ -98,6 +98,11 @@ module Conversions =
   let urlForCompilerCode (number: int) =
     $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
 
+  [<Literal>]
+  let unicodeParagraphCharacter: string = "\u001d"
+  let private handleUnicodeParagraph (message: string) =
+    message.Replace(unicodeParagraphCharacter, Environment.NewLine)
+
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
     { Range =
         { Start =
@@ -108,7 +113,7 @@ module Conversions =
               Character = error.EndColumn } }
       Severity = fcsSeverityToDiagnostic error.Severity
       Source = Some "F# Compiler"
-      Message = error.Message
+      Message = handleUnicodeParagraph error.Message
       Code = Some(string error.ErrorNumber)
       RelatedInformation = Some [||]
       Tags = None

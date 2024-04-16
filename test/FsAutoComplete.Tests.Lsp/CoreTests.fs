@@ -467,3 +467,35 @@ let closeTests state =
           let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
         }) ])
+
+let diagnosticsTest state =
+  let server =
+    async {
+      printfn "starting..."
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DiagnosticFormatting")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      let path = Path.Combine(path, "Program.fs")
+      do! waitForWorkspaceFinishedParsing events
+      return (server, events, path)
+    }
+    |> Async.Cache
+
+  ftestList
+    "Diagnostics formatting Tests"
+    [ testCaseAsync
+        "replacing unicode paragraph by newline"
+        (async {
+          let! (server, events, path) = server
+          
+          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+          do! server.TextDocumentDidOpen tdop
+
+          printfn "waiting for compiler..."
+          let! compilerResults = waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
+
+          match! compilerResults with
+          | Ok () -> failtest "should get an F# compiler checking error"
+          | Core.Result.Error errors ->
+            Expect.exists errors (fun error -> error.Code = Some "39" || error.Code = Some "41") "should have an error FS0039(identifier not defined) or FS0041(a unique overload for method 'TryParse' could not be determined based on type information prior to this program point)"
+            Expect.all errors (fun error -> not <| error.Message.Contains(unicodeParagraphCharacter)) "message should not contains unicode paragraph characters"
+        }) ]
