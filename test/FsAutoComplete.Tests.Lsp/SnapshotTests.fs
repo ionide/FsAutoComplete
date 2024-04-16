@@ -20,6 +20,7 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 
+open Helpers.Expecto.ShadowedTimeouts
 
 
 module Dotnet =
@@ -108,24 +109,26 @@ let awaitFileChanged (file : FileInfo) =
   // So we need to wait for a file system watcher to pick up the changes
   // Better than using a sleep is to use a task completion source to signal when the file system watcher has picked up the changes
   task {
-    let tcs = new TaskCompletionSource<unit>()
-    let handleChange _ =
-      tcs.TrySetResult () |> ignore<bool>
-    use fsi = new FileSystemWatcher(file.Directory.FullName, file.Name)
-    fsi.NotifyFilter <- NotifyFilters.Attributes ||| NotifyFilters.FileName ||| NotifyFilters.DirectoryName
-    fsi.Changed.Add handleChange
-    fsi.Created.Add handleChange
-    fsi.Deleted.Add handleChange
-    fsi.Renamed.Add handleChange
-    fsi.EnableRaisingEvents <- true
-    do! tcs.Task
+    ignore file
+    // let tcs = new TaskCompletionSource<unit>()
+    // let handleChange _ =
+    //   tcs.TrySetResult () |> ignore<bool>
+    // use fsi = new FileSystemWatcher(file.Directory.FullName, file.Name)
+    // // fsi.NotifyFilter <- NotifyFilters.Attributes ||| NotifyFilters.FileName ||| NotifyFilters.DirectoryName
+    // fsi.Changed.Add handleChange
+    // fsi.Created.Add handleChange
+    // fsi.Deleted.Add handleChange
+    // fsi.Renamed.Add handleChange
+    // fsi.EnableRaisingEvents <- true
+    // do! tcs.Task
+    do! Task.Delay(250) // if this works kill me
   }
 
 let snapshotTests loaders toolsPath =
 
-  testList "SnapshotTests" [
+  testList "ProjectWorkspace" [
   for (loaderName, workspaceLoaderFactory) in loaders do
-    testSequencedGroup loaderName <|
+    // testSequencedGroup loaderName <|
     testList $"{loaderName}" [
       testCaseAsync "Simple Project Load" <| async {
         let (loader : IWorkspaceLoader) = workspaceLoaderFactory toolsPath
@@ -207,17 +210,17 @@ let snapshotTests loaders toolsPath =
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
-        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotAfter = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls1 = snapshotBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal ls1 ls2 "library should be the same"
 
-        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs1 = snapshotBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal cs1 cs2 "console should be the same"
       }
@@ -235,7 +238,7 @@ let snapshotTests loaders toolsPath =
 
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
-        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotsBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
         let fileChanged = awaitFileChanged consoleFile
@@ -244,15 +247,15 @@ let snapshotTests loaders toolsPath =
         consoleFile.Refresh()
 
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotAfter = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls1 = snapshotsBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let ls2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal ls1 ls2 "library should be the same"
 
-        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs1 = snapshotsBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let cs2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
         Expect.equal cs1.ProjectFileName cs2.ProjectFileName "Project file name should be the same"
         Expect.equal cs1.ProjectId cs2.ProjectId "Project Id name should be the same"
@@ -282,7 +285,7 @@ let snapshotTests loaders toolsPath =
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
-        let snapshots = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
         let fileChanged = awaitFileChanged libraryFile
@@ -290,42 +293,42 @@ let snapshotTests loaders toolsPath =
         do! fileChanged
         libraryFile.Refresh()
 
-        let snapshots2 = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotAfter = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
-        let ls1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
-        let ls2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let libBefore = snapshotBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
+        let libAfter = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
 
-        Expect.notEqual ls1 ls2 "library should not be the same"
-        Expect.equal ls1.ProjectFileName ls2.ProjectFileName "Project file name should be the same"
-        Expect.equal ls1.ProjectId ls2.ProjectId "Project Id name should be the same"
-        Expect.equal ls1.SourceFiles.Length 3 "Source files length should be 3"
-        Expect.equal ls1.SourceFiles.Length ls2.SourceFiles.Length "Source files length should be the same"
-        let ls1File = ls1.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
-        let ls2File = ls2.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
+        Expect.notEqual libBefore libAfter "library should not be the same"
+        Expect.equal libBefore.ProjectFileName libAfter.ProjectFileName "Project file name should be the same"
+        Expect.equal libBefore.ProjectId libAfter.ProjectId "Project Id name should be the same"
+        Expect.equal libBefore.SourceFiles.Length 3 "Source files length should be 3"
+        Expect.equal libBefore.SourceFiles.Length libAfter.SourceFiles.Length "Source files length should be the same"
+        let ls1File = libBefore.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
+        let ls2File = libAfter.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag libraryFile.FullName)
         Expect.notEqual ls1File.Version ls2File.Version "Library source file version should not be the same"
-        Expect.equal ls1.ReferencedProjects.Length ls2.ReferencedProjects.Length "Referenced projects length should be the same"
-        Expect.equal ls1.ReferencedProjects.Length 0 "Referenced projects length should be 0"
-        Expect.notEqual ls1.Stamp ls2.Stamp "Stamp should not be the same"
+        Expect.equal libBefore.ReferencedProjects.Length libAfter.ReferencedProjects.Length "Referenced projects length should be the same"
+        Expect.equal libBefore.ReferencedProjects.Length 0 "Referenced projects length should be 0"
+        Expect.notEqual libBefore.Stamp libAfter.Stamp "Stamp should not be the same"
 
-        let cs1 = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
-        let cs2 = snapshots2 |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let consoleBefore = snapshotBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+        let consoleAfter = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
 
-        Expect.equal cs1.ProjectFileName cs2.ProjectFileName "Project file name should be the same"
-        Expect.equal cs1.ProjectId cs2.ProjectId "Project Id name should be the same"
-        Expect.equal cs1.SourceFiles.Length 3 "Source files length should be 3"
-        Expect.equal cs1.SourceFiles.Length cs2.SourceFiles.Length "Source files length should be the same"
+        Expect.equal consoleBefore.ProjectFileName consoleAfter.ProjectFileName "Project file name should be the same"
+        Expect.equal consoleBefore.ProjectId consoleAfter.ProjectId "Project Id name should be the same"
+        Expect.equal consoleBefore.SourceFiles.Length 3 "Source files length should be 3"
+        Expect.equal consoleBefore.SourceFiles.Length consoleAfter.SourceFiles.Length "Source files length should be the same"
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-        let cs1File = cs1.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
-        let cs2File = cs2.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
+        let cs1File = consoleBefore.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
+        let cs2File = consoleAfter.SourceFiles |> Seq.find (fun x -> x.FileName = normalizeUntag consoleFile.FullName)
         Expect.equal cs1File.Version cs2File.Version "Console source file version should be the same"
-        Expect.equal cs1.ReferencedProjects.Length cs2.ReferencedProjects.Length "Referenced projects length should be the same"
-        Expect.equal cs1.ReferencedProjects.Length 1 "Referenced projects length should be 1"
-        let refLib1 = cs1.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get
-        Expect.equal refLib1 ls1 "Referenced library should be the same as library snapshot"
-        let refLib2 = cs2.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get
-        Expect.equal refLib2 ls2 "Referenced library should be the same as library snapshot"
+        Expect.equal consoleBefore.ReferencedProjects.Length consoleAfter.ReferencedProjects.Length "Referenced projects length should be the same"
+        Expect.equal consoleBefore.ReferencedProjects.Length 1 "Referenced projects length should be 1"
+        let refLib1 = consoleBefore.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get
+        Expect.equal refLib1 libBefore "Referenced library should be the same as library snapshot"
+        let refLib2 = consoleAfter.ReferencedProjects |> Seq.tryPick (fun x -> match x with | FSharpReferencedProjectSnapshot.FSharpReference(_, x) -> Some x | _ -> None) |> Option.get
+        Expect.equal refLib2 libAfter "Referenced library should be the same as library snapshot"
         Expect.notEqual refLib1 refLib2 "Referenced library from different snapshot should not be the same as library source file changed"
-        Expect.notEqual cs1.Stamp cs2.Stamp "Stamp should not be the same"
+        Expect.notEqual consoleBefore.Stamp consoleAfter.Stamp "Stamp should not be the same"
 
       }
 
