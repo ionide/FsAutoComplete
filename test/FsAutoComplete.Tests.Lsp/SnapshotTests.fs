@@ -102,14 +102,14 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
 let normalizeUntag = normalizePath >> UMX.untag
 
-let awaitOutOfDate (o : #IAdaptiveObject) =
+let awaitOutOfDate (o : amap<_,_>) =
   // The AdaptiveFile implementation uses FileSystemWatcher under the hood to watch for file changes.
   // The problem is on different operating systems the file system watcher behaves differently.
   // Our tests may run quicker than the file system watcher can pick up the changes
   // So we need to wait for a change to happen before we continue.
 
   async {
-    while not o.OutOfDate do
+    while not o.Content.OutOfDate && not (o.GetReader().OutOfDate) do
       do! Async.Sleep 15
   }
 
@@ -117,7 +117,7 @@ let snapshotTests loaders toolsPath =
 
   testList "ProjectWorkspace" [
   for (loaderName, workspaceLoaderFactory) in loaders do
-    // testSequencedGroup loaderName <|
+    testSequencedGroup loaderName <|
     testList $"{loaderName}" [
       testCaseAsync "Simple Project Load" <| async {
         let (loader : IWorkspaceLoader) = workspaceLoaderFactory toolsPath
@@ -233,7 +233,7 @@ let snapshotTests loaders toolsPath =
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
 
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
-        do! awaitOutOfDate (snaps.Content)
+        do! awaitOutOfDate snaps
 
         consoleFile.Refresh()
 
@@ -281,7 +281,7 @@ let snapshotTests loaders toolsPath =
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
 
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
-        do! awaitOutOfDate (snaps.Content)
+        do! awaitOutOfDate snaps
 
         libraryFile.Refresh()
 

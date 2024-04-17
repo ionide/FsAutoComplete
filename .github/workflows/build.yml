@@ -16,10 +16,10 @@ on:
 jobs:
   build:
     env:
-      TEST_TIMEOUT_MINUTES: 40
+      TEST_TIMEOUT_MINUTES: 19
       FSAC_TEST_DEFAULT_TIMEOUT : 120000 #ms, individual test timeouts
       DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET 8 RCs to participate in rollforward as expected.
-    timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
+    timeout-minutes: 20 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
         os:
