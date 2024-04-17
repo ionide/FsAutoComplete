@@ -102,7 +102,7 @@ jobs:
         BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run and report tests
-      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
+      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}
