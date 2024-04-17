@@ -108,9 +108,15 @@ let awaitOutOfDate (o : amap<_,_>) =
   // Our tests may run quicker than the file system watcher can pick up the changes
   // So we need to wait for a change to happen before we continue.
 
-  async {
-    while not o.Content.OutOfDate && not (o.GetReader().OutOfDate) do
-      do! Async.Sleep 15
+  task {
+    let tcs = new TaskCompletionSource<unit>()
+    use _ = o.AddCallback(fun _ _ -> tcs.TrySetResult() |> ignore<bool>)
+    return! tcs.Task
+    // while not o.Content.OutOfDate do
+    //   do! Async.Sleep 15
+
+    // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
+    // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
   }
 
 let snapshotTests loaders toolsPath =
@@ -231,9 +237,9 @@ let snapshotTests loaders toolsPath =
         let snapshotsBefore = snaps |> AMap.force
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-
+        let awaitOutOfDate = awaitOutOfDate snaps
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
-        do! awaitOutOfDate snaps
+        do! awaitOutOfDate
 
         consoleFile.Refresh()
 
@@ -279,9 +285,9 @@ let snapshotTests loaders toolsPath =
         let snapshotBefore = snaps |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
-
+        let awaitOutOfDate = awaitOutOfDate snaps
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
-        do! awaitOutOfDate snaps
+        do! awaitOutOfDate
 
         libraryFile.Refresh()
 
