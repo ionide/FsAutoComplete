@@ -109,31 +109,15 @@ let awaitOutOfDate (o : amap<_,_>) =
   // So we need to wait for a change to happen before we continue.
 
   task {
-    // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
-    // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
     let tcs = new TaskCompletionSource<unit>()
     use cts = new System.Threading.CancellationTokenSource()
     cts.CancelAfter(5000)
     use _ = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
     use _ = o.AddCallback(fun s _ ->
-        // printfn "state: %A" s
-        // printfn "delta: %A" d
-        // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
-        // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
-        if s.IsEmpty |> not then
+        if not <| s.IsEmpty then
           tcs.TrySetResult() |> ignore<bool>
         )
-
-    // use _ = o.AddCallback(fun s d ->
-    //     printfn "state: %A" s
-    //     printfn "delta: %A" d)
-    // printfn "Awaiting out of date"
     return! tcs.Task
-    // while not o.Content.OutOfDate do
-    //   do! Async.Sleep 15
-
-    // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
-    // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
   }
 
 let snapshotTests loaders toolsPath =
@@ -307,7 +291,6 @@ let snapshotTests loaders toolsPath =
 
         let snapshotBefore = snaps |> AMap.force
         let awaitOutOfDate = awaitOutOfDate snaps
-        printfn "Writing to file: %s" libraryFile.FullName
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
         do! awaitOutOfDate
 
