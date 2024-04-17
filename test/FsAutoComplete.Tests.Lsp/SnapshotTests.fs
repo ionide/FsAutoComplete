@@ -102,27 +102,15 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
 let normalizeUntag = normalizePath >> UMX.untag
 
-let awaitFileChanged (file : FileInfo) ct =
-  let originalLastWriteTime = file.LastWriteTimeUtc
+let awaitOutOfDate (o : #IAdaptiveObject) =
   // The AdaptiveFile implementation uses FileSystemWatcher under the hood to watch for file changes.
   // The problem is on different operating systems the file system watcher behaves differently.
   // Our tests may run quicker than the file system watcher can pick up the changes
   // So we need to wait for a change to happen before we continue.
-  // FileSystemWatcher doesn't seem to work so we're going to poll the file for changes.
 
-  task {
-    file.Refresh()
-    let mutable lastWriteTime = file.LastWriteTimeUtc
-    while lastWriteTime = originalLastWriteTime do
-      do! Task.Delay(17, ct)
-      file.Refresh()
-      lastWriteTime <- file.LastWriteTimeUtc
-  }
-
-let awaitOutOfDate (o : #IAdaptiveObject) ct =
-  task {
+  async {
     while not o.OutOfDate do
-      do! Task.Delay(17, ct)
+      do! Async.Sleep 15
   }
 
 let snapshotTests loaders toolsPath =
@@ -243,11 +231,10 @@ let snapshotTests loaders toolsPath =
         let snapshotsBefore = snaps |> AMap.force
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-        let! ct = Async.CancellationToken
-        // let fileChanged = awaitFileChanged consoleFile ct
+
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
-        do! awaitOutOfDate (snaps.Content) ct
-        // do! fileChanged
+        do! awaitOutOfDate (snaps.Content)
+
         consoleFile.Refresh()
 
 
@@ -292,11 +279,10 @@ let snapshotTests loaders toolsPath =
         let snapshotBefore = snaps |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
-        let! ct = Async.CancellationToken
-        // let fileChanged = awaitFileChanged libraryFile ct
+
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
-        do! awaitOutOfDate (snaps.Content) ct
-        // do! fileChanged
+        do! awaitOutOfDate (snaps.Content)
+
         libraryFile.Refresh()
 
         let snapshotAfter = snaps |> AMap.force

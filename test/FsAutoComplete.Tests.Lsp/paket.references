@@ -5,7 +5,7 @@ FSharpx.Async
 Expecto.Diff
 Microsoft.NET.Test.Sdk
 YoloDev.Expecto.TestSdk
-AltCover
+# AltCover
 GitHubActionsTestLogger
 CliWrap
 FSharp.Data.Adaptive
