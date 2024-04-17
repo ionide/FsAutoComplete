@@ -109,8 +109,25 @@ let awaitOutOfDate (o : amap<_,_>) =
   // So we need to wait for a change to happen before we continue.
 
   task {
+    // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
+    // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
     let tcs = new TaskCompletionSource<unit>()
-    use _ = o.AddCallback(fun _ _ -> tcs.TrySetResult() |> ignore<bool>)
+    use cts = new System.Threading.CancellationTokenSource()
+    cts.CancelAfter(5000)
+    use _ = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
+    use _ = o.AddCallback(fun s _ ->
+        // printfn "state: %A" s
+        // printfn "delta: %A" d
+        // printfn "o.Content.OutOfDate: %b" o.Content.OutOfDate
+        // printfn "o.GetReader.OutOfDate: %b" (o.GetReader().OutOfDate)
+        if s.IsEmpty |> not then
+          tcs.TrySetResult() |> ignore<bool>
+        )
+
+    // use _ = o.AddCallback(fun s d ->
+    //     printfn "state: %A" s
+    //     printfn "delta: %A" d)
+    // printfn "Awaiting out of date"
     return! tcs.Task
     // while not o.Content.OutOfDate do
     //   do! Async.Sleep 15
@@ -234,17 +251,19 @@ let snapshotTests loaders toolsPath =
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
         let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
-        let snapshotsBefore = snaps |> AMap.force
+
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
+
+        let snapshotsBefore = snaps |> AMap.force
         let awaitOutOfDate = awaitOutOfDate snaps
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
         do! awaitOutOfDate
 
         consoleFile.Refresh()
-
-
         let snapshotAfter = snaps |> AMap.force
+
+
 
         let ls1 = snapshotsBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
         let ls2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
@@ -282,10 +301,13 @@ let snapshotTests loaders toolsPath =
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
         let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
-        let snapshotBefore = snaps |> AMap.force
+
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
+
+        let snapshotBefore = snaps |> AMap.force
         let awaitOutOfDate = awaitOutOfDate snaps
+        printfn "Writing to file: %s" libraryFile.FullName
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
         do! awaitOutOfDate
 
