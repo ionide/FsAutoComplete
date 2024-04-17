@@ -102,7 +102,7 @@ let createProjectA (projects : FileInfo seq) (loader : IWorkspaceLoader) onLoadC
 
 let normalizeUntag = normalizePath >> UMX.untag
 
-let awaitFileChanged (file : FileInfo) =
+let awaitFileChanged (file : FileInfo) ct =
   let originalLastWriteTime = file.LastWriteTimeUtc
   // The AdaptiveFile implementation uses FileSystemWatcher under the hood to watch for file changes.
   // The problem is on different operating systems the file system watcher behaves differently.
@@ -110,14 +110,19 @@ let awaitFileChanged (file : FileInfo) =
   // So we need to wait for a change to happen before we continue.
   // FileSystemWatcher doesn't seem to work so we're going to poll the file for changes.
 
-  cancellableTask {
+  task {
     file.Refresh()
     let mutable lastWriteTime = file.LastWriteTimeUtc
     while lastWriteTime = originalLastWriteTime do
-      do! fun ct -> Task.Delay(15, ct)
+      do! Task.Delay(17, ct)
       file.Refresh()
       lastWriteTime <- file.LastWriteTimeUtc
+  }
 
+let awaitOutOfDate (o : #IAdaptiveObject) ct =
+  task {
+    while not o.OutOfDate do
+      do! Task.Delay(17, ct)
   }
 
 let snapshotTests loaders toolsPath =
@@ -234,16 +239,19 @@ let snapshotTests loaders toolsPath =
 
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
-        let snapshotsBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
+        let snapshotsBefore = snaps |> AMap.force
 
         let consoleFile = Projects.MultiProjectScenario1.Console1.programFileIn dDir.DirectoryInfo
-        let fileChanged = awaitFileChanged consoleFile
+        let! ct = Async.CancellationToken
+        // let fileChanged = awaitFileChanged consoleFile ct
         do! File.WriteAllTextAsync(consoleFile.FullName, "let x = 1")
-        do! fileChanged
+        do! awaitOutOfDate (snaps.Content) ct
+        // do! fileChanged
         consoleFile.Refresh()
 
 
-        let snapshotAfter = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotAfter = snaps |> AMap.force
 
         let ls1 = snapshotsBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
         let ls2 = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
@@ -280,16 +288,18 @@ let snapshotTests loaders toolsPath =
 
         let snapsA =
           Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
-
-        let snapshotBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
+        let snapshotBefore = snaps |> AMap.force
 
         let libraryFile = Projects.MultiProjectScenario1.Library1.libraryFileIn dDir.DirectoryInfo
-        let fileChanged = awaitFileChanged libraryFile
+        let! ct = Async.CancellationToken
+        // let fileChanged = awaitFileChanged libraryFile ct
         do! File.WriteAllTextAsync(libraryFile.FullName, "let x = 1")
-        do! fileChanged
+        do! awaitOutOfDate (snaps.Content) ct
+        // do! fileChanged
         libraryFile.Refresh()
 
-        let snapshotAfter = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
+        let snapshotAfter = snaps |> AMap.force
 
         let libBefore = snapshotBefore |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
         let libAfter = snapshotAfter |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Library1.projectIn dDir.DirectoryInfo).FullName)
