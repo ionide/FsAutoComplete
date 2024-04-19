@@ -1556,6 +1556,24 @@ let private generateXmlDocumentationTests state =
         let f x y = x + y
         """
 
+      testCaseAsync "documentation for function with attribute"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        let $0f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        [<System.Obsolete("foo")>]
+        let f x y = x + y
+        """
+
       testCaseAsync "documentation for use"
       <| CodeFix.check
         server
@@ -1586,6 +1604,23 @@ let private generateXmlDocumentationTests state =
         selectCodeFix
         """
         /// <summary></summary>
+        type MyRecord = { Foo: int }
+        """
+      
+      testCaseAsync "documentation for record type with multiple attribute lists"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
+        type MyRec$0ord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
         type MyRecord = { Foo: int }
         """
 
