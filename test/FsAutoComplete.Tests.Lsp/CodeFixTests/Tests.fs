@@ -1752,7 +1752,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with get () = "foo"
@@ -1794,7 +1793,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with set (x: string) = someField <- x

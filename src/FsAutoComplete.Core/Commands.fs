@@ -1397,7 +1397,7 @@ type Commands() =
                                     headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some(false, tryGetFirstAttributeLine attributes)
+                                Some(true, tryGetFirstAttributeLine attributes)
                               | SynMemberDefn.GetSetMember(
                                   memberDefnForGet = Some(SynBinding(
                                     attributes = attributes
@@ -1405,7 +1405,7 @@ type Commands() =
                                     headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some(false, tryGetFirstAttributeLine attributes)
+                                Some(true, tryGetFirstAttributeLine attributes)
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
