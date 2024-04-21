@@ -66,7 +66,7 @@ To export traces, run [Jaeger](https://www.jaegertracing.io/)
 
 ```bash
 docker run -d --name jaeger \
-  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \
+  -e COLLECTOR_ZIPKIN_HOST_PORT=9411 \
   -e COLLECTOR_OTLP_ENABLED=true \
   -p 6831:6831/udp \
   -p 6832:6832/udp \
