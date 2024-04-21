@@ -93,7 +93,7 @@ let tests state =
                   | Ok () -> failtest "should get an F# compiler checking error from a 'c' by itself"
                   | Core.Result.Error errors ->
                     Expect.hasLength errors 1 "should have only an error FS0039: identifier not defined"
-                    Expect.exists errors (fun error -> error.Code = Some "39") "should have an error FS0039: identifier not defined"
+                    Expect.exists errors (fun error -> error.Code = Some "39") $"should have an error FS0039: identifier not defined %A{errors}"
 
                   match! completions with
                   | Ok (Some completions) ->
