@@ -1,6 +1,8 @@
 namespace FsAutoComplete.ProjectWorkspace
 
 open System
+open FsAutoComplete.Telemetry
+open FsAutoComplete.Utils.Tracing
 
 module Snapshots =
   open System
@@ -31,7 +33,7 @@ module Snapshots =
 
     let getStream (_ctok: System.Threading.CancellationToken) =
       try
-        projectFile.OpenRead() :> Stream |> Some
+        File.openFileStreamForReadingAsync (normalizePath p.TargetPath) :> Stream |> Some
       with _ ->
         None
 
@@ -169,6 +171,10 @@ module Snapshots =
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
     (p: ProjectOptions)
     =
+    let tags = seq {
+      "projectFileName", box p.ProjectFileName
+    }
+    use _span = fsacActivitySource.StartActivityForFunc(tags = tags)
     logger.debug (
       Log.setMessage "Creating references for {projectFileName}"
       >> Log.addContextDestructured "projectFileName" p.ProjectFileName
@@ -195,12 +201,13 @@ module Snapshots =
           sourceTextFactory
           (createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA)
         |> createReferencedProjectsFSharpReference resolvedTargetPath
+
       else
         // TODO: Find if this needs to be adaptive or if `getStamp` in a PEReference will be enough to break thru the caching in FCS
         loadFromDotnetDll proj |> AVal.constant)
     |> AMap.toASetValues
 
-  and optionsToSnapshot
+  and private optionsToSnapshot
     (cachedSnapshots: Dictionary<_, _>)
     (inMemorySourceFiles: amap<_, aval<VolatileFile>>)
     (sourceTextFactory: aval<ISourceTextFactory>)
@@ -208,9 +215,14 @@ module Snapshots =
     (p: ProjectOptions)
     =
     let normPath = Utils.normalizePath p.ProjectFileName
+    let tags = seq {
+      "projectFileName", box p.ProjectFileName
+    }
+    use span = fsacActivitySource.StartActivityForFunc(tags = tags)
 
     match cachedSnapshots.TryGetValue normPath with
     | true, snapshot ->
+      span.SetTagSafe("cachehit", true) |> ignore
       logger.debug (
         Log.setMessage "optionsToSnapshot - Cache hit - {projectFileName}"
         >> Log.addContextDestructured "projectFileName" p.ProjectFileName
@@ -280,8 +292,6 @@ module Snapshots =
     (sourceTextFactory: aval<ISourceTextFactory>)
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
     =
-
-
     loadedProjectsA
     |> AMap.filter (fun k _ -> (UMX.untag k).EndsWith ".fsproj")
     |> AMap.toAVal
