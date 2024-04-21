@@ -326,7 +326,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let inline getSourceLine lineNo = (source: ISourceText).GetLineString(lineNo - 1)
 
     let checkUnusedOpens =
-      async {
+      asyncEx {
         try
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
@@ -340,7 +340,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       }
 
     let checkUnusedDeclarations =
-      async {
+      asyncEx {
         try
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
@@ -356,7 +356,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       }
 
     let checkSimplifiedNames =
-      async {
+      asyncEx {
         try
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
@@ -370,7 +370,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       }
 
     let checkUnnecessaryParentheses =
-      async {
+      asyncEx {
         try
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
@@ -437,7 +437,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
 
   let runAnalyzers (config: FSharpConfig) (parseAndCheck: ParseAndCheckResults) (volatileFile: VolatileFile) =
-    async {
+    asyncEx {
       if config.EnableAnalyzers then
         let file = volatileFile.FileName
 
@@ -823,12 +823,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
 
   let loadProjects (loader: IWorkspaceLoader) binlogConfig projects =
-    logger.info (Log.setMessageI $"Enter loading projects")
+    logger.debug (Log.setMessageI $"Enter loading projects")
 
     projects
     |> AMap.mapWithAdditionalDependencies (fun projects ->
 
-      logger.info (Log.setMessageI $"Enter loading projects mapWithAdditionalDependencies")
+      logger.debug (Log.setMessageI $"Enter loading projects mapWithAdditionalDependencies")
 
       projects
       |> Seq.iter (fun (proj: string<LocalPath>, _) ->
@@ -1001,7 +1001,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           return file
       })
 
-  let snapshots =
+  let projectOptions =
     asyncAVal {
       let! wsp =
         adaptiveWorkspacePaths
@@ -1010,33 +1010,31 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
 
       match wsp with
-      | AdaptiveWorkspaceChosen.NotChosen -> return AMap.empty
+      | AdaptiveWorkspaceChosen.NotChosen -> return HashMap.empty
       | AdaptiveWorkspaceChosen.Projs projects ->
+        let! loader =
+          loader
+          |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because WorkspaceLoader change"))
+
+        and! binlogConfig =
+          binlogConfig
+          |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
+
         let! projects =
-          asyncAVal {
-            let! loader =
-              loader
-              |> addAValLogging (fun () ->
-                logger.info (Log.setMessage "Loading projects because WorkspaceLoader change"))
+          // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
+          // and when other adaptive values await on this, the scheduler won't block those other tasks
+          loadProjects loader binlogConfig projects |> AMap.toAVal
 
-            and! binlogConfig =
-              binlogConfig
-              |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
+        and! checker = checker
+        checker.ClearCaches()
+        return projects
+    }
 
-            let! projects =
-              // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
-              // and when other adaptive values await on this, the scheduler won't block those other tasks
-              loadProjects loader binlogConfig projects |> AMap.toAVal
 
-            and! checker = checker
-            checker.ClearCaches()
-            return projects
-          }
-
-        logger.info (Log.setMessageI $"After loading projects and before creating snapshots")
-
-        return
-          Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projects)
+  let snapshots =
+    asyncAVal {
+      let! projects = projectOptions
+      return Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projects)
     }
 
   let loadedProjects =
@@ -1072,13 +1070,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   /// <returns>A list of FSharpProjectOptions</returns>
   let forceLoadProjects () = getAllLoadedProjects |> AsyncAVal.forceAsync
 
-  // do
-  //   // Reload Projects with some debouncing if `loadedProjectOptions` is out of date.
-  //   AVal.Observable.onOutOfDateWeak loadedProjectOptions
-  //   |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
-  //   |> Observable.observeOn Concurrency.NewThreadScheduler.Default
-  //   |> Observable.subscribe (fun _ -> forceLoadProjects () |> ignore<list<LoadedProject>>)
-  //   |> disposables.Add
+  do
+    // Reload Projects with some debouncing if `loadedProjectOptions` is out of date.
+    AVal.Observable.onOutOfDateWeak projectOptions
+    |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
+    |> Observable.observeOn Concurrency.NewThreadScheduler.Default
+    |> Observable.subscribe (fun _ -> forceLoadProjects () |> Async.Ignore |> Async.Start)
+    |> disposables.Add
 
   let AMapReKeyMany f map = map |> AMap.toASet |> ASet.collect f |> AMap.ofASet
 
@@ -2156,7 +2154,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
 
   let bypassAdaptiveAndCheckDependenciesForFile (sourceFilePath: string<LocalPath>) =
-    async {
+    asyncEx {
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag sourceFilePath) ]
 

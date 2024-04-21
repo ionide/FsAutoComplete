@@ -294,7 +294,7 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
           dispose listener
 
           for (a, p) in inflightEvents.Values do
-            do! (disposeAsync p).AsTask()
+            do! disposeAsync p
             inflightEvents.TryRemove(a.Id) |> ignore
       }
       |> Async.StartImmediateAsTask

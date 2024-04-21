@@ -20,9 +20,13 @@ module File =
       File.GetLastWriteTimeUtc path
     else
       DateTime.UtcNow
+  /// Buffer size for reading from the stream.
+  /// 81,920 bytes (80KB) is below the Large Object Heap threshold (85,000 bytes)
+  /// and is a good size for performance. Dotnet uses this for their defaults.
+  let [<Literal>] bufferSize = 81920
 
   let openFileStreamForReadingAsync (path: string<LocalPath>) =
-    new FileStream((UMX.untag path), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize = 4096, useAsync = true)
+    new FileStream((UMX.untag path), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize = bufferSize, useAsync = true)
 
 [<AutoOpen>]
 module PositionExtensions =
@@ -71,7 +75,7 @@ module RangeExtensions =
 
     /// utility method to get the tagged filename for use in our state storage
     /// TODO: should we enforce this/use the Path members for normalization?
-    member x.TaggedFileName: string<LocalPath> = UMX.tag x.FileName
+    member x.TaggedFileName: string<LocalPath> = Utils.normalizePath x.FileName
 
     member inline r.With(start, fin) = Range.mkRange r.FileName start fin
     member inline r.WithStart(start) = Range.mkRange r.FileName start r.End
@@ -330,7 +334,6 @@ module RoslynSourceText =
         Ok(RoslynSourceTextFile(fileName, sourceText.WithChanges(change)))
 
 
-
     interface ISourceText with
 
       member _.Item
@@ -394,22 +397,19 @@ type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
 
 module SourceTextFactory =
-  // Could be configurable but using the default for now
-  // https://learn.microsoft.com/en-us/dotnet/core/runtime-config/garbage-collector#large-object-heap-threshold
-  [<Literal>]
-  let LargeObjectHeapThreshold = 85000
 
-  let readFile (fileName: string<LocalPath>) (sourceTextFactory: ISourceTextFactory) =
+
+  let readFile (fileName: string<LocalPath>) (sourceTextFactory : ISourceTextFactory) =
     cancellableValueTask {
       let file = UMX.untag fileName
 
       // use large object heap hits or threadpool hits? Which is worse? Choose your foot gun.
 
-      if FileInfo(file).Length >= LargeObjectHeapThreshold then
+      if FileInfo(file).Length >= File.bufferSize then
         // Roslyn SourceText doesn't actually support async streaming reads but avoids the large object heap hit
         // so we have to block a thread.
         use s = File.openFileStreamForReadingAsync fileName
-        let! source = sourceTextFactory.Create(fileName, s)
+        let! source = sourceTextFactory.Create (fileName, s)
         return source
       else
         // otherwise it'll be under the LOH threshold and the current thread isn't blocked
