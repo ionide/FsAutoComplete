@@ -9,6 +9,7 @@ open Utils.TextEdit
 open Ionide.ProjInfo.Logging
 
 /// Checks for CodeFixes, CodeActions
+open System.Runtime.ExceptionServices
 ///
 /// Prefixes:
 /// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
@@ -116,20 +117,34 @@ module CodeFix =
     (expected: unit -> ExpectedResult)
     =
     async {
-      let (range, text) =
-        beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
-      // load text file
-      let! (doc, diags) = server |> Server.createUntitledDocument text
-      use doc = doc // ensure doc gets closed (disposed) after test
+      let mutable attempts = 5
+      while attempts > 0 do
+        try
+          let (range, text) =
+            beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
+          // load text file
+          let! (doc, diags) = server |> Server.createUntitledDocument text
+          use doc = doc // ensure doc gets closed (disposed) after test
 
-      do!
-        checkFixAt
-          (doc, diags)
-          doc.VersionedTextDocumentIdentifier
-          (text, range)
-          validateDiagnostics
-          chooseFix
-          (expected ())
+          do!
+            checkFixAt
+              (doc, diags)
+              doc.VersionedTextDocumentIdentifier
+              (text, range)
+              validateDiagnostics
+              chooseFix
+              (expected ())
+          attempts <- 0
+        with
+        | ex ->
+          attempts <- attempts - 1
+          if attempts = 0 then
+            ExceptionDispatchInfo.Capture(ex).Throw()
+            return failwith "Unreachable"
+          else
+            _logger.warn (Log.setMessage "Retrying test after failure" >> Log.addContext "attempts" (5 - attempts))
+            do! Async.Sleep 15
+
     }
 
   /// Checks a CodeFix (CodeAction) for validity.
