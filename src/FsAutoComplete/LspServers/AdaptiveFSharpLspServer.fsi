@@ -7,12 +7,15 @@ open FSharp.Compiler.CodeAnalysis
 
 type AdaptiveFSharpLspServer =
   new:
-    workspaceLoader: IWorkspaceLoader * lspClient: FSharpLspClient * sourceTextFactory: ISourceTextFactory ->
+    workspaceLoader: IWorkspaceLoader *
+    lspClient: FSharpLspClient *
+    sourceTextFactory: ISourceTextFactory *
+    useTransparentCompiler: bool ->
       AdaptiveFSharpLspServer
 
   interface IFSharpLspServer
 
-  member ScriptFileProjectOptions: IEvent<FSharpProjectSnapshot>
+  member ScriptFileProjectOptions: IEvent<CompilerProjectOption>
 
 module AdaptiveFSharpLspServer =
   open System.Threading.Tasks
@@ -24,6 +27,7 @@ module AdaptiveFSharpLspServer =
     toolsPath: 'a ->
     workspaceLoaderFactory: ('a -> #IWorkspaceLoader) ->
     sourceTextFactory: ISourceTextFactory ->
+    useTransparentCompiler: bool ->
       LspCloseReason
 
   val start: startCore: (unit -> LspCloseReason) -> int

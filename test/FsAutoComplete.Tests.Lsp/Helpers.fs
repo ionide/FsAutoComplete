@@ -215,7 +215,7 @@ let record (cacher: Cacher<_>) =
     AsyncLspResult.success Unchecked.defaultof<_>
 
 
-let createAdaptiveServer workspaceLoader sourceTextFactory =
+let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompiler =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -225,7 +225,7 @@ let createAdaptiveServer workspaceLoader sourceTextFactory =
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory)
+  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =

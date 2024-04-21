@@ -48,6 +48,11 @@ let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
+let compilers = [
+  "BackgroundCompiler", false
+  "TransparentCompiler", true
+]
+
 let lspTests =
   testList
     "lsp"
@@ -56,56 +61,60 @@ let lspTests =
         testList
           $"{loaderName}"
           [
-            Templates.tests ()
-            let createServer () =
-              adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory
+            for (compilerName, useTransparentCompiler) in compilers do
+              testList
+                $"{compilerName}"
+                [
+                  Templates.tests ()
+                  let createServer () =
+                    adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
-            initTests createServer
-            closeTests createServer
+                  initTests createServer
+                  closeTests createServer
 
-            Utils.Tests.Server.tests createServer
-            Utils.Tests.CursorbasedTests.tests createServer
+                  Utils.Tests.Server.tests createServer
+                  Utils.Tests.CursorbasedTests.tests createServer
 
-            CodeLens.tests createServer
-            documentSymbolTest createServer
-            Completion.autocompleteTest createServer
-            Completion.autoOpenTests createServer
-            Completion.fullNameExternalAutocompleteTest createServer
-            foldingTests createServer
-            tooltipTests createServer
-            Highlighting.tests createServer
-            scriptPreviewTests createServer
-            scriptEvictionTests createServer
-            scriptProjectOptionsCacheTests createServer
-            dependencyManagerTests createServer
-            interactiveDirectivesUnitTests
+                  CodeLens.tests createServer
+                  documentSymbolTest createServer
+                  Completion.autocompleteTest createServer
+                  Completion.autoOpenTests createServer
+                  Completion.fullNameExternalAutocompleteTest createServer
+                  foldingTests createServer
+                  tooltipTests createServer
+                  Highlighting.tests createServer
+                  scriptPreviewTests createServer
+                  scriptEvictionTests createServer
+                  scriptProjectOptionsCacheTests createServer
+                  dependencyManagerTests createServer
+                  interactiveDirectivesUnitTests
 
-            // commented out because FSDN is down
-            //fsdnTest createServer
+                  // commented out because FSDN is down
+                  //fsdnTest createServer
 
-            //linterTests createServer
-            uriTests
-            formattingTests createServer
-            analyzerTests createServer
-            signatureTests createServer
-            SignatureHelp.tests createServer
-            InlineHints.tests createServer
-            CodeFixTests.Tests.tests sourceTextFactory createServer
-            Completion.tests createServer
-            GoTo.tests createServer
+                  //linterTests createServer
+                  uriTests
+                  formattingTests createServer
+                  analyzerTests createServer
+                  signatureTests createServer
+                  SignatureHelp.tests createServer
+                  InlineHints.tests createServer
+                  CodeFixTests.Tests.tests sourceTextFactory createServer
+                  Completion.tests createServer
+                  GoTo.tests createServer
 
-            FindReferences.tests createServer
-            Rename.tests createServer
+                  FindReferences.tests createServer
+                  Rename.tests createServer
 
-            InfoPanelTests.docFormattingTest createServer
-            DetectUnitTests.tests createServer
-            XmlDocumentationGeneration.tests createServer
-            InlayHintTests.tests createServer
-            DependentFileChecking.tests createServer
-            UnusedDeclarationsTests.tests createServer
-            EmptyFileTests.tests createServer
-            CallHierarchy.tests createServer
-            ] ]
+                  InfoPanelTests.docFormattingTest createServer
+                  DetectUnitTests.tests createServer
+                  XmlDocumentationGeneration.tests createServer
+                  InlayHintTests.tests createServer
+                  DependentFileChecking.tests createServer
+                  UnusedDeclarationsTests.tests createServer
+                  EmptyFileTests.tests createServer
+                  CallHierarchy.tests createServer
+                  ] ] ]
 
 /// Tests that do not require a LSP server
 let generalTests = testList "general" [

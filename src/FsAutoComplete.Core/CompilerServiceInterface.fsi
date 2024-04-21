@@ -14,20 +14,35 @@ open FSharp.Compiler.Diagnostics
 
 type Version = int
 
+
+type CompilerProjectOption =
+  | BackgroundCompiler of FSharpProjectOptions
+  | TransparentCompiler of FSharpProjectSnapshot
+
+  member ReferencedProjectsPath: string list
+  member ProjectFileName: string
+  member SourceFilesTagged: string<LocalPath> list
+  member OtherOptions: string list
+
 type FSharpCompilerServiceChecker =
   new:
-    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool -> FSharpCompilerServiceChecker
+    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * useTransparentCompiler: bool ->
+      FSharpCompilerServiceChecker
 
   member DisableInMemoryProjectReferences: bool with get, set
 
   static member GetDependingProjects:
     file: string<LocalPath> ->
-    snapshots: seq<string * FSharpProjectSnapshot> ->
-      option<FSharpProjectSnapshot * list<FSharpProjectSnapshot>>
+    snapshots: seq<string * CompilerProjectOption> ->
+      option<CompilerProjectOption * list<CompilerProjectOption>>
 
-  member GetProjectOptionsFromScript:
+  member GetProjectSnapshotsFromScript:
     file: string<LocalPath> * source: ISourceTextNew * tfm: FSIRefs.TFM ->
       Async<FSharpProjectSnapshot * FSharpDiagnostic list>
+
+  member GetProjectOptionsFromScript:
+    file: string<LocalPath> * source: ISourceText * tfm: FSIRefs.TFM ->
+      Async<FSharpProjectOptions * list<FSharp.Compiler.Diagnostics.FSharpDiagnostic>>
 
   member ScriptTypecheckRequirementsChanged: IEvent<unit>
 
@@ -45,6 +60,10 @@ type FSharpCompilerServiceChecker =
   /// <returns></returns>
   member ParseFile: filePath: string<LocalPath> * snapshot: FSharpProjectSnapshot -> Async<FSharpParseFileResults>
 
+  member ParseFile:
+    filePath: string<LocalPath> * sourceText: ISourceText * project: FSharpProjectOptions ->
+      Async<FSharpParseFileResults>
+
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
   /// <param name="snapshot">The options for the project or script.</param>
@@ -53,6 +72,14 @@ type FSharpCompilerServiceChecker =
   /// <returns>Result of ParseAndCheckResults</returns>
   member ParseAndCheckFileInProject:
     filePath: string<LocalPath> * snapshot: FSharpProjectSnapshot * ?shouldCache: bool ->
+      Async<Result<ParseAndCheckResults, string>>
+
+  member ParseAndCheckFileInProject:
+    filePath: string<LocalPath> *
+    version: int *
+    source: ISourceText *
+    options: FSharpProjectOptions *
+    ?shouldCache: bool ->
       Async<Result<ParseAndCheckResults, string>>
 
   /// <summary>
@@ -67,12 +94,18 @@ type FSharpCompilerServiceChecker =
   member TryGetRecentCheckResultsForFile:
     file: string<LocalPath> * snapshot: FSharpProjectSnapshot -> ParseAndCheckResults option
 
+  member TryGetRecentCheckResultsForFile:
+    file: string<LocalPath> * options: FSharpProjectOptions * source: ISourceText -> option<ParseAndCheckResults>
+
   member GetUsesOfSymbol:
-    file: string<LocalPath> * snapshots: (string * FSharpProjectSnapshot) seq * symbol: FSharpSymbol ->
+    file: string<LocalPath> * snapshots: (string * CompilerProjectOption) seq * symbol: FSharpSymbol ->
       Async<FSharpSymbolUse array>
 
   member FindReferencesForSymbolInFile:
     file: string<LocalPath> * project: FSharpProjectSnapshot * symbol: FSharpSymbol -> Async<seq<range>>
+
+  member FindReferencesForSymbolInFile:
+    file: string<LocalPath> * project: FSharpProjectOptions * symbol: FSharpSymbol -> Async<seq<range>>
 
   // member GetDeclarations:
   //   fileName: string<LocalPath> * source: ISourceText * snapshot: FSharpProjectOptions * version: 'a ->

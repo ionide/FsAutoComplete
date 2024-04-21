@@ -34,7 +34,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<FSharpProjectSnapshot>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<CompilerProjectOption>>
 
   [<RequireQualifiedAccess>]
   type FixKind =
@@ -356,8 +356,8 @@ module Run =
         let signatureFile = System.String.Concat(fileName, "i")
 
         let hasSig =
-          projectOptions.SourceFiles
-          |> List.map (fun x -> x.FileName)
+          projectOptions.SourceFilesTagged
+          |> List.map (UMX.untag)
           |> List.contains signatureFile
 
         if not hasSig then

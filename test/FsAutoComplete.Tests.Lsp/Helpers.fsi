@@ -67,7 +67,10 @@ module Range =
 val record: cacher: Cacher<'a * 'b> -> ('a -> 'b -> AsyncLspResult<'c>)
 
 val createAdaptiveServer:
-    workspaceLoader: (unit -> #Ionide.ProjInfo.IWorkspaceLoader) -> sourceTextFactory: ISourceTextFactory -> IFSharpLspServer * ClientEvents
+    workspaceLoader: (unit -> #Ionide.ProjInfo.IWorkspaceLoader)
+    -> sourceTextFactory: ISourceTextFactory
+    -> useTransparentCompiler : bool
+    -> IFSharpLspServer * ClientEvents
 
 val defaultConfigDto: FSharpConfigDto
 val clientCaps: ClientCapabilities

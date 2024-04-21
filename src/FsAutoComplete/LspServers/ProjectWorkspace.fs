@@ -33,7 +33,8 @@ module Snapshots =
 
     let getStream (_ctok: System.Threading.CancellationToken) =
       try
-        File.openFileStreamForReadingAsync (normalizePath p.TargetPath) :> Stream |> Some
+        File.openFileStreamForReadingAsync (normalizePath p.TargetPath) :> Stream
+        |> Some
       with _ ->
         None
 
@@ -171,10 +172,9 @@ module Snapshots =
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
     (p: ProjectOptions)
     =
-    let tags = seq {
-      "projectFileName", box p.ProjectFileName
-    }
+    let tags = seq { "projectFileName", box p.ProjectFileName }
     use _span = fsacActivitySource.StartActivityForFunc(tags = tags)
+
     logger.debug (
       Log.setMessage "Creating references for {projectFileName}"
       >> Log.addContextDestructured "projectFileName" p.ProjectFileName
@@ -215,14 +215,13 @@ module Snapshots =
     (p: ProjectOptions)
     =
     let normPath = Utils.normalizePath p.ProjectFileName
-    let tags = seq {
-      "projectFileName", box p.ProjectFileName
-    }
+    let tags = seq { "projectFileName", box p.ProjectFileName }
     use span = fsacActivitySource.StartActivityForFunc(tags = tags)
 
     match cachedSnapshots.TryGetValue normPath with
     | true, snapshot ->
       span.SetTagSafe("cachehit", true) |> ignore
+
       logger.debug (
         Log.setMessage "optionsToSnapshot - Cache hit - {projectFileName}"
         >> Log.addContextDestructured "projectFileName" p.ProjectFileName

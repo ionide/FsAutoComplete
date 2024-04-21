@@ -94,6 +94,12 @@ module Parser =
       "Enabled OpenTelemetry exporter. See https://opentelemetry.io/docs/reference/specification/protocol/exporter/ for environment variables to configure for the exporter."
     )
 
+  let useTransparentCompilerOption =
+    Option<bool>(
+      "--use-fcs-transparent-compiler",
+      "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
+    )
+
   let stateLocationOption =
     Option<DirectoryInfo>(
       "--state-directory",
@@ -115,12 +121,13 @@ module Parser =
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
     rootCommand.AddOption otelTracingOption
+    rootCommand.AddOption useTransparentCompilerOption
 
     // for back-compat - we removed some options and this broke some clients.
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
+      Func<_, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled useTransparentCompiler ->
         let workspaceLoaderFactory =
           fun toolsPath ->
             if projectGraphEnabled then
@@ -145,16 +152,27 @@ module Parser =
 
         let lspFactory =
           if adaptiveLspEnabled then
-            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
+            fun () ->
+              AdaptiveFSharpLspServer.startCore
+                toolsPath
+                workspaceLoaderFactory
+                sourceTextFactory
+                useTransparentCompiler
           else
-            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
+            fun () ->
+              AdaptiveFSharpLspServer.startCore
+                toolsPath
+                workspaceLoaderFactory
+                sourceTextFactory
+                useTransparentCompiler
 
         let result = AdaptiveFSharpLspServer.start lspFactory
 
         Task.FromResult result),
       projectGraphOption,
       stateLocationOption,
-      adaptiveLspServerOption
+      adaptiveLspServerOption,
+      useTransparentCompilerOption
     )
 
     rootCommand

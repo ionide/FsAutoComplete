@@ -20,13 +20,22 @@ module File =
       File.GetLastWriteTimeUtc path
     else
       DateTime.UtcNow
+
   /// Buffer size for reading from the stream.
   /// 81,920 bytes (80KB) is below the Large Object Heap threshold (85,000 bytes)
   /// and is a good size for performance. Dotnet uses this for their defaults.
-  let [<Literal>] bufferSize = 81920
+  [<Literal>]
+  let bufferSize = 81920
 
   let openFileStreamForReadingAsync (path: string<LocalPath>) =
-    new FileStream((UMX.untag path), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize = bufferSize, useAsync = true)
+    new FileStream(
+      (UMX.untag path),
+      FileMode.Open,
+      FileAccess.Read,
+      FileShare.Read,
+      bufferSize = bufferSize,
+      useAsync = true
+    )
 
 [<AutoOpen>]
 module PositionExtensions =
@@ -399,7 +408,7 @@ type ISourceTextFactory =
 module SourceTextFactory =
 
 
-  let readFile (fileName: string<LocalPath>) (sourceTextFactory : ISourceTextFactory) =
+  let readFile (fileName: string<LocalPath>) (sourceTextFactory: ISourceTextFactory) =
     cancellableValueTask {
       let file = UMX.untag fileName
 
@@ -409,7 +418,7 @@ module SourceTextFactory =
         // Roslyn SourceText doesn't actually support async streaming reads but avoids the large object heap hit
         // so we have to block a thread.
         use s = File.openFileStreamForReadingAsync fileName
-        let! source = sourceTextFactory.Create (fileName, s)
+        let! source = sourceTextFactory.Create(fileName, s)
         return source
       else
         // otherwise it'll be under the LOH threshold and the current thread isn't blocked
