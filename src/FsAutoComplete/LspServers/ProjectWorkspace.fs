@@ -56,6 +56,8 @@ module Snapshots =
     originalLoadReferences
     =
     aval {
+      // If any of these change, it will create a new snapshot.
+      // And if any of the snapshots in the referencedProjects change, it will create a new snapshot for them as well.
       let! projectFileName = projectFileName
       and! projectId = projectId
       and! sourceFiles = sourceFiles
@@ -128,6 +130,8 @@ module Snapshots =
     =
     aval {
       let file = UMX.untag sourceFilePath
+      // Useful as files may change from an external process, like a git pull, code generation or a save from another editor
+      // So we'll want to do typechecks when the file changes on disk
       let! writeTime = AdaptiveFile.GetLastWriteTimeUtc file
       and! sourceTextFactory = sourceTextFactory
 
@@ -170,19 +174,19 @@ module Snapshots =
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)
     (sourceTextFactory: aval<ISourceTextFactory>)
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
-    (p: ProjectOptions)
+    (project: ProjectOptions)
     =
-    let tags = seq { "projectFileName", box p.ProjectFileName }
+    let tags = seq { "projectFileName", box project.ProjectFileName }
     use _span = fsacActivitySource.StartActivityForFunc(tags = tags)
 
     logger.debug (
       Log.setMessage "Creating references for {projectFileName}"
-      >> Log.addContextDestructured "projectFileName" p.ProjectFileName
+      >> Log.addContextDestructured "projectFileName" project.ProjectFileName
     )
 
     loadedProjectsA
     |> AMap.filter (fun k _ ->
-      p.ReferencedProjects
+      project.ReferencedProjects
       |> List.exists (fun x -> normalizePath x.ProjectFileName = k))
     |> AMap.map (fun _ proj ->
       if proj.ProjectFileName.EndsWith ".fsproj" then
@@ -207,15 +211,16 @@ module Snapshots =
         loadFromDotnetDll proj |> AVal.constant)
     |> AMap.toASetValues
 
+  /// <summary>Creates a snapshot from a Project, using the already created snapshots it possible.</summary>
   and private optionsToSnapshot
     (cachedSnapshots: Dictionary<_, _>)
     (inMemorySourceFiles: amap<_, aval<VolatileFile>>)
     (sourceTextFactory: aval<ISourceTextFactory>)
     (mapReferences: ProjectOptions -> aset<aval<FSharpReferencedProjectSnapshot>>)
-    (p: ProjectOptions)
+    (project: ProjectOptions)
     =
-    let normPath = Utils.normalizePath p.ProjectFileName
-    let tags = seq { "projectFileName", box p.ProjectFileName }
+    let normPath = Utils.normalizePath project.ProjectFileName
+    let tags = seq { "projectFileName", box project.ProjectFileName }
     use span = fsacActivitySource.StartActivityForFunc(tags = tags)
 
     match cachedSnapshots.TryGetValue normPath with
@@ -224,35 +229,36 @@ module Snapshots =
 
       logger.debug (
         Log.setMessage "optionsToSnapshot - Cache hit - {projectFileName}"
-        >> Log.addContextDestructured "projectFileName" p.ProjectFileName
+        >> Log.addContextDestructured "projectFileName" project.ProjectFileName
       )
 
       snapshot
     | _ ->
       logger.debug (
         Log.setMessage "optionsToSnapshot - Cache miss - {projectFileName}"
-        >> Log.addContextDestructured "projectFileName" p.ProjectFileName
+        >> Log.addContextDestructured "projectFileName" project.ProjectFileName
       )
 
-      let projectName = AVal.constant p.ProjectFileName
-      let projectId = AVal.constant p.ProjectId
+      let projectName = AVal.constant project.ProjectFileName
+      let projectId = AVal.constant project.ProjectId
 
 
       let sourceFiles = // alist because order matters for the F# Compiler
-        p.SourceFiles
+        project.SourceFiles
         |> AList.ofList
         |> AList.map Utils.normalizePath
         |> AList.map (fun sourcePath ->
 
           aval {
+            // prefer in-memory files over on-disk files
             match! inMemorySourceFiles |> AMap.tryFind sourcePath with
             | Some volatileFile -> return! volatileFile |> AVal.map createFSharpFileSnapshotInMemory
             | None -> return! createFSharpFileSnapshotOnDisk sourceTextFactory sourcePath
           })
 
-      let references = p.OtherOptions |> List.filter (fun x -> x.StartsWith("-r:"))
+      let references = project.OtherOptions |> List.filter (fun x -> x.StartsWith("-r:"))
 
-      let otherOptions = p.OtherOptions |> ASet.ofList |> ASet.map (AVal.constant)
+      let otherOptions = project.OtherOptions |> ASet.ofList |> ASet.map (AVal.constant)
 
       let referencePaths =
         references
@@ -261,10 +267,10 @@ module Snapshots =
           referencePath.Substring(3) // remove "-r:"
           |> createReferenceOnDisk)
 
-      let referencedProjects = mapReferences p
+      let referencedProjects = mapReferences project
       let isIncompleteTypeCheckEnvironment = AVal.constant false
       let useScriptResolutionRules = AVal.constant false
-      let loadTime = AVal.constant p.LoadTime
+      let loadTime = AVal.constant project.LoadTime
       let unresolvedReferences = AVal.constant None
       let originalLoadReferences = AVal.constant []
 
@@ -285,6 +291,7 @@ module Snapshots =
       cachedSnapshots.Add(normPath, snap)
 
       snap
+
 
   let createSnapshots
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)

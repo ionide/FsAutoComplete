@@ -29,7 +29,8 @@ module AdaptiveExtensions =
       try
         if not <| isNull cts then
           cts.Dispose()
-      with _ -> ()
+      with _ ->
+        ()
 
 
   type TaskCompletionSource<'a> with
