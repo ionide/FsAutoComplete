@@ -97,7 +97,7 @@ module Parser =
   let useTransparentCompilerOption =
     Option<bool>(
       "--use-fcs-transparent-compiler",
-      "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
+      "Use Transparent Compiler in FSharp.Compiler.Services. Should have better performance characteristics, but is experimental. See https://github.com/dotnet/fsharp/pull/15179 for more details."
     )
 
   let stateLocationOption =
