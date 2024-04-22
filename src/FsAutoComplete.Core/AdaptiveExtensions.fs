@@ -26,10 +26,10 @@ module AdaptiveExtensions =
       | :? NullReferenceException -> ()
 
     member cts.TryDispose() =
-      // try
-      if not <| isNull cts then
-        cts.Dispose()
-  // with _ -> ()
+      try
+        if not <| isNull cts then
+          cts.Dispose()
+      with _ -> ()
 
 
   type TaskCompletionSource<'a> with
@@ -393,7 +393,6 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
 /// Upon cancellation, it will run the cancel function passed in and set cancellation for the task completion source.
 /// </remarks>
 and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
-  // let cts = new CancellationTokenSource()
   let mutable cachedTcs: TaskCompletionSource<'a> = null
   let mutable cached: Task<'a> = null
 
@@ -576,30 +575,6 @@ module AsyncAVal =
             }
 
           AdaptiveCancellableTask(cancel, real) }
-    :> asyncaval<_>
-
-
-
-  let _ofAsyncAValSeq (maxDegreeOfParallelism: int) (input: #seq<#asyncaval<'a>>) =
-    let mutable cache: option<RefCountingTaskCreator<'a array>> = None
-
-    { new AbstractVal<_>() with
-        member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
-            let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
-                  return!
-                    input
-                    |> Seq.map (fun v -> cancellableTask { return! v.GetValue t })
-                    |> CancellableTask.whenAllThrottled maxDegreeOfParallelism
-                }
-              )
-
-            cache <- Some ref
-            ref.New()
-          else
-            cache.Value.New() }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
@@ -936,11 +911,4 @@ module AMapAsync =
       match! AMap.tryFind key map with
       | Some x -> return! x
       | None -> return Error reason
-    }
-
-
-  let _filterValuesByKey (key: 'Key) (map: amap<'Key, #asyncaval<'Value>>) =
-    asyncAVal {
-      let! values = map |> AMap.filter (fun k _ -> k = key) |> AMap.toASetValues |> ASet.toAVal
-      return! AsyncAVal._ofAsyncAValSeq 1 values
     }
