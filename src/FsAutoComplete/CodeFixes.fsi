@@ -1,7 +1,5 @@
 namespace FsAutoComplete.CodeFix
 
-#nowarn "57"
-
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
