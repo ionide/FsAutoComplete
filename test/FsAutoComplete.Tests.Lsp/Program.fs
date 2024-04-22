@@ -34,11 +34,22 @@ let testTimeout =
 // delay in ms between workspace start + stop notifications because the system goes too fast :-/
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
+let getEnvVarAsStr name =
+  Environment.GetEnvironmentVariable(name)
+  |> Option.ofObj
+
+let (|EqIC|_|) (a: string) (b: string) =
+  if String.Equals(a, b, StringComparison.OrdinalIgnoreCase) then Some () else None
+
 let loaders =
-  [
-    "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-    // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-  ]
+  match getEnvVarAsStr "USE_WORKSPACE_LOADER" with
+  | Some (EqIC "WorkspaceLoader") -> [ "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+  | Some (EqIC "ProjectGraph") -> [ "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+  | _ ->
+    [
+      "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+      // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    ]
 
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
@@ -49,16 +60,13 @@ let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
-let getEnvVarAsBool name =
-  Environment.GetEnvironmentVariable(name)
-  |> Option.ofObj
-  |> Option.bind (fun s -> s.ToLowerInvariant() |> Boolean.TryParse |> Option.ofPair)
+
 
 let compilers =
-  match getEnvVarAsBool "USE_TRANSPARENT_COMPILER" with
-  | Some true -> ["TransparentCompiler", true ]
-  | Some false -> [ "BackgroundCompiler", false ]
-  | None ->
+  match getEnvVarAsStr "USE_TRANSPARENT_COMPILER" with
+  | Some (EqIC "TransparentCompiler") -> ["TransparentCompiler", true ]
+  | Some (EqIC "BackgroundCompiler") -> [ "BackgroundCompiler", false ]
+  | _ ->
     [
       "BackgroundCompiler", false
       "TransparentCompiler", true
