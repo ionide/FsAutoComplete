@@ -17,6 +17,7 @@ open Serilog.Filters
 open System.IO
 open FsAutoComplete
 open Helpers
+open FsToolkit.ErrorHandling
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
 
@@ -48,10 +49,20 @@ let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
-let compilers = [
-  "BackgroundCompiler", false
-  "TransparentCompiler", true
-]
+let getEnvVarAsBool name =
+  Environment.GetEnvironmentVariable(name)
+  |> Option.ofObj
+  |> Option.bind (fun s -> s.ToLowerInvariant() |> Boolean.TryParse |> Option.ofPair)
+
+let compilers =
+  match getEnvVarAsBool "USE_TRANSPARENT_COMPILER" with
+  | Some true -> ["TransparentCompiler", true ]
+  | Some false -> [ "BackgroundCompiler", false ]
+  | None ->
+    [
+      "BackgroundCompiler", false
+      "TransparentCompiler", true
+    ]
 
 let lspTests =
   testList

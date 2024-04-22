@@ -27,6 +27,7 @@ jobs:
           - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
           - ubuntu-latest
         dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
+        use-transparent-compiler : [true, false]
         # these entries will mesh with the above combinations
         include:
           # just use what's in the repo
@@ -107,6 +108,7 @@ jobs:
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}
+        USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
 
   analyze:
     runs-on: ubuntu-latest
