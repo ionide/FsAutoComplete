@@ -38,6 +38,7 @@ module AdaptiveExtensions =
     /// https://github.com/dotnet/runtime/issues/47998
     member tcs.TrySetFromTask(real: Task<'a>) =
 
+      // note: using ContinueWith instead of task CE for better stack traces
       real.ContinueWith(fun (task: Task<_>) ->
         match task.Status with
         | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
