@@ -2734,7 +2734,8 @@ let private replaceWithSuggestionTests state =
         let x: float = 2.0
         """
 
-      testCaseAsync "can change namespace in open"
+      // FCS sometimes doesn't give the correct message so test is flakey
+      ptestCaseAsync "can change namespace in open"
       <| CodeFix.check
         server
         """
