@@ -38,14 +38,7 @@ let getDeclarationLocation
       let! loc = declarationLocation
       let isScript = isAScript loc.FileName
       // sometimes the source file locations start with a capital, despite all of our efforts.
-      let normalizedPath =
-        if System.Char.IsUpper(loc.FileName[0]) then
-          string (System.Char.ToLowerInvariant loc.FileName[0])
-          + (loc.FileName.Substring(1))
-        else
-          loc.FileName
-
-      let taggedFilePath = Utils.normalizePath normalizedPath
+      let taggedFilePath = Utils.normalizePath loc.FileName
 
       if isScript && taggedFilePath = currentDocument.FileName then
         return SymbolDeclarationLocation.CurrentDocument
