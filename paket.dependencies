@@ -16,10 +16,10 @@ nuget Fantomas.Client >= 0.9
 nuget FSharp.Compiler.Service >= 43.8.200
 nuget Ionide.Analyzers 0.10.0
 nuget FSharp.Analyzers.Build 0.3.0
-nuget Ionide.ProjInfo >= 0.62.0
-nuget Ionide.ProjInfo.FCS >= 0.62.0
-nuget Ionide.ProjInfo.ProjectSystem >= 0.62.0
-nuget Ionide.ProjInfo.Sln >= 0.62.0
+nuget Ionide.ProjInfo >= 0.64.0
+nuget Ionide.ProjInfo.FCS >= 0.64.0
+nuget Ionide.ProjInfo.ProjectSystem >= 0.64.0
+nuget Ionide.ProjInfo.Sln >= 0.64.0
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
