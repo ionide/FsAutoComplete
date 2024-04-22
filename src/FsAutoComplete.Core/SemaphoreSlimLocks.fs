@@ -7,6 +7,7 @@ open System.Threading.Tasks
 /// An awaitable wrapper around a task whose result is disposable. The wrapper is not disposable, so this prevents usage errors like "use _lock = myAsync()" when the appropriate usage should be "use! _lock = myAsync())".
 /// </summary>
 [<Struct>]
+[<NoEquality; NoComparison>]
 type AwaitableDisposable<'T when 'T :> IDisposable>(t: Task<'T>) =
   member x.GetAwaiter() = t.GetAwaiter()
   member x.AsTask() = t
