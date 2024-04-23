@@ -10,8 +10,6 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 
-#nowarn "57"
-
 let title = "Update val in signature file"
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =

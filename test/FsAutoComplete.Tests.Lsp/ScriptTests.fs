@@ -123,6 +123,7 @@ let dependencyManagerTests state =
     }
     |> Async.Cache
 
+  testSequenced <|
   testList
     "dependencyManager integrations"
     [ testList
@@ -178,6 +179,7 @@ let scriptProjectOptionsCacheTests state =
       return server, events, workingDir, scriptPath, options
     }
 
+  testSequenced <|
   testList
     "ScriptProjectOptionsCache"
     [ testList

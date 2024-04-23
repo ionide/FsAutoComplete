@@ -27,6 +27,12 @@ jobs:
           - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
           - ubuntu-latest
         dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
+        use-transparent-compiler:
+          - "TransparentCompiler"
+          - "BackgroundCompiler"
+        workspace-loader:
+          - "WorkspaceLoader"
+          # - "ProjectGraph" # this is disable because it just adds too much time to the build
         # these entries will mesh with the above combinations
         include:
           # just use what's in the repo
@@ -61,7 +67,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    name: Build on ${{matrix.os}} for ${{ matrix.label }}
+    name: Build on ${{matrix.os}} for ${{ matrix.label }} ${{ matrix.workspace-loader }} ${{ matrix.use-transparent-compiler }}
 
     steps:
     - uses: actions/checkout@v3
@@ -102,11 +108,13 @@ jobs:
         BuildNet8: ${{ matrix.build_net8 }}
 
     - name: Run and report tests
-      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --no-build --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
+      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build  --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet7: ${{ matrix.build_net7 }}
         BuildNet8: ${{ matrix.build_net8 }}
+        USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
+        USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
 
   analyze:
     runs-on: ubuntu-latest

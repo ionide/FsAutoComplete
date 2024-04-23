@@ -9,16 +9,15 @@ open FsToolkit.ErrorHandling
 [<RequireQualifiedAccess; NoComparison>]
 type SymbolDeclarationLocation =
   | CurrentDocument
-  | Projects of FSharpProjectOptions list * isLocalForProject: bool
+  | Projects of CompilerProjectOption list * isLocalForProject: bool
 
 let getDeclarationLocation
   (
     symbolUse: FSharpSymbolUse,
     currentDocument: IFSACSourceText,
     getProjectOptions,
-    projectsThatContainFile: string<LocalPath> -> Async<FSharpProjectOptions list>,
-    getDependentProjectsOfProjects
-  // state: State
+    projectsThatContainFile: string<LocalPath> -> Async<CompilerProjectOption list>,
+    getDependentProjectsOfProjects: CompilerProjectOption list -> Async<CompilerProjectOption list>
   ) : Async<Option<SymbolDeclarationLocation>> =
   asyncOption {
 
@@ -39,14 +38,7 @@ let getDeclarationLocation
       let! loc = declarationLocation
       let isScript = isAScript loc.FileName
       // sometimes the source file locations start with a capital, despite all of our efforts.
-      let normalizedPath =
-        if System.Char.IsUpper(loc.FileName[0]) then
-          string (System.Char.ToLowerInvariant loc.FileName[0])
-          + (loc.FileName.Substring(1))
-        else
-          loc.FileName
-
-      let taggedFilePath = UMX.tag normalizedPath
+      let taggedFilePath = Utils.normalizePath loc.FileName
 
       if isScript && taggedFilePath = currentDocument.FileName then
         return SymbolDeclarationLocation.CurrentDocument
@@ -61,8 +53,7 @@ let getDeclarationLocation
         match! projectsThatContainFile (taggedFilePath) with
         | [] -> return! None
         | projectsThatContainFile ->
-          let projectsThatDependOnContainingProjects =
-            getDependentProjectsOfProjects projectsThatContainFile
+          let! projectsThatDependOnContainingProjects = getDependentProjectsOfProjects projectsThatContainFile
 
           match projectsThatDependOnContainingProjects with
           | [] -> return (SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))

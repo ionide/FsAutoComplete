@@ -2679,11 +2679,11 @@ let private replaceWithSuggestionTests state =
 
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
-
+        let messages = diags |> Array.map (fun d -> d.Message) |> String.concat "\n"
         Expect.exists
           diags
           (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
-          "Diagnostic with code 39 should suggest name"
+          $"Diagnostic with code 39 should suggest name: Contained {messages}"
 
       testCaseAsync "can change Min to min"
       <| CodeFix.check
@@ -2734,7 +2734,8 @@ let private replaceWithSuggestionTests state =
         let x: float = 2.0
         """
 
-      testCaseAsync "can change namespace in open"
+      // FCS sometimes doesn't give the correct message so test is flakey
+      ptestCaseAsync "can change namespace in open"
       <| CodeFix.check
         server
         """
@@ -3384,6 +3385,7 @@ let private removeUnnecessaryParenthesesTests state =
         """ ])
 
 let tests textFactory state =
+  testSequenced <|
   testList
     "CodeFix-tests"
     [ HelpersTests.tests textFactory

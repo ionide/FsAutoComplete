@@ -44,7 +44,12 @@ open Helpers
 open System.Runtime.ExceptionServices
 
 type AdaptiveFSharpLspServer
-  (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
+  (
+    workspaceLoader: IWorkspaceLoader,
+    lspClient: FSharpLspClient,
+    sourceTextFactory: ISourceTextFactory,
+    useTransparentCompiler: bool
+  ) =
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
@@ -58,7 +63,8 @@ type AdaptiveFSharpLspServer
 
   let disposables = new Disposables.CompositeDisposable()
 
-  let state = new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader)
+  let state =
+    new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader, useTransparentCompiler)
 
   do disposables.Add(state)
 
@@ -166,7 +172,7 @@ type AdaptiveFSharpLspServer
             do!
               rootPath
               |> Option.map (fun rootPath ->
-                async {
+                asyncEx {
                   let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
 
                   if not (File.Exists dotConfig) then
@@ -177,7 +183,6 @@ type AdaptiveFSharpLspServer
                         .WithWorkingDirectory(rootPath)
                         .ExecuteBufferedAsync()
                         .Task
-                      |> Async.AwaitTask
 
                     if result.ExitCode <> 0 then
                       fantomasLogger.warn (
@@ -195,7 +200,6 @@ type AdaptiveFSharpLspServer
                           .WithWorkingDirectory(rootPath)
                           .ExecuteBufferedAsync()
                           .Task
-                        |> Async.AwaitTask
 
                       if result.ExitCode <> 0 then
                         fantomasLogger.warn (
@@ -211,7 +215,6 @@ type AdaptiveFSharpLspServer
                       .WithWorkingDirectory(rootPath)
                       .ExecuteBufferedAsync()
                       .Task
-                    |> Async.AwaitTask
 
                   if result.ExitCode = 0 then
                     fantomasLogger.info (Log.setMessage (sprintf "fantomas was installed locally at %A" rootPath))
@@ -237,7 +240,6 @@ type AdaptiveFSharpLspServer
                 .WithArguments("tool install -g fantomas")
                 .ExecuteBufferedAsync()
                 .Task
-              |> Async.AwaitTask
 
             if result.ExitCode = 0 then
               fantomasLogger.info (Log.setMessage "fantomas was installed globally")
@@ -1202,7 +1204,7 @@ type AdaptiveFSharpLspServer
           let getAllProjects () =
             state.GetFilesToProject()
             |> Async.map (
-              Array.map (fun (file, proj) -> UMX.untag file, proj.FSharpProjectOptions)
+              Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectCompilerOptions)
               >> Array.toList
             )
 
@@ -3072,7 +3074,7 @@ module AdaptiveFSharpLspServer =
 
 
 
-  let startCore toolsPath workspaceLoaderFactory sourceTextFactory =
+  let startCore toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -3108,7 +3110,7 @@ module AdaptiveFSharpLspServer =
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath
-      new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory) :> IFSharpLspServer
+      new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory, useTransparentCompiler) :> IFSharpLspServer
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer createRpc
 

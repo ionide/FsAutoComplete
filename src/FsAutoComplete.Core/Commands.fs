@@ -731,10 +731,10 @@ module Commands =
 
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -787,7 +787,7 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck: Async<FSharpProjectOptions list> =
+        let projectsToCheck: Async<CompilerProjectOption list> =
           async {
             match scope with
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
@@ -798,8 +798,8 @@ module Commands =
                     yield Async.singleton (Some project)
 
                     yield!
-                      project.ReferencedProjects
-                      |> Array.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                      project.ReferencedProjectsPath
+                      |> List.map (fun p -> Utils.normalizePath p |> tryGetProjectOptionsForFsproj) ]
                 |> Async.parallel75
 
 
@@ -839,7 +839,7 @@ module Commands =
         /// Adds References of `symbol` in `file` to `dict`
         ///
         /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
-        let tryFindReferencesInFile (file: string<LocalPath>, project: FSharpProjectOptions) =
+        let tryFindReferencesInFile (file: string<LocalPath>, project: CompilerProjectOption) =
           async {
             if dict.ContainsKey file then
               return Ok()
@@ -882,15 +882,14 @@ module Commands =
 
               if errorOnFailureToFixRange then Error e else Ok())
 
-        let iterProjects (projects: FSharpProjectOptions seq) =
+        let iterProjects (projects: CompilerProjectOption seq) =
           // should:
           // * check files in parallel
           // * stop when error occurs
           // -> `Async.Choice`: executes in parallel, returns first `Some`
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
           [ for project in projects do
-              for file in project.SourceFiles do
-                let file = UMX.tag file
+              for file in project.SourceFilesTagged do
 
                 async {
                   match! tryFindReferencesInFile (file, project) with
@@ -930,10 +929,10 @@ module Commands =
   ///       -> for "Rename"
   let symbolUseWorkspace
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)

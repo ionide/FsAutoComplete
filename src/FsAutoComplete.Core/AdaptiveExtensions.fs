@@ -6,40 +6,49 @@ open FSharp.Data.Traceable
 open System.Threading.Tasks
 open IcedTasks
 open System.Threading
-
+open FsAutoComplete
+open FsAutoComplete.Logging
+open FsAutoComplete.Logging.Types
 
 [<AutoOpen>]
 module AdaptiveExtensions =
+  let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
+  open System.Runtime.ExceptionServices
 
   type CancellationTokenSource with
 
-    /// Communicates a request for cancellation. Ignores ObjectDisposedException
     member cts.TryCancel() =
       try
-        cts.Cancel()
-      with :? ObjectDisposedException ->
-        ()
+        if not <| isNull cts then
+          cts.Cancel()
+      with
+      | :? ObjectDisposedException
+      | :? NullReferenceException -> ()
 
-    /// Releases all resources used by the current instance of the System.Threading.CancellationTokenSource class.
     member cts.TryDispose() =
       try
-        cts.Dispose()
+        if not <| isNull cts then
+          cts.Dispose()
       with _ ->
         ()
+
 
   type TaskCompletionSource<'a> with
 
     /// https://github.com/dotnet/runtime/issues/47998
     member tcs.TrySetFromTask(real: Task<'a>) =
-      task {
-        try
-          let! r = real
-          tcs.TrySetResult r |> ignore<bool>
-        with
-        | :? OperationCanceledException as x -> tcs.TrySetCanceled(x.CancellationToken) |> ignore<bool>
-        | ex -> tcs.TrySetException ex |> ignore<bool>
-      }
-      |> ignore<Task<unit>>
+
+      // note: using ContinueWith instead of task CE for better stack traces
+      real.ContinueWith(fun (task: Task<_>) ->
+        match task.Status with
+        | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
+        | TaskStatus.Canceled ->
+          tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken)
+          |> ignore<bool>
+        | TaskStatus.Faulted -> tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
+
+        | _ -> ())
+      |> ignore<Task>
 
   type ChangeableHashMap<'Key, 'Value> with
 
@@ -148,7 +157,7 @@ module AVal =
     /// Creates an observable with the given object and will be executed whenever the object gets marked out-of-date. Note that it does not trigger when the object is currently out-of-date.
     /// </summary>
     /// <param name="aval">The aval to get out-of-date information from.</param>
-    let onOutOfDateWeak (aval: #aval<_>) =
+    let onOutOfDateWeak (aval: #IAdaptiveObject) =
       Observable.Create(fun (obs: IObserver<_>) -> aval.AddWeakMarkingCallback(fun _ -> obs.OnNext aval))
 
 
@@ -386,7 +395,7 @@ type internal RefCountingTaskCreator<'a>(create: CancellationToken -> Task<'a>) 
 /// Upon cancellation, it will run the cancel function passed in and set cancellation for the task completion source.
 /// </remarks>
 and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
-  let cts = new CancellationTokenSource()
+  let mutable cachedTcs: TaskCompletionSource<'a> = null
   let mutable cached: Task<'a> = null
 
   let getTask () =
@@ -394,14 +403,9 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
       if real.IsCompleted then
         real
       else
-        task {
-          let tcs = new TaskCompletionSource<'a>()
-          use _s = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
-
-          tcs.TrySetFromTask real
-
-          return! tcs.Task
-        }
+        cachedTcs <- new TaskCompletionSource<'a>()
+        cachedTcs.TrySetFromTask real
+        cachedTcs.Task
 
     cached <-
       match cached with
@@ -417,10 +421,12 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
     cached
 
   /// <summary>Will run the cancel function passed into the constructor and set the output Task to cancelled state.</summary>
-  member x.Cancel() =
+  member x.Cancel(cancellationToken: CancellationToken) =
     lock x (fun () ->
       cancel ()
-      cts.TryCancel())
+
+      if not <| isNull cachedTcs then
+        cachedTcs.TrySetCanceled(cancellationToken) |> ignore<bool>)
 
   /// <summary>The output of the passed in task to the constructor.</summary>
   /// <returns></returns>
@@ -435,17 +441,17 @@ module CancellableTask =
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
     fun (ctok: CancellationToken) ->
       task {
-        use _ = ctok.Register(fun () -> ct.Cancel())
+        use _ = ctok.Register(fun () -> ct.Cancel(ctok))
         return! ct.Task
       }
 
 module Async =
   /// <summary>Converts AdaptiveCancellableTask to an Async.</summary>
   let inline ofAdaptiveCancellableTask (ct: AdaptiveCancellableTask<_>) =
-    async {
+    asyncEx {
       let! ctok = Async.CancellationToken
-      use _ = ctok.Register(fun () -> ct.Cancel())
-      return! ct.Task |> Async.AwaitTask
+      use _ = ctok.Register(fun () -> ct.Cancel(ctok))
+      return! ct.Task
     }
 
 [<AutoOpen>]
@@ -479,7 +485,7 @@ module AsyncAVal =
   /// This follows Async semantics and is not already running.
   /// </remarks>
   let forceAsync (value: asyncaval<_>) =
-    async {
+    asyncEx {
       let ct = value.GetValue(AdaptiveToken.Top)
       return! Async.ofAdaptiveCancellableTask ct
     }
@@ -531,53 +537,66 @@ module AsyncAVal =
   let ofTask (value: Task<'a>) = ConstantVal(value) :> asyncaval<_>
 
   let ofCancellableTask (value: CancellableTask<'a>) =
-    let mutable cache: Option<AdaptiveCancellableTask<'a>> = None
 
     { new AbstractVal<'a>() with
-        member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
-            let cts = new CancellationTokenSource()
+        member x.Compute _ =
+          let cts = new CancellationTokenSource()
 
-            let cancel () =
-              cts.TryCancel()
-              cts.TryDispose()
+          let cancel () =
+            cts.TryCancel()
+            cts.TryDispose()
 
-            let real =
-              task {
-                try
-                  return! value cts.Token
-                finally
-                  cts.TryDispose()
-              }
+          let real =
+            task {
+              try
+                return! value cts.Token
+              finally
+                cts.TryDispose()
+            }
 
-            cache <- Some(AdaptiveCancellableTask(cancel, real))
+          AdaptiveCancellableTask(cancel, real) }
+    :> asyncaval<_>
 
-          cache.Value }
+
+  let ofCancellableValueTask (value: CancellableValueTask<'a>) =
+
+    { new AbstractVal<'a>() with
+        member x.Compute _ =
+          let cts = new CancellationTokenSource()
+
+          let cancel () =
+            cts.TryCancel()
+            cts.TryDispose()
+
+          let real =
+            task {
+              try
+                return! value cts.Token
+              finally
+                cts.TryDispose()
+            }
+
+          AdaptiveCancellableTask(cancel, real) }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
-    let mutable cache: Option<AdaptiveCancellableTask<'a>> = None
-
     { new AbstractVal<'a>() with
-        member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
-            let cts = new CancellationTokenSource()
+        member x.Compute _ =
+          let cts = new CancellationTokenSource()
 
-            let cancel () =
-              cts.TryCancel()
-              cts.TryDispose()
+          let cancel () =
+            cts.TryCancel()
+            cts.TryDispose()
 
-            let real =
-              task {
-                try
-                  return! Async.StartImmediateAsTask(value, cts.Token)
-                finally
-                  cts.TryDispose()
-              }
+          let real =
+            task {
+              try
+                return! Async.StartImmediateAsTask(value, cts.Token)
+              finally
+                cts.TryDispose()
+            }
 
-            cache <- Some(AdaptiveCancellableTask(cancel, real))
-
-          cache.Value }
+          AdaptiveCancellableTask(cancel, real) }
     :> asyncaval<_>
 
   /// <summary>
@@ -587,10 +606,32 @@ module AsyncAVal =
     if value.IsConstant then
       ConstantVal(Task.FromResult(AVal.force value)) :> asyncaval<_>
     else
+
       { new AbstractVal<'a>() with
           member x.Compute t =
-            let real = Task.Run(fun () -> value.GetValue t)
-            AdaptiveCancellableTask(id, real) }
+            let cts = new CancellationTokenSource()
+
+            let cancel () =
+              cts.TryCancel()
+              cts.TryDispose()
+
+            let real =
+              task {
+                try
+                  // Start this work on the threadpool so we can return AdaptiveCancellableTask and let the system cancel if needed
+                  // We do this because tasks will stay on the current thread unless there is an yield or await in them.
+                  return!
+                    Task.Run(
+                      (fun () ->
+                        cts.Token.ThrowIfCancellationRequested()
+                        value.GetValue t),
+                      cts.Token
+                    )
+                finally
+                  cts.TryDispose()
+              }
+
+            AdaptiveCancellableTask(cancel, real) }
       :> asyncaval<_>
 
 
@@ -600,17 +641,27 @@ module AsyncAVal =
   /// </summary>
   let map (mapping: 'a -> CancellationToken -> Task<'b>) (input: asyncaval<'a>) =
     let mutable cache: option<RefCountingTaskCreator<'b>> = None
+    let mutable dataCache = ValueNone
 
     { new AbstractVal<'b>() with
         member x.Compute t =
           if x.OutOfDate || Option.isNone cache then
             let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
-                  let! i = input.GetValue t
-                  return! mapping i
-                }
-              )
+              RefCountingTaskCreator(fun ct ->
+                task {
+                  let v = input.GetValue t
+
+                  use _s = ct.Register(fun () -> v.Cancel(ct))
+
+                  let! i = v.Task
+
+                  match dataCache with
+                  | ValueSome(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
+                  | _ ->
+                    let! b = mapping i ct
+                    dataCache <- ValueSome(struct (i, b))
+                    return b
+                })
 
             cache <- Some ref
             ref.New()
@@ -631,13 +682,7 @@ module AsyncAVal =
   /// adaptive inputs.
   /// </summary>
   let mapSync (mapping: 'a -> CancellationToken -> 'b) (input: asyncaval<'a>) =
-    map
-      (fun a ct ->
-        if ct.IsCancellationRequested then
-          Task.FromCanceled<_>(ct)
-        else
-          Task.FromResult(mapping a ct))
-      input
+    map (fun a ct -> Task.Run(fun () -> mapping a ct)) input
 
   /// <summary>
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
@@ -645,28 +690,32 @@ module AsyncAVal =
   /// </summary>
   let map2 (mapping: 'a -> 'b -> CancellationToken -> Task<'c>) (ca: asyncaval<'a>) (cb: asyncaval<'b>) =
     let mutable cache: option<RefCountingTaskCreator<'c>> = None
+    let mutable dataCache = ValueNone
 
     { new AbstractVal<'c>() with
         member x.Compute t =
           if x.OutOfDate || Option.isNone cache then
             let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
+              RefCountingTaskCreator(fun ct ->
+                task {
                   let ta = ca.GetValue t
                   let tb = cb.GetValue t
 
-                  let! ct = CancellableTask.getCancellationToken ()
-
                   use _s =
                     ct.Register(fun () ->
-                      ta.Cancel()
-                      tb.Cancel())
+                      ta.Cancel(ct)
+                      tb.Cancel(ct))
 
-                  let! va = ta.Task
-                  let! vb = tb.Task
-                  return! mapping va vb
-                }
-              )
+                  let! ia = ta.Task
+                  let! ib = tb.Task
+
+                  match dataCache with
+                  | ValueSome(struct (va, vb, vc)) when Utils.cheapEqual va ia && Utils.cheapEqual vb ib -> return vc
+                  | _ ->
+                    let! vc = mapping ia ib ct
+                    dataCache <- ValueSome(struct (ia, ib, vc))
+                    return vc
+                })
 
             cache <- Some ref
             ref.New()
@@ -680,6 +729,7 @@ module AsyncAVal =
   let bind (mapping: 'a -> CancellationToken -> asyncaval<'b>) (value: asyncaval<'a>) =
     let mutable cache: option<_> = None
     let mutable innerCache: option<_> = None
+    let mutable outerDataCache: option<_> = None
     let mutable inputChanged = 0
     let inners: ref<HashSet<asyncaval<'b>>> = ref HashSet.empty
 
@@ -699,39 +749,48 @@ module AsyncAVal =
           if x.OutOfDate then
             if Interlocked.Exchange(&inputChanged, 0) = 1 || Option.isNone cache then
               let outerTask =
-                RefCountingTaskCreator(
-                  cancellableTask {
-                    let! i = value.GetValue t
-                    let! ct = CancellableTask.getCancellationToken ()
-                    let inner = mapping i ct
-                    return inner
+                RefCountingTaskCreator(fun ct ->
+                  task {
+                    let v = value.GetValue t
+                    use _s = ct.Register(fun () -> v.Cancel(ct))
 
-                  }
-                )
+                    let! i = v.Task
+
+                    match outerDataCache with
+                    | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
+                    | _ ->
+                      let inner = mapping i ct
+                      outerDataCache <- Some(i, inner)
+                      return inner
+
+                  })
 
               cache <- Some outerTask
 
             let outerTask = cache.Value
 
             let ref =
-              RefCountingTaskCreator(
-                cancellableTask {
-                  let! ct = CancellableTask.getCancellationToken ()
+              RefCountingTaskCreator(fun ct ->
+                task {
 
-                  let! inner = outerTask.New()
+                  let inner = outerTask.New()
+
+                  use _s = ct.Register(fun () -> inner.Cancel(ct))
+
+                  let! inner = inner.Task
+
                   lock inners (fun () -> inners.Value <- HashSet.add inner inners.Value)
                   let innerTask = inner.GetValue t
 
                   use _s2 =
                     ct.Register(fun () ->
-                      innerTask.Cancel()
+                      innerTask.Cancel(ct)
                       lock inners (fun () -> inners.Value <- HashSet.remove inner inners.Value)
                       inner.Outputs.Remove x |> ignore)
 
                   return! innerTask.Task
 
-                }
-              )
+                })
 
             innerCache <- Some ref
 
@@ -800,7 +859,8 @@ module AsyncAValBuilderExtensions =
     member inline x.Source(value: aval<'T>) = AsyncAVal.ofAVal value
     member inline x.Source(value: Task<'T>) = AsyncAVal.ofTask value
     member inline x.Source(value: Async<'T>) = AsyncAVal.ofAsync value
-    member inline x.Source(value: CancellableTask<'T>) = AsyncAVal.ofCancellableTask value
+    member inline x.Source([<InlineIfLambda>] value: CancellableTask<'T>) = AsyncAVal.ofCancellableTask value
+    member inline x.Source([<InlineIfLambda>] value: CancellableValueTask<'T>) = AsyncAVal.ofCancellableValueTask value
 
     member inline x.BindReturn(value: asyncaval<'T1>, [<InlineIfLambda>] mapping: 'T1 -> CancellationToken -> 'T2) =
       AsyncAVal.mapSync (fun data ctok -> mapping data ctok) value
