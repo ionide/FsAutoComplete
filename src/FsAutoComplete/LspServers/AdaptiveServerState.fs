@@ -815,9 +815,6 @@ type AdaptiveState
     tryFindProp "MSBuildAllProjects" props
     |> Option.map (fun v -> v.Split(';', StringSplitOptions.RemoveEmptyEntries))
 
-
-
-
   let loadProjects (loader: IWorkspaceLoader) binlogConfig projects =
     logger.debug (Log.setMessageI $"Enter loading projects")
 
@@ -1524,11 +1521,14 @@ type AdaptiveState
     }
 
   let autoCompleteItems
-    : cmap<DeclName, DeclarationListItem *
-      Position *
-      string<LocalPath> *
-      (Position -> option<string>) *
-      FSharp.Compiler.Syntax.ParsedInput> =
+    : cmap<
+        DeclName,
+        DeclarationListItem *
+        Position *
+        string<LocalPath> *
+        (Position -> option<string>) *
+        FSharp.Compiler.Syntax.ParsedInput
+       > =
     cmap ()
 
   let getAutoCompleteByDeclName name = autoCompleteItems |> AMap.tryFind name
@@ -2155,7 +2155,8 @@ type AdaptiveState
          UpdateTypeAbbreviationInSignatureFile.fix tryGetParseAndCheckResultsForFile
          AddBindingToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
          ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
-         IgnoreExpression.fix tryGetParseAndCheckResultsForFile |])
+         IgnoreExpression.fix tryGetParseAndCheckResultsForFile
+         ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
@@ -2480,15 +2481,8 @@ type AdaptiveState
   member x.GetAutoCompleteNamespacesByDeclName declName = getAutoCompleteNamespacesByDeclName declName |> AVal.force
 
   member x.SymbolUseWorkspace
-    (
-      includeDeclarations,
-      includeBackticks,
-      errorOnFailureToFixRange,
-      pos,
-      lineStr,
-      text,
-      tyRes
-    ) =
+    (includeDeclarations, includeBackticks, errorOnFailureToFixRange, pos, lineStr, text, tyRes)
+    =
     symbolUseWorkspace includeDeclarations includeBackticks errorOnFailureToFixRange pos lineStr text tyRes
 
   member x.GetDeclarationLocation(symbolUse, text) = getDeclarationLocation (symbolUse, text)

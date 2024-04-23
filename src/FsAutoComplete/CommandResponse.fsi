@@ -79,7 +79,7 @@ module CommandResponse =
       Items: List<ProjectResponseItem>
       AdditionalInfo: Map<string, string> }
 
-  and ProjectOutputType =
+  and [<Struct>] ProjectOutputType =
     | Library
     | Exe
     | Custom of string

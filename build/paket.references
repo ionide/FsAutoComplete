@@ -1,5 +1,0 @@
-group Build
-Fake.Core.Target
-Fake.IO.FileSystem
-Fake.Tools.Git
-Fantomas.Core

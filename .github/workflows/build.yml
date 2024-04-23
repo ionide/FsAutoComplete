@@ -96,10 +96,14 @@ jobs:
       run: dotnet tool restore
 
     - name: Check format
-      run: dotnet fantomas --check src
+      run: dotnet fantomas --check build.fsx src
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
+
+    # Ensure the scaffolding code can still add items to the existing code.
+    - name: EnsureCanScaffoldCodeFix
+      run: dotnet fsi build.fsx -- -p EnsureCanScaffoldCodeFix
 
     - name: Run Build
       run: dotnet build -c Release

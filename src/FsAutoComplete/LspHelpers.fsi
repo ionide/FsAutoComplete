@@ -36,6 +36,9 @@ module Conversions =
   val fcsRangeToLspLocation: range: FcsRange -> Location
   val findDeclToLspLocation: decl: FsAutoComplete.FindDeclarationResult -> Location
 
+  [<Literal>]
+  val unicodeParagraphCharacter: string = "\u001d"
+
   type TextDocumentIdentifier with
 
     member GetFilePath: unit -> string

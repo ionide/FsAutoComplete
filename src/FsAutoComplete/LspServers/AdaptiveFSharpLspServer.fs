@@ -265,10 +265,8 @@ type AdaptiveFSharpLspServer
   member __.ScriptFileProjectOptions = state.ScriptFileProjectOptions.Publish
 
   member private x.logUnimplementedRequest<'t, 'u>
-    (
-      argValue: 't,
-      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
-    ) =
+    (argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string)
+    =
     logger.info (
       Log.setMessage $"{caller} request: {{params}}"
       >> Log.addContextDestructured "params" argValue
@@ -277,10 +275,8 @@ type AdaptiveFSharpLspServer
     Helpers.notImplemented<'u>
 
   member private x.logIgnoredNotification<'t>
-    (
-      argValue: 't,
-      [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string
-    ) =
+    (argValue: 't, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string)
+    =
     logger.info (
       Log.setMessage $"{caller} request: {{params}}"
       >> Log.addContextDestructured "params" argValue
@@ -1954,8 +1950,6 @@ type AdaptiveFSharpLspServer
 
           let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let _fcsRange = protocolRangeToRange (UMX.untag filePath) p.Range
-
           let! pipelineHints = Commands.inlineValues volatileFile.Source tyRes
 
           let hints =
@@ -3033,8 +3027,6 @@ module AdaptiveFSharpLspServer =
         else
           None
       | _ -> None
-
-    let _strategy = StreamJsonRpcTracingStrategy(Tracing.fsacActivitySource)
 
     let (|Flatten|_|) (e: exn) =
       match e with

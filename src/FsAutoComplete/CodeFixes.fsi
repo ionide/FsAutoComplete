@@ -30,6 +30,7 @@ module Types =
   type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<CompilerProjectOption>>
 
   [<RequireQualifiedAccess>]
+  [<Struct>]
   type FixKind =
     | Fix
     | Refactor
