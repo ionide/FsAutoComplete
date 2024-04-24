@@ -1121,13 +1121,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       })
 
 
-  let cancelToken filePath (cts: CancellationTokenSource) =
+  let cancelToken filePath version (cts: CancellationTokenSource) =
 
     try
       logger.info (
         Log.setMessage "Cancelling {filePath} - {version}"
         >> Log.addContextDestructured "filePath" filePath
-      // >> Log.addContextDestructured "version" oldFile.Version
+        >> Log.addContextDestructured "version" version
       )
 
       cts.Cancel()
@@ -1138,16 +1138,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       // ignore if already cancelled
       ()
 
-  let resetCancellationToken (filePath: string<LocalPath>) =
-
+  let resetCancellationToken (filePath: string<LocalPath>) version =
     let adder _ = new CancellationTokenSource()
 
     let updater _key value =
-      cancelToken filePath value
+      cancelToken filePath version value
       new CancellationTokenSource()
 
-    openFilesTokens.AddOrUpdate(filePath, adder, updater)
-    |> ignore<CancellationTokenSource>
+    openFilesTokens.AddOrUpdate(filePath, adder, updater).Token
 
 
   let updateOpenFiles (file: VolatileFile) =
@@ -1155,14 +1153,16 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let updater _ (v: cval<_>) = v.Value <- file
 
-    resetCancellationToken file.FileName
+    resetCancellationToken file.FileName file.Version |> ignore<CancellationToken>
     transact (fun () -> openFiles.AddOrElse(file.Source.FileName, adder, updater))
 
-  let updateTextChanges filePath p =
+  let updateTextChanges filePath ((changes: DidChangeTextDocumentParams, _) as p) =
     let adder _ = cset<_> [ p ]
     let updater _ (v: cset<_>) = v.Add p |> ignore<bool>
 
-    resetCancellationToken filePath
+    resetCancellationToken filePath changes.TextDocument.Version
+    |> ignore<CancellationToken>
+
     transact (fun () -> textChanges.AddOrElse(filePath, adder, updater))
 
   let isFileOpen file = openFiles |> AMap.tryFindA file |> AVal.map (Option.isSome)
@@ -2046,7 +2046,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         openFiles.Remove filePath |> ignore<bool>
 
         match openFilesTokens.TryRemove(filePath) with
-        | (true, cts) -> cancelToken filePath cts
+        | (true, cts) -> cancelToken filePath None cts
         | _ -> ()
 
         textChanges.Remove filePath |> ignore<bool>)
@@ -2096,13 +2096,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
 
-  let bypassAdaptiveAndCheckDependenciesForFile (filePath: string<LocalPath>) =
+  let bypassAdaptiveAndCheckDependenciesForFile (sourceFilePath: string<LocalPath>) =
     async {
-      let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath) ]
-      use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
-      let! dependentFiles = getDependentFilesForFile filePath
+      let tags =
+        [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag sourceFilePath) ]
 
-      let! projs = getProjectOptionsForFile filePath |> AsyncAVal.forceAsync
+      use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      let! dependentFiles = getDependentFilesForFile sourceFilePath
+
+      let! projs = getProjectOptionsForFile sourceFilePath |> AsyncAVal.forceAsync
       let projs = projs |> Result.toOption |> Option.defaultValue []
 
       let dependentProjects =
@@ -2131,26 +2133,46 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             && file.Contains "AssemblyAttributes.fs" |> not)
 
         let checksToPerformLength = innerChecks.Length
+        let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
 
         innerChecks
-        |> Array.map (fun (proj, file) ->
-          let file = UMX.tag file
+        |> Array.map (fun (opts, file) ->
+          let fileTagged = Utils.normalizePath file
 
-          let token = getOpenFileTokenOrDefault filePath
+          async {
 
-          bypassAdaptiveTypeCheck (file) (proj)
-          |> Async.withCancellation token
-          |> Async.Ignore
-          |> Async.bind (fun _ ->
-            async {
-              let checksCompleted = Interlocked.Increment(&checksCompleted)
+            use joinedToken =
+              if fileTagged = sourceFilePath then
+                // dont reset the token for the incoming file as it would cancel the whole operation
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressReporter.CancellationToken)
+              else
+                // only cancel other files
+                // If we have multiple saves from separate root files we want only one to be running
+                let token = resetCancellationToken fileTagged None
+                // and join with the root token as well since we want to cancel the whole operation if the root files changes
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, token, progressReporter.CancellationToken)
 
-              do!
-                progressReporter.Report(
-                  message = $"{checksCompleted}/{checksToPerformLength} remaining",
-                  percentage = percentage checksCompleted checksToPerformLength
-                )
-            }))
+            try
+              let! _ =
+                bypassAdaptiveTypeCheck fileTagged opts
+                |> Async.withCancellation joinedToken.Token
+
+              ()
+            with :? OperationCanceledException ->
+              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+              ()
+
+            let checksCompleted = Interlocked.Increment(&checksCompleted)
+
+            do!
+              progressReporter.Report(
+                message = $"{checksCompleted}/{checksToPerformLength} remaining",
+                percentage = percentage checksCompleted checksToPerformLength
+              )
+          })
+
+
+
 
 
       do!

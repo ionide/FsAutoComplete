@@ -82,8 +82,8 @@ let tests state =
                       Position = { Line = 0; Character = 1 }
                       Context =
                         Some
-                          { triggerKind = CompletionTriggerKind.Invoked
-                            triggerCharacter = None }
+                          { TriggerKind = CompletionTriggerKind.Invoked
+                            TriggerCharacter = None }
                     } |> Async.StartChild
 
                   let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
