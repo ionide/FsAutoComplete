@@ -5,6 +5,7 @@ open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.LspHelpers
 open System
+open System.Threading
 open IcedTasks
 
 type FSharpLspClient =
@@ -34,11 +35,40 @@ type FSharpLspClient =
   override WorkDoneProgressCreate: ProgressToken -> AsyncLspResult<unit>
   override Progress: ProgressToken * 'Progress -> Async<unit>
 
+///<summary>
+/// Represents a progress report that can be used to report progress to the client.
+/// </summary>
+///
+/// <remarks>
+/// This implements <see cref="T:System.IAsyncDisposable"/> and <see cref="T:System.IDisposable"/> to allow for the ending of the progress report without explicitly calling End.
+///
+/// See <see href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workDoneProgress">LSP Spec on WorkDoneProgress</see> for more information.
+/// </remarks>
 type ServerProgressReport =
-  new: lspClient: FSharpLspClient * ?token: ProgressToken -> ServerProgressReport
-  member Token: ProgressToken
+  new: lspClient: FSharpLspClient * ?token: ProgressToken * ?cancellableDefault: bool -> ServerProgressReport
+  /// The progress token to identify the progress report.
+  member ProgressToken: ProgressToken
+  /// A cancellation token that can be used to used to cancel actions that are associated with this progress report.
+  member CancellationToken: CancellationToken
+  /// Triggers the CancellationToken to cancel.
+  member Cancel: unit -> unit
+  /// <summary>Used to start reporting progress to the client. </summary>
+  /// <param name="title">Mandatory title of the progress operation</param>
+  /// <param name="cancellable">Controls if a cancel button should show to allow the user to cancel the long running operation</param>
+  /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
+  /// <param name="percentage">percentage to display (value 100 is considered 100%). If not provided infinite progress is assumed</param>
   member Begin: title: string * ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableTask<unit>
+  /// <summary>Report additional progress</summary>
+  /// <param name="cancellable">Controls if a cancel button should show to allow the user to cancel the long running operation</param>
+  /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
+  /// <param name="percentage">percentage to display (value 100 is considered 100%). If not provided infinite progress is assumed</param>
   member Report: ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableTask<unit>
+  /// <summary>Signaling the end of a progress reporting is done.</summary>
+  /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
+  /// <remarks>
+  /// This will be called if this object is disposed either via Dispose or DisposeAsync.
+  /// </remarks>
+  /// <returns></returns>
   member End: ?message: string -> CancellableTask<unit>
   interface IAsyncDisposable
   interface IDisposable

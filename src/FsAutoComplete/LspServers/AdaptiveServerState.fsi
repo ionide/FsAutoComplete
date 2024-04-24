@@ -118,4 +118,12 @@ type AdaptiveState =
   member GetDeclarations: filename: string<LocalPath> -> Async<Result<NavigationTopLevelDeclaration array, string>>
   member GetAllDeclarations: unit -> Async<(string<LocalPath> * NavigationTopLevelDeclaration array) array>
   member GlyphToSymbolKind: (FSharpGlyph -> SymbolKind option)
+  /// <summary>
+  /// Signals the server to cancel an operation that is associated with the given progress token.
+  /// </summary>
+  ///
+  /// <remarks>
+  /// See <see href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#window_workDoneProgress_cancel">LSP Spec on WorkDoneProgress Cancel</see> for more information.
+  /// </remarks>
+  member CancelServerProgress: progressToken: ProgressToken -> unit
   interface IDisposable
