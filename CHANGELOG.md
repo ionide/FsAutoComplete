@@ -1,6 +1,26 @@
 # Changelog
 
-## Unreleased
+## [0.72.0]
+
+### Added 
+
+* [Show additional diagnostics specific to script files](https://github.com/ionide/FsAutoComplete/pull/1248) (thanks @TheAngryByrd)
+* [Add some code fixes for type mismatch](https://github.com/ionide/FsAutoComplete/pull/1250) (thanks @nojaf)
+
+### Fixed
+
+* [Shift multiline paren contents less aggressively](https://github.com/ionide/FsAutoComplete/pull/1242) (thanks @brianrourkeboll)
+* [fix unicode characters in F# compiler diagnostic messages](https://github.com/ionide/FsAutoComplete/pull/1265) (thanks @MrLuje)
+* [Place XML doc lines before any attribute lists](https://github.com/ionide/FsAutoComplete/pull/1267) (thanks @dawedawe)
+* [Don't generate params for explicit getters/setters](https://github.com/ionide/FsAutoComplete/pull/1268) (thanks @dawedawe)
+* [Fix Nuget Script Restores when doing them in parallel](https://github.com/ionide/FsAutoComplete/pull/1275) (thanks @TheAngryByrd)
+
+### Changed
+
+* [Migrate Codefix Scaffolding](https://github.com/ionide/FsAutoComplete/pull/1256) (thanks @nojaf)
+* [Bump ProjInfo to 0.64.0](https://github.com/ionide/FsAutoComplete/pull/1270) Check out the [release notes](https://github.com/ionide/proj-info/releases/tag/v0.64.0) for more details (thanks @baronfel) 
+  * Fixes Loading Projects in some cases
+  * Adds Traversal Project support
 
 ## [0.71.0] - 2024-03-07
 
