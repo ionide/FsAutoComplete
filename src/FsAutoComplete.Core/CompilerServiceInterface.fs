@@ -44,6 +44,22 @@ type CompilerProjectOption =
   | BackgroundCompiler of FSharpProjectOptions
   | TransparentCompiler of FSharpProjectSnapshot
 
+  member x.ProjectFileName =
+    match x with
+    | BackgroundCompiler(options) -> options.ProjectFileName
+    | TransparentCompiler(snapshot) -> snapshot.ProjectFileName
+
+  member x.ProjectId =
+    match x with
+    | BackgroundCompiler(options) -> options.ProjectId
+    | TransparentCompiler(snapshot) -> snapshot.ProjectId
+
+  member x.SourceFilesTagged =
+    match x with
+    | BackgroundCompiler(options) -> options.SourceFiles |> Array.toList
+    | TransparentCompiler(snapshot) -> snapshot.SourceFiles |> List.map (fun f -> f.FileName)
+    |> List.map Utils.normalizePath
+
   member x.ReferencedProjectsPath =
     match x with
     | BackgroundCompiler(options) ->
@@ -52,16 +68,10 @@ type CompilerProjectOption =
       |> Array.toList
     | TransparentCompiler(snapshot) -> snapshot.ReferencedProjects |> List.choose (fun p -> p.ProjectFilePath)
 
-  member x.ProjectFileName =
+  member x.LoadTime =
     match x with
-    | BackgroundCompiler(options) -> options.ProjectFileName
-    | TransparentCompiler(snapshot) -> snapshot.ProjectFileName
-
-  member x.SourceFilesTagged =
-    match x with
-    | BackgroundCompiler(options) -> options.SourceFiles |> Array.toList
-    | TransparentCompiler(snapshot) -> snapshot.SourceFiles |> List.map (fun f -> f.FileName)
-    |> List.map Utils.normalizePath
+    | BackgroundCompiler(options) -> options.LoadTime
+    | TransparentCompiler(snapshot) -> snapshot.LoadTime
 
   member x.OtherOptions =
     match x with

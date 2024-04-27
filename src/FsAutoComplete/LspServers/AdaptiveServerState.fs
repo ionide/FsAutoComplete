@@ -1259,8 +1259,8 @@ type AdaptiveState
   let openFilesToChangesAndProjectOptions =
     openFilesWithChanges
     |> AMapAsync.mapAVal (fun filePath file ctok ->
-      asyncAVal {
-        if Utils.isAScript (UMX.untag filePath) then
+      if Utils.isAScript (UMX.untag filePath) then
+        asyncAVal {
           let! (checker: FSharpCompilerServiceChecker) = checker
           and! tfmConfig = tfmConfig
 
@@ -1270,121 +1270,67 @@ type AdaptiveState
               use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts)
 
               try
-                if useTransparentCompiler then
-                  let! (opts, errors) =
+
+                let! (opts, errors) =
+                  if useTransparentCompiler then
                     checker.GetProjectSnapshotsFromScript(filePath, file.Source, tfmConfig)
                     |> Async.withCancellation linkedCts.Token
+                    |> Async.map (fun (snap, diags) -> CompilerProjectOption.TransparentCompiler snap, diags)
 
-                  let tOpts = opts |> CompilerProjectOption.TransparentCompiler
-                  tOpts |> scriptFileProjectOptions.Trigger
-                  let diags = errors |> Array.ofList |> Array.map fcsErrorToDiagnostic
-
-                  diagnosticCollections.SetFor(
-                    Path.LocalPathToUri filePath,
-                    "F# Script Project Options",
-                    file.Version,
-                    diags
-                  )
-
-                  let projectOptions: Types.ProjectOptions =
-                    let projectSdkInfo: Types.ProjectSdkInfo =
-                      { IsTestProject = false
-                        Configuration = ""
-                        IsPackable = false
-                        TargetFramework = ""
-                        TargetFrameworkIdentifier = ""
-                        TargetFrameworkVersion = ""
-                        MSBuildAllProjects = []
-                        MSBuildToolsVersion = ""
-                        ProjectAssetsFile = ""
-                        RestoreSuccess = true
-                        Configurations = []
-                        TargetFrameworks = []
-                        RunArguments = None
-                        RunCommand = None
-                        IsPublishable = None }
-
-                    { ProjectId = opts.ProjectId
-                      ProjectFileName = opts.ProjectFileName
-                      TargetFramework = ""
-                      SourceFiles = opts.SourceFiles |> List.map (fun x -> x.FileName)
-                      OtherOptions = opts.OtherOptions
-                      ReferencedProjects = []
-                      PackageReferences = []
-                      LoadTime = opts.LoadTime
-                      TargetPath = ""
-                      TargetRefPath = None
-                      ProjectOutputType = Types.ProjectOutputType.Exe
-                      ProjectSdkInfo = projectSdkInfo
-                      Items = []
-                      Properties = []
-                      CustomProperties = [] }
-
-
-
-                  return
-                    { FSharpProjectCompilerOptions = tOpts |> AVal.constant
-                      LanguageVersion = LanguageVersionShim.fromFSharpProjectSnapshot opts
-                      ProjectOptions = projectOptions }
-                    |> List.singleton
-
-                else
-                  let! (opts, errors) =
+                  else
                     checker.GetProjectOptionsFromScript(filePath, file.Source, tfmConfig)
                     |> Async.withCancellation linkedCts.Token
+                    |> Async.map (fun (snap, diags) -> CompilerProjectOption.BackgroundCompiler snap, diags)
 
-                  let tOpts = opts |> CompilerProjectOption.BackgroundCompiler
-                  tOpts |> scriptFileProjectOptions.Trigger
-                  let diags = errors |> Array.ofList |> Array.map fcsErrorToDiagnostic
+                opts |> scriptFileProjectOptions.Trigger
+                let diags = errors |> Array.ofList |> Array.map fcsErrorToDiagnostic
 
-                  diagnosticCollections.SetFor(
-                    Path.LocalPathToUri filePath,
-                    "F# Script Project Options",
-                    file.Version,
-                    diags
-                  )
+                diagnosticCollections.SetFor(
+                  Path.LocalPathToUri filePath,
+                  "F# Script Project Options",
+                  file.Version,
+                  diags
+                )
 
-
-                  let projectOptions: Types.ProjectOptions =
-                    let projectSdkInfo: Types.ProjectSdkInfo =
-                      { IsTestProject = false
-                        Configuration = ""
-                        IsPackable = false
-                        TargetFramework = ""
-                        TargetFrameworkIdentifier = ""
-                        TargetFrameworkVersion = ""
-                        MSBuildAllProjects = []
-                        MSBuildToolsVersion = ""
-                        ProjectAssetsFile = ""
-                        RestoreSuccess = true
-                        Configurations = []
-                        TargetFrameworks = []
-                        RunArguments = None
-                        RunCommand = None
-                        IsPublishable = None }
-
-                    { ProjectId = opts.ProjectId
-                      ProjectFileName = opts.ProjectFileName
+                let projectOptions: Types.ProjectOptions =
+                  let projectSdkInfo: Types.ProjectSdkInfo =
+                    { IsTestProject = false
+                      Configuration = ""
+                      IsPackable = false
                       TargetFramework = ""
-                      SourceFiles = opts.SourceFiles |> Array.toList
-                      OtherOptions = opts.OtherOptions |> Array.toList
-                      ReferencedProjects = []
-                      PackageReferences = []
-                      LoadTime = opts.LoadTime
-                      TargetPath = ""
-                      TargetRefPath = None
-                      ProjectOutputType = Types.ProjectOutputType.Exe
-                      ProjectSdkInfo = projectSdkInfo
-                      Items = []
-                      Properties = []
-                      CustomProperties = [] }
+                      TargetFrameworkIdentifier = ""
+                      TargetFrameworkVersion = ""
+                      MSBuildAllProjects = []
+                      MSBuildToolsVersion = ""
+                      ProjectAssetsFile = ""
+                      RestoreSuccess = true
+                      Configurations = []
+                      TargetFrameworks = []
+                      RunArguments = None
+                      RunCommand = None
+                      IsPublishable = None }
 
-                  return
-                    { FSharpProjectCompilerOptions = tOpts |> AVal.constant
-                      LanguageVersion = LanguageVersionShim.fromFSharpProjectOptions opts
+                  { ProjectId = opts.ProjectId
+                    ProjectFileName = opts.ProjectFileName
+                    TargetFramework = ""
+                    SourceFiles = opts.SourceFilesTagged |> List.map (UMX.untag)
+                    OtherOptions = opts.OtherOptions
+                    ReferencedProjects = []
+                    PackageReferences = []
+                    LoadTime = opts.LoadTime
+                    TargetPath = ""
+                    TargetRefPath = None
+                    ProjectOutputType = Types.ProjectOutputType.Exe
+                    ProjectSdkInfo = projectSdkInfo
+                    Items = []
+                    Properties = []
+                    CustomProperties = [] }
 
-                      ProjectOptions = projectOptions }
-                    |> List.singleton
+                return
+                  { FSharpProjectCompilerOptions = opts |> AVal.constant
+                    LanguageVersion = LanguageVersionShim.fromOtherOptions opts.OtherOptions
+                    ProjectOptions = projectOptions }
+                  |> List.singleton
 
               with e ->
                 logger.error (
@@ -1397,7 +1343,9 @@ type AdaptiveState
             }
 
           return file, projs
-        else
+        }
+      else
+        asyncAVal {
           let! sourceFileToProjectOptions = sourceFileToProjectOptions
 
           let! projs =
@@ -1406,9 +1354,8 @@ type AdaptiveState
               $"Couldn't find {filePath} in LoadedProjects. Have the projects loaded yet or have you tried restoring your project/solution?"
               filePath
 
-
           return file, projs
-      })
+        })
 
   let allFSharpFilesAndProjectOptions =
     asyncAVal {
