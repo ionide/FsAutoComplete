@@ -544,26 +544,20 @@ type ActivityExtensions =
 
   [<Extension>]
   static member inline SetNetworkNetTransport
-    (
-      span: Activity,
-      value: string<SemanticConventions.General.Network.net_transport_values>
-    ) =
+    (span: Activity, value: string<SemanticConventions.General.Network.net_transport_values>)
+    =
     span.SetTagSafe(SemanticConventions.General.Network.net_transport, UMX.untag value)
 
   [<Extension>]
   static member inline SetNetworkNetHostConnectionType
-    (
-      span: Activity,
-      value: string<SemanticConventions.General.Network.net_host_connection_type_values>
-    ) =
+    (span: Activity, value: string<SemanticConventions.General.Network.net_host_connection_type_values>)
+    =
     span.SetTagSafe(SemanticConventions.General.Network.net_host_connection_type, UMX.untag value)
 
   [<Extension>]
   static member inline SetNetworkNetHostConnectionSubType
-    (
-      span: Activity,
-      value: string<SemanticConventions.General.Network.net_host_connection_subtype_values>
-    ) =
+    (span: Activity, value: string<SemanticConventions.General.Network.net_host_connection_subtype_values>)
+    =
     span.SetTagSafe(SemanticConventions.General.Network.net_host_connection_subtype, UMX.untag value)
 
 
@@ -575,13 +569,8 @@ type ActivityExtensions =
   /// <param name="escaped">SHOULD be set to true if the exception event is recorded at a point where it is known that the exception is escaping the scope of the span. </param>
   [<Extension>]
   static member inline RecordError
-    (
-      span: Activity,
-      errorMessage: string,
-      errorType: string,
-      ?stacktrace: string,
-      ?escaped: bool
-    ) =
+    (span: Activity, errorMessage: string, errorType: string, ?stacktrace: string, ?escaped: bool)
+    =
     if Funcs.isNotNull span then
       let escaped = defaultArg escaped false
 

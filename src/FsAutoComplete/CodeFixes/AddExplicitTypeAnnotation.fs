@@ -26,6 +26,7 @@ let rec nonTypedParameterName p =
   | _ -> None
 
 /// Captures a SynBinding that either has no return type or has parameters that are not typed.
+[<return: Struct>]
 let (|FunctionBindingWithMissingTypes|_|) =
   function
   | SynBinding(
@@ -33,7 +34,7 @@ let (|FunctionBindingWithMissingTypes|_|) =
       returnInfo = None
       trivia = { LeadingKeyword = lk }) ->
     let bindingStartRange = unionRanges lk.Range lid.Range
-    Some(bindingStartRange, Some headPat.Range, parameters.Length, List.choose nonTypedParameterName parameters)
+    ValueSome(bindingStartRange, Some headPat.Range, parameters.Length, List.choose nonTypedParameterName parameters)
   | SynBinding(
       headPat = SynPat.LongIdent(longDotId = lid; argPats = SynArgPats.Pats parameters)
       returnInfo = Some _
@@ -42,10 +43,10 @@ let (|FunctionBindingWithMissingTypes|_|) =
     let nonTypedParameters = List.choose nonTypedParameterName parameters
 
     if List.isEmpty nonTypedParameters then
-      None
+      ValueNone
     else
-      Some(bindingStartRange, None, parameters.Length, nonTypedParameters)
-  | _ -> None
+      ValueSome(bindingStartRange, None, parameters.Length, nonTypedParameters)
+  | _ -> ValueNone
 
 /// <summary>
 /// Try and find a SynBinding function where either the return type or any parameter is missing a type definition.

@@ -1556,6 +1556,24 @@ let private generateXmlDocumentationTests state =
         let f x y = x + y
         """
 
+      testCaseAsync "documentation for function with attribute"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        let $0f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        [<System.Obsolete("foo")>]
+        let f x y = x + y
+        """
+
       testCaseAsync "documentation for use"
       <| CodeFix.check
         server
@@ -1586,6 +1604,23 @@ let private generateXmlDocumentationTests state =
         selectCodeFix
         """
         /// <summary></summary>
+        type MyRecord = { Foo: int }
+        """
+
+      testCaseAsync "documentation for record type with multiple attribute lists"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
+        type MyRec$0ord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
         type MyRecord = { Foo: int }
         """
 
@@ -1717,7 +1752,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with get () = "foo"
@@ -1759,7 +1793,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with set (x: string) = someField <- x
@@ -3382,6 +3415,28 @@ let private removeUnnecessaryParenthesesTests state =
           let x = 3
           let y = 99
           y - x
+        """
+
+      testCaseAsync "Handles sensitive multiline expr well"
+      <| CodeFix.check
+        server
+        """
+        let longVarName1 = 1
+        let longVarName2 = 2
+        (
+          longFunctionName
+            longVarName1
+            longVarName2
+        )$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        let longVarName1 = 1
+        let longVarName2 = 2
+        longFunctionName
+          longVarName1
+          longVarName2
         """ ])
 
 let tests textFactory state =
@@ -3439,4 +3494,5 @@ let tests textFactory state =
       UpdateTypeAbbreviationInSignatureFileTests.tests state
       AddBindingToSignatureFileTests.tests state
       ReplaceLambdaWithDotLambdaTests.tests state
-      IgnoreExpressionTests.tests state ]
+      IgnoreExpressionTests.tests state
+      ExprTypeMismatchTests.tests state ]

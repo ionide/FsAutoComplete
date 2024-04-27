@@ -13,11 +13,31 @@ open Utils.Utils
 open Utils.TextEdit
 open Helpers.Expecto.ShadowedTimeouts
 
+let executeProcess (wd: string) (processName: string) (processArgs: string) =
+    let psi = new Diagnostics.ProcessStartInfo(processName, processArgs) 
+    psi.UseShellExecute <- false
+    psi.RedirectStandardOutput <- true
+    psi.RedirectStandardError <- true
+    psi.CreateNoWindow <- true        
+    psi.WorkingDirectory <- wd
+    let proc = Diagnostics.Process.Start(psi) 
+    let output = new Text.StringBuilder()
+    let error = new Text.StringBuilder()
+    proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
+    proc.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
+    proc.BeginErrorReadLine()
+    proc.BeginOutputReadLine()
+    proc.WaitForExit()
+    {| ExitCode = proc.ExitCode; StdOut = output.ToString(); StdErr = error.ToString() |}
+
 ///GoTo tests
 let private gotoTest state =
   let server =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+
+      let csharpPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToCSharp")
+      let _buildInfo = executeProcess csharpPath "dotnet" "build"
 
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
@@ -264,6 +284,25 @@ let private gotoTest state =
               Expect.isTrue
                 (System.IO.File.Exists localPath)
                 (sprintf "File '%s' should exist locally after being downloaded" localPath)
+        })
+
+      ptestCaseAsync
+        "Go-to-definition from C# file"
+        (async {
+          let! server, _path, externalPath, _definitionPath = server
+
+          let p: TextDocumentPositionParams =
+            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+              Position = { Line = 26; Character = 23 } }
+
+          let! res = server.TextDocumentDefinition p
+
+          match res with
+          | Result.Error e -> failtestf "Request failed: %A" e
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok(Some _res) ->
+            //Do some assertions
+            ()
         })
 
       testCaseAsync

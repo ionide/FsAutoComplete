@@ -117,8 +117,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       let commasBetweenFields =
         toPosSeq (parenRange, sourceText)
-        |> Seq.filter notInsidePatterns
-        |> Seq.filter (fun pos -> sourceText.GetCharUnsafe pos = ',')
+        |> Seq.filter (fun pos -> notInsidePatterns pos && sourceText.GetCharUnsafe pos = ',')
 
       let removeCommaEdits =
         commasBetweenFields

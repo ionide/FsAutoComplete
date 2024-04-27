@@ -198,7 +198,7 @@ module Parser =
   let warnOnUnknownOptions =
     Invocation.InvocationMiddleware(fun ctx next ->
       if
-        ctx.ParseResult.UnmatchedTokens = null
+        isNull ctx.ParseResult.UnmatchedTokens
         || ctx.ParseResult.UnmatchedTokens.Count = 0
       then
         next.Invoke(ctx)
@@ -267,7 +267,7 @@ module Parser =
       let sourcesToExclude =
         Matching.WithProperty<string>(
           Constants.SourceContextPropertyName,
-          fun s -> s <> null && Array.contains s logSourcesToExclude
+          fun s -> not (isNull s) && Array.contains s logSourcesToExclude
         )
 
       let verbositySwitch = LoggingLevelSwitch(logLevel)

@@ -73,6 +73,7 @@ let compilers =
     ]
 
 let lspTests =
+  testSequenced <|
   testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
@@ -133,6 +134,7 @@ let lspTests =
                   UnusedDeclarationsTests.tests createServer
                   EmptyFileTests.tests createServer
                   CallHierarchy.tests createServer
+                  diagnosticsTest createServer
                   ] ] ]
 
 /// Tests that do not require a LSP server

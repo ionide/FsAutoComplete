@@ -15,7 +15,7 @@ To introduce a new code fix within the context of FSAutocomplete, there are seve
 To streamline the process of creating a new code fix, a convenient `FAKE` target has been provided. By executing the following command:
 
 ```bash
-dotnet run --project ./build/build.fsproj -- -t ScaffoldCodeFix YourCodeFixName
+dotnet fsi build.fsx -- -p ScaffoldCodeFix YourCodeFixName
 ```
 
 The above command accomplishes the following tasks:

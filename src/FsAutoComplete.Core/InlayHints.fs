@@ -815,12 +815,8 @@ type HintConfig =
     ShowParameterHints: bool }
 
 let provideHints
-  (
-    text: IFSACSourceText,
-    parseAndCheck: ParseAndCheckResults,
-    range: Range,
-    hintConfig
-  ) : Async<Hint[]> =
+  (text: IFSACSourceText, parseAndCheck: ParseAndCheckResults, range: Range, hintConfig)
+  : Async<Hint[]> =
   asyncResult {
     let! cancellationToken = Async.CancellationToken
 

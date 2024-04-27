@@ -54,11 +54,10 @@ type ParseAndCheckResults =
   member TryGetFormattedDocumentation:
     pos: Position ->
     lineStr: LineStr ->
-      Result<(ToolTipText option *
-      (string * string) option *
-      (string * DocumentationFormatter.EntityInfo) *
-      string *
-      string), string>
+      Result<
+        (ToolTipText option * (string * string) option * (string * DocumentationFormatter.EntityInfo) * string * string),
+        string
+       >
 
   member TryGetFormattedDocumentationForSymbol:
     xmlSig: string ->
