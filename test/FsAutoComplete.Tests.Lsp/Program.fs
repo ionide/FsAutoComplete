@@ -73,6 +73,7 @@ let compilers =
     ]
 
 let lspTests =
+  testSequenced <|
   testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
