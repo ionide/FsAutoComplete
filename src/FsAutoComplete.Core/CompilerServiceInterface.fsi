@@ -1,5 +1,6 @@
 namespace FsAutoComplete
 
+open System
 open System.IO
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
@@ -14,14 +15,16 @@ open FSharp.Compiler.Diagnostics
 
 type Version = int
 
-
+[<RequireQualifiedAccess>]
 type CompilerProjectOption =
   | BackgroundCompiler of FSharpProjectOptions
   | TransparentCompiler of FSharpProjectSnapshot
 
-  member ReferencedProjectsPath: string list
   member ProjectFileName: string
+  member ProjectId: string option
   member SourceFilesTagged: string<LocalPath> list
+  member ReferencedProjectsPath: string list
+  member LoadTime: DateTime
   member OtherOptions: string list
 
 type FSharpCompilerServiceChecker =
