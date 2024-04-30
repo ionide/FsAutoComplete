@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.72.2] - 2024-04-30
+
+### Fixed
+
+* [Use actualRootPath instead of p.RootPath when peeking workspaces](https://github.com/ionide/FsAutoComplete/pull/1278) (thanks @oupson)
+
 ## [0.72.1] - 2024-04-25
 
 ### Added 
