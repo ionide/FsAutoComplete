@@ -13,7 +13,7 @@ open Microsoft.Extensions.Caching.Memory
 open System
 open FsToolkit.ErrorHandling
 open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
-
+open System.Threading
 
 type Version = int
 
@@ -96,6 +96,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     )
 
   let entityCache = EntityCache()
+
+  // FCS can't seem to handle parallel project restores for script files
+  // https://github.com/ionide/ionide-vscode-fsharp/issues/2005
+  let scriptLocker = new SemaphoreSlim(1, 1)
 
   // This is used to hold previous check results for autocompletion.
   // We can't seem to rely on the checker for previous cached versions
@@ -319,10 +323,16 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     }
 
   member self.GetProjectSnapshotsFromScript(file: string<LocalPath>, source, tfm: FSIRefs.TFM) =
-    match tfm with
-    | FSIRefs.TFM.NetFx -> self.GetNetFxScriptSnapshot(file, source)
-    | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptSnapshot(file, source)
+    async {
+      try
+        do! scriptLocker.WaitAsync() |> Async.AwaitTask
 
+        match tfm with
+        | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptSnapshot(file, source)
+        | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptSnapshot(file, source)
+      finally
+        scriptLocker.Release() |> ignore<int>
+    }
 
 
   member private __.GetNetFxScriptOptions(file: string<LocalPath>, source) =
@@ -394,9 +404,16 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
     }
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) =
-    match tfm with
-    | FSIRefs.TFM.NetFx -> self.GetNetFxScriptOptions(file, source)
-    | FSIRefs.TFM.NetCore -> self.GetNetCoreScriptOptions(file, source)
+    async {
+      try
+        do! scriptLocker.WaitAsync() |> Async.AwaitTask
+
+        match tfm with
+        | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptOptions(file, source)
+        | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptOptions(file, source)
+      finally
+        scriptLocker.Release() |> ignore<int>
+    }
 
 
 
