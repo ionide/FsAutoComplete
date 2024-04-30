@@ -319,15 +319,12 @@ type AdaptiveFSharpLspServer
             | None -> p.RootPath
 
           let projs =
-            match p.RootPath, c.AutomaticWorkspaceInit with
+            match actualRootPath, c.AutomaticWorkspaceInit with
             | None, _
             | _, false -> state.WorkspacePaths
-            | Some actualRootPath, true ->
+            | Some rootPath, true ->
               let peeks =
-                WorkspacePeek.peek
-                  actualRootPath
-                  c.WorkspaceModePeekDeepLevel
-                  (c.ExcludeProjectDirectories |> List.ofArray)
+                WorkspacePeek.peek rootPath c.WorkspaceModePeekDeepLevel (c.ExcludeProjectDirectories |> List.ofArray)
                 |> List.map Workspace.mapInteresting
                 |> List.sortByDescending (fun x ->
                   match x with
