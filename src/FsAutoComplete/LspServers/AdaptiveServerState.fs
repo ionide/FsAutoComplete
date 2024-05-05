@@ -3,6 +3,7 @@ namespace FsAutoComplete.Lsp
 open System
 open System.IO
 open System.Threading
+open System.Collections.Generic
 open FsAutoComplete
 open FsAutoComplete.CodeFix
 open FsAutoComplete.Logging
@@ -36,6 +37,68 @@ open FsAutoComplete.FCSPatches
 open FsAutoComplete.Lsp
 open FsAutoComplete.Lsp.Helpers
 
+
+/// <summary>Handle tracking in-flight ServerProgressReport and allow cancellation of actions if a client decides to.</summary>
+type ServerProgressLookup() =
+  // This is a dictionary of all the progress reports that are currently active
+  // Use a WeakReference to avoid memory leaks
+  let progressTable = Dictionary<ProgressToken, WeakReference<ServerProgressReport>>()
+
+  // Although it's small data, we don't want to keep it around forever
+  let timer =
+    new Timers.Timer((TimeSpan.FromMinutes 1.).TotalMilliseconds, AutoReset = true)
+
+  let timerSub =
+    timer.Elapsed.Subscribe(fun _ ->
+      lock progressTable (fun () ->
+        let derefs =
+          progressTable
+          |> Seq.filter (fun (KeyValue(_, reporters)) ->
+            match reporters.TryGetTarget() with
+            | (true, _) -> false
+            | _ -> true)
+          |> Seq.toList
+
+        for (KeyValue(tokens, _)) in derefs do
+          progressTable.Remove(tokens) |> ignore<bool>))
+
+
+  /// <summary>Creates a ServerProgressReport and keeps track of it.</summary>
+  /// <param name="lspClient">The FSharpLspClient to communicate to the client with.</param>
+  /// <param name="token">Optional token. It will be generated otherwise.</param>
+  /// <param name="cancellable">Informs that the ServerProgressReport is cancellable to the client.</param>
+  /// <returns></returns>
+  member x.CreateProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?cancellable: bool) =
+    let progress =
+      new ServerProgressReport(lspClient, ?token = token, ?cancellableDefault = cancellable)
+
+    lock progressTable (fun () ->
+      progressTable.Add(progress.ProgressToken, new WeakReference<ServerProgressReport>(progress)))
+
+    progress
+
+
+  /// <summary>Signal a ServerProgressReport to Cancel it's CancellationTokenSource.</summary>
+  /// <param name="token">The ProgressToken used to identify the ServerProgressReport</param>
+  ///
+  /// <remarks>
+  /// See <see href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#window_workDoneProgress_cancel">LSP Spec on WorkDoneProgress Cancel</see> for more information.
+  /// </remarks>
+  member x.Cancel(token: ProgressToken) =
+    lock progressTable (fun () ->
+      match progressTable.TryGetValue(token) with
+      | true, weakRef ->
+        match weakRef.TryGetTarget() with
+        | true, progress ->
+          progress.Cancel()
+          progressTable.Remove(token) |> ignore<bool>
+        | _ -> ()
+      | _ -> ())
+
+  interface IDisposable with
+    member x.Dispose() =
+      timerSub.Dispose()
+      timer.Dispose()
 
 [<RequireQualifiedAccess>]
 type WorkspaceChosen =
@@ -88,6 +151,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   let logger = LogProvider.getLoggerFor<AdaptiveState> ()
   let thisType = typeof<AdaptiveState>
   let disposables = new Disposables.CompositeDisposable()
+  let progressLookup = new ServerProgressLookup()
+  do disposables.Add progressLookup
 
 
   let projectSelector = cval<IFindProject> (FindFirstProject())
@@ -307,10 +372,12 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let checkUnusedOpens =
       async {
         try
-          use progress = new ServerProgressReport(lspClient)
+          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
-          let! unused = UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
+          let! unused =
+            UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
+            |> Async.withCancellation progress.CancellationToken
 
           let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version), ct)
@@ -321,11 +388,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let checkUnusedDeclarations =
       async {
         try
-          use progress = new ServerProgressReport(lspClient)
+          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
           let isScript = Utils.isAScript (filePathUntag)
-          let! unused = UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
+
+          let! unused =
+            UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
+            |> Async.withCancellation progress.CancellationToken
+
           let unused = unused |> Seq.toArray
 
           let! ct = Async.CancellationToken
@@ -337,10 +408,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let checkSimplifiedNames =
       async {
         try
-          use progress = new ServerProgressReport(lspClient)
+          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
-          let! simplified = SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
+          let! simplified =
+            SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
+            |> Async.withCancellation progress.CancellationToken
+
           let simplified = Array.ofSeq simplified
           let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified, file.Version), ct)
@@ -351,10 +425,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     let checkUnnecessaryParentheses =
       async {
         try
-          use progress = new ServerProgressReport(lspClient)
+          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
-          let! unnecessaryParentheses = UnnecessaryParentheses.getUnnecessaryParentheses getSourceLine tyRes.GetAST
+          let! unnecessaryParentheses =
+            UnnecessaryParentheses.getUnnecessaryParentheses getSourceLine tyRes.GetAST
+            |> Async.withCancellation progress.CancellationToken
+
 
           let! ct = Async.CancellationToken
 
@@ -1044,13 +1121,13 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       })
 
 
-  let cancelToken filePath (cts: CancellationTokenSource) =
+  let cancelToken filePath version (cts: CancellationTokenSource) =
 
     try
       logger.info (
         Log.setMessage "Cancelling {filePath} - {version}"
         >> Log.addContextDestructured "filePath" filePath
-      // >> Log.addContextDestructured "version" oldFile.Version
+        >> Log.addContextDestructured "version" version
       )
 
       cts.Cancel()
@@ -1061,16 +1138,14 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
       // ignore if already cancelled
       ()
 
-  let resetCancellationToken (filePath: string<LocalPath>) =
-
+  let resetCancellationToken (filePath: string<LocalPath>) version =
     let adder _ = new CancellationTokenSource()
 
     let updater _key value =
-      cancelToken filePath value
+      cancelToken filePath version value
       new CancellationTokenSource()
 
-    openFilesTokens.AddOrUpdate(filePath, adder, updater)
-    |> ignore<CancellationTokenSource>
+    openFilesTokens.AddOrUpdate(filePath, adder, updater).Token
 
 
   let updateOpenFiles (file: VolatileFile) =
@@ -1078,14 +1153,16 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
     let updater _ (v: cval<_>) = v.Value <- file
 
-    resetCancellationToken file.FileName
+    resetCancellationToken file.FileName file.Version |> ignore<CancellationToken>
     transact (fun () -> openFiles.AddOrElse(file.Source.FileName, adder, updater))
 
-  let updateTextChanges filePath p =
+  let updateTextChanges filePath ((changes: DidChangeTextDocumentParams, _) as p) =
     let adder _ = cset<_> [ p ]
     let updater _ (v: cset<_>) = v.Add p |> ignore<bool>
 
-    resetCancellationToken filePath
+    resetCancellationToken filePath changes.TextDocument.Version
+    |> ignore<CancellationToken>
+
     transact (fun () -> textChanges.AddOrElse(filePath, adder, updater))
 
   let isFileOpen file = openFiles |> AMap.tryFindA file |> AVal.map (Option.isSome)
@@ -1369,9 +1446,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         >> Log.addContextDestructured "date" (file.LastTouched)
       )
 
-      let! ct = Async.CancellationToken
 
-      use progressReport = new ServerProgressReport(lspClient)
+      use progressReport =
+        progressLookup.CreateProgressReport(lspClient, cancellable = true)
 
       let simpleName = Path.GetFileName(UMX.untag file.Source.FileName)
       do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Source.FileName}")
@@ -1384,9 +1461,11 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
           options,
           shouldCache = shouldCache
         )
-        |> Debug.measureAsync $"checker.ParseAndCheckFileInProject - {file.Source.FileName}"
+        |> Async.withCancellation progressReport.CancellationToken
 
       do! progressReport.End($"Typechecked {file.Source.FileName}")
+
+      let! ct = Async.CancellationToken
 
       notifications.Trigger(NotificationEvent.FileParsed(file.Source.FileName), ct)
 
@@ -1967,7 +2046,7 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
         openFiles.Remove filePath |> ignore<bool>
 
         match openFilesTokens.TryRemove(filePath) with
-        | (true, cts) -> cancelToken filePath cts
+        | (true, cts) -> cancelToken filePath None cts
         | _ -> ()
 
         textChanges.Remove filePath |> ignore<bool>)
@@ -2017,13 +2096,15 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
     }
 
 
-  let bypassAdaptiveAndCheckDependenciesForFile (filePath: string<LocalPath>) =
+  let bypassAdaptiveAndCheckDependenciesForFile (sourceFilePath: string<LocalPath>) =
     async {
-      let tags = [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag filePath) ]
-      use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
-      let! dependentFiles = getDependentFilesForFile filePath
+      let tags =
+        [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag sourceFilePath) ]
 
-      let! projs = getProjectOptionsForFile filePath |> AsyncAVal.forceAsync
+      use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      let! dependentFiles = getDependentFilesForFile sourceFilePath
+
+      let! projs = getProjectOptionsForFile sourceFilePath |> AsyncAVal.forceAsync
       let projs = projs |> Result.toOption |> Option.defaultValue []
 
       let dependentProjects =
@@ -2035,7 +2116,8 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
 
       let mutable checksCompleted = 0
 
-      use progressReporter = new ServerProgressReport(lspClient)
+      use progressReporter =
+        progressLookup.CreateProgressReport(lspClient, cancellable = true)
 
       let percentage numerator denominator =
         if denominator = 0 then
@@ -2051,26 +2133,46 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
             && file.Contains "AssemblyAttributes.fs" |> not)
 
         let checksToPerformLength = innerChecks.Length
+        let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
 
         innerChecks
-        |> Array.map (fun (proj, file) ->
-          let file = UMX.tag file
+        |> Array.map (fun (opts, file) ->
+          let fileTagged = Utils.normalizePath file
 
-          let token = getOpenFileTokenOrDefault filePath
+          async {
 
-          bypassAdaptiveTypeCheck (file) (proj)
-          |> Async.withCancellation token
-          |> Async.Ignore
-          |> Async.bind (fun _ ->
-            async {
-              let checksCompleted = Interlocked.Increment(&checksCompleted)
+            use joinedToken =
+              if fileTagged = sourceFilePath then
+                // dont reset the token for the incoming file as it would cancel the whole operation
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressReporter.CancellationToken)
+              else
+                // only cancel other files
+                // If we have multiple saves from separate root files we want only one to be running
+                let token = resetCancellationToken fileTagged None
+                // and join with the root token as well since we want to cancel the whole operation if the root files changes
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, token, progressReporter.CancellationToken)
 
-              do!
-                progressReporter.Report(
-                  message = $"{checksCompleted}/{checksToPerformLength} remaining",
-                  percentage = percentage checksCompleted checksToPerformLength
-                )
-            }))
+            try
+              let! _ =
+                bypassAdaptiveTypeCheck fileTagged opts
+                |> Async.withCancellation joinedToken.Token
+
+              ()
+            with :? OperationCanceledException ->
+              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+              ()
+
+            let checksCompleted = Interlocked.Increment(&checksCompleted)
+
+            do!
+              progressReporter.Report(
+                message = $"{checksCompleted}/{checksToPerformLength} remaining",
+                percentage = percentage checksCompleted checksToPerformLength
+              )
+          })
+
+
+
 
 
       do!
@@ -2218,6 +2320,9 @@ type AdaptiveState(lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFac
   member x.GetAllDeclarations() = getAllDeclarations ()
 
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
+
+  member x.CancelServerProgress(progressToken: ProgressToken) = progressLookup.Cancel progressToken
+
 
   interface IDisposable with
     member this.Dispose() =

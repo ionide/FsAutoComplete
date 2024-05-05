@@ -53,8 +53,8 @@ let tests state =
                       Position = { Line = 0; Character = 0 }
                       Context =
                           Some
-                            { triggerKind = CompletionTriggerKind.Invoked
-                              triggerCharacter = None } }
+                            { TriggerKind = CompletionTriggerKind.Invoked
+                              TriggerCharacter = None } }
 
                   match! server.TextDocumentCompletion completionParams with
                   | Ok (Some _) -> failtest "An empty file has empty completions"
@@ -82,8 +82,8 @@ let tests state =
                       Position = { Line = 0; Character = 1 }
                       Context =
                         Some
-                          { triggerKind = CompletionTriggerKind.Invoked
-                            triggerCharacter = None }
+                          { TriggerKind = CompletionTriggerKind.Invoked
+                            TriggerCharacter = None }
                     } |> Async.StartChild
 
                   let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild

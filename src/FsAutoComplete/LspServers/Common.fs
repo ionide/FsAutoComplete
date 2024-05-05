@@ -158,7 +158,7 @@ module Async =
       let! ct2 = Async.CancellationToken
       use cts = CancellationTokenSource.CreateLinkedTokenSource(ct, ct2)
       let tcs = new TaskCompletionSource<'a>()
-      use _reg = cts.Token.Register(fun () -> tcs.TrySetCanceled() |> ignore)
+      use _reg = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore)
 
       let a =
         async {

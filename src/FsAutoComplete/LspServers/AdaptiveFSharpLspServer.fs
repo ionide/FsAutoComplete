@@ -575,8 +575,8 @@ type AdaptiveFSharpLspServer
                   // Otherwise we'll fail here and our retry logic will come into place
                   do!
                     match p.Context with
-                    | Some({ triggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
-                      volatileFile.Source.TryGetChar pos = context.triggerCharacter
+                    | Some({ TriggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                      volatileFile.Source.TryGetChar pos = context.TriggerCharacter
                     | _ -> true
                     |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
 
@@ -2957,17 +2957,19 @@ type AdaptiveFSharpLspServer
 
     override x.Dispose() = disposables.Dispose()
 
-    member this.WorkDoneProgressCancel(token: ProgressToken) : Async<unit> =
+    member this.WorkDoneProgressCancel(param: WorkDoneProgressCancelParams) : Async<unit> =
       async {
 
-        let tags = [ "ProgressToken", box token ]
+        let tags = [ "WorkDoneProgressCancelParams", box param ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
           logger.info (
             Log.setMessage "WorkDoneProgressCancel Request: {params}"
-            >> Log.addContextDestructured "params" token
+            >> Log.addContextDestructured "params" param.token
           )
+
+          state.CancelServerProgress param.token
 
         with e ->
           trace |> Tracing.recordException e
@@ -2975,7 +2977,7 @@ type AdaptiveFSharpLspServer
           logException
             e
             (Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
-             >> Log.addContextDestructured "token" token)
+             >> Log.addContextDestructured "token" param.token)
 
         return ()
       }
