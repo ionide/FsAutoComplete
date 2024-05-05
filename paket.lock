@@ -378,6 +378,8 @@ NUGET
       Grpc (>= 2.44 < 3.0) - restriction: || (&& (== net6.0) (>= net462)) (&& (== net6.0) (< netstandard2.1)) (&& (== net7.0) (>= net462)) (&& (== net7.0) (< netstandard2.1)) (&& (== net8.0) (>= net462)) (&& (== net8.0) (< netstandard2.1)) (== netstandard2.0) (&& (== netstandard2.1) (>= net462))
       Grpc.Net.Client (>= 2.43 < 3.0) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= netstandard2.1)) (== netstandard2.1)
       OpenTelemetry (>= 1.3.2)
+    OpenTelemetry.Instrumentation.Runtime (1.0)
+      OpenTelemetry.Api (>= 1.3 < 2.0)
     Perfolizer (0.2.1)
       System.Memory (>= 4.5.3)
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.2)
