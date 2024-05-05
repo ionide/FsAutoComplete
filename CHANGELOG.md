@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.72.3] - 2024-05-05
+
+### Added
+
+* FSAC publishes a net8.0 TFM version of the tool as well, to prevent issues when running across TargetFrameworks
+
 ## [0.72.2] - 2024-04-30
 
 ### Fixed
