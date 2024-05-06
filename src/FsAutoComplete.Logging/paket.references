@@ -1,6 +1,0 @@
-FSharp.Core
-
-Microsoft.NETFramework.ReferenceAssemblies
-Ionide.KeepAChangelog.Tasks
-Ionide.Analyzers
-FSharp.Analyzers.Build
