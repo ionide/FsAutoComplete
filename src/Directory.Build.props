@@ -14,4 +14,9 @@
     <NoWarn>$(NoWarn);FS3391</NoWarn>
     <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Analyzers.Build" PrivateAssets="all" IncludeAssets="build" />
+    <PackageReference Include="Ionide.KeepAChangelog.Tasks" PrivateAssets="all" IncludeAssets="build" />
+    <PackageReference Include="Ionide.Analyzers" />
+  </ItemGroup>
 </Project>
