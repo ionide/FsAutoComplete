@@ -41,8 +41,8 @@ let tests state =
               Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -94,8 +94,8 @@ let tests state =
                   Character = character + 1 }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -131,8 +131,8 @@ let tests state =
               Position = { Line = line; Character = character } // the '.' in 'GetDirectoryName().'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -183,8 +183,8 @@ let tests state =
                   Character = character + 1 }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -220,8 +220,8 @@ let tests state =
               Position = { Line = line; Character = character }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -272,8 +272,8 @@ let tests state =
                   Character = character + 1 }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -309,8 +309,8 @@ let tests state =
               Position = { Line = line; Character = character }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -341,8 +341,8 @@ let tests state =
               Position = { Line = 6; Character = 5 } // the '.' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -369,8 +369,8 @@ let tests state =
               Position = { Line = 8; Character = 16 } // the '.' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -396,8 +396,8 @@ let tests state =
               Position = { Line = 11; Character = 10 } // after Lis partial type name in Id record field declaration
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.Invoked
-                    triggerCharacter = None } }
+                  { TriggerKind = CompletionTriggerKind.Invoked
+                    TriggerCharacter = None } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -428,8 +428,8 @@ let tests state =
               Position = { Line = 8; Character = 12 } // after the 'L' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.Invoked
-                    triggerCharacter = None } }
+                  { TriggerKind = CompletionTriggerKind.Invoked
+                    TriggerCharacter = None } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -456,8 +456,8 @@ let tests state =
               Position = { Line = 8; Character = 11 } // before the 'L' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.Invoked
-                    triggerCharacter = None } }
+                  { TriggerKind = CompletionTriggerKind.Invoked
+                    TriggerCharacter = None } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -484,8 +484,8 @@ let tests state =
               Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
           let ctokMember = response.Items[0]
@@ -514,8 +514,8 @@ let tests state =
               Position = { Line = 23; Character = 8 } // the '.' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -542,8 +542,8 @@ let tests state =
               Position = { Line = 24; Character = 9 } // the '.' in 'List.'
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.TriggerCharacter
-                    triggerCharacter = Some '.' } }
+                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
+                    TriggerCharacter = Some '.' } }
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -1020,8 +1020,8 @@ let fullNameExternalAutocompleteTest state =
             Position = { Line = line; Character = character }
             Context =
               Some
-                { triggerKind = CompletionTriggerKind.Invoked
-                  triggerCharacter = None } }
+                { TriggerKind = CompletionTriggerKind.Invoked
+                  TriggerCharacter = None } }
 
         let! res = server.TextDocumentCompletion p
 
@@ -1052,8 +1052,8 @@ let fullNameExternalAutocompleteTest state =
               Position = { Line = 3; Character = 4 }
               Context =
                 Some
-                  { triggerKind = CompletionTriggerKind.Invoked
-                    triggerCharacter = None } }
+                  { TriggerKind = CompletionTriggerKind.Invoked
+                    TriggerCharacter = None } }
 
           let! response = server.TextDocumentCompletion p |> AsyncResult.map Option.get
 

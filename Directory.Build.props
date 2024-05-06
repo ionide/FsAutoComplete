@@ -10,7 +10,7 @@
     <NoWarn>$(NoWarn);57</NoWarn> <!-- Enable experimental compiler features -->
     <WarnOn Condition="'$(Configuration)' != 'Debug'">$(WarnOn);1182</WarnOn> <!-- Unused
     variables,https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-options#opt-in-warnings -->
-
+    <NoWarn>$(NoWarn);FS0044</NoWarn>       <!-- Ignore deprecations -->
     <WarnOn>$(WarnOn);3390</WarnOn><!-- Malformed XML doc comments -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>

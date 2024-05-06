@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.72.3] - 2024-05-05
+
+### Added
+
+* [FSAC publishes a net8.0 TFM version of the tool as well, to prevent issues when running across TargetFrameworks](https://github.com/ionide/FsAutoComplete/pull/1281)
+* [Long-running actions like typechecking specific files can now be cancelled by users](https://github.com/ionide/FsAutoComplete/pull/1274) (thanks @TheAngryByrd)
+
+### Fixed
+
+* [Fix restoring multiple script file NuGet dependencies in parallel](https://github.com/ionide/FsAutoComplete/pull/1275) (thanks @TheAngryByrd)
+
 ## [0.72.2] - 2024-04-30
 
 ### Fixed

@@ -83,21 +83,31 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
 
 
-type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
+type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?cancellableDefault: bool) =
 
   let mutable canReportProgress = false
   let mutable endSent = false
 
   let locker = new SemaphoreSlim(1, 1)
+  let cts = new CancellationTokenSource()
 
-  member val Token = defaultArg token (ProgressToken.Second((Guid.NewGuid().ToString())))
+  member val ProgressToken = defaultArg token (ProgressToken.Second((Guid.NewGuid().ToString())))
+
+  member val CancellationToken = cts.Token
+
+  member x.Cancel() =
+    try
+      cts.Cancel()
+    with _ ->
+      ()
+
 
   member x.Begin(title, ?cancellable, ?message, ?percentage) =
     cancellableTask {
       use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
 
       if not endSent then
-        let! result = lspClient.WorkDoneProgressCreate x.Token
+        let! result = lspClient.WorkDoneProgressCreate x.ProgressToken
 
         match result with
         | Ok() -> canReportProgress <- true
@@ -106,10 +116,10 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
         if canReportProgress then
           do!
             lspClient.Progress(
-              x.Token,
+              x.ProgressToken,
               WorkDoneProgressBegin.Create(
                 title,
-                ?cancellable = cancellable,
+                ?cancellable = (cancellable |> Option.orElse cancellableDefault),
                 ?message = message,
                 ?percentage = percentage
               )
@@ -123,8 +133,12 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
       if canReportProgress && not endSent then
         do!
           lspClient.Progress(
-            x.Token,
-            WorkDoneProgressReport.Create(?cancellable = cancellable, ?message = message, ?percentage = percentage)
+            x.ProgressToken,
+            WorkDoneProgressReport.Create(
+              ?cancellable = (cancellable |> Option.orElse cancellableDefault),
+              ?message = message,
+              ?percentage = percentage
+            )
           )
     }
 
@@ -134,12 +148,17 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken) =
       let stillNeedsToSend = canReportProgress && not endSent
 
       if stillNeedsToSend then
-        do! lspClient.Progress(x.Token, WorkDoneProgressEnd.Create(?message = message))
+        do! lspClient.Progress(x.ProgressToken, WorkDoneProgressEnd.Create(?message = message))
         endSent <- true
     }
 
   interface IAsyncDisposable with
-    member x.DisposeAsync() = task { do! x.End () CancellationToken.None } |> ValueTask
+    member x.DisposeAsync() =
+      task {
+        cts.Dispose()
+        do! x.End () CancellationToken.None
+      }
+      |> ValueTask
 
   interface IDisposable with
     member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
