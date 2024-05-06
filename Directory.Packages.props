@@ -18,6 +18,7 @@
     <PackageVersion Include="FSharp.UMX" Version="1.1.0" />
     <PackageVersion Include="FSharpx.Async" Version="1.14.1" />
     <PackageVersion Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.15.2" />
+    <PackageVersion Include="GitHubActionsTestLogger" Version="2.3.3" />
     <PackageVersion Include="IcedTasks" Version="0.11.5" />
     <PackageVersion Include="ICSharpCode.Decompiler" Version="8.2.0.7535" />
     <PackageVersion Include="Ionide.LanguageServerProtocol" Version="0.5.0" />

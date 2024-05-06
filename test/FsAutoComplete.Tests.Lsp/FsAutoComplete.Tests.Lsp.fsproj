@@ -53,8 +53,9 @@
     <PackageReference Include="Expecto" />
     <PackageReference Include="Expecto.Diff" />
     <PackageReference Include="FSharpx.Async" />
-   <PackageReference Include="YoloDev.Expecto.TestSdk" />
-   <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="GitHubActionsTestLogger" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
   <!-- This is a workaround for the test framework using Microsoft.Build dependencies and our
   project uses it's own set of Microsoft.Build dependencies which causes loading conflicts -->
