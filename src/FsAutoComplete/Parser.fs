@@ -14,12 +14,14 @@ open FsAutoComplete.Lsp
 open OpenTelemetry
 open OpenTelemetry.Resources
 open OpenTelemetry.Trace
+open OpenTelemetry.Metrics
 
 module Parser =
   open FsAutoComplete.Core
   open System.Diagnostics
 
   let mutable tracerProvider = Unchecked.defaultof<_>
+  let mutable meterProvider = Unchecked.defaultof<_>
 
   [<Struct>]
   type Pos = { Line: int; Column: int }
@@ -212,19 +214,33 @@ module Parser =
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
 
+
+
       if ctx.ParseResult.GetValueForOption otelTracingOption then
+
         let serviceName = FsAutoComplete.Utils.Tracing.serviceName
         let version = FsAutoComplete.Utils.Version.info().Version
+
+        let resourceBuilder =
+          ResourceBuilder
+            .CreateDefault()
+            .AddService(serviceName = serviceName, serviceVersion = version)
+
+
+        meterProvider <-
+          Sdk
+            .CreateMeterProviderBuilder()
+            .AddMeter()
+            .AddRuntimeInstrumentation()
+            .SetResourceBuilder(resourceBuilder)
+            .AddOtlpExporter()
+            .Build()
 
         tracerProvider <-
           Sdk
             .CreateTracerProviderBuilder()
             .AddSource(serviceName, Tracing.fscServiceName)
-            .SetResourceBuilder(
-              ResourceBuilder
-                .CreateDefault()
-                .AddService(serviceName = serviceName, serviceVersion = version)
-            )
+            .SetResourceBuilder(resourceBuilder)
             .AddOtlpExporter()
             .Build()
 
