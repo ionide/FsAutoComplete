@@ -11,5 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\src\FsAutoComplete\FsAutoComplete.fsproj" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+ <ItemGroup>
+ <PackageReference Include="BenchmarkDotNet" />
+ </ItemGroup>
 </Project>

@@ -29,8 +29,7 @@ Requirements:
 * .NET SDK, see [global.json](global.json) for the exact version.
    Minimum: >= 6.0, Recommended: >= 7.0 
 
-1. Restore dotnet tools to install local Paket `dotnet tool restore`
-2. Build FSAC with `dotnet build`
+1. Build FSAC with `dotnet build`
 
 * To build release fsautocomplete binaries in `~/bin` directory, use the `LocalRelease` target
 * To build, run all tests and create packages, use the `All` target

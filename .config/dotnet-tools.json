@@ -2,12 +2,6 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "paket": {
-      "version": "8.0.3",
-      "commands": [
-        "paket"
-      ]
-    },
     "dotnet-reportgenerator-globaltool": {
       "version": "5.0.2",
       "commands": [
