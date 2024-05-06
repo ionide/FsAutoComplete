@@ -15,9 +15,9 @@ open Microsoft.FSharp.Core.LanguagePrimitives
 ///
 /// Note: As constant, because F# doesn't have `#define`
 [<Literal>]
-let private DEBUG = false
+let DEBUG = false
 
-let inline private unreachable () = invalidOp "unreachable"
+let inline unreachable () = invalidOp "unreachable"
 
 /// Returns `SynConst` and its range at passed `pos`
 ///
@@ -29,7 +29,7 @@ let inline private unreachable () = invalidOp "unreachable"
 /// Note:
 /// Might be erroneous Constant -> containing `value` is then default (`0`).
 /// Check by comparing returned range with existing Diagnostics.
-let private tryFindConstant ast pos =
+let tryFindConstant ast pos =
   let rec findConst range constant =
     match constant with
     | SynConst.Measure(constant = c; constantRange = constantRange) when rangeContainsPos constantRange pos ->
@@ -68,7 +68,7 @@ let private tryFindConstant ast pos =
 /// Computes the absolute of `n`
 ///
 /// Unlike `abs` or `Math.Abs` this here handles `MinValue` and does not throw `OverflowException`.
-type private Int =
+type Int =
   static member inline abs(n: sbyte) : byte = if n >= 0y then byte n else byte (0y - n)
 
   static member inline abs(n: int16) : uint16 = if n >= 0s then uint16 n else uint16 (0s - n)
@@ -87,17 +87,17 @@ type private Int =
 
   static member inline abs(n: nativeint) : unativeint = if n >= 0n then unativeint n else unativeint (0n - n)
 
-type private Offset = int
+type Offset = int
 
 /// Range inside a **single** line inside a source text.
 ///
 /// Invariant: `Start.Line = End.Line` (-> `Range.inSingleLine`)
-type private RangeInLine = Range
+type RangeInLine = Range
 
-module private Range =
+module Range =
   let inline inSingleLine (range: Range) = range.Start.Line = range.End.Line
 
-type private Range with
+type Range with
 
   member inline range.Length = range.End.Character - range.Start.Character
 
@@ -114,7 +114,7 @@ type private Range with
 /// Unlike `LSP.Range`: just Offsets, not Positions (Line & Character)
 [<IsReadOnly; Struct>]
 [<StructuredFormatDisplay("{DisplayText}")>]
-type private ORange =
+type ORange =
   { Start: Offset
     End: Offset }
 
@@ -163,7 +163,7 @@ type private ORange =
 
   static member inline CoverAllOf(text: ReadOnlySpan<_>) = { Start = 0; End = text.Length }
 
-module private ORange =
+module ORange =
   /// Returns range that contains `range1` as well as `range2` with their extrema as border.
   ///
   /// Note: if there's a gap between `range1` and `range2` that gap is included in output range:
@@ -240,7 +240,7 @@ type private Extensions() =
 
     count
 
-module private Parse =
+module Parse =
   /// Note: LHS does not include position with `f(char) = true`, but instead is first on RHS
   let inline until (text: ReadOnlySpan<char>, range: ORange, [<InlineIfLambda>] f) =
     let text = range.SpanIn text
@@ -262,11 +262,11 @@ module private Parse =
     else range.EmptyAtStart, range
 
 /// Helper functions to splat tuples. With inlining: prevent tuple creation
-module private Tuple =
+module Tuple =
   let inline splatR value (a, b) = (value, a, b)
   let inline splatL (a, b) value = (a, b, value)
 
-module private Char =
+module Char =
   let inline isDigitOrUnderscore c = Char.IsDigit c || c = '_'
 
   let inline isHexDigitOrUnderscore c = isDigitOrUnderscore c || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
@@ -287,7 +287,7 @@ type CharFormat =
   /// `\U000000E7`
   | Utf32Hexadecimal
 
-type private CharConstant =
+type CharConstant =
   {
     Range: Range
 
@@ -303,7 +303,7 @@ type private CharConstant =
 
   member c.IsByte = not c.SuffixRange.IsEmpty
 
-module private CharConstant =
+module CharConstant =
   let inline isAsciiByte (text: ReadOnlySpan<char>) = text.EndsWith "'B"
 
   /// `'a'`, `'\n'`, `'\231'`, `'\xE7'`, `'\u00E7'`, `'\U000000E7'`
@@ -347,11 +347,11 @@ module private CharConstant =
       SuffixRange = suffixRange }
 
 [<Struct>]
-type private Sign =
+type Sign =
   | Negative
   | Positive
 
-module private Sign =
+module Sign =
   /// Returns `Positive` in case of no sign
   let inline parse (text: ReadOnlySpan<char>, range: ORange) =
     let text = range.SpanIn text
@@ -403,7 +403,7 @@ module private Base =
 /// * required digits
 ///   * optional underscores inside
 /// * optional suffix
-type private IntConstant =
+type IntConstant =
   { Range: Range
 
     Sign: Sign
@@ -417,7 +417,7 @@ type private IntConstant =
 
     SuffixRange: ORange }
 
-module private IntConstant =
+module IntConstant =
   /// Note: Does not handle ASCII byte. Check with `CharConstant.isAsciiByte` and then parse with `CharConstant.parse`
   let parse (lineStr: ReadOnlySpan<char>, constRange: RangeInLine, constant: SynConst) =
     let text = constRange.SpanIn(lineStr)
@@ -441,7 +441,7 @@ module private IntConstant =
 
 [<RequireQualifiedAccess>]
 [<Struct>]
-type private FloatValue =
+type FloatValue =
   | Float of f: float
   | Float32 of f32: float32
   | Decimal of d: decimal
@@ -453,7 +453,7 @@ type private FloatValue =
 /// Float Constant (without Hex/Oct/Bin form -- just Decimal & Scientific)
 ///
 /// Includes `float32`, `float`, `decimal`
-type private FloatConstant =
+type FloatConstant =
   {
     Range: Range
 
@@ -482,7 +482,7 @@ type private FloatConstant =
   member c.IsScientific = not c.ExponentRange.IsEmpty
   member c.ValueRange = ORange.union c.IntRange c.ExponentRange
 
-module private FloatConstant =
+module FloatConstant =
   let inline isIntFloat (text: ReadOnlySpan<char>) = text.EndsWith "lf" || text.EndsWith "LF"
 
   /// Note: Does not handle Hex/Oct/Bin form (`lf` or `LF` suffix). Check with `FloatConstant.isIntFloat` and then parse with `IntConstant.parse`
@@ -568,7 +568,7 @@ module Title =
       let toUtf16Hexadecimal = sprintf "Convert to `%s`"
       let toUtf32Hexadecimal = sprintf "Convert to `%s`"
 
-let inline private mkFix doc title edits =
+let inline mkFix doc title edits =
   { Title = title
     File = doc
     Edits = edits
@@ -576,7 +576,7 @@ let inline private mkFix doc title edits =
     SourceDiagnostic = None }
 
 
-module private DigitGroup =
+module DigitGroup =
   let removeFix (doc: TextDocumentIdentifier) (lineStr: String) (constantRange: Range) (localRange: ORange) =
     let text = localRange.SpanIn(constantRange, lineStr)
 
@@ -618,7 +618,7 @@ module private DigitGroup =
 
     res
 
-module private Format =
+module Format =
   module Char =
     /// Returns `None` for "invisible" chars (`Char.IsControl`)
     /// -- with the exception of some chars that can be represented via escape sequence
@@ -682,7 +682,7 @@ module private Format =
         let absValue = abs n
         $"-0b%B{absValue}"
 
-module private CommonFixes =
+module CommonFixes =
   open FSharp.Compiler.Symbols
 
   /// Adding a sign might lead to invalid code:
@@ -919,8 +919,8 @@ module private CommonFixes =
       else
         []
 
-module private CharFix =
-  let private debugFix doc (lineStr: String) (constant: CharConstant) =
+module CharFix =
+  let debugFix doc (lineStr: String) (constant: CharConstant) =
     let data =
       let full = constant.Range.SpanIn(lineStr).ToString()
       let value = constant.ValueRange.SpanIn(full).ToString()
@@ -991,8 +991,8 @@ module private CharFix =
       if DEBUG then
         debugFix doc lineStr constant ]
 
-module private IntFix =
-  let private debugFix doc (lineStr: String) (constant: IntConstant) =
+module IntFix =
+  let debugFix doc (lineStr: String) (constant: IntConstant) =
     let data =
       let full = constant.Range.SpanIn(lineStr).ToString()
 
@@ -1401,7 +1401,7 @@ module private IntFix =
     | [] -> separateDigitGroupsFix doc lineStr constant
     | fix -> fix
 
-  let private replaceIntWithNameFix
+  let replaceIntWithNameFix
     doc
     (pos: FcsPos)
     (lineStr: String)
@@ -1488,8 +1488,8 @@ module private IntFix =
       if DEBUG then
         debugFix doc lineStr constant ]
 
-module private FloatFix =
-  let private debugFix doc (lineStr: String) (constant: FloatConstant) =
+module FloatFix =
+  let debugFix doc (lineStr: String) (constant: FloatConstant) =
     let data =
       let full = constant.Range.SpanIn(lineStr).ToString()
 

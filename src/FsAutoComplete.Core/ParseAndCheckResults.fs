@@ -43,7 +43,7 @@ type ParseAndCheckResults
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
   let getFileName (loc: range) =
-    if Ionide.ProjInfo.ProjectSystem.Environment.isWindows then
+    if Runtime.InteropServices.RuntimeInformation.IsOSPlatform(Runtime.InteropServices.OSPlatform.Windows) then
       UMX.tag<NormalizedRepoPathSegment> loc.FileName
     else
       UMX.tag<NormalizedRepoPathSegment> (Path.GetFileName loc.FileName)

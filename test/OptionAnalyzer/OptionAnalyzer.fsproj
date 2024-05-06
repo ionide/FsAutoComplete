@@ -10,5 +10,7 @@
   <ItemGroup>
     <Compile Include="Analyzer.fs" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="FSharp.Analyzers.Sdk" />
+  </ItemGroup>
 </Project>

@@ -164,5 +164,8 @@
     "whitespaces",
     "xrtt",
     "xunit"
-  ]
+  ],
+  "[msbuild]": {
+    "editor.formatOnSave": false
+  }
 }

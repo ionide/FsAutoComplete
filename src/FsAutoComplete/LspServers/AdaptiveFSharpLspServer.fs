@@ -2957,7 +2957,7 @@ type AdaptiveFSharpLspServer
 
     override x.Dispose() = disposables.Dispose()
 
-    member this.WorkDoneProgressCancel(param: WorkDoneProgressCancelParams) : Async<unit> =
+    member this.WorkDoneProgressCancel(token: WorkDoneProgressCancelParams) : Async<unit> =
       async {
 
         let tags = [ "WorkDoneProgressCancelParams", box param ]
