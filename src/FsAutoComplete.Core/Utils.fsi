@@ -186,6 +186,9 @@ type ReadOnlySpanExtensions =
   static member IndexOfAnyExcept: span: ReadOnlySpan<char> * value0: char * value1: char -> int
 
   [<Extension>]
+  static member IndexOfAnyExcept: span: ReadOnlySpan<char> * values: ReadOnlySpan<char> -> int
+
+  [<Extension>]
   static member LastIndexOfAnyExcept: span: ReadOnlySpan<char> * value0: char * value1: char -> int
 #endif
 
