@@ -47,6 +47,7 @@ let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
 let lspTests =
+  testSequenced <|
   testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
