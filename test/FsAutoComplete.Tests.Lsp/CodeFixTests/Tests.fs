@@ -3437,7 +3437,68 @@ let private removeUnnecessaryParenthesesTests state =
         longFunctionName
           longVarName1
           longVarName2
-        """ ])
+        """
+
+      testCaseAsync "Handles outlaw match exprs"
+      <| CodeFix.check
+        server
+        """
+        3 > (match x with
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Handles even more outlaw match exprs"
+      <| CodeFix.check
+        server
+        """
+        3 > ( match x with
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Handles single-line comments"
+      <| CodeFix.check
+        server
+        """
+        3 > (match x with
+             // Lol.
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+             // Lol.
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Keep parens when removal would cause reparse of infix as prefix"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        ""+(Unchecked.defaultof<string>)$0+""
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+
+      ])
 
 let tests textFactory state =
   testSequenced <|
