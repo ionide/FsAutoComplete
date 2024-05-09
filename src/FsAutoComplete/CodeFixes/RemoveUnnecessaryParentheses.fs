@@ -7,12 +7,34 @@ open FsAutoComplete.CodeFix.Types
 open FsToolkit.ErrorHandling
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
+open FSharp.Compiler.Text
 
 let title = "Remove unnecessary parentheses"
 
 [<AutoOpen>]
 module private Patterns =
   let inline toPat f x = if f x then ValueSome() else ValueNone
+
+  /// Starts with //.
+  [<return: Struct>]
+  let (|StartsWithSingleLineComment|_|) (s: string) =
+    if s.AsSpan().TrimStart(' ').StartsWith("//".AsSpan()) then
+      ValueSome StartsWithSingleLineComment
+    else
+      ValueNone
+
+  /// Starts with match, e.g.,
+  ///
+  ///     (match … with
+  ///     | … -> …)
+  [<return: Struct>]
+  let (|StartsWithMatch|_|) (s: string) =
+    let s = s.AsSpan().TrimStart ' '
+
+    if s.StartsWith("match".AsSpan()) && (s.Length = 5 || s[5] = ' ') then
+      ValueSome StartsWithMatch
+    else
+      ValueNone
 
   [<AutoOpen>]
   module Char =
@@ -90,8 +112,8 @@ let fix (getFileLines: GetFileLines) : CodeFix =
           | None -> id
 
         let (|ShiftLeft|NoShift|ShiftRight|) (sourceText: IFSACSourceText) =
-          let startLineNo = range.StartLine
-          let endLineNo = range.EndLine
+          let startLineNo = Line.toZ range.StartLine
+          let endLineNo = Line.toZ range.EndLine
 
           if startLineNo = endLineNo then
             NoShift
@@ -105,11 +127,17 @@ let fix (getFileLines: GetFileLines) : CodeFix =
                 match line.AsSpan(startCol).IndexOfAnyExcept(' ', ')') with
                 | -1 -> loop innerOffsides (lineNo + 1) 0
                 | i ->
-                  match innerOffsides with
-                  | NoneYet -> loop (FirstLine(i + startCol)) (lineNo + 1) 0
-                  | FirstLine innerOffsides -> loop (FollowingLine(innerOffsides, i + startCol)) (lineNo + 1) 0
-                  | FollowingLine(firstLine, innerOffsides) ->
-                    loop (FollowingLine(firstLine, min innerOffsides (i + startCol))) (lineNo + 1) 0
+                  match line[i + startCol ..] with
+                  | StartsWithMatch
+                  | StartsWithSingleLineComment -> loop innerOffsides (lineNo + 1) 0
+                  | _ ->
+                    match innerOffsides with
+                    | NoneYet -> loop (FirstLine(i + startCol)) (lineNo + 1) 0
+
+                    | FirstLine innerOffsides -> loop (FollowingLine(innerOffsides, i + startCol)) (lineNo + 1) 0
+
+                    | FollowingLine(firstLine, innerOffsides) ->
+                      loop (FollowingLine(firstLine, min innerOffsides (i + startCol))) (lineNo + 1) 0
               else
                 innerOffsides
 
@@ -133,24 +161,27 @@ let fix (getFileLines: GetFileLines) : CodeFix =
 
         let newText =
           let (|ShouldPutSpaceBefore|_|) (s: string) =
-            // ……(……)
-            // ↑↑ ↑
-            (sourceText.TryGetChar(range.Start.IncColumn -1), sourceText.TryGetChar range.Start)
-            ||> Option.map2 (fun twoBefore oneBefore ->
-              match twoBefore, oneBefore, s[0] with
-              | _, _, ('\n' | '\r') -> None
-              | '[', '|', (Punctuation | LetterOrDigit) -> None
-              | _, '[', '<' -> Some ShouldPutSpaceBefore
-              | _, ('(' | '[' | '{'), _ -> None
-              | _, '>', _ -> Some ShouldPutSpaceBefore
-              | ' ', '=', _ -> Some ShouldPutSpaceBefore
-              | _, '=', ('(' | '[' | '{') -> None
-              | _, '=', (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
-              | _, LetterOrDigit, '(' -> None
-              | _, (LetterOrDigit | '`'), _ -> Some ShouldPutSpaceBefore
-              | _, (Punctuation | Symbol), (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
-              | _ -> None)
-            |> Option.flatten
+            match s with
+            | StartsWithMatch -> None
+            | _ ->
+              // ……(……)
+              // ↑↑ ↑
+              (sourceText.TryGetChar(range.Start.IncColumn -1), sourceText.TryGetChar range.Start)
+              ||> Option.map2 (fun twoBefore oneBefore ->
+                match twoBefore, oneBefore, s[0] with
+                | _, _, ('\n' | '\r') -> None
+                | '[', '|', (Punctuation | LetterOrDigit) -> None
+                | _, '[', '<' -> Some ShouldPutSpaceBefore
+                | _, ('(' | '[' | '{'), _ -> None
+                | _, '>', _ -> Some ShouldPutSpaceBefore
+                | ' ', '=', _ -> Some ShouldPutSpaceBefore
+                | _, '=', ('(' | '[' | '{') -> None
+                | _, '=', (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
+                | _, LetterOrDigit, '(' -> None
+                | _, (LetterOrDigit | '`'), _ -> Some ShouldPutSpaceBefore
+                | _, (Punctuation | Symbol), (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
+                | _ -> None)
+              |> Option.flatten
 
           let (|ShouldPutSpaceAfter|_|) (s: string) =
             // (……)…
@@ -160,22 +191,45 @@ let fix (getFileLines: GetFileLines) : CodeFix =
               match s[s.Length - 1], endChar with
               | '>', ('|' | ']') -> Some ShouldPutSpaceAfter
               | _, (')' | ']' | '[' | '}' | '.' | ';' | ',' | '|') -> None
+              | _, ('+' | '-' | '%' | '&' | '!' | '~') -> None
               | (Punctuation | Symbol), (Punctuation | Symbol | LetterOrDigit) -> Some ShouldPutSpaceAfter
               | LetterOrDigit, LetterOrDigit -> Some ShouldPutSpaceAfter
               | _ -> None)
 
+          let (|WouldTurnInfixIntoPrefix|_|) (s: string) =
+            // (……)…
+            //   ↑ ↑
+            sourceText.TryGetChar(range.End.IncColumn 1)
+            |> Option.bind (fun endChar ->
+              match s[s.Length - 1], endChar with
+              | (Punctuation | Symbol), ('+' | '-' | '%' | '&' | '!' | '~') ->
+                match sourceText.GetLine range.End with
+                | None -> None
+                | Some line ->
+                  // (……)+…
+                  //      ↑
+                  match line.AsSpan(range.EndColumn).IndexOfAnyExcept("*/%-+:^@><=!|$.?".AsSpan()) with
+                  | -1 -> None
+                  | i when line[range.EndColumn + i] <> ' ' -> Some WouldTurnInfixIntoPrefix
+                  | _ -> None
+              | _ -> None)
+
           match adjusted with
-          | ShouldPutSpaceBefore & ShouldPutSpaceAfter -> " " + adjusted + " "
-          | ShouldPutSpaceBefore -> " " + adjusted
-          | ShouldPutSpaceAfter -> adjusted + " "
-          | adjusted -> adjusted
+          | WouldTurnInfixIntoPrefix -> ValueNone
+          | ShouldPutSpaceBefore & ShouldPutSpaceAfter -> ValueSome(" " + adjusted + " ")
+          | ShouldPutSpaceBefore -> ValueSome(" " + adjusted)
+          | ShouldPutSpaceAfter -> ValueSome(adjusted + " ")
+          | adjusted -> ValueSome adjusted
 
         return
-          [ { Edits = [| { Range = d.Range; NewText = newText } |]
+          newText
+          |> ValueOption.map (fun newText ->
+            { Edits = [| { Range = d.Range; NewText = newText } |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = Some d
-              Kind = FixKind.Fix } ]
+              Kind = FixKind.Fix })
+          |> ValueOption.toList
 
       | _notParens -> return []
     })
