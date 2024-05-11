@@ -1852,7 +1852,18 @@ let private generateXmlDocumentationTests state =
           /// <summary></summary>
           module MyNestedModule =
             let x = 3
-        """ ])
+        """
+
+      testCaseAsync "not applicable for namespace"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        namespace N$0
+          module MyNestedModule =
+            let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix ])
 
 let private addMissingXmlDocumentationTests state =
   serverTestList (nameof AddMissingXmlDocumentation) state defaultConfigDto None (fun server ->

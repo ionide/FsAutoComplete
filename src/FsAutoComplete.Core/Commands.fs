@@ -1361,8 +1361,10 @@ type Commands() =
 
               member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
                 match synModuleOrNamespace with
-                | SynModuleOrNamespace(attribs = attributes; longId = longId; xmlDoc = xmlDoc) when
-                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                | SynModuleOrNamespace(attribs = attributes; longId = longId; xmlDoc = xmlDoc; kind = kind) when
+                  kind = SynModuleOrNamespaceKind.NamedModule
+                  && longIdentContainsPos longId pos
+                  && xmlDoc.IsEmpty
                   ->
                   Some(false, tryGetFirstAttributeLine attributes)
                 | SynModuleOrNamespace(decls = decls) ->
