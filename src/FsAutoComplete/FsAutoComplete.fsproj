@@ -47,7 +47,6 @@
     <Compile Include="Parser.fsi" />
     <Compile Include="Parser.fs" />
     <Compile Include="Program.fs" />
-    <None Include="FsAutoComplete.fsproj.paket.references" />
     <Content Include="default.win32manifest">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -79,6 +78,15 @@
     </ItemGroup>
   </Target>
 
-
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="CliWrap" />
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Sinks.Async" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="Destructurama.FSharp" />
+  </ItemGroup>
 </Project>

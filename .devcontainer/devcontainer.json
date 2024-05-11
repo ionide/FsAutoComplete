@@ -1,15 +1,18 @@
 {
-	"name": "F# (.NET 7.0)",
-	"dockerFile": "Dockerfile",
-	"settings": {
-			"terminal.integrated.shell.linux": "/bin/bash",
-			"FSharp.useSdkScripts":true,
-			"FSharp.workspacePath": "FsAutoComplete.sln"
-		},
-	"onCreateCommand": "dotnet tool restore && dotnet restore",
-	"extensions": [
-			"Ionide.Ionide-fsharp",
-			"Ionide.Ionide-Paket",
-			"ms-vscode.csharp"
-		]
+  "name": "F# (.NET 7.0)",
+  "dockerFile": "Dockerfile",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "FSharp.useSdkScripts": true,
+        "FSharp.workspacePath": "FsAutoComplete.sln"
+      },
+      "extensions": [
+        "Ionide.Ionide-fsharp",
+        "ms-vscode.csharp"
+      ]
+    }
+  },
+  "onCreateCommand": "dotnet restore"
 }

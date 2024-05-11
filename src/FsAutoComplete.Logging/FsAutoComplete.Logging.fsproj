@@ -10,5 +10,7 @@
     <Compile Include="FsLibLog.fs" />
     <Compile Include="FsOpenTelemetry.fs" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
+  </ItemGroup>
 </Project>

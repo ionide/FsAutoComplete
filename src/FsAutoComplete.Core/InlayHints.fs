@@ -112,7 +112,8 @@ let private getFirstPositionAfterParen (str: string) startPos =
   | str when startPos > str.Length -> -1
   | str -> str.IndexOf('(', startPos) + 1
 
-let private maxHintLength = 30
+[<Literal>]
+let maxHintLength = 30
 
 let inline private shouldTruncate (s: string) = s.Length > maxHintLength
 

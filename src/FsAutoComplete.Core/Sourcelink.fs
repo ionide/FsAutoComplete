@@ -8,7 +8,7 @@ open Newtonsoft.Json
 open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
-open Ionide.ProjInfo.ProjectSystem
+open System.Runtime.InteropServices
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -46,7 +46,7 @@ type private Document =
     IsEmbedded: bool }
 
 let private compareRepoPath (d: Document) targetFile =
-  if Environment.isWindows then
+  if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
     let s = UMX.untag d.Name
     let s' = normalizePath s |> UMX.untag
     let s' = UMX.tag<NormalizedRepoPathSegment> s'

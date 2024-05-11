@@ -1,0 +1,44 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
+    <PackageVersion Include="CliWrap" Version="3.6.6" />
+    <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.2.2" />
+    <PackageVersion Include="Destructurama.FSharp" Version="2.0.0" />
+    <PackageVersion Include="Expecto.Diff" Version="10.2.1" />
+    <PackageVersion Include="Expecto" Version="10.2.1 " />
+    <PackageVersion Include="Fantomas.Client" Version="0.9.0" />
+    <PackageVersion Include="FSharp.Analyzers.SDK" Version="0.25.0" />
+    <PackageVersion Include="FSharp.Analyzers.Build" Version="0.2.0"/>
+    <PackageVersion Include="FSharp.Compiler.Service" Version="43.8.200" />
+    <PackageVersion Include="FSharp.Core" Version="8.0.200" />
+    <PackageVersion Include="FSharp.Data.Adaptive" Version="1.2.15" />
+    <PackageVersion Include="FSharp.UMX" Version="1.1.0" />
+    <PackageVersion Include="FSharpx.Async" Version="1.14.1" />
+    <PackageVersion Include="FsToolkit.ErrorHandling.IcedTasks" Version="4.15.2" />
+    <PackageVersion Include="GitHubActionsTestLogger" Version="2.3.3" />
+    <PackageVersion Include="IcedTasks" Version="0.11.5" />
+    <PackageVersion Include="ICSharpCode.Decompiler" Version="8.2.0.7535" />
+    <PackageVersion Include="Ionide.Analyzers" Version="0.10.0" />
+    <PackageVersion Include="Ionide.KeepAChangelog.Tasks" Version="0.1.8" />
+    <PackageVersion Include="Ionide.LanguageServerProtocol" Version="0.5.0" />
+    <PackageVersion Include="Ionide.ProjInfo.ProjectSystem" Version="0.64.0" />
+    <PackageVersion Include="LinkDotNet.Stringbuilder" Version="1.20.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis" Version="4.9.2" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.8.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.8.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.8.1" />
+    <PackageVersion Include="Serilog.Sinks.Async" Version="1.5.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageVersion Include="Serilog" Version="3.1.1" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageVersion Include="System.Reactive" Version="5.0.0" />
+    <PackageVersion Include="YoloDev.Expecto.TestSdk" Version="0.14.3" />
+  </ItemGroup>
+</Project>
