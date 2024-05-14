@@ -3,6 +3,7 @@ module FsAutoComplete.Patterns
 
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Text
 
 /// Active patterns over `FSharpSymbolUse`.
 module SymbolUse =
@@ -36,6 +37,12 @@ module SymbolUse =
   val (|ValueType|_|): (FSharpSymbolUse -> FSharpEntity option)
   val (|ComputationExpression|_|): symbol: FSharpSymbolUse -> FSharpSymbolUse option
   val (|Attribute|_|): (FSharpSymbolUse -> FSharpEntity option)
+  /// Check if the symbolUse.Symbol.SignatureLocation is in an actual signature file.
+  val (|IsInSignature|_|): symbolUse: FSharpSymbolUse -> range option
+  /// Check if the symbolUse.Symbol is not in an actual signature file
+  /// but the declaring entity (in case the symbol is FSharpEntity or FSharpMemberOrFunctionOrValue)
+  /// is located inside an actual signature file.
+  val (|IsParentInSignature|_|): symbolUse: FSharpSymbolUse -> range option
 
 /// Active patterns over `FSharpSymbol`.
 [<AutoOpen>]

@@ -333,7 +333,7 @@ let analyzerTests state =
 
   testList
     "analyzer integration"
-    [ testList
+    [ ptestList
         "tests"
         [ testCaseAsync
             "can run analyzer on file"
@@ -410,6 +410,7 @@ let signatureTests state =
        |> Async.Sequential
        |> Async.map (fun _ -> ()))
 
+  testSequenced <|
   testList
     "signature evaluation"
     [ testList

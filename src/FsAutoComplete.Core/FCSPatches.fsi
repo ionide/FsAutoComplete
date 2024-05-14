@@ -3,10 +3,7 @@
 module FsAutoComplete.FCSPatches
 
 open FSharp.Compiler.Syntax
-open FSharp.Compiler.Text
-open FsAutoComplete.UntypedAstUtils
 open FSharp.Compiler.CodeAnalysis
-open FSharp.Compiler.EditorServices
 
 type LanguageFeatureShim =
   new: langFeature: string -> LanguageFeatureShim
@@ -21,14 +18,13 @@ type LanguageVersionShim =
 module LanguageVersionShim =
   val defaultLanguageVersion: Lazy<LanguageVersionShim>
 
+
+  val fromOtherOptions: options: seq<string> -> LanguageVersionShim
   /// <summary>Tries to parse out "--langversion:" from OtherOptions if it can't find it, returns defaultLanguageVersion</summary>
   /// <param name="fpo">The FSharpProjectOptions to use</param>
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   val fromFSharpProjectOptions: fpo: FSharpProjectOptions -> LanguageVersionShim
+  val fromFSharpProjectSnapshot: fpo: FSharpProjectSnapshot -> LanguageVersionShim
 
 module SyntaxTreeOps =
   val synExprContainsError: SynExpr -> bool
-
-type FSharpParseFileResults with
-
-  member TryRangeOfNameOfNearestOuterBindingOrMember: pos: pos -> option<range * FSharpGlyph * LongIdent>

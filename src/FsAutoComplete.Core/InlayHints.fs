@@ -69,54 +69,18 @@ type Hint =
 
 let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
-type private FSharp.Compiler.CodeAnalysis.FSharpParseFileResults with
-  // duplicates + extends the logic in FCS to match bindings of the form `let x: int = 12`
-  // so that they are considered logically the same as a 'typed' SynPat
-  member x.IsTypeAnnotationGivenAtPositionPatched pos =
-    let visitor: SyntaxVisitorBase<Range> =
-      { new SyntaxVisitorBase<_>() with
-          override _.VisitExpr(_path, _traverseSynExpr, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.Typed(_expr, _typeExpr, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraverse expr
-
-          override _.VisitSimplePats(_path, pats) =
-            match pats with
-            | [] -> None
-            | _ ->
-              let exprFunc pat =
-                match pat with
-                | SynSimplePat.Typed(_pat, _targetExpr, range) when Position.posEq range.Start pos -> Some range
-                | _ -> None
-
-              pats |> List.tryPick exprFunc
-
-          override visitor.VisitPat(path, defaultTraverse, pat) =
-            match pat with
-            | SynPat.Typed(_pat, _targetType, range) when Position.posEq range.Start pos -> Some range
-            | _ -> defaultTraversePat visitor path pat
-
-          override _.VisitBinding(_path, defaultTraverse, binding) =
-            match binding with
-            | SynBinding(
-                headPat = SynPat.Named(range = patRange)
-                returnInfo = Some(SynBindingReturnInfo(typeName = SynType.LongIdent _))) -> Some patRange
-            | _ -> defaultTraverse binding }
-
-    let result = SyntaxTraversal.Traverse(pos, x.ParseTree, visitor)
-    result.IsSome
-
 let private getFirstPositionAfterParen (str: string) startPos =
   match str with
   | null -> -1
   | str when startPos > str.Length -> -1
   | str -> str.IndexOf('(', startPos) + 1
 
-let private maxHintLength = 30
+[<Literal>]
+let maxHintLength = 30
 
-let inline private shouldTruncate (s: string) = s.Length > maxHintLength
+let inline shouldTruncate (s: string) = s.Length > maxHintLength
 
-let inline private tryTruncate (s: string) =
+let inline tryTruncate (s: string) =
   if shouldTruncate s then
     s.Substring(0, maxHintLength) + "..." |> Some
   else
@@ -582,6 +546,20 @@ let rec private getParensForIdentPat (text: IFSACSourceText) (pat: SynPat) (path
     getParensForPatternWithIdent patternRange identStart path
   | _ -> failwith "Pattern must be Named or OptionalVal!"
 
+[<return: Struct>]
+let rec private (|Typed|_|) pat =
+  match pat with
+  | SynPat.Typed _ -> ValueSome()
+  | SynPat.Attrib(pat = pat) -> (|Typed|_|) pat
+  | _ -> ValueNone
+
+[<return: Struct>]
+let rec (|NamedPat|_|) pat =
+  match pat with
+  | SynPat.Named(ident = SynIdent(ident = ident)) -> ValueSome ident
+  | SynPat.Attrib(pat = pat) -> (|NamedPat|_|) pat
+  | _ -> ValueNone
+
 let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Position) : ExplicitType option =
   SyntaxTraversal.Traverse(
     pos,
@@ -677,71 +655,56 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               |> Some
           | _ -> defaultTraversePat visitor path pat
 
-        member _.VisitSimplePats(path, pats) =
-          // SynSimplePats at:
-          // * Primary ctor:
-          //    * SynMemberDefn.ImplicitCtor.ctorArgs
-          //    * SynTypeDefnSimpleRepr.General.implicitCtorSynPats
-          // * Lambda: SynExpr.Lambda.args
-          //   * issue: might or might not be actual identifier
-          //      * `let f1 = fun v -> v + 1`
-          //         -> `v` is in `args` (-> SynSimplePat)
-          //      * `let f2 = fun (Value v) -> v + 1`
-          //        -> compiler generated `_arg1` in `args`,
-          //           and `v` is inside match expression in `body` & `parsedData` (-> `SynPat` )
-          option {
-            let! pat = pats |> List.tryFind (fun p -> rangeContainsPos p.Range pos)
+        member _.VisitSimplePats(path, pat) =
+          let (|ImplicitCtorPath|_|) (path: SyntaxNode) =
+            match path with
+            // normal ctor in type: `type A(v) = ...`
+            | SyntaxNode.SynMemberDefn(SynMemberDefn.ImplicitCtor _) -> Some()
+            //TODO: when? example?
+            | SyntaxNode.SynTypeDefn(SynTypeDefn(
+                typeRepr = SynTypeDefnRepr.Simple(
+                  simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some(ctorPats))))) when
+              rangeContainsPos ctorPats.Range pos
+              ->
+              Some()
+            | _ -> None
 
-            let rec tryGetIdent pat =
-              match pat with
-              | SynSimplePat.Id(ident = ident) when rangeContainsPos ident.idRange pos -> Some pat
-              | SynSimplePat.Attrib(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
-              | SynSimplePat.Typed(pat = pat) when rangeContainsPos pat.Range pos -> tryGetIdent pat
+          let (|SpecificPat|_|) (pats: SynPat list) =
+            pats
+            |> List.tryPick (fun pat -> if rangeContainsPos pat.Range pos then Some pat else None)
+
+          match pat with
+          | Typed
+          | SynPat.Paren(pat = Typed) -> Some ExplicitType.Exists
+          | SynPat.Paren(pat = innerPat) ->
+            match path with
+            | ImplicitCtorPath :: _ ->
+              // ok, deal with constructor parameters
+              // * named pats
+              match innerPat with
+              // single ctor arg
+              | NamedPat ident ->
+                ExplicitType.Missing
+                  { Ident = ident.idRange
+                    InsertAt = ident.idRange.End
+                    Parens = Parens.Forbidden
+                    SpecialRules = [] }
+                |> Some
+              // multiple ctor args
+              // * arg in question already has a type
+              | SynPat.Tuple(elementPats = SpecificPat Typed) -> Some ExplicitType.Exists
+              // * arg in question doesn't have a type
+              | SynPat.Tuple(elementPats = SpecificPat(NamedPat ident)) ->
+                ExplicitType.Missing
+                  { Ident = ident.idRange
+                    InsertAt = ident.idRange.End
+                    Parens = Parens.Forbidden
+                    SpecialRules = [] }
+                |> Some
               | _ -> None
 
-            let! ident = tryGetIdent pat
-
-            match ident with
-            | SynSimplePat.Id(isCompilerGenerated = false) ->
-              let rec isTyped =
-                function
-                | SynSimplePat.Typed _ -> true
-                | SynSimplePat.Id _ -> false
-                | SynSimplePat.Attrib(pat = pat) -> isTyped pat
-
-              let typed = isTyped pat
-
-              if typed then
-                return ExplicitType.Exists
-              else
-                let isCtor =
-                  path
-                  |> List.tryHead
-                  |> Option.map (function
-                    // normal ctor in type: `type A(v) = ...`
-                    | SyntaxNode.SynMemberDefn(SynMemberDefn.ImplicitCtor _) -> true
-                    //TODO: when? example?
-                    | SyntaxNode.SynTypeDefn(SynTypeDefn(
-                        typeRepr = SynTypeDefnRepr.Simple(
-                          simpleRepr = SynTypeDefnSimpleRepr.General(implicitCtorSynPats = Some(ctorPats))))) when
-                      rangeContainsPos ctorPats.Range pos
-                      ->
-                      true
-                    | _ -> false)
-                  |> Option.defaultValue false
-
-                if isCtor then
-                  return
-                    ExplicitType.Missing
-                      { Ident = ident.Range
-                        InsertAt = ident.Range.End
-                        Parens = Parens.Forbidden
-                        SpecialRules = [] }
-                else
-                  // lambda
-                  return! None
-            | _ -> return! None
-          } }
+            | _ -> None
+          | _ -> None }
   )
 
 ///<returns>
@@ -764,56 +727,29 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
 /// ```
 ///</returns>
 let private getArgRangesOfFunctionApplication (ast: ParsedInput) pos =
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(_, traverseSynExpr, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.App(isInfix = false; funcExpr = funcExpr; range = range) when pos = range.Start ->
-            let isInfixFuncExpr =
-              match funcExpr with
-              | SynExpr.App(_, isInfix, _, _, _) -> isInfix
-              | _ -> false
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    let rec (|IgnoreParens|) =
+      function
+      | SynExpr.Paren(expr = expr)
+      | expr -> expr
 
-            if isInfixFuncExpr then
-              traverseSynExpr funcExpr
-            else
-              let rec withoutParens =
-                function
-                | SynExpr.Paren(expr = expr) -> withoutParens expr
-                | expr -> expr
-              // f a (b,c)
-              // ^^^^^^^^^ App
-              // ... func
-              //     ----- arg
-              // ^^^ App
-              // . func
-              //   - arg
-              let rec findArgs expr =
-                match expr with
-                | SynExpr.Const(constant = SynConst.Unit) -> []
-                | SynExpr.Paren(expr = expr) -> findArgs expr
-                | SynExpr.App(funcExpr = funcExpr; argExpr = argExpr) ->
-                  let otherArgRanges = findArgs funcExpr
+    let rec (|Arg|) =
+      function
+      | IgnoreParens(SynExpr.Tuple(isStruct = false; exprs = exprs)) as arg ->
+        arg.Range, exprs |> List.map (fun e -> e.Range)
+      | expr -> expr.Range, [ expr.Range ]
 
-                  let argRange =
-                    let argRange = argExpr.Range
+    let rec (|Args|) =
+      function
+      | IgnoreParens(SynExpr.App(funcExpr = Args args; argExpr = Arg arg)) -> arg :: args
+      | _ -> []
 
-                    let tupleArgs =
-                      match argExpr |> withoutParens with
-                      | SynExpr.Tuple(exprs = exprs) -> exprs |> List.map (fun e -> e.Range)
-                      | _ -> argRange |> List.singleton
-
-                    (argRange, tupleArgs)
-
-                  argRange :: otherArgRanges
-                | _ -> []
-
-              findArgs expr |> Some
-          | _ -> defaultTraverse expr }
-  )
-  |> Option.map List.rev
+    match node with
+    | SyntaxNode.SynExpr(SynExpr.App(funcExpr = SynExpr.App(isInfix = true; argExpr = Args args); range = m))
+    | SyntaxNode.SynExpr(SynExpr.App(funcExpr = SynExpr.App(isInfix = true; funcExpr = Args args); range = m))
+    | SyntaxNode.SynExpr(SynExpr.App(isInfix = false; range = m) & Args args) when m.Start = pos -> Some(List.rev args)
+    | _ -> None)
 
 /// Note: No exhausting check. Doesn't check for:
 /// * is already typed (-> done by getting `ExplicitType`)

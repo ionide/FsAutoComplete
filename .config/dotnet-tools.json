@@ -25,6 +25,12 @@
       "commands": [
         "fsharp-analyzers"
       ]
+    },
+    "telplin": {
+      "version": "0.9.6",
+      "commands": [
+        "telplin"
+      ]
     }
   }
 }

@@ -141,7 +141,7 @@ type ParseAndCheckResults
             )
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
-            | Some fullFilePath -> Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
+            | Some fullFilePath -> Ok(Utils.normalizePath fullFilePath, getFileName rangeInNonexistentFile)
             | None ->
               ResultOrString.Error(
                 sprintf
@@ -519,6 +519,10 @@ type ParseAndCheckResults
       let identIsland = Array.toList identIsland
       checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
 
+  member x.TryGetSymbolUseFromIdent (sourceText: ISourceText) (ident: Ident) : FSharpSymbolUse option =
+    let line = sourceText.GetLineString(ident.idRange.EndLine - 1)
+    x.GetCheckResults.GetSymbolUseAtLocation(ident.idRange.EndLine, ident.idRange.EndColumn, line, [ ident.idText ])
+
   member __.TryGetSymbolUses (pos: Position) (lineStr: LineStr) : FSharpSymbolUse list =
     match Lexer.findLongIdents (pos.Column, lineStr) with
     | None -> []
@@ -766,4 +770,4 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults: FSharpCheckFileResults = checkResults
   member __.GetParseResults: FSharpParseFileResults = parseResults
-  member __.FileName: string<LocalPath> = UMX.tag parseResults.FileName
+  member __.FileName: string<LocalPath> = Utils.normalizePath parseResults.FileName

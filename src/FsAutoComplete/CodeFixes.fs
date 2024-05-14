@@ -19,6 +19,7 @@ module LspTypes = Ionide.LanguageServerProtocol.Types
 module Types =
   open FsAutoComplete.FCSPatches
   open System.Threading.Tasks
+  open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
   type IsEnabled = unit -> bool
 
@@ -33,8 +34,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<CompilerProjectOption>>
 
   [<RequireQualifiedAccess>]
   [<Struct>]
@@ -340,3 +340,29 @@ module Run =
 
   let ifDiagnosticByCode codes handler : CodeFix =
     runDiagnostics (fun d -> d.Code.IsSome && Set.contains d.Code.Value codes) handler
+
+  let ifImplementationFileBackedBySignature
+    (getProjectOptionsForFile: GetProjectOptionsForFile)
+    (codeFix: CodeFix)
+    (codeActionParams: CodeActionParams)
+    : Async<Result<Fix list, string>> =
+    async {
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+      let! project = getProjectOptionsForFile fileName
+
+      match project with
+      | Error _ -> return Ok []
+      | Ok projectOptions ->
+
+        let signatureFile = System.String.Concat(fileName, "i")
+
+        let hasSig =
+          projectOptions.SourceFilesTagged
+          |> List.map (UMX.untag)
+          |> List.contains signatureFile
+
+        if not hasSig then
+          return Ok []
+        else
+          return! codeFix codeActionParams
+    }
