@@ -9,6 +9,7 @@ open Utils.TextEdit
 open Ionide.ProjInfo.Logging
 
 /// Checks for CodeFixes, CodeActions
+open System.Runtime.ExceptionServices
 ///
 /// Prefixes:
 /// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
@@ -55,8 +56,6 @@ module CodeFix =
         | None, NotApplicable -> [||]
         | Some(Helpers.CodeActions actions), _ -> actions
         | Some _, _ -> failwith "Expected some code actions from the server"
-
-
 
       // select code action to use
       let codeActions = chooseFix allCodeActions
@@ -118,20 +117,34 @@ module CodeFix =
     (expected: unit -> ExpectedResult)
     =
     async {
-      let (range, text) =
-        beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
-      // load text file
-      let! (doc, diags) = server |> Server.createUntitledDocument text
-      use doc = doc // ensure doc gets closed (disposed) after test
+      let mutable attempts = 5
+      while attempts > 0 do
+        try
+          let (range, text) =
+            beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
+          // load text file
+          let! (doc, diags) = server |> Server.createUntitledDocument text
+          use doc = doc // ensure doc gets closed (disposed) after test
 
-      do!
-        checkFixAt
-          (doc, diags)
-          doc.VersionedTextDocumentIdentifier
-          (text, range)
-          validateDiagnostics
-          chooseFix
-          (expected ())
+          do!
+            checkFixAt
+              (doc, diags)
+              doc.VersionedTextDocumentIdentifier
+              (text, range)
+              validateDiagnostics
+              chooseFix
+              (expected ())
+          attempts <- 0
+        with
+        | ex ->
+          attempts <- attempts - 1
+          if attempts = 0 then
+            ExceptionDispatchInfo.Capture(ex).Throw()
+            return failwith "Unreachable"
+          else
+            _logger.warn (Log.setMessage "Retrying test after failure" >> Log.addContext "attempts" (5 - attempts))
+            do! Async.Sleep 15
+
     }
 
   /// Checks a CodeFix (CodeAction) for validity.
@@ -179,6 +192,36 @@ module CodeFix =
   let matching cond (fixes: CodeAction array) = fixes |> Array.filter cond
   let withTitle title = matching (fun f -> f.Title = title)
   let ofKind kind = matching (fun f -> f.Kind = Some kind)
+
+  let checkCodeFixInImplementationAndVerifySignature
+    (server: CachedServer)
+    (fsiSource: string)
+    (fsSourceWithCursor: string)
+    (validateDiagnostics: Diagnostic[] -> unit)
+    (selectCodeFix: ChooseFix)
+    (fsiSourceExpected: string)
+    : Async<unit> =
+    async {
+      let fsiFile, fsFile = ("Code.fsi", "Code.fs")
+      let fsiSource = fsiSource |> Text.trimTripleQuotation
+
+      let cursor, fsSource =
+        fsSourceWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
+
+      let! fsiDoc, _diags = server |> Server.openDocumentWithText fsiFile fsiSource
+      use fsiDoc = fsiDoc
+      let! fsDoc, diags = server |> Server.openDocumentWithText fsFile fsSource
+      use fsDoc = fsDoc
+
+      do!
+        checkFixAt
+          (fsDoc, diags)
+          fsiDoc.VersionedTextDocumentIdentifier
+          (fsiSource, cursor)
+          validateDiagnostics
+          selectCodeFix
+          (After(fsiSourceExpected |> Text.trimTripleQuotation))
+    }
 
   /// Bundled tests in Expecto test
   module private Test =

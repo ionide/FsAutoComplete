@@ -30,6 +30,7 @@ open CliWrap
 open CliWrap.Buffered
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Syntax
 open Fantomas.Client.Contracts
 open Fantomas.Client.LSPFantomasService
 
@@ -43,7 +44,12 @@ open Helpers
 open System.Runtime.ExceptionServices
 
 type AdaptiveFSharpLspServer
-  (workspaceLoader: IWorkspaceLoader, lspClient: FSharpLspClient, sourceTextFactory: ISourceTextFactory) =
+  (
+    workspaceLoader: IWorkspaceLoader,
+    lspClient: FSharpLspClient,
+    sourceTextFactory: ISourceTextFactory,
+    useTransparentCompiler: bool
+  ) =
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
@@ -57,7 +63,8 @@ type AdaptiveFSharpLspServer
 
   let disposables = new Disposables.CompositeDisposable()
 
-  let state = new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader)
+  let state =
+    new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader, useTransparentCompiler)
 
   do disposables.Add(state)
 
@@ -165,7 +172,7 @@ type AdaptiveFSharpLspServer
             do!
               rootPath
               |> Option.map (fun rootPath ->
-                async {
+                asyncEx {
                   let dotConfig = Path.Combine(rootPath, ".config", "dotnet-tools.json")
 
                   if not (File.Exists dotConfig) then
@@ -176,7 +183,6 @@ type AdaptiveFSharpLspServer
                         .WithWorkingDirectory(rootPath)
                         .ExecuteBufferedAsync()
                         .Task
-                      |> Async.AwaitTask
 
                     if result.ExitCode <> 0 then
                       fantomasLogger.warn (
@@ -194,7 +200,6 @@ type AdaptiveFSharpLspServer
                           .WithWorkingDirectory(rootPath)
                           .ExecuteBufferedAsync()
                           .Task
-                        |> Async.AwaitTask
 
                       if result.ExitCode <> 0 then
                         fantomasLogger.warn (
@@ -210,7 +215,6 @@ type AdaptiveFSharpLspServer
                       .WithWorkingDirectory(rootPath)
                       .ExecuteBufferedAsync()
                       .Task
-                    |> Async.AwaitTask
 
                   if result.ExitCode = 0 then
                     fantomasLogger.info (Log.setMessage (sprintf "fantomas was installed locally at %A" rootPath))
@@ -236,7 +240,6 @@ type AdaptiveFSharpLspServer
                 .WithArguments("tool install -g fantomas")
                 .ExecuteBufferedAsync()
                 .Task
-              |> Async.AwaitTask
 
             if result.ExitCode = 0 then
               fantomasLogger.info (Log.setMessage "fantomas was installed globally")
@@ -1194,7 +1197,7 @@ type AdaptiveFSharpLspServer
           let getAllProjects () =
             state.GetFilesToProject()
             |> Async.map (
-              Array.map (fun (file, proj) -> UMX.untag file, proj.FSharpProjectOptions)
+              Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectCompilerOptions)
               >> Array.toList
             )
 
@@ -2036,7 +2039,26 @@ type AdaptiveFSharpLspServer
               let! parseResults = state.GetParseResults fn |> Async.map Result.toOption
 
               let! (fullBindingRange, glyph, bindingIdents) =
-                parseResults.TryRangeOfNameOfNearestOuterBindingOrMember(protocolPosToPos loc.Range.Start)
+                let pos = protocolPosToPos loc.Range.Start
+
+                (pos, parseResults.ParseTree)
+                ||> ParsedInput.tryPickLast (fun _path node ->
+                  let (|BindingClass|) =
+                    function
+                    | SynBinding(valData = SynValData(memberFlags = None)) -> FSharpGlyph.Delegate
+                    | _ -> FSharpGlyph.Method
+
+                  match node with
+                  | SyntaxNode.SynBinding(SynBinding(headPat = pat) as b & BindingClass glyph) when
+                    Range.rangeContainsPos b.RangeOfBindingWithRhs pos
+                    ->
+                    match pat with
+                    | SynPat.LongIdent(longDotId = longIdentWithDots) ->
+                      Some(b.RangeOfBindingWithRhs, glyph, longIdentWithDots.LongIdent)
+                    | SynPat.Named(ident = SynIdent(ident, _); isThisVal = false) ->
+                      Some(b.RangeOfBindingWithRhs, glyph, [ ident ])
+                    | _ -> None
+                  | _ -> None)
 
               // We only want to use the last identifiers range because if we have a member like `self.MyMember`
               // F# Find Usages only works with the last identifier's range so we want to use `MyMember`.
@@ -3043,7 +3065,7 @@ module AdaptiveFSharpLspServer =
 
 
 
-  let startCore toolsPath workspaceLoaderFactory sourceTextFactory =
+  let startCore toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
@@ -3079,7 +3101,7 @@ module AdaptiveFSharpLspServer =
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath
-      new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory) :> IFSharpLspServer
+      new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory, useTransparentCompiler) :> IFSharpLspServer
 
     Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer createRpc
 

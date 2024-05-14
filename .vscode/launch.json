@@ -54,6 +54,31 @@
         "--filter",
         "FSAC.lsp.${input:loader}.${input:lsp-server}.${input:testName}"
       ]
+    },
+    {
+      "name": "Pick General tests",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/${input:tfm}/FsAutoComplete.Tests.Lsp.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": false,
+      "symbolOptions": {
+        "searchMicrosoftSymbolServer": true,
+        "searchNuGetOrgSymbolServer": true
+      },
+      "sourceLinkOptions": {
+        "*": {
+          "enabled": true
+        }
+      },
+      "enableStepFiltering": false,
+      "args": [
+        "--debug",
+        "--filter",
+        "FSAC.general.${input:testName}"
+      ]
     }
   ],
   "inputs": [
@@ -77,7 +102,6 @@
       "default": "WorkspaceLoader",
       "type": "pickString"
     },
-
     {
       "id": "lsp-server",
       "description": "The lsp serrver",
@@ -86,7 +110,7 @@
         "AdaptiveLspServer"
       ],
       "default": "AdaptiveLspServer",
-      "type": "pickString"
+      "type": "pickString",
     },
     {
       "id": "testName",

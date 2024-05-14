@@ -66,8 +66,10 @@ module Seq =
     }
 
 module ProcessHelper =
+  open IcedTasks
+
   let WaitForExitAsync (p: Process) =
-    async {
+    asyncEx {
       let tcs = TaskCompletionSource<obj>()
       p.EnableRaisingEvents <- true
       p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
@@ -76,7 +78,7 @@ module ProcessHelper =
 
       let _registered = token.Register(fun _ -> tcs.SetCanceled())
 
-      let! _ = tcs.Task |> Async.AwaitTask
+      let! _ = tcs.Task
       ()
     }
 

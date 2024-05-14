@@ -628,6 +628,7 @@ let tests state =
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
+  testSequenced <|
   testList
     ($"{nameof Tokenizer.tryFixupRange}")
     [ let checker = lazy (FSharpChecker.Create())

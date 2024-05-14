@@ -19,18 +19,14 @@ let titlePrefix = "Prefix with _"
 /// -> no (easy) way to get range with accessibility
 /// -> instead of range to replace, just if there's accessibility
 let private accessibilityRange (ast: ParsedInput) (pos: Position) =
-  SyntaxTraversal.Traverse(
-    pos,
-    ast,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitPat(_, defaultTraverse, pat) =
-          match pat with
-          | SynPat.Named(accessibility = Some(SynAccess.Private(range = accessRange)); range = range) when
-            Range.rangeContainsPos range pos
-            ->
-            Some(accessRange.WithEnd(accessRange.End.WithColumn(accessRange.End.Column + 1))) // add an additional column to remove the 'space' between private and identifier
-          | _ -> defaultTraverse pat }
-  )
+  (pos, ast)
+  ||> ParsedInput.tryPick (fun _path node ->
+    match node with
+    | SyntaxNode.SynPat(SynPat.Named(accessibility = Some(SynAccess.Private(range = accessRange)); range = range)) when
+      Range.rangeContainsPos range pos
+      ->
+      Some(accessRange.WithEnd(accessRange.End.WithColumn(accessRange.End.Column + 1))) // add an additional column to remove the 'space' between private and identifier
+    | _ -> None)
 
 /// a codefix that suggests prepending a _ to unused values
 let fix (getParseResultsForFile: GetParseResultsForFile) =

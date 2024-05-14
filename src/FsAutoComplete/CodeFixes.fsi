@@ -5,9 +5,9 @@ open FsAutoComplete.LspHelpers
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Logging
 open FSharp.UMX
-open FsToolkit.ErrorHandling
 open FSharp.Compiler.Text
 open FsAutoComplete.FCSPatches
+open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
@@ -27,8 +27,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<CompilerProjectOption>>
 
   [<RequireQualifiedAccess>]
   [<Struct>]
@@ -177,3 +176,9 @@ module Run =
     codes: Set<string> ->
     handler: (Diagnostic -> CodeActionParams -> Async<Result<Fix list, string>>) ->
       (CodeActionParams -> Async<Result<Fix list, string>>)
+
+  val ifImplementationFileBackedBySignature:
+    getProjectOptionsForFile: GetProjectOptionsForFile ->
+    codeFix: CodeFix ->
+    codeActionParams: CodeActionParams ->
+      Async<Result<Fix list, string>>

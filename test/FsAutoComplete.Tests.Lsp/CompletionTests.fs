@@ -716,7 +716,8 @@ let autocompleteTest state =
             Expect.exists res.Items (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
         }) ]
 
-  testList
+  testSequenced
+  <| testList
     "Autocomplete Tests"
     [ testList "Autocomplete within project files" (makeAutocompleteTestList server)
       testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer) ]
@@ -781,7 +782,9 @@ let autoOpenTests state =
 
       let (|ContainsOpenAction|_|) (codeActions: CodeAction[]) =
         codeActions
-        |> Array.tryFind (fun ca -> ca.Kind = Some "quickfix" && ca.Title.StartsWith("open ", StringComparison.Ordinal))
+        |> Array.tryFind (fun ca ->
+          ca.Kind = Some "quickfix"
+          && ca.Title.StartsWith("open ", StringComparison.Ordinal))
 
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e
@@ -1093,7 +1096,8 @@ let fullNameExternalAutocompleteTest state =
         Expect.isSome n "Completion doesn't exist"
         Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol") ]
 
-  testList
+  testSequenced
+  <| testList
     "fullNameExternalAutocompleteTest Tests"
     [ testList "fullNameExternalAutocompleteTest within project files" (makeAutocompleteTestList server)
       testList "fullNameExternalAutocompleteTest within script files" (makeAutocompleteTestList scriptServer) ]

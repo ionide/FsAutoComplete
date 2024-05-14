@@ -38,64 +38,19 @@ let private tryGetExistingXmlDoc (pos: FSharp.Compiler.Text.Position) (xmlDoc: P
     None
 
 let private tryGetCommentsAndSymbolPos input pos =
+  (pos, input)
+  ||> ParsedInput.tryPick (fun _path node ->
+    let (|ExistingXmlDoc|_|) = tryGetExistingXmlDoc pos
 
-  let handleSynBinding defaultTraverse (synBinding: SynBinding) =
-    let SynBinding(xmlDoc = xmlDoc; headPat = headPat) as s = synBinding
-    let docAndDocRange = tryGetExistingXmlDoc pos xmlDoc
-
-    match docAndDocRange with
-    | Some(docLines, docRange) ->
-      let symbolRange =
-        match headPat with
-        | SynPat.LongIdent(longDotId = longDotId) -> longDotId.Range.End
-        | _ -> s.RangeOfHeadPattern.Start // for use statements
-
-      Some(docLines, docRange, symbolRange, false)
-    | None -> defaultTraverse synBinding
-
-  SyntaxTraversal.Traverse(
-    pos,
-    input,
-    { new SyntaxVisitorBase<_>() with
-
-        member _.VisitBinding(_, defaultTraverse, synBinding) = handleSynBinding defaultTraverse synBinding
-
-        member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
-          bindings |> List.tryPick (handleSynBinding defaultTraverse)
-
-        member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
-
-        member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
-          match synModuleOrNamespace with
-          | SynModuleOrNamespace(decls = decls) ->
-
-            let rec findNested decls =
-              decls
-              |> List.tryPick (fun d ->
-                match d with
-                | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
-                  match moduleInfo with
-                  | _ -> findNested decls
-                | SynModuleDecl.Types(typeDefns = typeDefns) ->
-                  typeDefns
-                  |> List.tryPick (fun td ->
-                    match td with
-                    | SynTypeDefn(typeRepr = SynTypeDefnRepr.ObjectModel(_, members, _)) ->
-                      members
-                      |> List.tryPick (fun m ->
-                        match m with
-                        | SynMemberDefn.AutoProperty(xmlDoc = xmlDoc; ident = ident) ->
-                          let docAndDocRange = tryGetExistingXmlDoc pos xmlDoc
-
-                          match docAndDocRange with
-                          | Some(docLines, docRange) -> Some(docLines, docRange, ident.idRange.End, true)
-                          | _ -> None
-                        | _ -> None)
-                    | _ -> None)
-                | _ -> None)
-
-            findNested decls }
-  )
+    match node with
+    | SyntaxNode.SynBinding(SynBinding(
+        xmlDoc = ExistingXmlDoc(docLines, docRange); headPat = SynPat.LongIdent(longDotId = longDotId))) ->
+      Some(docLines, docRange, longDotId.Range.End, false)
+    | SyntaxNode.SynBinding(SynBinding(xmlDoc = ExistingXmlDoc(docLines, docRange); headPat = headPat)) ->
+      Some(docLines, docRange, headPat.Range.Start (* For `use` exprs. *) , false)
+    | SyntaxNode.SynMemberDefn(SynMemberDefn.AutoProperty(xmlDoc = ExistingXmlDoc(docLines, docRange); ident = ident)) ->
+      Some(docLines, docRange, ident.idRange.End, true)
+    | _ -> None)
 
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   fun codeActionParams ->

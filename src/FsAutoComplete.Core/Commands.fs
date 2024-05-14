@@ -14,7 +14,7 @@ open FSharp.Compiler.Text
 open Ionide.ProjInfo
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
-open FSharp.Analyzers
+// open FSharp.Analyzers
 open FSharp.UMX
 open FSharp.Compiler.Tokenization
 open SymbolLocation
@@ -75,7 +75,7 @@ module AsyncResult =
 type NotificationEvent =
   | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath> * version: int
   | Workspace of ProjectSystem.ProjectResponse
-  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath> * version: int
+  // | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath> * version: int
   | UnusedOpens of file: string<LocalPath> * opens: Range[] * version: int
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
   | UnusedDeclarations of file: string<LocalPath> * decls: range[] * version: int
@@ -731,10 +731,10 @@ module Commands =
 
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -787,7 +787,7 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck: Async<FSharpProjectOptions list> =
+        let projectsToCheck: Async<CompilerProjectOption list> =
           async {
             match scope with
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
@@ -798,8 +798,8 @@ module Commands =
                     yield Async.singleton (Some project)
 
                     yield!
-                      project.ReferencedProjects
-                      |> Array.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                      project.ReferencedProjectsPath
+                      |> List.map (fun p -> Utils.normalizePath p |> tryGetProjectOptionsForFsproj) ]
                 |> Async.parallel75
 
 
@@ -839,7 +839,7 @@ module Commands =
         /// Adds References of `symbol` in `file` to `dict`
         ///
         /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
-        let tryFindReferencesInFile (file: string<LocalPath>, project: FSharpProjectOptions) =
+        let tryFindReferencesInFile (file: string<LocalPath>, project: CompilerProjectOption) =
           async {
             if dict.ContainsKey file then
               return Ok()
@@ -882,15 +882,14 @@ module Commands =
 
               if errorOnFailureToFixRange then Error e else Ok())
 
-        let iterProjects (projects: FSharpProjectOptions seq) =
+        let iterProjects (projects: CompilerProjectOption seq) =
           // should:
           // * check files in parallel
           // * stop when error occurs
           // -> `Async.Choice`: executes in parallel, returns first `Some`
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
           [ for project in projects do
-              for file in project.SourceFiles do
-                let file = UMX.tag file
+              for file in project.SourceFilesTagged do
 
                 async {
                   match! tryFindReferencesInFile (file, project) with
@@ -930,10 +929,10 @@ module Commands =
   ///       -> for "Rename"
   let symbolUseWorkspace
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -1138,59 +1137,59 @@ module Commands =
 
 
 
-  let analyzerHandler
-    (
-      client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
-      file: string<LocalPath>,
-      content: ISourceText,
-      pt,
-      tast,
-      checkFileResults: FSharpCheckFileResults
-    ) =
-    let ctx: SDK.EditorContext =
-      { FileName = UMX.untag file
-        SourceText = content
-        ParseFileResults = pt
-        CheckFileResults = Some checkFileResults
-        TypedTree = Some tast
-        CheckProjectResults = None }
+// let analyzerHandler
+//   (
+//     client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
+//     file: string<LocalPath>,
+//     content: ISourceText,
+//     pt,
+//     tast,
+//     checkFileResults: FSharpCheckFileResults
+//   ) =
+//   let ctx: SDK.EditorContext =
+//     { FileName = UMX.untag file
+//       SourceText = content
+//       ParseFileResults = pt
+//       CheckFileResults = Some checkFileResults
+//       TypedTree = Some tast
+//       CheckProjectResults = None }
 
-    let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
-      match r.Output with
-      | Ok results ->
-        Loggers.analyzers.info (
-          Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
-          >> Log.addContextDestructured "analyzer" r.AnalyzerName
-          >> Log.addContextDestructured "count" results.Length
-          >> Log.addContextDestructured "file" (UMX.untag file)
-        )
+//   let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
+//     match r.Output with
+//     | Ok results ->
+//       Loggers.analyzers.info (
+//         Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
+//         >> Log.addContextDestructured "analyzer" r.AnalyzerName
+//         >> Log.addContextDestructured "count" results.Length
+//         >> Log.addContextDestructured "file" (UMX.untag file)
+//       )
 
-        results
-      | Error e ->
-        Loggers.analyzers.error (
-          Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
-          >> Log.addContextDestructured "analyzer" r.AnalyzerName
-          >> Log.addContextDestructured "file" (UMX.untag file)
-          >> Log.addContextDestructured "message" e.Message
-          >> Log.addExn e
-        )
+//       results
+//     | Error e ->
+//       Loggers.analyzers.error (
+//         Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
+//         >> Log.addContextDestructured "analyzer" r.AnalyzerName
+//         >> Log.addContextDestructured "file" (UMX.untag file)
+//         >> Log.addContextDestructured "message" e.Message
+//         >> Log.addExn e
+//       )
 
-        []
+//       []
 
-    async {
-      try
-        let! r = client.RunAnalyzersSafely ctx
-        return r |> List.collect extractResultsFromAnalyzer |> List.toArray
-      with ex ->
-        Loggers.analyzers.error (
-          Log.setMessage "Error while processing analyzers for {file}: {message}"
-          >> Log.addContextDestructured "message" ex.Message
-          >> Log.addExn ex
-          >> Log.addContextDestructured "file" file
-        )
+//   async {
+//     try
+//       let! r = client.RunAnalyzersSafely ctx
+//       return r |> List.collect extractResultsFromAnalyzer |> List.toArray
+//     with ex ->
+//       Loggers.analyzers.error (
+//         Log.setMessage "Error while processing analyzers for {file}: {message}"
+//         >> Log.addContextDestructured "message" ex.Message
+//         >> Log.addExn ex
+//         >> Log.addContextDestructured "file" file
+//       )
 
-        return [||]
-    }
+//       return [||]
+//   }
 
 type Commands() =
 

@@ -47,7 +47,7 @@ let fix
             declRange.Start.Column
             declText
             SymbolLookupKind.ByLongIdent
-            projectOptions.OtherOptions
+            (Array.ofList projectOptions.OtherOptions)
           |> Result.ofOption (fun _ -> "No lexer symbol for declaration")
 
         let! declSymbolUse =

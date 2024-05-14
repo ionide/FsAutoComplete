@@ -57,20 +57,20 @@ module Expecto =
     let ptestCaseAsync = ptestCaseAsyncWithTimeout DEFAULT_TIMEOUT
     let ftestCaseAsync = ftestCaseAsyncWithTimeout DEFAULT_TIMEOUT
 
-let rec private copyDirectory sourceDir destDir =
+let rec private copyDirectory (sourceDir: DirectoryInfo) destDir =
   // Get the subdirectories for the specified directory.
-  let dir = DirectoryInfo(sourceDir)
+  // let dir = DirectoryInfo(sourceDir)
 
-  if not dir.Exists then
-    raise (DirectoryNotFoundException("Source directory does not exist or could not be found: " + sourceDir))
+  if not sourceDir.Exists then
+    raise (DirectoryNotFoundException("Source directory does not exist or could not be found: " + sourceDir.FullName))
 
-  let dirs = dir.GetDirectories()
+  let dirs = sourceDir.GetDirectories()
 
   // If the destination directory doesn't exist, create it.
   Directory.CreateDirectory(destDir) |> ignore
 
   // Get the files in the directory and copy them to the new location.
-  dir.GetFiles()
+  sourceDir.GetFiles()
   |> Seq.iter (fun file ->
     let tempPath = Path.Combine(destDir, file.Name)
     file.CopyTo(tempPath, false) |> ignore)
@@ -79,17 +79,20 @@ let rec private copyDirectory sourceDir destDir =
   dirs
   |> Seq.iter (fun dir ->
     let tempPath = Path.Combine(destDir, dir.Name)
-    copyDirectory dir.FullName tempPath)
+    copyDirectory dir tempPath)
 
-type DisposableDirectory(directory: string) =
-  static member Create() =
-    let tempPath = IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n"))
-    printfn "Creating directory %s" tempPath
+type DisposableDirectory(directory: string, deleteParentDir) =
+  static member Create(?name: string) =
+    let tempPath, deleteParentDir =
+      match name with
+      | Some name -> IO.Path.GetTempPath() </> Guid.NewGuid().ToString("n") </> name, true
+      | None -> IO.Path.Combine(IO.Path.GetTempPath(), Guid.NewGuid().ToString("n")), false
+    // printfn "Creating directory %s" tempPath
     IO.Directory.CreateDirectory tempPath |> ignore
-    new DisposableDirectory(tempPath)
+    new DisposableDirectory(tempPath, deleteParentDir)
 
-  static member From sourceDir =
-    let self = DisposableDirectory.Create()
+  static member From(sourceDir: DirectoryInfo) =
+    let self = DisposableDirectory.Create(sourceDir.Name)
     copyDirectory sourceDir self.DirectoryInfo.FullName
     self
 
@@ -97,8 +100,27 @@ type DisposableDirectory(directory: string) =
 
   interface IDisposable with
     member x.Dispose() =
-      printfn "Deleting directory %s" x.DirectoryInfo.FullName
-      IO.Directory.Delete(x.DirectoryInfo.FullName, true)
+      let dirToDelete =
+        if deleteParentDir then
+          x.DirectoryInfo.Parent
+        else
+          x.DirectoryInfo
+
+      let mutable attempts = 25
+
+      // Handle odd cases with windows file locking
+      while attempts > 0 do
+        try
+          IO.Directory.Delete(dirToDelete.FullName, true)
+          attempts <- 0
+        with _ ->
+          attempts <- attempts - 1
+          if attempts = 0 then
+            reraise ()
+          Thread.Sleep(15)
+
+
+
 
 type Async =
   /// Behaves like AwaitObservable, but calls the specified guarding function
@@ -193,7 +215,7 @@ let record (cacher: Cacher<_>) =
     AsyncLspResult.success Unchecked.defaultof<_>
 
 
-let createAdaptiveServer workspaceLoader sourceTextFactory =
+let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompiler =
   let serverInteractions = new Cacher<_>()
   let recordNotifications = record serverInteractions
 
@@ -203,7 +225,7 @@ let createAdaptiveServer workspaceLoader sourceTextFactory =
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory)
+  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -689,7 +711,13 @@ let diagnosticsToResult =
 
 let waitForParseResultsForFile file = fileDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
-let waitForDiagnosticErrorForFile file = fileDiagnostics file >> Observable.choose (function | [||] -> None | diags -> Some diags) >> diagnosticsToResult >> Async.AwaitObservable
+let waitForDiagnosticErrorForFile file =
+  fileDiagnostics file
+  >> Observable.choose (function
+    | [||] -> None
+    | diags -> Some diags)
+  >> diagnosticsToResult
+  >> Async.AwaitObservable
 
 let waitForFsacDiagnosticsForFile file = fsacDiagnostics file >> diagnosticsToResult >> Async.AwaitObservable
 
