@@ -75,7 +75,7 @@ module AsyncResult =
 type NotificationEvent =
   | ParseError of errors: FSharpDiagnostic[] * file: string<LocalPath> * version: int
   | Workspace of ProjectSystem.ProjectResponse
-  // | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath> * version: int
+  | AnalyzerMessage of messages: FSharp.Analyzers.SDK.Message[] * file: string<LocalPath> * version: int
   | UnusedOpens of file: string<LocalPath> * opens: Range[] * version: int
   // | Lint of file: string<LocalPath> * warningsWithCodes: Lint.EnrichedLintWarning list
   | UnusedDeclarations of file: string<LocalPath> * decls: range[] * version: int

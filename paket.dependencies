@@ -16,17 +16,17 @@ nuget Fantomas.Client >= 0.9
 nuget FSharp.Compiler.Service >= 43.8.300
 nuget Ionide.Analyzers 0.10.0
 nuget FSharp.Analyzers.Build 0.3.0
-nuget Ionide.ProjInfo >= 0.64.0
-nuget Ionide.ProjInfo.FCS >= 0.64.0
-nuget Ionide.ProjInfo.ProjectSystem >= 0.64.0
-nuget Ionide.ProjInfo.Sln >= 0.64.0
+nuget Ionide.ProjInfo >= 0.65.0
+nuget Ionide.ProjInfo.FCS >= 0.65.0
+nuget Ionide.ProjInfo.ProjectSystem >= 0.65.0
+nuget Ionide.ProjInfo.Sln >= 0.65.0
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis 4.5.0
-# nuget FSharp.Analyzers.SDK # disabled because it conflicts with the floating FCS dependency
+nuget FSharp.Analyzers.SDK 0.26.0
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core
