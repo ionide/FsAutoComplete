@@ -220,10 +220,10 @@ type AdaptiveState
       [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
          yield! fsiExtraParameters |]
 
-  // let analyzersClient =
-  //   FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
-  //     Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
-  //   )
+  let analyzersClient =
+    FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
+      Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
+    )
 
   /// <summary>Loads F# Analyzers from the configured directories</summary>
   /// <param name="config">The FSharpConfig</param>
@@ -233,17 +233,17 @@ type AdaptiveState
     if config.EnableAnalyzers then
       Loggers.analyzers.info (Log.setMessageI $"Using analyzer roots of {config.AnalyzersPath:roots}")
 
-      // let excludeInclude =
-      //   match config.ExcludeAnalyzers, config.IncludeAnalyzers with
-      //   | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.ExcludeFilter(fun (s: string) -> Array.contains s e)
-      //   | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
-      //   | _e, i ->
-      //     Loggers.analyzers.warn (
-      //       Log.setMessage
-      //         "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
-      //     )
+      let excludeInclude =
+        match config.ExcludeAnalyzers, config.IncludeAnalyzers with
+        | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.ExcludeFilter(fun (s: string) -> Array.contains s e)
+        | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
+        | _e, i ->
+          Loggers.analyzers.warn (
+            Log.setMessage
+              "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
+          )
 
-      //     FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
+          FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
 
       config.AnalyzersPath
       |> Array.iter (fun analyzerPath ->
@@ -261,13 +261,12 @@ type AdaptiveState
               System.IO.Path.Combine(workspacePath, analyzerPath)
 
           Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
-      // let assemblyLoadStats = analyzersClient.LoadAnalyzers(dir, excludeInclude)
+          let assemblyLoadStats = analyzersClient.LoadAnalyzers(dir, excludeInclude)
 
-      // Loggers.analyzers.info (
-      //   Log.setMessageI
-      //     $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers"
-      // )
-      )
+          Loggers.analyzers.info (
+            Log.setMessageI
+              $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers"
+          ))
 
     else
       Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
@@ -521,22 +520,22 @@ type AdaptiveState
           )
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
-          | Some _tast ->
+          | Some tast ->
             // Since analyzers are not async, we need to switch to a new thread to not block threadpool
             do! Async.SwitchToNewThread()
 
-            // let! res =
-            //   Commands.analyzerHandler (
-            //     analyzersClient,
-            //     file,
-            //     volatileFile.Source,
-            //     parseAndCheck.GetParseResults,
-            //     tast,
-            //     parseAndCheck.GetCheckResults
-            //   )
+            let! res =
+              Commands.analyzerHandler (
+                analyzersClient,
+                file,
+                volatileFile.Source,
+                parseAndCheck.GetParseResults,
+                tast,
+                parseAndCheck.GetCheckResults
+              )
 
-            let! _ct = Async.CancellationToken
-            // notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
+            let! ct = Async.CancellationToken
+            notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
 
             Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
 
@@ -713,46 +712,46 @@ type AdaptiveState
             let ntf: PlainNotification = { Content = msg }
 
             do! lspClient.NotifyCancelledRequest ntf
-          // | NotificationEvent.AnalyzerMessage(messages, file, version) ->
-          //   let uri = Path.LocalPathToUri file
+          | NotificationEvent.AnalyzerMessage(messages, file, version) ->
+            let uri = Path.LocalPathToUri file
 
-          //   match messages with
-          //   | [||] -> diagnosticCollections.SetFor(uri, "F# Analyzers", version, [||])
-          //   | messages ->
-          //     let diags =
-          //       messages
-          //       |> Array.map (fun m ->
-          //         let range = fcsRangeToLsp m.Range
+            match messages with
+            | [||] -> diagnosticCollections.SetFor(uri, "F# Analyzers", version, [||])
+            | messages ->
+              let diags =
+                messages
+                |> Array.map (fun m ->
+                  let range = fcsRangeToLsp m.Range
 
-          //         let severity = DiagnosticSeverity.Hint
-          //         // match m.Severity with
-          //         // | FSharp.Analyzers.SDK.Severity.Hint -> DiagnosticSeverity.Hint
-          //         // | FSharp.Analyzers.SDK.Severity.Info -> DiagnosticSeverity.Information
-          //         // | FSharp.Analyzers.SDK.Severity.Warning -> DiagnosticSeverity.Warning
-          //         // | FSharp.Analyzers.SDK.Severity.Error -> DiagnosticSeverity.Error
+                  let severity =
+                    match m.Severity with
+                    | FSharp.Analyzers.SDK.Severity.Hint -> DiagnosticSeverity.Hint
+                    | FSharp.Analyzers.SDK.Severity.Info -> DiagnosticSeverity.Information
+                    | FSharp.Analyzers.SDK.Severity.Warning -> DiagnosticSeverity.Warning
+                    | FSharp.Analyzers.SDK.Severity.Error -> DiagnosticSeverity.Error
 
-          //         let fixes =
-          //           match m.Fixes with
-          //           | [] -> None
-          //           | fixes ->
-          //             fixes
-          //             |> List.map (fun fix ->
-          //               { Range = fcsRangeToLsp fix.FromRange
-          //                 NewText = fix.ToText })
-          //             |> Ionide.LanguageServerProtocol.Server.serialize
-          //             |> Some
+                  let fixes =
+                    match m.Fixes with
+                    | [] -> None
+                    | fixes ->
+                      fixes
+                      |> List.map (fun fix ->
+                        { Range = fcsRangeToLsp fix.FromRange
+                          NewText = fix.ToText })
+                      |> Ionide.LanguageServerProtocol.Server.serialize
+                      |> Some
 
-          //         { Range = range
-          //           Code = Option.ofObj m.Code
-          //           Severity = Some severity
-          //           Source = Some $"F# Analyzers (%s{m.Type})"
-          //           Message = m.Message
-          //           RelatedInformation = None
-          //           Tags = None
-          //           CodeDescription = None
-          //           Data = fixes })
+                  { Range = range
+                    Code = Option.ofObj m.Code
+                    Severity = Some severity
+                    Source = Some $"F# Analyzers (%s{m.Type})"
+                    Message = m.Message
+                    RelatedInformation = None
+                    Tags = None
+                    CodeDescription = None
+                    Data = fixes })
 
-          //     diagnosticCollections.SetFor(uri, "F# Analyzers", version, diags)
+              diagnosticCollections.SetFor(uri, "F# Analyzers", version, diags)
           | NotificationEvent.TestDetected(file, tests) ->
             let rec map
               (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>)
