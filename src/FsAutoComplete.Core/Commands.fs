@@ -14,7 +14,7 @@ open FSharp.Compiler.Text
 open Ionide.ProjInfo
 open Ionide.ProjInfo.ProjectSystem
 open FsToolkit.ErrorHandling
-// open FSharp.Analyzers
+open FSharp.Analyzers
 open FSharp.UMX
 open FSharp.Compiler.Tokenization
 open SymbolLocation
@@ -1137,59 +1137,59 @@ module Commands =
 
 
 
-// let analyzerHandler
-//   (
-//     client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
-//     file: string<LocalPath>,
-//     content: ISourceText,
-//     pt,
-//     tast,
-//     checkFileResults: FSharpCheckFileResults
-//   ) =
-//   let ctx: SDK.EditorContext =
-//     { FileName = UMX.untag file
-//       SourceText = content
-//       ParseFileResults = pt
-//       CheckFileResults = Some checkFileResults
-//       TypedTree = Some tast
-//       CheckProjectResults = None }
+  let analyzerHandler
+    (
+      client: SDK.Client<SDK.EditorAnalyzerAttribute, SDK.EditorContext>,
+      file: string<LocalPath>,
+      content: ISourceText,
+      pt,
+      tast,
+      checkFileResults: FSharpCheckFileResults
+    ) =
+    let ctx: SDK.EditorContext =
+      { FileName = UMX.untag file
+        SourceText = content
+        ParseFileResults = pt
+        CheckFileResults = Some checkFileResults
+        TypedTree = Some tast
+        CheckProjectResults = None }
 
-//   let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
-//     match r.Output with
-//     | Ok results ->
-//       Loggers.analyzers.info (
-//         Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
-//         >> Log.addContextDestructured "analyzer" r.AnalyzerName
-//         >> Log.addContextDestructured "count" results.Length
-//         >> Log.addContextDestructured "file" (UMX.untag file)
-//       )
+    let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
+      match r.Output with
+      | Ok results ->
+        Loggers.analyzers.info (
+          Log.setMessage "Analyzer {analyzer} returned {count} diagnostics for file {file}"
+          >> Log.addContextDestructured "analyzer" r.AnalyzerName
+          >> Log.addContextDestructured "count" results.Length
+          >> Log.addContextDestructured "file" (UMX.untag file)
+        )
 
-//       results
-//     | Error e ->
-//       Loggers.analyzers.error (
-//         Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
-//         >> Log.addContextDestructured "analyzer" r.AnalyzerName
-//         >> Log.addContextDestructured "file" (UMX.untag file)
-//         >> Log.addContextDestructured "message" e.Message
-//         >> Log.addExn e
-//       )
+        results
+      | Error e ->
+        Loggers.analyzers.error (
+          Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
+          >> Log.addContextDestructured "analyzer" r.AnalyzerName
+          >> Log.addContextDestructured "file" (UMX.untag file)
+          >> Log.addContextDestructured "message" e.Message
+          >> Log.addExn e
+        )
 
-//       []
+        []
 
-//   async {
-//     try
-//       let! r = client.RunAnalyzersSafely ctx
-//       return r |> List.collect extractResultsFromAnalyzer |> List.toArray
-//     with ex ->
-//       Loggers.analyzers.error (
-//         Log.setMessage "Error while processing analyzers for {file}: {message}"
-//         >> Log.addContextDestructured "message" ex.Message
-//         >> Log.addExn ex
-//         >> Log.addContextDestructured "file" file
-//       )
+    async {
+      try
+        let! r = client.RunAnalyzersSafely ctx
+        return r |> List.collect extractResultsFromAnalyzer |> List.toArray
+      with ex ->
+        Loggers.analyzers.error (
+          Log.setMessage "Error while processing analyzers for {file}: {message}"
+          >> Log.addContextDestructured "message" ex.Message
+          >> Log.addExn ex
+          >> Log.addContextDestructured "file" file
+        )
 
-//       return [||]
-//   }
+        return [||]
+    }
 
 type Commands() =
 

@@ -520,22 +520,22 @@ type AdaptiveState
           )
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
-          | Some _tast ->
+          | Some tast ->
             // Since analyzers are not async, we need to switch to a new thread to not block threadpool
             do! Async.SwitchToNewThread()
 
-            // let! res =
-            //   Commands.analyzerHandler (
-            //     analyzersClient,
-            //     file,
-            //     volatileFile.Source,
-            //     parseAndCheck.GetParseResults,
-            //     tast,
-            //     parseAndCheck.GetCheckResults
-            //   )
+            let! res =
+              Commands.analyzerHandler (
+                analyzersClient,
+                file,
+                volatileFile.Source,
+                parseAndCheck.GetParseResults,
+                tast,
+                parseAndCheck.GetCheckResults
+              )
 
-            let! _ct = Async.CancellationToken
-            // notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
+            let! ct = Async.CancellationToken
+            notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
 
             Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
 
