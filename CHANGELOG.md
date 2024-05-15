@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.73.0] - 2024-05-15
+
+### Added
+
+* [OpenTelemetry Metrics for FSAC itself](https://github.com/ionide/FsAutoComplete/pull/1281)
+* [Support the new Transparent Compiler available in the FSharp Compiler Services](https://github.com/ionide/FsAutoComplete/pull/1240) (thanks @TheAngryByrd!)
+  * This new analysis mode can be enabled by using the `--use-fcs-transparent-compiler` command line option when launching FSAC. It is snapshot-based and should be faster than the previous APIs, but may be unstable and may [use more memory](https://github.com/dotnet/fsharp/issues/16979). As a result, it is still in an experimental mode and must be opted-in to.
+* New Codefixes:
+  * [Converts a classic lambda expression to F# 8's new Dot-Lambda syntax](https://github.com/ionide/fsautocomplete/pull/1251) (thanks @nojaf!)
+  * [Converts F# 8's new Dot-Lambda syntax to a classic lambda expression](https://github.com/ionide/fsautocomplete/pull/1264) (thanks @Tangent-90!)
+  * [Ignore an expression](https://github.com/ionide/FsAutoComplete/pull/1253) (thanks @nojaf!)
+  * [Add a binding in a source file to the matching signature file](https://github.com/ionide/FsAutoComplete/pull/1249) (thanks @nojaf!)
+  * [Update a type definition in a source file to the matching definition in a signature file](https://github.com/ionide/FsAutoComplete/pull/1244) (thanks @nojaf!)
+  * [Add a type alias in a source file to the matching signature file](https://github.com/ionide/FsAutoComplete/pull/1243) (thanks @nojaf!)
+
+### Changed
+
+* [The "Separate digits by groups" code action now can group numbers into groups of 4, not just 3](https://github.com/ionide/fsautocomplete/pull/1262) (thanks @Tangent-90!)
+* [Fixes for the "Remove Unnecessary Parentheses" code fix](https://github.com/ionide/FsAutoComplete/pull/1286) (thanks @brianrourkeboll!)
+* [Fixes for when the "Generate Xml Documentation" code action is available](https://github.com/ionide/FsAutoComplete/pull/1292) (thanks @dawedawe!)
+
 ## [0.72.3] - 2024-05-05
 
 ### Added
