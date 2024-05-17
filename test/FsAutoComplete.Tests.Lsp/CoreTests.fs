@@ -377,9 +377,9 @@ let tooltipTests state =
             28
             (concatLines
               [ "static member Start:"
-                "   body             : (MailboxProcessor<string> -> Async<unit>) *"
-                "   cancellationToken: option<System.Threading.CancellationToken>"
-                "                   -> MailboxProcessor<string>" ])
+                "   body              : (MailboxProcessor<string> -> Async<unit>) *"
+                "   ?cancellationToken: System.Threading.CancellationToken"
+                "                    -> MailboxProcessor<string>" ])
           verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool"
           verifySignature
             60
