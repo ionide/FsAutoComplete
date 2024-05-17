@@ -294,7 +294,7 @@ module SignatureFormatter =
         if p.Type.IsFunctionType then
           $"({formatted})"
         else if p.IsOptionalArg && formatted.StartsWith("option<", StringComparison.Ordinal) then // render optional args as "?ident: type"
-          formatted.Substring(7).TrimEnd('>')
+          formatted.AsSpan(7, formatted.Length - 8).ToString()
         else
           formatted
       with :? InvalidOperationException ->
