@@ -308,7 +308,7 @@ let tooltipTests state =
               ""
               "**Generic Parameters**"
               ""
-              "* `'T` is `string`" ] // verify fancy descriptions for external library functions
+              "* `'T` is `System.String`" ] // verify fancy descriptions for external library functions and correct backticks for multiple segments
           verifyDescription
             13
             11
