@@ -263,7 +263,9 @@ module SignatureFormatter =
     let safeParameterName (p: FSharpParameter) =
       match Option.defaultValue p.DisplayNameCore p.Name with
       | "" -> ""
-      | name -> FSharpKeywords.NormalizeIdentifierBackticks name
+      | name ->
+        let n = FSharpKeywords.NormalizeIdentifierBackticks name
+        if p.IsOptionalArg then "?" + n else n // render optional args as "?ident: type"
 
     let padLength =
       let allLengths =
@@ -291,6 +293,8 @@ module SignatureFormatter =
 
         if p.Type.IsFunctionType then
           $"({formatted})"
+        else if p.IsOptionalArg && formatted.StartsWith("option<", StringComparison.Ordinal) then // render optional args as "?ident: type"
+          formatted.AsSpan(7, formatted.Length - 8).ToString()
         else
           formatted
       with :? InvalidOperationException ->
