@@ -284,6 +284,41 @@ type AdaptiveFSharpLspServer
 
     Helpers.ignoreNotification
 
+  ///<summary>
+  /// Transform a config DTO to use (old FSIExtraParameters) xor (new FSIExtraInteractiveParameters and FSIExtraSharedParameters).
+  ///</summary>
+  ///<remarks>
+  /// We expect to eventually deprecate FSIExtraParameters in favor of the two
+  /// new, specialized versions. For now, mimic old behavior either silently
+  /// or loudly, depending on the client's combination of config options. This
+  /// method and the consumption of it can be removed after deprecation.
+  ///</remarks>
+  static member private oldOrNewExtraParams(dto: FSharpConfigDto) =
+    match dto.FSIExtraParameters, dto.FSIExtraInteractiveParameters, dto.FSIExtraSharedParameters with
+    // old-style, silent success; start warning when we plan to
+    // deprecate
+    | Some p, None, None ->
+      let c =
+        { dto with
+            FSIExtraSharedParameters = Some p }
+
+      None, c
+    // mix old and new, warn and mimic old behavior
+    | Some p, Some _, _
+    | Some p, _, Some _ ->
+      let m =
+        { Type = MessageType.Warning
+          Message =
+            "Do not mix usage of FSIExtraParameters and (FSIExtraInteractiveParameters or FSIExtraSharedParameters)." }
+
+      let c =
+        { dto with
+            FSIExtraSharedParameters = Some p }
+
+      Some m, c
+    // no old parameter, proceed happily
+    | None, _, _ -> None, dto
+
   interface IFSharpLspServer with
     override x.Shutdown() = (x :> System.IDisposable).Dispose() |> async.Return
 
@@ -295,10 +330,19 @@ type AdaptiveFSharpLspServer
         try
           logger.info (Log.setMessage "Initialize Request {p}" >> Log.addContextDestructured "p" p)
 
-          let c =
+          let configMessage =
             p.InitializationOptions
             |> Option.bind (fun options -> if options.HasValues then Some options else None)
             |> Option.map Server.deserialize<FSharpConfigDto>
+            |> Option.map AdaptiveFSharpLspServer.oldOrNewExtraParams
+
+          match Option.bind fst configMessage with
+          | Some message -> do! lspClient.WindowShowMessage message
+          | None -> ()
+
+          let c =
+            configMessage
+            |> Option.map snd
             |> Option.map FSharpConfig.FromDto
             |> Option.defaultValue FSharpConfig.Default
 
@@ -1684,9 +1728,18 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-          let dto = p.Settings |> Server.deserialize<FSharpConfigRequest>
+          let dto =
+            p.Settings
+            |> Server.deserialize<FSharpConfigRequest>
+            |> (fun f -> f.FSharp)
+            |> Option.map AdaptiveFSharpLspServer.oldOrNewExtraParams
 
-          dto.FSharp
+          match Option.bind fst dto with
+          | Some message -> do! lspClient.WindowShowMessage message
+          | None -> ()
+
+          dto
+          |> Option.map snd
           |> Option.iter (fun fsharpConfig ->
             let c = state.Config
             let c = c.AddDto fsharpConfig

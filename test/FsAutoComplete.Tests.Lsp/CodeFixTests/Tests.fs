@@ -2333,7 +2333,7 @@ let private removeUnnecessaryReturnOrYieldTests state =
 let private removeUnusedBindingTests state =
   let config =
     { defaultConfigDto with
-        FSIExtraParameters = Some [| "--warnon:1182" |] }
+        FSIExtraSharedParameters = Some [| "--warnon:1182" |] }
 
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server ->
     [ let selectRemoveUnusedBinding = CodeFix.withTitle RemoveUnusedBinding.titleBinding

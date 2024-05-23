@@ -307,7 +307,7 @@ type AdaptiveState
     |> Observable.subscribe (fun (config, checker, rootPath) ->
       toggleTraceNotification config.Notifications.Trace config.Notifications.TraceNamespaces
 
-      setFSIArgs checker config.FSICompilerToolLocations config.FSIExtraParameters
+      setFSIArgs checker config.FSICompilerToolLocations config.FSIExtraSharedParameters
 
       loadAnalyzers config rootPath
 
