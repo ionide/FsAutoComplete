@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.73.1] - 2024-05-23
+
+### Added
+
+* [New, explicit FSI settings for editor analysis and FSI invocation](https://github.com/ionide/FsAutoComplete/pull/1299)
+  * Before, `FSharp.FSIExtraParameters` was used for both script analysis in the LSP as well as launching FSI instances in editors. Some FSI options are only intended to be used for direct FSI invocation (see [docs](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/fsharp-interactive-options) for more details) and so break editor analysis. We've introduced two settings to separate these concerns. If the old setting is provided along either of the new options, the old setting will be used but a warning message will be shown in the editor.
+    * `FSharp.FSIExtraInteractiveParameters` is now used for launching FSI instances in editors
+    * `FSharp.FSIExtraSharedParameters` is used for editor analysis
+  * An editor should concatenate these together when launching an FSI instance. In a future release, we will be deprecating/removing the `FSharp.FSIExtraParameters` setting.
+
+### Changed
+
+* [Tooltips now render generic type parameters with multiple parts correctly](https://github.com/ionide/FsAutoComplete/pull/1298) (thanks @dawedawe!)
+* [Tooltips now render optional args as `?name: type` instead of `name: option<type>`](https://github.com/ionide/fsautocomplete/pull/1297) (thanks @dawedawe!)
+
 ## [0.73.0] - 2024-05-15
 
 ### Added
