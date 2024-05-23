@@ -263,6 +263,7 @@ let defaultConfigDto: FSharpConfigDto =
     LineLens = None
     UseSdkScripts = Some true
     DotNetRoot = None
+    FSIExtraParameters = None
     FSIExtraInteractiveParameters = None
     FSIExtraSharedParameters = None
     FSICompilerToolLocations = None

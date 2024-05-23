@@ -673,6 +673,7 @@ type FSharpConfigDto =
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
+    FSIExtraParameters: string array option
     FSIExtraInteractiveParameters: string array option
     FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
@@ -816,6 +817,9 @@ type FSharpConfig =
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
+    // old, combines both shared and interactive. To be deprecated. Either use
+    // only this one, or some combination of the new ones.
+    FSIExtraParameters: string array
     // for parameters only used in interactive FSI sessions; currently unused
     FSIExtraInteractiveParameters: string array
     // for parameters used both in the compiler and interactive FSI
@@ -868,6 +872,7 @@ type FSharpConfig =
       LineLens = { Enabled = "never"; Prefix = "" }
       UseSdkScripts = true
       DotNetRoot = Environment.dotnetSDKRoot.Value.FullName
+      FSIExtraParameters = [||]
       FSIExtraInteractiveParameters = [||]
       FSIExtraSharedParameters = [||]
       FSICompilerToolLocations = [||]
@@ -925,6 +930,7 @@ type FSharpConfig =
         dto.DotNetRoot
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue Environment.dotnetSDKRoot.Value.FullName
+      FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
       FSIExtraInteractiveParameters =
         defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
@@ -1036,6 +1042,7 @@ type FSharpConfig =
         dto.DotNetRoot
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue FSharpConfig.Default.DotNetRoot
+      FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
       FSIExtraInteractiveParameters =
         defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
