@@ -199,10 +199,12 @@ Options that should be send as `initializationOptions` as part of `initialize` r
 * `FSharp.ResolveNamespaces` - enables resolve namespace quick fix (add `open` if symbol is from not yet opened module/namespace), recommended default value: `true`
 * `FSharp.EnableReferenceCodeLens` - enables reference count code lenses, recommended default value: `true` if `--background-service-enabled` is used by default, `false` otherwise
 * `FSharp.dotNetRoot` - sets the root path for finding dotnet SDK references. Primarily used for FSX Scripts. Default value: operating-system dependent. On windows, `C:\Program Files\dotnet`; on Unix, `/usr/local/share/dotnet`
-* `FSharp.fsiExtraParameters` - an array of additional runtime arguments that are passed to FSI. These are used when typechecking scripts to ensure that typechecking has the same context as your FSI instances.  An example would be to set the following parameters to enable Preview features (like opening static classes) for typechecking.
+* `FSharp.fsiExtraInteractiveParameters` - currently unused by FSAC, but available to editor plugins for interactive `dotnet fsi` parameters that are not shared by the compiler. Future intentions are to manage the interpreter from FSAC, at which point FSAC will utilize this parameter. [Check this reference for parameters that are interactive-only or shared with the compiler](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/fsharp-interactive-options).
+* `FSharp.fsiExtraParameters` - an array of additional runtime arguments that are passed to FSI; specifically parameters that are shared with the compiler. These are used when typechecking scripts to ensure that typechecking has the same context as your FSI instances.  An example would be to set the following parameters to enable Preview features (like opening static classes) for typechecking. [Check this reference for parameters that are interactive-only or shared with the compiler](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/fsharp-interactive-options).
 
     ```json
-        "FSharp.fsiExtraParameters": ["--langversion:preview"]
+        "FSharp.fsiExtraSharedParameters": ["--langversion:preview"]
+        "FSharp.fsiExtraInteractiveParameters": ["--readline-"]
     ```
 
 #### Debug Settings

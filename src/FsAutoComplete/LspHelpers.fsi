@@ -301,7 +301,8 @@ type FSharpConfigDto =
     LineLens: LineLensConfig option
     UseSdkScripts: bool option
     DotNetRoot: string option
-    FSIExtraParameters: string array option
+    FSIExtraInteractiveParameters: string array option
+    FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
     TooltipMode: string option
     GenerateBinlog: bool option
@@ -402,7 +403,8 @@ type FSharpConfig =
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
-    FSIExtraParameters: string array
+    FSIExtraInteractiveParameters: string array
+    FSIExtraSharedParameters: string array
     FSICompilerToolLocations: string array
     TooltipMode: string
     GenerateBinlog: bool

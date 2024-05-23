@@ -24,7 +24,7 @@ let scriptPreviewTests state =
         serverInitialize
           path
           { defaultConfigDto with
-              FSIExtraParameters = Some [| "--langversion:preview" |] }
+              FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
           state
 
       do! waitForWorkspaceFinishedParsing events
@@ -81,7 +81,7 @@ let scriptEvictionTests state =
                   { FSharp =
                       Some
                         { defaultConfigDto with
-                            FSIExtraParameters = Some [| "--nowarn:760" |] } }
+                            FSIExtraSharedParameters = Some [| "--nowarn:760" |] } }
 
                 { Settings = Server.serialize config }
 
@@ -115,7 +115,7 @@ let dependencyManagerTests state =
 
       let dependencyManagerEnabledConfig =
         { defaultConfigDto with
-            FSIExtraParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig state
       do! waitForWorkspaceFinishedParsing events
@@ -165,7 +165,7 @@ let scriptProjectOptionsCacheTests state =
 
       let previewEnabledConfig =
         { defaultConfigDto with
-            FSIExtraParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()

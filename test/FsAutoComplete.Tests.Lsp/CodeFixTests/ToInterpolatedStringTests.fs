@@ -1,4 +1,4 @@
-﻿module private FsAutoComplete.Tests.CodeFixTests.ToInterpolatedStringTests
+module private FsAutoComplete.Tests.CodeFixTests.ToInterpolatedStringTests
 
 open Expecto
 open Helpers
@@ -9,7 +9,7 @@ open FsAutoComplete.FCSPatches
 
 let langVersion60Config =
   { defaultConfigDto with
-      FSIExtraParameters = Some [| "--langversion:6.0" |] }
+      FSIExtraSharedParameters = Some [| "--langversion:6.0" |] }
 
 let tests state =
   serverTestList (nameof ToInterpolatedString) state langVersion60Config None (fun server ->
@@ -356,7 +356,7 @@ let tests state =
 
 let langVersion47Config =
   { defaultConfigDto with
-      FSIExtraParameters = Some [| "--langversion:4.7" |] }
+      FSIExtraSharedParameters = Some [| "--langversion:4.7" |] }
 
 let unavailableTests state =
   serverTestList $"unavailable {(nameof ToInterpolatedString)}" state langVersion47Config None (fun server ->
