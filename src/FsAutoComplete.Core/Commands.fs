@@ -699,7 +699,7 @@ module Commands =
             // this only happens when there are no other `open`
 
             // from insert position go up until first open OR namespace
-            ic.Pos.LinesToBeginning()
+            ic.Pos.IncLine().LinesToBeginning()
             |> Seq.tryFind (fun l ->
               let lineStr = getLine l
               // namespace MUST be top level -> no indentation
