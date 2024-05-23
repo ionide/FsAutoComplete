@@ -925,7 +925,8 @@ type FSharpConfig =
         dto.DotNetRoot
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue Environment.dotnetSDKRoot.Value.FullName
-      FSIExtraInteractiveParameters = defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
+      FSIExtraInteractiveParameters =
+        defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode "full"
@@ -1035,7 +1036,8 @@ type FSharpConfig =
         dto.DotNetRoot
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue FSharpConfig.Default.DotNetRoot
-      FSIExtraInteractiveParameters = defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
+      FSIExtraInteractiveParameters =
+        defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
