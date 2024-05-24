@@ -306,7 +306,7 @@ type AdaptiveFSharpLspServer
     // mix old and new, warn and mimic old behavior
     | Some p, Some _, _
     | Some p, _, Some _ ->
-      let m =
+      let m: ShowMessageParams =
         { Type = MessageType.Warning
           Message =
             "Do not mix usage of FSIExtraParameters and (FSIExtraInteractiveParameters or FSIExtraSharedParameters)." }
@@ -876,7 +876,7 @@ type AdaptiveFSharpLspServer
                 let parameters =
                   m.Parameters
                   |> Array.map (fun p ->
-                    { ParameterInformation.Label = U2.First p.ParameterName
+                    { ParameterInformation.Label = U2.C1 p.ParameterName
                       Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
 
                 let d = Documentation.Markup(markdown comment)
@@ -1290,7 +1290,7 @@ type AdaptiveFSharpLspServer
             decls
             |> Array.collect (fun top ->
               getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
-            |> U2.First
+            |> U2.C1
             |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -1327,7 +1327,7 @@ type AdaptiveFSharpLspServer
               ns
               |> Array.collect (fun n ->
                 getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
-            |> U2.First
+            |> U2.C1
             |> Some
 
           return res
@@ -1499,7 +1499,7 @@ type AdaptiveFSharpLspServer
               |> List.map (CodeAction.OfFix tryGetFileVersion clientCapabilities)
               |> Async.parallel75
 
-            return Some(fixes |> Array.map U2.Second)
+            return Some(fixes |> Array.map U2.C2)
         with e ->
           trace |> Tracing.recordException e
 
@@ -2338,16 +2338,19 @@ type AdaptiveFSharpLspServer
                    InsertText = text } ->
 
             let edit: ApplyWorkspaceEditParams =
+              let doc: OptionalVersionedTextDocumentIdentifier =
+                { Uri = p.TextDocument.Uri
+                  Version = Some p.TextDocument.Version }
+
+              let edits =
+                [| U2.C1
+                     { Range = fcsPosToProtocolRange insertPos
+                       NewText = text } |]
+
               { Label = Some "Generate Xml Documentation"
                 Edit =
-                  { DocumentChanges =
-                      Some
-                        [| { TextDocument =
-                               { Uri = p.TextDocument.Uri
-                                 Version = Some p.TextDocument.Version }
-                             Edits =
-                               [| { Range = fcsPosToProtocolRange insertPos
-                                    NewText = text } |] } |]
+                  { DocumentChanges = Some [| U4.C1({ TextDocument = doc; Edits = edits }: TextDocumentEdit) |]
+                    ChangeAnnotations = None
                     Changes = None } }
 
             let! _ = lspClient.WorkspaceApplyEdit edit

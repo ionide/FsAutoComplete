@@ -122,7 +122,7 @@ type IFSACSourceText =
   /// Provides safe access to a line of the file via FCS-provided Position
   abstract member GetLine: position: Position -> option<string>
   /// Provide safe access to the length of a line of the file via FCS-provided Position
-  abstract member GetLineLength: position: Position -> option<int>
+  abstract member GetLineLength: position: Position -> option<uint32>
   abstract member GetCharUnsafe: position: Position -> char
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
@@ -262,11 +262,11 @@ module RoslynSourceText =
         else
           Some((x :> ISourceText).GetLineString(pos.Line - 1))
 
-      member x.GetLineLength(pos: Position) : int option =
+      member x.GetLineLength(pos: Position) : uint32 option =
         if pos.Line > totalLinesLength () then
           None
         else
-          Some((x :> ISourceText).GetLineString(pos.Line - 1).Length)
+          Some(uint32 ((x :> ISourceText).GetLineString(pos.Line - 1).Length))
 
       member x.GetCharUnsafe(pos: Position) : char = (x :> IFSACSourceText).GetLine(pos).Value[pos.Column - 1]
 
@@ -331,7 +331,7 @@ module RoslynSourceText =
           let! np = (x :> IFSACSourceText).PrevPos pos
           let! prevLineLength = (x :> IFSACSourceText).GetLineLength(np)
 
-          if np.Column < 1 || prevLineLength < np.Column then
+          if np.Column < 1 || prevLineLength < uint32 np.Column then
             return! (x :> IFSACSourceText).TryGetPrevChar(np)
           else
             return np, (x :> IFSACSourceText).GetCharUnsafe np

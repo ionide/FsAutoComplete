@@ -82,6 +82,7 @@ type Int =
 
 type Offset = int
 
+
 /// Range inside a **single** line inside a source text.
 ///
 /// Invariant: `Start.Line = End.Line` (-> `Range.inSingleLine`)
@@ -120,23 +121,25 @@ type ORange =
   member inline r.ToRangeFrom(pos: Position) : Range =
     { Start =
         { Line = pos.Line
-          Character = pos.Character + r.Start }
+          Character = uint32 (int pos.Character + r.Start) }
       End =
         { Line = pos.Line
-          Character = pos.Character + r.End } }
+          Character = uint32 (int pos.Character + r.End) } }
 
   member inline r.ToRangeInside(range: Range) : Range =
     assert (Range.inSingleLine range)
-    assert (r.Length <= range.Length)
+    assert (r.Length <= int range.Length)
     r.ToRangeFrom(range.Start)
 
   member inline r.ShiftBy(d: Offset) = { Start = r.Start + d; End = r.End + d }
+  member inline r.ShiftBy(d: uint32) = r.ShiftBy(int d)
+
   /// Note: doesn't care about `Line`, only `Character`
   member inline private r.ShiftToStartOf(pos: Position) : ORange = r.ShiftBy(pos.Character)
 
   member inline private r.ShiftInside(range: Range) : ORange =
     assert (Range.inSingleLine range)
-    assert (r.Length <= range.Length)
+    assert (r.Length <= int range.Length)
     r.ShiftToStartOf(range.Start)
 
   member inline r.SpanIn(str: String) = str.AsSpan(r.Start, r.Length)
@@ -152,7 +155,7 @@ type ORange =
   /// Assumes: `range` is inside single line
   static member inline CoverAllOf(range: Range) =
     assert (Range.inSingleLine range)
-    { Start = 0; End = range.Length }
+    { Start = 0; End = int range.Length }
 
   static member inline CoverAllOf(text: ReadOnlySpan<_>) = { Start = 0; End = text.Length }
 
@@ -177,11 +180,11 @@ module ORange =
   ///
   /// Note: Tuple instead of `ValueTuple` (`struct`) for better inlining.
   ///       Check when used: Tuple should not actually be created!
-  let inline splitFront length (range: ORange) =
+  let inline splitFront (length: uint32) (range: ORange) =
     ({ range with
-        End = range.Start + length },
+        End = range.Start + int length },
      { range with
-         Start = range.Start + length })
+         Start = range.Start + int length })
 
   /// Split `range` after `length` counting from the back.
   ///
@@ -214,12 +217,15 @@ module ORange =
 type Extensions() =
   /// Returns `-1` if no matching element
   [<Extension>]
-  static member inline TryFindIndex(span: ReadOnlySpan<_>, [<InlineIfLambda>] f) =
-    let mutable idx = -1
+  static member inline TryFindIndex(span: ReadOnlySpan<_>, [<InlineIfLambda>] f) : uint32 voption =
+    let mutable idx = ValueNone
     let mutable i = 0
 
-    while idx < 0 && i < span.Length do
-      if f (span[i]) then idx <- i else i <- i + 1
+    while idx = ValueNone && i < span.Length do
+      if f (span[i]) then
+        idx <- ValueSome(uint32 i)
+      else
+        i <- i + 1
 
     idx
 
@@ -239,10 +245,9 @@ module Parse =
     let text = range.SpanIn text
     let i = text.TryFindIndex(f)
 
-    if i < 0 then
-      range, range.EmptyAtEnd
-    else
-      range |> ORange.splitFront i
+    match i with
+    | ValueNone -> range, range.EmptyAtEnd
+    | ValueSome idx -> range |> ORange.splitFront idx
 
   let inline while' (text: ReadOnlySpan<char>, range: ORange, [<InlineIfLambda>] f) =
     until (text, range, (fun c -> not (f c)))
@@ -251,7 +256,7 @@ module Parse =
     let text = range.SpanIn text
 
     if text.IsEmpty then range.EmptyAtStart, range
-    elif f text[0] then range |> ORange.splitFront 1
+    elif f text[0] then range |> ORange.splitFront 1u
     else range.EmptyAtStart, range
 
 /// Helper functions to splat tuples. With inlining: prevent tuple creation
@@ -352,9 +357,9 @@ module Sign =
     if text.IsEmpty then
       Positive, range.EmptyAtStart, range
     elif text[0] = '-' then
-      Tuple.splatR Negative (range |> ORange.splitFront 1)
+      Tuple.splatR Negative (range |> ORange.splitFront 1u)
     elif text[0] = '+' then
-      Tuple.splatR Positive (range |> ORange.splitFront 1)
+      Tuple.splatR Positive (range |> ORange.splitFront 1u)
     else
       Positive, range.EmptyAtStart, range
 
@@ -378,11 +383,11 @@ module Base =
     if text.Length > 2 && text[0] = '0' then
       match text[1] with
       | 'x'
-      | 'X' -> Tuple.splatR Base.Hexadecimal (range |> ORange.splitFront 2)
+      | 'X' -> Tuple.splatR Base.Hexadecimal (range |> ORange.splitFront 2u)
       | 'o'
-      | 'O' -> Tuple.splatR Base.Octal (range |> ORange.splitFront 2)
+      | 'O' -> Tuple.splatR Base.Octal (range |> ORange.splitFront 2u)
       | 'b'
-      | 'B' -> Tuple.splatR Base.Binary (range |> ORange.splitFront 2)
+      | 'B' -> Tuple.splatR Base.Binary (range |> ORange.splitFront 2u)
       | _ -> Base.Decimal, range.EmptyAtStart, range
     else
       Base.Decimal, range.EmptyAtStart, range
@@ -700,8 +705,8 @@ module CommonFixes =
     if
       (replacement.StartsWith("-", StringComparison.Ordinal)
        || replacement.StartsWith("+", StringComparison.Ordinal))
-      && range.Start.Character > 0
-      && "!$%&*+-./<=>?@^|~".Contains(lineStr[range.Start.Character - 1])
+      && range.Start.Character <> 0u
+      && "!$%&*+-./<=>?@^|~".Contains(lineStr[int (range.Start.Character - 1u)])
     then
       " " + replacement
     else

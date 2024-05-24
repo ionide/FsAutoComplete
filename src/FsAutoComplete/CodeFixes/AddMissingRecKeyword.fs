@@ -42,9 +42,7 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
         let! line =
           getLineText
             lines
-            { Start =
-                { diagnostic.Range.Start with
-                    Character = 0 }
+            { Start = diagnostic.Range.Start.StartOfLine()
               End =
                 { diagnostic.Range.End with
                     Character = lineLen } }

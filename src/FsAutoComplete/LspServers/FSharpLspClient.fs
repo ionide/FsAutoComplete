@@ -36,7 +36,8 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   override __.WorkspaceConfiguration(p) = sendServerRequest.Send "workspace/configuration" (box p)
 
-  override __.WorkspaceApplyEdit(p) = sendServerRequest.Send "workspace/applyEdit" (box p)
+  override __.WorkspaceApplyEdit(p: ApplyWorkspaceEditParams) : AsyncLspResult<ApplyWorkspaceEditResult> =
+    sendServerRequest.Send "workspace/applyEdit" (box p)
 
   override __.WorkspaceSemanticTokensRefresh() =
     sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
@@ -71,17 +72,17 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   override x.WorkDoneProgressCreate(token) =
     match x.ClientCapabilities with
-    | Some { Window = Some { workDoneProgress = Some true } } ->
-      let progressCreate: WorkDoneProgressCreateParams = { token = token }
+    | Some { Window = Some { WorkDoneProgress = Some true } } ->
+      let progressCreate: WorkDoneProgressCreateParams = { Token = token }
       sendServerRequest.Send "window/workDoneProgress/create" (box progressCreate)
     | _ -> async { return Error(JsonRpc.Error.InternalErrorMessage "workDoneProgress is disabled") }
 
   override x.Progress(token, value) =
-    let progress: ProgressParams<_> = { token = token; value = value }
+    let progress: ProgressParams =
+      { Token = token
+        Value = Newtonsoft.Json.Linq.JToken.FromObject value }
+
     sendServerNotification "$/progress" (box progress) |> Async.Ignore
-
-
-
 
 type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?cancellableDefault: bool) =
 
@@ -91,7 +92,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
   let locker = new SemaphoreSlim(1, 1)
   let cts = new CancellationTokenSource()
 
-  member val ProgressToken = defaultArg token (ProgressToken.Second((Guid.NewGuid().ToString())))
+  member val ProgressToken = defaultArg token (ProgressToken.C2((Guid.NewGuid().ToString())))
 
   member val CancellationToken = cts.Token
 

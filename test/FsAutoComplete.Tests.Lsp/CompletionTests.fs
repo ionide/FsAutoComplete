@@ -10,6 +10,49 @@ open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
 
+
+let documentChanges path range text : DidChangeTextDocumentParams =
+  { TextDocument =
+      { Uri = Path.FilePathToUri path
+        Version = 1 }
+
+    ContentChanges =
+      [| U2.C1
+         <| {| Range = range
+               RangeLength = Some 0u
+               Text = text |} |] }
+
+type CompletionKind =
+  | Nada
+  | Invoked
+  | Char of char
+  | Incomplete
+
+let completion doc pos trigger : CompletionParams =
+  { TextDocument = { Uri = Path.FilePathToUri doc }
+    WorkDoneToken = None
+    PartialResultToken = None
+    Position = pos
+    Context =
+      match trigger with
+      | Nada -> None
+      | Invoked ->
+        Some
+          { TriggerKind = CompletionTriggerKind.Invoked
+            TriggerCharacter = None }
+      | Char c ->
+        Some
+          { TriggerKind = CompletionTriggerKind.TriggerCharacter
+            TriggerCharacter = Some(string c) }
+      | Incomplete ->
+        Some
+          { TriggerKind = CompletionTriggerKind.TriggerForIncompleteCompletions
+            TriggerCharacter = None } }
+
+let pos l c = { Line = l; Character = c }
+
+let posRange l c = { Start = pos l c; End = pos l c }
+
 let tests state =
   let server =
     async {
@@ -36,13 +79,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+          let completionParams: CompletionParams = completion path (pos 3u 9u) (Char '.') // the '.' in 'Async.'
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -70,32 +107,16 @@ let tests state =
           let! server, path = server
 
           let lineUnderTest = """Path.GetDirectoryName("foo")"""
-          let line = 15
-          let character = lineUnderTest.Length
+          let line = 15u
+          let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            { TextDocument =
-                { Uri = Path.FilePathToUri path
-                  Version = 1 }
-              ContentChanges =
-                [| { Range =
-                       Some
-                         { Start = { Line = line; Character = character }
-                           End = { Line = line; Character = character } }
-                     RangeLength = Some 0
-                     Text = "." } |] }
+            documentChanges path (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position =
-                { Line = line
-                  Character = character + 1 }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line (character + 1u)) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -123,16 +144,11 @@ let tests state =
           let! server, path = server
 
           let lineUnderTest = """Path.GetDirectoryName("foo")."""
-          let line = 14
-          let character = lineUnderTest.Length
+          let line = 14u
+          let character = uint32 lineUnderTest.Length
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character } // the '.' in 'GetDirectoryName().'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line character) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -158,33 +174,17 @@ let tests state =
         (async {
           let! server, path = server
 
-          let line = 18
+          let line = 18u
           let lineUnderTest = "\"bareString\""
-          let character = lineUnderTest.Length
+          let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            { TextDocument =
-                { Uri = Path.FilePathToUri path
-                  Version = 1 }
-              ContentChanges =
-                [| { Range =
-                       Some
-                         { Start = { Line = line; Character = character }
-                           End = { Line = line; Character = character } }
-                     RangeLength = Some 0
-                     Text = "." } |] }
+            documentChanges path (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position =
-                { Line = line
-                  Character = character + 1 }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line (character + 1u)) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -211,17 +211,12 @@ let tests state =
         (async {
           let! server, path = server
 
-          let line = 17
+          let line = 17u
           let lineUnderTest = """"bareString"."""
-          let character = lineUnderTest.Length
+          let character = uint32 lineUnderTest.Length
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line character) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -247,33 +242,17 @@ let tests state =
         (async {
           let! server, path = server
 
-          let line = 21
+          let line = 21u
           let lineUnderTest = "[1;2;3]"
-          let character = lineUnderTest.Length
+          let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            { TextDocument =
-                { Uri = Path.FilePathToUri path
-                  Version = 1 }
-              ContentChanges =
-                [| { Range =
-                       Some
-                         { Start = { Line = line; Character = character }
-                           End = { Line = line; Character = character } }
-                     RangeLength = Some 0
-                     Text = "." } |] }
+            documentChanges path (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position =
-                { Line = line
-                  Character = character + 1 }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line (character + 1u)) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
           do! c
@@ -300,17 +279,12 @@ let tests state =
         (async {
           let! server, path = server
 
-          let line = 20
+          let line = 20u
           let lineUnderTest = "[1;2;3]."
-          let character = lineUnderTest.Length
+          let character = uint32 lineUnderTest.Length
 
           let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = line; Character = character }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+            completion path (pos line character) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -336,14 +310,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 6; Character = 5 } // the '.' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
-
+          let completionParams: CompletionParams = completion path (pos 6u 5u) (Char '.')
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
@@ -364,14 +331,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 8; Character = 16 } // the '.' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
-
+          let completionParams: CompletionParams = completion path (pos 8u 16u) (Char '.')
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
@@ -391,13 +351,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 11; Character = 10 } // after Lis partial type name in Id record field declaration
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.Invoked
-                    TriggerCharacter = None } }
+          let completionParams: CompletionParams = completion path (pos 11u 10u) (Char '.')
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -423,13 +377,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 8; Character = 12 } // after the 'L' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.Invoked
-                    TriggerCharacter = None } }
+          let completionParams: CompletionParams = completion path (pos 8u 12u) Invoked
 
           let! response = server.TextDocumentCompletion completionParams
 
@@ -451,14 +399,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 8; Character = 11 } // before the 'L' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.Invoked
-                    TriggerCharacter = None } }
-
+          let completionParams: CompletionParams = completion path (pos 8u 11u) Invoked
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
@@ -479,13 +420,7 @@ let tests state =
         (asyncResult {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 3; Character = 9 } // the '.' in 'Async.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
+          let completionParams: CompletionParams = completion path (pos 3u 9u) Invoked
 
           let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
           let ctokMember = response.Items[0]
@@ -509,14 +444,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 23; Character = 8 } // the '.' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
-
+          let completionParams: CompletionParams = completion path (pos 23u 8u) (Char '.')
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
@@ -537,14 +465,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 24; Character = 9 } // the '.' in 'List.'
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.TriggerCharacter
-                    TriggerCharacter = Some '.' } }
-
+          let completionParams: CompletionParams = completion path (pos 24u 9u) (Char '.')
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
@@ -594,10 +515,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 8; Character = 2 }
-              Context = None }
+          let p: CompletionParams = completion path (pos 8u 2u) Nada
 
           let! res = server.TextDocumentCompletion p
 
@@ -616,11 +534,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 10; Character = 2 }
-              Context = None }
-
+          let p: CompletionParams = completion path (pos 10u 2u) Nada
           let! res = server.TextDocumentCompletion p
 
           match res with
@@ -638,10 +552,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 12; Character = 7 }
-              Context = None }
+          let p: CompletionParams = completion path (pos 12u 7u) Nada
 
           let! res = server.TextDocumentCompletion p
 
@@ -660,10 +571,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 14; Character = 18 }
-              Context = None }
+          let p: CompletionParams = completion path (pos 14u 18u) Nada
 
           let! res = server.TextDocumentCompletion p
 
@@ -681,10 +589,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 25; Character = 4 }
-              Context = None }
+          let p: CompletionParams = completion path (pos 24u 4u) Nada
 
           let! res = server.TextDocumentCompletion p
 
@@ -701,10 +606,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 32; Character = 25 }
-              Context = None }
+          let p: CompletionParams = completion path (pos 32u 25u) Nada
 
           let! res = server.TextDocumentCompletion p
 
@@ -755,7 +657,7 @@ let autoOpenTests state =
     let text = edit.NewText
     let pos = edit.Range.Start
 
-    let indentation = pos.Character + (text.Length - text.TrimStart().Length)
+    let indentation = pos.Character + uint32 (text.Length - text.TrimStart().Length)
 
     { Line = pos.Line
       Character = indentation }
@@ -764,6 +666,8 @@ let autoOpenTests state =
     async {
       let p =
         { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri path }
+          WorkDoneToken = None
+          PartialResultToken = None
           Range = { Start = cursor; End = cursor }
           Context =
             { Diagnostics =
@@ -771,7 +675,7 @@ let autoOpenTests state =
                      Severity = Some DiagnosticSeverity.Error
                      // Message required for QuickFix to fire ("is not defined")
                      Message = $"The value or constructor '{word}' is not defined."
-                     Code = Some "39"
+                     Code = Some(U2.C1 39)
                      Source = Some "F# Compiler"
                      RelatedInformation = None
                      Tags = None
@@ -786,14 +690,16 @@ let autoOpenTests state =
           ca.Kind = Some "quickfix"
           && ca.Title.StartsWith("open ", StringComparison.Ordinal))
 
+      let (|SingleEdit|_|) (action: CodeAction) =
+        match action with
+        | { Edit = Some { DocumentChanges = Some [| U4.C1 { Edits = [| U2.C1 edit |] } |] } } -> Some edit
+        | _ -> None
+
       match! server.TextDocumentCodeAction p with
       | Error e -> return failtestf "Quick fix Request failed: %A" e
       | Ok None -> return failtest "Quick fix Request none"
-      | Ok(Some(CodeActions(ContainsOpenAction quickfix))) ->
-        let ns = quickfix.Title.Substring("open ".Length)
-
-        let edit = quickfix.Edit.Value.DocumentChanges.Value.[0].Edits.[0]
-
+      | Ok(Some(CodeActions(ContainsOpenAction({ Title = title } & SingleEdit edit)))) ->
+        let ns = title.Substring("open ".Length)
         let openPos = calcOpenPos edit
         return (edit, ns, openPos)
       | Ok _ -> return failtest $"Quick fix on `{word}` doesn't contain open action"
@@ -824,11 +730,7 @@ let autoOpenTests state =
     <| async {
       let! server, path = server
 
-      let p: CompletionParams =
-        { TextDocument = { Uri = Path.FilePathToUri path }
-          // Line AND Column are ZERO-based!
-          Position = cursor
-          Context = None }
+      let p: CompletionParams = completion path cursor Nada
 
       match! server.TextDocumentCompletion p with
       | Error e -> failtestf "Request failed: %A" e
@@ -879,44 +781,44 @@ let autoOpenTests state =
     let parseData (line, column) (lineStr: string) (data: string) =
       match data.Split(',') with
       | [| l; c |] ->
-        let calcN (current: int) (n: string) =
+        let calcN (current: uint32) (n: string) =
           let n = n.Trim()
 
           match n.[0] with
           | '|' ->
             //relative to indentation of current line
-            let ind = lineStr.Length - lineStr.TrimStart().Length
+            let ind = uint32 (lineStr.Length - lineStr.TrimStart().Length)
 
             match n.Substring(1).Trim() with
             | "" -> ind
-            | n -> ind + int n
+            | n -> ind + uint32 n
           | '+'
           | '-' ->
             // relative to current position
-            current + int n
+            current + uint32 n
           | _ ->
             // absolute
-            int n
+            uint32 n
 
         let (l, c) = (calcN line l, calcN column c)
         { Line = l; Character = c }
       | _ -> failwithf "Invalid data in line (%i,%i) '%s'" line column lineStr
 
-    let extractData (lineNumber: int) (line: string) =
+    let extractData (lineNumber: uint32) (line: string) =
       let m = regex.Match line
 
       if not m.Success then
         None
       else
         let data = m.Groups.["data"]
-        let (l, c) = (lineNumber, m.Index)
+        let (l, c) = (lineNumber, uint32 m.Index)
         let openPos = parseData (l, c) line data.Value
         let cursorPos = { Line = l; Character = c }
 
         (cursorPos, openPos) |> Some
 
     System.IO.File.ReadAllLines path
-    |> Seq.mapi (fun i l -> (i, l))
+    |> Seq.mapi (fun i l -> (uint32 i, l))
     |> Seq.filter (fun (_, l) -> l.Contains "(*")
     |> Seq.choose (fun (i, l) -> extractData i l)
     |> Seq.toList
@@ -1015,14 +917,7 @@ let fullNameExternalAutocompleteTest state =
       (async {
         let! server, path = serverConfig
 
-        let p: CompletionParams =
-          { TextDocument = { Uri = Path.FilePathToUri path }
-            Position = { Line = line; Character = character }
-            Context =
-              Some
-                { TriggerKind = CompletionTriggerKind.Invoked
-                  TriggerCharacter = None } }
-
+        let p: CompletionParams = completion path (pos line character) Invoked
         let! res = server.TextDocumentCompletion p
 
         match res with
@@ -1032,12 +927,12 @@ let fullNameExternalAutocompleteTest state =
       })
 
   let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
-    [ makeAutocompleteTest serverConfig "Autocomplete for Array.map contains no backticks" (0, 8) (fun res ->
+    [ makeAutocompleteTest serverConfig "Autocomplete for Array.map contains no backticks" (0u, 8u) (fun res ->
         let n = res.Items |> Array.tryFind (fun i -> i.Label = "Array.map")
         Expect.isSome n "Completion doesn't exist"
         Expect.equal n.Value.InsertText (Some "Array.map") "Autocomplete for Array.map contains backticks")
 
-      makeAutocompleteTest serverConfig "Autocomplete for ``a.b`` contains backticks" (2, 1) (fun res ->
+      makeAutocompleteTest serverConfig "Autocomplete for ``a.b`` contains backticks" (2u, 1u) (fun res ->
         let n = res.Items |> Array.tryFind (fun i -> i.Label = "a.b")
         Expect.isSome n "Completion doesn't exist"
         Expect.equal n.Value.InsertText (Some "``a.b``") "Autocomplete for a.b contains no backticks")
@@ -1047,13 +942,7 @@ let fullNameExternalAutocompleteTest state =
         (asyncResult {
           let! server, path = serverConfig
 
-          let p: CompletionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 3; Character = 4 }
-              Context =
-                Some
-                  { TriggerKind = CompletionTriggerKind.Invoked
-                    TriggerCharacter = None } }
+          let p: CompletionParams = completion path (pos 3u 4u) Invoked
 
           let! response = server.TextDocumentCompletion p |> AsyncResult.map Option.get
 
@@ -1074,24 +963,28 @@ let fullNameExternalAutocompleteTest state =
          }
          |> AsyncResult.bimap id (fun e -> failwithf "%O" e))
 
-      makeAutocompleteTest serverConfig "Check Autocomplete for System.Text.RegularExpressions.Regex" (4, 5) (fun res ->
-        let n =
-          res.Items
-          |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
+      makeAutocompleteTest
+        serverConfig
+        "Check Autocomplete for System.Text.RegularExpressions.Regex"
+        (4u, 5u)
+        (fun res ->
+          let n =
+            res.Items
+            |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
 
-        Expect.isSome n "Completion doesn't exist"
+          Expect.isSome n "Completion doesn't exist"
 
-        Expect.equal
-          n.Value.InsertText
-          (Some "System.Text.RegularExpressions.Regex")
-          "Autocomplete for Regex is not System.Text.RegularExpressions.Regex"
+          Expect.equal
+            n.Value.InsertText
+            (Some "System.Text.RegularExpressions.Regex")
+            "Autocomplete for Regex is not System.Text.RegularExpressions.Regex"
 
-        Expect.equal
-          n.Value.FilterText
-          (Some "RegexSystem.Text.RegularExpressions.Regex")
-          "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
+          Expect.equal
+            n.Value.FilterText
+            (Some "RegexSystem.Text.RegularExpressions.Regex")
+            "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
 
-      makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5, 6) (fun res ->
+      makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5u, 6u) (fun res ->
         let n = res.Items |> Array.tryFind (fun i -> i.Label = "Result")
         Expect.isSome n "Completion doesn't exist"
         Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol") ]

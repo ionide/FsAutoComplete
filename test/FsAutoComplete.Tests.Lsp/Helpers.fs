@@ -115,8 +115,10 @@ type DisposableDirectory(directory: string, deleteParentDir) =
           attempts <- 0
         with _ ->
           attempts <- attempts - 1
+
           if attempts = 0 then
             reraise ()
+
           Thread.Sleep(15)
 
 
@@ -225,7 +227,10 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
+
+  let server =
+    new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
+
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -405,7 +410,7 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         Requests =
           { Range = Some true
-            Full = Some(U2.First true) }
+            Full = Some(U2.C1 true) }
         TokenTypes = [||]
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
@@ -758,7 +763,7 @@ let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =
   let actions =
     t
     |> Array.choose (function
-      | U2.Second action -> Some action
+      | U2.C2 action -> Some action
       | _ -> None)
 
   match actions with

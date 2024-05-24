@@ -20,7 +20,7 @@ type FSharpLspClient =
   override ClientUnregisterCapability: UnregistrationParams -> AsyncLspResult<unit>
   override WorkspaceWorkspaceFolders: unit -> AsyncLspResult<WorkspaceFolder array option>
   override WorkspaceConfiguration: ConfigurationParams -> AsyncLspResult<Newtonsoft.Json.Linq.JToken array>
-  override WorkspaceApplyEdit: ApplyWorkspaceEditParams -> AsyncLspResult<ApplyWorkspaceEditResponse>
+  override WorkspaceApplyEdit: ApplyWorkspaceEditParams -> AsyncLspResult<ApplyWorkspaceEditResult>
   override WorkspaceSemanticTokensRefresh: unit -> Async<unit>
   override TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
   ///Custom notification for workspace/solution/project loading events

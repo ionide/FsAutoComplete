@@ -45,17 +45,17 @@ let fix
   /// insert a line of text at a given line
   let insertLine line lineStr =
     { Range =
-        { Start = { Line = line; Character = 0 }
-          End = { Line = line; Character = 0 } }
+        { Start = { Line = line; Character = 0u }
+          End = { Line = line; Character = 0u } }
       NewText = lineStr }
 
-  let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) =
-    let l = ctx.Pos.Line
+  let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) : uint32 =
+    let l = uint32 ctx.Pos.Line
 
     let retVal =
       match ctx.ScopeKind with
-      | ScopeKind.TopModule when l > 1 ->
-        let line = lines.GetLineString(l - 2)
+      | ScopeKind.TopModule when l > 1u ->
+        let line = lines.GetLineString(int (l - 2u))
 
         let isImplicitTopLevelModule =
           not (
@@ -63,14 +63,14 @@ let fix
             && not (line.EndsWith("=", StringComparison.Ordinal))
           )
 
-        if isImplicitTopLevelModule then 1 else l
-      | ScopeKind.TopModule -> 1
+        if isImplicitTopLevelModule then 1u else l
+      | ScopeKind.TopModule -> 1u
       | ScopeKind.Namespace ->
         let mostRecentNamespaceInScope =
-          let lineNos = if l = 0 then [] else [ 0 .. l - 1 ]
+          let lineNos = if l = 0u then [] else [ 0u .. l - 1u ]
 
           lineNos
-          |> List.mapi (fun i line -> i, lines.GetLineString line)
+          |> List.mapi (fun i line -> uint32 i, lines.GetLineString(int line))
           |> List.choose (fun (i, lineStr) ->
             if lineStr.StartsWith("namespace", StringComparison.Ordinal) then
               Some i
@@ -80,15 +80,15 @@ let fix
 
         match mostRecentNamespaceInScope with
         // move to the next line below "namespace" and convert it to F# 1-based line number
-        | Some line -> line + 2
+        | Some line -> line + 2u
         | None -> l
       | _ -> l
 
     let containsAttribute (x: string) = x.Contains "[<"
-    let currentLine = System.Math.Max(retVal - 2, 0) |> lines.GetLineString
+    let currentLine = max (retVal - 2u) 0u |> int |> lines.GetLineString
 
     if currentLine |> containsAttribute then
-      retVal + 1
+      retVal + 1u
     else
       retVal
 
@@ -103,7 +103,7 @@ let fix
 
   let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, _multiple) : Fix =
     let insertPoint = adjustInsertionPoint text ctx
-    let docLine = insertPoint - 1
+    let docLine = insertPoint - 1u
 
     let actualOpen =
       if name.EndsWith(word, StringComparison.Ordinal) && name <> word then
@@ -118,13 +118,13 @@ let fix
         let column =
           // HACK: This is a work around for inheriting the correct column of the current module
           // It seems the column we get from FCS is incorrect
-          let previousLine = docLine - 1
-          let insertionPointIsNotOutOfBoundsOfTheFile = docLine > 0
+          let previousLine = docLine - 1u
+          let insertionPointIsNotOutOfBoundsOfTheFile = docLine > 0u
 
-          let theThereAreOtherOpensInThisModule () = text.GetLineString(previousLine).Contains "open "
+          let theThereAreOtherOpensInThisModule () = text.GetLineString(int previousLine).Contains "open "
 
           if insertionPointIsNotOutOfBoundsOfTheFile && theThereAreOtherOpensInThisModule () then
-            text.GetLineString(previousLine).Split("open") |> Seq.head |> Seq.length // inherit the previous opens whitespace
+            text.GetLineString(int previousLine).Split("open") |> Seq.head |> Seq.length // inherit the previous opens whitespace
           else
             ctx.Pos.Column
 

@@ -25,37 +25,40 @@ module FcsPos =
 [<AutoOpen>]
 module Conversions =
 
-  module Lsp = Ionide.LanguageServerProtocol.Types
-  /// convert an LSP position to a compiler position
-  let protocolPosToPos (pos: Lsp.Position) : FcsPos = FcsPos.mkPos (pos.Line + 1) (pos.Character)
+  type LspPosition = Ionide.LanguageServerProtocol.Types.Position
+  type LspRange = Ionide.LanguageServerProtocol.Types.Range
+  type LspLocation = Ionide.LanguageServerProtocol.Types.Location
 
-  let protocolPosToRange (pos: Lsp.Position) : Lsp.Range = { Start = pos; End = pos }
+  /// convert an LSP position to a compiler position
+  let protocolPosToPos (pos: LspPosition) : FcsPos = FcsPos.mkPos (int pos.Line + 1) (int pos.Character)
+
+  let protocolPosToRange (pos: LspPosition) : LspRange = { Start = pos; End = pos }
 
   /// convert a compiler position to an LSP position
-  let fcsPosToLsp (pos: FcsPos) : Lsp.Position =
-    { Line = pos.Line - 1
-      Character = pos.Column }
+  let fcsPosToLsp (pos: FcsPos) : LspPosition =
+    { Line = uint32 pos.Line - 1u
+      Character = uint32 pos.Column }
 
   /// convert a compiler range to an LSP range
-  let fcsRangeToLsp (range: FcsRange) : Lsp.Range =
+  let fcsRangeToLsp (range: FcsRange) : LspRange =
     { Start = fcsPosToLsp range.Start
       End = fcsPosToLsp range.End }
 
-  let protocolRangeToRange fn (range: Lsp.Range) : FcsRange =
+  let protocolRangeToRange fn (range: LspRange) : FcsRange =
     FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
 
   /// convert an FCS position to a single-character range in LSP
-  let fcsPosToProtocolRange (pos: FcsPos) : Lsp.Range =
+  let fcsPosToProtocolRange (pos: FcsPos) : LspRange =
     { Start = fcsPosToLsp pos
       End = fcsPosToLsp pos }
 
 
-  let fcsRangeToLspLocation (range: FcsRange) : Lsp.Location =
+  let fcsRangeToLspLocation (range: FcsRange) : LspLocation =
     let fileUri = Path.FilePathToUri range.FileName
     let lspRange = fcsRangeToLsp range
     { Uri = fileUri; Range = lspRange }
 
-  let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : Lsp.Location =
+  let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : LspLocation =
     match decl with
     | FsAutoComplete.FindDeclarationResult.ExternalDeclaration ex ->
       let fileUri = Path.FilePathToUri ex.File
@@ -68,8 +71,8 @@ module Conversions =
 
       { Uri = fileUri
         Range =
-          { Start = { Line = 0; Character = 0 }
-            End = { Line = 0; Character = 0 } } }
+          { Start = { Line = 0u; Character = 0u }
+            End = { Line = 0u; Character = 0u } } }
 
   type TextDocumentIdentifier with
 
@@ -106,19 +109,19 @@ module Conversions =
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
     { Range =
         { Start =
-            { Line = error.StartLine - 1
-              Character = error.StartColumn }
+            { Line = uint32 (max 0 (error.StartLine - 1))
+              Character = uint32 (max 0 error.StartColumn) }
           End =
-            { Line = error.EndLine - 1
-              Character = error.EndColumn } }
+            { Line = uint32 (max 0 (error.EndLine - 1))
+              Character = uint32 (max 0 error.EndColumn) } }
       Severity = fcsSeverityToDiagnostic error.Severity
       Source = Some "F# Compiler"
       Message = handleUnicodeParagraph error.Message
-      Code = Some(string error.ErrorNumber)
+      Code = Some(U2.C1 error.ErrorNumber)
       RelatedInformation = Some [||]
       Tags = None
       Data = None
-      CodeDescription = Some { Href = Some(Uri(urlForCompilerCode error.ErrorNumber)) } }
+      CodeDescription = Some { Href = urlForCompilerCode error.ErrorNumber } }
 
   let getSymbolInformations
     (uri: DocumentUri)
@@ -189,11 +192,11 @@ module Conversions =
     topLevel.Nested
     |> Array.Parallel.choose (fun n -> if shouldKeep n then Some(map n) else None)
 
-  let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
+  let getLine (lines: string[]) (pos: LspPosition) = lines.[int pos.Line]
 
-  let getText (lines: string[]) (r: Lsp.Range) =
-    lines.[r.Start.Line]
-      .Substring(r.Start.Character, r.End.Character - r.Start.Character)
+  let getText (lines: string[]) (r: LspRange) =
+    lines.[int r.Start.Line]
+      .Substring(int r.Start.Character, int (r.End.Character - r.Start.Character))
 
 [<AutoOpen>]
 module internal GlyphConversions =
@@ -1137,8 +1140,8 @@ let encodeSemanticHighlightRanges
     ClassificationUtils.SemanticTokenModifier list)) array)
   =
   let fileStart =
-    { Start = { Line = 0; Character = 0 }
-      End = { Line = 0; Character = 0 } }
+    { Start = { Line = 0u; Character = 0u }
+      End = { Line = 0u; Character = 0u } }
 
   let computeLine
     (prev: Ionide.LanguageServerProtocol.Types.Range)
@@ -1198,3 +1201,15 @@ let encodeSemanticHighlightRanges
 type FSharpInlayHintsRequest =
   { TextDocument: TextDocumentIdentifier
     Range: Range }
+
+[<AutoOpen>]
+module Extensions =
+  type ReadOnlySpan<'t> with
+    member x.Slice(start: uint32, length: uint32) = x.Slice(int start, int length)
+    member x.get_Item(index: uint32) = x.Item(int index)
+
+  type Ionide.LanguageServerProtocol.Types.Position with
+    member x.StartOfLine() = { Line = x.Line; Character = 0u }
+
+  type String with
+    member x.AsSpan(start: uint32, length: uint32) = x.AsSpan(int start, int length)

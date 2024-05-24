@@ -60,7 +60,7 @@ let initTests createServer =
         Expect.equal
           res.Capabilities.CodeActionProvider
           (Some(
-            U2.Second
+            U2.C2
               { CodeActionOptions.ResolveProvider = None
                 CodeActionOptions.CodeActionKinds = None }
           ))
@@ -80,7 +80,7 @@ let initTests createServer =
 
         Expect.equal
           res.Capabilities.DocumentSymbolProvider
-          (Some(U2.Second { Label = Some "F#" }))
+          (Some(U2.C2 { Label = Some "F#" }))
           "Document Symbol Provider"
 
         Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
@@ -88,7 +88,7 @@ let initTests createServer =
         Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
         Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
         Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
-        Expect.equal res.Capabilities.RenameProvider (Some(U2.Second { PrepareProvider = Some true })) "Rename Provider"
+        Expect.equal res.Capabilities.RenameProvider (Some(U2.C2 { PrepareProvider = Some true })) "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
@@ -108,7 +108,7 @@ let initTests createServer =
 
         Expect.equal
           res.Capabilities.WorkspaceSymbolProvider
-          (Some(U2.Second { ResolveProvider = Some true }))
+          (Some(U2.C2 { ResolveProvider = Some true }))
           "Workspace Symbol Provider"
 
         Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
@@ -140,14 +140,14 @@ let documentSymbolTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(U2.First res)) ->
+          | Result.Ok(Some(U2.C1 res)) ->
             Expect.equal res.Length 15 "Document Symbol has all symbols"
 
             Expect.exists
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok(Some(U2.Second _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+          | Result.Ok(Some(U2.C2 _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =

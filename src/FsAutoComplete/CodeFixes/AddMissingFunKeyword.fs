@@ -28,10 +28,10 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
           lines
           { Start =
               { diagnostic.Range.Start with
-                  Character = 0 }
+                  Character = 0u }
             End =
               { diagnostic.Range.End with
-                  Character = lineLen } }
+                  Character = uint32 lineLen } }
 
       let! prevPos =
         dec lines diagnostic.Range.Start

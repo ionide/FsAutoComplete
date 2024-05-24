@@ -26,7 +26,10 @@ module private CodeLens =
       let! (doc, diags) = Server.createUntitledDocument text server
       do! assertNoDiagnostics diags
 
-      let p: CodeLensParams = { TextDocument = doc.TextDocumentIdentifier }
+      let p: CodeLensParams =
+        { TextDocument = doc.TextDocumentIdentifier
+          PartialResultToken = None
+          WorkDoneToken = None }
 
       let! lenses = doc.Server.Server.TextDocumentCodeLens p |> AsyncResult.mapError string
 
@@ -104,15 +107,15 @@ let tests state =
           |> Array.ofSeq
 
         Expect.equal filePath doc.Uri "File path should be the doc we're checking"
-        Expect.equal triggerPos { Line = 1; Character = 6 } "Position should be 1:6"
+        Expect.equal triggerPos { Line = 1u; Character = 6u } "Position should be 1:6"
         Expect.hasLength referenceRanges 1 "There should be 1 reference range for the `func` function"
 
         Expect.equal
           referenceRanges[0]
           { Uri = doc.Uri
             Range =
-              { Start = { Line = 3; Character = 19 }
-                End = { Line = 3; Character = 23 } } }
+              { Start = { Line = 3u; Character = 19u }
+                End = { Line = 3u; Character = 23u } } }
           "Reference range should be 0:0")
       testCaseAsync "can show reference counts for 1-character identifier"
       <| CodeLens.check server """
