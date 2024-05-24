@@ -722,12 +722,11 @@ let autocompleteTest state =
     [ testList "Autocomplete within project files" (makeAutocompleteTestList server)
       testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer) ]
 
-///TODO: these are broken in FCS 43.7.200 - something in the tokenization isn't searching the System namespace
 let autoOpenTests state =
   let dirPath =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
 
-  let serverFor (scriptPath: string) =
+  let autoOpenServer =
     async {
       // Auto Open requires unopened things in completions -> External
       let config =
@@ -735,11 +734,16 @@ let autoOpenTests state =
             ExternalAutocomplete = Some true
             ResolveNamespaces = Some true }
 
-      let dirPath = Path.GetDirectoryName scriptPath
-      let scriptName = Path.GetFileName scriptPath
       let! (server, events) = serverInitialize dirPath config state
       do! waitForWorkspaceFinishedParsing events
+      return (server, events)
+    }
+    |> Async.Cache
 
+  let serverFor (scriptPath: string) =
+    async {
+      let! (server, events) = autoOpenServer
+      let scriptName = Path.GetFileName scriptPath
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
       do! server.TextDocumentDidOpen tdop
 
