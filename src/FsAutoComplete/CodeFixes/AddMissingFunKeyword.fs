@@ -45,9 +45,10 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
       | Some firstNonWhitespacePos ->
         let fcsPos = protocolPosToPos firstNonWhitespacePos
 
-        match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
+        match Lexer.getSymbol (uint32 fcsPos.Line) (uint32 fcsPos.Column) line SymbolLookupKind.Fuzzy [||] with
         | Some lexSym ->
-          let fcsStartPos = FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.LeftColumn
+          let fcsStartPos =
+            FSharp.Compiler.Text.Position.mkPos (int lexSym.Line) (int lexSym.LeftColumn)
 
           let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 

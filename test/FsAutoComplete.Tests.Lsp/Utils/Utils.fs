@@ -44,8 +44,8 @@ module Position =
   open Ionide.LanguageServerProtocol.Types
 
   let inline assertPositive (pos: Position) =
-    assert (pos.Line >= 0)
-    assert (pos.Character >= 0)
+    assert (pos.Line >= 0u)
+    assert (pos.Character >= 0u)
 
   let inline eq p1 p2 =
     // p1.Line = p2.Line && p1.Character = p2.Character

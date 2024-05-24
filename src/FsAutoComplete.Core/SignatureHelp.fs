@@ -20,7 +20,7 @@ type SignatureHelpInfo =
     /// all potential overloads of the member at the position where signature help was invoked
     Methods: MethodGroupItem[]
     /// if present, the index of the method we think is the current one (will never be outside the bounds of the Methods array)
-    ActiveOverload: int option
+    ActiveOverload: uint32 option
     /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
     ActiveParameter: uint option
     SigHelpKind: SignatureHelpKind
@@ -42,11 +42,14 @@ let private getSignatureHelpForFunctionApplication
       }
 
     let! possibleApplicationSymbolLineStr = lines.GetLine possibleApplicationSymbolEnd
-    let! (endCol, names) = Lexer.findLongIdents (possibleApplicationSymbolEnd.Column, possibleApplicationSymbolLineStr)
+
+    let! (endCol, names) =
+      Lexer.findLongIdents (uint32 possibleApplicationSymbolEnd.Column, possibleApplicationSymbolLineStr)
+
     let idents = List.ofArray names
 
     let! symbolUse =
-      tyRes.GetCheckResults.GetSymbolUseAtLocation(possibleApplicationSymbolEnd.Line, endCol, lineStr, idents)
+      tyRes.GetCheckResults.GetSymbolUseAtLocation(possibleApplicationSymbolEnd.Line, int endCol, lineStr, idents)
 
     let isValid (mfv: FSharpMemberOrFunctionOrValue) =
       not (PrettyNaming.IsOperatorDisplayName mfv.DisplayName)
@@ -58,7 +61,7 @@ let private getSignatureHelpForFunctionApplication
       let tooltip =
         tyRes.GetCheckResults.GetToolTip(
           possibleApplicationSymbolEnd.Line,
-          endCol,
+          int endCol,
           possibleApplicationSymbolLineStr,
           idents,
           FSharpTokenTag.IDENT
@@ -195,6 +198,7 @@ let private getSignatureHelpForMethod
       let methodCandidate =
         filteredMethods
         |> Array.tryFindIndex (fun m -> m.Parameters.Length >= argumentIndex + 1)
+        |> Option.map uint32
 
 
       return

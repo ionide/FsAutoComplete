@@ -86,13 +86,13 @@ type ParseAndCheckResults
     }
 
   member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
 
       let declarations =
-        checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, preferFlag = false)
+        checkResults.GetDeclarationLocation(pos.Line, int col, lineStr, identIsland, preferFlag = false)
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
@@ -123,7 +123,7 @@ type ParseAndCheckResults
       let tryRecoverExternalSymbolForNonexistentDecl
         (rangeInNonexistentFile: FSharp.Compiler.Text.Range)
         : ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>> =
-        match Lexer.findLongIdents (pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents (uint32 (pos.Column - 1), lineStr) with
         | None ->
           ResultOrString.Error(
             sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName
@@ -132,7 +132,7 @@ type ParseAndCheckResults
           let identIsland = Array.toList identIsland
 
           let symbolUse =
-            checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+            checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
           match symbolUse with
           | None ->
@@ -229,13 +229,13 @@ type ParseAndCheckResults
 
   member __.TryFindTypeDeclaration (pos: Position) (lineStr: LineStr) =
     async {
-      match Lexer.findLongIdents (pos.Column, lineStr) with
+      match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
       | None -> return Error "Cannot find ident at this location"
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
 
         let symbol =
-          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
         match symbol with
         | None -> return Error "Cannot find symbol at this location"
@@ -319,7 +319,7 @@ type ParseAndCheckResults
     }
 
   member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None ->
       logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
       None
@@ -327,7 +327,7 @@ type ParseAndCheckResults
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
-        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+        checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
       | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) ->
@@ -354,7 +354,7 @@ type ParseAndCheckResults
     | Completion.Context.StringLiteral -> None
     | Completion.Context.SynType
     | Completion.Context.Unknown ->
-      match Lexer.findLongIdents (pos.Column, lineStr) with
+      match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
       | None ->
         logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
         None
@@ -362,10 +362,10 @@ type ParseAndCheckResults
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
         let tip =
-          checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+          checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
         let symbol =
-          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
         match tip with
         | EmptyTooltip when symbol.IsNone ->
@@ -418,16 +418,16 @@ type ParseAndCheckResults
               |> Some
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> Error "Cannot find ident"
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
-        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+        checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       let symbol =
-        checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+        checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
       match tip with
       | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
@@ -513,22 +513,22 @@ type ParseAndCheckResults
         Ok(symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc, signature, footer, cn)
 
   member __.TryGetSymbolUse (pos: Position) (lineStr: LineStr) : FSharpSymbolUse option =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> None
     | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
-      checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+      checkResults.GetSymbolUseAtLocation(pos.Line, int colu, lineStr, identIsland)
 
   member x.TryGetSymbolUseFromIdent (sourceText: ISourceText) (ident: Ident) : FSharpSymbolUse option =
     let line = sourceText.GetLineString(ident.idRange.EndLine - 1)
     x.GetCheckResults.GetSymbolUseAtLocation(ident.idRange.EndLine, ident.idRange.EndColumn, line, [ ident.idText ])
 
   member __.TryGetSymbolUses (pos: Position) (lineStr: LineStr) : FSharpSymbolUse list =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> []
     | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
-      checkResults.GetSymbolUsesAtLocation(pos.Line, colu, lineStr, identIsland)
+      checkResults.GetSymbolUsesAtLocation(pos.Line, int colu, lineStr, identIsland)
 
   member x.TryGetSymbolUseAndUsages (pos: Position) (lineStr: LineStr) =
     let symbolUse = x.TryGetSymbolUse pos lineStr
@@ -540,14 +540,14 @@ type ParseAndCheckResults
       Ok(symbolUse, symbolUses)
 
   member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
 
       let symbolUse =
-        checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+        checkResults.GetSymbolUseAtLocation(pos.Line, int colu, lineStr, identIsland)
 
       match symbolUse with
       | None -> ResultOrString.Error "No symbol information found"
@@ -592,12 +592,12 @@ type ParseAndCheckResults
         | _ -> ResultOrString.Error "Not a member, function or value"
 
   member __.TryGetF1Help (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
-      let help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
+      let help = checkResults.GetF1Keyword(pos.Line, int colu, lineStr, identIsland)
 
       match help with
       | None -> ResultOrString.Error "No symbol information found"
@@ -636,7 +636,7 @@ type ParseAndCheckResults
               && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
 
           let token =
-            Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.ForCompletion [||]
+            Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column - 1u) lineStr SymbolLookupKind.ForCompletion [||]
 
           logger.info (
             Log.setMessage "TryGetCompletions - token: {token}"

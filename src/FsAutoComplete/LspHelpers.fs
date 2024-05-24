@@ -1213,3 +1213,10 @@ module Extensions =
 
   type String with
     member x.AsSpan(start: uint32, length: uint32) = x.AsSpan(int start, int length)
+
+  let inline getFilePathAndPosition<'t
+    when 't: (member TextDocument: TextDocumentIdentifier)
+    and 't: (member Position: Ionide.LanguageServerProtocol.Types.Position)>
+    (p: 't)
+    =
+    p.TextDocument.GetFilePath() |> Utils.normalizePath, protocolPosToPos p.Position

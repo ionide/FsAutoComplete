@@ -127,7 +127,7 @@ let tests state =
 
                         Expect.exists
                           diags
-                          (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = i)
+                          (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = uint32 i)
                           $"No unused value error in line {i}")
 
                       for i in 1..2 do
@@ -140,7 +140,7 @@ let tests state =
 
                           Expect.exists
                             diags
-                            (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = i)
+                            (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = uint32 i)
                             $"No unused value error in line {i}")
                     }) ])
 
@@ -170,13 +170,13 @@ let tests state =
                       use doc = doc
 
                       Expect.hasLength diags 4 ""
-                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0) ""
-                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1) ""
-                      Expect.exists diags (fun d -> d.Message.Contains "bar" && d.Range.Start.Line = 1) ""
+                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0u) ""
+                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1u) ""
+                      Expect.exists diags (fun d -> d.Message.Contains "bar" && d.Range.Start.Line = 1u) ""
 
                       Expect.exists
                         diags
-                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2)
+                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2u)
                         ""
 
 
@@ -186,13 +186,13 @@ let tests state =
                       let! diags = doc |> Document.changeTextTo source
 
                       Expect.hasLength diags 4 ""
-                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0) ""
-                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1) ""
-                      Expect.exists diags (fun d -> d.Message.Contains "foo" && d.Range.Start.Line = 1) ""
+                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0u) ""
+                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1u) ""
+                      Expect.exists diags (fun d -> d.Message.Contains "foo" && d.Range.Start.Line = 1u) ""
 
                       Expect.exists
                         diags
-                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2)
+                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2u)
                         ""
 
 
@@ -202,13 +202,13 @@ let tests state =
                       let! diags = doc |> Document.changeTextTo source
 
                       Expect.hasLength diags 4 ""
-                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0) ""
-                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1) ""
-                      Expect.exists diags (fun d -> d.Message.Contains "baz" && d.Range.Start.Line = 1) ""
+                      Expect.exists diags (fun d -> d.Message = "Unused open statement" && d.Range.Start.Line = 0u) ""
+                      Expect.exists diags (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = 1u) ""
+                      Expect.exists diags (fun d -> d.Message.Contains "baz" && d.Range.Start.Line = 1u) ""
 
                       Expect.exists
                         diags
-                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2)
+                        (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2u)
                         ""
                     }) ]) ]
 
@@ -309,7 +309,7 @@ let tests state =
                       "The value or constructor 'bar' is not defined."
                       "Should be not defined error"
 
-                    Expect.equal diag.Range.Start.Line 0 "Error should be in line 1"
+                    Expect.equal diag.Range.Start.Line 0u "Error should be in line 1"
                   })
                 testCaseAsync
                   "can load script file again"
@@ -325,7 +325,7 @@ let tests state =
                       "The value or constructor 'bar' is not defined."
                       "Should be not defined error"
 
-                    Expect.equal diag.Range.Start.Line 0 "Error should be in line 1"
+                    Expect.equal diag.Range.Start.Line 0u "Error should be in line 1"
                   }) ])
 
           serverTestList
@@ -344,12 +344,12 @@ let tests state =
                       diags
                       (fun diag ->
                         diag.Message.Contains "The value or constructor 'bar' is not defined."
-                        && diag.Range.Start.Line = 0)
+                        && diag.Range.Start.Line = 0u)
                       "Should be not defined error"
 
                     Expect.exists
                       diags
-                      (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0)
+                      (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0u)
                       "Should be unused value"
                   })
                 testCaseAsync
@@ -362,12 +362,12 @@ let tests state =
                       diags
                       (fun diag ->
                         diag.Message.Contains "The value or constructor 'bar' is not defined."
-                        && diag.Range.Start.Line = 0)
+                        && diag.Range.Start.Line = 0u)
                       "Should be not defined error"
 
                     Expect.exists
                       diags
-                      (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0)
+                      (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0u)
                       "Should be unused value"
                   }) ])
 
@@ -391,7 +391,7 @@ let tests state =
                         "The value or constructor 'otherBar' is not defined."
                         "Should be not defined error"
 
-                      Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+                      Expect.equal diag.Range.Start.Line 5u "Error should be in line 6"
                     })
                   testCaseAsync
                     "can load file in project again"
@@ -407,7 +407,7 @@ let tests state =
                         "The value or constructor 'otherBar' is not defined."
                         "Should be not defined error"
 
-                      Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+                      Expect.equal diag.Range.Start.Line 5u "Error should be in line 6"
                     })
                   testCaseAsync
                     "can load other file in project"
@@ -423,7 +423,7 @@ let tests state =
                         "The value or constructor 'programBar' is not defined."
                         "Should be not defined error"
 
-                      Expect.equal diag.Range.Start.Line 4 "Error should be in line 5"
+                      Expect.equal diag.Range.Start.Line 4u "Error should be in line 5"
                     }) ])
 
               serverTestList "dir with project and all analyzers" state allAnalyzersConfig projectDir (fun server ->
@@ -441,7 +441,7 @@ let tests state =
                         "The value or constructor 'otherBar' is not defined."
                         "Should be not defined error"
 
-                      Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+                      Expect.equal diag.Range.Start.Line 5u "Error should be in line 6"
                     })
                   testCaseAsync
                     "can load file in project again"
@@ -457,7 +457,7 @@ let tests state =
                         "The value or constructor 'otherBar' is not defined."
                         "Should be not defined error"
 
-                      Expect.equal diag.Range.Start.Line 5 "Error should be in line 6"
+                      Expect.equal diag.Range.Start.Line 5u "Error should be in line 6"
                     })
                   testCaseAsync
                     "can load other file in project"
@@ -469,17 +469,17 @@ let tests state =
                         diags
                         (fun diag ->
                           diag.Message.Contains "The value or constructor 'programBar' is not defined."
-                          && diag.Range.Start.Line = 4)
+                          && diag.Range.Start.Line = 4u)
                         "Should be not defined error"
                       // `argv`
                       Expect.exists
                         diags
-                        (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 11)
+                        (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 11u)
                         "Should be unused value"
 
                       Expect.exists
                         diags
-                        (fun diag -> diag.Message.Contains "Unused open statement" && diag.Range.Start.Line = 2)
+                        (fun diag -> diag.Message.Contains "Unused open statement" && diag.Range.Start.Line = 2u)
                         "Should be unused open"
                     }) ]) ] ]
 
@@ -599,7 +599,7 @@ let tests state =
                       diags
                       |> Array.map (fun d ->
                         // simplify `The value or constructor 'value' is not defined.` error (contains names and recommendations)
-                        if d.Code = Some "39" then
+                        if d.Code = Some(U2.C2 "39") then
                           "The value or constructor is not defined"
                         else
                           d.Message)
@@ -637,7 +637,7 @@ let tests state =
               testCaseAsync
                 "diagnostics for some analyzers"
                 (async {
-                  let checkDiags (unusedOpen, unusedValue, simplifyName) diags =
+                  let checkDiags (unusedOpen, unusedValue, simplifyName) (diags: Diagnostic[]) =
                     let actual =
                       {| UnusedOpen = diags |> Array.exists (fun d -> d.Message = "Unused open statement")
                          UnusedDecl = diags |> Array.exists (fun d -> d.Message = "This value is unused")
@@ -838,7 +838,9 @@ f2 "bar" |> ignore
                       let ps: CompletionParams =
                         { TextDocument = doc.TextDocumentIdentifier
                           Position = pos
-                          Context = None }
+                          Context = None
+                          WorkDoneToken = None
+                          PartialResultToken = None }
 
                       let! res = doc.Server.Server.TextDocumentCompletion ps
                       Expect.isOk res "Should be ok result"
@@ -848,7 +850,7 @@ f2 "bar" |> ignore
                   testCaseAsync "can get completions"
                   <| async {
                     let! (doc, _) = doc
-                    let! completions = doc |> completionAt { Line = 1; Character = 24 }
+                    let! completions = doc |> completionAt { Line = 1u; Character = 24u }
                     Expect.isSome completions "Should be some completions"
                     let completions = completions.Value
                     Expect.isNonEmpty completions.Items "Should be completions"
@@ -862,7 +864,7 @@ f2 "bar" |> ignore
                   testCaseAsync "can get completions again"
                   <| async {
                     let! (doc, _) = doc
-                    let! completions = doc |> completionAt { Line = 1; Character = 24 }
+                    let! completions = doc |> completionAt { Line = 1u; Character = 24u }
                     Expect.isSome completions "Should be some completions"
                     let completions = completions.Value
                     Expect.isNonEmpty completions.Items "Should be completions"
@@ -879,7 +881,7 @@ f2 "bar" |> ignore
 
                     let ps: TextDocumentPositionParams =
                       { TextDocument = doc.TextDocumentIdentifier
-                        Position = { Line = 0; Character = 6 } }
+                        Position = { Line = 0u; Character = 6u } }
 
                     let! res = doc.Server.Server.TextDocumentHover ps
                     Expect.isOk res "Should have hover data"

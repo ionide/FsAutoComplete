@@ -9,6 +9,7 @@ open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
+open FSharp.UMX
 
 type FcsRange = FSharp.Compiler.Text.Range
 module FcsRange = FSharp.Compiler.Text.Range
@@ -476,3 +477,7 @@ module Extensions =
 
   type String with
     member AsSpan: start: uint32 * length: uint32 -> ReadOnlySpan<char>
+
+  val inline getFilePathAndPosition<'t
+    when 't: (member TextDocument: TextDocumentIdentifier)
+    and 't: (member Position: Ionide.LanguageServerProtocol.Types.Position)> : p: 't -> string<LocalPath> * FcsPos

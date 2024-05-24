@@ -111,15 +111,18 @@ let linterTests state =
     }
     |> Async.Cache
 
-  let urlFor (code: string option) =
-    Some { Href = Some(System.Uri $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%s{code.Value}.html") }
+  let urlFor (code: U2<int32, string> option) =
+    match code with
+    | None -> None
+    | Some(U2.C1 intCode) -> Some { Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%d{intCode}.html" }
+    | Some(U2.C2 strCode) -> Some { Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%s{strCode}.html" }
 
   let expectedDiagnostics =
     [| { Range =
-           { Start = { Line = 0; Character = 7 }
-             End = { Line = 0; Character = 11 } }
+           { Start = { Line = 0u; Character = 7u }
+             End = { Line = 0u; Character = 11u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0042"
+         Code = Some(U2.C2("FL0042"))
          Source = Some "F# Linter"
          Message = "Consider changing `test` to PascalCase."
          RelatedInformation = None
@@ -128,10 +131,10 @@ let linterTests state =
          CodeDescription = None },
        "Test"
        { Range =
-           { Start = { Line = 1; Character = 16 }
-             End = { Line = 1; Character = 25 } }
+           { Start = { Line = 1u; Character = 16u }
+             End = { Line = 1u; Character = 25u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`not (a = b)` might be able to be refactored into `a <> b`."
          RelatedInformation = None
@@ -140,10 +143,10 @@ let linterTests state =
          CodeDescription = None },
        "a <> b"
        { Range =
-           { Start = { Line = 2; Character = 16 }
-             End = { Line = 2; Character = 26 } }
+           { Start = { Line = 2u; Character = 16u }
+             End = { Line = 2u; Character = 26u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`not (a <> b)` might be able to be refactored into `a = b`."
          RelatedInformation = None
@@ -152,10 +155,10 @@ let linterTests state =
          CodeDescription = None },
        "a = b"
        { Range =
-           { Start = { Line = 3; Character = 12 }
-             End = { Line = 3; Character = 22 } }
+           { Start = { Line = 3u; Character = 12u }
+             End = { Line = 3u; Character = 22u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`fun x -> x` might be able to be refactored into `id`."
          RelatedInformation = None
@@ -164,10 +167,10 @@ let linterTests state =
          CodeDescription = None },
        "id"
        { Range =
-           { Start = { Line = 4; Character = 12 }
-             End = { Line = 4; Character = 20 } }
+           { Start = { Line = 4u; Character = 12u }
+             End = { Line = 4u; Character = 20u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`not true` might be able to be refactored into `false`."
          RelatedInformation = None
@@ -176,10 +179,10 @@ let linterTests state =
          CodeDescription = None },
        "false"
        { Range =
-           { Start = { Line = 5; Character = 12 }
-             End = { Line = 5; Character = 21 } }
+           { Start = { Line = 5u; Character = 12u }
+             End = { Line = 5u; Character = 21u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`not false` might be able to be refactored into `true`."
          RelatedInformation = None
@@ -188,10 +191,10 @@ let linterTests state =
          CodeDescription = None },
        "true"
        { Range =
-           { Start = { Line = 7; Character = 14 }
-             End = { Line = 7; Character = 21 } }
+           { Start = { Line = 7u; Character = 14u }
+             End = { Line = 7u; Character = 21u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`a <> true` might be able to be refactored into `not a`."
          RelatedInformation = None
@@ -200,10 +203,10 @@ let linterTests state =
          CodeDescription = None },
        "not a"
        { Range =
-           { Start = { Line = 8; Character = 14 }
-             End = { Line = 8; Character = 20 } }
+           { Start = { Line = 8u; Character = 14u }
+             End = { Line = 8u; Character = 20u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`x = null` might be able to be refactored into `isNull x`."
          RelatedInformation = None
@@ -212,10 +215,10 @@ let linterTests state =
          CodeDescription = None },
        "isNull a"
        { Range =
-           { Start = { Line = 9; Character = 14 }
-             End = { Line = 9; Character = 37 } }
+           { Start = { Line = 9u; Character = 14u }
+             End = { Line = 9u; Character = 37u } }
          Severity = Some DiagnosticSeverity.Information
-         Code = Some "FL0065"
+         Code = Some(U2.C2("FL0065"))
          Source = Some "F# Linter"
          Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
          RelatedInformation = None
@@ -256,11 +259,11 @@ let formattingTests state =
 
   let editForWholeFile sourceFile expectedFile =
     let sourceLines = File.ReadAllLines sourceFile
-    let start = { Line = 0; Character = 0 }
+    let start = { Line = 0u; Character = 0u }
 
     let ``end`` =
-      { Line = sourceLines.Length - 1
-        Character = sourceLines.[sourceLines.Length - 1].Length }
+      { Line = uint32 sourceLines.Length - 1u
+        Character = uint32 sourceLines.[sourceLines.Length - 1].Length }
 
     let expectedText = File.ReadAllText expectedFile
 
@@ -283,12 +286,12 @@ let formattingTests state =
             server.TextDocumentFormatting
               { TextDocument = { Uri = Path.FilePathToUri sourceFile }
                 Options =
-                  { TabSize = 4
+                  { TabSize = 4u
                     InsertSpaces = true
                     TrimTrailingWhitespace = None
                     InsertFinalNewline = None
-                    TrimFinalNewlines = None
-                    AdditionalData = System.Collections.Generic.Dictionary<_, _>() } }
+                    TrimFinalNewlines = None }
+                WorkDoneToken = None }
           with
           | Ok(Some [| edit |]) ->
             let normalized =
@@ -346,10 +349,10 @@ let analyzerTests state =
 
               let expected =
                 [| { Range =
-                       { Start = { Line = 3; Character = 13 }
-                         End = { Line = 3; Character = 31 } }
+                       { Start = { Line = 3u; Character = 13u }
+                         End = { Line = 3u; Character = 31u } }
                      Severity = Some DiagnosticSeverity.Warning
-                     Code = Some "OV001"
+                     Code = Some(U2.C2("OV001"))
                      Source = Some "F# Analyzers (Option.Value analyzer)"
                      Message = "Option.Value shouldn't be used"
                      RelatedInformation = None
@@ -415,6 +418,6 @@ let signatureTests state =
     "signature evaluation"
     [ testList
         "tests"
-        [ verifySignature 0 (4, 16) "val arrayOfTuples: (int * int) array"
-          verifySignature 1 (4, 15) "val listOfTuples: (int * int) list"
-          verifySignature 2 (4, 15) "val someFunction: a: 'a -> unit" ] ]
+        [ verifySignature 0u (4u, 16u) "val arrayOfTuples: (int * int) array"
+          verifySignature 1u (4u, 15u) "val listOfTuples: (int * int) list"
+          verifySignature 2u (4u, 15u) "val someFunction: a: 'a -> unit" ] ]

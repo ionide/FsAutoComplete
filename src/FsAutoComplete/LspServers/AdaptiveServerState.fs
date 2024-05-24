@@ -1894,7 +1894,7 @@ type AdaptiveState
             try
               let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
               let! line = tryGetLineStr pos text.Source |> Option.ofResult
-              return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+              return! Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) line SymbolLookupKind.Fuzzy [||]
             with _ ->
               return! None
           }
