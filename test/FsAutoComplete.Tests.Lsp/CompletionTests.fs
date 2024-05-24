@@ -722,12 +722,11 @@ let autocompleteTest state =
     [ testList "Autocomplete within project files" (makeAutocompleteTestList server)
       testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer) ]
 
-///TODO: these are broken in FCS 43.7.200 - something in the tokenization isn't searching the System namespace
 let autoOpenTests state =
   let dirPath =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
 
-  let serverFor (scriptPath: string) =
+  let autoOpenServer =
     async {
       // Auto Open requires unopened things in completions -> External
       let config =
@@ -735,11 +734,16 @@ let autoOpenTests state =
             ExternalAutocomplete = Some true
             ResolveNamespaces = Some true }
 
-      let dirPath = Path.GetDirectoryName scriptPath
-      let scriptName = Path.GetFileName scriptPath
       let! (server, events) = serverInitialize dirPath config state
       do! waitForWorkspaceFinishedParsing events
+      return (server, events)
+    }
+    |> Async.Cache
 
+  let serverFor (scriptPath: string) =
+    async {
+      let! (server, events) = autoOpenServer
+      let scriptName = Path.GetFileName scriptPath
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
       do! server.TextDocumentDidOpen tdop
 
@@ -835,7 +839,8 @@ let autoOpenTests state =
       | Ok None -> failtest "Request none"
       | Ok(Some res) ->
         Expect.isFalse res.IsIncomplete "Result is incomplete"
-        let ci = res.Items |> Array.tryFind (fun c -> c.Label = word)
+        // with ExternalAutoComplete, completions are like "Regex (open System.Text.RegularExpressions)"
+        let ci = res.Items |> Array.tryFind (fun c -> c.Label.StartsWith word)
 
         if ci = None then
           failwithf
@@ -934,7 +939,7 @@ let autoOpenTests state =
 
         yield! tests ]
 
-  let ptestScript name scriptName =
+  let _ptestScript name scriptName =
     testList
       name
       [ let scriptPath = Path.Combine(dirPath, scriptName)
@@ -947,7 +952,7 @@ let autoOpenTests state =
 
         yield! tests ]
 
-  ptestList
+  testList
     "Completion.AutoOpen"
     [
       // NOTE: Positions are ZERO-based!: { Line = 3; Character = 9 } -> Line 4, Column 10 in editor display
@@ -955,8 +960,8 @@ let autoOpenTests state =
       testScript "with root module" "Module.fsx"
       testScript "with root module with open" "ModuleWithOpen.fsx"
       testScript "with root module with open and new line" "ModuleWithOpenAndNewLine.fsx"
-      ptestScript "with namespace with new line" "NamespaceWithNewLine.fsx"
-      ptestScript "with namespace" "Namespace.fsx"
+      testScript "with namespace with new line" "NamespaceWithNewLine.fsx"
+      testScript "with namespace" "Namespace.fsx"
       testScript "with namespace with open" "NamespaceWithOpen.fsx"
       testScript "with namespace with open and new line" "NamespaceWithOpenAndNewLine.fsx"
       testScript "with implicit top level module with new line" "ImplicitTopLevelModuleWithNewLine.fsx"

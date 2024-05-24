@@ -761,10 +761,16 @@ type AdaptiveFSharpLspServer
                 { (fcsPos |> fcsPosToLsp) with
                     Character = 0 }
 
+              let displayText =
+                match config.ExternalAutocomplete, ci.Label.Split(" (open ") with
+                | true, [| label; _ |] -> label
+                | true, [| label |] -> label
+                | _, _ -> ci.Label
+
               Some
                 [| { TextEdit.NewText = text
                      TextEdit.Range = { Start = insertPos; End = insertPos } } |],
-              $"{ci.Label} (open {ns})"
+              $"{displayText} (open {ns})"
 
           let d = Documentation.Markup(markdown comment)
 
