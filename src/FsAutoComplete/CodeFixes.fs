@@ -142,8 +142,7 @@ module SourceText =
     // or
     // max 1 (sourceText.GetLineCount())
 
-    let inline private assertLineIndex (lineIndex: uint32) sourceText =
-      assert (0u = lineIndex && lineIndex < getLineCount sourceText)
+    let inline private assertLineIndex (lineIndex: uint32) sourceText = assert (lineIndex < getLineCount sourceText)
 
     let getLineString lineIndex (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText

@@ -91,7 +91,7 @@ let private gotoTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(U2.C2 t)) -> failtest "Should only get one location"
+          | Result.Ok(Some(U2.C2 _t)) -> failtest "Should only get one location"
           | Result.Ok(Some(U2.C1 r)) when r.Uri.EndsWith("startup", StringComparison.Ordinal) ->
             failtest "Should not generate the startup dummy file"
           | Result.Ok(Some(U2.C1 r)) ->

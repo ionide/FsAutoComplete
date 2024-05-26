@@ -64,7 +64,7 @@ let initTests createServer =
             U2.C2
               { CodeActionOptions.ResolveProvider = None
                 CodeActionOptions.CodeActionKinds = None
-                WorkDoneProgress = None }
+                WorkDoneProgress = Some false }
           ))
           "Code Action Provider"
 
@@ -240,10 +240,10 @@ let tooltipTests state =
 
   let (|Description|_|) (hover: Hover) =
     match hover with
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 description |] } -> Some description
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 description; U2.C1 _fullname; U2.C1 _assembly |] } ->
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description |] } -> Some description
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description; U2.C1 _fullname; U2.C1 _assembly |] } ->
       Some description
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip)
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip)
                             U2.C1 description
                             U2.C1 _showDocumentationLink
                             U2.C1 _fullname

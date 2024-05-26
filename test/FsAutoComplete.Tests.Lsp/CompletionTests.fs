@@ -791,11 +791,11 @@ let autoOpenTests state =
 
             match n.Substring(1).Trim() with
             | "" -> ind
-            | n -> ind + uint32 n
+            | n -> uint32 (int ind + int n)
           | '+'
           | '-' ->
             // relative to current position
-            current + uint32 n
+            uint32 (int current + int n)
           | _ ->
             // absolute
             uint32 n
