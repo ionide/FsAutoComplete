@@ -18,4 +18,12 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+ <PropertyGroup>
+  <RepositoryUrl>https://github.com/ionide/FsAutoComplete</RepositoryUrl>
+  <FsDocsLicenseLink>https://github.com/ionide/FsAutoComplete/blob/main/LICENSE.md</FsDocsLicenseLink>
+  <FsDocsReleaseNotesLink>https://github.com/ionide/FsAutoComplete/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
+  <PackageProjectUrl>https://ionide.io/Tools/fsac.html</PackageProjectUrl>
+  <FsDocsLogoSource>images/logo.png</FsDocsLogoSource>
+ </PropertyGroup>
+
 </Project>
