@@ -346,6 +346,8 @@ module Run =
       (fun d ->
         match d.Code with
         | Some(U2.C2 s) -> Set.contains s codes
+        | Some(U2.C1 intCode) ->
+          Set.contains (intCode.ToString(System.Globalization.CultureInfo.InvariantCulture)) codes
         | _ -> false)
       handler
 
