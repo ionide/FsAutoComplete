@@ -52,7 +52,7 @@
       "args": [
         "--debug",
         "--filter",
-        "FSAC.lsp.${input:loader}.${input:lsp-server}.${input:testName}"
+        "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"
       ]
     },
     {
@@ -103,13 +103,13 @@
       "type": "pickString"
     },
     {
-      "id": "lsp-server",
-      "description": "The lsp serrver",
+      "id": "compiler",
+      "description": "The compiler to use",
       "options": [
-        "FSharpLspServer",
-        "AdaptiveLspServer"
+        "BackgroundCompiler",
+        "TransparentCompiler"
       ],
-      "default": "AdaptiveLspServer",
+      "default": "BackgroundCompiler",
       "type": "pickString",
     },
     {

@@ -43,8 +43,8 @@ let initTests createServer =
           Capabilities = clientCaps
           ClientInfo =
             Some
-              {| Name = "FSAC Tests"
-                 Version = Some "0.0.0" |}
+              { Name = "FSAC Tests"
+                Version = Some "0.0.0" }
           WorkspaceFolders =
             Some
               [| { Uri = Path.FilePathToUri tempDir

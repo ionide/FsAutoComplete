@@ -18,9 +18,9 @@ let documentChanges path range text : DidChangeTextDocumentParams =
 
     ContentChanges =
       [| U2.C1
-         <| {| Range = range
-               RangeLength = Some 0u
-               Text = text |} |] }
+         <| { Range = range
+              RangeLength = Some 0u
+              Text = text } |] }
 
 type CompletionKind =
   | Nada

@@ -352,7 +352,7 @@ let clientCaps: ClientCapabilities =
 
     let publishDiagCaps: PublishDiagnosticsClientCapabilities =
       { RelatedInformation = Some true
-        TagSupport = Some {| ValueSet = [||] |}
+        TagSupport = Some { ValueSet = [||] }
         VersionSupport = Some false
         CodeDescriptionSupport = Some true
         DataSupport = Some false }
@@ -361,20 +361,20 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         CompletionItem =
           Some
-            {| SnippetSupport = Some true
-               CommitCharactersSupport = Some true
-               DocumentationFormat = None
-               DeprecatedSupport = Some false
-               PreselectSupport = Some false
-               TagSupport = None
-               InsertReplaceSupport = Some false
-               ResolveSupport = None
-               InsertTextModeSupport = None
-               LabelDetailsSupport = Some true |}
-        CompletionItemKind = Some {| ValueSet = None |}
+            { SnippetSupport = Some true
+              CommitCharactersSupport = Some true
+              DocumentationFormat = None
+              DeprecatedSupport = Some false
+              PreselectSupport = Some false
+              TagSupport = None
+              InsertReplaceSupport = Some false
+              ResolveSupport = None
+              InsertTextModeSupport = None
+              LabelDetailsSupport = Some true }
+        CompletionItemKind = Some { ValueSet = None }
         ContextSupport = Some true
         InsertTextMode = Some InsertTextMode.AsIs
-        CompletionList = Some {| ItemDefaults = None |} }
+        CompletionList = Some { ItemDefaults = None } }
 
     let hoverCaps: HoverClientCapabilities =
       { DynamicRegistration = Some true
@@ -384,14 +384,14 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         SignatureInformation =
           Some
-            {| DocumentationFormat = Some [| MarkupKind.Markdown |]
-               ParameterInformation = Some {| LabelOffsetSupport = Some true |}
-               ActiveParameterSupport = Some true |}
+            { DocumentationFormat = Some [| MarkupKind.Markdown |]
+              ParameterInformation = Some { LabelOffsetSupport = Some true }
+              ActiveParameterSupport = Some true }
         ContextSupport = Some true }
 
     let docSymCaps: DocumentSymbolClientCapabilities =
       { DynamicRegistration = Some true
-        SymbolKind = Some {| ValueSet = None |}
+        SymbolKind = Some { ValueSet = None }
         HierarchicalDocumentSymbolSupport = Some false
         TagSupport = None
         LabelSupport = Some true }
@@ -400,14 +400,14 @@ let clientCaps: ClientCapabilities =
       { DynamicRegistration = Some true
         LineFoldingOnly = Some true
         RangeLimit = Some 100u
-        FoldingRange = Some {| CollapsedText = Some true |}
+        FoldingRange = Some { CollapsedText = Some true }
         FoldingRangeKind = None }
 
     let semanticTokensCaps: SemanticTokensClientCapabilities =
       { DynamicRegistration = Some true
         Requests =
-          {| Range = Some(U2.C1 true)
-             Full = Some(U2.C1 true) |}
+          { Range = Some(U2.C1 true)
+            Full = Some(U2.C1 true) }
         TokenTypes = [||]
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
@@ -602,8 +602,8 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
         Capabilities = clientCaps
         ClientInfo =
           Some
-            {| Name = "FSAC Tests"
-               Version = Some "0.0.0" |}
+            { Name = "FSAC Tests"
+              Version = Some "0.0.0" }
         WorkspaceFolders =
           Some
             [| { Uri = Path.FilePathToUri path

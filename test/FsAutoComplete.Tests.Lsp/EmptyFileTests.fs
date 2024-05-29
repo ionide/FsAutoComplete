@@ -77,11 +77,13 @@ let tests state =
                         Version = 1 }
                     ContentChanges =
                       [| U2.C1
-                           {| Range =
+                           { Range =
                                { Start = { Line = 0u; Character = 0u }
                                  End = { Line = 0u; Character = 0u } }
-                              RangeLength = Some 0u
-                              Text = "c" |} |] }
+                             RangeLength = Some 0u
+                             Text = "c" } |] }
+              // wait for typechecking to propogate?
+              do! Async.Sleep 1000
 
               let! completions =
                 server.TextDocumentCompletion

@@ -73,8 +73,8 @@ module Server =
           Capabilities = clientCaps
           ClientInfo =
             Some
-              {| Name = "FSAC Tests"
-                 Version = Some "0.0.0" |}
+              { Name = "FSAC Tests"
+                Version = Some "0.0.0" }
           WorkspaceFolders =
             path
             |> Option.map (fun p ->
@@ -341,7 +341,7 @@ module Document =
     async {
       let p: DidChangeTextDocumentParams =
         { TextDocument = doc |> incrVersionedTextDocumentIdentifier
-          ContentChanges = [| U2.C2 {| Text = text |} |] }
+          ContentChanges = [| U2.C2 { Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
       do! Async.Sleep(TimeSpan.FromMilliseconds 250.)

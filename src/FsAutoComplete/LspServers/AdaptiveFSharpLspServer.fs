@@ -414,9 +414,14 @@ type AdaptiveFSharpLspServer
                     | x -> x)
                 InlineValueProvider = inlineValueToggle |> Option.map U3.C2 }
 
-          return
-            { InitializeResult.Default with
-                Capabilities = defaultSettings }
+          let response: Ionide.LanguageServerProtocol.Types.InitializeResult =
+            { Capabilities = defaultSettings
+              ServerInfo =
+                Some
+                  { InitializeResultServerInfo.Name = "FsAutoComplete"
+                    Version = Some <| FsAutoComplete.Utils.Version.info().Version } }
+
+          return response
 
         with e ->
           trace |> Tracing.recordException e
@@ -956,10 +961,7 @@ type AdaptiveFSharpLspServer
                          // Display the signature as a code block
                          tooltipResult.Signature
                          |> TipFormatter.prepareSignature
-                         |> (fun content ->
-                           U2.C2
-                             {| Language = "fsharp"
-                                Value = content |})
+                         |> (fun content -> U2.C2 { Language = "fsharp"; Value = content })
                          U2.C1 tooltipInfo.DocComment
                          match tooltipResult.SymbolInfo with
                          | TryGetToolTipEnhancedResult.Keyword _ -> ()
