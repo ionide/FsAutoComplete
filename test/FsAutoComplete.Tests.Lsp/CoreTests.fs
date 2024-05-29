@@ -72,7 +72,7 @@ let initTests createServer =
           res.Capabilities.CodeLensProvider
           (Some
             { CodeLensOptions.ResolveProvider = Some true
-              WorkDoneProgress = None })
+              WorkDoneProgress = Some false })
           "Code Lens Provider"
 
         Expect.equal res.Capabilities.DefinitionProvider (Some(U2.C1 true)) "Definition Provider"
