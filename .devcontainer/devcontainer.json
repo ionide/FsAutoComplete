@@ -1,15 +1,25 @@
 {
-	"name": "F# (.NET 7.0)",
-	"dockerFile": "Dockerfile",
-	"settings": {
-			"terminal.integrated.shell.linux": "/bin/bash",
-			"FSharp.useSdkScripts":true,
-			"FSharp.workspacePath": "FsAutoComplete.sln"
-		},
-	"onCreateCommand": "dotnet tool restore && dotnet restore",
-	"extensions": [
-			"Ionide.Ionide-fsharp",
-			"Ionide.Ionide-Paket",
-			"ms-vscode.csharp"
-		]
+  "name": "F#",
+  "image": "mcr.microsoft.com/dotnet/sdk:8.0",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "8.0",
+      "dotnetRuntimeVersions": "6.0, 7.0",
+      "aspNetCoreRuntimeVersions": "6.0, 7.0"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "FSharp.workspacePath": "FsAutoComplete.sln"
+      },
+      "extensions": [
+        "Ionide.Ionide-fsharp",
+        "Ionide.Ionide-Paket",
+        "ms-vscode.csharp"
+      ]
+    }
+  },
+  "onCreateCommand": "dotnet tool restore && dotnet restore"
 }
