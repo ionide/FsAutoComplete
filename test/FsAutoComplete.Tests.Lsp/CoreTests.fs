@@ -91,7 +91,7 @@ let initTests createServer =
           (Some(
             U2.C2
               { Label = Some "F#"
-                WorkDoneProgress = None }
+                WorkDoneProgress = Some false }
           ))
           "Document Symbol Provider"
 
@@ -106,7 +106,7 @@ let initTests createServer =
           (Some(
             U2.C2
               { PrepareProvider = Some true
-                WorkDoneProgress = None }
+                WorkDoneProgress = Some false }
           ))
           "Rename Provider"
 
@@ -115,7 +115,7 @@ let initTests createServer =
           (Some
             { TriggerCharacters = Some [| "("; ","; " " |]
               RetriggerCharacters = Some [| ","; ")"; " " |]
-              WorkDoneProgress = None })
+              WorkDoneProgress = Some false })
           "Signature Help Provider"
 
         let td =
@@ -132,7 +132,7 @@ let initTests createServer =
           (Some(
             U2.C2
               { ResolveProvider = Some true
-                WorkDoneProgress = None }
+                WorkDoneProgress = Some false }
           ))
           "Workspace Symbol Provider"
 
