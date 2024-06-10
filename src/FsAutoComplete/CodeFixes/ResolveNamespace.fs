@@ -85,7 +85,7 @@ let fix
       | _ -> l
 
     let containsAttribute (x: string) = x.Contains "[<"
-    let currentLine = max (int retVal - 2) 0  |> lines.GetLineString
+    let currentLine = max (int retVal - 2) 0 |> lines.GetLineString
 
     if currentLine |> containsAttribute then
       retVal + 1u
