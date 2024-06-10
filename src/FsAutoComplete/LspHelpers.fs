@@ -74,6 +74,14 @@ module Conversions =
           { Start = { Line = 0u; Character = 0u }
             End = { Line = 0u; Character = 0u } } }
 
+  type Diagnostic with
+    /// The diagnostic's code, which usually appear in the user interface.
+    member x.CodeAsString =
+      match x.Code with
+      | Some(U2.C1 code) -> code.ToString(System.Globalization.CultureInfo.InvariantCulture) |> Some
+      | Some(U2.C2 code) -> code |> Some
+      | None -> None
+
   type TextDocumentIdentifier with
 
     member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri

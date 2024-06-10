@@ -535,8 +535,8 @@ let diagnosticsTest state =
             Expect.exists
               errors
               (fun error ->
-                match error.Code with
-                | Some(U2.C2 "39" | U2.C2 "41") -> true
+                match error.CodeAsString with
+                | Some("39" | "41") -> true
                 | _ -> false)
               "should have an error FS0039(identifier not defined) or FS0041(a unique overload for method 'TryParse' could not be determined based on type information prior to this program point)"
 

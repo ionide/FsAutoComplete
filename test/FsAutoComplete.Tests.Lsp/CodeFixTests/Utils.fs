@@ -4,22 +4,20 @@ module private FsAutoComplete.Tests.CodeFixTests.Utils
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.Logging
 open FsToolkit.ErrorHandling
+open FsAutoComplete.LspHelpers
 
 module Diagnostics =
   let expectCode code (diags: Diagnostic[]) =
     let diagMsgs =
       diags
-      |> Array.choose (fun d -> Option.zip d.Code (Some d.Message))
+      |> Array.choose (fun d -> Option.zip d.CodeAsString (Some d.Message))
       |> Array.map (fun (code, msg) -> $"{code}: {msg}")
       |> String.concat ", "
 
     Expecto.Flip.Expect.exists
       $"There should be a Diagnostic with code %s{code} but were: {diagMsgs} "
       (fun (d: Diagnostic) ->
-        match d.Code with
-        | Some(U2.C1 intCode) -> int code = intCode
-        | Some(U2.C2 strCode) -> code = strCode
-        | None -> false)
+        d.CodeAsString = Some code)
       diags
 
   let acceptAll = ignore

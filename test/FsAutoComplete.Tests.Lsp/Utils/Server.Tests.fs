@@ -13,6 +13,7 @@ open Utils.Server
 open Utils.Utils
 open FsToolkit.ErrorHandling
 open FSharpx.Control
+open FsAutoComplete.LspHelpers
 
 let tests state =
   testList
@@ -597,12 +598,12 @@ let tests state =
 
                     let groups =
                       diags
-                      |> Array.map (fun d ->
+                      |> Array.map (fun (d : Diagnostic) ->
                         // simplify `The value or constructor 'value' is not defined.` error (contains names and recommendations)
-                        if d.Code = Some(U2.C2 "39") then
-                          "The value or constructor is not defined"
-                        else
-                          d.Message)
+                        match d.CodeAsString with
+                        | Some "39" -> "The value or constructor is not defined"
+                        | _ -> d.Message
+                        )
                       |> Array.countBy id
                       |> Map.ofArray
 

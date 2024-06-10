@@ -9,6 +9,7 @@ open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Utils.Server
 open Helpers.Expecto.ShadowedTimeouts
+open FsAutoComplete.LspHelpers
 
 let tests state =
   let createServer () =
@@ -106,7 +107,7 @@ let tests state =
 
                 Expect.exists
                   errors
-                  (fun error -> error.Code = Some(U2.C2 "39"))
+                  (fun error -> error.CodeAsString = Some "39")
                   $"should have an error FS0039: identifier not defined %A{errors}"
 
               match! completions with

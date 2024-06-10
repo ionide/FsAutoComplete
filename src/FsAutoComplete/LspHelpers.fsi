@@ -39,6 +39,10 @@ module Conversions =
   [<Literal>]
   val unicodeParagraphCharacter: string = "\u001d"
 
+  type Diagnostic with
+
+    member CodeAsString: string option
+
   type TextDocumentIdentifier with
 
     member GetFilePath: unit -> string
