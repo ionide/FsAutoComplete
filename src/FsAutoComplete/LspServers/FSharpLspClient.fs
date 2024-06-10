@@ -78,9 +78,10 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     | _ -> async { return Error(JsonRpc.Error.InternalErrorMessage "workDoneProgress is disabled") }
 
   override x.Progress(token, value) =
+
     let progress: ProgressParams =
       { Token = token
-        Value = Newtonsoft.Json.Linq.JToken.FromObject value }
+        Value = Json.fromObject value }
 
     sendServerNotification "$/progress" (box progress) |> Async.Ignore
 

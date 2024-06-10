@@ -19,6 +19,10 @@ module FcsPos = FSharp.Compiler.Text.Position
 module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos
 
+module Json =
+  val fromObject:
+   obj: 'a -> Newtonsoft.Json.Linq.JToken
+
 [<AutoOpen>]
 module Conversions =
   type LspPosition = Ionide.LanguageServerProtocol.Types.Position

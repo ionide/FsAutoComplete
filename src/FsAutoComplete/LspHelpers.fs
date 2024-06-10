@@ -22,6 +22,10 @@ module FcsPos = FSharp.Compiler.Text.Position
 module FcsPos =
   let subtractColumn (pos: FcsPos) (column: int) = FcsPos.mkPos pos.Line (pos.Column - column)
 
+module Json =
+  let fromObject (obj: 'a) =
+    Newtonsoft.Json.Linq.JToken.FromObject(obj, Ionide.LanguageServerProtocol.Server.jsonRpcFormatter.JsonSerializer)
+
 [<AutoOpen>]
 module Conversions =
 
@@ -177,7 +181,7 @@ module Conversions =
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
       { Command = None
-        Data = Some(Newtonsoft.Json.Linq.JToken.FromObject [| uri; typ |])
+        Data = Some(Json.fromObject [| uri; typ |])
         Range = fcsRangeToLsp decl.Range }
 
     let shouldKeep (n: NavigationItem) =
