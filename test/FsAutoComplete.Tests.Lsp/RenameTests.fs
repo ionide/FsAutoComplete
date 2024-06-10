@@ -91,7 +91,7 @@ let private sameProjectTests state =
                 result
                 "Test.fs"
                 { Start = { Line = 2u; Character = 4u }
-                  End = { Line = 20u; Character = 5u } }
+                  End = { Line = 2u; Character = 5u } }
         })
 
       testCaseAsync
