@@ -589,7 +589,7 @@ let autocompleteTest state =
         (async {
           let! server, path = serverConfig
 
-          let p: CompletionParams = completion path (pos 24u 4u) Nada
+          let p: CompletionParams = completion path (pos 25u 4u) Nada
 
           let! res = server.TextDocumentCompletion p
 
