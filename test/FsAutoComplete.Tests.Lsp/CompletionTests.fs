@@ -351,7 +351,7 @@ let tests state =
         (async {
           let! server, path = server
 
-          let completionParams: CompletionParams = completion path (pos 11u 10u) (Char '.')
+          let completionParams: CompletionParams = completion path (pos 11u 10u) Invoked
 
           let! response = server.TextDocumentCompletion completionParams
 
