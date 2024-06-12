@@ -255,9 +255,9 @@ module CodeFix =
         [ for (i, range) in cursorRanges |> Seq.indexed do
             let pos =
               if range |> Range.isPosition then
-                $"({range.Start.Line},${range.Start.Character})" // TODO: put this back to using DebuggerDisplay when it's back on the generated model
+                range.DebuggerDisplay
               else
-                $"({range.Start.Line},${range.Start.Character})..({range.End.Line},${range.End.Character})"
+                $"{range.Start.DebuggerDisplay}..{range.End.DebuggerDisplay}"
 
             testCaseAsync
               $"Cursor {i} at {pos}"
