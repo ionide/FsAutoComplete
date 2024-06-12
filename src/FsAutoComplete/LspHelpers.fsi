@@ -20,8 +20,7 @@ module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos
 
 module Json =
-  val fromObject:
-   obj: 'a -> Newtonsoft.Json.Linq.JToken
+  val fromObject: obj: 'a -> Newtonsoft.Json.Linq.JToken
 
 [<AutoOpen>]
 module Conversions =

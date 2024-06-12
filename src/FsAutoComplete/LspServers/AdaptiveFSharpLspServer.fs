@@ -1622,9 +1622,9 @@ type AdaptiveFSharpLspServer
 
       let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
         Some
-          [| Json.fromObject(Path.LocalPathToUri sourceFile)
-             Json.fromObject(fcsPosToLsp triggerPos)
-             Json.fromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
+          [| Json.fromObject (Path.LocalPathToUri sourceFile)
+             Json.fromObject (fcsPosToLsp triggerPos)
+             Json.fromObject (usageLocations |> Array.map fcsRangeToLspLocation) |]
 
       handler
         (fun p pos tyRes sourceText lineStr typ file ->
