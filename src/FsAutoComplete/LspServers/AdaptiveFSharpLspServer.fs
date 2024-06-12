@@ -1542,7 +1542,10 @@ type AdaptiveFSharpLspServer
                if config.CodeLenses.References.Enabled then
                  yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
 
-          return Some res
+          match res with
+          | [||] -> return None
+          | res -> return Some res
+
         with e ->
           trace |> Tracing.recordException e
 
@@ -1554,7 +1557,6 @@ type AdaptiveFSharpLspServer
       }
 
     override __.CodeLensResolve(p: CodeLens) =
-      // JB:TODO see how to reuse existing code
       logger.info (
         Log.setMessage "CodeLensResolve Request: {params}"
         >> Log.addContextDestructured "params" p
