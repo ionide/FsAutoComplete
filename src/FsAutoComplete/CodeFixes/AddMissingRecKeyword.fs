@@ -42,18 +42,18 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
         let! line =
           getLineText
             lines
-            { Start =
-                { diagnostic.Range.Start with
-                    Character = 0 }
+            { Start = diagnostic.Range.Start.StartOfLine()
               End =
                 { diagnostic.Range.End with
                     Character = lineLen } }
 
-        match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy [||] with
+        match Lexer.getSymbol (uint32 fcsPos.Line) (uint32 fcsPos.Column) line SymbolLookupKind.Fuzzy [||] with
         | Some lexSym ->
-          let fcsStartPos = FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.LeftColumn
+          let fcsStartPos =
+            FSharp.Compiler.Text.Position.mkPos (int lexSym.Line) (int lexSym.LeftColumn)
 
-          let fcsEndPos = FSharp.Compiler.Text.Position.mkPos lexSym.Line lexSym.RightColumn
+          let fcsEndPos =
+            FSharp.Compiler.Text.Position.mkPos (int lexSym.Line) (int lexSym.RightColumn)
 
           let protocolRange =
             fcsRangeToLsp (FSharp.Compiler.Text.Range.mkRange (UMX.untag fileName) fcsStartPos fcsEndPos)

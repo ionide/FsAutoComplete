@@ -22,7 +22,14 @@ let fix
       let! tyRes, line, _lines = getParseResultsForFile fileName fcsPos
       let! opts = getProjectOptionsForFile fileName
 
-      match Lexer.getSymbol fcsPos.Line fcsPos.Column line SymbolLookupKind.Fuzzy (Array.ofList opts.OtherOptions) with
+      match
+        Lexer.getSymbol
+          (uint32 fcsPos.Line)
+          (uint32 fcsPos.Column)
+          line
+          SymbolLookupKind.Fuzzy
+          (Array.ofList opts.OtherOptions)
+      with
       | Some _symbol ->
         match! tyRes.TryFindDeclaration fcsPos line with
         | FindDeclarationResult.Range declRange when declRange.FileName = (UMX.untag fileName) ->

@@ -14,21 +14,24 @@ open Utils.TextEdit
 open Helpers.Expecto.ShadowedTimeouts
 
 let executeProcess (wd: string) (processName: string) (processArgs: string) =
-    let psi = new Diagnostics.ProcessStartInfo(processName, processArgs) 
-    psi.UseShellExecute <- false
-    psi.RedirectStandardOutput <- true
-    psi.RedirectStandardError <- true
-    psi.CreateNoWindow <- true        
-    psi.WorkingDirectory <- wd
-    let proc = Diagnostics.Process.Start(psi) 
-    let output = new Text.StringBuilder()
-    let error = new Text.StringBuilder()
-    proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
-    proc.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
-    proc.BeginErrorReadLine()
-    proc.BeginOutputReadLine()
-    proc.WaitForExit()
-    {| ExitCode = proc.ExitCode; StdOut = output.ToString(); StdErr = error.ToString() |}
+  let psi = new Diagnostics.ProcessStartInfo(processName, processArgs)
+  psi.UseShellExecute <- false
+  psi.RedirectStandardOutput <- true
+  psi.RedirectStandardError <- true
+  psi.CreateNoWindow <- true
+  psi.WorkingDirectory <- wd
+  let proc = Diagnostics.Process.Start(psi)
+  let output = new Text.StringBuilder()
+  let error = new Text.StringBuilder()
+  proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
+  proc.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
+  proc.BeginErrorReadLine()
+  proc.BeginOutputReadLine()
+  proc.WaitForExit()
+
+  {| ExitCode = proc.ExitCode
+     StdOut = output.ToString()
+     StdErr = error.ToString() |}
 
 ///GoTo tests
 let private gotoTest state =
@@ -81,17 +84,17 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 4; Character = 30 } }
+              Position = { Line = 4u; Character = 30u } }
 
           let! res = server.TextDocumentDefinition p
 
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(GotoResult.Multiple _)) -> failtest "Should only get one location"
-          | Result.Ok(Some(GotoResult.Single r)) when r.Uri.EndsWith("startup", StringComparison.Ordinal) ->
+          | Result.Ok(Some(U2.C2 _t)) -> failtest "Should only get one location"
+          | Result.Ok(Some(U2.C1 r)) when r.Uri.EndsWith("startup", StringComparison.Ordinal) ->
             failtest "Should not generate the startup dummy file"
-          | Result.Ok(Some(GotoResult.Single r)) ->
+          | Result.Ok(Some(U2.C1 r)) ->
             Expect.stringEnds r.Uri ".cs" "should have generated a C# code file"
 
             Expect.stringContains
@@ -109,7 +112,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 2; Character = 15 } }
+              Position = { Line = 2u; Character = 15u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -126,7 +129,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 2; Character = 29 } }
+              Position = { Line = 2u; Character = 29u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -135,14 +138,14 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
 
               Expect.equal
                 res.Range
-                { Start = { Line = 2; Character = 4 }
-                  End = { Line = 2; Character = 16 } }
+                { Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 16u } }
                 "Result should have correct range"
         })
 
@@ -153,7 +156,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 4; Character = 24 } }
+              Position = { Line = 4u; Character = 24u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -162,14 +165,14 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
 
               Expect.equal
                 res.Range
-                { Start = { Line = 6; Character = 4 }
-                  End = { Line = 6; Character = 19 } }
+                { Start = { Line = 6u; Character = 4u }
+                  End = { Line = 6u; Character = 19u } }
                 "Result should have correct range"
         })
 
@@ -180,7 +183,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri definitionPath }
-              Position = { Line = 8; Character = 11 } }
+              Position = { Line = 8u; Character = 11u } }
 
           let! res = server.TextDocumentImplementation p
 
@@ -189,8 +192,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Single _res -> failtest "Should be multiple GotoResult"
-            | GotoResult.Multiple _res ->
+            | U2.C1 _res -> failtest "Should be multiple GotoResult"
+            | U2.C2 _res ->
               // TODO???
               // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
               // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
@@ -205,7 +208,7 @@ let private gotoTest state =
           // check for the 'button' member in giraffe view engine
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 9; Character = 34 } }
+              Position = { Line = 9u; Character = 34u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -214,8 +217,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "GiraffeViewEngine.fs" "Result should be in GiraffeViewEngine"
               let localPath = Path.FileUriToLocalPath res.Uri
 
@@ -232,7 +235,7 @@ let private gotoTest state =
           // check for the 'List.concat' member in FSharp.Core
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 12; Character = 36 } }
+              Position = { Line = 12u; Character = 36u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -241,8 +244,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "FSharp.Core/list.fs" "Result should be in FSharp.Core's list.fs"
               let localPath = Path.FileUriToLocalPath res.Uri
 
@@ -260,7 +263,7 @@ let private gotoTest state =
           // check for the 'Stirng.Join' member in the BCL
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 14; Character = 79 } }
+              Position = { Line = 14u; Character = 79u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -269,8 +272,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               let localPath = Path.FileUriToLocalPath res.Uri
 
               if
@@ -293,7 +296,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 26; Character = 23 } }
+              Position = { Line = 26u; Character = 23u } }
 
           let! res = server.TextDocumentDefinition p
 
@@ -312,7 +315,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 4; Character = 24 } }
+              Position = { Line = 4u; Character = 24u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -321,14 +324,14 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
 
               Expect.equal
                 res.Range
-                { Start = { Line = 4; Character = 5 }
-                  End = { Line = 4; Character = 6 } }
+                { Start = { Line = 4u; Character = 5u }
+                  End = { Line = 4u; Character = 6u } }
                 "Result should have correct range"
         })
 
@@ -339,7 +342,7 @@ let private gotoTest state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri path }
-              Position = { Line = 4; Character = 20 } }
+              Position = { Line = 4u; Character = 20u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -348,14 +351,14 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
 
               Expect.equal
                 res.Range
-                { Start = { Line = 4; Character = 5 }
-                  End = { Line = 4; Character = 6 } }
+                { Start = { Line = 4u; Character = 5u }
+                  End = { Line = 4u; Character = 6u } }
                 "Result should have correct range"
         })
 
@@ -372,7 +375,7 @@ let private gotoTest state =
         *)
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 12; Character = 16 } }
+              Position = { Line = 12u; Character = 16u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -381,8 +384,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
               let localPath = Path.FileUriToLocalPath res.Uri
 
@@ -404,7 +407,7 @@ let private gotoTest state =
         *)
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 16; Character = 6 } }
+              Position = { Line = 16u; Character = 6u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -413,8 +416,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               let localPath = Path.FileUriToLocalPath res.Uri
 
               Expect.stringContains
@@ -440,7 +443,7 @@ let private gotoTest state =
         *)
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 16; Character = 42 } }
+              Position = { Line = 16u; Character = 42u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -449,8 +452,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               let localPath = Path.FileUriToLocalPath res.Uri
 
               Expect.stringContains
@@ -476,7 +479,7 @@ let private gotoTest state =
         *)
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 18; Character = 12 } }
+              Position = { Line = 18u; Character = 12u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -485,8 +488,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
               let localPath = Path.FileUriToLocalPath res.Uri
 
@@ -508,7 +511,7 @@ let private gotoTest state =
         *)
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri externalPath }
-              Position = { Line = 24; Character = 5 } }
+              Position = { Line = 24u; Character = 5u } }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -517,8 +520,8 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | GotoResult.Multiple _ -> failtest "Should be single GotoResult"
-            | GotoResult.Single res ->
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1 res ->
               Expect.stringContains res.Uri "FSharp.Core/prim-types" "Result should be in FSharp.Core's prim-types"
               let localPath = Path.FileUriToLocalPath res.Uri
 
@@ -550,16 +553,15 @@ let private scriptGotoTests state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri scriptPath }
-              Position = { Line = 0; Character = 10 } }
+              Position = { Line = 0u; Character = 10u } }
 
           let! res = server.TextDocumentDefinition p
 
           match res with
           | Error e -> failtestf "Request failed: %A" e
           | Ok None -> failtest "Request none"
-          | Ok(Some(GotoResult.Multiple _)) -> failtest "Should only get one location"
-          | Ok(Some(GotoResult.Single r)) ->
-            Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
+          | Ok(Some(U2.C2 _)) -> failtest "Should only get one location"
+          | Ok(Some(U2.C1 r)) -> Expect.stringEnds r.Uri "/simple.fsx" "should navigate to the mentioned script file"
         })
       testCaseAsync
         "Go-to-definition on first char of identifier works"
@@ -568,7 +570,7 @@ let private scriptGotoTests state =
 
           let p: TextDocumentPositionParams =
             { TextDocument = { Uri = Path.FilePathToUri scriptPath }
-              Position = { Line = 5; Character = 0 } // beginning of the usage of `testFunction` in the script file
+              Position = { Line = 5u; Character = 0u } // beginning of the usage of `testFunction` in the script file
             }
 
           let! res = server.TextDocumentDefinition p
@@ -576,14 +578,14 @@ let private scriptGotoTests state =
           match res with
           | Error e -> failtestf "Request failed: %A" e
           | Ok None -> failtest "Request none"
-          | Ok(Some(GotoResult.Multiple _)) -> failtest "Should only get one location"
-          | Ok(Some(GotoResult.Single r)) ->
+          | Ok(Some(U2.C2 _)) -> failtest "Should only get one location"
+          | Ok(Some(U2.C1 r)) ->
             Expect.stringEnds r.Uri (Path.GetFileName scriptPath) "should navigate to the mentioned script file"
 
             Expect.equal
               r.Range
-              { Start = { Line = 3; Character = 4 }
-                End = { Line = 3; Character = 16 } }
+              { Start = { Line = 3u; Character = 4u }
+                End = { Line = 3u; Character = 16u } }
               "should point to the range of the definition of `testFunction`"
         }) ]
 
@@ -616,8 +618,8 @@ let private untitledGotoTests state =
         match res with
         | Error e -> failtestf "Request failed: %A" e
         | Ok None -> failtest "Request none"
-        | Ok(Some(GotoResult.Multiple _)) -> failtest "Should only get one location"
-        | Ok(Some(GotoResult.Single r)) ->
+        | Ok(Some(U2.C2 _)) -> failtest "Should only get one location"
+        | Ok(Some(U2.C1 r)) ->
           Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
           Expect.equal r.Range declRange "should point to the range of variable declaration"
       }
@@ -647,8 +649,8 @@ let private untitledGotoTests state =
         match res with
         | Error e -> failtestf "Request failed: %A" e
         | Ok None -> failtest "Request none"
-        | Ok(Some(GotoResult.Multiple _)) -> failtest "Should only get one location"
-        | Ok(Some(GotoResult.Single r)) ->
+        | Ok(Some(U2.C2 _)) -> failtest "Should only get one location"
+        | Ok(Some(U2.C1 r)) ->
           Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
           Expect.equal r.Range declRange "should point to the range of function declaration"
       } ])

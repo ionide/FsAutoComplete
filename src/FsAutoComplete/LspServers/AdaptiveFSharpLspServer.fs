@@ -98,8 +98,6 @@ type AdaptiveFSharpLspServer
     let pos = p.GetFcsPos()
     filePath, pos
 
-
-
   member private x.handleSemanticTokens (filePath: string<LocalPath>) range : AsyncLspResult<SemanticTokens option> =
     asyncResult {
 
@@ -306,7 +304,7 @@ type AdaptiveFSharpLspServer
     // mix old and new, warn and mimic old behavior
     | Some p, Some _, _
     | Some p, _, Some _ ->
-      let m =
+      let m: ShowMessageParams =
         { Type = MessageType.Warning
           Message =
             "Do not mix usage of FSIExtraParameters and (FSIExtraInteractiveParameters or FSIExtraSharedParameters)." }
@@ -353,7 +351,7 @@ type AdaptiveFSharpLspServer
 
           let inlineValueToggle: InlineValueOptions option =
             match c.InlineValues.Enabled with
-            | Some true -> Some { ResolveProvider = Some false }
+            | Some true -> Some { WorkDoneProgress = None }
             | Some false -> None
             | None -> None
 
@@ -392,12 +390,12 @@ type AdaptiveFSharpLspServer
 
           transact (fun () ->
             state.RootPath <- actualRootPath
-            state.ClientCapabilities <- p.Capabilities
-            lspClient.ClientCapabilities <- p.Capabilities
+            state.ClientCapabilities <- Some p.Capabilities
+            lspClient.ClientCapabilities <- Some p.Capabilities
 
             state.DiagnosticCollections.ClientSupportsDiagnostics <-
               match p.Capabilities with
-              | Some { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
+              | { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
               | _ -> false
 
             state.Config <- c
@@ -408,13 +406,22 @@ type AdaptiveFSharpLspServer
                 TextDocumentSync =
                   Helpers.defaultServerCapabilities.TextDocumentSync
                   |> Option.map (fun x ->
-                    { x with
-                        Change = Some TextDocumentSyncKind.Incremental })
-                InlineValueProvider = inlineValueToggle }
+                    match x with
+                    | U2.C1 x ->
+                      U2.C1
+                        { x with
+                            Change = Some TextDocumentSyncKind.Incremental }
+                    | x -> x)
+                InlineValueProvider = inlineValueToggle |> Option.map U3.C2 }
 
-          return
-            { InitializeResult.Default with
-                Capabilities = defaultSettings }
+          let response: Ionide.LanguageServerProtocol.Types.InitializeResult =
+            { Capabilities = defaultSettings
+              ServerInfo =
+                Some
+                  { InitializeResultServerInfo.Name = "FsAutoComplete"
+                    Version = Some <| FsAutoComplete.Utils.Version.info().Version } }
+
+          return response
 
         with e ->
           trace |> Tracing.recordException e
@@ -426,23 +433,19 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override __.Initialized(p: InitializedParams) =
+    override __.Initialized() =
       async {
-        let tags = [ "InitializedParams", box p ]
-        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+        use trace = fsacActivitySource.StartActivityForType(thisType)
 
         try
-          logger.info (Log.setMessage "Initialized request {p}" >> Log.addContextDestructured "p" p)
+          logger.info (Log.setMessage "Initialized request")
           let! _ = state.ParseAllFiles()
           return ()
         with e ->
 
           trace |> Tracing.recordException e
 
-          logException
-            e
-            (Log.setMessage "Initialized Request Errored {p}"
-             >> Log.addContextDestructured "p" p)
+          logException e (Log.setMessage "Initialized Request Errored")
 
           return ()
       }
@@ -623,7 +626,7 @@ type AdaptiveFSharpLspServer
                   do!
                     match p.Context with
                     | Some({ TriggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
-                      volatileFile.Source.TryGetChar pos = context.TriggerCharacter
+                      volatileFile.Source.TryGetChar pos |> Option.map string = context.TriggerCharacter
                     | _ -> true
                     |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
 
@@ -741,7 +744,11 @@ type AdaptiveFSharpLspServer
       let mapHelpText (ci: CompletionItem) (text: HelpText) =
         match text with
         | HelpText.Simple(symbolName, text) ->
-          let d = Documentation.Markup(markdown text)
+          let d: U2<_, MarkupContent> =
+            U2.C2(
+              { Kind = MarkupKind.Markdown
+                Value = text }
+            )
 
           { ci with
               Detail = Some symbolName
@@ -759,7 +766,7 @@ type AdaptiveFSharpLspServer
 
               let insertPos =
                 { (fcsPos |> fcsPosToLsp) with
-                    Character = 0 }
+                    Character = 0u }
 
               let displayText =
                 match config.ExternalAutocomplete, ci.Label.Split(" (open ") with
@@ -772,7 +779,11 @@ type AdaptiveFSharpLspServer
                      TextEdit.Range = { Start = insertPos; End = insertPos } } |],
               $"{displayText} (open {ns})"
 
-          let d = Documentation.Markup(markdown comment)
+          let d =
+            U2.C2(
+              { Kind = MarkupKind.Markdown
+                Value = comment }
+            )
 
           { ci with
               Detail = Some si
@@ -862,7 +873,8 @@ type AdaptiveFSharpLspServer
 
 
 
-          let charAtCaret = p.Context |> Option.bind (fun c -> c.TriggerCharacter)
+          let charAtCaret =
+            p.Context |> Option.bind (fun c -> c.TriggerCharacter) |> Option.map char
 
           match!
             SignatureHelp.getSignatureHelpFor (tyRes, pos, volatileFile.Source, charAtCaret, None)
@@ -882,10 +894,14 @@ type AdaptiveFSharpLspServer
                 let parameters =
                   m.Parameters
                   |> Array.map (fun p ->
-                    { ParameterInformation.Label = U2.First p.ParameterName
-                      Documentation = Some(Documentation.String p.CanonicalTypeTextForSorting) })
+                    { ParameterInformation.Label = U2.C1 p.ParameterName
+                      Documentation = Some(U2.C1 p.CanonicalTypeTextForSorting) })
 
-                let d = Documentation.Markup(markdown comment)
+                let d =
+                  U2.C2(
+                    { Kind = MarkupKind.Markdown
+                      Value = comment }
+                  )
 
                 { SignatureInformation.Label = signature
                   Documentation = Some d
@@ -944,42 +960,35 @@ type AdaptiveFSharpLspServer
             match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
             | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
-              // Display the signature as a code block
-              let signature =
-                tooltipResult.Signature
-                |> TipFormatter.prepareSignature
-                |> (fun content -> MarkedString.WithLanguage { Language = "fsharp"; Value = content })
-
-              // Display each footer line as a separate line
-              let footerLines =
-                tooltipResult.Footer
-                |> TipFormatter.prepareFooterLines
-                |> Array.map MarkedString.String
-
-              let contents =
-                [| signature
-                   MarkedString.String tooltipInfo.DocComment
-                   match tooltipResult.SymbolInfo with
-                   | TryGetToolTipEnhancedResult.Keyword _ -> ()
-                   | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
-                     TipFormatter.renderShowDocumentationLink
-                       tooltipInfo.HasTruncatedExamples
-                       symbolInfo.XmlDocSig
-                       symbolInfo.Assembly
-                     |> MarkedString.String
-                   yield! footerLines |]
-
               let response =
-                { Contents = MarkedStrings contents
+                { Contents =
+                    U3.C3
+                      [|
+                         // Display the signature as a code block
+                         tooltipResult.Signature
+                         |> TipFormatter.prepareSignature
+                         |> (fun content -> U2.C2 { Language = "fsharp"; Value = content })
+                         U2.C1 tooltipInfo.DocComment
+                         match tooltipResult.SymbolInfo with
+                         | TryGetToolTipEnhancedResult.Keyword _ -> ()
+                         | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
+                           TipFormatter.renderShowDocumentationLink
+                             tooltipInfo.HasTruncatedExamples
+                             symbolInfo.XmlDocSig
+                             symbolInfo.Assembly
+                           |> U2.C1
+                         // Display each footer line as a separate line
+                         yield! tooltipResult.Footer |> TipFormatter.prepareFooterLines |> Array.map U2.C1 |]
+
                   Range = None }
 
               return (Some response)
 
             | TipFormatter.TipFormatterResult.Error error ->
-              let contents = [| MarkedString.String "<Note>"; MarkedString.String error |]
+              let contents = [| U2.C1 "<Note>"; U2.C1 error |]
 
               let response =
-                { Contents = MarkedStrings contents
+                { Contents = U3.C3 contents
                   Range = None }
 
               return (Some response)
@@ -1014,7 +1023,7 @@ type AdaptiveFSharpLspServer
           Commands.renameSymbolRange state.GetDeclarationLocation false pos lineStr volatileFile.Source tyRes
           |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
 
-        return range |> fcsRangeToLsp |> PrepareRenameResult.Range |> Some
+        return range |> fcsRangeToLsp |> U3.C1 |> Some
       }
 
     override x.TextDocumentRename(p: RenameParams) =
@@ -1028,7 +1037,7 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
-          let (filePath, pos) = getFilePathAndPosition p
+          let (filePath, pos) = LspHelpers.Extensions.getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
@@ -1055,7 +1064,7 @@ type AdaptiveFSharpLspServer
                   kvp.Value
                   |> Array.map (fun range ->
                     let range = fcsRangeToLsp range
-                    { Range = range; NewText = newName })
+                    U2.C1 { Range = range; NewText = newName })
 
                 let file: string<LocalPath> = kvp.Key
 
@@ -1105,7 +1114,7 @@ type AdaptiveFSharpLspServer
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
+          return decl |> findDeclToLspLocation |> U2.C1 |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1133,7 +1142,7 @@ type AdaptiveFSharpLspServer
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> GotoResult.Single |> Some
+          return decl |> findDeclToLspLocation |> U2.C1 |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1266,8 +1275,8 @@ type AdaptiveFSharpLspServer
 
             match mappedRanges with
             | [||] -> return None
-            | [| single |] -> return Some(GotoResult.Single single)
-            | multiple -> return Some(GotoResult.Multiple multiple)
+            | [| single |] -> return Some(U2.C1 single)
+            | multiple -> return Some(U2.C2 multiple)
         with e ->
           trace |> Tracing.recordException e
 
@@ -1296,7 +1305,7 @@ type AdaptiveFSharpLspServer
             decls
             |> Array.collect (fun top ->
               getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
-            |> U2.First
+            |> U2.C1
             |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -1333,7 +1342,7 @@ type AdaptiveFSharpLspServer
               ns
               |> Array.collect (fun n ->
                 getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
-            |> U2.First
+            |> U2.C1
             |> Some
 
           return res
@@ -1368,7 +1377,7 @@ type AdaptiveFSharpLspServer
 
           let handlerFormattedDoc (sourceText: IFSACSourceText, formatted: string) =
             let range =
-              let zero = { Line = 0; Character = 0 }
+              let zero = { Line = 0u; Character = 0u }
               let lastPos = sourceText.LastFilePosition
 
               { Start = zero
@@ -1405,10 +1414,10 @@ type AdaptiveFSharpLspServer
 
             let range =
               FormatSelectionRange(
-                p.Range.Start.Line + 1,
-                p.Range.Start.Character,
-                p.Range.End.Line + 1,
-                p.Range.End.Character
+                int p.Range.Start.Line + 1,
+                int p.Range.Start.Character,
+                int p.Range.End.Line + 1,
+                int p.Range.End.Character
               )
 
             let tryGetFileCheckerOptionsWithLines file = state.GetOpenFileSource file
@@ -1419,11 +1428,11 @@ type AdaptiveFSharpLspServer
           let handlerFormattedRangeDoc (_sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
             let range =
               { Start =
-                  { Line = range.StartLine - 1
-                    Character = range.StartColumn }
+                  { Line = uint32 range.StartLine - 1u
+                    Character = uint32 range.StartColumn }
                 End =
-                  { Line = range.EndLine - 1
-                    Character = range.EndColumn } }
+                  { Line = uint32 range.EndLine - 1u
+                    Character = uint32 range.EndColumn } }
 
             [| { Range = range; NewText = formatted } |]
 
@@ -1505,7 +1514,7 @@ type AdaptiveFSharpLspServer
               |> List.map (CodeAction.OfFix tryGetFileVersion clientCapabilities)
               |> Async.parallel75
 
-            return Some(fixes |> Array.map U2.Second)
+            return Some(fixes |> Array.map U2.C2)
         with e ->
           trace |> Tracing.recordException e
 
@@ -1539,7 +1548,10 @@ type AdaptiveFSharpLspServer
                if config.CodeLenses.References.Enabled then
                  yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
 
-          return Some res
+          match res with
+          | [||] -> return None
+          | res -> return Some res
+
         with e ->
           trace |> Tracing.recordException e
 
@@ -1551,7 +1563,6 @@ type AdaptiveFSharpLspServer
       }
 
     override __.CodeLensResolve(p: CodeLens) =
-      // JB:TODO see how to reuse existing code
       logger.info (
         Log.setMessage "CodeLensResolve Request: {params}"
         >> Log.addContextDestructured "params" p
@@ -1619,9 +1630,9 @@ type AdaptiveFSharpLspServer
 
       let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
         Some
-          [| JToken.FromObject(Path.LocalPathToUri sourceFile)
-             JToken.FromObject(fcsPosToLsp triggerPos)
-             JToken.FromObject(usageLocations |> Array.map fcsRangeToLspLocation) |]
+          [| Json.fromObject (Path.LocalPathToUri sourceFile)
+             Json.fromObject (fcsPosToLsp triggerPos)
+             Json.fromObject (usageLocations |> Array.map fcsRangeToLspLocation) |]
 
       handler
         (fun p pos tyRes sourceText lineStr typ file ->
@@ -1922,7 +1933,7 @@ type AdaptiveFSharpLspServer
             let disableLongTooltip = "fsharp.inlayHints.disableLongTooltip"
 
             if config.InlayHints.disableLongTooltip then
-              h.Tooltip |> Option.map (InlayHintTooltip.String)
+              h.Tooltip |> Option.map U2.C1
             else
               let lines = ResizeArray()
 
@@ -1946,13 +1957,18 @@ type AdaptiveFSharpLspServer
                 lines.Add ""
                 lines.Add(t))
 
-              String.concat "\n" lines |> markdown |> InlayHintTooltip.Markup |> Some
+              String.concat "\n" lines
+              |> fun line ->
+                { Kind = MarkupKind.Markdown
+                  Value = line }
+                |> U2.C2
+                |> Some
 
           let hints: InlayHint[] =
             hints
             |> Array.map (fun h ->
               { Position = fcsPosToLsp h.Pos
-                Label = InlayHintLabel.String h.Text
+                Label = U2.C1 h.Text
                 Kind =
                   match h.Kind with
                   | InlayHints.HintKind.Type -> Types.InlayHintKind.Type
@@ -2013,7 +2029,7 @@ type AdaptiveFSharpLspServer
             |> Array.map (fun (pos, lineHints) ->
               { InlineValueText.Range = fcsPosToProtocolRange pos
                 Text = lineHints }
-              |> InlineValue.InlineValueText)
+              |> U3.C1)
             |> Some
 
           return hints
@@ -2191,13 +2207,13 @@ type AdaptiveFSharpLspServer
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
 
           let! lexedResult =
-            Lexer.getSymbol pos.Line pos.Column lineStr SymbolLookupKind.Fuzzy [||]
+            Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) lineStr SymbolLookupKind.Fuzzy [||]
             |> Result.ofOption (fun () -> "No symbol found")
             |> Result.ofStringErr
 
           let location = findDeclToLspLocation decl
 
-          let returnValue =
+          let returnValue: CallHierarchyItem[] =
             [| { Name = lexedResult.Text
                  Kind = SymbolKind.Function
                  Tags = None
@@ -2294,7 +2310,7 @@ type AdaptiveFSharpLspServer
           )
 
           let pos =
-            FSharp.Compiler.Text.Position.mkPos (p.Position.Line) (p.Position.Character + 2)
+            FSharp.Compiler.Text.Position.mkPos (int p.Position.Line) (int p.Position.Character + 2)
 
           let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
@@ -2344,16 +2360,19 @@ type AdaptiveFSharpLspServer
                    InsertText = text } ->
 
             let edit: ApplyWorkspaceEditParams =
+              let doc: OptionalVersionedTextDocumentIdentifier =
+                { Uri = p.TextDocument.Uri
+                  Version = Some p.TextDocument.Version }
+
+              let edits =
+                [| U2.C1
+                     { Range = fcsPosToProtocolRange insertPos
+                       NewText = text } |]
+
               { Label = Some "Generate Xml Documentation"
                 Edit =
-                  { DocumentChanges =
-                      Some
-                        [| { TextDocument =
-                               { Uri = p.TextDocument.Uri
-                                 Version = Some p.TextDocument.Version }
-                             Edits =
-                               [| { Range = fcsPosToProtocolRange insertPos
-                                    NewText = text } |] } |]
+                  { DocumentChanges = Some [| U4.C1({ TextDocument = doc; Edits = edits }: TextDocumentEdit) |]
+                    ChangeAnnotations = None
                     Changes = None } }
 
             let! _ = lspClient.WorkspaceApplyEdit edit
@@ -3047,10 +3066,10 @@ type AdaptiveFSharpLspServer
         try
           logger.info (
             Log.setMessage "WorkDoneProgressCancel Request: {params}"
-            >> Log.addContextDestructured "params" param.token
+            >> Log.addContextDestructured "params" param.Token
           )
 
-          state.CancelServerProgress param.token
+          state.CancelServerProgress param.Token
 
         with e ->
           trace |> Tracing.recordException e
@@ -3058,7 +3077,7 @@ type AdaptiveFSharpLspServer
           logException
             e
             (Log.setMessage "WorkDoneProgressCancel Request Errored {p}"
-             >> Log.addContextDestructured "token" param.token)
+             >> Log.addContextDestructured "token" param.Token)
 
         return ()
       }

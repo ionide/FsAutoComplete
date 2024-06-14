@@ -10,6 +10,7 @@ open Ionide.ProjInfo.Logging
 
 /// Checks for CodeFixes, CodeActions
 open System.Runtime.ExceptionServices
+
 ///
 /// Prefixes:
 /// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
@@ -118,6 +119,7 @@ module CodeFix =
     =
     async {
       let mutable attempts = 5
+
       while attempts > 0 do
         try
           let (range, text) =
@@ -134,15 +136,20 @@ module CodeFix =
               validateDiagnostics
               chooseFix
               (expected ())
+
           attempts <- 0
-        with
-        | ex ->
+        with ex ->
           attempts <- attempts - 1
+
           if attempts = 0 then
             ExceptionDispatchInfo.Capture(ex).Throw()
             return failwith "Unreachable"
           else
-            _logger.warn (Log.setMessage "Retrying test after failure" >> Log.addContext "attempts" (5 - attempts))
+            _logger.warn (
+              Log.setMessage "Retrying test after failure"
+              >> Log.addContext "attempts" (5 - attempts)
+            )
+
             do! Async.Sleep 15
 
     }
@@ -248,7 +255,7 @@ module CodeFix =
         [ for (i, range) in cursorRanges |> Seq.indexed do
             let pos =
               if range |> Range.isPosition then
-                range.Start.DebuggerDisplay
+                range.DebuggerDisplay
               else
                 $"{range.Start.DebuggerDisplay}..{range.End.DebuggerDisplay}"
 

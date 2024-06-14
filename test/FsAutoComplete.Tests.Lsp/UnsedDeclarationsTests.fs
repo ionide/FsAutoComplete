@@ -38,7 +38,7 @@ let private checkUsageAt server doc sourceWithoutCursor cursor expected =
 
     let isUnused (diag: Diagnostic) =
       diag.Source = Some "FSAC"
-      && diag.Code = Some "FSAC0003"
+      && diag.Code = Some(U2.C2 "FSAC0003")
       && diag.Message = "This value is unused"
       && diag.Tags
          |> Option.map (Array.contains DiagnosticTag.Unnecessary)
@@ -318,7 +318,7 @@ module private Internal =
 
           for (marker, pos) in cursors do
             let expected = if marker = "$P" then Used else Unused
-            let title = $"%A{expected} at %s{pos.DebuggerDisplay}"
+            let title = $"%A{expected} at %d{pos.Line}, %d{pos.Character}"
             testCaseAsync title <| checkUsageAt server file source pos expected ] ])
 
 let tests state =

@@ -26,11 +26,16 @@ let fix
       let! (tyRes, line, lines) = getParseResultsForFile fileName fcsRange.Start
 
       let! (endColumn, identIslands) =
-        Lexer.findLongIdents (fcsRange.Start.Column, line)
+        Lexer.findLongIdents (uint32 fcsRange.Start.Column, line)
         |> Result.ofOption (fun _ -> "No long ident at position")
 
       match
-        tyRes.GetCheckResults.GetDeclarationLocation(fcsRange.Start.Line, endColumn, line, List.ofArray identIslands)
+        tyRes.GetCheckResults.GetDeclarationLocation(
+          fcsRange.Start.Line,
+          int endColumn,
+          line,
+          List.ofArray identIslands
+        )
       with
       | FindDeclResult.DeclFound declRange when declRange.FileName = UMX.untag fileName ->
         let! projectOptions = getProjectOptionsForFile fileName
@@ -43,8 +48,8 @@ let fix
 
         let! declLexerSymbol =
           Lexer.getSymbol
-            declRange.Start.Line
-            declRange.Start.Column
+            (uint32 declRange.Start.Line)
+            (uint32 declRange.Start.Column)
             declText
             SymbolLookupKind.ByLongIdent
             (Array.ofList projectOptions.OtherOptions)

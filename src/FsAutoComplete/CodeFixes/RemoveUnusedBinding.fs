@@ -83,7 +83,7 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
 
         // walk back to the start of the keyword, which is always `let` or `use`
         let! keywordStartColumn =
-          decMany lines endOfPrecedingKeyword 3
+          decMany lines endOfPrecedingKeyword 3u
           |> Result.ofOption (fun _ -> "failed to walk")
 
         let replacementRange =

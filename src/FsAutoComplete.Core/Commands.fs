@@ -267,14 +267,15 @@ module Commands =
 
   let getNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
     async {
-      match Lexer.findLongIdents (pos.Column, line) with
+      match Lexer.findLongIdents (uint32 pos.Column, line) with
       | None -> return CoreResponse.InfoRes "Ident not found"
       | Some(_, idents) ->
         match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
         | None -> return CoreResponse.InfoRes "EntityKind not found"
         | Some entityKind ->
 
-          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+          let symbol =
+            Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) line SymbolLookupKind.Fuzzy [||]
 
           match symbol with
           | None -> return CoreResponse.InfoRes "Symbol at position not found"

@@ -52,7 +52,7 @@ module KeywordList =
           InsertText = Some kv.Key
           FilterText = Some kv.Key
           SortText = Some kv.Key
-          Documentation = Some(Documentation.String kv.Value)
+          Documentation = Some(U2.C1 kv.Value)
           Label = label })
     |> Seq.toArray
 

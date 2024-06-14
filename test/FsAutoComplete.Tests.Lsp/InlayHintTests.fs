@@ -20,8 +20,8 @@ module private FSharpInlayHints =
   let private at (text, pos, kind, edits) : InlayHint =
     { Label =
         match kind with
-        | InlayHintKind.Type -> InlayHintLabel.String(": " + InlayHints.truncated text)
-        | InlayHintKind.Parameter -> InlayHintLabel.String(InlayHints.truncated text + " =")
+        | InlayHintKind.Type -> U2.C1(": " + InlayHints.truncated text)
+        | InlayHintKind.Parameter -> U2.C1(InlayHints.truncated text + " =")
         | _ -> failwith $"unknown hint kind %O{kind}"
       // this is for truncated text, which we do not currently hit in our tests
       TextEdits = edits |> Option.map List.toArray
@@ -109,20 +109,20 @@ module private FSharpInlayHints =
               [ ty
                   "int"
                   [ { Range =
-                        { Start = { Line = 0; Character = 6 }
-                          End = { Line = 0; Character = 6 } }
+                        { Start = { Line = 0u; Character = 6u }
+                          End = { Line = 0u; Character = 6u } }
                       NewText = "(" }
                     { Range =
-                        { Start = { Line = 0; Character = 10 }
-                          End = { Line = 0; Character = 10 } }
+                        { Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u } }
                       NewText = ": " }
                     { Range =
-                        { Start = { Line = 0; Character = 10 }
-                          End = { Line = 0; Character = 10 } }
+                        { Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u } }
                       NewText = "int" }
                     { Range =
-                        { Start = { Line = 0; Character = 10 }
-                          End = { Line = 0; Character = 10 } }
+                        { Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u } }
                       NewText = ")" } ] ] ]
 
         testList
@@ -156,7 +156,7 @@ module private LspInlayHints =
         diags
         |> Array.filter (function
           // Ignore extra parens diagnostics here.
-          | { Code = Some "FSAC0004" } -> false
+          | { Code = Some(U2.C2 "FSAC0004") } -> false
           | _ -> true)
 
       use doc = doc
@@ -197,7 +197,7 @@ module private LspInlayHints =
       | Some edits, Some textAfterEdits ->
         let appliedText =
           text
-          |> TextEdits.applyWithErrorCheck (edits |> List.ofArray)
+          |> TextEdits.applyWithErrorCheck edits
           |> Flip.Expect.wantOk "TextEdits are erroneous"
 
         Expect.equal appliedText textAfterEdits "Text after applying TextEdits does not match expected"
@@ -250,12 +250,12 @@ module private LspInlayHints =
       do! checkInRange server text range validateHints
     }
 
-  let private fromCursor: Position = { Line = -1; Character = -1 }
+  let private fromCursor: Position = { Line = 0u; Character = 0u }
 
   let private mkBasicHint (kind: InlayHintKind) (pos: Position) (label: string) : InlayHint =
     { Kind = Some kind
       Position = pos
-      Label = InlayHintLabel.String label
+      Label = U2.C1 label
       TextEdits = None
       Tooltip = None
       PaddingLeft =
@@ -282,7 +282,7 @@ module private LspInlayHints =
   let truncated (hint: InlayHint, edits) =
     let label =
       match hint.Label with
-      | InlayHintLabel.String label -> label
+      | U2.C1 label -> label
       | _ -> failtestf "invalid label: %A" hint.Label
 
     let (name, kind) =
@@ -305,8 +305,8 @@ module private LspInlayHints =
             | InlayHintKind.Parameter -> truncatedName + " ="
             | InlayHintKind.Type -> ": " + truncatedName
             | _ -> failwith "unreachable"
-            |> InlayHintLabel.String
-          Tooltip = InlayHintTooltip.String name |> Some }
+            |> U2.C1
+          Tooltip = U2.C1 name |> Some }
 
     (hint, edits)
 
@@ -1410,8 +1410,8 @@ module InlayHintAndExplicitType =
   let tryGetInlayHintAt pos doc =
     async {
       let allRange =
-        { Start = { Line = 0; Character = 0 }
-          End = { Line = 1234; Character = 1234 } }
+        { Start = { Line = 0u; Character = 0u }
+          End = { Line = 1234u; Character = 1234u } }
 
       let! hints = doc |> Document.inlayHintsAt allRange
       return hints |> Array.tryFind (fun h -> h.Position = pos)
@@ -1478,7 +1478,7 @@ module InlayHintAndExplicitType =
     let recheckAfterAppliedEdits
       (doc: Document)
       (cursorBeforeEdits: Position)
-      (edits: TextEdit list)
+      (edits: TextEdit[])
       (textAfterEdits: string)
       =
       async {
@@ -1501,8 +1501,8 @@ module InlayHintAndExplicitType =
 
           let actual =
             match inlayHint.Label with
-            | InlayHintLabel.String lbl -> lbl
-            | InlayHintLabel.Parts parts -> parts |> Array.map (fun part -> part.Value) |> String.concat ""
+            | U2.C1 lbl -> lbl
+            | U2.C2 parts -> parts |> Array.map (fun part -> part.Value) |> String.concat ""
 
           let actual =
             let actual = actual.TrimStart()
@@ -1519,8 +1519,7 @@ module InlayHintAndExplicitType =
         | Edit textAfterEdits ->
           let inlayHint = Expect.wantSome inlayHint "There should be a Inlay Hint"
 
-          let edits =
-            Expect.wantSome inlayHint.TextEdits "There should be TextEdits" |> List.ofArray
+          let edits = Expect.wantSome inlayHint.TextEdits "There should be TextEdits"
 
           let actual =
             text |> TextEdits.apply edits |> Flip.Expect.wantOk "TextEdits should succeed"

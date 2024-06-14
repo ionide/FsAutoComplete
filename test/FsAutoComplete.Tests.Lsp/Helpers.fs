@@ -115,8 +115,10 @@ type DisposableDirectory(directory: string, deleteParentDir) =
           attempts <- 0
         with _ ->
           attempts <- attempts - 1
+
           if attempts = 0 then
             reraise ()
+
           Thread.Sleep(15)
 
 
@@ -225,7 +227,10 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   let loader = workspaceLoader ()
   let client = FSharpLspClient(recordNotifications, recordRequests)
-  let server = new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
+
+  let server =
+    new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
+
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
 let defaultConfigDto: FSharpConfigDto =
@@ -290,17 +295,22 @@ let defaultConfigDto: FSharpConfigDto =
     Debug = None }
 
 let clientCaps: ClientCapabilities =
-  let dynCaps: DynamicCapabilities = { DynamicRegistration = Some true }
+
+  let didChangeConfigCaps: DidChangeConfigurationClientCapabilities =
+    { DynamicRegistration = Some true }
+
+  let executeCommandsClientCaps: ExecuteCommandClientCapabilities =
+    { DynamicRegistration = Some true }
 
   let workspaceCaps: WorkspaceClientCapabilities =
-    let weCaps: WorkspaceEditCapabilities =
+    let weCaps: WorkspaceEditClientCapabilities =
       { DocumentChanges = Some true
         ResourceOperations = None
         FailureHandling = None
         NormalizesLineEndings = None
         ChangeAnnotationSupport = None }
 
-    let symbolCaps: SymbolCapabilities =
+    let symbolCaps: WorkspaceSymbolClientCapabilities =
       { DynamicRegistration = Some true
         SymbolKind = None
         TagSupport = None
@@ -320,92 +330,84 @@ let clientCaps: ClientCapabilities =
 
     { ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
-      DidChangeConfiguration = Some dynCaps
+      DidChangeConfiguration = Some didChangeConfigCaps
       DidChangeWatchedFiles = None
       Symbol = Some symbolCaps
       SemanticTokens = Some semanticTokenCaps
       InlayHint = Some inlayHintCaps
       InlineValue = Some inlineValueCaps
       CodeLens = Some codeLensCaps
-      ExecuteCommand = Some dynCaps
+      ExecuteCommand = Some executeCommandsClientCaps
       WorkspaceFolders = Some false
       Configuration = Some true
       FileOperations = None
       Diagnostics = Some { RefreshSupport = Some false } }
 
   let textCaps: TextDocumentClientCapabilities =
-    let syncCaps: SynchronizationCapabilities =
+    let syncCaps: TextDocumentSyncClientCapabilities =
       { DynamicRegistration = Some true
         WillSave = Some true
         WillSaveWaitUntil = Some true
         DidSave = Some true }
 
-    let publishDiagCaps: PublishDiagnosticsCapabilities =
-      let diagnosticTags: DiagnosticTagSupport = { ValueSet = [||] }
-
+    let publishDiagCaps: PublishDiagnosticsClientCapabilities =
       { RelatedInformation = Some true
-        TagSupport = Some diagnosticTags
+        TagSupport = Some { ValueSet = [||] }
         VersionSupport = Some false
         CodeDescriptionSupport = Some true
         DataSupport = Some false }
 
-    let ciCaps: CompletionItemCapabilities =
-      { SnippetSupport = Some true
-        CommitCharactersSupport = Some true
-        DocumentationFormat = None
-        DeprecatedSupport = Some false
-        PreselectSupport = Some false
-        TagSupport = None
-        InsertReplaceSupport = Some false
-        ResolveSupport = None
-        InsertTextModeSupport = None
-        LabelDetailsSupport = Some true }
-
-    let cikCaps: CompletionItemKindCapabilities = { ValueSet = None }
-
-    let compCaps: CompletionCapabilities =
+    let compCaps: CompletionClientCapabilities =
       { DynamicRegistration = Some true
-        CompletionItem = Some ciCaps
-        CompletionItemKind = Some cikCaps
+        CompletionItem =
+          Some
+            { SnippetSupport = Some true
+              CommitCharactersSupport = Some true
+              DocumentationFormat = None
+              DeprecatedSupport = Some false
+              PreselectSupport = Some false
+              TagSupport = None
+              InsertReplaceSupport = Some false
+              ResolveSupport = None
+              InsertTextModeSupport = None
+              LabelDetailsSupport = Some true }
+        CompletionItemKind = Some { ValueSet = None }
         ContextSupport = Some true
         InsertTextMode = Some InsertTextMode.AsIs
         CompletionList = Some { ItemDefaults = None } }
 
-    let hoverCaps: HoverCapabilities =
+    let hoverCaps: HoverClientCapabilities =
       { DynamicRegistration = Some true
-        ContentFormat = Some [| "markdown" |] }
+        ContentFormat = Some [| MarkupKind.Markdown |] }
 
-    let sigCaps: SignatureHelpCapabilities =
-      let siCaps: SignatureInformationCapabilities =
-        { DocumentationFormat = Some [| "markdown" |]
-          ParameterInformation = Some { LabelOffsetSupport = Some true }
-          ActiveParameterSupport = Some true }
-
+    let sigCaps: SignatureHelpClientCapabilities =
       { DynamicRegistration = Some true
-        SignatureInformation = Some siCaps
+        SignatureInformation =
+          Some
+            { DocumentationFormat = Some [| MarkupKind.Markdown |]
+              ParameterInformation = Some { LabelOffsetSupport = Some true }
+              ActiveParameterSupport = Some true }
         ContextSupport = Some true }
 
-    let docSymCaps: DocumentSymbolCapabilities =
-      let skCaps: SymbolKindCapabilities = { ValueSet = None }
-
+    let docSymCaps: DocumentSymbolClientCapabilities =
       { DynamicRegistration = Some true
-        SymbolKind = Some skCaps
+        SymbolKind = Some { ValueSet = None }
         HierarchicalDocumentSymbolSupport = Some false
         TagSupport = None
         LabelSupport = Some true }
 
-    let foldingRangeCaps: FoldingRangeCapabilities =
+    let foldingRangeCaps: FoldingRangeClientCapabilities =
       { DynamicRegistration = Some true
         LineFoldingOnly = Some true
-        RangeLimit = Some 100
+        RangeLimit = Some 100u
         FoldingRange = Some { CollapsedText = Some true }
         FoldingRangeKind = None }
 
     let semanticTokensCaps: SemanticTokensClientCapabilities =
       { DynamicRegistration = Some true
         Requests =
-          { Range = Some true
-            Full = Some(U2.First true) }
+          { Range = Some(U2.C1 true)
+            Full = Some(U2.C1 true) }
         TokenTypes = [||]
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
@@ -428,8 +430,7 @@ let clientCaps: ClientCapabilities =
         ResolveSupport = None }
 
     let _inlineValueCaps: InlineValueClientCapabilities =
-      { DynamicRegistration = Some true
-        ResolveSupport = None }
+      { DynamicRegistration = Some true }
 
     let renameCaps: RenameClientCapabilities =
       { DynamicRegistration = Some true
@@ -437,66 +438,97 @@ let clientCaps: ClientCapabilities =
         PrepareSupport = Some false
         PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier }
 
-    let linkCaps: DynamicLinkSupportCapabilities =
+    let referenceCaps: ReferenceClientCapabilities = { DynamicRegistration = Some true }
+
+    let declarationCaps: DeclarationClientCapabilities =
       { DynamicRegistration = Some true
         LinkSupport = Some false }
 
-    let defCaps: DynamicLinkSupportCapabilities =
+    let defCaps: DefinitionClientCapabilities =
       { DynamicRegistration = Some true
         LinkSupport = Some false }
 
-    let typeDefCaps: DynamicLinkSupportCapabilities =
+    let typeDefCaps: TypeDefinitionClientCapabilities =
       { DynamicRegistration = Some true
         LinkSupport = Some false }
 
-    let implCaps: DynamicLinkSupportCapabilities =
+    let implCaps: ImplementationClientCapabilities =
       { DynamicRegistration = Some true
         LinkSupport = Some false }
 
-    let docLinkCaps: DocumentLinkCapabilities =
+    let docLinkCaps: DocumentLinkClientCapabilities =
       { DynamicRegistration = Some true
         TooltipSupport = Some true }
 
-    let diagCaps: DiagnosticCapabilities =
+    let diagCaps: DiagnosticClientCapabilities =
       { DynamicRegistration = Some true
         RelatedDocumentSupport = Some true }
+
+    let highlightCaps: DocumentHighlightClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let formattingCaps: DocumentFormattingClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let rangeFormattingCaps: DocumentRangeFormattingClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let onTypeFormattingCaps: DocumentOnTypeFormattingClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let codeLensCaps: CodeLensClientCapabilities = { DynamicRegistration = Some true }
+
+    let selectionRangeCaps: SelectionRangeClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let monikerCaps: MonikerClientCapabilities = { DynamicRegistration = Some true }
+
+    let colorProviderCaps: DocumentColorClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let linkedEditingRangeCaps: LinkedEditingRangeClientCapabilities =
+      { DynamicRegistration = Some true }
+
+    let inlineValueCaps: InlineValueClientCapabilities =
+      { DynamicRegistration = Some true }
 
     { Synchronization = Some syncCaps
       PublishDiagnostics = Some publishDiagCaps
       Completion = Some compCaps
       Hover = Some hoverCaps
       SignatureHelp = Some sigCaps
-      References = Some dynCaps
-      DocumentHighlight = Some dynCaps
+      References = Some referenceCaps
+      DocumentHighlight = Some highlightCaps
       DocumentSymbol = Some docSymCaps
-      Formatting = Some dynCaps
-      RangeFormatting = Some dynCaps
-      OnTypeFormatting = Some dynCaps
+      Formatting = Some formattingCaps
+      RangeFormatting = Some rangeFormattingCaps
+      OnTypeFormatting = Some onTypeFormattingCaps
       Definition = Some defCaps
       CodeAction = Some codeActionCaps
-      CodeLens = Some dynCaps
+      CodeLens = Some codeLensCaps
       DocumentLink = Some docLinkCaps
       Rename = Some renameCaps
       FoldingRange = Some foldingRangeCaps
-      SelectionRange = Some dynCaps
+      SelectionRange = Some selectionRangeCaps
       SemanticTokens = Some semanticTokensCaps
       InlayHint = Some inlayHintCaps
       CallHierarchy = None
       TypeHierarchy = None
-      Declaration = Some linkCaps
+      Declaration = Some declarationCaps
       TypeDefinition = Some typeDefCaps
       Implementation = Some implCaps
-      ColorProvider = Some dynCaps
-      LinkedEditingRange = Some dynCaps
-      Moniker = Some dynCaps
-      InlineValue = Some dynCaps
+      ColorProvider = Some colorProviderCaps
+      LinkedEditingRange = Some linkedEditingRangeCaps
+      Moniker = Some monikerCaps
+      InlineValue = Some inlineValueCaps
       Diagnostic = Some diagCaps }
 
   { Workspace = Some workspaceCaps
     TextDocument = Some textCaps
     Experimental = None
     Window = None
-    General = None }
+    General = None
+    NotebookDocument = None }
 
 open Expecto.Logging
 open Expecto.Logging.Message
@@ -567,7 +599,7 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
         RootPath = Some path
         RootUri = Some(sprintf "file://%s" path)
         InitializationOptions = Some(Server.serialize config)
-        Capabilities = Some clientCaps
+        Capabilities = clientCaps
         ClientInfo =
           Some
             { Name = "FSAC Tests"
@@ -576,14 +608,15 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
           Some
             [| { Uri = Path.FilePathToUri path
                  Name = "Test Folder" } |]
-        trace = None
-        Locale = None }
+        Trace = None
+        Locale = None
+        WorkDoneToken = None }
 
     let! result = server.Initialize p
 
     match result with
     | Result.Ok _res ->
-      do! server.Initialized(InitializedParams())
+      do! server.Initialized()
       return (server, clientNotifications)
     | Result.Error _e -> return failwith "Initialization failed"
   }
@@ -662,7 +695,10 @@ let editsFor (file: string) =
 
     let forFile =
       edits
-      |> Array.collect (fun e -> if e.TextDocument.Uri = fileAsUri then e.Edits else [||])
+      |> Array.collect (fun e ->
+        match e with
+        | U4.C1 e -> if e.TextDocument.Uri = fileAsUri then e.Edits else [||]
+        | _ -> [||])
 
     match forFile with
     | [||] -> None
@@ -758,7 +794,7 @@ let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =
   let actions =
     t
     |> Array.choose (function
-      | U2.Second action -> Some action
+      | U2.C2 action -> Some action
       | _ -> None)
 
   match actions with

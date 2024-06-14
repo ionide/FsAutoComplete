@@ -9,28 +9,31 @@ open System.Collections.Generic
 open Ionide.ProjInfo.ProjectSystem
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
+open FSharp.UMX
 
 type FcsRange = FSharp.Compiler.Text.Range
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 module FcsPos = FSharp.Compiler.Text.Position
 
-module Lsp = Ionide.LanguageServerProtocol.Types
-
 module FcsPos =
   val subtractColumn: pos: FcsPos -> column: int -> FcsPos
 
+module Json =
+  val fromObject: obj: 'a -> Newtonsoft.Json.Linq.JToken
+
 [<AutoOpen>]
 module Conversions =
-  module Lsp = Ionide.LanguageServerProtocol.Types
+  type LspPosition = Ionide.LanguageServerProtocol.Types.Position
+  type LspRange = Ionide.LanguageServerProtocol.Types.Range
   /// convert an LSP position to a compiler position
-  val protocolPosToPos: pos: Lsp.Position -> FcsPos
-  val protocolPosToRange: pos: Lsp.Position -> Range
+  val protocolPosToPos: pos: LspPosition -> FcsPos
+  val protocolPosToRange: pos: LspPosition -> Range
   /// convert a compiler position to an LSP position
   val fcsPosToLsp: pos: FcsPos -> Position
   /// convert a compiler range to an LSP range
   val fcsRangeToLsp: range: FcsRange -> Range
-  val protocolRangeToRange: fn: string -> range: Lsp.Range -> FcsRange
+  val protocolRangeToRange: fn: string -> range: LspRange -> FcsRange
   /// convert an FCS position to a single-character range in LSP
   val fcsPosToProtocolRange: pos: FcsPos -> Range
   val fcsRangeToLspLocation: range: FcsRange -> Location
@@ -38,6 +41,10 @@ module Conversions =
 
   [<Literal>]
   val unicodeParagraphCharacter: string = "\u001d"
+
+  type Diagnostic with
+
+    member CodeAsString: string option
 
   type TextDocumentIdentifier with
 
@@ -72,8 +79,8 @@ module Conversions =
   val getCodeLensInformation:
     uri: DocumentUri -> typ: string -> topLevel: NavigationTopLevelDeclaration -> CodeLens array
 
-  val getLine: lines: string[] -> pos: Lsp.Position -> string
-  val getText: lines: string[] -> r: Lsp.Range -> string
+  val getLine: lines: string[] -> pos: LspPosition -> string
+  val getText: lines: string[] -> r: LspRange -> string
 
 [<AutoOpen>]
 module internal GlyphConversions =
@@ -463,3 +470,21 @@ val encodeSemanticHighlightRanges:
 type FSharpInlayHintsRequest =
   { TextDocument: TextDocumentIdentifier
     Range: Range }
+
+
+[<AutoOpen>]
+module Extensions =
+
+  type ReadOnlySpan<'t> with
+    member Slice: start: uint32 * length: uint32 -> ReadOnlySpan<'t>
+    member get_Item: index: uint32 -> 't
+
+  type Ionide.LanguageServerProtocol.Types.Position with
+    member StartOfLine: unit -> Ionide.LanguageServerProtocol.Types.Position
+
+  type String with
+    member AsSpan: start: uint32 * length: uint32 -> ReadOnlySpan<char>
+
+  val inline getFilePathAndPosition<'t
+    when 't: (member TextDocument: TextDocumentIdentifier)
+    and 't: (member Position: Ionide.LanguageServerProtocol.Types.Position)> : p: 't -> string<LocalPath> * FcsPos

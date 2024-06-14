@@ -134,7 +134,7 @@ NUGET
       System.Reflection.Metadata (>= 5.0)
     Ionide.Analyzers (0.11)
     Ionide.KeepAChangelog.Tasks (0.1.8) - copy_local: true
-    Ionide.LanguageServerProtocol (0.4.23)
+    Ionide.LanguageServerProtocol (0.6.0)
       FSharp.Core (>= 6.0)
       Newtonsoft.Json (>= 13.0.1)
       StreamJsonRpc (>= 2.16.36)

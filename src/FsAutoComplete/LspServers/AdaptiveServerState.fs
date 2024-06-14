@@ -600,7 +600,7 @@ type AdaptiveState
               opens
               |> Array.map (fun n ->
                 { Range = fcsRangeToLsp n
-                  Code = Some "FSAC0001"
+                  Code = Some(U2.C2 "FSAC0001")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
                   Message = "Unused open statement"
@@ -618,7 +618,7 @@ type AdaptiveState
               decls
               |> Array.map (fun n ->
                 { Range = fcsRangeToLsp n
-                  Code = Some "FSAC0003"
+                  Code = Some(U2.C2 "FSAC0003")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
                   Message = "This value is unused"
@@ -640,7 +640,7 @@ type AdaptiveState
                      ({ Range = range
                         RelativeName = _relName }) ->
                   { Diagnostic.Range = fcsRangeToLsp range
-                    Code = Some "FSAC0002"
+                    Code = Some(U2.C2 "FSAC0002")
                     Severity = Some DiagnosticSeverity.Hint
                     Source = Some "FSAC"
                     Message = "This qualifier is redundant"
@@ -658,7 +658,7 @@ type AdaptiveState
               ranges
               |> Array.map (fun range ->
                 { Diagnostic.Range = fcsRangeToLsp range
-                  Code = Some "FSAC0004"
+                  Code = Some(U2.C2 "FSAC0004")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
                   Message = "Parentheses can be removed"
@@ -742,7 +742,7 @@ type AdaptiveState
                       |> Some
 
                   { Range = range
-                    Code = Option.ofObj m.Code
+                    Code = Option.ofObj m.Code |> Option.map U2.C2
                     Severity = Some severity
                     Source = Some $"F# Analyzers (%s{m.Type})"
                     Message = m.Message
@@ -1028,12 +1028,12 @@ type AdaptiveState
           let file =
             (file, changes)
             ||> Seq.fold (fun text (change, version, touched) ->
-              match change.Range with
-              | None -> // replace entire content
+              match change with
+              | U2.C2 change -> // replace entire content
                 VolatileFile.Create(sourceTextFactory.Create(filePath, change.Text), version, touched)
-              | Some rangeToReplace ->
+              | U2.C1 change ->
                 // replace just this slice
-                let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) rangeToReplace
+                let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) change.Range
 
                 try
                   match text.Source.ModifyText(fcsRangeToReplace, change.Text) with
@@ -1894,7 +1894,7 @@ type AdaptiveState
             try
               let! (text) = forceFindOpenFileOrRead file |> Async.map Option.ofResult
               let! line = tryGetLineStr pos text.Source |> Option.ofResult
-              return! Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+              return! Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) line SymbolLookupKind.Fuzzy [||]
             with _ ->
               return! None
           }

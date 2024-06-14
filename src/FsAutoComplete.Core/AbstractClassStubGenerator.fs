@@ -165,7 +165,14 @@ let writeAbstractClassStub
     let getMemberByLocation (_: string, range: Range, _: Range) =
       match doc.GetLine range.Start with
       | Some lineText ->
-        match Lexer.getSymbol range.Start.Line range.Start.Column lineText SymbolLookupKind.ByLongIdent [||] with
+        match
+          Lexer.getSymbol
+            (uint32 range.Start.Line)
+            (uint32 range.Start.Column)
+            lineText
+            SymbolLookupKind.ByLongIdent
+            [||]
+        with
         | Some sym ->
           checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(
             range.StartLine,

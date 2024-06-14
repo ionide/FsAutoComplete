@@ -12,13 +12,13 @@ open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
-module LspTypes = Ionide.LanguageServerProtocol.Types
+
 
 module Types =
   type IsEnabled = unit -> bool
-  type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
+  type GetRangeText = string<LocalPath> -> Ionide.LanguageServerProtocol.Types.Range -> Async<ResultOrString<string>>
   type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
-  type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
+  type GetLineText = IFSACSourceText -> Ionide.LanguageServerProtocol.Types.Range -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
@@ -55,7 +55,7 @@ module Types =
 
     static member OfDiagnostic:
       fileUri: TextDocumentIdentifier ->
-      fileVersion: int option ->
+      fileVersion: int32 option ->
       title: string ->
       diagnostic: Diagnostic option ->
       edits: TextEdit array ->
@@ -86,10 +86,10 @@ module SourceText =
   /// Note: There's always at least empty single line
   ///       -> source MUST at least be empty (cannot not exist)
   module WithEmptyHandling =
-    val getLineCount: sourceText: ISourceText -> int
-    val getLineString: lineIndex: int -> sourceText: ISourceText -> string
-    val isFirstLine: lineIndex: int -> sourceText: ISourceText -> bool
-    val isLastLine: lineIndex: int -> sourceText: ISourceText -> bool
+    val getLineCount: sourceText: ISourceText -> uint32
+    val getLineString: lineIndex: uint32 -> sourceText: ISourceText -> string
+    val isFirstLine: lineIndex: uint32 -> sourceText: ISourceText -> bool
+    val isLastLine: lineIndex: uint32 -> sourceText: ISourceText -> bool
     /// Returns position after last character in specified line.
     /// Same as line length.
     ///
@@ -102,44 +102,72 @@ module SourceText =
     /// assert(afterLastCharacterPosition 2 text = 7)
     /// assert(afterLastCharacterPosition 2 text = 0)
     /// ```
-    val afterLastCharacterPosition: lineIndex: int -> sourceText: ISourceText -> int
+    val afterLastCharacterPosition: lineIndex: uint32 -> sourceText: ISourceText -> uint32
 
 /// helpers for iterating along text lines
 module Navigation =
-  val findPosForCharacter: lines: string[] -> pos: int -> FcsPos
-  val inc: lines: IFSACSourceText -> pos: LspTypes.Position -> LspTypes.Position option
-  val dec: lines: IFSACSourceText -> pos: LspTypes.Position -> LspTypes.Position option
-  val decMany: lines: IFSACSourceText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
-  val incMany: lines: IFSACSourceText -> pos: LspTypes.Position -> count: int -> LspTypes.Position option
+  val findPosForCharacter: lines: string[] -> pos: uint32 -> FcsPos
+
+  val inc:
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+      Ionide.LanguageServerProtocol.Types.Position option
+
+  val dec:
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+      Ionide.LanguageServerProtocol.Types.Position option
+
+  val decMany:
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+    count: uint32 ->
+      Ionide.LanguageServerProtocol.Types.Position option
+
+  val incMany:
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+    count: uint32 ->
+      Ionide.LanguageServerProtocol.Types.Position option
 
   val walkBackUntilConditionWithTerminal:
     lines: IFSACSourceText ->
-    pos: LspTypes.Position ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
     condition: (char -> bool) ->
     terminal: (char -> bool) ->
-      LspTypes.Position option
+      Ionide.LanguageServerProtocol.Types.Position option
 
   val walkForwardUntilConditionWithTerminal:
     lines: IFSACSourceText ->
-    pos: LspTypes.Position ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
     condition: (char -> bool) ->
     terminal: (char -> bool) ->
-      LspTypes.Position option
+      Ionide.LanguageServerProtocol.Types.Position option
 
   val walkBackUntilCondition:
-    lines: IFSACSourceText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+    condition: (char -> bool) ->
+      Ionide.LanguageServerProtocol.Types.Position option
 
   val walkForwardUntilCondition:
-    lines: IFSACSourceText -> pos: LspTypes.Position -> condition: (char -> bool) -> LspTypes.Position option
+    lines: IFSACSourceText ->
+    pos: Ionide.LanguageServerProtocol.Types.Position ->
+    condition: (char -> bool) ->
+      Ionide.LanguageServerProtocol.Types.Position option
 
   /// Tries to detect the last cursor position in line before `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no prev line -> `currentLine` is first line
-  val tryEndOfPrevLine: lines: IFSACSourceText -> currentLine: int -> LspTypes.Position option
+  val tryEndOfPrevLine:
+    lines: IFSACSourceText -> currentLine: uint32 -> Ionide.LanguageServerProtocol.Types.Position option
+
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no next line -> `currentLine` is last line
-  val tryStartOfNextLine: lines: IFSACSourceText -> currentLine: int -> LspTypes.Position option
+  val tryStartOfNextLine:
+    lines: IFSACSourceText -> currentLine: uint32 -> Ionide.LanguageServerProtocol.Types.Position option
+
   /// Gets the range to delete the complete line `lineIndex` (0-based).
   /// Deleting the line includes a linebreak if possible
   /// -> range starts either at end of previous line (-> includes leading linebreak)
@@ -147,7 +175,7 @@ module Navigation =
   ///
   /// Special case: there's just one line
   /// -> delete text of (single) line
-  val rangeToDeleteFullLine: lineIndex: int -> lines: IFSACSourceText -> LspTypes.Range
+  val rangeToDeleteFullLine: lineIndex: uint32 -> lines: IFSACSourceText -> Ionide.LanguageServerProtocol.Types.Range
 
 module Run =
   open Types

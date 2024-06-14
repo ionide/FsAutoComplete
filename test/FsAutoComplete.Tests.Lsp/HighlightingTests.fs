@@ -22,8 +22,7 @@ let tests state =
       match! waitForParseResultsForFile "Script.fsx" event with
       | Ok() -> return server
       | Error errors ->
-        let errorStrings =
-          errors |> Array.map (fun e -> e.DebuggerDisplay) |> String.concat "\n\t* "
+        let errorStrings = errors |> Array.map (fun e -> string e) |> String.concat "\n\t* "
 
         return failtestf "Errors while parsing highlighting script:\n\t* %s" errorStrings
     }
@@ -57,9 +56,11 @@ let tests state =
 
         let range =
           { Start =
-              { Line = startLine
-                Character = startCol }
-            End = { Line = endLine; Character = endCol } }
+              { Line = uint32 startLine
+                Character = uint32 startCol }
+            End =
+              { Line = uint32 endLine
+                Character = uint32 endCol } }
 
         range, tokenType, tokenMods)
 
@@ -68,7 +69,9 @@ let tests state =
   let fullHighlights =
     async {
       let p: SemanticTokensParams =
-        { TextDocument = { Uri = Path.FilePathToUri scriptPath } }
+        { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+          WorkDoneToken = None
+          PartialResultToken = None }
 
       let! server = server
       let! highlights = server.TextDocumentSemanticTokensFull p
@@ -124,7 +127,9 @@ let tests state =
         match!
           server.TextDocumentSemanticTokensRange
             { Range = range
-              TextDocument = { Uri = Path.FilePathToUri scriptPath } }
+              TextDocument = { Uri = Path.FilePathToUri scriptPath }
+              WorkDoneToken = None
+              PartialResultToken = None }
         with
         | Ok(Some highlights) ->
           let decoded = decodeHighlighting highlights.Data
@@ -141,9 +146,9 @@ let tests state =
     "Document Highlighting Tests"
     [ testList
         "tests"
-        [ tokenIsOfType (0, 29) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
-          tokenIsOfType (0, 44) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
-          tokenIsOfType (3, 52) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
-          tokenIsOfType (6, 21) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
-          tokenIsOfType (9, 10) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type alias should be a type
-          tokenIsOfType (15, 2) ClassificationUtils.SemanticTokenTypes.Module fullHighlights ] ] // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
+        [ tokenIsOfType (0u, 29u) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
+          tokenIsOfType (0u, 44u) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
+          tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
+          tokenIsOfType (6u, 21u) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
+          tokenIsOfType (9u, 10u) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type alias should be a type
+          tokenIsOfType (15u, 2u) ClassificationUtils.SemanticTokenTypes.Module fullHighlights ] ] // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
