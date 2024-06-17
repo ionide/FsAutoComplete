@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.73.2] - 2024-06-17
+
+### Changed
+
+* Tweaked the logic for the two new settings to prevent overly-notifying users.
+* Use the new generated LSP models (thanks @TheAngryByrd!)
+* [Fix the insert of opened namespaces for completions](https://github.com/ionide/FsAutoComplete/pull/1300) (thanks @MrLuje!)
+
 ## [0.73.1] - 2024-05-23
 
 ### Added
