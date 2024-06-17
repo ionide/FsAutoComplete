@@ -43,6 +43,11 @@ open FsAutoComplete.FCSPatches
 open Helpers
 open System.Runtime.ExceptionServices
 
+module ArrayHelpers =
+  let (|EmptyArray|NonEmptyArray|) (a: 'a array) = if a.Length = 0 then EmptyArray else NonEmptyArray a
+
+open ArrayHelpers
+
 type AdaptiveFSharpLspServer
   (
     workspaceLoader: IWorkspaceLoader,
@@ -295,15 +300,15 @@ type AdaptiveFSharpLspServer
     match dto.FSIExtraParameters, dto.FSIExtraInteractiveParameters, dto.FSIExtraSharedParameters with
     // old-style, silent success; start warning when we plan to
     // deprecate
-    | Some p, None, None ->
+    | Some(NonEmptyArray p), (None | Some EmptyArray), (None | Some EmptyArray) ->
       let c =
         { dto with
             FSIExtraSharedParameters = Some p }
 
       None, c
     // mix old and new, warn and mimic old behavior
-    | Some p, Some _, _
-    | Some p, _, Some _ ->
+    | Some(NonEmptyArray p), Some(NonEmptyArray _), _
+    | Some(NonEmptyArray p), _, Some(NonEmptyArray _) ->
       let m: ShowMessageParams =
         { Type = MessageType.Warning
           Message =
@@ -315,6 +320,7 @@ type AdaptiveFSharpLspServer
 
       Some m, c
     // no old parameter, proceed happily
+    | Some EmptyArray, _, _ -> None, dto
     | None, _, _ -> None, dto
 
   interface IFSharpLspServer with
