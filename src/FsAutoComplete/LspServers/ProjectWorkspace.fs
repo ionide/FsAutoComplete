@@ -185,11 +185,14 @@ module Snapshots =
     )
 
     loadedProjectsA
-    |> AMap.filter (fun k _ ->
-      project.ReferencedProjects
-      |> List.exists (fun x -> normalizePath x.ProjectFileName = k))
-    |> AMap.map (fun _ proj ->
-      if proj.ProjectFileName.EndsWith ".fsproj" then
+    |> AMap.choose (fun localPath proj ->
+      if
+        project.ReferencedProjects
+        |> List.exists (fun x -> normalizePath x.ProjectFileName = localPath)
+        |> not
+      then
+        None
+      else if proj.ProjectFileName.EndsWith ".fsproj" then
 
         let resolvedTargetPath =
           aval {
@@ -205,10 +208,11 @@ module Snapshots =
           sourceTextFactory
           (createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA)
         |> createReferencedProjectsFSharpReference resolvedTargetPath
+        |> Some
 
       else
         // TODO: Find if this needs to be adaptive or if `getStamp` in a PEReference will be enough to break thru the caching in FCS
-        loadFromDotnetDll proj |> AVal.constant)
+        loadFromDotnetDll proj |> AVal.constant |> Some)
     |> AMap.toASetValues
 
   /// <summary>Creates a snapshot from a Project, using the already created snapshots it possible.</summary>
@@ -246,8 +250,8 @@ module Snapshots =
       let sourceFiles = // alist because order matters for the F# Compiler
         project.SourceFiles
         |> AList.ofList
-        |> AList.map Utils.normalizePath
         |> AList.map (fun sourcePath ->
+          let sourcePath = Utils.normalizePath sourcePath
 
           aval {
             // prefer in-memory files over on-disk files

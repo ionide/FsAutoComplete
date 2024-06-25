@@ -756,8 +756,11 @@ module CommonFixes =
 
       let ty =
         assemblies
-        |> Seq.filter (isSystemAssembly)
-        |> Seq.tryPick (fun system -> system.Contents.FindEntityByPath [ "System"; name ])
+        |> Seq.tryPick (fun system ->
+          if isSystemAssembly system then
+            system.Contents.FindEntityByPath [ "System"; name ]
+          else
+            None)
         |> Option.map (fun ent -> ent.AsType())
 
       // Note: `ty` should never be `None`: we're only looking up standard dotnet types -- which should always be available.

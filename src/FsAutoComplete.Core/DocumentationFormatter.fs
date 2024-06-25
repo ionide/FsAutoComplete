@@ -721,16 +721,18 @@ module DocumentationFormatter =
 
       let types =
         fse.NestedEntities
-        |> Seq.filter (fun ne ->
+        |> Seq.choose (fun ne ->
           let isCompilerGenerated =
             ne.Attributes
             |> Seq.tryFind (fun attribute -> attribute.AttributeType.CompiledName = "CompilerGeneratedAttribute")
             |> Option.isSome
 
-          not ne.IsNamespace && not isCompilerGenerated)
-        |> Seq.map (fun ne ->
-          (typeName ne)
-          ++ fst (formatShowDocumentationLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName))
+          if not ne.IsNamespace && not isCompilerGenerated then
+            (typeName ne)
+            ++ fst (formatShowDocumentationLink ne.DisplayName ne.XmlDocSig ne.Assembly.SimpleName)
+            |> Some
+          else
+            None)
         |> Seq.toArray
 
       { Constructors = constructors

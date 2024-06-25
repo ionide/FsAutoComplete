@@ -970,8 +970,11 @@ type AdaptiveState
           | MSBuildAllProjects v ->
             yield!
               v
-              |> Array.filter (fun x -> x.EndsWith(".props", StringComparison.Ordinal) && isWithinObjFolder x)
-              |> Array.map (Utils.normalizePath >> projectFileChanges)
+              |> Array.choose (fun x ->
+                if x.EndsWith(".props", StringComparison.Ordinal) && isWithinObjFolder x then
+                  Utils.normalizePath x |> projectFileChanges |> Some
+                else
+                  None)
           | _ -> () ]
 
       HashMap.ofList

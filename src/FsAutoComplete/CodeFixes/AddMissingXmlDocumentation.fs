@@ -96,11 +96,11 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 | parameters ->
                   parameters
                   |> List.concat
-                  |> List.filter (fun (parameter, _) ->
-                    docLines
-                    |> List.exists (fun c -> c.Contains($"<param name=\"%s{parameter}\">"))
-                    |> not)
-                  |> List.mapi (fun _index parameter -> parameterSection parameter)
+                  |> List.choose (fun (p, o) ->
+                    let hasParam =
+                      docLines |> List.exists (fun c -> c.Contains($"<param name=\"%s{p}\">"))
+
+                    if hasParam then None else parameterSection (p, o) |> Some)
 
             match indexForParams with
             | None -> List.append docLines missingParams
@@ -117,11 +117,12 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               | [] -> []
               | generics ->
                 generics
-                |> List.filter (fun generic ->
-                  docLines
-                  |> List.exists (fun c -> c.Contains($"<typeparam name=\"'%s{generic}\">"))
-                  |> not)
-                |> List.mapi (fun _index generic -> genericArg generic)
+                |> List.choose (fun generic ->
+                  let hasTypeParams =
+                    docLines
+                    |> List.exists (fun c -> c.Contains($"<typeparam name=\"'%s{generic}\">"))
+
+                  if hasTypeParams then None else genericArg generic |> Some)
 
             match indexForTypeParams with
             | None -> List.append withAdded missingTypeParams

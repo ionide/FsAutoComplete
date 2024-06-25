@@ -954,14 +954,12 @@ let provideHints
 
           let parms =
             appliedArgRanges
-            |> Array.ofList
-            |> Array.mapi (fun i v ->
+            |> List.indexed
+            |> List.choose (fun (i, v) ->
               if i < definitionArgs.Length then
                 Some(definitionArgs.[i], v)
               else
                 None)
-            |> Array.filter Option.isSome
-            |> Array.map Option.get
 
           for (definitionArg, appliedArgRange) in parms do
             let! appliedArgText = text[appliedArgRange]
