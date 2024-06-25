@@ -186,11 +186,12 @@ module Snapshots =
 
     loadedProjectsA
     |> AMap.choose (fun localPath proj ->
-      if
+      let loadedProjectNotReferenced =
         project.ReferencedProjects
         |> List.exists (fun x -> normalizePath x.ProjectFileName = localPath)
         |> not
-      then
+
+      if loadedProjectNotReferenced then
         None
       else if proj.ProjectFileName.EndsWith ".fsproj" then
 
