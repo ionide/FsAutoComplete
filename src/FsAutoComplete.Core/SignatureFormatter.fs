@@ -593,11 +593,13 @@ module SignatureFormatter =
     let enumTip () =
       $" ={nl}  |"
       ++ (fse.FSharpFields
-          |> Seq.filter (fun f -> not f.IsCompilerGenerated)
-          |> Seq.map (fun field ->
-            match field.LiteralValue with
-            | Some lv -> field.Name + " = " + (string lv)
-            | None -> field.Name)
+          |> Seq.choose (fun field ->
+            if field.IsCompilerGenerated then
+              None
+            else
+              match field.LiteralValue with
+              | Some lv -> field.Name + " = " + (string lv) |> Some
+              | None -> Some field.Name)
           |> String.concat $"{nl}  | ")
 
     let unionTip () =

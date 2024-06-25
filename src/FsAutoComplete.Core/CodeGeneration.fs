@@ -759,8 +759,7 @@ module CodeGenerationUtils =
       let duplicatedMembers =
         missingMembers
         |> Seq.countBy (fun (m, insts) -> m.DisplayName, insts |> Seq.length)
-        |> Seq.filter (snd >> (<) 1)
-        |> Seq.map (fst >> fst)
+        |> Seq.choose (fun (m, insts) -> if insts > 1 then fst m |> Some else None)
         |> Set.ofSeq
 
       let getReturnType v = snd (getArgTypes ctx v)
