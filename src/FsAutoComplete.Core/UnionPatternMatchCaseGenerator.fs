@@ -211,6 +211,20 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | _ -> None
           else
             None)
+          |> Option.orElseWith (fun () ->
+            if synMatchClauseList.IsEmpty
+            then
+              match debugPoint with
+              | DebugPointAtBinding.Yes range ->
+                { MatchWithOrFunctionRange = range
+                  Expr = matchExpr
+                  Clauses = [] }
+                |> Some
+              | _ -> None
+            else
+              None
+
+          )
 
       | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2 ]
@@ -496,13 +510,16 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
       let! insertionParams = tryFindInsertionParams codeGenService document patMatchExpr
       return patMatchExpr, insertionParams
     else
-      return! None
+      return patMatchExpr, {
+        InsertionPos = patMatchExpr.Expr.Range.Start.IncLine()
+        IndentColumn = patMatchExpr.Expr.Range.Start.Column
+      }
   }
 
 let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =
   asyncOption {
-    let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
     let! _, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
+    let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
 
 
     let! superficialTypeDefinition =
@@ -510,6 +527,7 @@ let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos d
         let! symbolUse = symbolUse
 
         match symbolUse.Symbol with
+        | SymbolPatterns.MemberFunctionOrValue(mfv) -> return Some mfv.FullType.TypeDefinition
         | SymbolPatterns.UnionCase(case) when case.ReturnType.HasTypeDefinition ->
           return Some case.ReturnType.TypeDefinition
         | SymbolPatterns.FSharpEntity(entity, _, _) -> return Some entity
