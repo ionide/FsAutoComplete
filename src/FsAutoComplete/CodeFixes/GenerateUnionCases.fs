@@ -18,7 +18,7 @@ let fix
   (getTextReplacements: unit -> Map<string, string>)
   =
   Run.ifDiagnosticByCode (Set.ofList [ "25" ]) (fun diagnostic codeActionParams ->
-    let _getCasePos (lines: IFSACSourceText) (fcsRange: FcsRange) =
+    let getCasePosFromCaseLine (lines: IFSACSourceText) (fcsRange: FcsRange) =
       result {
         let! nextLine = lines.NextLine fcsRange.Start |> Result.ofOption (fun _ -> "no next line")
 
@@ -51,7 +51,7 @@ let fix
       let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
 
 
-      let! casePos = (_getCasePos lines fcsRange) |> Result.orElseWith (fun _ -> getCasePosFromMatch lines fcsRange)
+      let! casePos = (getCasePosFromCaseLine lines fcsRange) |> Result.orElseWith (fun _ -> getCasePosFromMatch lines fcsRange)
       let casePosFCS = protocolPosToPos casePos
 
       let! tyRes, _line, lines = getParseResultsForFile fileName casePosFCS

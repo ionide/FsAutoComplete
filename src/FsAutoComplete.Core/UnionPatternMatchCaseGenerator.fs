@@ -511,7 +511,7 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
       return patMatchExpr, insertionParams
     else
       return patMatchExpr, {
-        InsertionPos = patMatchExpr.Expr.Range.Start.IncLine()
+        InsertionPos = patMatchExpr.Expr.Range.End
         IndentColumn = patMatchExpr.Expr.Range.Start.Column
       }
   }
