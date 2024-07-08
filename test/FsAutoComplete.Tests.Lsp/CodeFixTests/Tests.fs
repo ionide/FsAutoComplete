@@ -3200,7 +3200,7 @@ let private removePatternArgumentTests state =
 
         do
           let (E.A x$0) = E.A
-        ()
+          ()
         """
         (Diagnostics.expectCode "3191")
         selectCodeFix
