@@ -211,20 +211,19 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
             | _ -> None
           else
             None)
-          |> Option.orElseWith (fun () ->
-            if synMatchClauseList.IsEmpty
-            then
-              match debugPoint with
-              | DebugPointAtBinding.Yes range ->
-                { MatchWithOrFunctionRange = range
-                  Expr = matchExpr
-                  Clauses = [] }
-                |> Some
-              | _ -> None
-            else
-              None
+        |> Option.orElseWith (fun () ->
+          if synMatchClauseList.IsEmpty then
+            match debugPoint with
+            | DebugPointAtBinding.Yes range ->
+              { MatchWithOrFunctionRange = range
+                Expr = matchExpr
+                Clauses = [] }
+              |> Some
+            | _ -> None
+          else
+            None
 
-          )
+        )
 
       | SynExpr.App(_exprAtomicFlag, _isInfix, synExpr1, synExpr2, _range) ->
         List.tryPick walkExpr [ synExpr1; synExpr2 ]
@@ -510,10 +509,10 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
       let! insertionParams = tryFindInsertionParams codeGenService document patMatchExpr
       return patMatchExpr, insertionParams
     else
-      return patMatchExpr, {
-        InsertionPos = patMatchExpr.Expr.Range.End
-        IndentColumn = patMatchExpr.Expr.Range.Start.Column
-      }
+      return
+        patMatchExpr,
+        { InsertionPos = patMatchExpr.Expr.Range.End
+          IndentColumn = patMatchExpr.Expr.Range.Start.Column }
   }
 
 let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =

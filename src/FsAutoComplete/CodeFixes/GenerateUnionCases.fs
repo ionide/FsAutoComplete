@@ -24,13 +24,15 @@ let fix
 
         let! caseLine = lines.GetLine(nextLine) |> Result.ofOption (fun _ -> "No case line")
 
-        let! caseCol = match caseLine.IndexOf('|') with
-                        | -1 -> Error "Invalid case line"
-                        | idx  -> Ok (uint32 idx + 3u) // Find column of first case in pattern matching
+        let! caseCol =
+          match caseLine.IndexOf('|') with
+          | -1 -> Error "Invalid case line"
+          | idx -> Ok(uint32 idx + 3u) // Find column of first case in pattern matching
 
         let casePos =
-          { Line = uint32 nextLine.Line - 1u;
-                  Character = caseCol }
+          { Line = uint32 nextLine.Line - 1u
+            Character = caseCol }
+
         return casePos
       }
 
@@ -38,8 +40,11 @@ let fix
       result {
         let! matchLine = lines.GetLine fcsRange.Start |> Result.ofOption (fun _ -> "no current line")
         let caseCol = matchLine.IndexOf("match")
-        let casePos = { Line = uint32 fcsRange.Start.Line - 1u;
-                Character = uint32 caseCol + 7u }
+
+        let casePos =
+          { Line = uint32 fcsRange.Start.Line - 1u
+            Character = uint32 caseCol + 7u }
+
         return casePos
       }
 
@@ -51,7 +56,10 @@ let fix
       let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
 
 
-      let! casePos = (getCasePosFromCaseLine lines fcsRange) |> Result.orElseWith (fun _ -> getCasePosFromMatch lines fcsRange)
+      let! casePos =
+        (getCasePosFromCaseLine lines fcsRange)
+        |> Result.orElseWith (fun _ -> getCasePosFromMatch lines fcsRange)
+
       let casePosFCS = protocolPosToPos casePos
 
       let! tyRes, _line, lines = getParseResultsForFile fileName casePosFCS
