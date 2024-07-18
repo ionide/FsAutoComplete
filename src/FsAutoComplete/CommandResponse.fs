@@ -271,6 +271,8 @@ module CommandResponse =
       Parameters: Parameter list list
       Generics: string list }
 
+  type FsprojPeek = { Path: string; CompileItems: string list }
+
   type WorkspacePeekResponse = { Found: WorkspacePeekFound list }
 
   and WorkspacePeekFound =
@@ -279,7 +281,7 @@ module CommandResponse =
 
   and WorkspacePeekFoundDirectory =
     { Directory: string
-      Fsprojs: string list }
+      Fsprojs: FsprojPeek list }
 
   and WorkspacePeekFoundSolution =
     { Path: string
@@ -463,7 +465,7 @@ module CommandResponse =
       | WorkspacePeek.Interesting.Directory(p, fsprojs) ->
         WorkspacePeekFound.Directory
           { WorkspacePeekFoundDirectory.Directory = p
-            Fsprojs = fsprojs }
+            Fsprojs = fsprojs |> List.map (fun f -> { Path = f.Path; CompileItems = f.CompileItems })}
       | WorkspacePeek.Interesting.Solution(p, sd) ->
         let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
           let kind =
