@@ -47,3 +47,6 @@ test/FsAutoComplete.Tests.Lsp/TestResults/
 BenchmarkDotNet.Artifacts/
 
 *.sarif
+
+tmp/*
+.fsdocs/*
