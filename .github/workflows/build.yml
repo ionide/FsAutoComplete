@@ -15,31 +15,7 @@ on:
 
 jobs:
   build:
-    env:
-      TEST_TIMEOUT_MINUTES: 40
-      FSAC_TEST_DEFAULT_TIMEOUT : 120000 #ms, individual test timeouts
-      DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET 8 RCs to participate in rollforward as expected.
-    timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
-    strategy:
-      matrix:
-        test_os:
-          - windows-latest
-          - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
-          - ubuntu-latest
-        use-transparent-compiler:
-          - "TransparentCompiler"
-          - "BackgroundCompiler"
-        workspace-loader:
-          - "WorkspaceLoader"
-        dotnet_versions:
-          - '6.0'
-          - '8.0'
-          - '9.0'
-      fail-fast: false # we have timing issues on some OS, so we want them all to run
-
     runs-on: ubuntu-latest
-
-    name: Build the app
 
     steps:
     - uses: actions/checkout@v3
@@ -67,37 +43,62 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: compiled-tests
-        path: test/FsAutoComplete.Tests/bin/Release
+        path: test/FsAutoComplete.Tests.Lsp/bin/Release
 
     - uses: actions/upload-artifact@v2
       with:
         name: test-cases
-        path: test/FsAutoComplete.Tests/TestCases
+        path: test/FsAutoComplete.Tests.Lsp/TestCases
 
   test:
+    name: Test app on ${{ matrix.test_os }} with .NET ${{ matrix.dotnet_versions }}(Transparent=${{ matrix.use-transparent-compiler }}, Loader=${{ matrix.workspace-loader }})
+    env:
+      TEST_TIMEOUT_MINUTES: 40
+      FSAC_TEST_DEFAULT_TIMEOUT : 120000 #ms, individual test timeouts
+      DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET 8 RCs to participate in rollforward as expected.
+    timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
+    strategy:
+      matrix:
+        test_os:
+          - windows-latest
+          - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
+          - ubuntu-latest
+        use-transparent-compiler:
+          - "TransparentCompiler"
+          - "BackgroundCompiler"
+        workspace-loader:
+          - "WorkspaceLoader"
+        dotnet_versions:
+          - '6.0'
+          - '8.0'
+          - '9.0'
+      fail-fast: false # we have timing issues on some OS, so we want them all to run
     needs: build
     runs-on: ${{ matrix.test_os }}
     steps:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ matrix.dotnet_versions }}
+        dotnet-version: |
+          6.0
+          8.0
+          9.0
 
     - name: Copy compiled tests
       uses: actions/download-artifact@v2
       with:
         name: compiled-tests
-        path: ~/FsAutoComplete.Tests.Lsp/bin/Release
+        path: ./test/FsAutoComplete.Tests.Lsp/bin/Release
 
     - name: Copy test assets
       uses: actions/download-artifact@v2
       with:
         name: test-cases
-        path: ~/FsAutoComplete.Tests.Lsp/TestCases
+        path: ./test/FsAutoComplete.Tests.Lsp/TestCases
 
     - name: Run and report tests
-      run: dotnet ./net${{ matrix.dotnet_versions }}/FsAutoComplete.Tests.Lsp.dll --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
-      working-directory: ~/FsAutoComplete.Tests.Lsp/bin/Release
+      run: dotnet test bin/Release/net${{ matrix.dotnet_versions }}/FsAutoComplete.Tests.Lsp.dll --logger "console;verbosity=normal" --blame-hang --blame-hang-timeout 1m --logger GitHubActions -- Expecto.fail-on-focused-tests=true
+      working-directory: ./test/FsAutoComplete.Tests.Lsp
       env:
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
