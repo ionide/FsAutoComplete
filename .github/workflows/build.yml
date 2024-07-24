@@ -88,17 +88,17 @@ jobs:
       uses: actions/download-artifact@v2
       with:
         name: compiled-tests
-        path: ./test/FsAutoComplete.Tests.Lsp/bin/Release
+        path: ~/work/test/FsAutoComplete.Tests.Lsp/bin/Release
 
     - name: Copy test assets
       uses: actions/download-artifact@v2
       with:
         name: test-cases
-        path: ./test/FsAutoComplete.Tests.Lsp/TestCases
+        path: ~/work/test/FsAutoComplete.Tests.Lsp/TestCases
 
     - name: Run and report tests
       run: dotnet test bin/Release/net${{ matrix.dotnet_versions }}/FsAutoComplete.Tests.Lsp.dll --logger "console;verbosity=normal" --blame-hang --blame-hang-timeout 1m --logger GitHubActions -- Expecto.fail-on-focused-tests=true
-      working-directory: ./test/FsAutoComplete.Tests.Lsp
+      working-directory: ~/work/test/FsAutoComplete.Tests.Lsp
       env:
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
