@@ -14,8 +14,8 @@ open Helpers.Expecto.ShadowedTimeouts
 let (</>) (path1 : string) path2 = Path.Join(path1, path2)
 
 let tests state =
-  let sameProjectRoot = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", "SameProject")
-  let crossProjectRoot tfm = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", $"CrossProject-{tfm}")
+  let sameProjectRoot = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "DependentFileChecking", "SameProject")
+  let crossProjectRoot tfm = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "DependentFileChecking", $"CrossProject-{tfm}")
   let tfms = [
 #if NET6_0_OR_GREATER
     "net6.0"

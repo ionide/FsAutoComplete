@@ -800,3 +800,12 @@ let (|CodeActions|_|) (t: TextDocumentCodeActionResult) =
   match actions with
   | [||] -> None
   | actions -> Some actions
+
+
+type Paths =
+  static member SourceDirectory
+    ([<System.Runtime.CompilerServices.CallerFilePath;
+       System.Runtime.InteropServices.Optional;
+       System.Runtime.InteropServices.DefaultParameterValue("")>] sourceFilePath: string)
+    =
+    System.IO.FileInfo(sourceFilePath).Directory.FullName

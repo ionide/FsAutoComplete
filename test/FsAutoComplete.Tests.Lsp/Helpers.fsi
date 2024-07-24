@@ -129,3 +129,11 @@ val waitForEditsForFile: file: string -> (IObservable<string * obj> -> Async<U2<
 val trySerialize: t: string -> 't option
 val (|As|_|): m: PlainNotification -> 't option
 val (|CodeActions|_|): t: TextDocumentCodeActionResult -> CodeAction array option
+
+[<Class>]
+type Paths =
+  static member SourceDirectory:
+    [<System.Runtime.CompilerServices.CallerFilePath;
+      System.Runtime.InteropServices.Optional;
+      System.Runtime.InteropServices.DefaultParameterValue("")>] sourceFilePath: string ->
+      string

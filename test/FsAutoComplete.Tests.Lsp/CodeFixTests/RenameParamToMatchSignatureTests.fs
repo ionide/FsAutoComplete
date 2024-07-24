@@ -19,7 +19,7 @@ let tests state =
   // -> cannot use untitled doc
   // -> use existing files, but load with text specified in tests
   let path =
-    Path.Combine(__SOURCE_DIRECTORY__, @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
+    Path.Combine(Helpers.Paths.SourceDirectory(), @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
 
   let (fsiFile, fsFile) = ("Code.fsi", "Code.fs")
 

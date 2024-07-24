@@ -139,7 +139,9 @@ let private scriptTests state =
         Used ])
 
 let private projectTests state =
-  let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedDeclarations")
+  let path =
+    Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "UnusedDeclarations")
+
   let file = Existing "Library.fs"
 
   let config =

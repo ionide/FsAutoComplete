@@ -16,7 +16,8 @@ open Helpers.Expecto.ShadowedTimeouts
 let scriptPreviewTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "PreviewScriptFeatures")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "PreviewScriptFeatures")
 
       let scriptPath = Path.Combine(path, "Script.fsx")
 
@@ -50,7 +51,8 @@ let scriptPreviewTests state =
 let scriptEvictionTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptEviction")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "ScriptEviction")
 
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
@@ -101,11 +103,11 @@ let dependencyManagerTests state =
   let server =
     async {
       let workingDir =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependencyManagement")
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "DependencyManagement")
 
       let _dependencyManagerAssemblyDir =
         Path.Combine(
-          __SOURCE_DIRECTORY__,
+          Helpers.Paths.SourceDirectory(),
           "..",
           "FsAutoComplete.DependencyManager.Dummy",
           "bin",
@@ -161,7 +163,7 @@ let scriptProjectOptionsCacheTests state =
   let server =
     async {
       let workingDir =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "ScriptProjectOptsCache")
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "ScriptProjectOptsCache")
 
       let previewEnabledConfig =
         { defaultConfigDto with
