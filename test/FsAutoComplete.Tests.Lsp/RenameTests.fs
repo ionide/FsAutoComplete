@@ -58,7 +58,7 @@ module Expect =
 
 let private sameProjectTests state =
   let testDir =
-    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "SameProject")
+    Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "RenameTest", "SameProject")
 
   serverTestList "Within Same Project" state defaultConfigDto (Some testDir) (fun server ->
     [ testCaseAsync
@@ -280,7 +280,7 @@ let private crossProjectTests state =
   let server =
     async {
       let testDir =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "CrossProject")
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "RenameTest", "CrossProject")
 
       let! (server, event) = serverInitialize testDir defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event

@@ -23,7 +23,7 @@ let private scriptTests state =
     [ let server =
         async {
           let path =
-            Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "Script")
+            Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FindReferences", "Script")
 
           let! (server, event) = serverInitialize path defaultConfigDto state
           do! waitForWorkspaceFinishedParsing event
@@ -290,7 +290,7 @@ let private solutionTests state =
 
 
   let path =
-    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "Solution")
+    Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FindReferences", "Solution")
 
   serverTestList "solution" state defaultConfigDto (Some path) (fun server ->
     [

@@ -37,9 +37,11 @@ let executeProcess (wd: string) (processName: string) (processArgs: string) =
 let private gotoTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "GoToTests")
 
-      let csharpPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToCSharp")
+      let csharpPath =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "GoToCSharp")
+
       let _buildInfo = executeProcess csharpPath "dotnet" "build"
 
       let! (server, event) = serverInitialize path defaultConfigDto state
@@ -533,7 +535,7 @@ let private gotoTest state =
 let private scriptGotoTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "GoToTests")
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let scriptPath = Path.Combine(path, "Script.fsx")

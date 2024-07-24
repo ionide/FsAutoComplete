@@ -14,7 +14,7 @@ let fsdnTest state =
 
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FsdnTest")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FsdnTest")
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       return server
@@ -87,7 +87,7 @@ let uriTests =
 let linterTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "LinterTest")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "LinterTest")
 
       let! (server, events) =
         serverInitialize
@@ -247,7 +247,7 @@ let linterTests state =
 let formattingTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Formatting")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "Formatting")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! dotnetToolRestore path // need to restore CLI tools in order to use fantomas
       return server, events, path
@@ -314,7 +314,7 @@ let formattingTests state =
 let analyzerTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Analyzers")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "Analyzers")
       // because the analyzer is a project this project has a reference, the analyzer can be
       // found in alongside this project, so we can use the directory this project is in
       let analyzerPath =
@@ -366,7 +366,7 @@ let analyzerTests state =
 let signatureTests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Signature")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "Signature")
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events

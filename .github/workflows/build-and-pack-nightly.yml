@@ -5,9 +5,6 @@ on:
       branches:
         - nightly
 
-env:
-  BuildNet7: true
-
 jobs:
     pack-nightly:
       runs-on: ubuntu-latest
@@ -29,7 +26,5 @@ jobs:
           run: dotnet pack -c Release -o bin
           env:
             VersionSuffix: "beta${{ steps.date.outputs.date }}"
-            BuildNet7: ${{ env.BuildNet7 }}
-
         - name: Push packages
           run: dotnet nuget push bin/fsautocomplete.*.nupkg --source https://nuget.pkg.github.com/fsharp/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
