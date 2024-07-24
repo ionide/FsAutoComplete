@@ -45,10 +45,6 @@ jobs:
         name: compiled-tests
         path: test/FsAutoComplete.Tests.Lsp/bin/Release
 
-    - uses: actions/upload-artifact@v2
-      with:
-        name: test-cases
-        path: test/FsAutoComplete.Tests.Lsp/TestCases
 
   test:
     name: Test app on ${{ matrix.test_os }} with .NET ${{ matrix.dotnet_versions }}(Transparent=${{ matrix.use-transparent-compiler }}, Loader=${{ matrix.workspace-loader }})
@@ -84,21 +80,17 @@ jobs:
           8.0
           9.0
 
+    - name: Download code
+      uses: actions/checkout@v3
+
     - name: Copy compiled tests
       uses: actions/download-artifact@v2
       with:
         name: compiled-tests
-        path: ~/work/test/FsAutoComplete.Tests.Lsp/bin/Release
-
-    - name: Copy test assets
-      uses: actions/download-artifact@v2
-      with:
-        name: test-cases
-        path: ~/work/test/FsAutoComplete.Tests.Lsp/TestCases
+        path: ./test/FsAutoComplete.Tests.Lsp/bin/Release
 
     - name: Run and report tests
       run: dotnet test bin/Release/net${{ matrix.dotnet_versions }}/FsAutoComplete.Tests.Lsp.dll --logger "console;verbosity=normal" --blame-hang --blame-hang-timeout 1m --logger GitHubActions -- Expecto.fail-on-focused-tests=true
-      working-directory: ~/work/test/FsAutoComplete.Tests.Lsp
       env:
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
