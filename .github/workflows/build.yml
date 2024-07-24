@@ -91,6 +91,7 @@ jobs:
 
     - name: Run and report tests
       run: dotnet test bin/Release/net${{ matrix.dotnet_versions }}/FsAutoComplete.Tests.Lsp.dll --logger "console;verbosity=normal" --blame-hang --blame-hang-timeout 1m --logger GitHubActions -- Expecto.fail-on-focused-tests=true
+      working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
