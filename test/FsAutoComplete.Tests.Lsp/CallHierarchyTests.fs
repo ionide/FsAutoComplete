@@ -13,7 +13,9 @@ open Helpers
 open Utils.Server
 open Ionide.LanguageServerProtocol.Types
 
-let examples = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CallHierarchy")
+let examples =
+  Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "CallHierarchy")
+
 let incomingExamples = Path.Combine(examples, "IncomingCalls")
 let sourceFactory: ISourceTextFactory = RoslynSourceTextFactory()
 

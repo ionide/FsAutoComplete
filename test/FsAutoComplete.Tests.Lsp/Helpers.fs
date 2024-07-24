@@ -808,4 +808,4 @@ type Paths =
        System.Runtime.InteropServices.Optional;
        System.Runtime.InteropServices.DefaultParameterValue("")>] sourceFilePath: string)
     =
-    System.IO.FileInfo(sourceFilePath).Directory.FullName
+    System.IO.Path.GetDirectoryName(sourceFilePath)
