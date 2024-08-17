@@ -64,8 +64,6 @@ index fc07883..04299f7 100644
 -Ionide.ProjInfo
 -Ionide.ProjInfo.ProjectSystem
  Microsoft.Data.Sqlite
- Microsoft.NETFramework.ReferenceAssemblies
- Microsoft.SourceLink.GitHub
 --
 2.33.1.windows.1
 
