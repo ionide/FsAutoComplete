@@ -10,21 +10,21 @@
       "rollForward": false
     },
     "dotnet-reportgenerator-globaltool": {
-      "version": "5.0.2",
+      "version": "5.3.8",
       "commands": [
         "reportgenerator"
       ],
       "rollForward": false
     },
     "fantomas": {
-      "version": "6.3.1",
+      "version": "6.3.11",
       "commands": [
         "fantomas"
       ],
       "rollForward": false
     },
     "fsharp-analyzers": {
-      "version": "0.26.0",
+      "version": "0.27.0",
       "commands": [
         "fsharp-analyzers"
       ],
