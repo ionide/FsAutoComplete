@@ -9,6 +9,7 @@ open FsAutoComplete.Utils
 open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
+open Utils.Server
 
 
 let documentChanges path range text : DidChangeTextDocumentParams =
@@ -388,7 +389,7 @@ let tests state =
 
             Expect.equal
               firstItem.Label
-              "async"
+              "abs"
               "first member should be async, alphabetically first in the full symbol list"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
@@ -409,7 +410,7 @@ let tests state =
 
             Expect.equal
               firstItem.Label
-              "async"
+              "abs"
               "first member should be async, alphabetically first in the full symbol list"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
@@ -629,32 +630,20 @@ let autoOpenTests state =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
 
   let autoOpenServer =
+    // Auto Open requires unopened things in completions -> External
+    let config =
+      { defaultConfigDto with
+          ExternalAutocomplete = Some true
+          ResolveNamespaces = Some true }
+
+    Server.create (Some dirPath) config state
+
+
+  let serverFor (scriptPath: string) scriptText =
     async {
-      // Auto Open requires unopened things in completions -> External
-      let config =
-        { defaultConfigDto with
-            ExternalAutocomplete = Some true
-            ResolveNamespaces = Some true }
-
-      let! (server, events) = serverInitialize dirPath config state
-      do! waitForWorkspaceFinishedParsing events
-      return (server, events)
-    }
-    |> Async.Cache
-
-  let serverFor (scriptPath: string) =
-    async {
-      let! (server, events) = autoOpenServer
-      let scriptName = Path.GetFileName scriptPath
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
-      do! server.TextDocumentDidOpen tdop
-
-      do!
-        waitForDiagnosticErrorForFile scriptName events
-        |> AsyncResult.bimap (fun _ -> failtest "Should have had errors") id
-        |> Async.Ignore
-
-      return (server, scriptPath)
+      let! _document, _diagnostics = Server.openDocumentWithText scriptPath (String.join "\n" scriptText) autoOpenServer
+      let _scriptName = Path.GetFileName scriptPath
+      return (autoOpenServer, scriptPath)
     }
 
   let calcOpenPos (edit: TextEdit) =
@@ -712,7 +701,7 @@ let autoOpenTests state =
   let test
     (compareWithQuickFix: bool)
     (name: string option)
-    (server: Async<IFSharpLspServer * string>)
+    (server: Async<CachedServer * string>)
     (word: string, ns: string)
     (cursor: Position)
     (expectedOpen: Position)
@@ -732,9 +721,10 @@ let autoOpenTests state =
 
     runner name
     <| async {
-      let! server, path = server
-
-      let p: CompletionParams = completion path cursor Nada
+      let! (server, filePath) = server
+      let! server = server
+      let server = server.Server
+      let p: CompletionParams = completion filePath cursor Nada
 
       match! server.TextDocumentCompletion p with
       | Error e -> failtestf "Request failed: %A" e
@@ -742,15 +732,20 @@ let autoOpenTests state =
       | Ok(Some res) ->
         Expect.isFalse res.IsIncomplete "Result is incomplete"
         // with ExternalAutoComplete, completions are like "Regex (open System.Text.RegularExpressions)"
-        let ci = res.Items |> Array.tryFind (fun c -> c.Label.StartsWith word)
+        let ci = res.Items |> Array.filter (fun c -> c.Label.Split()[0] = word)
 
-        if ci = None then
-          failwithf
-            $"Couldn't find completion item for `{word}` among the items %A{res.Items |> Array.map (fun i -> i.Label)}"
-          |> ignore
+        let ci =
+          match ci with
+          | [||] ->
+            failwithf
+              $"Couldn't find completion item for `{word}` among the items %A{res.Items |> Array.map (fun i -> i.Label)}"
+          | [| ci |] -> ci
+          | _ ->
+            failwithf
+              $"Multiple completion items for `{word}` (%A{ci |> Array.map (fun ci -> ci.Label)}) found among the items %A{res.Items |> Array.map (fun i -> i.Label)}"
 
         // now get details: `completionItem/resolve` (previous request was `textDocument/completion` -> List of all completions, but without details)
-        match! server.CompletionItemResolve ci.Value with
+        match! server.CompletionItemResolve ci with
         | Error e -> failtestf "Request failed: %A" e
         | Ok ci ->
           Expect.equal ci.Label $"{word} (open {ns})" $"Should be unopened {word}"
@@ -767,7 +762,7 @@ let autoOpenTests state =
             // NOTE: currently code completion and quick fix open in different locations:
             //  * Code Completion: nearest position
             //  * Quick Fix: Top Level
-            let! (_, _, qfOpenPos) = getQuickFix (server, path) (word, ns) cursor
+            let! (_, _, qfOpenPos) = getQuickFix (server, filePath) (word, ns) cursor
             Expect.equal qfOpenPos openPos "Auto-Open and Open Quick Fix should open at same location"
     }
 
@@ -809,7 +804,7 @@ let autoOpenTests state =
         { Line = l; Character = c }
       | _ -> failwithf "Invalid data in line (%i,%i) '%s'" line column lineStr
 
-    let extractData (lineNumber: uint32) (line: string) =
+    let extractData (lineNumber: uint32) (line: string) : (Position * Position * string) option =
       let m = regex.Match line
 
       if not m.Success then
@@ -820,39 +815,48 @@ let autoOpenTests state =
         let openPos = parseData (l, c) line data.Value
         let cursorPos = { Line = l; Character = c }
 
-        (cursorPos, openPos) |> Some
+        Some(cursorPos, openPos, line.Remove(m.Index, m.Length))
 
-    System.IO.File.ReadAllLines path
-    |> Seq.mapi (fun i l -> (uint32 i, l))
-    |> Seq.filter (fun (_, l) -> l.Contains "(*")
-    |> Seq.choose (fun (i, l) -> extractData i l)
-    |> Seq.toList
+    let positions = ResizeArray()
+    let lines = ResizeArray()
+
+    for i, line in Seq.indexed (System.IO.File.ReadAllLines path) do
+      if line.Contains "(*" then
+        do
+          match extractData (uint32 i) line with
+          | Some(cursorPos, openPos, trimmedLine) ->
+            positions.Add(cursorPos, openPos)
+            lines.Add trimmedLine
+          | None -> ()
+      else
+        lines.Add line
+
+    positions, lines
+
 
   let testScript name scriptName =
     testList
       name
       [ let scriptPath = Path.Combine(dirPath, scriptName)
-        let server = serverFor scriptPath
+        let testPositions, cleanScript = readData scriptPath
+        let server = serverFor scriptPath cleanScript
 
-        let tests =
-          readData scriptPath
-          |> List.map (fun (cursor, expectedOpen) ->
-            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen false)
-
-        yield! tests ]
+        yield!
+          testPositions
+          |> Seq.map (fun (cursor, expectedOpen) ->
+            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen false) ]
 
   let _ptestScript name scriptName =
     testList
       name
       [ let scriptPath = Path.Combine(dirPath, scriptName)
-        let server = serverFor scriptPath
+        let testPositions, cleanScript = readData scriptPath
+        let server = serverFor scriptPath cleanScript
 
-        let tests =
-          readData scriptPath
-          |> List.map (fun (cursor, expectedOpen) ->
-            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen true)
-
-        yield! tests ]
+        yield!
+          testPositions
+          |> Seq.map (fun (cursor, expectedOpen) ->
+            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen true) ]
 
   testList
     "Completion.AutoOpen"
