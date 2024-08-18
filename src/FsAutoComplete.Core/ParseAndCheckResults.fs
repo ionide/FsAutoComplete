@@ -603,7 +603,7 @@ type ParseAndCheckResults
       | None -> ResultOrString.Error "No symbol information found"
       | Some hlp -> Ok hlp
 
-  member x.TryGetCompletions (pos: Position) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
+  member x.TryGetCompletions (pos: Position) (lineStr: LineStr) (getAllSymbols: unit -> AssemblySymbol list) =
     async {
       let completionContext = Completion.atPos (pos, x.GetParseResults.ParseTree)
 
@@ -614,123 +614,72 @@ type ParseAndCheckResults
         try
           let longName = QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
 
-          let residue = longName.PartialIdent
-
-          logger.info (
-            Log.setMessage "TryGetCompletions - lineStr: {lineStr}"
-            >> Log.addContextDestructured "lineStr" lineStr
-          )
-
-          logger.info (
-            Log.setMessage "TryGetCompletions - long name: {longName}"
-            >> Log.addContextDestructured "longName" longName
-          )
-
           let getSymbols () =
-            getAllSymbols ()
-            |> List.filter (fun entity ->
-              // Attempt to filter to types when we know we're in a type and FCS uses all symbols
-              (completionContext <> Completion.Context.SynType
-               || entity.Kind LookupType.Fuzzy = EntityKind.Type)
-              && entity.FullName.Contains "."
-              && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
+            [ for assemblySymbol in getAllSymbols () do
+                if
+                  assemblySymbol.FullName.Contains(".")
+                  && not (PrettyNaming.IsOperatorDisplayName assemblySymbol.Symbol.DisplayName)
+                then
+                  yield assemblySymbol ]
 
-          let token =
-            Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column - 1u) lineStr SymbolLookupKind.ForCompletion [||]
+          let fcsCompletionContext =
+            ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)
 
-          logger.info (
-            Log.setMessage "TryGetCompletions - token: {token}"
-            >> Log.addContextDestructured "token" token
-          )
+          let results =
+            checkResults.GetDeclarationListInfo(
+              Some parseResults,
+              pos.Line,
+              lineStr,
+              longName,
+              getAllEntities = getSymbols,
+              completionContextAtPos = (pos, fcsCompletionContext)
+            )
 
-          let isEmpty =
-            longName.QualifyingIdents.IsEmpty
-            && String.IsNullOrWhiteSpace longName.PartialIdent
-            && longName.LastDotPos.IsNone
+          let getKindPriority kind =
+            match kind with
+            | CompletionItemKind.SuggestedName
+            | CompletionItemKind.CustomOperation -> 0
+            | CompletionItemKind.Property -> 1
+            | CompletionItemKind.Field -> 2
+            | CompletionItemKind.Method(isExtension = false) -> 3
+            | CompletionItemKind.Event -> 4
+            | CompletionItemKind.Argument -> 5
+            | CompletionItemKind.Other -> 6
+            | CompletionItemKind.Method(isExtension = true) -> 7
 
-          match token with
-          | Some k when k.Kind = Other && not isEmpty -> return None
-          | Some k when k.Kind = Operator -> return None
-          | Some k when k.Kind = Keyword -> return None
-          | _ ->
-            let fcsCompletionContext =
-              ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)
+          Array.sortInPlaceWith
+            (fun (x: DeclarationListItem) (y: DeclarationListItem) ->
+              let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
 
-            let results =
-              checkResults.GetDeclarationListInfo(
-                Some parseResults,
-                pos.Line,
-                lineStr,
-                longName,
-                getAllEntities = getSymbols,
-                completionContextAtPos = (pos, fcsCompletionContext)
-              )
-
-            let getKindPriority =
-              function
-              | CompletionItemKind.CustomOperation -> -1
-              | CompletionItemKind.Property -> 0
-              | CompletionItemKind.Field -> 1
-              | CompletionItemKind.Method(isExtension = false) -> 2
-              | CompletionItemKind.Event -> 3
-              | CompletionItemKind.Argument -> 4
-              | CompletionItemKind.Other -> 5
-              | CompletionItemKind.Method(isExtension = true) -> 6
-              | CompletionItemKind.SuggestedName -> 7
-
-            let decls =
-              match filter with
-              | Some "StartsWith" ->
-                results.Items
-                |> Array.filter (fun d -> d.NameInList.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-              | Some "Contains" ->
-                results.Items
-                |> Array.filter (fun d ->
-                  d.NameInList.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
-              | _ -> results.Items
-
-            let sortedDecls =
-              decls
-              |> Array.sortWith (fun x y ->
-                let transformKind (item: DeclarationListItem) =
-                  if item.Kind = CompletionItemKind.Field && item.Glyph = FSharpGlyph.Method then
-                    CompletionItemKind.Method false
-                  elif item.Kind = CompletionItemKind.Argument && item.Glyph = FSharpGlyph.Property then
-                    CompletionItemKind.Property
-                  else
-                    item.Kind
-
-                let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+              if n <> 0 then
+                n
+              else
+                n <- (getKindPriority x.Kind).CompareTo(getKindPriority y.Kind)
 
                 if n <> 0 then
                   n
                 else
-                  n <-
-                    (getKindPriority <| transformKind x)
-                      .CompareTo(getKindPriority <| transformKind y)
+                  n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
 
                   if n <> 0 then
                     n
                   else
-                    n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
+                    n <- String.Compare(x.NameInList, y.NameInList, StringComparison.OrdinalIgnoreCase)
 
                     if n <> 0 then
                       n
                     else
-                      n <- StringComparer.OrdinalIgnoreCase.Compare(x.NameInList, y.NameInList)
+                      x.MinorPriority.CompareTo(y.MinorPriority))
+            results.Items
 
-                      if n <> 0 then
-                        n
-                      else
-                        x.MinorPriority.CompareTo(y.MinorPriority))
 
-            let shouldKeywords =
-              sortedDecls.Length > 0
-              && not results.IsForType
-              && not results.IsError
-              && List.isEmpty longName.QualifyingIdents
+          let shouldKeywords =
+            results.Items.Length > 0
+            && not results.IsForType
+            && not results.IsError
+            && List.isEmpty longName.QualifyingIdents
 
-            return Some(sortedDecls, residue, shouldKeywords)
+          return Some(results.Items, longName.PartialIdent, shouldKeywords)
         with :? TimeoutException ->
           return None
     }
