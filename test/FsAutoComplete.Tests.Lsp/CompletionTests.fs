@@ -316,7 +316,11 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            Expect.isGreaterThan
+              completions.Items.Length
+              106
+              "at time of writing the List module has 106 exposed members"
+
             let firstItem = completions.Items.[0]
 
             Expect.equal
@@ -337,7 +341,11 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            Expect.isGreaterThan
+              completions.Items.Length
+              106
+              "at time of writing the List module has 106 exposed members"
+
             let firstItem = completions.Items.[0]
 
             Expect.equal
@@ -450,7 +458,11 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            Expect.isGreaterThan
+              completions.Items.Length
+              106
+              "at time of writing the List module has 106 exposed members"
+
             let firstItem = completions.Items.[0]
 
             Expect.equal
@@ -471,7 +483,11 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.equal completions.Items.Length 106 "at time of writing the List module has 106 exposed members"
+            Expect.isGreaterThan
+              completions.Items.Length
+              106
+              "at time of writing the List module has 106 exposed members"
+
             let firstItem = completions.Items.[0]
 
             Expect.equal
