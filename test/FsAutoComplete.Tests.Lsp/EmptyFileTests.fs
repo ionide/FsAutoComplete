@@ -66,7 +66,7 @@ let tests state =
               | Error e -> failtestf "Got an error while retrieving completions: %A" e
             })
           testCaseAsync
-            "type 'c' for checking error and autocompletion starts with 'async'"
+            "type 'c' for checking error and autocompletion starts with 'abs'"
             (async {
               let! server, events, scriptPath = server2
               do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
@@ -118,7 +118,7 @@ let tests state =
                   "should have a complete completion list all containing c"
 
                 let firstItem = completions.Items.[0]
-                Expect.equal firstItem.Label "async" "first member should be async"
+                Expect.equal firstItem.Label "abs" "first member should be abs"
               | Ok None -> failtest "Should have gotten some completion items"
               | Error e -> failtestf "Got an error while retrieving completions: %A" e
             }) ] ]
