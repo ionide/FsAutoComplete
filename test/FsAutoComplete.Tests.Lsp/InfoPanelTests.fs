@@ -11,7 +11,9 @@ open Helpers.Expecto.ShadowedTimeouts
 let docFormattingTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FormattedDocumentation")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FormattedDocumentation")
+
       let config = defaultConfigDto
       let! (server, events) = serverInitialize path config state
       let path = Path.Combine(path, "Script.fsx")

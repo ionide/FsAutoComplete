@@ -14,7 +14,8 @@ open FsAutoComplete.LspHelpers
 let tests state =
   let createServer () =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "EmptyFileTests")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "EmptyFileTests")
 
       let scriptPath = Path.Combine(path, "EmptyFile.fsx")
 

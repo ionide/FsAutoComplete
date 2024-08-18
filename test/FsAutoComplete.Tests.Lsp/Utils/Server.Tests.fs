@@ -275,7 +275,7 @@ let tests state =
       testList
         "with root path"
         [ let inTestCases name =
-            System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "TestCases", "ServerTests", name)
+            System.IO.Path.Combine(Helpers.Paths.SourceDirectory(), "..", "TestCases", "ServerTests", name)
             |> Some
 
           let noAnalyzersConfig =
@@ -598,12 +598,11 @@ let tests state =
 
                     let groups =
                       diags
-                      |> Array.map (fun (d : Diagnostic) ->
+                      |> Array.map (fun (d: Diagnostic) ->
                         // simplify `The value or constructor 'value' is not defined.` error (contains names and recommendations)
                         match d.CodeAsString with
                         | Some "39" -> "The value or constructor is not defined"
-                        | _ -> d.Message
-                        )
+                        | _ -> d.Message)
                       |> Array.countBy id
                       |> Map.ofArray
 
@@ -789,7 +788,7 @@ f2 "bar" |> ignore
                 let relativePath = "../TestCases/ServerTests/JustScript/Script.fsx"
 
                 let absolutePath =
-                  System.IO.Path.GetFullPath(System.IO.Path.Combine(__SOURCE_DIRECTORY__, relativePath))
+                  System.IO.Path.GetFullPath(System.IO.Path.Combine(Helpers.Paths.SourceDirectory(), relativePath))
 
                 let! (doc, _) = server |> Server.openDocument absolutePath
                 use _doc = doc

@@ -8,7 +8,7 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 
 let path =
-  Path.Combine(__SOURCE_DIRECTORY__, @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
+  Path.Combine(Helpers.Paths.SourceDirectory(), @"../TestCases/CodeFixTests/RenameParamToMatchSignature/")
 
 let tests state =
   serverTestList (nameof UpdateTypeAbbreviationInSignatureFile) state defaultConfigDto (Some path) (fun server ->

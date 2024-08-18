@@ -32,23 +32,23 @@ module AdaptiveExtensions =
       with _ ->
         ()
 
-
+#if !NET9_0_OR_GREATER
   type TaskCompletionSource<'a> with
 
     /// https://github.com/dotnet/runtime/issues/47998
     member tcs.TrySetFromTask(real: Task<'a>) =
-
+      let mutable result = false
       // note: using ContinueWith instead of task CE for better stack traces
       real.ContinueWith(fun (task: Task<_>) ->
         match task.Status with
-        | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
-        | TaskStatus.Canceled ->
-          tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken)
-          |> ignore<bool>
-        | TaskStatus.Faulted -> tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
-
+        | TaskStatus.RanToCompletion -> result <- tcs.TrySetResult task.Result
+        | TaskStatus.Canceled -> result <- tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken)
+        | TaskStatus.Faulted -> result <- tcs.TrySetException(task.Exception.InnerExceptions)
         | _ -> ())
       |> ignore<Task>
+
+      result
+#endif
 
   type ChangeableHashMap<'Key, 'Value> with
 
@@ -404,7 +404,7 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
         real
       else
         cachedTcs <- new TaskCompletionSource<'a>()
-        cachedTcs.TrySetFromTask real
+        cachedTcs.TrySetFromTask real |> ignore<bool>
         cachedTcs.Task
 
     cached <-

@@ -56,7 +56,7 @@ let posRange l c = { Start = pos l c; End = pos l c }
 let tests state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "Completion")
+      let path = Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "Completion")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
       let path = Path.Combine(path, "Script.fsx")
@@ -485,7 +485,9 @@ let tests state =
 let autocompleteTest state =
   let server =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteTest")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "AutocompleteTest")
+
       let! (server, event) = serverInitialize path defaultConfigDto state
       let projectPath = Path.Combine(path, "AutocompleteTest.fsproj")
       do! waitForWorkspaceFinishedParsing event
@@ -499,7 +501,9 @@ let autocompleteTest state =
 
   let scriptServer =
     async {
-      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "AutocompleteScriptTest")
+      let path =
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "AutocompleteScriptTest")
+
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let path = Path.Combine(path, "Script.fsx")
@@ -626,7 +630,7 @@ let autocompleteTest state =
 
 let autoOpenTests state =
   let dirPath =
-    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CompletionAutoOpenTests")
+    Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "CompletionAutoOpenTests")
 
   let autoOpenServer =
     async {
@@ -884,7 +888,7 @@ let fullNameExternalAutocompleteTest state =
             FullNameExternalAutocomplete = Some true }
 
       let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FullNameExternalAutocompleteTest")
 
       let! (server, event) = serverInitialize path config state
       let projectPath = Path.Combine(path, "FullNameExternalAutocompleteTest.fsproj")
@@ -905,7 +909,7 @@ let fullNameExternalAutocompleteTest state =
             FullNameExternalAutocomplete = Some true }
 
       let path =
-        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
+        Path.Combine(Helpers.Paths.SourceDirectory(), "TestCases", "FullNameExternalAutocompleteTest")
 
       let! (server, event) = serverInitialize path config state
       do! waitForWorkspaceFinishedParsing event
