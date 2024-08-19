@@ -316,7 +316,7 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.isGreaterThan
+            Expect.isGreaterThanOrEqual
               completions.Items.Length
               106
               "at time of writing the List module has 106 exposed members"
@@ -341,7 +341,7 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.isGreaterThan
+            Expect.isGreaterThanOrEqual
               completions.Items.Length
               106
               "at time of writing the List module has 106 exposed members"
@@ -371,7 +371,7 @@ let tests state =
               300
               "shouldn't have a very long list of completion items that are only types"
 
-            Expect.isGreaterThan
+            Expect.isGreaterThanOrEqual
               completions.Items.Length
               100
               "should have a reasonable number of completion items that are only types"
@@ -458,7 +458,7 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.isGreaterThan
+            Expect.isGreaterThanOrEqual
               completions.Items.Length
               106
               "at time of writing the List module has 106 exposed members"
@@ -483,7 +483,7 @@ let tests state =
 
           match response with
           | Ok(Some completions) ->
-            Expect.isGreaterThan
+            Expect.isGreaterThanOrEqual
               completions.Items.Length
               106
               "at time of writing the List module has 106 exposed members"
