@@ -655,7 +655,7 @@ type AdaptiveFSharpLspServer
 
                   let! (decls, residue, shouldKeywords) =
                     Debug.measure "TextDocumentCompletion.TryGetCompletions" (fun () ->
-                      typeCheckResults.TryGetCompletions pos lineStr None getAllSymbols
+                      typeCheckResults.TryGetCompletions pos lineStr getAllSymbols
                       |> AsyncResult.ofOption (fun () -> "No TryGetCompletions results"))
 
                   do! Result.requireNotEmpty "Should not have empty completions" decls

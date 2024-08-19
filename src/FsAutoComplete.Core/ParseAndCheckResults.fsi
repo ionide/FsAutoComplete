@@ -81,7 +81,6 @@ type ParseAndCheckResults =
   member TryGetCompletions:
     pos: Position ->
     lineStr: LineStr ->
-    filter: string option ->
     getAllSymbols: (unit -> AssemblySymbol list) ->
       Async<(DeclarationListItem array * string * bool) option>
 

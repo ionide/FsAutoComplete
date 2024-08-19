@@ -12,6 +12,8 @@
     variables,https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-options#opt-in-warnings -->
     <NoWarn>$(NoWarn);FS0044</NoWarn>       <!-- Ignore deprecations -->
     <WarnOn>$(WarnOn);3390</WarnOn><!-- Malformed XML doc comments -->
+        <!-- Package Reference with no usable assets -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ChangelogFile>$(MSBuildThisFileDirectory)CHANGELOG.md</ChangelogFile>
     <!-- Only the tool package is packable -->
