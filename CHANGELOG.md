@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.74.0] - 2024-08-18
+
+### Changed
+
+* [Updated to F# compiler libraries from the .NET 8.0.400 SDK](https://github.com/ionide/FsAutoComplete/pull/1317)
+* [Render a better return type for constructors](https://github.com/ionide/FsAutoComplete/pull/1312) (thanks @dawedawe!)
+* [Refactorings for better perf on hot paths](https://github.com/ionide/FsAutoComplete/pull/1308) (Thanks @1eyewonder)
+
 ## [0.73.2] - 2024-06-17
 
 ### Changed
