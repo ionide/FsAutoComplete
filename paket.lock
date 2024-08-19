@@ -149,7 +149,7 @@ NUGET
       Ionide.ProjInfo.Sln (>= 0.66) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       Newtonsoft.Json (>= 13.0.1) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
     Ionide.ProjInfo.Sln (0.66)
-    LinkDotNet.StringBuilder (1.20)
+    LinkDotNet.StringBuilder (1.18)
     McMaster.NETCore.Plugins (1.4) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       Microsoft.DotNet.PlatformAbstractions (>= 3.1.6) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= netcoreapp2.1)) (&& (== netstandard2.1) (>= netcoreapp2.1))
       Microsoft.Extensions.DependencyModel (>= 5.0) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= netcoreapp2.1)) (&& (== netstandard2.1) (>= netcoreapp2.1))
