@@ -43,8 +43,10 @@ let private scriptTests state =
 
           let request: ReferenceParams =
             { TextDocument = { Uri = Path.FilePathToUri scriptPath }
-              Position = { Line = 2; Character = 0 } // beginning of the usage of the `foo` function
-              Context = { IncludeDeclaration = true } } // beginning of the usage of the `foo` function
+              Position = { Line = 2u; Character = 0u } // beginning of the usage of the `foo` function
+              Context = { IncludeDeclaration = true }
+              WorkDoneToken = None
+              PartialResultToken = None } // beginning of the usage of the `foo` function
 
           let! response = server.TextDocumentReferences request
 
@@ -58,8 +60,8 @@ let private scriptTests state =
 
             Expect.equal
               reference.Range
-              { Start = { Line = 0; Character = 4 }
-                End = { Line = 0; Character = 7 } }
+              { Start = { Line = 0u; Character = 4u }
+                End = { Line = 0u; Character = 7u } }
               "should point to the definition of `foo`"
         }) ]
 
@@ -251,10 +253,12 @@ let private solutionTests state =
           let length = mark.Length
           let line = i - 1 // marker is line AFTER actual range
 
-          { Start = { Line = line; Character = col }
+          { Start =
+              { Line = uint32 line
+                Character = uint32 col }
             End =
-              { Line = line
-                Character = col + length } }
+              { Line = uint32 line
+                Character = uint32 (col + length) } }
 
         let loc =
           { Uri = path |> normalizePath |> Path.LocalPathToUri
@@ -347,7 +351,9 @@ let private solutionTests state =
                 let request: ReferenceParams =
                   { TextDocument = doc.TextDocumentIdentifier
                     Position = cursor
-                    Context = { IncludeDeclaration = true } }
+                    Context = { IncludeDeclaration = true }
+                    WorkDoneToken = None
+                    PartialResultToken = None }
 
                 let! refs = doc.Server.Server.TextDocumentReferences request
 
@@ -430,7 +436,9 @@ let private untitledTests state =
           let request: ReferenceParams =
             { TextDocument = cursorDoc.TextDocumentIdentifier
               Position = cursor
-              Context = { IncludeDeclaration = true } }
+              Context = { IncludeDeclaration = true }
+              WorkDoneToken = None
+              PartialResultToken = None }
 
           let! refs = cursorDoc.Server.Server.TextDocumentReferences request
 
@@ -465,7 +473,9 @@ let private rangeTests state =
       let request: ReferenceParams =
         { TextDocument = doc.TextDocumentIdentifier
           Position = cursors.Cursor.Value
-          Context = { IncludeDeclaration = true } }
+          Context = { IncludeDeclaration = true }
+          WorkDoneToken = None
+          PartialResultToken = None }
 
       let! refs = doc.Server.Server.TextDocumentReferences request
 
@@ -628,7 +638,8 @@ let tests state =
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
-  testList
+  testSequenced
+  <| testList
     ($"{nameof Tokenizer.tryFixupRange}")
     [ let checker = lazy (FSharpChecker.Create())
 
@@ -650,14 +661,14 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
             | _ -> failtest "CheckFile aborted"
           // Expect.isEmpty checkResults.Diagnostics "There should be no check diags"
           Expect.hasLength checkResults.Diagnostics 0 "There should be no check diags"
-          let line = source.Lines[cursor.Line]
+          let line = source.Lines[int cursor.Line]
 
           let (col, idents) =
             Lexer.findIdents cursor.Character line SymbolLookupKind.Fuzzy
             |> Flip.Expect.wantSome "Should find idents"
 
           let symbolUse =
-            checkResults.GetSymbolUseAtLocation(cursor.Line + 1, col, line, List.ofArray idents)
+            checkResults.GetSymbolUseAtLocation(int cursor.Line + 1, int col, line, List.ofArray idents)
             |> Flip.Expect.wantSome "Should find symbol"
 
           let! ct = Async.CancellationToken
@@ -720,7 +731,7 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
               let locs = ranges |> Array.map (fun r -> { Uri = ""; Range = r })
               let marked = markRanges source.String locs
               // append range strings for additional range diff
-              let rangeStrs = ranges |> Seq.map (fun r -> r.DebuggerDisplay) |> String.concat "\n"
+              let rangeStrs = ranges |> Seq.map (fun r -> string r) |> String.concat "\n"
               marked + "\n" + "\n" + rangeStrs
 
             Expect.equal (markRanges actual) (markRanges expected) "Should be correct ranges"

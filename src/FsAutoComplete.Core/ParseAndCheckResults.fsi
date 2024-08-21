@@ -66,6 +66,8 @@ type ParseAndCheckResults =
 
   member TryGetSymbolUse: pos: Position -> lineStr: LineStr -> FSharpSymbolUse option
 
+  member TryGetSymbolUseFromIdent: ISourceText -> Ident -> FSharpSymbolUse option
+
   member TryGetSymbolUses: pos: Position -> lineStr: LineStr -> FSharpSymbolUse list
 
   member TryGetSymbolUseAndUsages:
@@ -79,7 +81,6 @@ type ParseAndCheckResults =
   member TryGetCompletions:
     pos: Position ->
     lineStr: LineStr ->
-    filter: string option ->
     getAllSymbols: (unit -> AssemblySymbol list) ->
       Async<(DeclarationListItem array * string * bool) option>
 

@@ -66,8 +66,10 @@ module Seq =
     }
 
 module ProcessHelper =
+  open IcedTasks
+
   let WaitForExitAsync (p: Process) =
-    async {
+    asyncEx {
       let tcs = TaskCompletionSource<obj>()
       p.EnableRaisingEvents <- true
       p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
@@ -76,7 +78,7 @@ module ProcessHelper =
 
       let _registered = token.Register(fun _ -> tcs.SetCanceled())
 
-      let! _ = tcs.Task |> Async.AwaitTask
+      let! _ = tcs.Task
       ()
     }
 
@@ -509,6 +511,19 @@ type ReadOnlySpanExtensions =
       let c = span[i]
 
       if c <> value0 && c <> value1 then
+        found <- true
+      else
+        i <- i + 1
+
+    if found then i else -1
+
+  [<Extension>]
+  static member IndexOfAnyExcept(span: ReadOnlySpan<char>, values: ReadOnlySpan<char>) =
+    let mutable i = 0
+    let mutable found = false
+
+    while not found && i < span.Length do
+      if values.IndexOf span[i] < 0 then
         found <- true
       else
         i <- i + 1

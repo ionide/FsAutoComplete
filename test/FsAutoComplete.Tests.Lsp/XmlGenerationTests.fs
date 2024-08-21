@@ -23,7 +23,7 @@ let tests state =
       do! server.TextDocumentDidOpen tdop
 
       match! waitForParseResultsForFile "Script.fsx" serverRequests with
-      | Ok () -> return server, scriptPath, serverRequests
+      | Ok() -> return server, scriptPath, serverRequests
       | Error errors ->
         let errorStrings =
           errors
@@ -42,31 +42,30 @@ let tests state =
           let! server, filePath, serverRequests = server
           let fileUri = Path.FilePathToUri filePath
 
-          let! edits =
-            waitForEditsForFile filePath serverRequests
-            |> Async.StartChild
+          let! edits = waitForEditsForFile filePath serverRequests |> Async.StartChild
 
           let! result =
             server.FSharpDocumentationGenerator(
               { TextDocument = { Uri = fileUri; Version = 1 }
                 // the start of the 'add' symbol name
-                Position = { Line = 0; Character = 5 } }
+                Position = { Line = 0u; Character = 5u } }
             )
 
           match result with
           | Error e -> failtestf "Couldn't generate xml docs: %A" e
-          | Ok () -> ()
+          | Ok() -> ()
 
           let! edits = edits
 
           let expectedXml =
             $"""/// <summary></summary>{NewLine}/// <param name="left"></param>{NewLine}/// <param name="right"></param>{NewLine}/// <returns></returns>{NewLine}"""
 
-          let expectedEdits: TextEdit [] =
+          let expectedEdits: U2<TextEdit, AnnotatedTextEdit>[] =
             [| { Range =
-                   { Start = { Line = 0; Character = 0 }
-                     End = { Line = 0; Character = 0 } }
-                 NewText = expectedXml } |]
+                   { Start = { Line = 0u; Character = 0u }
+                     End = { Line = 0u; Character = 0u } }
+                 NewText = expectedXml }
+               |> U2.C1 |]
 
           Expect.equal edits expectedEdits "Should have generated the xml docs at the start position"
         }) ]

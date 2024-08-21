@@ -66,7 +66,7 @@ type IFSACSourceText =
   /// Provides safe access to a line of the file via FCS-provided Position
   abstract member GetLine: position: Position -> option<string>
   /// Provide safe access to the length of a line of the file via FCS-provided Position
-  abstract member GetLineLength: position: Position -> option<int>
+  abstract member GetLineLength: position: Position -> option<uint32>
   abstract member GetCharUnsafe: position: Position -> char
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
@@ -98,9 +98,16 @@ type IFSACSourceText =
 
   inherit ISourceText
 
+  inherit ISourceTextNew
+
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
   abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
+
+
+module SourceTextFactory =
+  val readFile:
+    fileName: string<LocalPath> -> sourceTextFactory: ISourceTextFactory -> CancellableValueTask<IFSACSourceText>
 
 type RoslynSourceTextFactory =
   new: unit -> RoslynSourceTextFactory

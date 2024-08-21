@@ -5,7 +5,8 @@ open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FsAutoComplete.FCSPatches
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text.Range
 
 let title = "Use triple-quoted string interpolation"
 
@@ -19,7 +20,15 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
       let! tyRes, _, sourceText = getParseResultsForFile filePath pos
 
-      match tyRes.GetParseResults.TryRangeOfStringInterpolationContainingPos pos with
+      let range =
+        (pos, tyRes.GetParseResults.ParseTree)
+        ||> ParsedInput.tryPick (fun _path node ->
+          match node with
+          | SyntaxNode.SynExpr(SynExpr.InterpolatedString(range = range)) when rangeContainsPos range pos ->
+            Some range
+          | _ -> None)
+
+      match range with
       | Some range ->
         let! interpolationText = sourceText.GetText range
         // skip the leading '$' in the existing single-quoted interpolation

@@ -11,4 +11,7 @@
     <PackageReference Include="Giraffe" Version="4.0.1" />
     <PackageReference Update="FSharp.Core" Version="4.7.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GoToCSharp\GoToCSharp.csproj" />
+  </ItemGroup>
 </Project>

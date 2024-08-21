@@ -86,13 +86,13 @@ type ParseAndCheckResults
     }
 
   member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
 
       let declarations =
-        checkResults.GetDeclarationLocation(pos.Line, col, lineStr, identIsland, preferFlag = false)
+        checkResults.GetDeclarationLocation(pos.Line, int col, lineStr, identIsland, preferFlag = false)
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
@@ -123,7 +123,7 @@ type ParseAndCheckResults
       let tryRecoverExternalSymbolForNonexistentDecl
         (rangeInNonexistentFile: FSharp.Compiler.Text.Range)
         : ResultOrString<string<LocalPath> * string<NormalizedRepoPathSegment>> =
-        match Lexer.findLongIdents (pos.Column - 1, lineStr) with
+        match Lexer.findLongIdents (uint32 (pos.Column - 1), lineStr) with
         | None ->
           ResultOrString.Error(
             sprintf "Range for nonexistent file found, no ident found: %s" rangeInNonexistentFile.FileName
@@ -132,7 +132,7 @@ type ParseAndCheckResults
           let identIsland = Array.toList identIsland
 
           let symbolUse =
-            checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+            checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
           match symbolUse with
           | None ->
@@ -141,7 +141,7 @@ type ParseAndCheckResults
             )
           | Some sym ->
             match sym.Symbol.Assembly.FileName with
-            | Some fullFilePath -> Ok(UMX.tag<LocalPath> fullFilePath, getFileName rangeInNonexistentFile)
+            | Some fullFilePath -> Ok(Utils.normalizePath fullFilePath, getFileName rangeInNonexistentFile)
             | None ->
               ResultOrString.Error(
                 sprintf
@@ -229,13 +229,13 @@ type ParseAndCheckResults
 
   member __.TryFindTypeDeclaration (pos: Position) (lineStr: LineStr) =
     async {
-      match Lexer.findLongIdents (pos.Column, lineStr) with
+      match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
       | None -> return Error "Cannot find ident at this location"
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
 
         let symbol =
-          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
         match symbol with
         | None -> return Error "Cannot find symbol at this location"
@@ -319,7 +319,7 @@ type ParseAndCheckResults
     }
 
   member __.TryGetToolTip (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None ->
       logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
       None
@@ -327,7 +327,7 @@ type ParseAndCheckResults
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
-        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+        checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       match tip with
       | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) ->
@@ -354,7 +354,7 @@ type ParseAndCheckResults
     | Completion.Context.StringLiteral -> None
     | Completion.Context.SynType
     | Completion.Context.Unknown ->
-      match Lexer.findLongIdents (pos.Column, lineStr) with
+      match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
       | None ->
         logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
         None
@@ -362,10 +362,10 @@ type ParseAndCheckResults
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
         let tip =
-          checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+          checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
         let symbol =
-          checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+          checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
         match tip with
         | EmptyTooltip when symbol.IsNone ->
@@ -418,16 +418,16 @@ type ParseAndCheckResults
               |> Some
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> Error "Cannot find ident"
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
       // TODO: Display other tooltip types, for example for strings or comments where appropriate
       let tip =
-        checkResults.GetToolTip(pos.Line, col, lineStr, identIsland, FSharpTokenTag.Identifier)
+        checkResults.GetToolTip(pos.Line, int col, lineStr, identIsland, FSharpTokenTag.Identifier)
 
       let symbol =
-        checkResults.GetSymbolUseAtLocation(pos.Line, col, lineStr, identIsland)
+        checkResults.GetSymbolUseAtLocation(pos.Line, int col, lineStr, identIsland)
 
       match tip with
       | ToolTipText(elems) when elems |> List.forall ((=) ToolTipElement.None) && symbol.IsNone ->
@@ -513,18 +513,22 @@ type ParseAndCheckResults
         Ok(symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc, signature, footer, cn)
 
   member __.TryGetSymbolUse (pos: Position) (lineStr: LineStr) : FSharpSymbolUse option =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> None
     | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
-      checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+      checkResults.GetSymbolUseAtLocation(pos.Line, int colu, lineStr, identIsland)
+
+  member x.TryGetSymbolUseFromIdent (sourceText: ISourceText) (ident: Ident) : FSharpSymbolUse option =
+    let line = sourceText.GetLineString(ident.idRange.EndLine - 1)
+    x.GetCheckResults.GetSymbolUseAtLocation(ident.idRange.EndLine, ident.idRange.EndColumn, line, [ ident.idText ])
 
   member __.TryGetSymbolUses (pos: Position) (lineStr: LineStr) : FSharpSymbolUse list =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> []
     | Some(colu, identIsland) ->
       let identIsland = Array.toList identIsland
-      checkResults.GetSymbolUsesAtLocation(pos.Line, colu, lineStr, identIsland)
+      checkResults.GetSymbolUsesAtLocation(pos.Line, int colu, lineStr, identIsland)
 
   member x.TryGetSymbolUseAndUsages (pos: Position) (lineStr: LineStr) =
     let symbolUse = x.TryGetSymbolUse pos lineStr
@@ -536,14 +540,14 @@ type ParseAndCheckResults
       Ok(symbolUse, symbolUses)
 
   member __.TryGetSignatureData (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
 
       let symbolUse =
-        checkResults.GetSymbolUseAtLocation(pos.Line, colu, lineStr, identIsland)
+        checkResults.GetSymbolUseAtLocation(pos.Line, int colu, lineStr, identIsland)
 
       match symbolUse with
       | None -> ResultOrString.Error "No symbol information found"
@@ -588,18 +592,18 @@ type ParseAndCheckResults
         | _ -> ResultOrString.Error "Not a member, function or value"
 
   member __.TryGetF1Help (pos: Position) (lineStr: LineStr) =
-    match Lexer.findLongIdents (pos.Column, lineStr) with
+    match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> ResultOrString.Error "No ident at this location"
     | Some(colu, identIsland) ->
 
       let identIsland = Array.toList identIsland
-      let help = checkResults.GetF1Keyword(pos.Line, colu, lineStr, identIsland)
+      let help = checkResults.GetF1Keyword(pos.Line, int colu, lineStr, identIsland)
 
       match help with
       | None -> ResultOrString.Error "No symbol information found"
       | Some hlp -> Ok hlp
 
-  member x.TryGetCompletions (pos: Position) (lineStr: LineStr) filter (getAllSymbols: unit -> AssemblySymbol list) =
+  member x.TryGetCompletions (pos: Position) (lineStr: LineStr) (getAllSymbols: unit -> AssemblySymbol list) =
     async {
       let completionContext = Completion.atPos (pos, x.GetParseResults.ParseTree)
 
@@ -610,123 +614,72 @@ type ParseAndCheckResults
         try
           let longName = QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
 
-          let residue = longName.PartialIdent
-
-          logger.info (
-            Log.setMessage "TryGetCompletions - lineStr: {lineStr}"
-            >> Log.addContextDestructured "lineStr" lineStr
-          )
-
-          logger.info (
-            Log.setMessage "TryGetCompletions - long name: {longName}"
-            >> Log.addContextDestructured "longName" longName
-          )
-
           let getSymbols () =
-            getAllSymbols ()
-            |> List.filter (fun entity ->
-              // Attempt to filter to types when we know we're in a type and FCS uses all symbols
-              (completionContext <> Completion.Context.SynType
-               || entity.Kind LookupType.Fuzzy = EntityKind.Type)
-              && entity.FullName.Contains "."
-              && not (PrettyNaming.IsOperatorDisplayName entity.Symbol.DisplayName))
+            [ for assemblySymbol in getAllSymbols () do
+                if
+                  assemblySymbol.FullName.Contains(".")
+                  && not (PrettyNaming.IsOperatorDisplayName assemblySymbol.Symbol.DisplayName)
+                then
+                  yield assemblySymbol ]
 
-          let token =
-            Lexer.getSymbol pos.Line (pos.Column - 1) lineStr SymbolLookupKind.ForCompletion [||]
+          let fcsCompletionContext =
+            ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)
 
-          logger.info (
-            Log.setMessage "TryGetCompletions - token: {token}"
-            >> Log.addContextDestructured "token" token
-          )
+          let results =
+            checkResults.GetDeclarationListInfo(
+              Some parseResults,
+              pos.Line,
+              lineStr,
+              longName,
+              getAllEntities = getSymbols,
+              completionContextAtPos = (pos, fcsCompletionContext)
+            )
 
-          let isEmpty =
-            longName.QualifyingIdents.IsEmpty
-            && String.IsNullOrWhiteSpace longName.PartialIdent
-            && longName.LastDotPos.IsNone
+          let getKindPriority kind =
+            match kind with
+            | CompletionItemKind.SuggestedName
+            | CompletionItemKind.CustomOperation -> 0
+            | CompletionItemKind.Property -> 1
+            | CompletionItemKind.Field -> 2
+            | CompletionItemKind.Method(isExtension = false) -> 3
+            | CompletionItemKind.Event -> 4
+            | CompletionItemKind.Argument -> 5
+            | CompletionItemKind.Other -> 6
+            | CompletionItemKind.Method(isExtension = true) -> 7
 
-          match token with
-          | Some k when k.Kind = Other && not isEmpty -> return None
-          | Some k when k.Kind = Operator -> return None
-          | Some k when k.Kind = Keyword -> return None
-          | _ ->
-            let fcsCompletionContext =
-              ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)
+          Array.sortInPlaceWith
+            (fun (x: DeclarationListItem) (y: DeclarationListItem) ->
+              let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
 
-            let results =
-              checkResults.GetDeclarationListInfo(
-                Some parseResults,
-                pos.Line,
-                lineStr,
-                longName,
-                getAllEntities = getSymbols,
-                completionContextAtPos = (pos, fcsCompletionContext)
-              )
-
-            let getKindPriority =
-              function
-              | CompletionItemKind.CustomOperation -> -1
-              | CompletionItemKind.Property -> 0
-              | CompletionItemKind.Field -> 1
-              | CompletionItemKind.Method(isExtension = false) -> 2
-              | CompletionItemKind.Event -> 3
-              | CompletionItemKind.Argument -> 4
-              | CompletionItemKind.Other -> 5
-              | CompletionItemKind.Method(isExtension = true) -> 6
-              | CompletionItemKind.SuggestedName -> 7
-
-            let decls =
-              match filter with
-              | Some "StartsWith" ->
-                results.Items
-                |> Array.filter (fun d -> d.NameInList.StartsWith(residue, StringComparison.InvariantCultureIgnoreCase))
-              | Some "Contains" ->
-                results.Items
-                |> Array.filter (fun d ->
-                  d.NameInList.IndexOf(residue, StringComparison.InvariantCultureIgnoreCase) >= 0)
-              | _ -> results.Items
-
-            let sortedDecls =
-              decls
-              |> Array.sortWith (fun x y ->
-                let transformKind (item: DeclarationListItem) =
-                  if item.Kind = CompletionItemKind.Field && item.Glyph = FSharpGlyph.Method then
-                    CompletionItemKind.Method false
-                  elif item.Kind = CompletionItemKind.Argument && item.Glyph = FSharpGlyph.Property then
-                    CompletionItemKind.Property
-                  else
-                    item.Kind
-
-                let mutable n = (not x.IsResolved).CompareTo(not y.IsResolved)
+              if n <> 0 then
+                n
+              else
+                n <- (getKindPriority x.Kind).CompareTo(getKindPriority y.Kind)
 
                 if n <> 0 then
                   n
                 else
-                  n <-
-                    (getKindPriority <| transformKind x)
-                      .CompareTo(getKindPriority <| transformKind y)
+                  n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
 
                   if n <> 0 then
                     n
                   else
-                    n <- (not x.IsOwnMember).CompareTo(not y.IsOwnMember)
+                    n <- String.Compare(x.NameInList, y.NameInList, StringComparison.OrdinalIgnoreCase)
 
                     if n <> 0 then
                       n
                     else
-                      n <- StringComparer.OrdinalIgnoreCase.Compare(x.NameInList, y.NameInList)
+                      x.MinorPriority.CompareTo(y.MinorPriority))
+            results.Items
 
-                      if n <> 0 then
-                        n
-                      else
-                        x.MinorPriority.CompareTo(y.MinorPriority))
 
-            let shouldKeywords =
-              sortedDecls.Length > 0
-              && not results.IsForType
-              && not results.IsError
-              && List.isEmpty longName.QualifyingIdents
+          let shouldKeywords =
+            results.Items.Length > 0
+            && not results.IsForType
+            && not results.IsError
+            && List.isEmpty longName.QualifyingIdents
 
-            return Some(sortedDecls, residue, shouldKeywords)
+          return Some(results.Items, longName.PartialIdent, shouldKeywords)
         with :? TimeoutException ->
           return None
     }
@@ -766,4 +719,4 @@ type ParseAndCheckResults
   member __.GetAST = parseResults.ParseTree
   member __.GetCheckResults: FSharpCheckFileResults = checkResults
   member __.GetParseResults: FSharpParseFileResults = parseResults
-  member __.FileName: string<LocalPath> = UMX.tag parseResults.FileName
+  member __.FileName: string<LocalPath> = Utils.normalizePath parseResults.FileName

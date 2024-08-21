@@ -36,7 +36,7 @@ let docFormattingTest state =
           let! doc =
             server.FSharpDocumentation
               { TextDocument = { Uri = path }
-                Position = { Character = 5; Line = 0 } } // Map.map
+                Position = { Character = 5u; Line = 0u } } // Map.map
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
@@ -53,7 +53,7 @@ let docFormattingTest state =
           let! doc =
             server.FSharpDocumentation
               { TextDocument = { Uri = path }
-                Position = { Character = 7; Line = 1 } } // List.unzip3
+                Position = { Character = 7u; Line = 1u } } // List.unzip3
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"

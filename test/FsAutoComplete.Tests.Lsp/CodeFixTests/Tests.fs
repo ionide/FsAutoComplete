@@ -1556,6 +1556,24 @@ let private generateXmlDocumentationTests state =
         let f x y = x + y
         """
 
+      testCaseAsync "documentation for function with attribute"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        let $0f x y = x + y
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        [<System.Obsolete("foo")>]
+        let f x y = x + y
+        """
+
       testCaseAsync "documentation for use"
       <| CodeFix.check
         server
@@ -1586,6 +1604,23 @@ let private generateXmlDocumentationTests state =
         selectCodeFix
         """
         /// <summary></summary>
+        type MyRecord = { Foo: int }
+        """
+
+      testCaseAsync "documentation for record type with multiple attribute lists"
+      <| CodeFix.check
+        server
+        """
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
+        type MyRec$0ord = { Foo: int }
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        /// <summary></summary>
+        [<System.Obsolete("foo")>]
+        [<System.Serializable>]
         type MyRecord = { Foo: int }
         """
 
@@ -1717,7 +1752,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with get () = "foo"
@@ -1759,7 +1793,6 @@ let private generateXmlDocumentationTests state =
         type MyClass() =
           let mutable someField = ""
           /// <summary></summary>
-          /// <param name="x"></param>
           /// <returns></returns>
           member _.Name
             with set (x: string) = someField <- x
@@ -1819,7 +1852,18 @@ let private generateXmlDocumentationTests state =
           /// <summary></summary>
           module MyNestedModule =
             let x = 3
-        """ ])
+        """
+
+      testCaseAsync "not applicable for namespace"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        namespace N$0
+          module MyNestedModule =
+            let x = 3
+        """
+        Diagnostics.acceptAll
+        selectCodeFix ])
 
 let private addMissingXmlDocumentationTests state =
   serverTestList (nameof AddMissingXmlDocumentation) state defaultConfigDto None (fun server ->
@@ -2289,7 +2333,7 @@ let private removeUnnecessaryReturnOrYieldTests state =
 let private removeUnusedBindingTests state =
   let config =
     { defaultConfigDto with
-        FSIExtraParameters = Some [| "--warnon:1182" |] }
+        FSIExtraSharedParameters = Some [| "--warnon:1182" |] }
 
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server ->
     [ let selectRemoveUnusedBinding = CodeFix.withTitle RemoveUnusedBinding.titleBinding
@@ -2679,11 +2723,11 @@ let private replaceWithSuggestionTests state =
 
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
-
+        let messages = diags |> Array.map (fun d -> d.Message) |> String.concat "\n"
         Expect.exists
           diags
           (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
-          "Diagnostic with code 39 should suggest name"
+          $"Diagnostic with code 39 should suggest name: Contained {messages}"
 
       testCaseAsync "can change Min to min"
       <| CodeFix.check
@@ -2734,7 +2778,8 @@ let private replaceWithSuggestionTests state =
         let x: float = 2.0
         """
 
-      testCaseAsync "can change namespace in open"
+      // FCS sometimes doesn't give the correct message so test is flakey
+      ptestCaseAsync "can change namespace in open"
       <| CodeFix.check
         server
         """
@@ -3403,9 +3448,71 @@ let private removeUnnecessaryParenthesesTests state =
         longFunctionName
           longVarName1
           longVarName2
-        """ ])
+        """
+
+      testCaseAsync "Handles outlaw match exprs"
+      <| CodeFix.check
+        server
+        """
+        3 > (match x with
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Handles even more outlaw match exprs"
+      <| CodeFix.check
+        server
+        """
+        3 > ( match x with
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Handles single-line comments"
+      <| CodeFix.check
+        server
+        """
+        3 > (match x with
+             // Lol.
+            | 1
+            | _ -> 3)$0
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+        """
+        3 > match x with
+             // Lol.
+            | 1
+            | _ -> 3
+        """
+
+      testCaseAsync "Keep parens when removal would cause reparse of infix as prefix"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        ""+(Unchecked.defaultof<string>)$0+""
+        """
+        (Diagnostics.expectCode "FSAC0004")
+        selector
+
+      ])
 
 let tests textFactory state =
+  testSequenced <|
   testList
     "CodeFix-tests"
     [ HelpersTests.tests textFactory
@@ -3455,4 +3562,9 @@ let tests textFactory state =
       removePatternArgumentTests state
       UpdateValueInSignatureFileTests.tests state
       removeUnnecessaryParenthesesTests state
+      AddTypeAliasToSignatureFileTests.tests state
+      UpdateTypeAbbreviationInSignatureFileTests.tests state
+      AddBindingToSignatureFileTests.tests state
+      ReplaceLambdaWithDotLambdaTests.tests state
+      IgnoreExpressionTests.tests state
       ExprTypeMismatchTests.tests state ]

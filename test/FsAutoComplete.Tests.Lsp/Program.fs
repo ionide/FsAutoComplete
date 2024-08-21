@@ -16,8 +16,11 @@ open System.Threading
 open Serilog.Filters
 open System.IO
 open FsAutoComplete
+open Helpers
+open FsToolkit.ErrorHandling
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
+
 
 let testTimeout =
   Environment.GetEnvironmentVariable "TEST_TIMEOUT_MINUTES"
@@ -31,10 +34,21 @@ let testTimeout =
 // delay in ms between workspace start + stop notifications because the system goes too fast :-/
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
+let getEnvVarAsStr name =
+  Environment.GetEnvironmentVariable(name)
+  |> Option.ofObj
+
+let (|EqIC|_|) (a: string) (b: string) =
+  if String.Equals(a, b, StringComparison.OrdinalIgnoreCase) then Some () else None
+
 let loaders =
-  [ "Ionide WorkspaceLoader",
-    (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-    // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+  match getEnvVarAsStr "USE_WORKSPACE_LOADER" with
+  | Some (EqIC "WorkspaceLoader") -> [ "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+  | Some (EqIC "ProjectGraph") -> [ "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+  | _ ->
+    [
+      "Ionide WorkspaceLoader", (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+      // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
     ]
 
 
@@ -46,7 +60,20 @@ let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 let mutable toolsPath =
   Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
 
+
+
+let compilers =
+  match getEnvVarAsStr "USE_TRANSPARENT_COMPILER" with
+  | Some (EqIC "TransparentCompiler") -> ["TransparentCompiler", true ]
+  | Some (EqIC "BackgroundCompiler") -> [ "BackgroundCompiler", false ]
+  | _ ->
+    [
+      "BackgroundCompiler", false
+      "TransparentCompiler", true
+    ]
+
 let lspTests =
+  testSequenced <|
   testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
@@ -54,56 +81,61 @@ let lspTests =
         testList
           $"{loaderName}"
           [
-            Templates.tests ()
-            let createServer () =
-              adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory
+            for (compilerName, useTransparentCompiler) in compilers do
+              testList
+                $"{compilerName}"
+                [
+                  Templates.tests ()
+                  let createServer () =
+                    adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
-            initTests createServer
-            closeTests createServer
+                  initTests createServer
+                  closeTests createServer
 
-            Utils.Tests.Server.tests createServer
-            Utils.Tests.CursorbasedTests.tests createServer
+                  Utils.Tests.Server.tests createServer
+                  Utils.Tests.CursorbasedTests.tests createServer
 
-            CodeLens.tests createServer
-            documentSymbolTest createServer
-            Completion.autocompleteTest createServer
-            Completion.autoOpenTests createServer
-            Completion.fullNameExternalAutocompleteTest createServer
-            foldingTests createServer
-            tooltipTests createServer
-            Highlighting.tests createServer
-            scriptPreviewTests createServer
-            scriptEvictionTests createServer
-            scriptProjectOptionsCacheTests createServer
-            dependencyManagerTests createServer
-            interactiveDirectivesUnitTests
+                  CodeLens.tests createServer
+                  documentSymbolTest createServer
+                  Completion.autocompleteTest createServer
+                  Completion.autoOpenTests createServer
+                  Completion.fullNameExternalAutocompleteTest createServer
+                  foldingTests createServer
+                  tooltipTests createServer
+                  Highlighting.tests createServer
+                  scriptPreviewTests createServer
+                  scriptEvictionTests createServer
+                  scriptProjectOptionsCacheTests createServer
+                  dependencyManagerTests createServer
+                  interactiveDirectivesUnitTests
 
-            // commented out because FSDN is down
-            //fsdnTest createServer
+                  // commented out because FSDN is down
+                  //fsdnTest createServer
 
-            //linterTests createServer
-            uriTests
-            formattingTests createServer
-            analyzerTests createServer
-            signatureTests createServer
-            SignatureHelp.tests createServer
-            InlineHints.tests createServer
-            CodeFixTests.Tests.tests sourceTextFactory createServer
-            Completion.tests createServer
-            GoTo.tests createServer
+                  //linterTests createServer
+                  uriTests
+                  formattingTests createServer
+                  analyzerTests createServer
+                  signatureTests createServer
+                  SignatureHelp.tests createServer
+                  InlineHints.tests createServer
+                  CodeFixTests.Tests.tests sourceTextFactory createServer
+                  Completion.tests createServer
+                  GoTo.tests createServer
 
-            FindReferences.tests createServer
-            Rename.tests createServer
+                  FindReferences.tests createServer
+                  Rename.tests createServer
 
-            InfoPanelTests.docFormattingTest createServer
-            DetectUnitTests.tests createServer
-            XmlDocumentationGeneration.tests createServer
-            InlayHintTests.tests createServer
-            DependentFileChecking.tests createServer
-            UnusedDeclarationsTests.tests createServer
-            EmptyFileTests.tests createServer
-            CallHierarchy.tests createServer
-            ] ]
+                  InfoPanelTests.docFormattingTest createServer
+                  DetectUnitTests.tests createServer
+                  XmlDocumentationGeneration.tests createServer
+                  InlayHintTests.tests createServer
+                  DependentFileChecking.tests createServer
+                  UnusedDeclarationsTests.tests createServer
+                  EmptyFileTests.tests createServer
+                  CallHierarchy.tests createServer
+                  diagnosticsTest createServer
+                  ] ] ]
 
 /// Tests that do not require a LSP server
 let generalTests = testList "general" [
@@ -113,11 +145,35 @@ let generalTests = testList "general" [
 ]
 
 [<Tests>]
-let tests = testList "FSAC" [ generalTests; lspTests ]
+let tests = testList "FSAC" [
+    generalTests
+    lspTests
+    SnapshotTests.snapshotTests loaders toolsPath
+  ]
 
+open OpenTelemetry
+open OpenTelemetry.Resources
+open OpenTelemetry.Trace
+open OpenTelemetry.Logs
+open OpenTelemetry.Metrics
+open System.Diagnostics
+open FsAutoComplete.Telemetry
 
 [<EntryPoint>]
 let main args =
+  let serviceName = "FsAutoComplete.Tests.Lsp"
+  use traceProvider =
+    let version = FsAutoComplete.Utils.Version.info().Version
+    Sdk
+      .CreateTracerProviderBuilder()
+      .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+      .SetResourceBuilder(
+        ResourceBuilder
+          .CreateDefault()
+          .AddService(serviceName = serviceName, serviceVersion = version)
+      )
+      .AddOtlpExporter()
+      .Build()
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
@@ -219,11 +275,15 @@ let main args =
   let fixedUpArgs = args |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
+  use activitySource = new ActivitySource(serviceName)
 
-  let args =
-    [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
-      CLIArguments.Verbosity logLevel
-      // CLIArguments.Parallel
-      ]
-
-  runTestsWithCLIArgsAndCancel cts.Token args fixedUpArgs tests
+  let cliArgs =
+    [
+      CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+      CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
+      CLIArguments.Parallel
+    ]
+  // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
+  // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
+  use span = activitySource.StartActivity("runTests")
+  runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests

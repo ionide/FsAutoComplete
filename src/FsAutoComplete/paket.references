@@ -9,8 +9,6 @@ ICSharpCode.Decompiler
 Ionide.KeepAChangelog.Tasks
 Ionide.LanguageServerProtocol
 Ionide.ProjInfo.ProjectSystem
-Microsoft.NETFramework.ReferenceAssemblies
-Microsoft.SourceLink.GitHub
 Serilog.Sinks.Async
 Serilog.Sinks.Console
 Serilog.Sinks.File
@@ -18,6 +16,7 @@ System.CommandLine
 FSharp.Data.Adaptive
 Microsoft.Extensions.Caching.Memory
 OpenTelemetry.Exporter.OpenTelemetryProtocol
+OpenTelemetry.Instrumentation.Runtime
 Microsoft.CodeAnalysis
 LinkDotNet.StringBuilder
 CommunityToolkit.HighPerformance

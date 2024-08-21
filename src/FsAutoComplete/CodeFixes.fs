@@ -14,17 +14,19 @@ module FcsRange = FSharp.Compiler.Text.Range
 type FcsRange = FSharp.Compiler.Text.Range
 type FcsPos = FSharp.Compiler.Text.Position
 
-module LspTypes = Ionide.LanguageServerProtocol.Types
+type LspRange = Ionide.LanguageServerProtocol.Types.Range
+type LspPosition = Ionide.LanguageServerProtocol.Types.Position
 
 module Types =
   open FsAutoComplete.FCSPatches
   open System.Threading.Tasks
+  open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
   type IsEnabled = unit -> bool
 
-  type GetRangeText = string<LocalPath> -> LspTypes.Range -> Async<ResultOrString<string>>
+  type GetRangeText = string<LocalPath> -> LspRange -> Async<ResultOrString<string>>
   type GetFileLines = string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>
-  type GetLineText = IFSACSourceText -> LspTypes.Range -> Async<Result<string, string>>
+  type GetLineText = IFSACSourceText -> LspRange -> Async<Result<string, string>>
 
   type GetParseResultsForFile =
     string<LocalPath>
@@ -33,8 +35,7 @@ module Types =
 
   type GetLanguageVersion = string<LocalPath> -> Async<LanguageVersionShim>
 
-  type GetProjectOptionsForFile =
-    string<LocalPath> -> Async<ResultOrString<FSharp.Compiler.CodeAnalysis.FSharpProjectOptions>>
+  type GetProjectOptionsForFile = string<LocalPath> -> Async<ResultOrString<CompilerProjectOption>>
 
   [<RequireQualifiedAccess>]
   [<Struct>]
@@ -84,7 +85,7 @@ module Types =
         { TextDocument =
             { Uri = fileUri.Uri
               Version = fileVersion }
-          Edits = edits }
+          Edits = edits |> Array.map U2.C1 }
 
       let workspaceEdit = WorkspaceEdit.Create([| edit |], clientCapabilities)
 
@@ -136,30 +137,29 @@ module SourceText =
   module WithEmptyHandling =
     let getLineCount (sourceText: ISourceText) =
       match sourceText.GetLineCount() with
-      | 0 -> 1
-      | c -> c
+      | 0 -> 1u
+      | c -> uint32 c
     // or
     // max 1 (sourceText.GetLineCount())
 
-    let inline private assertLineIndex lineIndex sourceText =
-      assert (0 <= lineIndex && lineIndex < getLineCount sourceText)
+    let inline private assertLineIndex (lineIndex: uint32) sourceText = assert (lineIndex < getLineCount sourceText)
 
     let getLineString lineIndex (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText
 
-      if lineIndex = 0 && sourceText.GetLineCount() = 0 then
+      if lineIndex = 0u && sourceText.GetLineCount() = 0 then
         ""
       else
-        sourceText.GetLineString lineIndex
+        sourceText.GetLineString(int lineIndex)
 
-    let isFirstLine lineIndex (sourceText: ISourceText) =
+    let isFirstLine (lineIndex: uint32) (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText
       // No need to check for inside `getLineCount`: there's always at least one line (might be empty)
-      lineIndex = 0
+      lineIndex = 0u
 
     let isLastLine lineIndex (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText
-      lineIndex = (getLineCount sourceText) - 1
+      lineIndex = (getLineCount sourceText) - 1u
 
     /// Returns position after last character in specified line.
     /// Same as line length.
@@ -176,36 +176,36 @@ module SourceText =
     let afterLastCharacterPosition lineIndex (sourceText: ISourceText) =
       assertLineIndex lineIndex sourceText
       let line = sourceText |> getLineString lineIndex
-      line.Length
+      uint32 line.Length
 
 /// helpers for iterating along text lines
 module Navigation =
 
-  let findPosForCharacter (lines: string[]) (pos: int) =
-    let mutable lineNumber = 0
-    let mutable runningLength = 0
+  let findPosForCharacter (lines: string[]) (pos: uint32) =
+    let mutable lineNumber = 0u
+    let mutable runningLength = 0u
     let mutable found = false
 
     let mutable fcsPos = Unchecked.defaultof<FcsPos>
 
     while not found do
-      let line = lines.[lineNumber]
-      let lineLength = line.Length
+      let line = lines.[int lineNumber]
+      let lineLength = uint32 line.Length
 
       if pos <= runningLength + lineLength then
         let column = pos - runningLength
         found <- true
-        fcsPos <- FSharp.Compiler.Text.Position.mkPos lineNumber column
+        fcsPos <- FSharp.Compiler.Text.Position.mkPos (int lineNumber) (int column)
       else
-        lineNumber <- lineNumber + 1
+        lineNumber <- lineNumber + 1u
         runningLength <- runningLength + lineLength
 
     fcsPos
 
-  let inc (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let inc (lines: IFSACSourceText) (pos: LspPosition) : LspPosition option =
     lines.NextPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
-  let dec (lines: IFSACSourceText) (pos: LspTypes.Position) : LspTypes.Position option =
+  let dec (lines: IFSACSourceText) (pos: LspPosition) : LspPosition option =
     lines.PrevPos(protocolPosToPos pos) |> Option.map fcsPosToLsp
 
   let rec decMany lines pos count =
@@ -213,10 +213,10 @@ module Navigation =
       let mutable pos = pos
       let mutable count = count
 
-      while count > 0 do
+      while count > 0u do
         let! nextPos = dec lines pos
         pos <- nextPos
-        count <- count - 1
+        count <- count - 1u
 
       return pos
     }
@@ -226,20 +226,20 @@ module Navigation =
       let mutable pos = pos
       let mutable count = count
 
-      while count > 0 do
+      while count > 0u do
         let! nextPos = inc lines pos
         pos <- nextPos
-        count <- count - 1
+        count <- count - 1u
 
       return pos
     }
 
-  let walkBackUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
+  let walkBackUntilConditionWithTerminal (lines: IFSACSourceText) (pos: LspPosition) condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
     lines.WalkBackwards(fcsStartPos, terminal, condition) |> Option.map fcsPosToLsp
 
-  let walkForwardUntilConditionWithTerminal (lines: IFSACSourceText) pos condition terminal =
+  let walkForwardUntilConditionWithTerminal (lines: IFSACSourceText) (pos: LspPosition) condition terminal =
     let fcsStartPos = protocolPosToPos pos
 
 
@@ -254,13 +254,13 @@ module Navigation =
   /// Tries to detect the last cursor position in line before `currentLine` (0-based).
   ///
   /// Returns `None` iff there's no prev line -> `currentLine` is first line
-  let tryEndOfPrevLine (lines: IFSACSourceText) currentLine =
+  let tryEndOfPrevLine (lines: IFSACSourceText) (currentLine: uint32) =
     if SourceText.WithEmptyHandling.isFirstLine currentLine lines then
       None
     else
-      let prevLine = currentLine - 1
+      let prevLine = currentLine - 1u
 
-      { Line = prevLine
+      { Line = uint32 prevLine
         Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine }
       |> Some
 
@@ -271,8 +271,11 @@ module Navigation =
     if SourceText.WithEmptyHandling.isLastLine currentLine lines then
       None
     else
-      let nextLine = currentLine + 1
-      { Line = nextLine; Character = 0 } |> Some
+      let nextLine = currentLine + 1u
+
+      { Line = uint32 nextLine
+        Character = 0u }
+      |> Some
 
   /// Gets the range to delete the complete line `lineIndex` (0-based).
   /// Deleting the line includes a linebreak if possible
@@ -293,12 +296,12 @@ module Navigation =
       match tryStartOfNextLine lines lineIndex with
       | Some fin ->
         // delete trailing linebreak
-        { Start = { Line = lineIndex; Character = 0 }
+        { Start = { Line = lineIndex; Character = 0u }
           End = fin }
       | None ->
         // single line
         // -> just delete all text in line
-        { Start = { Line = lineIndex; Character = 0 }
+        { Start = { Line = lineIndex; Character = 0u }
           End =
             { Line = lineIndex
               Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
@@ -339,4 +342,35 @@ module Run =
       handler
 
   let ifDiagnosticByCode codes handler : CodeFix =
-    runDiagnostics (fun d -> d.Code.IsSome && Set.contains d.Code.Value codes) handler
+    runDiagnostics
+      (fun d ->
+        match d.CodeAsString with
+        | Some c -> Set.contains c codes
+        | None -> false)
+      handler
+
+  let ifImplementationFileBackedBySignature
+    (getProjectOptionsForFile: GetProjectOptionsForFile)
+    (codeFix: CodeFix)
+    (codeActionParams: CodeActionParams)
+    : Async<Result<Fix list, string>> =
+    async {
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+      let! project = getProjectOptionsForFile fileName
+
+      match project with
+      | Error _ -> return Ok []
+      | Ok projectOptions ->
+
+        let signatureFile = System.String.Concat(fileName, "i")
+
+        let hasSig =
+          projectOptions.SourceFilesTagged
+          |> List.map (UMX.untag)
+          |> List.contains signatureFile
+
+        if not hasSig then
+          return Ok []
+        else
+          return! codeFix codeActionParams
+    }

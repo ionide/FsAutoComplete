@@ -22,40 +22,47 @@ module FcsPos = FSharp.Compiler.Text.Position
 module FcsPos =
   let subtractColumn (pos: FcsPos) (column: int) = FcsPos.mkPos pos.Line (pos.Column - column)
 
+module Json =
+  let fromObject (obj: 'a) =
+    Newtonsoft.Json.Linq.JToken.FromObject(obj, Ionide.LanguageServerProtocol.Server.jsonRpcFormatter.JsonSerializer)
+
 [<AutoOpen>]
 module Conversions =
 
-  module Lsp = Ionide.LanguageServerProtocol.Types
-  /// convert an LSP position to a compiler position
-  let protocolPosToPos (pos: Lsp.Position) : FcsPos = FcsPos.mkPos (pos.Line + 1) (pos.Character)
+  type LspPosition = Ionide.LanguageServerProtocol.Types.Position
+  type LspRange = Ionide.LanguageServerProtocol.Types.Range
+  type LspLocation = Ionide.LanguageServerProtocol.Types.Location
 
-  let protocolPosToRange (pos: Lsp.Position) : Lsp.Range = { Start = pos; End = pos }
+  /// convert an LSP position to a compiler position
+  let protocolPosToPos (pos: LspPosition) : FcsPos = FcsPos.mkPos (int pos.Line + 1) (int pos.Character)
+
+  let protocolPosToRange (pos: LspPosition) : LspRange = { Start = pos; End = pos }
 
   /// convert a compiler position to an LSP position
-  let fcsPosToLsp (pos: FcsPos) : Lsp.Position =
-    { Line = pos.Line - 1
-      Character = pos.Column }
+  let fcsPosToLsp (pos: FcsPos) : LspPosition =
+    { Line = uint32 pos.Line - 1u
+      Character = uint32 pos.Column }
 
   /// convert a compiler range to an LSP range
-  let fcsRangeToLsp (range: FcsRange) : Lsp.Range =
+  let fcsRangeToLsp (range: FcsRange) : LspRange =
     { Start = fcsPosToLsp range.Start
       End = fcsPosToLsp range.End }
 
-  let protocolRangeToRange fn (range: Lsp.Range) : FcsRange =
+  let protocolRangeToRange fn (range: LspRange) : FcsRange =
     FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
 
   /// convert an FCS position to a single-character range in LSP
-  let fcsPosToProtocolRange (pos: FcsPos) : Lsp.Range =
+  let fcsPosToProtocolRange (pos: FcsPos) : LspRange =
     { Start = fcsPosToLsp pos
       End = fcsPosToLsp pos }
 
 
-  let fcsRangeToLspLocation (range: FcsRange) : Lsp.Location =
+  let fcsRangeToLspLocation (range: FcsRange) : LspLocation =
     let fileUri = Path.FilePathToUri range.FileName
     let lspRange = fcsRangeToLsp range
     { Uri = fileUri; Range = lspRange }
 
-  let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : Lsp.Location =
+  let findDeclToLspLocation (decl: FsAutoComplete.FindDeclarationResult) : LspLocation =
     match decl with
     | FsAutoComplete.FindDeclarationResult.ExternalDeclaration ex ->
       let fileUri = Path.FilePathToUri ex.File
@@ -68,8 +75,16 @@ module Conversions =
 
       { Uri = fileUri
         Range =
-          { Start = { Line = 0; Character = 0 }
-            End = { Line = 0; Character = 0 } } }
+          { Start = { Line = 0u; Character = 0u }
+            End = { Line = 0u; Character = 0u } } }
+
+  type Diagnostic with
+    /// The diagnostic's code, which usually appear in the user interface.
+    member x.CodeAsString =
+      match x.Code with
+      | Some(U2.C1 code) -> code.ToString(System.Globalization.CultureInfo.InvariantCulture) |> Some
+      | Some(U2.C2 code) -> code |> Some
+      | None -> None
 
   type TextDocumentIdentifier with
 
@@ -98,22 +113,27 @@ module Conversions =
   let urlForCompilerCode (number: int) =
     $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
 
+  [<Literal>]
+  let unicodeParagraphCharacter: string = "\u001d"
+
+  let private handleUnicodeParagraph (message: string) = message.Replace(unicodeParagraphCharacter, Environment.NewLine)
+
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
     { Range =
         { Start =
-            { Line = error.StartLine - 1
-              Character = error.StartColumn }
+            { Line = uint32 (max 0 (error.StartLine - 1))
+              Character = uint32 (max 0 error.StartColumn) }
           End =
-            { Line = error.EndLine - 1
-              Character = error.EndColumn } }
+            { Line = uint32 (max 0 (error.EndLine - 1))
+              Character = uint32 (max 0 error.EndColumn) } }
       Severity = fcsSeverityToDiagnostic error.Severity
       Source = Some "F# Compiler"
-      Message = error.Message
-      Code = Some(string error.ErrorNumber)
+      Message = handleUnicodeParagraph error.Message
+      Code = Some(U2.C1 error.ErrorNumber)
       RelatedInformation = Some [||]
       Tags = None
       Data = None
-      CodeDescription = Some { Href = Some(Uri(urlForCompilerCode error.ErrorNumber)) } }
+      CodeDescription = Some { Href = urlForCompilerCode error.ErrorNumber } }
 
   let getSymbolInformations
     (uri: DocumentUri)
@@ -161,7 +181,7 @@ module Conversions =
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
       { Command = None
-        Data = Some(Newtonsoft.Json.Linq.JToken.FromObject [| uri; typ |])
+        Data = Some(Json.fromObject [| uri; typ |])
         Range = fcsRangeToLsp decl.Range }
 
     let shouldKeep (n: NavigationItem) =
@@ -184,11 +204,11 @@ module Conversions =
     topLevel.Nested
     |> Array.Parallel.choose (fun n -> if shouldKeep n then Some(map n) else None)
 
-  let getLine (lines: string[]) (pos: Lsp.Position) = lines.[pos.Line]
+  let getLine (lines: string[]) (pos: LspPosition) = lines.[int pos.Line]
 
-  let getText (lines: string[]) (r: Lsp.Range) =
-    lines.[r.Start.Line]
-      .Substring(r.Start.Character, r.End.Character - r.Start.Character)
+  let getText (lines: string[]) (r: LspRange) =
+    lines.[int r.Start.Line]
+      .Substring(int r.Start.Character, int (r.End.Character - r.Start.Character))
 
 [<AutoOpen>]
 module internal GlyphConversions =
@@ -669,6 +689,8 @@ type FSharpConfigDto =
     UseSdkScripts: bool option
     DotNetRoot: string option
     FSIExtraParameters: string array option
+    FSIExtraInteractiveParameters: string array option
+    FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
     TooltipMode: string option
     GenerateBinlog: bool option
@@ -810,7 +832,13 @@ type FSharpConfig =
     LineLens: LineLensConfig
     UseSdkScripts: bool
     DotNetRoot: string
+    // old, combines both shared and interactive. To be deprecated. Either use
+    // only this one, or some combination of the new ones.
     FSIExtraParameters: string array
+    // for parameters only used in interactive FSI sessions; currently unused
+    FSIExtraInteractiveParameters: string array
+    // for parameters used both in the compiler and interactive FSI
+    FSIExtraSharedParameters: string array
     FSICompilerToolLocations: string array
     TooltipMode: string
     GenerateBinlog: bool
@@ -860,6 +888,8 @@ type FSharpConfig =
       UseSdkScripts = true
       DotNetRoot = Environment.dotnetSDKRoot.Value.FullName
       FSIExtraParameters = [||]
+      FSIExtraInteractiveParameters = [||]
+      FSIExtraSharedParameters = [||]
       FSICompilerToolLocations = [||]
       TooltipMode = "full"
       GenerateBinlog = false
@@ -916,6 +946,9 @@ type FSharpConfig =
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue Environment.dotnetSDKRoot.Value.FullName
       FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+      FSIExtraInteractiveParameters =
+        defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
+      FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode "full"
       GenerateBinlog = defaultArg dto.GenerateBinlog false
@@ -1025,6 +1058,9 @@ type FSharpConfig =
         |> Option.bind (fun s -> if String.IsNullOrEmpty s then None else Some s)
         |> Option.defaultValue FSharpConfig.Default.DotNetRoot
       FSIExtraParameters = defaultArg dto.FSIExtraParameters FSharpConfig.Default.FSIExtraParameters
+      FSIExtraInteractiveParameters =
+        defaultArg dto.FSIExtraInteractiveParameters FSharpConfig.Default.FSIExtraInteractiveParameters
+      FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
       GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
@@ -1116,8 +1152,8 @@ let encodeSemanticHighlightRanges
     ClassificationUtils.SemanticTokenModifier list)) array)
   =
   let fileStart =
-    { Start = { Line = 0; Character = 0 }
-      End = { Line = 0; Character = 0 } }
+    { Start = { Line = 0u; Character = 0u }
+      End = { Line = 0u; Character = 0u } }
 
   let computeLine
     (prev: Ionide.LanguageServerProtocol.Types.Range)
@@ -1177,3 +1213,22 @@ let encodeSemanticHighlightRanges
 type FSharpInlayHintsRequest =
   { TextDocument: TextDocumentIdentifier
     Range: Range }
+
+[<AutoOpen>]
+module Extensions =
+  type ReadOnlySpan<'t> with
+    member x.Slice(start: uint32, length: uint32) = x.Slice(int start, int length)
+    member x.get_Item(index: uint32) = x.Item(int index)
+
+  type Ionide.LanguageServerProtocol.Types.Position with
+    member x.StartOfLine() = { Line = x.Line; Character = 0u }
+
+  type String with
+    member x.AsSpan(start: uint32, length: uint32) = x.AsSpan(int start, int length)
+
+  let inline getFilePathAndPosition<'t
+    when 't: (member TextDocument: TextDocumentIdentifier)
+    and 't: (member Position: Ionide.LanguageServerProtocol.Types.Position)>
+    (p: 't)
+    =
+    p.TextDocument.GetFilePath() |> Utils.normalizePath, protocolPosToPos p.Position

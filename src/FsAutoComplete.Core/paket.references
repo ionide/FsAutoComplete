@@ -1,6 +1,5 @@
 FSharp.Analyzers.SDK
 ICSharpCode.Decompiler
-Microsoft.SourceLink.GitHub
 FSharp.UMX
 FsToolkit.ErrorHandling.TaskResult
 Fantomas.Client

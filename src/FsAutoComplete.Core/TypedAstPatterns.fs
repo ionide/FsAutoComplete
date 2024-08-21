@@ -3,6 +3,7 @@ module FsAutoComplete.Patterns
 
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Text
 
 
 /// Active patterns over `FSharpSymbolUse`.
@@ -252,6 +253,31 @@ module SymbolUse =
     function
     | Entity(entity, _) when entity.IsAttributeType -> Some entity
     | _ -> None
+
+  let trySignatureLocation (signatureLocation: range option) =
+    match signatureLocation with
+    | None -> None
+    | Some signatureLocation ->
+      if not (isSignatureFile signatureLocation.FileName) then
+        None
+      else
+        Some signatureLocation
+
+  let (|IsInSignature|_|) (symbolUse: FSharpSymbolUse) = trySignatureLocation symbolUse.Symbol.SignatureLocation
+
+  let (|IsParentInSignature|_|) (symbolUse: FSharpSymbolUse) =
+    match trySignatureLocation symbolUse.Symbol.SignatureLocation with
+    // We are interested in the scenarios when the current symbol is not in a signature file but the parent is.
+    | Some _ -> None
+    | None ->
+      let parentOpt =
+        match symbolUse.Symbol with
+        | :? FSharpEntity as entity -> entity.DeclaringEntity
+        | :? FSharpMemberOrFunctionOrValue as mfv -> mfv.DeclaringEntity
+        | _ -> None
+
+      parentOpt
+      |> Option.bind (fun parentEntity -> trySignatureLocation parentEntity.SignatureLocation)
 
 /// Active patterns over `FSharpSymbol`.
 [<AutoOpen>]

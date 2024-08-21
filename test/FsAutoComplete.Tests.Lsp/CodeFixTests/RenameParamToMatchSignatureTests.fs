@@ -33,7 +33,7 @@ let tests state =
 
           let! (fsiDoc, diags) = server |> Server.openDocumentWithText fsiFile fsiSource
           use _fsiDoc = fsiDoc
-          Expect.isEmpty diags "There should be no diagnostics in fsi doc"
+          Expect.isEmpty diags $"There should be no diagnostics in fsi doc %A{diags}"
           let! (fsDoc, diags) = server |> Server.openDocumentWithText fsFile fsSource
           use fsDoc = fsDoc
 

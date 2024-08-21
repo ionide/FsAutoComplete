@@ -14,12 +14,14 @@ open FsAutoComplete.Lsp
 open OpenTelemetry
 open OpenTelemetry.Resources
 open OpenTelemetry.Trace
+open OpenTelemetry.Metrics
 
 module Parser =
   open FsAutoComplete.Core
   open System.Diagnostics
 
   let mutable tracerProvider = Unchecked.defaultof<_>
+  let mutable meterProvider = Unchecked.defaultof<_>
 
   [<Struct>]
   type Pos = { Line: int; Column: int }
@@ -94,6 +96,12 @@ module Parser =
       "Enabled OpenTelemetry exporter. See https://opentelemetry.io/docs/reference/specification/protocol/exporter/ for environment variables to configure for the exporter."
     )
 
+  let useTransparentCompilerOption =
+    Option<bool>(
+      "--use-fcs-transparent-compiler",
+      "Use Transparent Compiler in FSharp.Compiler.Services. Should have better performance characteristics, but is experimental. See https://github.com/dotnet/fsharp/pull/15179 for more details."
+    )
+
   let stateLocationOption =
     Option<DirectoryInfo>(
       "--state-directory",
@@ -115,12 +123,13 @@ module Parser =
     rootCommand.AddOption logLevelOption
     rootCommand.AddOption stateLocationOption
     rootCommand.AddOption otelTracingOption
+    rootCommand.AddOption useTransparentCompilerOption
 
     // for back-compat - we removed some options and this broke some clients.
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
-      Func<_, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled ->
+      Func<_, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled useTransparentCompiler ->
         let workspaceLoaderFactory =
           fun toolsPath ->
             if projectGraphEnabled then
@@ -145,16 +154,27 @@ module Parser =
 
         let lspFactory =
           if adaptiveLspEnabled then
-            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
+            fun () ->
+              AdaptiveFSharpLspServer.startCore
+                toolsPath
+                workspaceLoaderFactory
+                sourceTextFactory
+                useTransparentCompiler
           else
-            fun () -> AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory
+            fun () ->
+              AdaptiveFSharpLspServer.startCore
+                toolsPath
+                workspaceLoaderFactory
+                sourceTextFactory
+                useTransparentCompiler
 
         let result = AdaptiveFSharpLspServer.start lspFactory
 
         Task.FromResult result),
       projectGraphOption,
       stateLocationOption,
-      adaptiveLspServerOption
+      adaptiveLspServerOption,
+      useTransparentCompilerOption
     )
 
     rootCommand
@@ -194,19 +214,33 @@ module Parser =
   let configureOTel =
     Invocation.InvocationMiddleware(fun ctx next ->
 
+
+
       if ctx.ParseResult.GetValueForOption otelTracingOption then
+
         let serviceName = FsAutoComplete.Utils.Tracing.serviceName
         let version = FsAutoComplete.Utils.Version.info().Version
+
+        let resourceBuilder =
+          ResourceBuilder
+            .CreateDefault()
+            .AddService(serviceName = serviceName, serviceVersion = version)
+
+
+        meterProvider <-
+          Sdk
+            .CreateMeterProviderBuilder()
+            .AddMeter()
+            .AddRuntimeInstrumentation()
+            .SetResourceBuilder(resourceBuilder)
+            .AddOtlpExporter()
+            .Build()
 
         tracerProvider <-
           Sdk
             .CreateTracerProviderBuilder()
             .AddSource(serviceName, Tracing.fscServiceName)
-            .SetResourceBuilder(
-              ResourceBuilder
-                .CreateDefault()
-                .AddService(serviceName = serviceName, serviceVersion = version)
-            )
+            .SetResourceBuilder(resourceBuilder)
             .AddOtlpExporter()
             .Build()
 

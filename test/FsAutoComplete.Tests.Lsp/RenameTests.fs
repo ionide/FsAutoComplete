@@ -16,6 +16,46 @@ open Helpers.Expecto.ShadowedTimeouts
 let private normalizePathCasing =
   Path.FilePathToUri >> Path.FileUriToLocalPath >> Path.FilePathToUri
 
+let renameRaw ident pos newName =
+  { TextDocument = ident
+    Position = pos
+    NewName = newName
+    WorkDoneToken = None }
+
+let rename (doc: Document) = renameRaw doc.TextDocumentIdentifier
+
+let pos l c = { Line = l; Character = c }
+
+module Expect =
+  [<return: Struct>]
+  let private (|ForFile|_|) (fileName: string) (edit: TextDocumentEdit) =
+    if edit.TextDocument.Uri.Contains fileName then
+      ValueSome()
+    else
+      ValueNone
+
+  [<return: Struct>]
+  let private (|HasEditIn|_|) (range: Ionide.LanguageServerProtocol.Types.Range) (edit: TextDocumentEdit) =
+    if
+      edit.Edits
+      |> Array.exists (fun r ->
+        match r with
+        | U2.C1 e -> e.Range = range
+        | U2.C2 e -> e.Range = range)
+    then
+      ValueSome()
+    else
+      ValueNone
+
+  let hasEditAtRange (edits: U4<TextDocumentEdit, CreateFile, RenameFile, DeleteFile> array) fileName range =
+    Expect.exists
+      edits
+      (fun n ->
+        match n with
+        | U4.C1(ForFile fileName & HasEditIn range) -> true
+        | _ -> false)
+      $"Rename contains changes in %s{fileName}"
+
 let private sameProjectTests state =
   let testDir =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "SameProject")
@@ -27,10 +67,7 @@ let private sameProjectTests state =
           let! (doc, diags) = server |> Server.openDocument "Program.fs"
           Expect.isEmpty diags "There should be no errors in the checked file"
 
-          let p: RenameParams =
-            { TextDocument = doc.TextDocumentIdentifier
-              Position = { Line = 7; Character = 12 }
-              NewName = "y" }
+          let p: RenameParams = rename doc (pos 7u 12u) "y"
 
           let! server = server
           let! res = server.Server.TextDocumentRename p
@@ -44,27 +81,17 @@ let private sameProjectTests state =
             | Some result ->
               Expect.equal result.Length 2 "Rename has all changes"
 
-              Expect.exists
+              Expect.hasEditAtRange
                 result
-                (fun n ->
-                  n.TextDocument.Uri.Contains "Program.fs"
-                  && n.Edits
-                     |> Seq.exists (fun r ->
-                       r.Range = { Start = { Line = 7; Character = 12 }
-                                   End = { Line = 7; Character = 13 } }))
-                "Rename contains changes in Program.fs"
+                "Program.fs"
+                { Start = { Line = 7u; Character = 12u }
+                  End = { Line = 7u; Character = 13u } }
 
-              Expect.exists
+              Expect.hasEditAtRange
                 result
-                (fun n ->
-                  n.TextDocument.Uri.Contains "Test.fs"
-                  && n.Edits
-                     |> Seq.exists (fun r ->
-                       r.Range = { Start = { Line = 2; Character = 4 }
-                                   End = { Line = 2; Character = 5 } }))
-                "Rename contains changes in Test.fs"
-
-              ()
+                "Test.fs"
+                { Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 5u } }
         })
 
       testCaseAsync
@@ -77,10 +104,7 @@ let private sameProjectTests state =
           Expect.isEmpty programDiags "There should be no errors in Program.fs"
           Expect.isEmpty testDiags "There should be no errors in Test.fs"
 
-          let p: RenameParams =
-            { TextDocument = testDoc.TextDocumentIdentifier
-              Position = { Line = 2; Character = 4 }
-              NewName = "y" }
+          let p: RenameParams = rename testDoc (pos 2u 4u) "y"
 
           let! server = server
           let! res = server.Server.TextDocumentRename p
@@ -95,27 +119,17 @@ let private sameProjectTests state =
               // TODO
               Expect.equal result.Length 2 "Rename has all changes"
 
-              Expect.exists
+              Expect.hasEditAtRange
                 result
-                (fun n ->
-                  n.TextDocument.Uri.Contains "Program.fs"
-                  && n.Edits
-                     |> Seq.exists (fun r ->
-                       r.Range = { Start = { Line = 7; Character = 12 }
-                                   End = { Line = 7; Character = 13 } }))
-                "Rename contains changes in Program.fs"
+                "Program.fs"
+                { Start = { Line = 7u; Character = 12u }
+                  End = { Line = 7u; Character = 13u } }
 
-              Expect.exists
+              Expect.hasEditAtRange
                 result
-                (fun n ->
-                  n.TextDocument.Uri.Contains "Test.fs"
-                  && n.Edits
-                     |> Seq.exists (fun r ->
-                       r.Range = { Start = { Line = 2; Character = 4 }
-                                   End = { Line = 2; Character = 5 } }))
-                "Rename contains changes in Test.fs"
-
-              ()
+                "Test.fs"
+                { Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 5u } }
         })
 
       ])
@@ -132,10 +146,7 @@ let private sameScriptTests state =
           use doc = doc
           Expect.isEmpty diags "There should be no diags"
 
-          let p: RenameParams =
-            { TextDocument = doc.TextDocumentIdentifier
-              Position = cursor
-              NewName = newName }
+          let p: RenameParams = rename doc cursor newName
 
           let! res = doc.Server.Server.TextDocumentRename p
 
@@ -152,18 +163,27 @@ let private sameScriptTests state =
               | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
 
             Expect.hasLength edits 1 "should have just one file worth of edits"
-            let edit = edits.[0]
-            Expect.equal edit.TextDocument.Uri doc.Uri "should be for this file"
-            let edits = edit.Edits |> List.ofArray |> TextEdits.sortByRange
 
-            let actual =
-              text
-              |> TextEdits.applyWithErrorCheck edits
-              |> Flip.Expect.wantOk "TextEdits should be valid"
+            match edits.[0] with
+            | U4.C1 edit ->
+              Expect.equal edit.TextDocument.Uri doc.Uri "should be for this file"
 
-            let expected = expectedText |> Text.trimTripleQuotation
+              let edits =
+                edit.Edits
+                |> Array.choose (function
+                  | U2.C1 x -> Some x
+                  | _ -> None)
+                |> TextEdits.sortByRange
 
-            Expect.equal actual expected "Text after TextEdits should be correct"
+              let actual =
+                text
+                |> TextEdits.applyWithErrorCheck edits
+                |> Flip.Expect.wantOk "TextEdits should be valid"
+
+              let expected = expectedText |> Text.trimTripleQuotation
+
+              Expect.equal actual expected "Text after TextEdits should be correct"
+            | _ -> failtest "should be a text document edit"
         }
 
       let checkRename textWithCursor newName expectedText = checkRename' textWithCursor newName (Some expectedText)
@@ -288,9 +308,7 @@ let private crossProjectTests state =
 
           // now, request renames
           let renameHelloUsageInUsageFile: RenameParams =
-            { TextDocument = { Uri = normalizePathCasing usageFile }
-              Position = { Line = 6; Character = 28 }
-              NewName = "sup" }
+            renameRaw { Uri = normalizePathCasing usageFile } (pos 6u 28u) "sup"
 
           let! res = server.TextDocumentRename(renameHelloUsageInUsageFile)
 
@@ -300,29 +318,18 @@ let private crossProjectTests state =
           | Result.Ok(Some { DocumentChanges = Some edits }) ->
             Expect.equal edits.Length 2 "Rename has the correct expected edits"
 
-            Expect.exists
+            Expect.hasEditAtRange
               edits
-              (fun n ->
-                n.TextDocument.Uri.Contains "LibA"
-                && n.TextDocument.Uri.Contains "Library.fs"
-                && n.Edits
-                   |> Seq.exists (fun r ->
-                     r.Range = { Start = { Line = 3; Character = 8 }
-                                 End = { Line = 3; Character = 13 } }
-                     && r.NewText = "sup"))
-              "Rename contains changes in LibA"
+              "LibA/Library.fs"
+              { Start = { Line = 3u; Character = 8u }
+                End = { Line = 3u; Character = 13u } }
 
-            Expect.exists
+            Expect.hasEditAtRange
               edits
-              (fun n ->
-                n.TextDocument.Uri.Contains "LibB"
-                && n.TextDocument.Uri.Contains "Library.fs"
-                && n.Edits
-                   |> Seq.exists (fun r ->
-                     r.Range = { Start = { Line = 6; Character = 28 }
-                                 End = { Line = 6; Character = 33 } }
-                     && r.NewText = "sup"))
-              "Rename contains changes in LibB"
+              "LibB/Library.fs"
+              { Start = { Line = 6u; Character = 28u }
+                End = { Line = 6u; Character = 33u } }
+
           | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
         })
       testCaseAsync
@@ -342,9 +349,7 @@ let private crossProjectTests state =
 
           // now, request renames
           let renameHelloUsageInUsageFile: RenameParams =
-            { TextDocument = { Uri = normalizePathCasing usageFile }
-              Position = { Line = 9; Character = 37 } // in the 'yell' part of 'A.Say.yell'
-              NewName = "sup" }
+            renameRaw { Uri = normalizePathCasing usageFile } (pos 9u 37u) "sup"
 
           let! res = server.TextDocumentRename(renameHelloUsageInUsageFile)
 
@@ -354,29 +359,17 @@ let private crossProjectTests state =
           | Result.Ok(Some { DocumentChanges = Some edits }) ->
             Expect.equal edits.Length 2 "Rename has the correct expected edits"
 
-            Expect.exists
+            Expect.hasEditAtRange
               edits
-              (fun n ->
-                n.TextDocument.Uri.Contains "LibA"
-                && n.TextDocument.Uri.Contains "Library.fs"
-                && n.Edits
-                   |> Seq.exists (fun r ->
-                     r.Range = { Start = { Line = 6; Character = 8 }
-                                 End = { Line = 6; Character = 12 } }
-                     && r.NewText = "sup"))
-              $"Rename contains changes in LibA in the list %A{edits}"
+              "LibA/Library.fs"
+              { Start = { Line = 6u; Character = 8u }
+                End = { Line = 6u; Character = 12u } }
 
-            Expect.exists
+            Expect.hasEditAtRange
               edits
-              (fun n ->
-                n.TextDocument.Uri.Contains "LibB"
-                && n.TextDocument.Uri.Contains "Library.fs"
-                && n.Edits
-                   |> Seq.exists (fun r ->
-                     r.Range = { Start = { Line = 9; Character = 37 }
-                                 End = { Line = 9; Character = 41 } }
-                     && r.NewText = "sup"))
-              $"Rename contains changes in LibB in the list %A{edits}"
+              "LibB/Library.fs"
+              { Start = { Line = 9u; Character = 37u }
+                End = { Line = 9u; Character = 41u } }
           | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
         }) ]
 
@@ -391,7 +384,8 @@ let private prepareRenameTests state =
 
           let p: PrepareRenameParams =
             { TextDocument = doc.TextDocumentIdentifier
-              Position = cursor }
+              Position = cursor
+              WorkDoneToken = None }
 
           let! res = doc.Server.Server.TextDocumentPrepareRename p
 

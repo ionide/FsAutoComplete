@@ -22,70 +22,9 @@ open FsAutoComplete.CodeFix.Types
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
-open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Text.Range
-open FsAutoComplete.FCSPatches
 open FSharp.Compiler.Syntax
-open FSharp.Compiler.Syntax.SyntaxTraversal
-
-type ParseAndCheckResults with
-
-  member x.TryGetPositionalUnionPattern(pos: FcsPos) =
-    let rec (|UnionNameAndPatterns|_|) =
-      function
-      | SynPat.LongIdent(
-          longDotId = ident
-          argPats = SynArgPats.Pats [ SynPat.Paren(pat = SynPat.Tuple(elementPats = duFieldPatterns); range = parenRange) ]) when
-        rangeContainsPos parenRange pos
-        ->
-        Some(ident, duFieldPatterns, parenRange)
-      | SynPat.LongIdent(
-          longDotId = ident; argPats = SynArgPats.Pats [ SynPat.Paren(pat = singleDUFieldPattern; range = parenRange) ]) when
-        rangeContainsPos parenRange pos
-        ->
-        Some(ident, [ singleDUFieldPattern ], parenRange)
-      | SynPat.Paren(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
-        Some(ident, duFieldPatterns, parenRange)
-      | _ -> None
-
-    let visitor =
-      { new SyntaxVisitorBase<_>() with
-          member x.VisitBinding(path, defaultTraverse, binding) =
-            match binding with
-            // DU case with multiple
-            | SynBinding(headPat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) ->
-              Some(ident, duFieldPatterns, parenRange)
-            | _ -> defaultTraverse binding
-
-          // I shouldn't have to override my own VisitExpr, but the default traversal doesn't seem to be triggering the `VisitMatchClause` method I've defined below.
-          // TODO: reevaluate after https://github.com/dotnet/fsharp/pull/12837 merges
-          member x.VisitExpr(path, traverse, defaultTraverse, expr) =
-            match expr with
-            | SynExpr.Match(expr = argExpr; clauses = clauses) ->
-              let path = SyntaxNode.SynExpr argExpr :: path
-
-              match x.VisitExpr(path, traverse, defaultTraverse, argExpr) with
-              | Some x -> Some x
-              | None ->
-                clauses
-                |> List.tryPick (function
-                  | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) when
-                    rangeContainsPos parenRange pos
-                    ->
-                    Some(ident, duFieldPatterns, parenRange)
-                  | _ -> None)
-            | _ -> defaultTraverse expr
-
-          member x.VisitMatchClause(path, defaultTraverse, matchClause) =
-            match matchClause with
-            | SynMatchClause(pat = UnionNameAndPatterns(ident, duFieldPatterns, parenRange)) when
-              rangeContainsPos parenRange pos
-              ->
-              Some(ident, duFieldPatterns, parenRange)
-            | _ -> defaultTraverse matchClause }
-
-    Traverse(pos, x.GetParseResults.ParseTree, visitor)
 
 let private (|MatchedFields|UnmatchedFields|NotEnoughFields|) (astFields: SynPat list, unionFields: string list) =
   let userFieldsCount = astFields.Length
@@ -133,7 +72,26 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let! parseAndCheck, lineStr, sourceText = getParseResultsForFile filePath fcsPos
 
       let! duIdent, duFields, parenRange =
-        parseAndCheck.TryGetPositionalUnionPattern(fcsPos)
+        (fcsPos, parseAndCheck.GetAST)
+        ||> ParsedInput.tryPick (fun path node ->
+          let rec (|IgnoreParens|) =
+            function
+            | SynPat.Paren(pat = IgnoreParens pat)
+            | pat -> pat
+
+          let (|UnionFields|_|) =
+            function
+            | SynPat.Paren(pat = SynPat.Tuple(isStruct = false; elementPats = pats)) -> Some(UnionFields pats)
+            | SynPat.Paren(pat = pat) -> Some(UnionFields [ pat ])
+            | _ -> None
+
+          match node, path with
+          | SyntaxNode.SynPat(IgnoreParens(SynPat.LongIdent(
+              longDotId = ident; argPats = SynArgPats.Pats [ SynPat.Paren(range = parenRange) & UnionFields fields ]))),
+            (SyntaxNode.SynBinding _ :: _ | SyntaxNode.SynMatchClause _ :: _) when rangeContainsPos parenRange fcsPos ->
+            Some(ident, fields, parenRange)
+
+          | _ -> None)
         |> Result.ofOption (fun _ -> "Not inside a DU pattern")
 
       let! symbolUse =

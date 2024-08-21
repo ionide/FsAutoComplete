@@ -24,7 +24,7 @@ let scriptPreviewTests state =
         serverInitialize
           path
           { defaultConfigDto with
-              FSIExtraParameters = Some [| "--langversion:preview" |] }
+              FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
           state
 
       do! waitForWorkspaceFinishedParsing events
@@ -81,7 +81,7 @@ let scriptEvictionTests state =
                   { FSharp =
                       Some
                         { defaultConfigDto with
-                            FSIExtraParameters = Some [| "--nowarn:760" |] } }
+                            FSIExtraSharedParameters = Some [| "--nowarn:760" |] } }
 
                 { Settings = Server.serialize config }
 
@@ -115,7 +115,7 @@ let dependencyManagerTests state =
 
       let dependencyManagerEnabledConfig =
         { defaultConfigDto with
-            FSIExtraParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig state
       do! waitForWorkspaceFinishedParsing events
@@ -123,7 +123,8 @@ let dependencyManagerTests state =
     }
     |> Async.Cache
 
-  testList
+  testSequenced
+  <| testList
     "dependencyManager integrations"
     [ testList
         "tests"
@@ -152,7 +153,7 @@ let dependencyManagerTests state =
               | Ok _ -> failwith "Expected to fail typechecking a script with a dependency manager that's missing"
               | Core.Result.Error e ->
                 match e with
-                | [| { Code = Some "998" }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
+                | [| { Code = Some(U2.C2 "998" | U2.C1 998) }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
                 | e -> failwithf "Unexpected error during typechecking: %A" e
             }) ] ]
 
@@ -164,7 +165,7 @@ let scriptProjectOptionsCacheTests state =
 
       let previewEnabledConfig =
         { defaultConfigDto with
-            FSIExtraParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
 
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()
@@ -178,7 +179,8 @@ let scriptProjectOptionsCacheTests state =
       return server, events, workingDir, scriptPath, options
     }
 
-  testList
+  testSequenced
+  <| testList
     "ScriptProjectOptionsCache"
     [ testList
         "tests"

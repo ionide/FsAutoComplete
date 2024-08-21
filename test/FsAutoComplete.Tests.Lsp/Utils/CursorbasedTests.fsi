@@ -89,6 +89,16 @@ module CodeFix =
   val withTitle: title: string -> (CodeAction array -> CodeAction array)
   val ofKind: kind: string -> (CodeAction array -> CodeAction array)
 
+  /// Execute a codefix in an implementation file and assert the resulting change in a signature file.
+  val checkCodeFixInImplementationAndVerifySignature:
+    server: CachedServer ->
+    fsiSource: string ->
+    fsSourceWithCursor: string ->
+    validateDiagnostics: (Diagnostic array -> unit) ->
+    selectCodeFix: ChooseFix ->
+    fsiSourceExpected: string ->
+      Async<unit>
+
   /// Bundled tests in Expecto test
   module private Test =
     /// One `testCaseAsync` for each cursorRange.

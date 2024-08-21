@@ -21,8 +21,21 @@ module File =
     else
       DateTime.UtcNow
 
+  /// Buffer size for reading from the stream.
+  /// 81,920 bytes (80KB) is below the Large Object Heap threshold (85,000 bytes)
+  /// and is a good size for performance. Dotnet uses this for their defaults.
+  [<Literal>]
+  let bufferSize = 81920
+
   let openFileStreamForReadingAsync (path: string<LocalPath>) =
-    new FileStream((UMX.untag path), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize = 4096, useAsync = true)
+    new FileStream(
+      (UMX.untag path),
+      FileMode.Open,
+      FileAccess.Read,
+      FileShare.Read,
+      bufferSize = bufferSize,
+      useAsync = true
+    )
 
 [<AutoOpen>]
 module PositionExtensions =
@@ -71,7 +84,7 @@ module RangeExtensions =
 
     /// utility method to get the tagged filename for use in our state storage
     /// TODO: should we enforce this/use the Path members for normalization?
-    member x.TaggedFileName: string<LocalPath> = UMX.tag x.FileName
+    member x.TaggedFileName: string<LocalPath> = Utils.normalizePath x.FileName
 
     member inline r.With(start, fin) = Range.mkRange r.FileName start fin
     member inline r.WithStart(start) = Range.mkRange r.FileName start r.End
@@ -109,7 +122,7 @@ type IFSACSourceText =
   /// Provides safe access to a line of the file via FCS-provided Position
   abstract member GetLine: position: Position -> option<string>
   /// Provide safe access to the length of a line of the file via FCS-provided Position
-  abstract member GetLineLength: position: Position -> option<int>
+  abstract member GetLineLength: position: Position -> option<uint32>
   abstract member GetCharUnsafe: position: Position -> char
   /// <summary>Provides safe access to a character of the file via FCS-provided Position.
   /// Also available in indexer form: <code lang="fsharp">x[pos]</code></summary>
@@ -140,6 +153,7 @@ type IFSACSourceText =
     position: Position * terminal: (char -> bool) * condition: (char -> bool) -> option<Position>
 
   inherit ISourceText
+  inherit ISourceTextNew
 
 module RoslynSourceText =
   open Microsoft.CodeAnalysis.Text
@@ -248,11 +262,11 @@ module RoslynSourceText =
         else
           Some((x :> ISourceText).GetLineString(pos.Line - 1))
 
-      member x.GetLineLength(pos: Position) : int option =
+      member x.GetLineLength(pos: Position) : uint32 option =
         if pos.Line > totalLinesLength () then
           None
         else
-          Some((x :> ISourceText).GetLineString(pos.Line - 1).Length)
+          Some(uint32 ((x :> ISourceText).GetLineString(pos.Line - 1).Length))
 
       member x.GetCharUnsafe(pos: Position) : char = (x :> IFSACSourceText).GetLine(pos).Value[pos.Column - 1]
 
@@ -317,7 +331,7 @@ module RoslynSourceText =
           let! np = (x :> IFSACSourceText).PrevPos pos
           let! prevLineLength = (x :> IFSACSourceText).GetLineLength(np)
 
-          if np.Column < 1 || prevLineLength < np.Column then
+          if np.Column < 1 || prevLineLength < uint32 np.Column then
             return! (x :> IFSACSourceText).TryGetPrevChar(np)
           else
             return np, (x :> IFSACSourceText).GetCharUnsafe np
@@ -327,7 +341,6 @@ module RoslynSourceText =
         let span = range.ToRoslynTextSpan(sourceText)
         let change = TextChange(span, text)
         Ok(RoslynSourceTextFile(fileName, sourceText.WithChanges(change)))
-
 
 
     interface ISourceText with
@@ -385,9 +398,34 @@ module RoslynSourceText =
       member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
         sourceText.CopyTo(sourceIndex, destination, destinationIndex, count)
 
+    interface ISourceTextNew with
+      member this.GetChecksum() = sourceText.GetChecksum()
+
 type ISourceTextFactory =
   abstract member Create: fileName: string<LocalPath> * text: string -> IFSACSourceText
   abstract member Create: fileName: string<LocalPath> * stream: Stream -> CancellableValueTask<IFSACSourceText>
+
+module SourceTextFactory =
+
+
+  let readFile (fileName: string<LocalPath>) (sourceTextFactory: ISourceTextFactory) =
+    cancellableValueTask {
+      let file = UMX.untag fileName
+
+      // use large object heap hits or threadpool hits? Which is worse? Choose your foot gun.
+
+      if FileInfo(file).Length >= File.bufferSize then
+        // Roslyn SourceText doesn't actually support async streaming reads but avoids the large object heap hit
+        // so we have to block a thread.
+        use s = File.openFileStreamForReadingAsync fileName
+        let! source = sourceTextFactory.Create(fileName, s)
+        return source
+      else
+        // otherwise it'll be under the LOH threshold and the current thread isn't blocked
+        let! text = fun ct -> File.ReadAllTextAsync(file, ct)
+        let source = sourceTextFactory.Create(fileName, text)
+        return source
+    }
 
 type RoslynSourceTextFactory() =
   interface ISourceTextFactory with

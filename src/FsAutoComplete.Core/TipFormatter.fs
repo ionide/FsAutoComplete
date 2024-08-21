@@ -1058,8 +1058,8 @@ let private formatTaggedText (t: TaggedText) : string =
   | TextTag.StringLiteral
   | TextTag.Text
   | TextTag.Punctuation
-  | TextTag.UnknownType
-  | TextTag.UnknownEntity -> t.Text
+  | TextTag.UnknownType -> t.Text
+  | TextTag.UnknownEntity
   | TextTag.Enum
   | TextTag.Event
   | TextTag.ActivePatternCase
@@ -1075,7 +1075,8 @@ let private formatUntaggedText (t: TaggedText) = t.Text
 
 let private formatUntaggedTexts = Array.map formatUntaggedText >> String.concat ""
 
-let private formatTaggedTexts = Array.map formatTaggedText >> String.concat ""
+let private formatTaggedTexts =
+  Array.map formatTaggedText >> String.concat "" >> (fun s -> s.Replace("``", ""))
 
 let private formatGenericParameters (typeMappings: TaggedText[] list) =
   typeMappings

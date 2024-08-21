@@ -40,7 +40,7 @@ let initTests createServer =
           Locale = None
           RootUri = None
           InitializationOptions = Some(Server.serialize defaultConfigDto)
-          Capabilities = Some clientCaps
+          Capabilities = clientCaps
           ClientInfo =
             Some
               { Name = "FSAC Tests"
@@ -49,69 +49,94 @@ let initTests createServer =
             Some
               [| { Uri = Path.FilePathToUri tempDir
                    Name = "Test Folder" } |]
-          trace = None }
+          Trace = None
+          WorkDoneToken = None }
 
       let! result = server.Initialize p
 
       match result with
       | Result.Ok res ->
-        do! server.Initialized(InitializedParams())
+        do! server.Initialized()
 
         Expect.equal
           res.Capabilities.CodeActionProvider
           (Some(
-            U2.Second
+            U2.C2
               { CodeActionOptions.ResolveProvider = None
-                CodeActionOptions.CodeActionKinds = None }
+                CodeActionOptions.CodeActionKinds = None
+                WorkDoneProgress = Some false }
           ))
           "Code Action Provider"
 
         Expect.equal
           res.Capabilities.CodeLensProvider
-          (Some { CodeLensOptions.ResolveProvider = Some true })
+          (Some
+            { CodeLensOptions.ResolveProvider = Some true
+              WorkDoneProgress = Some false })
           "Code Lens Provider"
 
-        Expect.equal res.Capabilities.DefinitionProvider (Some true) "Definition Provider"
-        Expect.equal res.Capabilities.DocumentFormattingProvider (Some true) "Document Formatting Provider"
-        Expect.equal res.Capabilities.DocumentHighlightProvider (Some true) "Document Highlighting Provider"
+        Expect.equal res.Capabilities.DefinitionProvider (Some(U2.C1 true)) "Definition Provider"
+        Expect.equal res.Capabilities.DocumentFormattingProvider (Some(U2.C1 true)) "Document Formatting Provider"
+        Expect.equal res.Capabilities.DocumentHighlightProvider (Some(U2.C1 true)) "Document Highlighting Provider"
         Expect.equal res.Capabilities.DocumentLinkProvider None "Document Link Provider"
         Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
-        Expect.equal res.Capabilities.DocumentRangeFormattingProvider (Some true) "Document Range Formatting Provider"
+
+        Expect.equal
+          res.Capabilities.DocumentRangeFormattingProvider
+          (Some(U2.C1 true))
+          "Document Range Formatting Provider"
 
         Expect.equal
           res.Capabilities.DocumentSymbolProvider
-          (Some(U2.Second { Label = Some "F#" }))
+          (Some(
+            U2.C2
+              { Label = Some "F#"
+                WorkDoneProgress = Some false }
+          ))
           "Document Symbol Provider"
 
         Expect.equal res.Capabilities.ExecuteCommandProvider None "Execute Command Provider"
         Expect.equal res.Capabilities.Experimental None "Experimental"
-        Expect.equal res.Capabilities.HoverProvider (Some true) "Hover Provider"
-        Expect.equal res.Capabilities.ImplementationProvider (Some true) "Implementation Provider"
-        Expect.equal res.Capabilities.ReferencesProvider (Some true) "References Provider"
-        Expect.equal res.Capabilities.RenameProvider (Some(U2.Second { PrepareProvider = Some true })) "Rename Provider"
+        Expect.equal res.Capabilities.HoverProvider (Some(U2.C1 true)) "Hover Provider"
+        Expect.equal res.Capabilities.ImplementationProvider (Some(U3.C1 true)) "Implementation Provider"
+        Expect.equal res.Capabilities.ReferencesProvider (Some(U2.C1 true)) "References Provider"
+
+        Expect.equal
+          res.Capabilities.RenameProvider
+          (Some(
+            U2.C2
+              { PrepareProvider = Some true
+                WorkDoneProgress = Some false }
+          ))
+          "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
           (Some
-            { TriggerCharacters = Some [| '('; ','; ' ' |]
-              RetriggerCharacters = Some [| ','; ')'; ' ' |] })
+            { TriggerCharacters = Some [| "("; ","; " " |]
+              RetriggerCharacters = Some [| ","; ")"; " " |]
+              WorkDoneProgress = Some false })
           "Signature Help Provider"
 
         let td =
           { TextDocumentSyncOptions.Default with
               OpenClose = Some true
               Change = Some TextDocumentSyncKind.Incremental
-              Save = Some { IncludeText = Some true } }
+              Save = Some(U2.C2 { IncludeText = Some true }) }
 
-        Expect.equal res.Capabilities.TextDocumentSync (Some td) "Text Document Provider"
-        Expect.equal res.Capabilities.TypeDefinitionProvider (Some true) "Type Definition Provider"
+        Expect.equal res.Capabilities.TextDocumentSync (Some(U2.C1 td)) "Text Document Provider"
+        Expect.equal res.Capabilities.TypeDefinitionProvider (Some(U3.C1 true)) "Type Definition Provider"
 
         Expect.equal
           res.Capabilities.WorkspaceSymbolProvider
-          (Some(U2.Second { ResolveProvider = Some true }))
+          (Some(
+            U2.C2
+              { ResolveProvider = Some true
+                WorkDoneProgress = Some false }
+          ))
           "Workspace Symbol Provider"
 
-        Expect.equal res.Capabilities.FoldingRangeProvider (Some true) "Folding Range Provider active"
+        Expect.equal res.Capabilities.FoldingRangeProvider (Some(U3.C1 true)) "Folding Range Provider active"
       | Result.Error _e -> failtest "Initialization failed"
     })
 
@@ -134,20 +159,25 @@ let documentSymbolTest state =
         "Get Document Symbols"
         (async {
           let! server, path = server
-          let p: DocumentSymbolParams = { TextDocument = { Uri = Path.FilePathToUri path } }
+
+          let p: DocumentSymbolParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              WorkDoneToken = None
+              PartialResultToken = None }
+
           let! res = server.TextDocumentDocumentSymbol p
 
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(U2.First res)) ->
+          | Result.Ok(Some(U2.C1 res)) ->
             Expect.equal res.Length 15 "Document Symbol has all symbols"
 
             Expect.exists
               res
               (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
               "Document symbol contains given symbol"
-          | Result.Ok(Some(U2.Second _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
+          | Result.Ok(Some(U2.C2 _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
         }) ]
 
 let foldingTests state =
@@ -165,7 +195,8 @@ let foldingTests state =
     }
     |> Async.Cache
 
-  testList
+  testSequenced
+  <| testList
     "folding tests"
     [ testCaseAsync
         "can get ranges for sample file"
@@ -173,7 +204,11 @@ let foldingTests state =
           let! server, libraryPath = server
 
           let! rangeResponse =
-            server.TextDocumentFoldingRange({ TextDocument = { Uri = Path.FilePathToUri libraryPath } })
+            server.TextDocumentFoldingRange(
+              { TextDocument = { Uri = Path.FilePathToUri libraryPath }
+                WorkDoneToken = None
+                PartialResultToken = None }
+            )
 
           match rangeResponse with
           | Ok(Some(ranges)) ->
@@ -182,37 +217,37 @@ let foldingTests state =
           | LspResult.Error e -> failtestf "Error from range LSP call: %A" e
         }) ]
 
+let inline _lang<'t when 't: (member Language: string)> (x: 't) = x.Language
+
+let inline _value<'t when 't: (member Value: string)> (x: 't) = x.Value
+
+[<return: Struct>]
+let inline (|FSharpLanguage|_|) x = if _lang x = "fsharp" then ValueSome() else ValueNone
+
+let inline (|Value|) x = _value x
 
 let tooltipTests state =
   let (|Signature|_|) (hover: Hover) =
     match hover with
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
-                                    MarkedString.String _docComment
-                                    MarkedString.String _fullname
-                                    MarkedString.String _assembly |] } -> Some tooltip
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"; Value = tooltip }
-                                    MarkedString.String _docComment
-                                    MarkedString.String _showDocumentationLink
-                                    MarkedString.String _fullname
-                                    MarkedString.String _assembly |] } -> Some tooltip
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 _docComment; U2.C1 _fullname; U2.C1 _assembly |] } ->
+      Some tooltip
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip)
+                            U2.C1 _docComment
+                            U2.C1 _showDocumentationLink
+                            U2.C1 _fullname
+                            U2.C1 _assembly |] } -> Some tooltip
     | _ -> None
 
   let (|Description|_|) (hover: Hover) =
     match hover with
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
-                                                                Value = _tooltip }
-                                    MarkedString.String description |] } -> Some description
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
-                                                                Value = _tooltip }
-                                    MarkedString.String description
-                                    MarkedString.String _fullname
-                                    MarkedString.String _assembly |] } -> Some description
-    | { Contents = MarkedStrings [| MarkedString.WithLanguage { Language = "fsharp"
-                                                                Value = _tooltip }
-                                    MarkedString.String description
-                                    MarkedString.String _showDocumentationLink
-                                    MarkedString.String _fullname
-                                    MarkedString.String _assembly |] } -> Some description
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description |] } -> Some description
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description; U2.C1 _fullname; U2.C1 _assembly |] } ->
+      Some description
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip)
+                            U2.C1 description
+                            U2.C1 _showDocumentationLink
+                            U2.C1 _fullname
+                            U2.C1 _assembly |] } -> Some description
     | _ -> None
 
   let server =
@@ -278,21 +313,21 @@ let tooltipTests state =
     [ testList
         "tests"
         [ verifyDescription
-            0
-            2
+            0u
+            2u
             [ "**Description**"
               ""
               ""
               "Used to associate, or bind, a name to a value or function."
               "" ] // `let` keyword
-          verifySignature 0 4 "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
-          verifySignature 0 5 "val arrayOfTuples: (int * int) array" // inner positions trigger
-          verifySignature 1 5 "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
-          verifySignature 2 5 "val listOfStructTuples: list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
-          verifySignature 3 5 "val floatThatShouldHaveGenericReportedInTooltip: float" // verify we strip <MeasureOne> measure annotations
+          verifySignature 0u 4u "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
+          verifySignature 0u 5u "val arrayOfTuples: (int * int) array" // inner positions trigger
+          verifySignature 1u 5u "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
+          verifySignature 2u 5u "val listOfStructTuples: list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
+          verifySignature 3u 5u "val floatThatShouldHaveGenericReportedInTooltip: float" // verify we strip <MeasureOne> measure annotations
           verifyDescription
-            4
-            4
+            4u
+            4u
             [ "**Description**"
               ""
               "Print to a string using the given format."
@@ -307,10 +342,10 @@ let tooltipTests state =
               ""
               "**Generic Parameters**"
               ""
-              "* `'T` is `string`" ] // verify fancy descriptions for external library functions
+              "* `'T` is `System.String`" ] // verify fancy descriptions for external library functions and correct backticks for multiple segments
           verifyDescription
-            13
-            11
+            13u
+            11u
             [ "**Description**"
               ""
               ""
@@ -326,37 +361,40 @@ let tooltipTests state =
               "**Returns**"
               ""
               "" ]
-          verifySignature 14 5 "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
-          verifySignature 15 5 "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
-          verifySignature 21 9 "val speed: float<m/s>" // verify we nicely-render measure annotations
+          verifySignature 14u 5u "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
+          verifySignature 15u 5u "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
+          verifySignature 21u 9u "val speed: float<m/s>" // verify we nicely-render measure annotations
           // verify formatting of function-parameters to values. NOTE: we want to wrap them in parens for user clarity eventually.
           verifySignature
-            26
-            5
+            26u
+            5u
             (concatLines [ "val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int"; "   -> unit" ])
           // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
           verifySignature
-            30
-            12
+            30u
+            12u
             (concatLines [ "val funcWithTupleParam:"; "      int *"; "      int"; "   -> int * int" ])
           // verify formatting of struct tuple args in parameter tooltips.
           verifySignature
-            32
-            12
+            32u
+            12u
             (concatLines
               [ "val funcWithStructTupleParam:"
                 "   f: struct (int * int)"
                 "   -> struct (int * int)" ])
-          verifySignature 36 15 (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
-          verifySignature 37 15 (concatLines [ "member Bar:"; "   a: int *"; "   b: int *"; "   c: int"; "   -> int" ])
+          verifySignature 36u 15u (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
+          verifySignature
+            37u
+            15u
+            (concatLines [ "member Bar:"; "   a: int *"; "   b: int *"; "   c: int"; "   -> int" ])
           // verify formatting for multi-char operators
-          verifySignature 39 7 (concatLines [ "val ( .>> ):"; "   x: int ->"; "   y: int"; "   -> int" ])
+          verifySignature 39u 7u (concatLines [ "val ( .>> ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify formatting for single-char operators
-          verifySignature 41 6 (concatLines [ "val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int" ])
+          verifySignature 41u 6u (concatLines [ "val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify rendering of generic constraints
           verifySignature
-            43
-            13
+            43u
+            13u
             (concatLines
               [ "val inline add:"
                 "   x: 'a (requires static member ( + ) ) ->"
@@ -364,39 +402,39 @@ let tooltipTests state =
                 "   -> 'c" ])
           //verify rendering of solved generic constraints in tooltips for members where they are solved
           verifyDescription
-            45
-            15
+            45u
+            15u
             [ "**Generic Parameters**"
               ""
               "* `'a` is `int`"
               "* `'b` is `int`"
               "* `'c` is `int`" ]
           verifySignature
-            48
-            28
+            48u
+            28u
             (concatLines
               [ "static member Start:"
-                "   body             : (MailboxProcessor<string> -> Async<unit>) *"
-                "   cancellationToken: option<System.Threading.CancellationToken>"
-                "                   -> MailboxProcessor<string>" ])
-          verifySignature 54 9 "Case2 of string * newlineBefore: bool * newlineAfter: bool"
+                "   body              : (MailboxProcessor<string> -> Async<unit>) *"
+                "   ?cancellationToken: System.Threading.CancellationToken"
+                "                    -> MailboxProcessor<string>" ])
+          verifySignature 54u 9u "Case2 of string * newlineBefore: bool * newlineAfter: bool"
           verifySignature
-            60
-            7
+            60u
+            7u
             (concatLines
               [ "active pattern Value: "
                 "   input: Expr"
                 "       -> option<obj * System.Type>" ])
           verifySignature
-            65
-            7
+            65u
+            7u
             (concatLines
               [ "active pattern DefaultValue: "
                 "   input: Expr"
                 "       -> option<System.Type>" ])
           verifySignature
-            70
-            7
+            70u
+            7u
             (concatLines
               [ "active pattern ValueWithName: "
                 "   input: Expr"
@@ -467,3 +505,43 @@ let closeTests state =
           let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
         }) ])
+
+let diagnosticsTest state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DiagnosticFormatting")
+      let! (server, events) = serverInitialize path defaultConfigDto state
+      let path = Path.Combine(path, "Program.fs")
+      do! waitForWorkspaceFinishedParsing events
+      return (server, events, path)
+    }
+    |> Async.Cache
+
+  testList
+    "Diagnostics formatting Tests"
+    [ testCaseAsync
+        "replacing unicode paragraph by newline"
+        (async {
+          let! (server, events, path) = server
+
+          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+          do! server.TextDocumentDidOpen tdop
+
+          let! compilerResults = waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
+
+          match! compilerResults with
+          | Ok() -> failtest "should get an F# compiler checking error"
+          | Core.Result.Error errors ->
+            Expect.exists
+              errors
+              (fun error ->
+                match error.CodeAsString with
+                | Some("39" | "41") -> true
+                | _ -> false)
+              "should have an error FS0039(identifier not defined) or FS0041(a unique overload for method 'TryParse' could not be determined based on type information prior to this program point)"
+
+            Expect.all
+              errors
+              (fun error -> not <| error.Message.Contains(unicodeParagraphCharacter))
+              "message should not contains unicode paragraph characters"
+        }) ]

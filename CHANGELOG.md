@@ -1,6 +1,95 @@
 # Changelog
 
-## Unreleased
+## [0.74.0] - 2024-08-18
+
+### Changed
+
+* [Updated to F# compiler libraries from the .NET 8.0.400 SDK](https://github.com/ionide/FsAutoComplete/pull/1317)
+* [Render a better return type for constructors](https://github.com/ionide/FsAutoComplete/pull/1312) (thanks @dawedawe!)
+* [Refactorings for better perf on hot paths](https://github.com/ionide/FsAutoComplete/pull/1308) (Thanks @1eyewonder)
+
+## [0.73.2] - 2024-06-17
+
+### Changed
+
+* Tweaked the logic for the two new settings to prevent overly-notifying users.
+* Use the new generated LSP models (thanks @TheAngryByrd!)
+* [Fix the insert of opened namespaces for completions](https://github.com/ionide/FsAutoComplete/pull/1300) (thanks @MrLuje!)
+
+## [0.73.1] - 2024-05-23
+
+### Added
+
+* [New, explicit FSI settings for editor analysis and FSI invocation](https://github.com/ionide/FsAutoComplete/pull/1299)
+  * Before, `FSharp.FSIExtraParameters` was used for both script analysis in the LSP as well as launching FSI instances in editors. Some FSI options are only intended to be used for direct FSI invocation (see [docs](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/fsharp-interactive-options) for more details) and so break editor analysis. We've introduced two settings to separate these concerns. If the old setting is provided along either of the new options, the old setting will be used but a warning message will be shown in the editor.
+    * `FSharp.FSIExtraInteractiveParameters` is now used for launching FSI instances in editors
+    * `FSharp.FSIExtraSharedParameters` is used for editor analysis
+  * An editor should concatenate these together when launching an FSI instance. In a future release, we will be deprecating/removing the `FSharp.FSIExtraParameters` setting.
+
+### Changed
+
+* [Tooltips now render generic type parameters with multiple parts correctly](https://github.com/ionide/FsAutoComplete/pull/1298) (thanks @dawedawe!)
+* [Tooltips now render optional args as `?name: type` instead of `name: option<type>`](https://github.com/ionide/fsautocomplete/pull/1297) (thanks @dawedawe!)
+
+## [0.73.0] - 2024-05-15
+
+### Added
+
+* [OpenTelemetry Metrics for FSAC itself](https://github.com/ionide/FsAutoComplete/pull/1281)
+* [Support the new Transparent Compiler available in the FSharp Compiler Services](https://github.com/ionide/FsAutoComplete/pull/1240) (thanks @TheAngryByrd!)
+  * This new analysis mode can be enabled by using the `--use-fcs-transparent-compiler` command line option when launching FSAC. It is snapshot-based and should be faster than the previous APIs, but may be unstable and may [use more memory](https://github.com/dotnet/fsharp/issues/16979). As a result, it is still in an experimental mode and must be opted-in to.
+* New Codefixes:
+  * [Converts a classic lambda expression to F# 8's new Dot-Lambda syntax](https://github.com/ionide/fsautocomplete/pull/1251) (thanks @nojaf!)
+  * [Converts F# 8's new Dot-Lambda syntax to a classic lambda expression](https://github.com/ionide/fsautocomplete/pull/1264) (thanks @Tangent-90!)
+  * [Ignore an expression](https://github.com/ionide/FsAutoComplete/pull/1253) (thanks @nojaf!)
+  * [Add a binding in a source file to the matching signature file](https://github.com/ionide/FsAutoComplete/pull/1249) (thanks @nojaf!)
+  * [Update a type definition in a source file to the matching definition in a signature file](https://github.com/ionide/FsAutoComplete/pull/1244) (thanks @nojaf!)
+  * [Add a type alias in a source file to the matching signature file](https://github.com/ionide/FsAutoComplete/pull/1243) (thanks @nojaf!)
+
+### Changed
+
+* [The "Separate digits by groups" code action now can group numbers into groups of 4, not just 3](https://github.com/ionide/fsautocomplete/pull/1262) (thanks @Tangent-90!)
+* [Fixes for the "Remove Unnecessary Parentheses" code fix](https://github.com/ionide/FsAutoComplete/pull/1286) (thanks @brianrourkeboll!)
+* [Fixes for when the "Generate Xml Documentation" code action is available](https://github.com/ionide/FsAutoComplete/pull/1292) (thanks @dawedawe!)
+
+## [0.72.3] - 2024-05-05
+
+### Added
+
+* [FSAC publishes a net8.0 TFM version of the tool as well, to prevent issues when running across TargetFrameworks](https://github.com/ionide/FsAutoComplete/pull/1281)
+* [Long-running actions like typechecking specific files can now be cancelled by users](https://github.com/ionide/FsAutoComplete/pull/1274) (thanks @TheAngryByrd)
+
+### Fixed
+
+* [Fix restoring multiple script file NuGet dependencies in parallel](https://github.com/ionide/FsAutoComplete/pull/1275) (thanks @TheAngryByrd)
+
+## [0.72.2] - 2024-04-30
+
+### Fixed
+
+* [Use actualRootPath instead of p.RootPath when peeking workspaces](https://github.com/ionide/FsAutoComplete/pull/1278) (thanks @oupson)
+
+## [0.72.1] - 2024-04-25
+
+### Added 
+
+* [Show additional diagnostics specific to script files](https://github.com/ionide/FsAutoComplete/pull/1248) (thanks @TheAngryByrd)
+* [Add some code fixes for type mismatch](https://github.com/ionide/FsAutoComplete/pull/1250) (thanks @nojaf)
+
+### Fixed
+
+* [Shift multiline paren contents less aggressively](https://github.com/ionide/FsAutoComplete/pull/1242) (thanks @brianrourkeboll)
+* [fix unicode characters in F# compiler diagnostic messages](https://github.com/ionide/FsAutoComplete/pull/1265) (thanks @MrLuje)
+* [Place XML doc lines before any attribute lists](https://github.com/ionide/FsAutoComplete/pull/1267) (thanks @dawedawe)
+* [Don't generate params for explicit getters/setters](https://github.com/ionide/FsAutoComplete/pull/1268) (thanks @dawedawe)
+* [Fix Nuget Script Restores when doing them in parallel](https://github.com/ionide/FsAutoComplete/pull/1275) (thanks @TheAngryByrd)
+
+### Changed
+
+* [Migrate Codefix Scaffolding](https://github.com/ionide/FsAutoComplete/pull/1256) (thanks @nojaf)
+* [Bump ProjInfo to 0.64.0](https://github.com/ionide/FsAutoComplete/pull/1270) Check out the [release notes](https://github.com/ionide/proj-info/releases/tag/v0.64.0) for more details (thanks @baronfel) 
+  * Fixes Loading Projects in some cases
+  * Adds Traversal Project support
 
 ## [0.71.0] - 2024-03-07
 

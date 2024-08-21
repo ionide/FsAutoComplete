@@ -27,72 +27,6 @@ type AbstractClassData =
     | ObjExpr(baseTy = t)
     | ExplicitImpl(baseTy = t) -> expandTypeParameters t
 
-let private (|ExplicitCtor|_|) =
-  function
-  | SynMemberDefn.Member(
-      memberDefn = SynBinding(valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor })))) ->
-    Some()
-  | _ -> None
-
-/// checks to see if a type definition inherits an abstract class, and if so collects the members defined at that
-let private walkTypeDefn (SynTypeDefn(_, repr, members, implicitCtor, _, _)) =
-  option {
-    let reprMembers =
-      match repr with
-      | SynTypeDefnRepr.ObjectModel(_, members, _) -> members // repr members already includes the implicit ctor if present
-      | _ -> Option.toList implicitCtor
-
-    let allMembers = reprMembers @ members
-
-    let! inheritType, inheritMemberRange = // this must exist for abstract types
-      allMembers
-      |> List.tryPick (function
-        | SynMemberDefn.ImplicitInherit(inheritType, _, _, range) -> Some(inheritType, range)
-        | _ -> None)
-
-    let furthestMemberToSkip, otherMembers =
-      ((inheritMemberRange, []), allMembers)
-      // find the last of the following kinds of members, as object-programming members must come after these
-      // * implicit/explicit constructors
-      // * `inherit` expressions
-      // * class-level `do`/`let` bindings (`do` bindings are actually `LetBindings` in the AST)
-      ||> List.fold (fun (m, otherMembers) memb ->
-        match memb with
-        | (SynMemberDefn.ImplicitCtor _ | ExplicitCtor | SynMemberDefn.ImplicitInherit _ | SynMemberDefn.LetBindings _) as possible ->
-          let c = Range.rangeOrder.Compare(m, possible.Range)
-
-          let m' = if c < 0 then possible.Range else m
-
-          m', otherMembers
-        | otherMember -> m, otherMember :: otherMembers)
-
-    let otherMembersInDeclarationOrder = otherMembers |> List.rev
-    return AbstractClassData.ExplicitImpl(inheritType, otherMembersInDeclarationOrder, furthestMemberToSkip)
-
-  }
-
-/// find the declaration of the abstract class being filled in at the given position
-let private tryFindAbstractClassExprInParsedInput
-  (pos: Position)
-  (parsedInput: ParsedInput)
-  : AbstractClassData option =
-  SyntaxTraversal.Traverse(
-    pos,
-    parsedInput,
-    { new SyntaxVisitorBase<_>() with
-        member _.VisitExpr(path, traverseExpr, defaultTraverse, expr) =
-          match expr with
-          | SynExpr.ObjExpr(
-              objType = baseTy; withKeyword = withKeyword; bindings = bindings; newExprRange = newExprRange) ->
-            Some(AbstractClassData.ObjExpr(baseTy, bindings, newExprRange, withKeyword))
-          | _ -> defaultTraverse expr
-
-        override _.VisitModuleDecl(_, defaultTraverse, decl) =
-          match decl with
-          | SynModuleDecl.Types(types, _) -> List.tryPick walkTypeDefn types
-          | _ -> defaultTraverse decl }
-  )
-
 /// Walk the parse tree for the given document and look for the definition of any abstract classes in use at the given pos.
 /// This looks for implementations of abstract types in object expressions, as well as inheriting of abstract types inside class type declarations.
 let tryFindAbstractClassExprInBufferAtPos
@@ -102,7 +36,56 @@ let tryFindAbstractClassExprInBufferAtPos
   =
   asyncOption {
     let! parseResults = codeGenService.ParseFileInProject document.FileName
-    return! tryFindAbstractClassExprInParsedInput pos parseResults.ParseTree
+
+    return!
+      (pos, parseResults.ParseTree)
+      ||> ParsedInput.tryPick (fun _path node ->
+        match node with
+        | SyntaxNode.SynExpr(SynExpr.ObjExpr(
+            objType = baseTy; withKeyword = withKeyword; bindings = bindings; newExprRange = newExprRange)) ->
+          Some(ObjExpr(baseTy, bindings, newExprRange, withKeyword))
+
+        | SyntaxNode.SynTypeDefn(SynTypeDefn(_, repr, members, implicitCtor, _, _)) ->
+          option {
+            let reprMembers =
+              match repr with
+              | SynTypeDefnRepr.ObjectModel(_, members, _) -> members // repr members already includes the implicit ctor if present
+              | _ -> Option.toList implicitCtor
+
+            let allMembers = reprMembers @ members
+
+            let! inheritType, inheritMemberRange = // this must exist for abstract types
+              allMembers
+              |> List.tryPick (function
+                | SynMemberDefn.ImplicitInherit(inheritType, _, _, range) -> Some(inheritType, range)
+                | _ -> None)
+
+            let furthestMemberToSkip, otherMembers =
+              ((inheritMemberRange, []), allMembers)
+              // find the last of the following kinds of members, as object-programming members must come after these
+              // * implicit/explicit constructors
+              // * `inherit` expressions
+              // * class-level `do`/`let` bindings (`do` bindings are actually `LetBindings` in the AST)
+              ||> List.fold (fun (m, otherMembers) memb ->
+                match memb with
+                | SynMemberDefn.ImplicitCtor _
+                | SynMemberDefn.Member(
+                  memberDefn = SynBinding(
+                    valData = SynValData(memberFlags = Some { MemberKind = SynMemberKind.Constructor })))
+                | SynMemberDefn.ImplicitInherit _
+                | SynMemberDefn.LetBindings _ as possible ->
+                  let c = Range.rangeOrder.Compare(m, possible.Range)
+
+                  let m' = if c < 0 then possible.Range else m
+
+                  m', otherMembers
+                | otherMember -> m, otherMember :: otherMembers)
+
+            let otherMembersInDeclarationOrder = otherMembers |> List.rev
+            return ExplicitImpl(inheritType, otherMembersInDeclarationOrder, furthestMemberToSkip)
+          }
+
+        | _ -> None)
   }
 
 let getMemberNameAndRanges abstractClassData =
@@ -182,7 +165,14 @@ let writeAbstractClassStub
     let getMemberByLocation (_: string, range: Range, _: Range) =
       match doc.GetLine range.Start with
       | Some lineText ->
-        match Lexer.getSymbol range.Start.Line range.Start.Column lineText SymbolLookupKind.ByLongIdent [||] with
+        match
+          Lexer.getSymbol
+            (uint32 range.Start.Line)
+            (uint32 range.Start.Column)
+            lineText
+            SymbolLookupKind.ByLongIdent
+            [||]
+        with
         | Some sym ->
           checkResultForFile.GetCheckResults.GetSymbolUseAtLocation(
             range.StartLine,

@@ -17,9 +17,9 @@ type SymbolKind =
 
 type LexerSymbol =
   { Kind: SymbolKind
-    Line: int
-    LeftColumn: int
-    RightColumn: int
+    Line: uint32
+    LeftColumn: uint32
+    RightColumn: uint32
     Text: string }
 
 [<RequireQualifiedAccess>]
@@ -32,12 +32,12 @@ type SymbolLookupKind =
 type private DraftToken =
   { Kind: SymbolKind
     Token: FSharpTokenInfo
-    RightColumn: int }
+    RightColumn: uint32 }
 
   static member inline Create kind token =
     { Kind = kind
       Token = token
-      RightColumn = token.LeftColumn + token.FullMatchedLength - 1 }
+      RightColumn = uint32 (token.LeftColumn + token.FullMatchedLength - 1) }
 
 module Lexer =
   let logger = LogProvider.getLoggerByName "Lexer"
@@ -129,7 +129,7 @@ module Lexer =
         match lastToken with
         //Operator starting with . (like .>>) should be operator
         | Some({ Kind = SymbolKind.Dot } as lastToken) when
-          isOperator token && token.LeftColumn <= lastToken.RightColumn
+          isOperator token && token.LeftColumn <= int lastToken.RightColumn
           ->
           let mergedToken =
             { lastToken.Token with
@@ -141,7 +141,7 @@ module Lexer =
             { lastToken with
                 Token = mergedToken
                 Kind = SymbolKind.Operator }
-        | Some t when token.LeftColumn <= t.RightColumn -> acc, lastToken
+        | Some t when token.LeftColumn <= int t.RightColumn -> acc, lastToken
         | Some({ Kind = SymbolKind.ActivePattern } as lastToken) when
           token.Tag = FSharpTokenTag.BAR
           || token.Tag = FSharpTokenTag.IDENT
@@ -157,7 +157,7 @@ module Lexer =
           Some
             { lastToken with
                 Token = mergedToken
-                RightColumn = lastToken.RightColumn + token.FullMatchedLength }
+                RightColumn = lastToken.RightColumn + uint32 token.FullMatchedLength }
         | _ ->
           match token, lineStr with
           | GenericTypeParameterPrefix -> acc, Some(DraftToken.Create GenericTypeParameter token)
@@ -179,7 +179,7 @@ module Lexer =
               // ^ operator
               | Some { Kind = SymbolKind.StaticallyResolvedTypeParameter } ->
                 { Kind = SymbolKind.Operator
-                  RightColumn = token.RightColumn - 1
+                  RightColumn = uint32 (token.RightColumn - 1)
                   Token = token }
               | _ ->
                 let kind =
@@ -198,8 +198,8 @@ module Lexer =
   // Returns symbol at a given position.
   let private getSymbolFromTokens
     (tokens: FSharpTokenInfo list)
-    line
-    col
+    (line: uint32)
+    (col: uint32)
     (lineStr: string)
     lookupKind
     : LexerSymbol option =
@@ -211,11 +211,11 @@ module Lexer =
       | SymbolLookupKind.Simple
       | SymbolLookupKind.Fuzzy ->
         tokens
-        |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn + 1 >= col)
+        |> List.filter (fun x -> x.Token.LeftColumn <= int col && x.RightColumn + 1u >= col)
       | SymbolLookupKind.ForCompletion ->
         tokens
-        |> List.filter (fun x -> x.Token.LeftColumn <= col && x.RightColumn >= col)
-      | SymbolLookupKind.ByLongIdent -> tokens |> List.filter (fun x -> x.Token.LeftColumn <= col)
+        |> List.filter (fun x -> x.Token.LeftColumn <= int col && x.RightColumn >= col)
+      | SymbolLookupKind.ByLongIdent -> tokens |> List.filter (fun x -> x.Token.LeftColumn <= int col)
 
     match lookupKind with
     | SymbolLookupKind.ByLongIdent ->
@@ -228,8 +228,8 @@ module Lexer =
           if t2.Tag = FSharpTokenTag.DOT then
             tryFindStartColumn remainingTokens
           else
-            Some t1.LeftColumn
-        | { Kind = Ident; Token = t } :: _ -> Some t.LeftColumn
+            Some(uint32 t1.LeftColumn)
+        | { Kind = Ident; Token = t } :: _ -> Some(uint32 t.LeftColumn)
         | _ :: _
         | [] -> None
 
@@ -248,8 +248,8 @@ module Lexer =
           { Kind = Ident
             Line = line
             LeftColumn = leftCol
-            RightColumn = first.RightColumn + 1
-            Text = lineStr.[leftCol .. first.RightColumn] })
+            RightColumn = first.RightColumn + 1u
+            Text = lineStr.[int leftCol .. int first.RightColumn] })
     | SymbolLookupKind.Fuzzy ->
       // Select IDENT token. If failed, select OPERATOR token.
       tokensUnderCursor
@@ -266,8 +266,8 @@ module Lexer =
       |> Option.map (fun token ->
         { Kind = token.Kind
           Line = line
-          LeftColumn = token.Token.LeftColumn
-          RightColumn = token.RightColumn + 1
+          LeftColumn = uint32 token.Token.LeftColumn
+          RightColumn = token.RightColumn + 1u
           Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
     | SymbolLookupKind.ForCompletion
     | SymbolLookupKind.Simple ->
@@ -276,11 +276,11 @@ module Lexer =
       |> Option.map (fun token ->
         { Kind = token.Kind
           Line = line
-          LeftColumn = token.Token.LeftColumn
-          RightColumn = token.RightColumn + 1
+          LeftColumn = uint32 token.Token.LeftColumn
+          RightColumn = token.RightColumn + 1u
           Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
 
-  let getSymbol line col lineStr lookupKind (args: string[]) =
+  let getSymbol (line: uint32) (col: uint32) lineStr lookupKind (args: string[]) =
     let tokens = tokenizeLine args lineStr
 
     try
@@ -307,25 +307,25 @@ module Lexer =
   // (we look for full identifier in the backward direction, but only
   // for a short identifier forward - this means that when you hover
   // 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
-  let findIdents col lineStr lookupType =
+  let findIdents (col: uint32) lineStr lookupType =
     if lineStr = "" then
       None
     else
-      getSymbol 0 col lineStr lookupType [||] |> Option.bind tryGetLexerSymbolIslands
+      getSymbol 0u col lineStr lookupType [||] |> Option.bind tryGetLexerSymbolIslands
 
   let findLongIdents (col, lineStr) = findIdents col lineStr SymbolLookupKind.Fuzzy
 
-  let findLongIdentsAndResidue (col, lineStr: string) =
-    let lineStr = lineStr.Substring(0, System.Math.Max(0, col))
+  let findLongIdentsAndResidue (col: uint32, lineStr: string) =
+    let lineStr = lineStr.Substring(0, int col)
 
-    match getSymbol 0 col lineStr SymbolLookupKind.ByLongIdent [||] with
+    match getSymbol 0u col lineStr SymbolLookupKind.ByLongIdent [||] with
     | Some sym ->
       match sym.Text with
       | "" -> [], ""
       | text ->
         let res = text.Split '.' |> List.ofArray |> List.rev
 
-        if lineStr.[col - 1] = '.' then
+        if lineStr.[int col - 1] = '.' then
           res |> List.rev, ""
         else
           match res with

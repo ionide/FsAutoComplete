@@ -267,14 +267,15 @@ module Commands =
 
   let getNamespaceSuggestions (tyRes: ParseAndCheckResults) (pos: Position) (line: LineStr) =
     async {
-      match Lexer.findLongIdents (pos.Column, line) with
+      match Lexer.findLongIdents (uint32 pos.Column, line) with
       | None -> return CoreResponse.InfoRes "Ident not found"
       | Some(_, idents) ->
         match ParsedInput.GetEntityKind(pos, tyRes.GetParseResults.ParseTree) with
         | None -> return CoreResponse.InfoRes "EntityKind not found"
         | Some entityKind ->
 
-          let symbol = Lexer.getSymbol pos.Line pos.Column line SymbolLookupKind.Fuzzy [||]
+          let symbol =
+            Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) line SymbolLookupKind.Fuzzy [||]
 
           match symbol with
           | None -> return CoreResponse.InfoRes "Symbol at position not found"
@@ -699,7 +700,7 @@ module Commands =
             // this only happens when there are no other `open`
 
             // from insert position go up until first open OR namespace
-            ic.Pos.LinesToBeginning()
+            ic.Pos.IncLine().LinesToBeginning()
             |> Seq.tryFind (fun l ->
               let lineStr = getLine l
               // namespace MUST be top level -> no indentation
@@ -731,10 +732,10 @@ module Commands =
 
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -787,7 +788,7 @@ module Commands =
 
         return (symbol, ranges)
       | scope ->
-        let projectsToCheck: Async<FSharpProjectOptions list> =
+        let projectsToCheck: Async<CompilerProjectOption list> =
           async {
             match scope with
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , true)) -> return projects
@@ -798,8 +799,8 @@ module Commands =
                     yield Async.singleton (Some project)
 
                     yield!
-                      project.ReferencedProjects
-                      |> Array.map (fun p -> UMX.tag p.OutputFile |> tryGetProjectOptionsForFsproj) ]
+                      project.ReferencedProjectsPath
+                      |> List.map (fun p -> Utils.normalizePath p |> tryGetProjectOptionsForFsproj) ]
                 |> Async.parallel75
 
 
@@ -839,7 +840,7 @@ module Commands =
         /// Adds References of `symbol` in `file` to `dict`
         ///
         /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
-        let tryFindReferencesInFile (file: string<LocalPath>, project: FSharpProjectOptions) =
+        let tryFindReferencesInFile (file: string<LocalPath>, project: CompilerProjectOption) =
           async {
             if dict.ContainsKey file then
               return Ok()
@@ -882,15 +883,14 @@ module Commands =
 
               if errorOnFailureToFixRange then Error e else Ok())
 
-        let iterProjects (projects: FSharpProjectOptions seq) =
+        let iterProjects (projects: CompilerProjectOption seq) =
           // should:
           // * check files in parallel
           // * stop when error occurs
           // -> `Async.Choice`: executes in parallel, returns first `Some`
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
           [ for project in projects do
-              for file in project.SourceFiles do
-                let file = UMX.tag file
+              for file in project.SourceFilesTagged do
 
                 async {
                   match! tryFindReferencesInFile (file, project) with
@@ -930,10 +930,10 @@ module Commands =
   ///       -> for "Rename"
   let symbolUseWorkspace
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
-    (findReferencesForSymbolInFile: (string<LocalPath> * FSharpProjectOptions * FSharpSymbol) -> Async<Range seq>)
+    (findReferencesForSymbolInFile: (string<LocalPath> * CompilerProjectOption * FSharpSymbol) -> Async<Range seq>)
     (tryGetFileSource: string<LocalPath> -> Async<ResultOrString<IFSACSourceText>>)
-    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<FSharpProjectOptions option>)
-    (getAllProjectOptions: unit -> Async<FSharpProjectOptions seq>)
+    (tryGetProjectOptionsForFsproj: string<LocalPath> -> Async<CompilerProjectOption option>)
+    (getAllProjectOptions: unit -> Async<CompilerProjectOption seq>)
     (includeDeclarations: bool)
     (includeBackticks: bool)
     (errorOnFailureToFixRange: bool)
@@ -1266,43 +1266,53 @@ type Commands() =
   /// calculates the required indent and gives the position to insert the text.
   static member GenerateXmlDocumentation(tyRes: ParseAndCheckResults, triggerPosition: Position, lineStr: LineStr) =
     asyncResult {
+      let tryGetFirstAttributeLine (synAttributes: SynAttributes) =
+        synAttributes
+        |> List.collect (fun a -> a.Attributes)
+        |> function
+          | [] -> None
+          | attributes ->
+            attributes
+            |> Seq.minBy (fun a -> a.Range.StartLine)
+            |> fun attr -> Some attr.Range.StartLine
+
       let longIdentContainsPos (longIdent: LongIdent) (pos: FSharp.Compiler.Text.pos) =
         longIdent
         |> List.tryFind (fun i -> rangeContainsPos i.idRange pos)
         |> Option.isSome
 
-      let isLowerAstElemWithEmptyPreXmlDoc input pos =
+      let isLowerAstElemWithEmptyPreXmlDoc input pos : Option<bool * Option<int>> =
         SyntaxTraversal.Traverse(
           pos,
           input,
           { new SyntaxVisitorBase<_>() with
               member _.VisitBinding(_, defaultTraverse, synBinding) =
                 match synBinding with
-                | SynBinding(xmlDoc = xmlDoc; valData = valData) as s when
+                | SynBinding(attributes = attributes; xmlDoc = xmlDoc; valData = valData) as s when
                   rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                   ->
                   match valData with
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
                   | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
-                  | _ -> Some false
+                  | _ -> Some(false, tryGetFirstAttributeLine attributes)
                 | _ -> defaultTraverse synBinding
 
               member _.VisitComponentInfo(_, synComponentInfo) =
                 match synComponentInfo with
-                | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
+                | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
                   longIdentContainsPos longId pos && xmlDoc.IsEmpty
                   ->
-                  Some false
+                  Some(false, tryGetFirstAttributeLine attributes)
                 | _ -> None
 
               member _.VisitRecordDefn(_, fields, _) =
                 let isInLine c =
                   match c with
-                  | SynField(xmlDoc = xmlDoc; idOpt = Some ident) when
+                  | SynField(attributes = attributes; xmlDoc = xmlDoc; idOpt = Some ident) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some false
+                    Some(false, tryGetFirstAttributeLine attributes)
                   | _ -> None
 
                 fields |> List.tryPick isInLine
@@ -1310,10 +1320,10 @@ type Commands() =
               member _.VisitUnionDefn(_, cases, _) =
                 let isInLine c =
                   match c with
-                  | SynUnionCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
+                  | SynUnionCase(attributes = attributes; xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some false
+                    Some(false, tryGetFirstAttributeLine attributes)
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -1321,10 +1331,10 @@ type Commands() =
               member _.VisitEnumDefn(_, cases, _) =
                 let isInLine b =
                   match b with
-                  | SynEnumCase(xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
+                  | SynEnumCase(attributes = attributes; xmlDoc = xmlDoc; ident = (SynIdent(ident = ident))) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
-                    Some false
+                    Some(false, tryGetFirstAttributeLine attributes)
                   | _ -> None
 
                 cases |> List.tryPick isInLine
@@ -1332,10 +1342,10 @@ type Commands() =
               member _.VisitLetOrUse(_, _, defaultTraverse, bindings, _) =
                 let isInLine b =
                   match b with
-                  | SynBinding(xmlDoc = xmlDoc) as s when
+                  | SynBinding(attributes = attributes; xmlDoc = xmlDoc) as s when
                     rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                     ->
-                    Some false
+                    Some(false, tryGetFirstAttributeLine attributes)
                   | _ -> defaultTraverse b
 
                 bindings |> List.tryPick isInLine
@@ -1343,7 +1353,7 @@ type Commands() =
               member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
         )
 
-      let isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos =
+      let isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos : Option<bool * Option<int>> =
         SyntaxTraversal.Traverse(
           pos,
           input,
@@ -1351,10 +1361,12 @@ type Commands() =
 
               member _.VisitModuleOrNamespace(_, synModuleOrNamespace) =
                 match synModuleOrNamespace with
-                | SynModuleOrNamespace(longId = longId; xmlDoc = xmlDoc) when
-                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                | SynModuleOrNamespace(attribs = attributes; longId = longId; xmlDoc = xmlDoc; kind = kind) when
+                  kind = SynModuleOrNamespaceKind.NamedModule
+                  && longIdentContainsPos longId pos
+                  && xmlDoc.IsEmpty
                   ->
-                  Some false
+                  Some(false, tryGetFirstAttributeLine attributes)
                 | SynModuleOrNamespace(decls = decls) ->
 
                   let rec findNested decls =
@@ -1363,10 +1375,10 @@ type Commands() =
                       match d with
                       | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
                         match moduleInfo with
-                        | SynComponentInfo(longId = longId; xmlDoc = xmlDoc) when
+                        | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
                           longIdentContainsPos longId pos && xmlDoc.IsEmpty
                           ->
-                          Some false
+                          Some(false, tryGetFirstAttributeLine attributes)
                         | _ -> findNested decls
                       | SynModuleDecl.Types(typeDefns = typeDefns) ->
                         typeDefns
@@ -1376,22 +1388,26 @@ type Commands() =
                             members
                             |> List.tryPick (fun m ->
                               match m with
-                              | SynMemberDefn.AutoProperty(ident = ident; xmlDoc = xmlDoc) when
+                              | SynMemberDefn.AutoProperty(attributes = attributes; ident = ident; xmlDoc = xmlDoc) when
                                 rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                                 ->
-                                Some true
+                                Some(true, tryGetFirstAttributeLine attributes)
                               | SynMemberDefn.GetSetMember(
                                   memberDefnForSet = Some(SynBinding(
-                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                    attributes = attributes
+                                    xmlDoc = xmlDoc
+                                    headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some false
+                                Some(true, tryGetFirstAttributeLine attributes)
                               | SynMemberDefn.GetSetMember(
                                   memberDefnForGet = Some(SynBinding(
-                                    xmlDoc = xmlDoc; headPat = SynPat.LongIdent(longDotId = longDotId)))) when
+                                    attributes = attributes
+                                    xmlDoc = xmlDoc
+                                    headPat = SynPat.LongIdent(longDotId = longDotId)))) when
                                 rangeContainsPos longDotId.Range pos && xmlDoc.IsEmpty
                                 ->
-                                Some false
+                                Some(true, tryGetFirstAttributeLine attributes)
                               | _ -> None)
                           | _ -> None)
                       | _ -> None)
@@ -1401,7 +1417,7 @@ type Commands() =
 
       let isAstElemWithEmptyPreXmlDoc input pos =
         match isLowerAstElemWithEmptyPreXmlDoc input pos with
-        | Some isAutoProperty -> Some isAutoProperty
+        | Some(isAutoProperty, firstAttrLine) -> Some(isAutoProperty, firstAttrLine)
         | _ -> isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos
 
       let trimmed = lineStr.TrimStart(' ')
@@ -1410,7 +1426,7 @@ type Commands() =
 
       match isAstElemWithEmptyPreXmlDoc tyRes.GetAST triggerPosition with
       | None -> return None
-      | Some(isAutoProperty) ->
+      | Some(isAutoProperty, firstAttrLine) ->
 
         let signatureData =
           Commands.SignatureData tyRes triggerPosition lineStr |> Result.ofCoreResponse
@@ -1450,7 +1466,8 @@ type Commands() =
           |> fun s -> s + Environment.NewLine // need a newline at the very end
 
         // always insert at the start of the line, because we've prepended the indent to the start of the summary section
-        let insertPosition = Position.mkPos triggerPosition.Line 0
+        let insertPosLine = firstAttrLine |> Option.defaultValue triggerPosition.Line
+        let insertPosition = Position.mkPos insertPosLine 0
 
         return
           Some

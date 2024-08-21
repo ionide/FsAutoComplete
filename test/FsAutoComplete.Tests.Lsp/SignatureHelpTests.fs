@@ -21,6 +21,7 @@ let private testSignatureHelp' (server: CachedServer) text pos triggerType check
 
     let sigHelpRequest: SignatureHelpParams =
       { TextDocument = doc.TextDocumentIdentifier
+        WorkDoneToken = None
         Position = pos
         Context =
           Some
@@ -31,7 +32,7 @@ let private testSignatureHelp' (server: CachedServer) text pos triggerType check
               TriggerCharacter =
                 match triggerType with
                 | Manual -> None
-                | Char c -> Some c
+                | Char c -> Some(string c)
               IsRetrigger = false
               ActiveSignatureHelp = None } }
 
@@ -75,7 +76,7 @@ let private functionApplicationEdgeCasesTests server =
       """ Manual (fun resp ->
         match resp with
         | Some sigHelp ->
-          Expect.equal sigHelp.ActiveSignature (Some 0) "should have suggested the first overload"
+          Expect.equal sigHelp.ActiveSignature (Some 0u) "should have suggested the first overload"
 
           Expect.equal
             sigHelp.Signatures.[0].Label
@@ -142,7 +143,7 @@ let private overloadEdgeCasesTests server =
         [ let text = "let ___ = new System.IO.MemoryStream (  )"
 
           for c in 37..39 do
-            let pos = { Line = 0; Character = c }
+            let pos = { Line = 0u; Character = uint32 c }
 
             testCaseAsync $"Can get overloads at whitespace position {c - 37} of unattached parens"
             <| testSignatureHelp'
@@ -160,7 +161,7 @@ let private overloadEdgeCasesTests server =
         [ let text = "let _____ = new System.IO.MemoryStream(42)"
 
           for c in 39..41 do
-            let pos = { Line = 0; Character = c }
+            let pos = { Line = 0u; Character = uint32 c }
 
             testCaseAsync $"Can get overloads at whitespace position {c - 39} of attached parens"
             <| testSignatureHelp'
@@ -178,7 +179,7 @@ let issuesTests server =
   testList
     "issues"
     [ testCaseAsync "issue #950 - exception when in first column in first line"
-      <| testSignatureHelp' server "Syste" { Line = 0; Character = 0 } Manual (fun r ->
+      <| testSignatureHelp' server "Syste" { Line = 0u; Character = 0u } Manual (fun r ->
         let err = Expect.wantError r "No signature help at first position"
         Expect.equal err.Message "Couldn't find previous non-whitespace char" "Should fail because no prev char")
       testCaseAsync "type names aren't backticked"
@@ -208,6 +209,6 @@ let tests state =
           System.IO.Directory.EnumerateDirectories("/var", $0) // signature help triggered at the space after the comma should suggest overload 1, not overload 0
           """ Manual (fun resp ->
             Expect.isSome resp "should get sigdata when triggered on applications"
-            Expect.equal (Some 1) resp.Value.ActiveSignature "should have suggested the second overload") ]
+            Expect.equal (Some 1u) resp.Value.ActiveSignature "should have suggested the second overload") ]
 
       issuesTests server ])

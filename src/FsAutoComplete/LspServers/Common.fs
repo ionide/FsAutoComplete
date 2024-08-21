@@ -148,17 +148,18 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
 
 module Async =
   open System.Threading.Tasks
+  open IcedTasks
 
   let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
 
   let inline logCancelled e = logger.trace (Log.setMessage "Operation Cancelled" >> Log.addExn e)
 
   let withCancellation (ct: CancellationToken) (a: Async<'a>) : Async<'a> =
-    async {
+    asyncEx {
       let! ct2 = Async.CancellationToken
       use cts = CancellationTokenSource.CreateLinkedTokenSource(ct, ct2)
       let tcs = new TaskCompletionSource<'a>()
-      use _reg = cts.Token.Register(fun () -> tcs.TrySetCanceled() |> ignore)
+      use _reg = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore)
 
       let a =
         async {
@@ -170,7 +171,7 @@ module Async =
         }
 
       Async.Start(a, cts.Token)
-      return! tcs.Task |> Async.AwaitTask
+      return! tcs.Task
     }
 
   let withCancellationSafe ct work =
@@ -218,47 +219,75 @@ module Helpers =
 
   let defaultServerCapabilities =
     { ServerCapabilities.Default with
-        HoverProvider = Some true
-        RenameProvider = Some(U2.Second { PrepareProvider = Some true })
-        DefinitionProvider = Some true
-        TypeDefinitionProvider = Some true
-        ImplementationProvider = Some true
-        ReferencesProvider = Some true
-        DocumentHighlightProvider = Some true
-        DocumentSymbolProvider = Some(U2.Second { Label = Some "F#" })
-        WorkspaceSymbolProvider = Some(U2.Second { ResolveProvider = Some true })
-        DocumentFormattingProvider = Some true
-        DocumentRangeFormattingProvider = Some true
+        HoverProvider = Some(U2.C1 true)
+        RenameProvider =
+          Some(
+            U2.C2
+              { PrepareProvider = Some true
+                WorkDoneProgress = Some false }
+          )
+        DefinitionProvider = Some(U2.C1 true)
+        TypeDefinitionProvider = Some(U3.C1 true)
+        ImplementationProvider = Some(U3.C1 true)
+        ReferencesProvider = Some(U2.C1 true)
+        DocumentHighlightProvider = Some(U2.C1 true)
+        DocumentSymbolProvider =
+          Some(
+            U2.C2
+              { Label = Some "F#"
+                WorkDoneProgress = Some false }
+          )
+        WorkspaceSymbolProvider =
+          Some(
+            U2.C2
+              { ResolveProvider = Some true
+                WorkDoneProgress = Some false }
+          )
+        DocumentFormattingProvider = Some(U2.C1 true)
+        DocumentRangeFormattingProvider = Some(U2.C1 true)
         SignatureHelpProvider =
           Some
-            { TriggerCharacters = Some [| '('; ','; ' ' |]
-              RetriggerCharacters = Some [| ','; ')'; ' ' |] }
+            { TriggerCharacters = Some [| "("; ","; " " |]
+              RetriggerCharacters = Some [| ","; ")"; " " |]
+              WorkDoneProgress = Some false }
         CompletionProvider =
           Some
             { ResolveProvider = Some true
-              TriggerCharacters = Some([| '.'; ''' |])
+              TriggerCharacters = Some([| "."; "'" |])
               AllCommitCharacters = None //TODO: what chars should commit completions?
-              CompletionItem = None }
-        CodeLensProvider = Some { CodeLensOptions.ResolveProvider = Some true }
+              CompletionItem = None
+              WorkDoneProgress = Some false }
+        CodeLensProvider =
+          Some
+            { CodeLensOptions.ResolveProvider = Some true
+              WorkDoneProgress = Some false }
         CodeActionProvider =
           Some(
-            U2.Second
+            U2.C2
               { CodeActionKinds = None
-                ResolveProvider = None }
+                ResolveProvider = None
+                WorkDoneProgress = Some false }
           )
         TextDocumentSync =
           Some
+          <| U2.C1
             { TextDocumentSyncOptions.Default with
                 OpenClose = Some true
                 Change = Some TextDocumentSyncKind.Incremental
-                Save = Some { IncludeText = Some true } }
-        FoldingRangeProvider = Some true
-        SelectionRangeProvider = Some true
-        CallHierarchyProvider = Some true
+                Save = Some <| U2.C2 { IncludeText = Some true } }
+        FoldingRangeProvider = Some(U3.C1 true)
+        SelectionRangeProvider = Some(U3.C1 true)
+        CallHierarchyProvider = Some(U3.C1 true)
         SemanticTokensProvider =
           Some
+          <| U2.C1
             { Legend =
                 createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
-              Range = Some true
-              Full = Some(U2.First true) }
-        InlayHintProvider = Some { ResolveProvider = Some false } }
+              Range = Some <| U2.C1 true
+              Full = Some(U2.C1 true)
+              WorkDoneProgress = Some false }
+        InlayHintProvider =
+          Some
+          <| U3.C2
+            { ResolveProvider = Some false
+              WorkDoneProgress = Some false } }

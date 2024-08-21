@@ -52,7 +52,32 @@
       "args": [
         "--debug",
         "--filter",
-        "FSAC.lsp.${input:loader}.${input:lsp-server}.${input:testName}"
+        "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"
+      ]
+    },
+    {
+      "name": "Pick General tests",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/FsAutoComplete.Tests.Lsp/bin/Debug/${input:tfm}/FsAutoComplete.Tests.Lsp.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": false,
+      "symbolOptions": {
+        "searchMicrosoftSymbolServer": true,
+        "searchNuGetOrgSymbolServer": true
+      },
+      "sourceLinkOptions": {
+        "*": {
+          "enabled": true
+        }
+      },
+      "enableStepFiltering": false,
+      "args": [
+        "--debug",
+        "--filter",
+        "FSAC.general.${input:testName}"
       ]
     }
   ],
@@ -77,16 +102,15 @@
       "default": "WorkspaceLoader",
       "type": "pickString"
     },
-
     {
-      "id": "lsp-server",
-      "description": "The lsp serrver",
+      "id": "compiler",
+      "description": "The compiler to use",
       "options": [
-        "FSharpLspServer",
-        "AdaptiveLspServer"
+        "BackgroundCompiler",
+        "TransparentCompiler"
       ],
-      "default": "AdaptiveLspServer",
-      "type": "pickString"
+      "default": "BackgroundCompiler",
+      "type": "pickString",
     },
     {
       "id": "testName",

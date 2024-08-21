@@ -16,9 +16,9 @@ type SymbolKind =
 
 type LexerSymbol =
   { Kind: SymbolKind
-    Line: int
-    LeftColumn: int
-    RightColumn: int
+    Line: uint32
+    LeftColumn: uint32
+    RightColumn: uint32
     Text: string }
 
 [<RequireQualifiedAccess>]
@@ -31,7 +31,7 @@ type SymbolLookupKind =
 type private DraftToken =
   { Kind: SymbolKind
     Token: FSharpTokenInfo
-    RightColumn: int }
+    RightColumn: uint32 }
 
   static member inline Create: kind: SymbolKind -> token: FSharpTokenInfo -> DraftToken
 
@@ -41,9 +41,14 @@ module Lexer =
   val tokenizeLine: args: string[] -> lineStr: string -> FSharpTokenInfo list
 
   val getSymbol:
-    line: int -> col: int -> lineStr: string -> lookupKind: SymbolLookupKind -> args: string[] -> LexerSymbol option
+    line: uint32 ->
+    col: uint32 ->
+    lineStr: string ->
+    lookupKind: SymbolLookupKind ->
+    args: string[] ->
+      LexerSymbol option
 
-  val findIdents: col: int -> lineStr: string -> lookupType: SymbolLookupKind -> (int * string array) option
-  val findLongIdents: col: int * lineStr: string -> (int * string array) option
-  val findLongIdentsAndResidue: col: int * lineStr: string -> string list * string
-  val findClosestIdent: col: int -> lineStr: string -> (int * string array) option
+  val findIdents: col: uint32 -> lineStr: string -> lookupType: SymbolLookupKind -> (uint32 * string array) option
+  val findLongIdents: col: uint32 * lineStr: string -> (uint32 * string array) option
+  val findLongIdentsAndResidue: col: uint32 * lineStr: string -> string list * string
+  val findClosestIdent: col: uint32 -> lineStr: string -> (uint32 * string array) option

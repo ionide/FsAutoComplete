@@ -29,10 +29,10 @@ let fix
 
       let! caseLine = lines.GetLine(nextLine) |> Result.ofOption (fun _ -> "No case line")
 
-      let caseCol = caseLine.IndexOf('|') + 3 // Find column of first case in pattern matching
+      let caseCol = uint32 (caseLine.IndexOf('|')) + 3u // Find column of first case in pattern matching
 
       let casePos =
-        { Line = nextLine.Line - 1
+        { Line = uint32 nextLine.Line - 1u
           Character = caseCol }
 
       let casePosFCS = protocolPosToPos casePos

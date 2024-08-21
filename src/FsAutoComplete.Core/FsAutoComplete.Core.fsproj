@@ -4,12 +4,15 @@
     <TargetFrameworks Condition="'$(BuildNet7)' == 'true'">net6.0;net7.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildNet8)' == 'true'">net6.0;net7.0;net8.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);FS0057</NoWarn> <!-- Allows using experimental FCS APIs -->
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
-  </ItemGroup>
+      </ItemGroup>
   <ItemGroup>
+    <Compile Include="SemaphoreSlimLocks.fsi" />
+    <Compile Include="SemaphoreSlimLocks.fs" />
     <Compile Include="AdaptiveExtensions.fsi" />
     <Compile Include="AdaptiveExtensions.fs" />
     <Compile Include="Consts.fs" />
