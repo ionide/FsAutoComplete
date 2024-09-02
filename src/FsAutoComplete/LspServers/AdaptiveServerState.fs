@@ -114,6 +114,16 @@ type AdaptiveWorkspaceChosen =
 
 
 
+type FilePathOrFile =
+  | Path of string<LocalPath>
+  | File of VolatileFile
+
+  member x.FileName =
+    match x with
+    | Path p -> p
+    | File f -> f.FileName
+
+
 [<CustomEquality; NoComparison>]
 type LoadedProject =
   { ProjectOptions: Types.ProjectOptions
@@ -1284,16 +1294,25 @@ type AdaptiveState
   /// <param name="compilerOptions"></param>
   /// <returns></returns>
 
-  let parseFile (checker: FSharpCompilerServiceChecker) (sourceFilePath) (compilerOptions: CompilerProjectOption) =
+
+  let parseFile
+    (checker: FSharpCompilerServiceChecker)
+    (sourceFilePath: FilePathOrFile)
+    (compilerOptions: CompilerProjectOption)
+    =
     task {
       let! result =
         match compilerOptions with
         | CompilerProjectOption.TransparentCompiler snap ->
-          taskResult { return! checker.ParseFile(sourceFilePath, snap) }
+          taskResult { return! checker.ParseFile(sourceFilePath.FileName, snap) }
         | CompilerProjectOption.BackgroundCompiler opts ->
           taskResult {
-            let! file = forceFindOpenFileOrRead sourceFilePath
-            return! checker.ParseFile(sourceFilePath, file.Source, opts)
+            let! file =
+              match sourceFilePath with
+              | Path file -> forceFindOpenFileOrRead file
+              | File file -> AsyncResult.ok file
+
+            return! checker.ParseFile(sourceFilePath.FileName, file.Source, opts)
           }
 
       let! ct = Async.CancellationToken
@@ -1325,7 +1344,7 @@ type AdaptiveState
         |> Array.collect (fun (snap) -> snap.SourceFilesTagged |> List.toArray |> Array.map (fun s -> snap, s))
         |> Array.map (fun (snap, filePath) ->
 
-          parseFile checker filePath snap)
+          parseFile checker (FilePathOrFile.Path filePath) snap)
         |> Task.WhenAll
     }
 
@@ -1435,14 +1454,19 @@ type AdaptiveState
 
   let allFSharpFilesAndProjectOptions =
     asyncAVal {
-      let wins =
-        openFilesToChangesAndProjectOptions
-        |> AMap.map (fun _k v -> v |> AsyncAVal.mapSync (fun (_, projects) _ -> projects))
+      let wins = openFilesToChangesAndProjectOptions
 
       let! sourceFileToProjectOptions = sourceFileToProjectOptions
 
       let loses =
-        sourceFileToProjectOptions |> AMap.map (fun _ v -> AsyncAVal.constant (Ok v))
+        sourceFileToProjectOptions
+        |> AMap.map (fun file proj ->
+          asyncAVal {
+            let! lastTouched = AdaptiveFile.GetLastWriteTimeUtc(UMX.untag file)
+            let! vFile = createVolatileFileFromDisk lastTouched file
+
+            return vFile, Ok proj
+          })
 
       return AMap.union loses wins
     }
@@ -1462,7 +1486,7 @@ type AdaptiveState
 
       return
         allFSharpFilesAndProjectOptions
-        |> AMapAsync.mapAsyncAVal (fun filePath (options: Result<LoadedProject list, string>) _ctok ->
+        |> AMapAsync.mapAsyncAVal (fun filePath (file, options) _ctok ->
           asyncAVal {
             let! (checker: FSharpCompilerServiceChecker) = checker
             and! selectProject = projectSelector
@@ -1473,7 +1497,7 @@ type AdaptiveState
             match loadedProject with
             | Ok x ->
               let! snap = x.FSharpProjectCompilerOptions
-              let! r = parseFile checker filePath snap
+              let! r = parseFile checker (FilePathOrFile.File file) snap
               return r
             | Error e -> return Error e
           })
@@ -1505,7 +1529,7 @@ type AdaptiveState
 
       return
         set
-        |> Array.choose (fun (k, v) ->
+        |> Array.choose (fun (k, (_, v)) ->
           v
           |> Result.bind (findProject k)
           |> Result.toOption
@@ -1524,7 +1548,7 @@ type AdaptiveState
         |> Array.map (AsyncAVal.forceAsync)
         |> Async.parallel75
 
-      let set = set |> Array.choose (Result.toOption)
+      let set = set |> Array.choose (snd >> Result.toOption)
 
       return set |> Array.collect (List.toArray)
     }
@@ -1539,7 +1563,7 @@ type AdaptiveState
       let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions
 
       match! allFilesToFSharpProjectOptions |> AMapAsync.tryFindA filePath with
-      | Some projs -> return projs
+      | Some(_, projs) -> return projs
       | None -> return Error $"Couldn't find project for {filePath}. Have you tried restoring your project/solution?"
     }
 
