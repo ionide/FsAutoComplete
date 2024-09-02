@@ -114,14 +114,6 @@ type AdaptiveWorkspaceChosen =
 
 
 
-type FilePathOrFile =
-  | Path of string<LocalPath>
-  | File of VolatileFile
-
-  member x.FileName =
-    match x with
-    | Path p -> p
-    | File f -> f.FileName
 
 
 [<CustomEquality; NoComparison>]
@@ -1290,29 +1282,22 @@ type AdaptiveState
 
   /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
-  /// <param name="sourceFilePath">The source to be parsed.</param>
+  /// <param name="file">The source to be parsed.</param>
   /// <param name="compilerOptions"></param>
   /// <returns></returns>
 
 
-  let parseFile
-    (checker: FSharpCompilerServiceChecker)
-    (sourceFilePath: FilePathOrFile)
-    (compilerOptions: CompilerProjectOption)
-    =
+  let parseFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) (compilerOptions: CompilerProjectOption) =
     task {
       let! result =
         match compilerOptions with
         | CompilerProjectOption.TransparentCompiler snap ->
-          taskResult { return! checker.ParseFile(sourceFilePath.FileName, snap) }
+          taskResult { return! checker.ParseFile(file.FileName, snap) }
         | CompilerProjectOption.BackgroundCompiler opts ->
           taskResult {
-            let! file =
-              match sourceFilePath with
-              | Path file -> forceFindOpenFileOrRead file
-              | File file -> AsyncResult.ok file
 
-            return! checker.ParseFile(sourceFilePath.FileName, file.Source, opts)
+
+            return! checker.ParseFile(file.FileName, file.Source, opts)
           }
 
       let! ct = Async.CancellationToken
@@ -1343,8 +1328,12 @@ type AdaptiveState
         |> HashSet.toArray
         |> Array.collect (fun (snap) -> snap.SourceFilesTagged |> List.toArray |> Array.map (fun s -> snap, s))
         |> Array.map (fun (snap, filePath) ->
+          taskResult {
+            let! vFile = forceFindOpenFileOrRead filePath
+            return! parseFile checker vFile snap
 
-          parseFile checker (FilePathOrFile.Path filePath) snap)
+          })
+
         |> Task.WhenAll
     }
 
@@ -1497,7 +1486,7 @@ type AdaptiveState
             match loadedProject with
             | Ok x ->
               let! snap = x.FSharpProjectCompilerOptions
-              let! r = parseFile checker (FilePathOrFile.File file) snap
+              let! r = parseFile checker file snap
               return r
             | Error e -> return Error e
           })
