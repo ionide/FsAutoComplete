@@ -18,22 +18,47 @@ let fix
   (getTextReplacements: unit -> Map<string, string>)
   =
   Run.ifDiagnosticByCode (Set.ofList [ "25" ]) (fun diagnostic codeActionParams ->
+    let getCasePosFromCaseLine (lines: IFSACSourceText) (fcsRange: FcsRange) =
+      result {
+        let! nextLine = lines.NextLine fcsRange.Start |> Result.ofOption (fun _ -> "no next line")
+
+        let! caseLine = lines.GetLine(nextLine) |> Result.ofOption (fun _ -> "No case line")
+
+        let! caseCol =
+          match caseLine.IndexOf('|') with
+          | -1 -> Error "Invalid case line"
+          | idx -> Ok(uint32 idx + 3u) // Find column of first case in pattern matching
+
+        let casePos =
+          { Line = uint32 nextLine.Line - 1u
+            Character = caseCol }
+
+        return casePos
+      }
+
+    let getCasePosFromMatch (lines: IFSACSourceText) (fcsRange: FcsRange) =
+      result {
+        let! matchLine = lines.GetLine fcsRange.Start |> Result.ofOption (fun _ -> "no current line")
+        let caseCol = matchLine.IndexOf("match")
+
+        let casePos =
+          { Line = uint32 fcsRange.Start.Line - 1u
+            Character = uint32 caseCol + 7u }
+
+        return casePos
+      }
+
     asyncResult {
-      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+      let fileName = codeActionParams.TextDocument.GetFilePath() |> normalizePath
 
       let! lines = getFileLines fileName
       // try to find the first case already written
       let fcsRange = protocolRangeToRange (FSharp.UMX.UMX.untag fileName) diagnostic.Range
 
-      let! nextLine = lines.NextLine fcsRange.Start |> Result.ofOption (fun _ -> "no next line")
 
-      let! caseLine = lines.GetLine(nextLine) |> Result.ofOption (fun _ -> "No case line")
-
-      let caseCol = uint32 (caseLine.IndexOf('|')) + 3u // Find column of first case in pattern matching
-
-      let casePos =
-        { Line = uint32 nextLine.Line - 1u
-          Character = caseCol }
+      let! casePos =
+        (getCasePosFromCaseLine lines fcsRange)
+        |> Result.orElseWith (fun _ -> getCasePosFromMatch lines fcsRange)
 
       let casePosFCS = protocolPosToPos casePos
 

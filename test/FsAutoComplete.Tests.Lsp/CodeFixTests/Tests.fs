@@ -2100,7 +2100,7 @@ let private generateUnionCasesTests state =
   serverTestList (nameof GenerateUnionCases) state config None (fun server ->
     [ let _selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
 
-      testCaseAsync "can generate match cases for a simple DU"
+      testCaseAsync "can generate match cases for a simple DU with one case"
       <| CodeFix.check
         server
         """
@@ -2120,6 +2120,29 @@ let private generateUnionCasesTests state =
 
         match char with
         | A -> ()
+        | B -> failwith "---"
+        | C -> failwith "---"
+        """
+
+      testCaseAsync "can generate match cases for a simple DU without cases"
+      <| CodeFix.check
+        server
+        """
+        type Letter = A | B | C
+
+        let char = A
+
+        match $0char with
+        """
+        (Diagnostics.expectCode "25")
+        (CodeFix.withTitle GenerateUnionCases.title)
+        """
+        type Letter = A | B | C
+
+        let char = A
+
+        match char with
+        | A -> failwith "---"
         | B -> failwith "---"
         | C -> failwith "---"
         """ ])
@@ -2724,6 +2747,7 @@ let private replaceWithSuggestionTests state =
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
         let messages = diags |> Array.map (fun d -> d.Message) |> String.concat "\n"
+
         Expect.exists
           diags
           (fun (d: Diagnostic) -> d.Message.Contains "Maybe you want one of the following:")
@@ -3175,8 +3199,8 @@ let private removePatternArgumentTests state =
           | B = 2
 
         do
-	        let (E.A x$0) = E.A
-	        ()
+          let (E.A x$0) = E.A
+          ()
         """
         (Diagnostics.expectCode "3191")
         selectCodeFix
@@ -3186,8 +3210,8 @@ let private removePatternArgumentTests state =
           | B = 2
 
         do
-	        let (E.A) = E.A
-	        ()
+          let (E.A) = E.A
+          ()
         """
 
       testCaseAsync "Local literal constant pattern qualified parameter"
