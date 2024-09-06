@@ -43,7 +43,7 @@ NUGET
       DiffPlex (>= 1.7.1 < 2.0) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       Expecto (>= 10.2.1) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       FSharp.Core (>= 7.0.200) - restriction: || (== net6.0) (== net7.0) (== net8.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
-    Fantomas.Client (0.9)
+    Fantomas.Client (0.9.1)
       FSharp.Core (>= 5.0.1)
       SemanticVersioning (>= 2.0.2)
       StreamJsonRpc (>= 2.8.28)
