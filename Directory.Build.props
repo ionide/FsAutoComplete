@@ -3,6 +3,7 @@
   <PropertyGroup>
     <Title>FsAutoComplete</Title>
     <Product>FsAutoComplete</Product>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
     <PackageLicenseExpression Condition=" '$(PackAsTool)' != 'true' ">Apache-2.0</PackageLicenseExpression>
     <NoWarn>$(NoWarn);3186,0042</NoWarn><!-- circumvent an error with the fake dependencymanager for
     paket: https://github.com/dotnet/fsharp/issues/8678 -->
