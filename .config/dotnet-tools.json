@@ -36,6 +36,13 @@
         "telplin"
       ],
       "rollForward": false
+    },
+    "fsdocs-tool": {
+      "version": "20.0.0",
+      "commands": [
+        "fsdocs"
+      ],
+      "rollForward": false
     }
   }
 }
