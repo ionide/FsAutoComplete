@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.74.1] - 2024-09-07
+
+### Added
+
+* [Allow generating match cases for DU cases when the match is empty](https://github.com/ionide/FsAutoComplete/pull/1309) (thanks @gbtb!)
+
+### Fixed
+
+* [Fix the floating code lens issues reported by many users](https://github.com/ionide/FsAutoComplete/pull/1319) (thanks @TheAngryByrd!)
+
+### Changed
+
+* [Update Fantomas.Client to get fixes for global fantomas installs](https://github.com/ionide/FsAutoComplete/pull/1320) (thanks @nojaf!)
+
 ## [0.74.0] - 2024-08-18
 
 ### Changed
