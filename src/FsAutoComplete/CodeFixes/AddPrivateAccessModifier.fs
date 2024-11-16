@@ -111,7 +111,7 @@ let private getRangesAndPlacement input pos =
             members
             |> List.tryPick (fun m ->
               match m with
-              | SynMemberDefn.AutoProperty(accessibility = None; ident = ident; trivia = trivia) as a when
+              | SynMemberDefn.AutoProperty(accessibility = SynValSigAccess.Single None; ident = ident; trivia = trivia) as a when
                 rangeContainsPos ident.idRange pos
                 ->
                 let editRange =
