@@ -413,7 +413,12 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
         real
       else
         cachedTcs <- new TaskCompletionSource<'a>()
+#if NET8_0
+        cachedTcs.TrySetFromTask real
+#if NET9_0_OR_GREATER
         cachedTcs.TrySetFromTask real |> ignore<bool>
+#endif
+#endif
         cachedTcs.Task
 
     cached <-

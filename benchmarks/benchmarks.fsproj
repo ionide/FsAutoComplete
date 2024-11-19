@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net8.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net9.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net8.0;net9.0</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="SourceTextBenchmarks.fs" />
