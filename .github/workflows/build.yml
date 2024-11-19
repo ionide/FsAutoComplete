@@ -18,7 +18,7 @@ jobs:
     env:
       TEST_TIMEOUT_MINUTES: 40
       FSAC_TEST_DEFAULT_TIMEOUT : 120000 #ms, individual test timeouts
-      DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET 8 RCs to participate in rollforward as expected.
+      DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1 # needed to allow .NET RCs to participate in rollforward as expected.
     timeout-minutes: 40 # we have a locking issue, so cap the runs at ~20m to account for varying build times, etc
     strategy:
       matrix:
@@ -26,7 +26,7 @@ jobs:
           - windows-latest
           - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
           - ubuntu-latest
-        dotnet-version: ["", "6.0.x", "7.0.x", "8.0.x"]
+        dotnet-version: ["", "8.0.x", "9.0.x"]
         use-transparent-compiler:
           - "TransparentCompiler"
           - "BackgroundCompiler"
@@ -40,29 +40,22 @@ jobs:
             dotnet-version: ""
             include-prerelease: false
             label: "repo global.json"
-            build_net7: false
-            test_tfm: net6.0
-          # latest 6.0
-          - global-json-file: "global.json"
-            dotnet-version: "6.0.x"
-            include-prerelease: false
-            label: "6.0"
-            build_net7: false
-            test_tfm: net6.0
-          # latest 7.0
-          - global-json-file: "global.json"
-            dotnet-version: "7.0.x"
-            include-prerelease: true
-            label: "7.0"
-            build_net7: true
-            test_tfm: net7.0
+            build_net9: false
+            test_tfm: net8.0
           # latest 8.0
           - global-json-file: "global.json"
             dotnet-version: "8.0.x"
-            include-prerelease: true
+            include-prerelease: false
             label: "8.0"
-            build_net8: true
+            build_net9: false
             test_tfm: net8.0
+          # latest 9.0
+          - global-json-file: "global.json"
+            dotnet-version: "9.0.x"
+            include-prerelease: true
+            label: "9.0"
+            build_net9: true
+            test_tfm: net9.0
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -109,15 +102,13 @@ jobs:
     - name: Run Build
       run: dotnet build -c Release
       env:
-        BuildNet7: ${{ matrix.build_net7 }}
-        BuildNet8: ${{ matrix.build_net8 }}
+        BuildNet9: ${{ matrix.build_net9 }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build  --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
-        BuildNet7: ${{ matrix.build_net7 }}
-        BuildNet8: ${{ matrix.build_net8 }}
+        BuildNet9: ${{ matrix.build_net9 }}
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
 
