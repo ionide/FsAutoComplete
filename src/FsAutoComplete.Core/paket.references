@@ -12,7 +12,7 @@ Microsoft.Extensions.Caching.Memory
 Microsoft.CodeAnalysis
 LinkDotNet.StringBuilder
 CommunityToolkit.HighPerformance
-#Ionide.ProjInfo.ProjectSystem
-#FSharp.Analyzers.SDK
-#Ionide.Analyzers
-#FSharp.Analyzers.Build
+Ionide.ProjInfo.ProjectSystem
+FSharp.Analyzers.SDK
+Ionide.Analyzers
+FSharp.Analyzers.Build
