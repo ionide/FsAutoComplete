@@ -946,9 +946,8 @@ module Commands =
       let multipleSymbols = tyRes.TryGetSymbolUses pos lineStr
       let result = Dictionary<string<LocalPath>, Range[]>()
 
-      for symbolUse in multipleSymbols do
-        let! symbolResult =
-          symbolUseWorkspaceAux
+      let getUse =
+        symbolUseWorkspaceAux
             getDeclarationLocation
             findReferencesForSymbolInFile
             tryGetFileSource
@@ -959,8 +958,14 @@ module Commands =
             errorOnFailureToFixRange
             text
             tyRes
-            symbolUse
 
+      let! symbolResults =
+        multipleSymbols
+        |> List.map getUse
+        |> Async.parallel75
+        |> Async.map(Seq.sequenceResultM)
+
+      for symbolResult in symbolResults do
         for KeyValue(k, v) in snd symbolResult do
           if result.ContainsKey k then
             result.[k] <- [| yield! result.[k]; yield! v |]

@@ -57,19 +57,19 @@ type ServerProgressReport =
   /// <param name="cancellable">Controls if a cancel button should show to allow the user to cancel the long running operation</param>
   /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
   /// <param name="percentage">percentage to display (value 100 is considered 100%). If not provided infinite progress is assumed</param>
-  member Begin: title: string * ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableTask<unit>
+  member Begin: title: string * ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableValueTask<unit>
   /// <summary>Report additional progress</summary>
   /// <param name="cancellable">Controls if a cancel button should show to allow the user to cancel the long running operation</param>
   /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
   /// <param name="percentage">percentage to display (value 100 is considered 100%). If not provided infinite progress is assumed</param>
-  member Report: ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableTask<unit>
+  member Report: ?cancellable: bool * ?message: string * ?percentage: uint -> CancellableValueTask<unit>
   /// <summary>Signaling the end of a progress reporting is done.</summary>
   /// <param name="message">more detailed associated progress message. Contains complementary information to the `title`.</param>
   /// <remarks>
   /// This will be called if this object is disposed either via Dispose or DisposeAsync.
   /// </remarks>
   /// <returns></returns>
-  member End: ?message: string -> CancellableTask<unit>
+  member End: ?message: string -> CancellableValueTask<unit>
   interface IAsyncDisposable
   interface IDisposable
 

@@ -276,9 +276,9 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.Null(_range)
       | SynExpr.ImplicitZero(_range) -> None
 
-      | SynExpr.YieldOrReturn(_, synExpr, _range)
-      | SynExpr.YieldOrReturnFrom(_, synExpr, _range)
-      | SynExpr.DoBang(synExpr, _range) -> walkExpr synExpr
+      | SynExpr.YieldOrReturn(_, synExpr, _range, _)
+      | SynExpr.YieldOrReturnFrom(_, synExpr, _range, _)
+      | SynExpr.DoBang(synExpr, _range, _) -> walkExpr synExpr
 
       | SynExpr.LetOrUseBang(rhs = synExpr1; andBangs = ands; body = synExpr2) ->
         [ synExpr1

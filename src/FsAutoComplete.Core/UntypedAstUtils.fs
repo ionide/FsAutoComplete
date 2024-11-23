@@ -451,14 +451,14 @@ module Syntax =
       | SynMemberDefn.ImplicitCtor(attributes = AllAttrs attrs; ctorArgs = ctorPattern) ->
         List.iter walkAttribute attrs
         walkPat ctorPattern
-      | SynMemberDefn.ImplicitInherit(t, e, _, _) ->
+      | SynMemberDefn.ImplicitInherit(t, e, _, _, _) ->
         walkType t
         walkExpr e
       | SynMemberDefn.LetBindings(bindings, _, _, _) -> List.iter walkBinding bindings
       | SynMemberDefn.Interface(t, _, members, _) ->
         walkType t
         members |> Option.iter (List.iter walkMember)
-      | SynMemberDefn.Inherit(t, _, _) -> walkType t
+      | SynMemberDefn.Inherit(t, _, _, _) -> t |> Option.iter walkType
       | SynMemberDefn.ValField(field, _) -> walkField field
       | SynMemberDefn.NestedType(tdef, _, _) -> walkTypeDefn tdef
       | SynMemberDefn.AutoProperty(attributes = AllAttrs attrs; typeOpt = t; synExpr = e; range = _) ->

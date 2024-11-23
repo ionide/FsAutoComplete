@@ -326,13 +326,13 @@ type AdaptiveState
         FSIRefs.TFM.NetFx)
 
 
-  let sendDiagnostics (uri: DocumentUri) (diags: Diagnostic[]) =
+  let sendDiagnostics (uri: DocumentUri) (version, diags: Diagnostic[]) =
     logger.info (Log.setMessageI $"SendDiag for {uri:file}: {diags.Length:diags} entries")
 
     // TODO: providing version would be very useful
     { Uri = uri
       Diagnostics = diags
-      Version = None }
+      Version = version }
     |> lspClient.TextDocumentPublishDiagnostics
 
 
@@ -377,6 +377,13 @@ type AdaptiveState
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) -> detectTests parseResults proj ct)
 
+  let analyzersLocker = new SemaphoreSlim(1,1)
+
+  let typecheckLocker =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75)) |> int
+    new SemaphoreSlim(maxConcurrency,maxConcurrency)
+
   let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
     let filePathUntag = UMX.untag filePath
@@ -387,9 +394,12 @@ type AdaptiveState
 
     let inline getSourceLine lineNo = (source: ISourceText).GetLineString(lineNo - 1)
 
+
     let checkUnusedOpens =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
@@ -397,7 +407,6 @@ type AdaptiveState
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
             |> Async.withCancellation progress.CancellationToken
 
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
@@ -406,6 +415,8 @@ type AdaptiveState
     let checkUnusedDeclarations =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
@@ -417,7 +428,6 @@ type AdaptiveState
 
           let unused = unused |> Seq.toArray
 
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused, file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
@@ -426,6 +436,8 @@ type AdaptiveState
     let checkSimplifiedNames =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
@@ -434,7 +446,6 @@ type AdaptiveState
             |> Async.withCancellation progress.CancellationToken
 
           let simplified = Array.ofSeq simplified
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified, file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
@@ -443,6 +454,8 @@ type AdaptiveState
     let checkUnnecessaryParentheses =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
@@ -464,7 +477,6 @@ type AdaptiveState
 
               | _ -> ranges)
 
-          let! ct = Async.CancellationToken
 
           notifications.Trigger(
             NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version),
@@ -513,6 +525,9 @@ type AdaptiveState
         let file = volatileFile.FileName
 
         try
+
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync()
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin("Running analyzers...", message = UMX.untag file)
 
@@ -536,7 +551,6 @@ type AdaptiveState
                 parseAndCheck.GetCheckResults
               )
 
-            let! ct = Async.CancellationToken
             notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
 
             Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
@@ -908,7 +922,7 @@ type AdaptiveState
       use progressReport = new ServerProgressReport(lspClient)
 
       progressReport.Begin ($"Loading {projects.Count} Projects") (CancellationToken.None)
-      |> ignore<Task<unit>>
+      |> ignore<ValueTask<unit>>
 
       let projectOptions =
         loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
@@ -1041,21 +1055,8 @@ type AdaptiveState
                 let fcsRangeToReplace = protocolRangeToRange (UMX.untag filePath) change.Range
 
                 try
-                  match text.Source.ModifyText(fcsRangeToReplace, change.Text) with
-                  | Ok text -> VolatileFile.Create(text, version, touched)
-
-                  | Error message ->
-                    logger.error (
-                      Log.setMessage
-                        "Error applying {change} to document {file} for version {version} - {range} : {message} "
-                      >> Log.addContextDestructured "file" filePath
-                      >> Log.addContextDestructured "version" version
-                      >> Log.addContextDestructured "message" message
-                      >> Log.addContextDestructured "range" fcsRangeToReplace
-                      >> Log.addContextDestructured "change" change
-                    )
-
-                    text
+                  let text = text.Source.ModifyText(fcsRangeToReplace, change.Text)
+                  VolatileFile.Create(text, version, touched)
                 with e ->
                   logger.error (
                     Log.setMessage "Error applying {change} to document {file} for version {version} - {range}"
@@ -1186,24 +1187,18 @@ type AdaptiveState
     }
 
   let cancelToken filePath version (cts: CancellationTokenSource) =
+    logger.info (
+      Log.setMessage "Cancelling {filePath} - {version}"
+      >> Log.addContextDestructured "filePath" filePath
+      >> Log.addContextDestructured "version" version
+    )
+    cts.TryCancel()
+    cts.TryDispose()
 
-    try
-      logger.info (
-        Log.setMessage "Cancelling {filePath} - {version}"
-        >> Log.addContextDestructured "filePath" filePath
-        >> Log.addContextDestructured "version" version
-      )
-
-      cts.Cancel()
-      cts.Dispose()
-    with
-    | :? OperationCanceledException
-    | :? ObjectDisposedException as e when e.Message.Contains("CancellationTokenSource has been disposed") ->
-      // ignore if already cancelled
-      ()
 
   let resetCancellationToken (filePath: string<LocalPath>) version =
-    let adder _ = new CancellationTokenSource()
+    let adder _ =
+      new CancellationTokenSource()
 
     let updater _key value =
       cancelToken filePath version value
@@ -1601,6 +1596,8 @@ type AdaptiveState
 
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
+      use! _l = typecheckLocker.LockAsync()
+
 
       logger.info (
         Log.setMessage "Getting typecheck results for {file} - {hash} - {date}"
@@ -1745,7 +1742,7 @@ type AdaptiveState
           let! snap = x.FSharpProjectCompilerOptions
 
           return!
-            asyncResult {
+            asyncEx {
               let cts = getOpenFileTokenOrDefault file
               use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts)
 
@@ -2500,11 +2497,7 @@ type AdaptiveState
   member x.GetTypeCheckResultsForFile(filePath, opts) = bypassAdaptiveTypeCheck filePath opts
 
   member x.GetTypeCheckResultsForFile(filePath) =
-    asyncResult {
-      let! opts = forceGetProjectOptions filePath
-      let snap = opts.FSharpProjectCompilerOptions |> AVal.force
-      return! x.GetTypeCheckResultsForFile(filePath, snap)
-    }
+    forceGetOpenFileTypeCheckResultsOrCheck filePath
 
   member x.GetFilesToProject() = getAllFilesToProjectOptionsSelected ()
 

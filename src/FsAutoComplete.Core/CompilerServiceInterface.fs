@@ -81,19 +81,24 @@ type CompilerProjectOption =
 type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution, useTransparentCompiler)
   =
   let checker =
-    FSharpChecker.Create(
-      projectCacheSize = 200,
-      keepAssemblyContents = hasAnalyzers,
-      keepAllBackgroundResolutions = true,
-      suggestNamesForErrors = true,
-      keepAllBackgroundSymbolUses = true,
-      enableBackgroundItemKeyStoreAndSemanticClassification = true,
-      enablePartialTypeChecking = not hasAnalyzers,
-      parallelReferenceResolution = parallelReferenceResolution,
-      captureIdentifiersWhenParsing = true,
-      useSyntaxTreeCache = true,
-      useTransparentCompiler = useTransparentCompiler
-    )
+    let c =
+      FSharpChecker.Create(
+        projectCacheSize = 200,
+        keepAssemblyContents = hasAnalyzers,
+        keepAllBackgroundResolutions = true,
+        suggestNamesForErrors = true,
+        keepAllBackgroundSymbolUses = true,
+        enableBackgroundItemKeyStoreAndSemanticClassification = true,
+        enablePartialTypeChecking = not hasAnalyzers,
+        parallelReferenceResolution = parallelReferenceResolution,
+        captureIdentifiersWhenParsing = true,
+        useTransparentCompiler = useTransparentCompiler
+      )
+
+    if useTransparentCompiler then
+      c.TransparentCompiler.SetCacheSizeFactor(10)
+
+    c
 
   let entityCache = EntityCache()
 
@@ -324,14 +329,12 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   member self.GetProjectSnapshotsFromScript(file: string<LocalPath>, source, tfm: FSIRefs.TFM) =
     async {
-      try
-        do! scriptLocker.WaitAsync() |> Async.AwaitTask
+        use! _l = scriptLocker.LockAsync()
 
         match tfm with
         | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptSnapshot(file, source)
         | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptSnapshot(file, source)
-      finally
-        scriptLocker.Release() |> ignore<int>
+
     }
 
 
@@ -405,14 +408,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) =
     async {
-      try
-        do! scriptLocker.WaitAsync() |> Async.AwaitTask
+        use! _l = scriptLocker.LockAsync()
 
         match tfm with
         | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptOptions(file, source)
         | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptOptions(file, source)
-      finally
-        scriptLocker.Release() |> ignore<int>
     }
 
 
@@ -504,7 +504,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
                 .SetSize(1)
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
-            return lastCheckResults.Set(filePath, r, ops)
+            let rw = WeakReference<ParseAndCheckResults>(r)
+            lastCheckResults.Set(filePath, rw, ops) |> ignore
+            return r
           else
             return r
       with ex ->
@@ -582,8 +584,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
     checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
-    match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
-    | (true, v) -> Some v
+    match lastCheckResults.TryGetValue<WeakReference<ParseAndCheckResults>>(file) with
+    | (true, v) ->
+      match v.TryGetTarget() with
+      | (true, v) -> Some v
+      | _ -> None
     | _ -> None
 
   member _.TryGetRecentCheckResultsForFile(file: string<LocalPath>, snapshot: FSharpProjectSnapshot) =

@@ -84,7 +84,7 @@ type IFSACSourceText =
   /// Intended use is for traversal loops.
   abstract member TryGetPrevChar: position: Position -> option<Position * char>
   /// create a new IFSACSourceText for this file with the given text inserted at the given range.
-  abstract member ModifyText: range: Range * text: string -> Result<IFSACSourceText, string>
+  abstract member ModifyText: range: Range * text: string -> IFSACSourceText
   /// Safe access to the char in a file by Position
   abstract Item: index: Position -> option<char> with get
   /// Safe access to the contents of a file by Range

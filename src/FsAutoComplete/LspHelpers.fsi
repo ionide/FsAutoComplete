@@ -46,11 +46,7 @@ module Conversions =
 
     member CodeAsString: string option
 
-  type TextDocumentIdentifier with
-
-    member GetFilePath: unit -> string
-
-  type VersionedTextDocumentIdentifier with
+  type ITextDocumentIdentifier with
 
     member GetFilePath: unit -> string
 

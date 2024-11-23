@@ -55,9 +55,13 @@ type DiagnosticMessage =
   | Clear of source: string
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
-type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<unit>) =
+type DiagnosticCollection(sendDiagnostics: DocumentUri -> Version option * Diagnostic[] -> Async<unit>) =
   let send uri (diags: Map<string, Version * Diagnostic[]>) =
-    Map.toArray diags |> Array.collect (snd >> snd) |> sendDiagnostics uri
+    // Map.toArray diags |> Array.collect (snd >> snd) |> sendDiagnostics uri
+    if diags.Values |> Seq.isEmpty then
+      sendDiagnostics uri (None, [||])
+    else
+      diags.Values |> Seq.maxBy(fun (version, _) -> version) |> fun (version, diags) -> sendDiagnostics uri (Some version, diags)
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<
@@ -131,10 +135,10 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
       | [||] -> mailbox.Post(Clear kind)
       | values -> mailbox.Post(Add(kind, version, values))
 
-  member x.ClearFor(fileUri: DocumentUri) =
+  member x.ClearFor(fileUri: DocumentUri, ?version) =
     if x.ClientSupportsDiagnostics then
       removeAgent fileUri
-      sendDiagnostics fileUri [||] |> Async.Start
+      sendDiagnostics fileUri (version, [||]) |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
     if x.ClientSupportsDiagnostics then
@@ -145,6 +149,38 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
     member x.Dispose() =
       for (_, cts) in agents.Values do
         cts.Cancel()
+
+module CancellableTask =
+  open IcedTasks
+  open Microsoft.FSharp.Core.CompilerServices
+
+  let inline startAsTask (ct: CancellationToken) ([<InlineIfLambda>] ctask: CancellableTask<'T>) = ctask ct
+
+  let inline fireAndForget (ct: CancellationToken) ([<InlineIfLambda>] ctask: CancellableTask<'T>) =
+    startAsTask ct ctask
+    |> ignore
+
+  let inline withCancellation (ct: CancellationToken) ([<InlineIfLambda>] ctask: CancellableTask<'T>) =
+    cancellableTask {
+      let! ct2 = CancellableTask.getCancellationToken ()
+      use cts = CancellationTokenSource.CreateLinkedTokenSource(ct, ct2)
+      let! result = startAsTask cts.Token ctask
+      return result
+    }
+
+  let inline withCancellations (ct: CancellationToken array) ([<InlineIfLambda>] ctask: CancellableTask<'T>) =
+    cancellableTask {
+
+      let! ct2 = CancellableTask.getCancellationToken ()
+
+      use cts =
+        let mutable tokens = ArrayCollector<CancellationToken>()
+        tokens.Add ct2
+        tokens.AddManyAndClose ct |> CancellationTokenSource.CreateLinkedTokenSource
+
+      let! result = startAsTask cts.Token ctask
+      return result
+    }
 
 module Async =
   open System.Threading.Tasks
@@ -158,7 +194,10 @@ module Async =
     asyncEx {
       let! ct2 = Async.CancellationToken
       use cts = CancellationTokenSource.CreateLinkedTokenSource(ct, ct2)
-      let tcs = new TaskCompletionSource<'a>()
+
+      let tcs =
+        new TaskCompletionSource<'a>(TaskCreationOptions.RunContinuationsAsynchronously)
+
       use _reg = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore)
 
       let a =

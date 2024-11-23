@@ -16,12 +16,12 @@ type AwaitableDisposable<'T when 'T :> IDisposable>(t: Task<'T>) =
 [<AutoOpen>]
 module SemaphoreSlimExtensions =
   open System.Threading
+  open IcedTasks
   // Based on https://gist.github.com/StephenCleary/7dd1c0fc2a6594ba0ed7fb7ad6b590d6
   // and https://gist.github.com/brendankowitz/5949970076952746a083054559377e56
   type SemaphoreSlim with
 
-    member x.LockAsync(?ct: CancellationToken) =
-      AwaitableDisposable(
+    member x.LockTask(?ct: CancellationToken) =
         task {
           let ct = defaultArg ct CancellationToken.None
           let t = x.WaitAsync(ct)
@@ -36,4 +36,9 @@ module SemaphoreSlimExtensions =
                   if t.Status = TaskStatus.RanToCompletion then
                     x.Release() |> ignore }
         }
-      )
+
+    member x.LockAsync() =
+      asyncEx {
+        let! ct = Async.CancellationToken
+        return! x.LockTask ct
+      }
