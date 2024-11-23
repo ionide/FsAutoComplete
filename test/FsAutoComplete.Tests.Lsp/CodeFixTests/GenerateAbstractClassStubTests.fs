@@ -9,6 +9,14 @@ open System.IO
 
 let sourceDir = __SOURCE_DIRECTORY__
 let expectedTestDir = Path.Join(sourceDir, "GenerateAbstractClassStubTests")
+
+let tfm =
+#if NET8_0
+  "net80"
+#else
+  "net90"
+#endif
+
 let expectFile file = File.ReadAllText(Path.Join(expectedTestDir, file))
 let tests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
@@ -51,7 +59,7 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile "can_generate_abstract_class_stub.expected")
+        (expectFile $"can_generate_abstract_class_stub.{tfm}.expected")
 
     testCaseAsync "can generate abstract class stub with another member with attribute" <|
       CodeFix.check server
@@ -75,7 +83,7 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-         (expectFile "can_generate_abstract_class_stub_with_another_member_with_attribute.expected")
+         (expectFile $"can_generate_abstract_class_stub_with_another_member_with_attribute.{tfm}.expected")
 
     testCaseAsync "can generate abstract class stub without trailing nl" <|
       CodeFix.check server
@@ -96,7 +104,7 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile "can_generate_abstract_class_stub_without_trailing_nl.expected")
+        (expectFile $"can_generate_abstract_class_stub_without_trailing_nl.{tfm}.expected")
 
     testCaseAsync "inserts override in correct place" <|
       CodeFix.check server
@@ -117,7 +125,7 @@ let tests state =
         let a = 0"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile "inserts_override_in_correct_place.expected")
+        (expectFile $"inserts_override_in_correct_place.{tfm}.expected")
 
     testCaseAsync "can generate abstract class stub with existing override" <|
       CodeFix.check server
@@ -140,5 +148,5 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile "can_generate_abstract_class_stub_with_existing_override.expected")
+        (expectFile $"can_generate_abstract_class_stub_with_existing_override.{tfm}.expected")
   ])
