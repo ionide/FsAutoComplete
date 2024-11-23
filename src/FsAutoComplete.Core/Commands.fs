@@ -258,7 +258,7 @@ module Commands =
       | None -> return CoreResponse.InfoRes "Record at position not found"
       | Some(recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
-          let result = formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList
+          let result = (formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList).TrimStart(' ')
           return CoreResponse.Res(result, insertionPos.InsertionPos)
         else
           return CoreResponse.InfoRes "Record at position not found"
