@@ -105,8 +105,8 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
 
 
   member x.Begin(title, ?cancellable, ?message, ?percentage) =
-    cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+    cancellableValueTask {
+      use! __ = locker.LockTask
 
       if not endSent then
         let! result = lspClient.WorkDoneProgressCreate x.ProgressToken
@@ -129,8 +129,8 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
     }
 
   member x.Report(?cancellable, ?message, ?percentage) =
-    cancellableTask {
-      use! __ = fun ct -> locker.LockAsync(ct)
+    cancellableValueTask {
+      use! __ = locker.LockTask
 
       if canReportProgress && not endSent then
         do!
@@ -145,8 +145,8 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
     }
 
   member x.End(?message) =
-    cancellableTask {
-      use! __ = fun ct -> locker.LockAsync(ct)
+    cancellableValueTask {
+      use! __ = locker.LockTask
       let stillNeedsToSend = canReportProgress && not endSent
 
       if stillNeedsToSend then

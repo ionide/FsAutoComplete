@@ -86,11 +86,7 @@ module Conversions =
       | Some(U2.C2 code) -> code |> Some
       | None -> None
 
-  type TextDocumentIdentifier with
-
-    member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
-
-  type VersionedTextDocumentIdentifier with
+  type ITextDocumentIdentifier with
 
     member doc.GetFilePath() = Path.FileUriToLocalPath doc.Uri
 

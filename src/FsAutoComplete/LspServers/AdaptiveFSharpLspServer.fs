@@ -79,7 +79,7 @@ type AdaptiveFSharpLspServer
     | :? TaskCanceledException -> ValueSome(e)
     | :? OperationCanceledException -> ValueSome(e)
     | :? System.AggregateException as aex ->
-      if aex.InnerExceptions.Count = 1 then
+      if aex.Flatten().InnerExceptions.Count = 1 then
         (|Cancelled|_|) aex.InnerException
       else
         ValueNone
@@ -944,7 +944,7 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
           | Some tooltipResult ->
@@ -1587,7 +1587,7 @@ type AdaptiveFSharpLspServer
           let filePath = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
 
           try
-            let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+            let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
 
             logger.info (
@@ -2201,9 +2201,7 @@ type AdaptiveFSharpLspServer
           )
 
           let (filePath, pos) =
-            { new ITextDocumentPositionParams with
-                member __.TextDocument = p.TextDocument
-                member __.Position = p.Position }
+            p
             |> getFilePathAndPosition
 
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr

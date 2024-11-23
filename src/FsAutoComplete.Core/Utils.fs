@@ -70,7 +70,7 @@ module ProcessHelper =
 
   let WaitForExitAsync (p: Process) =
     asyncEx {
-      let tcs = TaskCompletionSource<obj>()
+      let tcs = TaskCompletionSource<obj>(TaskCreationOptions.RunContinuationsAsynchronously)
       p.EnableRaisingEvents <- true
       p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
 
@@ -239,10 +239,11 @@ module Async =
   /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
   /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
   let parallel75 computations =
-    let maxConcurrency =
-      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+    // let maxConcurrency =
+    //   Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
 
-    Async.Parallel(computations, int maxConcurrency)
+    // Async.Parallel(computations, int maxConcurrency)
+    Async.Parallel computations
 
   [<RequireQualifiedAccess>]
   module Array =
