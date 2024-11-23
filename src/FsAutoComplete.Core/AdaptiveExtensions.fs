@@ -34,10 +34,13 @@ module AdaptiveExtensions =
   type TaskCompletionSource<'a> with
 
     /// https://github.com/dotnet/runtime/issues/47998
-    member tcs.TrySetFromTask(real: Task<'a>) =
+    member tcs.TrySetFromTaskFinished(real: Task<'a>) =
 
       // note: using ContinueWith instead of task CE for better stack traces
       real.ContinueWith (fun (task: Task<_>) ->
+#if NET9_0_OR_GREATER
+        tcs.TrySetFromTask(task) |> ignore<bool>
+#else
         match task.Status with
         | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
         | TaskStatus.Canceled ->
@@ -46,7 +49,7 @@ module AdaptiveExtensions =
         | TaskStatus.Faulted ->
           tcs.TrySetException(task.Exception.InnerExceptions)
           |> ignore<bool>
-
+#endif
         | _ -> ())
       |> ignore<Task>
 
@@ -413,12 +416,9 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
         real
       else
         cachedTcs <- new TaskCompletionSource<'a>()
-#if NET8_0
-        cachedTcs.TrySetFromTask real
-#if NET9_0_OR_GREATER
-        cachedTcs.TrySetFromTask real |> ignore<bool>
-#endif
-#endif
+
+        cachedTcs.TrySetFromTaskFinished real
+
         cachedTcs.Task
 
     cached <-
