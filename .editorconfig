@@ -26,3 +26,7 @@ fsharp_max_value_binding_width=80
 
 [src/FsAutoComplete/CodeFixes/*.fs]
 fsharp_experimental_keep_indent_in_branch = true
+
+[test/**/*.expected]
+trim_trailing_whitespace = false
+insert_final_newline = false
