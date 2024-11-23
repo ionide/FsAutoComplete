@@ -424,7 +424,7 @@ let tooltipTests state =
             (concatLines
               [ "active pattern Value: "
                 "   input: Expr"
-                "       -> option<obj * System.Type>" ])
+                "       -> option<objnull * System.Type>" ])
           verifySignature
             65u
             7u
@@ -438,7 +438,7 @@ let tooltipTests state =
             (concatLines
               [ "active pattern ValueWithName: "
                 "   input: Expr"
-                "       -> option<obj * System.Type * string>" ]) ] ]
+                "       -> option<objnull * System.Type * string>" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
