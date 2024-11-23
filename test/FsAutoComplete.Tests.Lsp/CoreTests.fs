@@ -422,9 +422,15 @@ let tooltipTests state =
             60u
             7u
             (concatLines
+#if NET8_0
+              [ "active pattern Value: "
+                "   input: Expr"
+                "       -> option<obj * System.Type>" ])
+#else
               [ "active pattern Value: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type>" ])
+#endif
           verifySignature
             65u
             7u
@@ -436,9 +442,16 @@ let tooltipTests state =
             70u
             7u
             (concatLines
+
+#if NET8_0
+              [ "active pattern ValueWithName: "
+                "   input: Expr"
+                "       -> option<obj * System.Type * string>" ]) ] ]
+#else
               [ "active pattern ValueWithName: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type * string>" ]) ] ]
+#endif
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
