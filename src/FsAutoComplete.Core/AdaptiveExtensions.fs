@@ -49,8 +49,10 @@ module AdaptiveExtensions =
         | TaskStatus.Faulted ->
           tcs.TrySetException(task.Exception.InnerExceptions)
           |> ignore<bool>
+        | _ -> ()
+
 #endif
-        | _ -> ())
+        )
       |> ignore<Task>
 
   type ChangeableHashMap<'Key, 'Value> with
