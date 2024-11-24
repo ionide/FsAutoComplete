@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.75.0] - 2024-11-24
+
+### Added
+
+* [Support F# 9 language features and toolin  g](https://github.com/ionide/FsAutoComplete/pull/1324)
+* Support for .NET 9 SDKS
+
+### Removed
+
+* Support for .NET 6 and .NET 7 SDKs
+
 ## [0.74.1] - 2024-09-07
 
 ### Added
