@@ -509,11 +509,15 @@ module Commands =
     =
 
     let filterSymbols symbols =
-      symbols
-      |> Array.where (fun (su: FSharpSymbolUse) ->
-        su.IsFromDispatchSlotImplementation
-        || (su.IsFromType
-            && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
+      if Utils.isSignatureFile (UMX.untag tyRes.FileName) then
+        let implFile = Utils.toFSharpFile (UMX.untag tyRes.FileName)
+        symbols |> Array.filter (fun (su: FSharpSymbolUse) -> su.FileName = implFile)
+      else
+        symbols
+        |> Array.where (fun (su: FSharpSymbolUse) ->
+          su.IsFromDispatchSlotImplementation
+          || (su.IsFromType
+              && not (tyRes.GetParseResults.IsTypeAnnotationGivenAtPosition(su.Range.Start))))
 
     async {
       match tyRes.TryGetSymbolUseAndUsages pos lineStr with
