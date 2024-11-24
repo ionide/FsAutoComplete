@@ -58,3 +58,5 @@ nuget CommunityToolkit.HighPerformance
 nuget System.Security.Cryptography.Pkcs
 nuget System.Net.Http
 nuget System.Text.RegularExpressions
+
+nuget System.CodeDom ~> 8 # We use IndentedTextWriter, and somehow windows picks up the 9.0 version of this and breaks tests because mac/linux use 8.0
