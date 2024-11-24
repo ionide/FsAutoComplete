@@ -1,11 +1,10 @@
-FSharp.Analyzers.SDK
+FSharp.Core
 ICSharpCode.Decompiler
 FSharp.UMX
 FsToolkit.ErrorHandling.TaskResult
 Fantomas.Client
 FSharp.Data.Adaptive
 IcedTasks
-Ionide.ProjInfo.ProjectSystem
 Microsoft.Build.Utilities.Core
 Ionide.LanguageServerProtocol
 Ionide.KeepAChangelog.Tasks
@@ -13,5 +12,7 @@ Microsoft.Extensions.Caching.Memory
 Microsoft.CodeAnalysis
 LinkDotNet.StringBuilder
 CommunityToolkit.HighPerformance
+Ionide.ProjInfo.ProjectSystem
+FSharp.Analyzers.SDK
 Ionide.Analyzers
 FSharp.Analyzers.Build

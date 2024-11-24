@@ -983,6 +983,20 @@ let private addPrivateAccessModifierTests state =
           member val private Name = "" with get, set
         """
 
+      testCaseAsync "add private works for autoproperty with get"
+      <| CodeFix.check
+        server
+        """
+        type MyClass() =
+          member val Name$0 = "" with get
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+        """
+        type MyClass() =
+          member val private Name = "" with get
+        """
+
       testCaseAsync "add private is not offered for autoproperty with references outside its class"
       <| CodeFix.checkNotApplicable
         server

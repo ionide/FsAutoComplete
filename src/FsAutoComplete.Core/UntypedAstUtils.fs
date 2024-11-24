@@ -130,6 +130,7 @@ module Syntax =
         walkType t
         walkMemberSig sign
       | SynTypeConstraint.WhereSelfConstrained(t, _) -> walkType t
+      | SynTypeConstraint.WhereTyparNotSupportsNull(t, _, _) -> walkTypar t
 
     and walkPat s =
       walker.WalkPat s
@@ -227,6 +228,8 @@ module Syntax =
       | SynType.Intersection(typar, types, _, _) ->
         Option.iter walkTypar typar
         List.iter walkType types
+      | SynType.StaticConstantNull(_) -> ()
+      | SynType.WithNull(t, _, _, _) -> walkType t
 
     and walkClause (SynMatchClause(pat, e1, e2, _, _, _) as s) =
       walker.WalkClause s

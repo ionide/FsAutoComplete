@@ -25,3 +25,5 @@ configure.sh text eol=lf
 *.fs text eol=lf
 *.fsi text eol=lf
 *.fsx text eol=lf
+
+*.expected text eol=lf
