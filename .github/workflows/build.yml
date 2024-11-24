@@ -26,7 +26,7 @@ jobs:
           - windows-latest
           - macos-13 # using 13 because it's a bigger machine, and latest is still pointing to 12
           - ubuntu-latest
-        dotnet-version: ["", "8.0.x", "9.0.x"]
+        dotnet-version: ["8.0.x", "9.0.x"]
         use-transparent-compiler:
           - "TransparentCompiler"
           - "BackgroundCompiler"
@@ -35,13 +35,6 @@ jobs:
           # - "ProjectGraph" # this is disable because it just adds too much time to the build
         # these entries will mesh with the above combinations
         include:
-          # just use what's in the repo
-          - global-json-file: "global.json"
-            dotnet-version: ""
-            include-prerelease: false
-            label: "repo global.json"
-            build_net9: false
-            test_tfm: net8.0
           # latest 8.0
           - global-json-file: "global.json"
             dotnet-version: "8.0.x"
@@ -71,15 +64,17 @@ jobs:
 
     # setup .NET per test session
     - name: Setup .NET
+      id : setup-dotnet
       uses: actions/setup-dotnet@v3
       with:
-        include-prerelease: ${{ matrix.include-prerelease }}
-        global-json-file: ${{ matrix.global-json-file }}
         dotnet-version: ${{ matrix.dotnet-version }}
 
     # remove global.json so that the env configuration takes precedence
     - name: Purge global.json
       run: rm global.json
+
+    - name: Create global.json
+      run: dotnet new globaljson --sdk-version '${{ steps.setup-dotnet.outputs.dotnet-version }}' --roll-forward latestMinor
 
     # let's make sure we're on the version we think we are.
     - name: Announce .NET version
