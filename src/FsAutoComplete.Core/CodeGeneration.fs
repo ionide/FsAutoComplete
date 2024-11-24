@@ -753,8 +753,8 @@ module CodeGenerationUtils =
     if Seq.isEmpty missingMembers then
       String.Empty
     else
-      writer.Indent startColumn
       writer.WriteLine("")
+      writer.Indent startColumn
 
       let duplicatedMembers =
         missingMembers

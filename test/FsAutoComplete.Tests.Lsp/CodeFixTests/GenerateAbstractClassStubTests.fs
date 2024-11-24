@@ -5,19 +5,7 @@ open Helpers
 open Utils.ServerTests
 open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
-open System.IO
 
-let sourceDir = __SOURCE_DIRECTORY__
-let expectedTestDir = Path.Join(sourceDir, "GenerateAbstractClassStubTests")
-
-let tfm =
-#if NET8_0
-  "net80"
-#else
-  "net90"
-#endif
-
-let expectFile file = File.ReadAllText(Path.Join(expectedTestDir, file))
 let tests state =
   let config = { defaultConfigDto with AbstractClassStubGeneration = Some true }
   serverTestList (nameof GenerateAbstractClassStub) state config None (fun server -> [
@@ -40,7 +28,6 @@ let tests state =
         (Diagnostics.expectCode "365")
         selectCodeFix
     testCaseAsync "can generate abstract class stub" <|
-
       CodeFix.check server
         """
         [<AbstractClass>]
@@ -59,8 +46,26 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile $"can_generate_abstract_class_stub.{tfm}.expected")
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
 
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+          override this.Name: string =
+              failwith "Not Implemented"
+        ()"""
     testCaseAsync "can generate abstract class stub with another member with attribute" <|
       CodeFix.check server
         """
@@ -83,8 +88,29 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-         (expectFile $"can_generate_abstract_class_stub_with_another_member_with_attribute.{tfm}.expected")
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
 
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+          override this.Name: string =
+              failwith "Not Implemented"
+
+          [<CompiledName("yo")>]
+          member x.Foo() = 1
+        ()"""
     testCaseAsync "can generate abstract class stub without trailing nl" <|
       CodeFix.check server
         """
@@ -104,8 +130,26 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile $"can_generate_abstract_class_stub_without_trailing_nl.{tfm}.expected")
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
 
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+          override this.Name: string =
+              failwith "Not Implemented"
+        ()"""
     testCaseAsync "inserts override in correct place" <|
       CodeFix.check server
         """
@@ -125,8 +169,26 @@ let tests state =
         let a = 0"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile $"inserts_override_in_correct_place.{tfm}.expected")
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
 
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+          override this.Name: string =
+              failwith "Not Implemented"
+        let a = 0"""
     testCaseAsync "can generate abstract class stub with existing override" <|
       CodeFix.check server
         """
@@ -148,5 +210,24 @@ let tests state =
         ()"""
         (Diagnostics.expectCode "365")
         selectCodeFix
-        (expectFile $"can_generate_abstract_class_stub_with_existing_override.{tfm}.expected")
+        """
+        [<AbstractClass>]
+        type Shape(x0: float, y0: float) =
+          let mutable x, y = x0, y0
+
+          abstract Name : string with get
+          abstract Area : float with get
+
+          member _.Move dx dy =
+            x <- x + dx
+            y <- y + dy
+
+        type Square(x,y, sideLength) =
+          inherit Shape(x,y)
+
+          override this.Area: float =
+              failwith "Not Implemented"
+
+          override this.Name = "Circle"
+        ()"""
   ])
