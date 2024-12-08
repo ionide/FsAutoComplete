@@ -119,62 +119,6 @@ type MapDisposableTupleVal<'T1, 'T2, 'Disposable when 'Disposable :> IDisposable
 
 module AVal =
 
-  // [<Sealed>]
-  // type MapByVal<'T1, 'T2>(equals, mapping: 'T1 -> 'T2, input: aval<'T1>) =
-  //     inherit AbstractVal<'T2>()
-
-  //     // can we avoid double caching (here and in AbstractVal)
-  //     let mutable cache: ValueOption<struct ('T1 * 'T2)> = ValueNone
-
-  //     override x.Compute(token: AdaptiveToken) =
-  //         let i = input.GetValue token
-  //         match cache with
-  //         | ValueSome (struct (a, b)) when equals a i ->
-  //             b
-  //         | _ ->
-  //             let b = mapping i
-  //             cache <- ValueSome(struct (i, b))
-  //             b
-
-
-  // /// Aval for binding a single value
-  // [<Sealed>]
-  // type BindByVal<'T1, 'T2>(equals, mapping: 'T1 -> aval<'T2>, input: aval<'T1>) =
-  //     inherit AbstractVal<'T2>()
-
-  //     let mutable inner: ValueOption< struct ('T1 * aval<'T2>) > = ValueNone
-  //     let mutable inputDirty = 1
-
-  //     override x.InputChangedObject(_, o) =
-  //         if Object.ReferenceEquals(o, input) then
-  //             inputDirty <- 1
-
-  //     override x.Compute(token: AdaptiveToken) =
-  //         let va = input.GetValue token
-  //         #if FABLE_COMPILER
-  //         let inputDirty = let v = inputDirty in inputDirty <- 0; v <> 0
-  //         #else
-  //         let inputDirty = System.Threading.Interlocked.Exchange(&inputDirty, 0) <> 0
-  //         #endif
-  //         match inner with
-  //         | ValueNone ->
-  //             let result = mapping va
-  //             inner <- ValueSome (struct (va, result))
-  //             result.GetValue token
-
-  //         | ValueSome(struct (oa, oldResult)) when not inputDirty || equals oa va ->
-  //             oldResult.GetValue token
-
-  //         | ValueSome(struct (_, old)) ->
-  //             old.Outputs.Remove x |> ignore
-  //             let result = mapping va
-  //             inner <- ValueSome (struct (va, result))
-  //             result.GetValue token
-
-  // let mapBy equals mapping input = MapByVal(equals, mapping, input) :> aval<_>
-
-  // let bindBy equals mapping input = BindByVal(equals, mapping, input) :> aval<_>
-
   let mapOption f = AVal.map (Option.map f)
 
   /// <summary>
