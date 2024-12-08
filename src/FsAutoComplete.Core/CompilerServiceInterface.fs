@@ -81,8 +81,12 @@ type CompilerProjectOption =
 type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution, useTransparentCompiler)
   =
   let checker =
-    let c =
-      FSharpChecker.Create(
+      let cacheSize =
+        if useTransparentCompiler then
+          TransparentCompiler.CacheSizes.Create(10) |> Some
+        else
+          None
+      FSharp.Compiler.CodeAnalysis.FSharpChecker.Create(
         projectCacheSize = 200,
         keepAssemblyContents = hasAnalyzers,
         keepAllBackgroundResolutions = true,
@@ -92,13 +96,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
         enablePartialTypeChecking = not hasAnalyzers,
         parallelReferenceResolution = parallelReferenceResolution,
         captureIdentifiersWhenParsing = true,
-        useTransparentCompiler = useTransparentCompiler
+        useTransparentCompiler = useTransparentCompiler,
+        ?transparentCompilerCacheSizes = cacheSize
       )
-
-    if useTransparentCompiler then
-      c.TransparentCompiler.SetCacheSizeFactor(10)
-
-    c
 
   let entityCache = EntityCache()
 
@@ -145,6 +145,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       FSharpProjectSnapshot.Create(
         snapshot.ProjectFileName,
+        snapshot.OutputFileName,
         snapshot.ProjectId,
         snapshot.SourceFiles,
         snapshot.ReferencesOnDisk,
