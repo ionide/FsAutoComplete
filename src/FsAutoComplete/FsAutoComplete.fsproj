@@ -4,8 +4,6 @@
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net8.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net8.0;net9.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net9.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">$(TargetFrameworks);net9.0</TargetFrameworks>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -50,8 +48,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-
-    <ProjectReference Include="C:\Users\jimmy\Repositories\public\TheAngryByrd\fsharp\src\Compiler\FSharp.Compiler.Service.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
