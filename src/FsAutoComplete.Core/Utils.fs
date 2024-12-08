@@ -70,7 +70,7 @@ module ProcessHelper =
 
   let WaitForExitAsync (p: Process) =
     asyncEx {
-      let tcs = TaskCompletionSource<obj>()
+      let tcs = TaskCompletionSource<obj>(TaskCreationOptions.RunContinuationsAsynchronously)
       p.EnableRaisingEvents <- true
       p.Exited.Add(fun _args -> tcs.TrySetResult(null) |> ignore)
 

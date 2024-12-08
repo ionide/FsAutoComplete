@@ -278,8 +278,7 @@ module Document =
         >> Log.addContext "uri" doc.Uri
         >> Log.addContext "version" doc.Version
       )
-
-      let tcs = TaskCompletionSource<_>()
+      let tcs = TaskCompletionSource<_>(TaskCreationOptions.RunContinuationsAsynchronously)
 
       use _ =
         doc

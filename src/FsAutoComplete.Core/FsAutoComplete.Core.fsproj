@@ -6,8 +6,17 @@
     <NoWarn>$(NoWarn);FS0057</NoWarn> <!-- Allows using experimental FCS APIs -->
   </PropertyGroup>
   <ItemGroup>
+
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Set of projects to compile against locally -->
+
+    <ProjectReference Include="..\..\..\fsharp\src\Compiler\FSharp.Compiler.Service.fsproj" />
+    <ProjectReference Include="..\..\..\proj-info\src\Ionide.ProjInfo.ProjectSystem\Ionide.ProjInfo.ProjectSystem.fsproj" />
+    <ProjectReference Include="..\..\..\FSharp.Analyzers.SDK\src\FSharp.Analyzers.SDK\FSharp.Analyzers.SDK.fsproj" />
+
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SemaphoreSlimLocks.fsi" />
