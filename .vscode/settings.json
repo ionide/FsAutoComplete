@@ -168,6 +168,4 @@
   "FSharp.lineLens.enabled": "replaceCodeLens",
   "FSharp.codeLenses.signature.enabled": false,
   "FSharp.verboseLogging": true,
-  "FSharp.fcs.transparentCompiler.enabled": true,
-  "FSharp.fsac.netCoreDllPath": "C:\\Users\\jimmy\\Repositories\\public\\TheAngryByrd\\FsAutoComplete\\src\\FsAutoComplete\\bin\\Release\\"
 }

@@ -44,6 +44,7 @@ module Snapshots =
 
   let makeAdaptiveFCSSnapshot
     projectFileName
+    outputFileName
     projectId
     sourceFiles
     referencePaths
@@ -59,6 +60,7 @@ module Snapshots =
       // If any of these change, it will create a new snapshot.
       // And if any of the snapshots in the referencedProjects change, it will create a new snapshot for them as well.
       let! projectFileName = projectFileName
+      and! outputFileName = outputFileName
       and! projectId = projectId
       and! sourceFiles = sourceFiles
       and! referencePaths = referencePaths
@@ -81,6 +83,7 @@ module Snapshots =
       return
         FSharpProjectSnapshot.Create(
           projectFileName,
+          outputFileName,
           projectId,
           sourceFiles,
           referencePaths,
@@ -97,6 +100,7 @@ module Snapshots =
 
   let makeAdaptiveFCSSnapshot2
     projectFileName
+    outputFileName
     projectId
     (sourceFiles: alist<aval<FSharpFileSnapshot>>)
     (referencePaths: aset<aval<ReferenceOnDisk>>)
@@ -113,6 +117,7 @@ module Snapshots =
 
     makeAdaptiveFCSSnapshot
       projectFileName
+      outputFileName
       projectId
       (flattenAList sourceFiles)
       (flattenASet referencePaths)
@@ -245,6 +250,13 @@ module Snapshots =
       )
 
       let projectName = AVal.constant project.ProjectFileName
+
+      let outputFileName =
+        project.OtherOptions
+        |> Seq.tryFind (fun (x: string) -> x.StartsWith("-o:"))
+        |> Option.map (fun x -> x.Substring(3))
+        |> AVal.constant
+
       let projectId = AVal.constant project.ProjectId
 
 
@@ -283,6 +295,7 @@ module Snapshots =
         makeAdaptiveFCSSnapshot2
           projectName
           projectId
+          outputFileName
           sourceFiles
           referencePaths
           otherOptions
