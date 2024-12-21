@@ -9,14 +9,12 @@
       "type": "coreclr",
       "request": "launch",
       "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net6.0/fsautocomplete.dll",
-      "args": [
-        "--mode",
-        "lsp"
-      ],
+      "args": ["--mode", "lsp"],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole",
       "stopAtEntry": false,
-      "internalConsoleOptions": "openOnSessionStart"
+      "internalConsoleOptions": "openOnSessionStart",
+      "preLaunchTask": "build debug"
     },
     {
       "name": ".NET Core Attach",
@@ -49,11 +47,8 @@
         }
       },
       "enableStepFiltering": false,
-      "args": [
-        "--debug",
-        "--filter",
-        "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"
-      ]
+      "args": ["--debug", "--filter", "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"],
+      "preLaunchTask": "build debug"
     },
     {
       "name": "Pick General tests",
@@ -74,43 +69,31 @@
         }
       },
       "enableStepFiltering": false,
-      "args": [
-        "--debug",
-        "--filter",
-        "FSAC.general.${input:testName}"
-      ]
+      "args": ["--debug", "--filter", "FSAC.general.${input:testName}"],
+      "preLaunchTask": "build debug"
     }
   ],
   "inputs": [
     {
       "id": "tfm",
       "description": "The TFM of the test to run",
-      "options": [
-        "net6.0",
-        "net7.0"
-      ],
+      "options": ["net6.0", "net7.0"],
       "default": "net7.0",
       "type": "pickString"
     },
     {
       "id": "loader",
       "description": "The loader to use for the test",
-      "options": [
-        "Ionide WorkspaceLoader",
-        "MSBuild Project Graph WorkspaceLoader"
-      ],
+      "options": ["Ionide WorkspaceLoader", "MSBuild Project Graph WorkspaceLoader"],
       "default": "WorkspaceLoader",
       "type": "pickString"
     },
     {
       "id": "compiler",
       "description": "The compiler to use",
-      "options": [
-        "BackgroundCompiler",
-        "TransparentCompiler"
-      ],
+      "options": ["BackgroundCompiler", "TransparentCompiler"],
       "default": "BackgroundCompiler",
-      "type": "pickString",
+      "type": "pickString"
     },
     {
       "id": "testName",

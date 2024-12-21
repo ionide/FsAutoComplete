@@ -1,19 +1,28 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-      {
-        "label": "format codebase",
-        "command": "dotnet",
-        "args": [
-          "build",
-          "-t",
-          "Format"
-        ],
-        "detail": "Format all source code using Fantomas",
-        "type": "shell",
-        "problemMatcher": []
-      }
-    ]
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "format codebase",
+      "command": "dotnet",
+      "args": ["build", "-t", "Format"],
+      "detail": "Format all source code using Fantomas",
+      "type": "shell",
+      "problemMatcher": []
+    },
+    {
+      "label": "build debug",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "-c",
+        "Debug",
+        "${workspaceFolder}/FsAutoComplete.sln",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ]
+    }
+  ]
 }
