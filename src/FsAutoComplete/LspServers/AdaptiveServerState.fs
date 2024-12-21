@@ -2194,7 +2194,8 @@ type AdaptiveState
          AddBindingToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
          ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
          IgnoreExpression.fix tryGetParseAndCheckResultsForFile
-         ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile |])
+         ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile
+         AddMissingSeq.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
