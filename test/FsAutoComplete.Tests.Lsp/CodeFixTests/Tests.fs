@@ -3710,4 +3710,5 @@ let tests textFactory state =
       ReplaceLambdaWithDotLambdaTests.tests state
       IgnoreExpressionTests.tests state
       ExprTypeMismatchTests.tests state
-      AddMissingWildcardOperatorTests.tests state ]
+      AddMissingWildcardOperatorTests.tests state
+      AddMissingSeqTests.tests state ]
