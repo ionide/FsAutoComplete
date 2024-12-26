@@ -10,11 +10,35 @@ let tests state =
   serverTestList (nameof AddMissingSeq) state defaultConfigDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle AddMissingSeq.title
 
-      ftestCaseAsync "first unit test for AddMissingSeq"
+      testCaseAsync "FS3873 — Adds missing seq before { start..finish } top level"
+      <| CodeFix.check
+        server
+        "$0{ 1..10 }"
+        Diagnostics.acceptAll
+        selectCodeFix
+        "seq { 1..10 }"
+
+      testCaseAsync "FS3873 — Adds missing seq before { start..finish } binding"
+      <| CodeFix.check
+        server
+        "let xs = $0{ 1;10 }"
+        Diagnostics.acceptAll
+        selectCodeFix
+        "let xs = seq { 1;10 }"
+
+      testCaseAsync "FS0740 — Adds missing seq before { x; y } top level"
       <| CodeFix.check
         server
         "$0{ 1;10 }"
         Diagnostics.acceptAll
         selectCodeFix
         "seq { 1;10 }"
+
+      testCaseAsync "FS0740 — Adds missing seq before { x; y } binding"
+      <| CodeFix.check
+        server
+        "let xs = $0{ 1;10 }"
+        Diagnostics.acceptAll
+        selectCodeFix
+        "let xs = seq { 1;10 }"
     ])
