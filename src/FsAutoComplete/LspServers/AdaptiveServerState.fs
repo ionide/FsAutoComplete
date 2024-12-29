@@ -2130,7 +2130,7 @@ type AdaptiveState
          Run.ifEnabled
            (fun _ -> config.UnusedDeclarationsAnalyzer)
            (RenameUnusedValue.fix tryGetParseAndCheckResultsForFile)
-         AddNewKeywordToDisposableConstructorInvocation.fix
+         AddNewKeywordToDisposableConstructorInvocation.fix tryGetParseAndCheckResultsForFile
          Run.ifEnabled
            (fun _ -> config.UnionCaseStubGeneration)
            (GenerateUnionCases.fix
