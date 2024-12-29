@@ -22,6 +22,8 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
 
       // Constructor arg
       // Qualified.Constructor arg
+      // Constructor<TypeArg> arg
+      // Qualified.Constructor<TypeArg> arg
       let matchingApp path node =
         let (|TargetTy|_|) expr =
           match expr with
