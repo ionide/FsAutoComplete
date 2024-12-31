@@ -8,7 +8,7 @@
   //otherwise take a lot of time to load proj inside
   //the test directories
   "omnisharp.autoStart": false,
-  "FSharp.trace.server": "off",
+  "FSharp.trace.server": "verbose",
   "yaml.schemas": {
     "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": ".github/workflows/*"
   },
@@ -164,5 +164,8 @@
     "whitespaces",
     "xrtt",
     "xunit"
-  ]
+  ],
+  "FSharp.lineLens.enabled": "replaceCodeLens",
+  "FSharp.codeLenses.signature.enabled": false,
+  "FSharp.verboseLogging": true,
 }

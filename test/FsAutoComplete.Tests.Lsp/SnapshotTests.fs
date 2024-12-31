@@ -109,7 +109,7 @@ let awaitOutOfDate (o : amap<_,_>) =
   // So we need to wait for a change to happen before we continue.
 
   task {
-    let tcs = new TaskCompletionSource<unit>()
+    let tcs = new TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
     use cts = new System.Threading.CancellationTokenSource()
     cts.CancelAfter(5000)
     use _ = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
