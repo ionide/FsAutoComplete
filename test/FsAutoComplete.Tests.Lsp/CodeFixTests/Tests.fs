@@ -122,7 +122,63 @@ let private addNewKeywordToDisposableConstructorInvocationTests state =
         let _ = System.$0String('.', 3)
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+
+      testCaseAsync "adds parentheses when needed"
+      <| CodeFix.check
+        server
+        """
+        let path = "test.txt"
+        let _ = System.IO.StreamReader path$0
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        let path = "test.txt"
+        let _ = new System.IO.StreamReader(path)
+        """
+
+      testCaseAsync "keeps space"
+      <| CodeFix.check
+        server
+        """
+        let stream = System.IO.MemoryStream ()$0
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        let stream = new System.IO.MemoryStream ()
+        """
+
+      testCaseAsync "does not add space"
+      <| CodeFix.check
+        server
+        """
+        let stream = System.IO.MemoryStream()$0
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        let stream = new System.IO.MemoryStream()
+        """
+
+      testCaseAsync "adds parentheses when needed and keeps indentation"
+      <| CodeFix.check
+        server
+        """
+        let path = "test.txt"
+        let sr =
+            System.IO.StreamReader
+                path$0
+        """
+        (Diagnostics.expectCode "760")
+        selectCodeFix
+        """
+        let path = "test.txt"
+        let sr =
+            new System.IO.StreamReader
+                (path)
+        """ ])
 
 let private addTypeToIndeterminateValueTests state =
   serverTestList (nameof AddTypeToIndeterminateValue) state defaultConfigDto None (fun server ->
@@ -3550,8 +3606,8 @@ let private removeUnnecessaryParenthesesTests state =
       ])
 
 let tests textFactory state =
-  testSequenced <|
-  testList
+  testSequenced
+  <| testList
     "CodeFix-tests"
     [ HelpersTests.tests textFactory
       AddExplicitTypeAnnotationTests.tests state
