@@ -876,7 +876,7 @@ type FSharpConfig =
       UnusedDeclarationsAnalyzerExclusions = [||]
       SimplifyNameAnalyzer = false
       SimplifyNameAnalyzerExclusions = [||]
-      UnnecessaryParenthesesAnalyzer = false
+      UnnecessaryParenthesesAnalyzer = true
       ResolveNamespaces = false
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
@@ -929,7 +929,7 @@ type FSharpConfig =
       SimplifyNameAnalyzerExclusions =
         defaultArg dto.SimplifyNameAnalyzerExclusions [||]
         |> Array.choose tryCreateRegex
-      UnnecessaryParenthesesAnalyzer = defaultArg dto.UnnecessaryParenthesesAnalyzer false
+      UnnecessaryParenthesesAnalyzer = defaultArg dto.UnnecessaryParenthesesAnalyzer true
       ResolveNamespaces = defaultArg dto.ResolveNamespaces false
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false

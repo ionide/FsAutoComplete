@@ -518,15 +518,15 @@ let private rangeTests state =
         open System
         open System.Threading.Tasks
         let _ = task {
-          do! Task.$<De$0lay>$ (TimeSpan.MaxValue)
-          do! Task.$<``Delay``>$ (TimeSpan.MaxValue)
-          do! System.Threading.Tasks.Task.$<Delay>$ (TimeSpan.MaxValue)
+          do! Task.$<De$0lay>$ TimeSpan.MaxValue
+          do! Task.$<``Delay``>$ TimeSpan.MaxValue
+          do! System.Threading.Tasks.Task.$<Delay>$ TimeSpan.MaxValue
           do!
             System
               .Threading
               .Tasks
               .Task
-              .$<Delay>$ (TimeSpan.MaxValue)
+              .$<Delay>$ TimeSpan.MaxValue
         }
         """
       testCaseAsync "can get range of variable with required backticks"
@@ -616,15 +616,15 @@ let private rangeTests state =
         open System
         open System.Threading.Tasks
         let _ = task {
-          do! $<Ta$0sk>$.Delay(TimeSpan.MaxValue)
-          do! $<Task>$.``Delay`` (TimeSpan.MaxValue)
-          do! System.Threading.Tasks.$<Task>$.Delay (TimeSpan.MaxValue)
+          do! $<Ta$0sk>$.Delay TimeSpan.MaxValue
+          do! $<Task>$.``Delay`` TimeSpan.MaxValue
+          do! System.Threading.Tasks.$<Task>$.Delay TimeSpan.MaxValue
           do!
             System
               .Threading
               .Tasks
               .$<Task>$
-              .Delay (TimeSpan.MaxValue)
+              .Delay TimeSpan.MaxValue
         }
         """ ])
 
