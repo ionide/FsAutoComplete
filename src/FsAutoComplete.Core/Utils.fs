@@ -126,6 +126,9 @@ let inline isAScript (fileName: ReadOnlySpan<char>) =
 /// </summary>
 let inline isSignatureFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".fsi"
 
+let toSignatureFile fileName =
+  IO.Path.ChangeExtension(fileName, ".fsi")
+
 /// <summary>
 /// Checks if the file ends with `.fs`
 /// </summary>
@@ -133,6 +136,9 @@ let isFsharpFile (fileName: ReadOnlySpan<char>) = fileName.EndsWith ".fs"
 
 let inline internal isFileWithFSharpI fileName = isAScript fileName || isSignatureFile fileName || isFsharpFile fileName
 
+
+let toFSharpFile fileName =
+  IO.Path.ChangeExtension(fileName, ".fs")
 
 /// <summary>
 /// This is a combination of `isAScript`, `isSignatureFile`, and `isFsharpFile`
