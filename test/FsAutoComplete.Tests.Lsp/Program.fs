@@ -21,8 +21,51 @@ open System.IO
 open FsAutoComplete
 open Helpers
 open FsToolkit.ErrorHandling
+open System.Diagnostics
+open OpenTelemetry.Resources
+open OpenTelemetry
+open OpenTelemetry.Exporter
+open OpenTelemetry.Trace
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
+
+let resourceBuilder version =
+  ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
+
+type SpanFilter(filter: Activity -> bool) =
+  inherit BaseProcessor<Activity>()
+
+  override x.OnEnd(span: Activity) : unit =
+    if filter span then
+      span.ActivityTraceFlags <- span.ActivityTraceFlags &&& (~~~ActivityTraceFlags.Recorded)
+    else
+      base.OnEnd(span: Activity)
+
+type TracerProviderBuilder with
+  member x.AddSpanFilter(filter: Activity -> bool) = x.AddProcessor(new SpanFilter(filter))
+
+let traceProvider () =
+  let version = FsAutoComplete.Utils.Version.info().Version
+
+  Sdk
+    .CreateTracerProviderBuilder()
+    .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+    .SetResourceBuilder(resourceBuilder version)
+    // .AddConsoleExporter()
+    // .AddOtlpExporter()
+    .AddSpanFilter((fun span -> span.DisplayName.Contains "DiagnosticsLogger")) // DiagnosticsLogger.StackGuard.Guard is too noisy
+    .AddOtlpExporter(fun opt -> opt.Endpoint <- Uri "http://localhost:4317")
+    // .AddOtlpExporter(fun opt ->
+    //   opt.Endpoint <- Uri "http://localhost:5341/ingest/otlp/v1/traces"
+    //   opt.Protocol <- OtlpExportProtocol.HttpProtobuf
+    // )
+    .Build()
+
+do
+  let provider = traceProvider ()
+  AppDomain.CurrentDomain.ProcessExit.Add(fun _ -> provider.ForceFlush(3000) |> ignore
+  // provider.Dispose()
+  )
 
 
 let testTimeout =
@@ -90,7 +133,11 @@ let selectTestGroups groups =
     groups
     |> List.choose (fun (shard, test) -> if shard = selectedShard then Some test else None)
 
+let otelTests =
+  OpenTelemetry.addOpenTelemetry_SpanPerTest Expecto.Impl.ExpectoConfig.defaultConfig source
+
 let lspTests =
+
   testSequenced
   <| testList
     "lsp"
@@ -185,11 +232,12 @@ let generalTests =
 
 [<Tests>]
 let tests =
-  match testShard with
-  | None -> testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
-  | Some 1 -> testList "FSAC" [ generalTests; lspTests ]
-  | Some 4 -> testList "FSAC" [ lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
-  | Some _ -> testList "FSAC" [ lspTests ]
+  (match testShard with
+   | None -> testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+   | Some 1 -> testList "FSAC" [ generalTests; lspTests ]
+   | Some 4 -> testList "FSAC" [ lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+   | Some _ -> testList "FSAC" [ lspTests ])
+  |> otelTests
 
 open OpenTelemetry
 open OpenTelemetry.Resources
@@ -214,6 +262,7 @@ let main args =
       )
       .AddOtlpExporter()
       .Build()
+
 
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
@@ -316,7 +365,6 @@ let main args =
   let fixedUpArgs = args |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
-  use activitySource = new ActivitySource(serviceName)
 
   let cliArgs =
     [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
