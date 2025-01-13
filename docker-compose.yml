@@ -1,0 +1,33 @@
+services:
+  seq:
+    profiles:
+      - seq
+    image: datalust/seq
+    ports:
+      - 5341:80 # http and collection
+    environment:
+      - ACCEPT_EULA=Y
+    # http://localhost:5341
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5341/ingest/otlp/v1/logs
+    # OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+    # OTEL_EXPORTER_OTLP_HEADERS="X-Seq-ApiKey=your_api_key"
+  jaeger:
+    profiles:
+      - jaeger
+    image: jaegertracing/all-in-one
+    ports:
+      - 6831:6831/udp
+      - 6832:6832/udp
+      - 5778:5778
+      - 16686:16686
+      - 4317:4317
+      - 4318:4318
+      - 14250:14250
+      - 14268:14268
+      - 14269:14269
+      - 9411:9411
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+      - COLLECTOR_OTLP_ENABLED=true
+    # http://localhost:16686/
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
