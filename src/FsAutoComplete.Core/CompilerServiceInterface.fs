@@ -559,8 +559,9 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
               MemoryCacheEntryOptions()
                 .SetSize(1)
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
-
-            return lastCheckResults.Set(filePath, r, ops)
+            let rw = WeakReference<ParseAndCheckResults>(r)
+            lastCheckResults.Set(filePath, rw, ops) |> ignore
+            return r
           else
             return r
       with ex ->
