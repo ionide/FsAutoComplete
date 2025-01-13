@@ -326,7 +326,6 @@ let analyzerTests state =
 
       let! (server, events) = serverInitialize path analyzerEnabledConfig state
       let scriptPath = Path.Combine(path, "Script.fsx")
-      do! Async.Sleep(TimeSpan.FromSeconds 5.)
       do! waitForWorkspaceFinishedParsing events
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
       return server, events, path, scriptPath

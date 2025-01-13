@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />
+    <Compile Include="Expecto.OpenTelemetry.fs" />
     <Compile Include="Helpers.fsi" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Utils/Utils.fsi" />

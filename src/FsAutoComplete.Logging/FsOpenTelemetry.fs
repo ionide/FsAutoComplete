@@ -574,13 +574,15 @@ type ActivityExtensions =
 
       let tags =
         ActivityTagsCollection(
-          [ yield KeyValuePair(SemanticConventions.General.Exceptions.exception_escaped, box escaped)
+          seq {
+            yield KeyValuePair(SemanticConventions.General.Exceptions.exception_escaped, box escaped)
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_type, box errorType)
 
             if Option.isSome stacktrace then
               yield KeyValuePair(SemanticConventions.General.Exceptions.exception_stacktrace, box stacktrace.Value)
 
-            yield KeyValuePair(SemanticConventions.General.Exceptions.exception_message, box errorMessage) ]
+            yield KeyValuePair(SemanticConventions.General.Exceptions.exception_message, box errorMessage)
+          }
         )
 
       ActivityEvent(SemanticConventions.General.Exceptions.exception_, tags = tags)
@@ -602,11 +604,12 @@ type ActivityExtensions =
 
       let tags =
         ActivityTagsCollection(
-          [ yield KeyValuePair(SemanticConventions.General.Exceptions.exception_escaped, box escaped)
+          seq {
+            yield KeyValuePair(SemanticConventions.General.Exceptions.exception_escaped, box escaped)
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_type, box exceptionType)
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_stacktrace, box exceptionStackTrace)
             if not <| String.IsNullOrEmpty(exceptionMessage) then
-              yield KeyValuePair(SemanticConventions.General.Exceptions.exception_message, box exceptionMessage) ]
+              yield KeyValuePair(SemanticConventions.General.Exceptions.exception_message, box exceptionMessage) }
         )
 
       ActivityEvent(SemanticConventions.General.Exceptions.exception_, tags = tags)
