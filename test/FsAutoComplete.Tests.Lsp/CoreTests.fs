@@ -432,6 +432,22 @@ let tooltipTests state =
                 "       -> option<objnull * System.Type>" ])
 #endif
           verifySignature
+            77u
+            5u
+             (concatLines [
+                "val testIWSAMTest:"
+                "      unit"
+                "   -> Result<string,'e> (requires :> IWSAMTest<'e>)"
+             ])
+          verifySignature
+            90u
+            25u
+             (concatLines [
+                "static member GetAwaiter:"
+                "   awaitable: 'Awaitable (requires member GetAwaiter )"
+                "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)"
+             ])
+          verifySignature
             65u
             7u
             (concatLines
@@ -442,7 +458,6 @@ let tooltipTests state =
             70u
             7u
             (concatLines
-
 #if NET8_0
               [ "active pattern ValueWithName: "
                 "   input: Expr"

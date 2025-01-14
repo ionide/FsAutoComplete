@@ -70,3 +70,26 @@ let testActivePatternSignatureWithSubStringName (expr: Quotations.Expr) =
   match expr with
   | ValueWithName t -> t
   | _ -> failwith "no value match"
+
+open System.Runtime.CompilerServices
+type IWSAMTest<'e> =
+    static abstract member Test : int -> 'e
+
+let testIWSAMTest<'e when IWSAMTest<'e>> () =
+  if 42 > 0 then Ok "Worlds Sane"
+  else Error ('e.Test 42)
+
+type Awaiter<'Awaiter, 'TResult
+    when 'Awaiter :> ICriticalNotifyCompletion
+    and 'Awaiter: (member get_IsCompleted: unit -> bool)
+    and 'Awaiter: (member GetResult: unit -> 'TResult)> = 'Awaiter
+
+type Awaitable<'Awaitable, 'Awaiter, 'TResult
+    when 'Awaitable: (member GetAwaiter: unit -> Awaiter<'Awaiter, 'TResult>)> = 'Awaitable
+
+type Awaitable =
+  static member inline GetAwaiter<'Awaitable, 'Awaiter, 'TResult
+      when Awaitable<'Awaitable, 'Awaiter, 'TResult>>
+      (awaitable: 'Awaitable)
+      =
+      awaitable.GetAwaiter()
