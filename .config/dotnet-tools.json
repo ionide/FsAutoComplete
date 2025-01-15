@@ -16,6 +16,13 @@
       ],
       "rollForward": false
     },
+    "fantomas": {
+      "version": "6.3.11",
+      "commands": [
+        "fantomas"
+      ],
+      "rollForward": false
+    },
     "fsharp-analyzers": {
       "version": "0.28.0",
       "commands": [
