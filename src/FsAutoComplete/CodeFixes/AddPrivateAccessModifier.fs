@@ -112,7 +112,8 @@ let private getRangesAndPlacement input pos =
             |> List.tryPick (fun m ->
               match m with
               // TODO: Need to handle setting get or set accessibility separately
-              | SynMemberDefn.AutoProperty(accessibility = SynValSigAccess.GetSet (None, None, None) ; ident = ident; trivia = trivia) as a when
+              | SynMemberDefn.AutoProperty(
+                  accessibility = SynValSigAccess.GetSet(None, None, None); ident = ident; trivia = trivia) as a when
                 rangeContainsPos ident.idRange pos
                 ->
                 let editRange =
