@@ -251,19 +251,22 @@ module SignatureFormatter =
     let retTypeConstraint =
       let genericParamConstraints = ResizeArray<string>()
 
-      let rec getGenericParameters  (f : FSharpType) =
+      let rec getGenericParameters (f: FSharpType) =
         if f.IsGenericParameter then
           let formattedParam = formatGenericParameter false displayContext f.GenericParameter
+
           if not <| String.IsNullOrWhiteSpace formattedParam then
             genericParamConstraints.Add formattedParam
         else
           try
             f.GenericArguments |> Seq.iter getGenericParameters
-          with
-            | e -> () // Sometimes GenericArguments throws an exception when accessing it
+          with e ->
+            () // Sometimes GenericArguments throws an exception when accessing it
 
       getGenericParameters func.ReturnParameter.Type
-      if Seq.isEmpty genericParamConstraints then ""
+
+      if Seq.isEmpty genericParamConstraints then
+        ""
       else
         let formattedParam = genericParamConstraints |> String.join " and " |> _.Trim()
         "(requires " + formattedParam + ")"

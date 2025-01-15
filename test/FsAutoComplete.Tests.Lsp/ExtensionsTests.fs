@@ -303,8 +303,7 @@ let formattingTests state =
           | Result.Error e -> failwithf "Error while formatting %s: %A" sourceFile e
         | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" sourceFile errors
       })
-  // Skip until https://github.com/dotnet/sdk/issues/44838 is fixed
-  ptestList
+  testList
     "fantomas integration"
     [ testList
         "tests"
