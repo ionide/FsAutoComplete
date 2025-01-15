@@ -84,7 +84,6 @@ jobs:
       run: dotnet tool restore
 
     - name: Check format
-      continue-on-error: true
       run: dotnet fantomas --check build.fsx src
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
