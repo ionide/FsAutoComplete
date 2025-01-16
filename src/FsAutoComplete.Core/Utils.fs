@@ -727,8 +727,7 @@ module Version =
 
   let private informationalVersion () =
     let assemblies =
-      typeof<VersionInfo>.Assembly
-        .GetCustomAttributes(typeof<AssemblyInformationalVersionAttribute>, true)
+      typeof<VersionInfo>.Assembly.GetCustomAttributes(typeof<AssemblyInformationalVersionAttribute>, true)
 
     match assemblies with
     | [| x |] ->

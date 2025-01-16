@@ -522,9 +522,7 @@ type ActivityExtensions =
 
   [<Extension>]
   static member inline SetStatusErrorSafe(span: Activity, description: string) =
-    span
-      .SetTagSafe("otel.status_code", "ERROR")
-      .SetTagSafe("otel.status_description", description)
+    span.SetTagSafe("otel.status_code", "ERROR").SetTagSafe("otel.status_description", description)
 
   [<Extension>]
   static member inline SetSourceCodeFilePath(span: Activity, value: string) =

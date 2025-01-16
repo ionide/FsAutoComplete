@@ -222,9 +222,7 @@ module Parser =
         let version = FsAutoComplete.Utils.Version.info().Version
 
         let resourceBuilder =
-          ResourceBuilder
-            .CreateDefault()
-            .AddService(serviceName = serviceName, serviceVersion = version)
+          ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
 
 
         meterProvider <-

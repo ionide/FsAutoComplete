@@ -237,12 +237,7 @@ type AdaptiveFSharpLspServer
               )
               |> Option.defaultValue (async { return () })
           | (Some { Title = "Install globally" }) ->
-            let! result =
-              Cli
-                .Wrap("dotnet")
-                .WithArguments("tool install -g fantomas")
-                .ExecuteBufferedAsync()
-                .Task
+            let! result = Cli.Wrap("dotnet").WithArguments("tool install -g fantomas").ExecuteBufferedAsync().Task
 
             if result.ExitCode = 0 then
               fantomasLogger.info (Log.setMessage "fantomas was installed globally")
