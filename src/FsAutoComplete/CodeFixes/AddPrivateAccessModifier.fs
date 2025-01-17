@@ -111,7 +111,6 @@ let private getRangesAndPlacement input pos =
             members
             |> List.tryPick (fun m ->
               match m with
-              // TODO: Need to handle setting get or set accessibility separately
               | SynMemberDefn.AutoProperty(
                   accessibility = SynValSigAccess.GetSet(None, None, None); ident = ident; trivia = trivia) as a when
                 rangeContainsPos ident.idRange pos
@@ -123,6 +122,25 @@ let private getRangesAndPlacement input pos =
 
                 match tryGetDeclContainingRange path pos with
                 | Some r -> Some(editRange, r, After)
+                | _ -> None
+              | SynMemberDefn.AutoProperty(
+                  accessibility = SynValSigAccess.GetSet(None, getAcc, setAcc)
+                  trivia = { GetSetKeywords = Some getSetTrivia }) as a when rangeContainsPos getSetTrivia.Range pos ->
+
+                let editRange =
+                  match (getAcc, setAcc, getSetTrivia) with
+                  | (None, _, GetSetKeywords.Get getRange)
+                  | (None, _, GetSetKeywords.GetSet(getRange, _)) when rangeContainsPos getRange pos ->
+                    Some getRange.StartRange
+                  | (_, None, GetSetKeywords.Set setRange)
+                  | (_, None, GetSetKeywords.GetSet(_, setRange)) when rangeContainsPos setRange pos ->
+                    Some setRange.StartRange
+                  | _ -> None
+
+                let path = SyntaxNode.SynMemberDefn a :: path
+
+                match (editRange, tryGetDeclContainingRange path pos) with
+                | (Some editRange, Some r) -> Some(editRange, r, Before)
                 | _ -> None
               | _ -> None)
           // Type Abbreviation
