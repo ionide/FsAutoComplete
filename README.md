@@ -14,6 +14,7 @@ Currently it is used by:
 * [Vim](https://github.com/fsharp/vim-fsharp)
 * [Visual Studio Code](https://github.com/ionide/ionide-vscode-fsharp)
 * [Sublime Text](https://lsp.sublimetext.io/language_servers/#f)
+* [Zed](https://github.com/nathanjcollins/zed-fsharp)
 
 It's based on:
 
