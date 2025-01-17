@@ -500,9 +500,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
           if shouldCache then
             let ops =
-              MemoryCacheEntryOptions()
-                .SetSize(1)
-                .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
+              MemoryCacheEntryOptions().SetSize(1).SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
             return lastCheckResults.Set(filePath, r, ops)
           else
@@ -553,9 +551,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
           if shouldCache then
             let ops =
-              MemoryCacheEntryOptions()
-                .SetSize(1)
-                .SetSlidingExpiration(TimeSpan.FromMinutes(5.))
+              MemoryCacheEntryOptions().SetSize(1).SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
             return lastCheckResults.Set(filePath, r, ops)
           else

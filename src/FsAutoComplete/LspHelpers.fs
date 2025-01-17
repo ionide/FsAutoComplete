@@ -207,8 +207,7 @@ module Conversions =
   let getLine (lines: string[]) (pos: LspPosition) = lines.[int pos.Line]
 
   let getText (lines: string[]) (r: LspRange) =
-    lines.[int r.Start.Line]
-      .Substring(int r.Start.Character, int (r.End.Character - r.Start.Character))
+    lines.[int r.Start.Line].Substring(int r.Start.Character, int (r.End.Character - r.Start.Character))
 
 [<AutoOpen>]
 module internal GlyphConversions =

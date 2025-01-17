@@ -515,9 +515,7 @@ module Providers =
           Expression.Call(instanceCast, isEnabledMethodInfo, levelCast)
 
         let isEnabled =
-          Expression
-            .Lambda<Func<obj, obj, bool>>(isEnabledMethodCall, instanceParam, levelParam)
-            .Compile()
+          Expression.Lambda<Func<obj, obj, bool>>(isEnabledMethodCall, instanceParam, levelParam).Compile()
 
         let writeMethodInfo =
           loggerType.GetMethod("Write", [| logEventLevelType; typedefof<string>; typedefof<obj[]> |])
@@ -800,9 +798,7 @@ module Providers =
           let beginScopeMethodCall =
             Expression.Call(instanceCast, beginScopeMethodInfo, stateParam)
 
-          Expression
-            .Lambda<Func<ILogger, obj, IDisposable>>(beginScopeMethodCall, instanceParam, stateParam)
-            .Compile()
+          Expression.Lambda<Func<ILogger, obj, IDisposable>>(beginScopeMethodCall, instanceParam, stateParam).Compile()
           |> FuncConvert.FromFunc
 
         { Write = write

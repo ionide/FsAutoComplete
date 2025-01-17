@@ -48,7 +48,7 @@ module FsProjEditor =
 
   let moveFileUp (fsprojPath: string) (file: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']/.." file
     let itemGroup = xDoc.SelectSingleNode(xpath)
@@ -65,7 +65,7 @@ module FsProjEditor =
 
   let moveFileDown (fsprojPath: string) (file: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']/.." file
     let itemGroup = xDoc.SelectSingleNode(xpath)
@@ -98,7 +98,7 @@ module FsProjEditor =
 
   let addFileBelow (fsprojPath: string) (belowFile: string) (newFileName: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
 
     if fileAlreadyIncludedViaCompileTag xDoc newFileName then
@@ -115,7 +115,7 @@ module FsProjEditor =
 
   let renameFile (fsprojPath: string) (oldFileName: string) (newFileName: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']" oldFileName
     let node = xDoc.SelectSingleNode(xpath)
@@ -124,7 +124,7 @@ module FsProjEditor =
 
   let addFile (fsprojPath: string) (newFileName: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
 
     if fileAlreadyIncludedViaCompileTag xDoc newFileName then
@@ -161,7 +161,7 @@ module FsProjEditor =
 
   let removeFile (fsprojPath: string) (fileToRemove: string) =
     let xDoc = System.Xml.XmlDocument()
-    xDoc.PreserveWhitespace <- true // to keep custom formatting if present 
+    xDoc.PreserveWhitespace <- true // to keep custom formatting if present
     xDoc.Load fsprojPath
     let sanitizedFileToRemove = fileToRemove.Replace("\\", "/")
 

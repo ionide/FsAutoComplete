@@ -259,8 +259,7 @@ module Commands =
       | Some(recordEpr, (Some recordDefinition), insertionPos) ->
         if shouldGenerateRecordStub recordEpr recordDefinition then
           let result =
-            (formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList)
-              .TrimStart(' ')
+            (formatRecord insertionPos "$1" recordDefinition recordEpr.FieldExprList).TrimStart(' ')
 
           return CoreResponse.Res(result, insertionPos.InsertionPos)
         else

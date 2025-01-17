@@ -194,10 +194,7 @@ let private tryGetUrlWithExactMatch
   (urlPattern: string<Url>)
   (document: Document)
   =
-  if
-    (UMX.untag pathPattern)
-      .Equals(UMX.untag document.Name, System.StringComparison.Ordinal)
-  then
+  if (UMX.untag pathPattern).Equals(UMX.untag document.Name, System.StringComparison.Ordinal) then
     Some(urlPattern, normalizeRepoPath (UMX.cast<SourcelinkPattern, RepoPathSegment> pathPattern), document)
   else
     None

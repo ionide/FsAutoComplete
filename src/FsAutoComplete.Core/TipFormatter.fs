@@ -683,12 +683,7 @@ module private Format =
   /// For example, this allows to print '>' in the tooltip instead of '&gt;'
   /// </summary>
   let private unescapeSpecialCharacters (text: string) =
-    text
-      .Replace("&lt;", "<")
-      .Replace("&gt;", ">")
-      .Replace("&quot;", "\"")
-      .Replace("&apos;", "'")
-      .Replace("&amp;", "&")
+    text.Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"").Replace("&apos;", "'").Replace("&amp;", "&")
 
   let applyAll (text: string) =
     text
