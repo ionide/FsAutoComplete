@@ -507,7 +507,7 @@ module SignatureFormatter =
             paramTypes
             |> List.map (fun p -> formatName p + ":" ++ (formatParameter p))
             |> String.concat (" * "))
-          |> String.concat ("-> ")
+          |> String.concat (" -> ")
 
         let typeArguments = allParams ++ "->" ++ retType
 
