@@ -8,7 +8,7 @@
       "name": ".NET Core mode lsp (debug)",
       "type": "coreclr",
       "request": "launch",
-      "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net6.0/fsautocomplete.dll",
+      "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net8.0/fsautocomplete.dll",
       "args": ["--mode", "lsp"],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole",
@@ -77,8 +77,8 @@
     {
       "id": "tfm",
       "description": "The TFM of the test to run",
-      "options": ["net6.0", "net7.0"],
-      "default": "net7.0",
+      "options": ["net8.0", "net9.0"],
+      "default": "net8.0",
       "type": "pickString"
     },
     {
