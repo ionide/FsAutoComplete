@@ -5,8 +5,8 @@
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "8.0",
-      "dotnetRuntimeVersions": "6.0, 7.0",
-      "aspNetCoreRuntimeVersions": "6.0, 7.0"
+      "dotnetRuntimeVersions": "8.0, 9.0",
+      "aspNetCoreRuntimeVersions": "8.0, 9.0"
     }
   },
   "customizations": {
