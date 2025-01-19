@@ -5,11 +5,11 @@ on:
       branches:
         - nightly
 
-env:
-  BuildNet7: true
-
 jobs:
     pack-nightly:
+      env:
+        DOTNET_INSTALL_DIR: ".dotnet"
+
       runs-on: ubuntu-latest
 
       steps:
