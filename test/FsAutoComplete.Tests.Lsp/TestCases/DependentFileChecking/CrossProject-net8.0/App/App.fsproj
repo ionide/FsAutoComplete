@@ -1,16 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
+    <Compile Include="..\..\..\..\DependentFileCheckingTests.fs" />
     <Compile Include="B.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Library1\Library1.fsproj" />
   </ItemGroup>
-
 </Project>
