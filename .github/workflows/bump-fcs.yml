@@ -9,6 +9,10 @@ jobs:
   bump-fcs:
     name: bump FCS to latest nightly
     runs-on: ubuntu-latest
+
+    env:
+        DOTNET_INSTALL_DIR: ".dotnet"
+
     steps:
       - name: checkout nightly branch
         uses: actions/checkout@v3

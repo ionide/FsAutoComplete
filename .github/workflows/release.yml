@@ -7,6 +7,9 @@ on:
 
 jobs:
   release:
+    env:
+      DOTNET_INSTALL_DIR: ".dotnet"
+
     runs-on: ubuntu-latest
 
     steps:
