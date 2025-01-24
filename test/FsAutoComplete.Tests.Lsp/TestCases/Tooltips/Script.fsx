@@ -93,3 +93,7 @@ type Awaitable =
       (awaitable: 'Awaitable)
       =
       awaitable.GetAwaiter()
+
+type IWithAndWithoutParamNames =
+    abstract member WithParamNames : arg1: int * arg2: float -> string
+    abstract member WithoutParamNames : int * string -> int
