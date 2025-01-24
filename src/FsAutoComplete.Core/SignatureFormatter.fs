@@ -505,7 +505,13 @@ module SignatureFormatter =
           many
           |> List.map (fun (paramTypes) ->
             paramTypes
-            |> List.map (fun p -> formatName p + ":" ++ (formatParameter p))
+            |> List.map (fun p ->
+              let paramName = formatName p
+
+              if String.IsNullOrWhiteSpace(paramName) then
+                formatParameter p
+              else
+                paramName + ":" ++ (formatParameter p))
             |> String.concat (" * "))
           |> String.concat (" -> ")
 

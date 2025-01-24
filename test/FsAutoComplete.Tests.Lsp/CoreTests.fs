@@ -461,12 +461,19 @@ let tooltipTests state =
 #if NET8_0
               [ "active pattern ValueWithName: "
                 "   input: Expr"
-                "       -> option<obj * System.Type * string>" ]) ] ]
+                "       -> option<obj * System.Type * string>" ])
 #else
               [ "active pattern ValueWithName: "
                 "   input: Expr"
-                "       -> option<objnull * System.Type * string>" ]) ] ]
+                "       -> option<objnull * System.Type * string>" ])
 #endif
+          verifySignature
+            96u
+            7u
+            (concatLines
+              [ "interface IWithAndWithoutParamNames"
+                "  abstract member WithParamNames: arg1: int * arg2: float -> string"
+                "  abstract member WithoutParamNames: int * string -> int" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
