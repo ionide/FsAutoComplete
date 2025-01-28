@@ -216,7 +216,7 @@ let workspaceSymbolTest state =
     [
       testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
       <| async {
-        let! server, path = server
+        let! server, _path = server
 
         let p: WorkspaceSymbolParams =
           { Query = "Script"
@@ -245,7 +245,7 @@ let workspaceSymbolTest state =
 
       testCaseAsync "Get Workspace Symbols Using Query w/ Text"
       <| async {
-        let! server, path = server
+        let! server, _path = server
 
         let p: WorkspaceSymbolParams =
           { Query = "X"
@@ -286,7 +286,7 @@ let workspaceSymbolTest state =
 
       testCaseAsync "Get Workspace Symbols Using Query w/o Text"
       <| async {
-        let! server, path = server
+        let! server, _path = server
 
         let p: WorkspaceSymbolParams =
           { Query = String.Empty
