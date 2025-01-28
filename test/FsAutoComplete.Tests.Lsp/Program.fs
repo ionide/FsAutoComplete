@@ -97,6 +97,7 @@ let lspTests =
 
                   CodeLens.tests createServer
                   documentSymbolTest createServer
+                  workspaceSymbolTest createServer
                   Completion.autocompleteTest createServer
                   Completion.autoOpenTests createServer
                   Completion.fullNameExternalAutocompleteTest createServer

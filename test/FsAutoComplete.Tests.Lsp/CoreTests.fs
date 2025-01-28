@@ -140,6 +140,21 @@ let initTests createServer =
       | Result.Error _e -> failtest "Initialization failed"
     })
 
+let validateSymbolExists msgType symbolInfos predicate =
+  Expect.exists
+      symbolInfos
+      predicate
+      $"{msgType}s do not contain the expected symbol"
+
+let allSymbolInfosExist (infos: SymbolInformation seq) predicates =
+  predicates |> List.iter (validateSymbolExists (nameof SymbolInformation) infos)
+
+let allWorkspaceSymbolsExist (infos: WorkspaceSymbol seq) predicates =
+  predicates |> List.iter (validateSymbolExists (nameof WorkspaceSymbol) infos)
+
+let allDocumentSymbolsExist (infos: DocumentSymbol seq) predicates =
+  predicates |> List.iter (validateSymbolExists (nameof DocumentSymbol) infos)
+
 ///Tests for getting document symbols
 let documentSymbolTest state =
   let server =
@@ -155,30 +170,141 @@ let documentSymbolTest state =
 
   testList
     "Document Symbols Tests"
-    [ testCaseAsync
-        "Get Document Symbols"
-        (async {
-          let! server, path = server
+    [ testCaseAsync "Get Document Symbols"
+      <| async {
+        let! server, path = server
 
-          let p: DocumentSymbolParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
-              WorkDoneToken = None
-              PartialResultToken = None }
+        let p: DocumentSymbolParams =
+          { TextDocument = { Uri = Path.FilePathToUri path }
+            WorkDoneToken = None
+            PartialResultToken = None }
 
-          let! res = server.TextDocumentDocumentSymbol p
+        let! res = server.TextDocumentDocumentSymbol p
 
-          match res with
-          | Result.Error e -> failtestf "Request failed: %A" e
-          | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some(U2.C1 res)) ->
-            Expect.equal res.Length 15 "Document Symbol has all symbols"
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Ok None -> failtest "Request none"
+        | Ok(Some(U2.C1 symbolInformations)) ->
+          Expect.equal symbolInformations.Length 15 "Document Symbol has all symbols"
 
-            Expect.exists
-              res
-              (fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class)
-              "Document symbol contains given symbol"
-          | Result.Ok(Some(U2.C2 _res)) -> raise (NotImplementedException("DocumentSymbol isn't used in FSAC yet"))
-        }) ]
+          allSymbolInfosExist
+            symbolInformations
+            [fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class]
+
+        | Ok(Some(U2.C2 documentSymbols)) ->
+          Expect.equal documentSymbols.Length 15 "Document Symbol has all symbols"
+
+          allDocumentSymbolsExist
+            documentSymbols
+            [fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class]
+      } ]
+
+let workspaceSymbolTest state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "WorkspaceSymbolTest")
+      let! (server, _event) = serverInitialize path defaultConfigDto state
+      let path = Path.Combine(path, "Script.fsx")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
+      do! server.TextDocumentDidOpen tdop
+      return (server, path)
+    }
+    |> Async.Cache
+
+  testList
+    "Workspace Symbols Tests"
+    [
+      testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
+      <| async {
+        let! server, _path = server
+
+        let p: WorkspaceSymbolParams =
+          { Query = "Script"
+            WorkDoneToken = None
+            PartialResultToken = None }
+
+        let! res = server.WorkspaceSymbol p
+
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Ok None -> failtest "Request none"
+        | Ok(Some(U2.C1 symbolInfos)) ->
+          Expect.equal symbolInfos.Length 1 "Workspace did not find all the expected symbols"
+
+          allSymbolInfosExist
+            symbolInfos
+            [fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module]
+
+        | Ok(Some(U2.C2 workspaceSymbols)) ->
+          Expect.equal workspaceSymbols.Length 1 "Workspace did not find all the expected symbols"
+
+          allWorkspaceSymbolsExist
+            workspaceSymbols
+            [fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module]
+      }
+
+      testCaseAsync "Get Workspace Symbols Using Query w/ Text"
+      <| async {
+        let! server, _path = server
+
+        let p: WorkspaceSymbolParams =
+          { Query = "X"
+            WorkDoneToken = None
+            PartialResultToken = None }
+
+        let! res = server.WorkspaceSymbol p
+
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Ok None -> failtest "Request none"
+        | Ok(Some(U2.C1 symbolInfos)) ->
+          Expect.equal symbolInfos.Length 5 "Workspace did not find all the expected symbols"
+
+          allSymbolInfosExist
+            symbolInfos
+            [
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+              fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
+              fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
+            ]
+
+        | Ok(Some(U2.C2 workspaceSymbols)) ->
+          Expect.equal workspaceSymbols.Length 5 "Workspace did not find all the expected symbols"
+
+          allWorkspaceSymbolsExist
+            workspaceSymbols
+            [
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+              fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
+              fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
+            ]
+      }
+
+      testCaseAsync "Get Workspace Symbols Using Query w/o Text"
+      <| async {
+        let! server, _path = server
+
+        let p: WorkspaceSymbolParams =
+          { Query = String.Empty
+            WorkDoneToken = None
+            PartialResultToken = None }
+
+        let! res = server.WorkspaceSymbol p
+
+        match res with
+        | Result.Error e -> failtestf "Request failed: %A" e
+        | Ok None -> failtest "Request none"
+        | Ok(Some(U2.C1 res)) ->
+          Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
+        | Ok(Some(U2.C2 res)) ->
+          Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
+      }
+    ]
+
 
 let foldingTests state =
   let server =
