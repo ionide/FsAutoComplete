@@ -86,8 +86,7 @@ module Conversions =
       WorkspaceSymbol array
 
 
-  val inline applyQuery :
-    query: string -> info: #IBaseSymbolInformation -> bool
+  val inline applyQuery: query: string -> info: #IBaseSymbolInformation -> bool
 
   val getCodeLensInformation:
     uri: DocumentUri -> typ: string -> topLevel: NavigationTopLevelDeclaration -> CodeLens array
