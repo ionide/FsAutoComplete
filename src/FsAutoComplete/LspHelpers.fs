@@ -139,9 +139,8 @@ module Conversions =
     (uri: DocumentUri)
     (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
     (topLevel: NavigationTopLevelDeclaration)
-    (symbolFilter: SymbolInformation -> bool)
     : SymbolInformation[] =
-    let inner (container: string option) (decl: NavigationItem) : SymbolInformation option =
+    let inner (container: string option) (decl: NavigationItem) : SymbolInformation =
       // We should nearly always have a kind, if the client doesn't send weird capabilities,
       // if we don't why not assume module...
       let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
@@ -158,25 +157,80 @@ module Conversions =
           Tags = None
           Deprecated = None }
 
+      sym
+
+    [| yield inner None topLevel.Declaration
+       yield! topLevel.Nested |> Array.map (inner (Some topLevel.Declaration.LogicalName)) |]
+
+  let getDocumentSymbols
+    (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
+    (topLevel: NavigationTopLevelDeclaration)
+    : DocumentSymbol[] =
+    let inner (decl: NavigationItem) : DocumentSymbol =
+      // We should nearly always have a kind, if the client doesn't send weird capabilities,
+      // if we don't why not assume module...
+      let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
+
+      let sym: DocumentSymbol =
+        { Name = decl.LogicalName
+          Kind = kind
+          Tags = None
+          Deprecated = None
+          Children = None
+          Range = fcsRangeToLsp decl.Range
+          Detail = None
+          SelectionRange = fcsRangeToLsp decl.Range }
+
+      sym
+
+    [| yield inner topLevel.Declaration
+       yield! topLevel.Nested |> Array.map inner |]
+
+  let getWorkspaceSymbols
+    (uri: DocumentUri)
+    (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
+    (topLevel: NavigationTopLevelDeclaration)
+    (symbolFilter: WorkspaceSymbol -> bool)
+    : WorkspaceSymbol[] =
+    let inner (container: string option) (decl: NavigationItem) : WorkspaceSymbol option =
+      // We should nearly always have a kind, if the client doesn't send weird capabilities,
+      // if we don't why not assume module...
+      let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
+
+      let location =
+        { Uri = uri
+          Range = fcsRangeToLsp decl.Range }
+
+      let sym: WorkspaceSymbol =
+        { ContainerName = container
+          Data = None
+          Name = decl.LogicalName
+          Kind = kind
+          Location = U2.C1 location
+          Tags = None }
+
       if symbolFilter sym then Some sym else None
 
     [| yield! inner None topLevel.Declaration |> Option.toArray
        yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName)) |]
 
-  let applyQuery (query: string) (info: SymbolInformation) =
+  let inline (|Name|) name = (^Name: (member Name: string) name)
+  let inline (|ContainerName|) name = (^ContainerName: (member ContainerName: string option) name)
+  let inline (|SymbolInfo|) (Name name & ContainerName cName) = name, cName
+
+  let inline applyQuery (query: string) (SymbolInfo(name, containerName)) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
-    | [| fullName |] -> info.Name.StartsWith(fullName, StringComparison.Ordinal)
+    | [| fullName |] -> name.StartsWith(fullName, StringComparison.Ordinal)
     | [| moduleName; fieldName |] ->
-      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
-      && info.ContainerName = Some moduleName
+      name.StartsWith(fieldName, StringComparison.Ordinal)
+      && containerName = Some moduleName
     | parts ->
-      let containerName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
-
+      let cName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
       let fieldName = Array.last parts
 
-      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
-      && info.ContainerName = Some containerName
+      name.StartsWith(fieldName, StringComparison.Ordinal)
+      && containerName = Some cName
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =

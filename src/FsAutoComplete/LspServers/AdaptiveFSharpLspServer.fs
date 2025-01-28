@@ -1304,9 +1304,8 @@ type AdaptiveFSharpLspServer
 
           return
             decls
-            |> Array.collect (fun top ->
-              getSymbolInformations p.TextDocument.Uri state.GlyphToSymbolKind top (fun _s -> true))
-            |> U2.C1
+            |> Array.collect (getDocumentSymbols state.GlyphToSymbolKind)
+            |> U2.C2
             |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -1341,9 +1340,8 @@ type AdaptiveFSharpLspServer
               let uri = Path.LocalPathToUri p
 
               ns
-              |> Array.collect (fun n ->
-                getSymbolInformations uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
-            |> U2.C1
+              |> Array.collect (fun n -> getWorkspaceSymbols uri glyphToSymbolKind n (applyQuery symbolRequest.Query)))
+            |> U2.C2
             |> Some
 
           return res
@@ -2251,7 +2249,7 @@ type AdaptiveFSharpLspServer
 
     override x.WorkspaceDiagnostic p = x.logUnimplementedRequest p
 
-    override x.WorkspaceSymbolResolve p = x.logUnimplementedRequest p
+    override x.WorkspaceSymbolResolve p = AsyncLspResult.success p
 
     //unsupported -- end
 

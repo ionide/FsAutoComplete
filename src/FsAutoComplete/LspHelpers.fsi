@@ -71,10 +71,23 @@ module Conversions =
     uri: DocumentUri ->
     glyphToSymbolKind: (FSharpGlyph -> SymbolKind option) ->
     topLevel: NavigationTopLevelDeclaration ->
-    symbolFilter: (SymbolInformation -> bool) ->
       SymbolInformation array
 
-  val applyQuery: query: string -> info: SymbolInformation -> bool
+  val getDocumentSymbols:
+    glyphToSymbolKind: (FSharpGlyph -> SymbolKind option) ->
+    topLevel: NavigationTopLevelDeclaration ->
+      DocumentSymbol array
+
+  val getWorkspaceSymbols:
+    uri: DocumentUri ->
+    glyphToSymbolKind: (FSharpGlyph -> SymbolKind option) ->
+    topLevel: NavigationTopLevelDeclaration ->
+    symbolFilter: (WorkspaceSymbol -> bool) ->
+      WorkspaceSymbol array
+
+
+  val inline applyQuery< ^info when ^info: (member Name: string) and ^info: (member ContainerName: string option)> :
+    query: string -> 'info -> bool
 
   val getCodeLensInformation:
     uri: DocumentUri -> typ: string -> topLevel: NavigationTopLevelDeclaration -> CodeLens array
