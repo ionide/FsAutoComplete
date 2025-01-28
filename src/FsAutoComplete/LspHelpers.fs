@@ -214,23 +214,19 @@ module Conversions =
     [| yield! inner None topLevel.Declaration |> Option.toArray
        yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName)) |]
 
-  let inline (|Name|) name = (^Name: (member Name: string) name)
-  let inline (|ContainerName|) name = (^ContainerName: (member ContainerName: string option) name)
-  let inline (|SymbolInfo|) (Name name & ContainerName cName) = name, cName
-
-  let inline applyQuery (query: string) (SymbolInfo(name, containerName)) =
+  let inline applyQuery (query: string) (info: #IBaseSymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
     | [||] -> false
-    | [| fullName |] -> name.StartsWith(fullName, StringComparison.Ordinal)
+    | [| fullName |] -> info.Name.StartsWith(fullName, StringComparison.Ordinal)
     | [| moduleName; fieldName |] ->
-      name.StartsWith(fieldName, StringComparison.Ordinal)
-      && containerName = Some moduleName
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some moduleName
     | parts ->
       let cName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
       let fieldName = Array.last parts
 
-      name.StartsWith(fieldName, StringComparison.Ordinal)
-      && containerName = Some cName
+      info.Name.StartsWith(fieldName, StringComparison.Ordinal)
+      && info.ContainerName = Some cName
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
