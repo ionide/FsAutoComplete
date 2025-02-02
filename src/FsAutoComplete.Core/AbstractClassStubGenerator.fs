@@ -54,7 +54,7 @@ let tryFindAbstractClassExprInBufferAtPos
 
             let allMembers = reprMembers @ members
 
-            let! inheritType, inheritMemberRange = // this must exist for abstract types
+            let! inheritType, inheritMemberRange =
               allMembers
               |> List.tryPick (function
                 | SynMemberDefn.ImplicitInherit(inheritType, _, _, range) -> Some(inheritType, range)

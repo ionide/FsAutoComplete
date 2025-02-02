@@ -436,7 +436,7 @@ let tooltipTests state =
   testSequenced
   <| testList
     "tooltip evaluation"
-    [ ftestList
+    [ testList
         "tests"
         [ verifyDescription "language keywords"
             0u
@@ -523,8 +523,8 @@ let tooltipTests state =
             13u
             (concatLines
               [ "val inline add:"
-                "   x: 'a (requires static member ( + ) ) ->"
-                "   y: 'b (requires static member ( + ) )"
+                "   x: 'a (requires static member ( + )) ->"
+                "   y: 'b (requires static member ( + ))"
                 "   -> 'c" ])
           //verify rendering of solved generic constraints in tooltips for members where they are solved
           verifyDescription "solved generic parameters are called out in tooltip"
@@ -548,15 +548,9 @@ let tooltipTests state =
             60u
             7u
             (concatLines
-#if NET8_0
-              [ "active pattern Value: "
-                "   input: Expr"
-                "       -> option<obj * System.Type>" ])
-#else
               [ "active pattern Value: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type>" ])
-#endif
           verifySignature "generic constraint rendering for IWSAM"
             77u
             5u
@@ -570,7 +564,7 @@ let tooltipTests state =
             25u
              (concatLines [
                 "static member GetAwaiter:"
-                "   awaitable: 'Awaitable (requires member GetAwaiter )"
+                "   awaitable: 'Awaitable (requires member GetAwaiter)"
                 "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)"
              ])
           verifySignature "basic active pattern"
@@ -584,15 +578,9 @@ let tooltipTests state =
             70u
             7u
             (concatLines
-#if NET8_0
-              [ "active pattern ValueWithName: "
-                "   input: Expr"
-                "       -> option<obj * System.Type * string>" ])
-#else
               [ "active pattern ValueWithName: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type * string>" ])
-#endif
           verifySignature "interface with members with and without parameter names"
             96u
             7u
@@ -600,31 +588,31 @@ let tooltipTests state =
               [ "interface IWithAndWithoutParamNames"
                 "  abstract member WithParamNames: arg1: int * arg2: float -> string"
                 "  abstract member WithoutParamNames: int * string -> int" ])
-          verifySignature "function with unsolved nullable parameter" 100u 7u (concatLines [
+          verifySignature "function with unsolved nullable parameter" 102u 7u (concatLines [
             "val usesNullable:"
-            "  x: 't | null"
-            "  -> 't (requires reference )"
+            "   x: 't | null"
+            "   -> 't (requires reference)"
           ])
 
-          verifySignature "function with concrete nullable parameter" 101u 7u (concatLines [
+          verifySignature "function with concrete nullable parameter" 103u 7u (concatLines [
             "val usesConcreteNullable:"
             "   x: string | null"
-            "   -> String (requires reference )"
+            "   -> String"
           ])
-          verifySignature "function with generic nullable return" 102u 7u (concatLines [
+          verifySignature "function with generic nullable return" 104u 7u (concatLines [
             "val makesNullable:"
-            "   x: 'x (requires reference)"
-            "   -> 'x | null"
+            "   x: 'x"
+            "   -> 'x | null (requires reference)"
           ])
-          verifySignature "function with concrete nullable return" 103u 7u (concatLines [
+          verifySignature "function with concrete nullable return" 105u 7u (concatLines [
             "val makesConcreteNullable:"
             "   x: string"
             "   -> string | null"
           ])
-          verifySignature "function with nullable return from BCL call" 104u 7u (concatLines [
+          verifySignature "function with nullable return from BCL call" 106u 7u (concatLines [
             "val usesBCLNullable:"
             "   key: string"
-            "   -> string | null"
+            "     -> string | null"
           ])] ]
 
 let closeTests state =

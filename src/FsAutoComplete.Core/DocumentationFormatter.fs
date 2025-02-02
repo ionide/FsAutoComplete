@@ -309,7 +309,7 @@ module DocumentationFormatter =
         if String.IsNullOrWhiteSpace formattedParam then
           formattedParam
         else
-          "(requires " + formattedParam + " )"
+          "(requires " + formattedParam + ")"
       else
         ""
 
@@ -379,7 +379,7 @@ module DocumentationFormatter =
             if String.IsNullOrWhiteSpace formattedParam then
               formattedParam
             else
-              "(requires " + formattedParam + " )"
+              "(requires " + formattedParam + ")"
 
           if paramConstraint = retTypeConstraint then
             paddedParam
