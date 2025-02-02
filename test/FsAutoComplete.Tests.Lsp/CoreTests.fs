@@ -392,9 +392,9 @@ let tooltipTests state =
     }
     |> Async.Cache
 
-  let verifySignature line character expectedSignature =
+  let verifySignature name line character expectedSignature =
     testCaseAsync
-      (sprintf "tooltip for line %d character %d should be '%s'" line character expectedSignature)
+      name
       (async {
         let! server, scriptPath = server
 
@@ -411,11 +411,11 @@ let tooltipTests state =
 
   let concatLines = String.concat Environment.NewLine
 
-  let verifyDescriptionImpl testCaseAsync line character expectedDescription =
+  let verifyDescriptionImpl testCaseAsync name line character expectedDescription =
     let expectedDescription = concatLines expectedDescription
 
     testCaseAsync
-      (sprintf "description for line %d character %d" line character)
+      (sprintf name)
       (async {
         let! server, scriptPath = server
 
@@ -430,15 +430,15 @@ let tooltipTests state =
         | Result.Error errors -> failtestf "Error while getting description: %A" errors
       })
 
-  let verifyDescription line character expectedDescription =
-    verifyDescriptionImpl testCaseAsync line character expectedDescription
+  let verifyDescription name line character expectedDescription =
+    verifyDescriptionImpl testCaseAsync name line character expectedDescription
 
   testSequenced
   <| testList
     "tooltip evaluation"
-    [ testList
+    [ ftestList
         "tests"
-        [ verifyDescription
+        [ verifyDescription "language keywords"
             0u
             2u
             [ "**Description**"
@@ -446,12 +446,12 @@ let tooltipTests state =
               ""
               "Used to associate, or bind, a name to a value or function."
               "" ] // `let` keyword
-          verifySignature 0u 4u "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
-          verifySignature 0u 5u "val arrayOfTuples: (int * int) array" // inner positions trigger
-          verifySignature 1u 5u "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
-          verifySignature 2u 5u "val listOfStructTuples: list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
-          verifySignature 3u 5u "val floatThatShouldHaveGenericReportedInTooltip: float" // verify we strip <MeasureOne> measure annotations
-          verifyDescription
+          verifySignature "trigger.firstCharacter" 0u 4u "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
+          verifySignature "trigger.innerCharacter" 0u 5u "val arrayOfTuples: (int * int) array" // inner positions trigger
+          verifySignature "uses prefix generics" 1u 5u "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
+          verifySignature "struct tuple handling" 2u 5u "val listOfStructTuples: list<struct (int * int)>" // verify we render struct tuples in a round-tripabble format
+          verifySignature "strip meaningless units of measure" 3u 5u "val floatThatShouldHaveGenericReportedInTooltip: float" // verify we strip <MeasureOne> measure annotations
+          verifyDescription "tooltip formatting for external library functions"
             4u
             4u
             [ "**Description**"
@@ -469,7 +469,7 @@ let tooltipTests state =
               "**Generic Parameters**"
               ""
               "* `'T` is `System.String`" ] // verify fancy descriptions for external library functions and correct backticks for multiple segments
-          verifyDescription
+          verifyDescription "multiple generic parameters are explained"
             13u
             11u
             [ "**Description**"
@@ -487,38 +487,38 @@ let tooltipTests state =
               "**Returns**"
               ""
               "" ]
-          verifySignature 14u 5u "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
-          verifySignature 15u 5u "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
-          verifySignature 21u 9u "val speed: float<m/s>" // verify we nicely-render measure annotations
+          verifySignature "nested tuples" 14u 5u "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
+          verifySignature "mixed struct and reference tuples" 15u 5u "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
+          verifySignature "units of measure are rendered nicely" 21u 9u "val speed: float<m/s>" // verify we nicely-render measure annotations
           // verify formatting of function-parameters to values. NOTE: we want to wrap them in parens for user clarity eventually.
-          verifySignature
+          verifySignature "parameters that are functions are wrapped in parens for clarity"
             26u
             5u
             (concatLines [ "val funcWithFunParam:"; "   f: (int -> unit) ->"; "   i: int"; "   -> unit" ])
           // verify formatting of tuple args.  NOTE: we want to wrap tuples in parens for user clarify eventually.
-          verifySignature
+          verifySignature "tuple args are split on each line"
             30u
             12u
             (concatLines [ "val funcWithTupleParam:"; "      int *"; "      int"; "   -> int * int" ])
           // verify formatting of struct tuple args in parameter tooltips.
-          verifySignature
+          verifySignature "struct tuple parameters are rendered correctly"
             32u
             12u
             (concatLines
               [ "val funcWithStructTupleParam:"
                 "   f: struct (int * int)"
                 "   -> struct (int * int)" ])
-          verifySignature 36u 15u (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
-          verifySignature
+          verifySignature "tuple member parameters are gathered on single line" 36u 15u (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
+          verifySignature "multiple named member parameters are split on each line"
             37u
             15u
             (concatLines [ "member Bar:"; "   a: int *"; "   b: int *"; "   c: int"; "   -> int" ])
           // verify formatting for multi-char operators
-          verifySignature 39u 7u (concatLines [ "val ( .>> ):"; "   x: int ->"; "   y: int"; "   -> int" ])
+          verifySignature "multi-char operator rendering" 39u 7u (concatLines [ "val ( .>> ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify formatting for single-char operators
-          verifySignature 41u 6u (concatLines [ "val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int" ])
+          verifySignature "single-char operator rendering" 41u 6u (concatLines [ "val ( ^ ):"; "   x: int ->"; "   y: int"; "   -> int" ])
           // verify rendering of generic constraints
-          verifySignature
+          verifySignature "generic constraints on parameters"
             43u
             13u
             (concatLines
@@ -527,7 +527,7 @@ let tooltipTests state =
                 "   y: 'b (requires static member ( + ) )"
                 "   -> 'c" ])
           //verify rendering of solved generic constraints in tooltips for members where they are solved
-          verifyDescription
+          verifyDescription "solved generic parameters are called out in tooltip"
             45u
             15u
             [ "**Generic Parameters**"
@@ -535,7 +535,7 @@ let tooltipTests state =
               "* `'a` is `int`"
               "* `'b` is `int`"
               "* `'c` is `int`" ]
-          verifySignature
+          verifySignature "optional member parameters are rendered with leading question mark"
             48u
             28u
             (concatLines
@@ -543,8 +543,8 @@ let tooltipTests state =
                 "   body              : (MailboxProcessor<string> -> Async<unit>) *"
                 "   ?cancellationToken: System.Threading.CancellationToken"
                 "                    -> MailboxProcessor<string>" ])
-          verifySignature 54u 9u "Case2 of string * newlineBefore: bool * newlineAfter: bool"
-          verifySignature
+          verifySignature "union case named parameters are rendered" 54u 9u "Case2 of string * newlineBefore: bool * newlineAfter: bool"
+          verifySignature "active pattern signatures with potentially-nullable results"
             60u
             7u
             (concatLines
@@ -557,7 +557,7 @@ let tooltipTests state =
                 "   input: Expr"
                 "       -> option<objnull * System.Type>" ])
 #endif
-          verifySignature
+          verifySignature "generic constraint rendering for IWSAM"
             77u
             5u
              (concatLines [
@@ -565,7 +565,7 @@ let tooltipTests state =
                 "      unit"
                 "   -> Result<string,'e> (requires :> IWSAMTest<'e>)"
              ])
-          verifySignature
+          verifySignature "multiple generic constraints for IWASMs"
             90u
             25u
              (concatLines [
@@ -573,14 +573,14 @@ let tooltipTests state =
                 "   awaitable: 'Awaitable (requires member GetAwaiter )"
                 "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)"
              ])
-          verifySignature
+          verifySignature "basic active pattern"
             65u
             7u
             (concatLines
               [ "active pattern DefaultValue: "
                 "   input: Expr"
                 "       -> option<System.Type>" ])
-          verifySignature
+          verifySignature "basic active pattern with nullability awareness"
             70u
             7u
             (concatLines
@@ -593,13 +593,39 @@ let tooltipTests state =
                 "   input: Expr"
                 "       -> option<objnull * System.Type * string>" ])
 #endif
-          verifySignature
+          verifySignature "interface with members with and without parameter names"
             96u
             7u
             (concatLines
               [ "interface IWithAndWithoutParamNames"
                 "  abstract member WithParamNames: arg1: int * arg2: float -> string"
-                "  abstract member WithoutParamNames: int * string -> int" ]) ] ]
+                "  abstract member WithoutParamNames: int * string -> int" ])
+          verifySignature "function with unsolved nullable parameter" 100u 7u (concatLines [
+            "val usesNullable:"
+            "  x: 't | null"
+            "  -> 't (requires reference )"
+          ])
+
+          verifySignature "function with concrete nullable parameter" 101u 7u (concatLines [
+            "val usesConcreteNullable:"
+            "   x: string | null"
+            "   -> String (requires reference )"
+          ])
+          verifySignature "function with generic nullable return" 102u 7u (concatLines [
+            "val makesNullable:"
+            "   x: 'x (requires reference)"
+            "   -> 'x | null"
+          ])
+          verifySignature "function with concrete nullable return" 103u 7u (concatLines [
+            "val makesConcreteNullable:"
+            "   x: string"
+            "   -> string | null"
+          ])
+          verifySignature "function with nullable return from BCL call" 104u 7u (concatLines [
+            "val usesBCLNullable:"
+            "   key: string"
+            "   -> string | null"
+          ])] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

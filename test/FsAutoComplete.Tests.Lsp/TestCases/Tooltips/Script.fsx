@@ -97,3 +97,9 @@ type Awaitable =
 type IWithAndWithoutParamNames =
     abstract member WithParamNames : arg1: int * arg2: float -> string
     abstract member WithoutParamNames : int * string -> int
+
+let usesNullable (x: 't | null) = nonNull x
+let usesConcreteNullable (x: string | null) = nonNull x
+let makesNullable (x: 'x): 'x | null = null
+let makesConcreteNullable (x: string): string | null = null
+let usesBCLNullable (key: string) = System.Environment.GetEnvironmentVariable(key)
