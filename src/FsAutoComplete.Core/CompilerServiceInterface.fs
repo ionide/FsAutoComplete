@@ -367,7 +367,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       )
 
       let allFlags =
-        Array.append [| "--targetprofile:netstandard" |] fsiAdditionalArguments
+        Array.append [| "--targetprofile:netstandard"; "--checknulls+"; "--define:NULLABLE" |] fsiAdditionalArguments
 
       let! (opts, errors) =
         checker.GetProjectOptionsFromScript(
