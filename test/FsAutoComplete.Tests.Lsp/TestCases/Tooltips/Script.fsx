@@ -105,3 +105,4 @@ let usesConcreteNullable (x: string | null) = nonNull x
 let makesNullable (x: 'x): 'x | null = null
 let makesConcreteNullable (x: string): string | null = null
 let usesBCLNullable (key: string) = System.Environment.GetEnvironmentVariable(key)
+let envKey = System.Environment.GetEnvironmentVariable("PATH")

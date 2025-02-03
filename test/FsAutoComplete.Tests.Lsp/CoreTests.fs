@@ -641,6 +641,7 @@ let tooltipTests state =
             106u
             7u
             (concatLines [ "val usesBCLNullable:"; "   key: string"; "     -> string | null" ])
+          verifySignature "simple value" 107u 7u ("val envKey: string | null")
 #endif
           ] ]
 

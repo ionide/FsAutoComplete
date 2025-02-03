@@ -43,7 +43,11 @@ module SignatureFormatter =
   let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
     let context = context.WithPrefixGenericParameters()
 
-    let nullabilityClause = if typ.HasNullAnnotation then " | null" else ""
+    let nullabilityClause =
+      if typ.HasNullAnnotation || typ.IsNullAmbivalent then
+        " | null"
+      else
+        ""
 
     try
       if typ.IsTupleType || typ.IsStructTupleType then
