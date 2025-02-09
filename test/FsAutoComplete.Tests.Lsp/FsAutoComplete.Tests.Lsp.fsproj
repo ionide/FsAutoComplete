@@ -26,6 +26,7 @@
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Expecto.OpenTelemetry.fs" />
     <Compile Include="Helpers.fsi" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Utils/Utils.fsi" />

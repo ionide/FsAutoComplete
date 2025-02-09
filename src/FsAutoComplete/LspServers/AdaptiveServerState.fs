@@ -377,35 +377,40 @@ type AdaptiveState
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) -> detectTests parseResults proj ct)
 
+  let analyzersLocker = new SemaphoreSlim(2,2)
+
   let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
     let filePathUntag = UMX.untag filePath
     let source = file.Source
-    let version = file.Version
     let fileName = Path.GetFileName filePathUntag
-
+    let tags = seq {
+      "filePath", box filePath
+    }
+    use _t = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
     let inline getSourceLine lineNo = (source: ISourceText).GetLineString(lineNo - 1)
 
     let checkUnusedOpens =
       asyncEx {
         try
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
             |> Async.withCancellation progress.CancellationToken
-
-          let! ct = Async.CancellationToken
-          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version), ct)
+          return NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version) |> Some
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
+          return None
       }
 
     let checkUnusedDeclarations =
       asyncEx {
         try
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
@@ -417,15 +422,16 @@ type AdaptiveState
 
           let unused = unused |> Seq.toArray
 
-          let! ct = Async.CancellationToken
-          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused, file.Version), ct)
+          return NotificationEvent.UnusedDeclarations(filePath, unused, file.Version) |> Some
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
+          return None
       }
 
     let checkSimplifiedNames =
       asyncEx {
         try
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
@@ -434,15 +440,16 @@ type AdaptiveState
             |> Async.withCancellation progress.CancellationToken
 
           let simplified = Array.ofSeq simplified
-          let! ct = Async.CancellationToken
-          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified, file.Version), ct)
+          return NotificationEvent.SimplifyNames(filePath, simplified, file.Version) |> Some
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
+          return None
       }
 
     let checkUnnecessaryParentheses =
       asyncEx {
         try
+          use! _l = analyzersLocker.LockAsync()
           use progress = progressLookup.CreateProgressReport(lspClient)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
@@ -466,12 +473,10 @@ type AdaptiveState
 
           let! ct = Async.CancellationToken
 
-          notifications.Trigger(
-            NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version),
-            ct
-          )
+          return NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version) |> Some
         with e ->
           logger.error (Log.setMessage "checkUnnecessaryParentheses failed" >> Log.addExn e)
+          return None
       }
 
     let inline isNotExcluded (exclusions: Regex array) =
@@ -497,22 +502,21 @@ type AdaptiveState
           checkUnnecessaryParentheses ]
 
     async {
-      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
+      let! results = analyzers |> Async.parallel75
+      return results |> Array.choose id
 
-      do!
-        lspClient.NotifyDocumentAnalyzed
-          { TextDocument =
-              { Uri = filePath |> Path.LocalPathToUri
-                Version = version } }
+
     }
 
 
   let runAnalyzers (config: FSharpConfig) (parseAndCheck: ParseAndCheckResults) (volatileFile: VolatileFile) =
     asyncEx {
+      use _t = fsacActivitySource.StartActivityForType(thisType, tags = seq {"filePath", box volatileFile.FileName})
       if config.EnableAnalyzers then
         let file = volatileFile.FileName
 
         try
+          use! _l = analyzersLocker.LockAsync()
           use progress = new ServerProgressReport(lspClient)
           do! progress.Begin("Running analyzers...", message = UMX.untag file)
 
@@ -523,8 +527,6 @@ type AdaptiveState
 
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
-            // Since analyzers are not async, we need to switch to a new thread to not block threadpool
-            do! Async.SwitchToNewThread()
 
             let! res =
               Commands.analyzerHandler (
@@ -535,18 +537,17 @@ type AdaptiveState
                 tast,
                 parseAndCheck.GetCheckResults
               )
-
-            let! ct = Async.CancellationToken
-            notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
-
             Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
 
+            return NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version) |> Some
           | _ ->
             Loggers.analyzers.info (Log.setMessageI $"missing components of {file:file} to run analyzers, skipped them")
-
-            ()
+            return None
         with ex ->
           Loggers.analyzers.error (Log.setMessageI $"Run failed for {file:file}" >> Log.addExn ex)
+          return None
+      else
+        return None
     }
 
   do
@@ -557,12 +558,98 @@ type AdaptiveState
       else
         async {
           let config = config |> AVal.force
-          do! builtInCompilerAnalyzers config volatileFile parseAndCheck
-          do! runAnalyzers config parseAndCheck volatileFile
+          let! results = builtInCompilerAnalyzers config volatileFile parseAndCheck
+          results |> Array.iter (fun n -> notifications.Trigger(n, ct))
+
+          do!
+            lspClient.NotifyDocumentAnalyzed
+              { TextDocument =
+                  { Uri = volatileFile.FileName |> Path.LocalPathToUri
+                    Version = volatileFile.Version } }
+
+          match! runAnalyzers config parseAndCheck volatileFile with
+          | None -> ()
+          | Some n -> notifications.Trigger(n, ct)
 
         }
         |> Async.StartWithCT ct)
 
+
+  let fcsErrorToDiagnostic = fcsErrorToDiagnostic
+  let unusedOpensToDiagnostic n =
+    { Range = fcsRangeToLsp n
+      Code = Some(U2.C2 "FSAC0001")
+      Severity = Some DiagnosticSeverity.Hint
+      Source = Some "FSAC"
+      Message = "Unused open statement"
+      RelatedInformation = None
+      Tags = Some [| DiagnosticTag.Unnecessary |]
+      Data = None
+      CodeDescription = None }
+
+  let unusedDeclarationsToDiagnostic n =
+        { Range = fcsRangeToLsp n
+          Code = Some(U2.C2 "FSAC0003")
+          Severity = Some DiagnosticSeverity.Hint
+          Source = Some "FSAC"
+          Message = "This value is unused"
+          RelatedInformation = Some [||]
+          Tags = Some [| DiagnosticTag.Unnecessary |]
+          Data = None
+          CodeDescription = None }
+
+  let simplifyNamesToDiagnostic (r : FSharp.Compiler.EditorServices.SimplifyNames.SimplifiableRange) =
+    { Diagnostic.Range = fcsRangeToLsp r.Range
+      Code = Some(U2.C2 "FSAC0002")
+      Severity = Some DiagnosticSeverity.Hint
+      Source = Some "FSAC"
+      Message = "This qualifier is redundant"
+      RelatedInformation = Some [||]
+      Tags = Some [| DiagnosticTag.Unnecessary |]
+      Data = None
+      CodeDescription = None }
+
+  let unnecessaryParenthesesToDiagnostic r =
+    { Diagnostic.Range = fcsRangeToLsp r
+      Code = Some(U2.C2 "FSAC0004")
+      Severity = Some DiagnosticSeverity.Hint
+      Source = Some "FSAC"
+      Message = "Parentheses can be removed"
+      RelatedInformation = Some [||]
+      Tags = Some [| DiagnosticTag.Unnecessary |]
+      Data = None
+      CodeDescription = None }
+
+  let analyzersToDiagnostic (m: FSharp.Analyzers.SDK.Message) =
+    let range = fcsRangeToLsp m.Range
+
+    let severity =
+      match m.Severity with
+      | FSharp.Analyzers.SDK.Severity.Hint -> DiagnosticSeverity.Hint
+      | FSharp.Analyzers.SDK.Severity.Info -> DiagnosticSeverity.Information
+      | FSharp.Analyzers.SDK.Severity.Warning -> DiagnosticSeverity.Warning
+      | FSharp.Analyzers.SDK.Severity.Error -> DiagnosticSeverity.Error
+
+    let fixes =
+      match m.Fixes with
+      | [] -> None
+      | fixes ->
+        fixes
+        |> List.map (fun fix ->
+          { Range = fcsRangeToLsp fix.FromRange
+            NewText = fix.ToText })
+        |> Ionide.LanguageServerProtocol.Server.serialize
+        |> Some
+
+    { Range = range
+      Code = Option.ofObj m.Code |> Option.map U2.C2
+      Severity = Some severity
+      Source = Some $"F# Analyzers (%s{m.Type})"
+      Message = m.Message
+      RelatedInformation = None
+      Tags = None
+      CodeDescription = None
+      Data = fixes }
 
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
     try
@@ -600,16 +687,7 @@ type AdaptiveState
 
             let diags =
               opens
-              |> Array.map (fun n ->
-                { Range = fcsRangeToLsp n
-                  Code = Some(U2.C2 "FSAC0001")
-                  Severity = Some DiagnosticSeverity.Hint
-                  Source = Some "FSAC"
-                  Message = "Unused open statement"
-                  RelatedInformation = None
-                  Tags = Some [| DiagnosticTag.Unnecessary |]
-                  Data = None
-                  CodeDescription = None })
+              |> Array.map unusedOpensToDiagnostic
 
             diagnosticCollections.SetFor(uri, "F# Unused opens", version, diags)
 
@@ -618,16 +696,7 @@ type AdaptiveState
 
             let diags =
               decls
-              |> Array.map (fun n ->
-                { Range = fcsRangeToLsp n
-                  Code = Some(U2.C2 "FSAC0003")
-                  Severity = Some DiagnosticSeverity.Hint
-                  Source = Some "FSAC"
-                  Message = "This value is unused"
-                  RelatedInformation = Some [||]
-                  Tags = Some [| DiagnosticTag.Unnecessary |]
-                  Data = None
-                  CodeDescription = None })
+              |> Array.map unusedDeclarationsToDiagnostic
 
             diagnosticCollections.SetFor(uri, "F# Unused declarations", version, diags)
 
@@ -636,20 +705,7 @@ type AdaptiveState
 
             let diags =
               decls
-              |> Array.map
-
-                (fun
-                     ({ Range = range
-                        RelativeName = _relName }) ->
-                  { Diagnostic.Range = fcsRangeToLsp range
-                    Code = Some(U2.C2 "FSAC0002")
-                    Severity = Some DiagnosticSeverity.Hint
-                    Source = Some "FSAC"
-                    Message = "This qualifier is redundant"
-                    RelatedInformation = Some [||]
-                    Tags = Some [| DiagnosticTag.Unnecessary |]
-                    Data = None
-                    CodeDescription = None })
+              |> Array.map simplifyNamesToDiagnostic
 
             diagnosticCollections.SetFor(uri, "F# simplify names", version, diags)
 
@@ -658,16 +714,7 @@ type AdaptiveState
 
             let diags =
               ranges
-              |> Array.map (fun range ->
-                { Diagnostic.Range = fcsRangeToLsp range
-                  Code = Some(U2.C2 "FSAC0004")
-                  Severity = Some DiagnosticSeverity.Hint
-                  Source = Some "FSAC"
-                  Message = "Parentheses can be removed"
-                  RelatedInformation = Some [||]
-                  Tags = Some [| DiagnosticTag.Unnecessary |]
-                  Data = None
-                  CodeDescription = None })
+              |> Array.map unnecessaryParenthesesToDiagnostic
 
             diagnosticCollections.SetFor(uri, "F# unnecessary parentheses", version, diags)
 
@@ -722,36 +769,7 @@ type AdaptiveState
             | messages ->
               let diags =
                 messages
-                |> Array.map (fun m ->
-                  let range = fcsRangeToLsp m.Range
-
-                  let severity =
-                    match m.Severity with
-                    | FSharp.Analyzers.SDK.Severity.Hint -> DiagnosticSeverity.Hint
-                    | FSharp.Analyzers.SDK.Severity.Info -> DiagnosticSeverity.Information
-                    | FSharp.Analyzers.SDK.Severity.Warning -> DiagnosticSeverity.Warning
-                    | FSharp.Analyzers.SDK.Severity.Error -> DiagnosticSeverity.Error
-
-                  let fixes =
-                    match m.Fixes with
-                    | [] -> None
-                    | fixes ->
-                      fixes
-                      |> List.map (fun fix ->
-                        { Range = fcsRangeToLsp fix.FromRange
-                          NewText = fix.ToText })
-                      |> Ionide.LanguageServerProtocol.Server.serialize
-                      |> Some
-
-                  { Range = range
-                    Code = Option.ofObj m.Code |> Option.map U2.C2
-                    Severity = Some severity
-                    Source = Some $"F# Analyzers (%s{m.Type})"
-                    Message = m.Message
-                    RelatedInformation = None
-                    Tags = None
-                    CodeDescription = None
-                    Data = fixes })
+                |> Array.map analyzersToDiagnostic
 
               diagnosticCollections.SetFor(uri, "F# Analyzers", version, diags)
           | NotificationEvent.TestDetected(file, tests) ->
@@ -1295,8 +1313,6 @@ type AdaptiveState
           taskResult { return! checker.ParseFile(file.FileName, snap) }
         | CompilerProjectOption.BackgroundCompiler opts ->
           taskResult {
-
-
             return! checker.ParseFile(file.FileName, file.Source, opts)
           }
 
@@ -1350,6 +1366,12 @@ type AdaptiveState
 
           let! projs =
             asyncResult {
+              let tags = seq {
+                yield "filePath", box filePath
+                yield "version", file.Version
+                yield "lastTouched", file.LastTouched
+              }
+              use _trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
               let cts = getOpenFileTokenOrDefault filePath
               use linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ctok, cts)
 
@@ -1492,6 +1514,23 @@ type AdaptiveState
           })
     }
 
+  let getOpenFilesToProjectOptions () =
+    async {
+      let openFilesToChangesAndProjectOptions = openFilesToChangesAndProjectOptions
+
+      return!
+        openFilesToChangesAndProjectOptions
+        // |> AMap.toASetValues
+        |> AMap.force
+        |> HashMap.toArray
+        |> Array.map (fun (sourceTextPath, projects) ->
+          async {
+            let! projs = AsyncAVal.forceAsync projects
+            return sourceTextPath, projs
+          })
+        |> Async.parallel75
+    }
+
   let getAllFilesToProjectOptions () =
     async {
       let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
@@ -1509,6 +1548,20 @@ type AdaptiveState
         |> Async.parallel75
     }
 
+  let getOpenFilesToProjectOptionsSelected () =
+    async {
+      let! set = getOpenFilesToProjectOptions ()
+      let selectProject = projectSelector |> AVal.force
+      let findProject file projects = selectProject.FindProject(file, projects)
+
+      return
+        set
+        |> Array.choose (fun (k, (_, v)) ->
+          v
+          |> Result.bind (findProject k)
+          |> Result.toOption
+          |> Option.map (fun v -> k, v))
+    }
 
   let getAllFilesToProjectOptionsSelected () =
     async {
@@ -1784,8 +1837,10 @@ type AdaptiveState
       return results
     }
 
-  let forceGetOpenFileTypeCheckResults (filePath: string<LocalPath>) =
-    getOpenFileTypeCheckResults (filePath) |> AsyncAVal.forceAsync
+  let forceGetOpenFileTypeCheckResults (filePath: string<LocalPath>) = async {
+    use _t = fsacActivitySource.StartActivityForType(thisType, tags = seq {"filePath", box filePath})
+    return! getOpenFileTypeCheckResults (filePath) |> AsyncAVal.forceAsync
+  }
 
 
 
@@ -2334,14 +2389,30 @@ type AdaptiveState
         else
           ((float numerator) / (float denominator)) * 100.0 |> uint32
 
+      let! openFiles =
+        getOpenFilesToProjectOptionsSelected ()
+
+
+      let openFiles =
+        openFiles
+        |> Array.map(fun (file, opt) -> AVal.force opt.FSharpProjectCompilerOptions , file)
+
       let checksToPerform =
         let innerChecks =
-          Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
+
+          let allDependentFiles = [| yield! dependentFiles; yield! dependentProjectsAndSourceFiles|]
+          let openDependentFiles =
+            openFiles
+            |> Array.filter(fun (oProj, oFile) -> allDependentFiles |> Array.exists (fun (dProj, dFile) -> oProj.ProjectFileName = dProj.ProjectFileName && oFile = dFile))
+
+          //prioritize open files so intellisense and errors show up faster for the files user is interacting with
+          Array.concat [| openDependentFiles; allDependentFiles |]
           |> Array.filter (fun (_, file) ->
             let file = UMX.untag file
 
             file.Contains "AssemblyInfo.fs" |> not
             && file.Contains "AssemblyAttributes.fs" |> not)
+          |> Array.distinctBy(fun (p,f) -> p.ProjectFileName, f)
 
         let checksToPerformLength = innerChecks.Length
         let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
@@ -2535,6 +2606,41 @@ type AdaptiveState
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
   member x.CancelServerProgress(progressToken: ProgressToken) = progressLookup.Cancel progressToken
+
+  member x.GetDiagnostics (file : string<LocalPath>) = asyncResult {
+    let! check = forceGetOpenFileTypeCheckResults file
+    let! file = x.GetOpenFileOrRead file
+    let config = x.Config
+    let! buildInAnalyzer = builtInCompilerAnalyzers config file check
+    let! externalAnalyzer = runAnalyzers config check file
+
+    let fcsDiags =
+        Array.append
+          check.GetParseResults.Diagnostics
+          check.GetCheckResults.Diagnostics
+        |> Array.map fcsErrorToDiagnostic
+
+    let analyzerDiags =
+      [|
+        yield! buildInAnalyzer
+        yield! externalAnalyzer |> Option.toArray
+      |]
+      |> Array.collect (
+        function
+        | NotificationEvent.AnalyzerMessage (diags, _, _) -> diags |> Array.map analyzersToDiagnostic
+        | NotificationEvent.UnnecessaryParentheses (_, ranges, _) -> ranges |> Array.map unnecessaryParenthesesToDiagnostic
+        | NotificationEvent.UnusedOpens (_, ranges, _) -> ranges |> Array.map unusedOpensToDiagnostic
+        | NotificationEvent.UnusedDeclarations (_, ranges, _) -> ranges |> Array.map unusedDeclarationsToDiagnostic
+        | NotificationEvent.SimplifyNames (_, ranges, _) -> ranges |> Array.map simplifyNamesToDiagnostic
+        | _ -> [||]
+      )
+
+    let diags = [|
+      yield! fcsDiags
+      yield! analyzerDiags
+    |]
+    return diags
+  }
 
 
   interface IDisposable with

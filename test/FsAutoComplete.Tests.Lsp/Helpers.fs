@@ -634,7 +634,6 @@ let parseProject projectFilePath (server: IFSharpLspServer) =
 
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams
-    do! Async.Sleep(TimeSpan.FromSeconds 3.)
     logger.Value.Debug("{project} parse result: {result}", projectName, result)
   }
 

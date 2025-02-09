@@ -83,8 +83,6 @@ let tests state =
                                  End = { Line = 0u; Character = 0u } }
                              RangeLength = Some 0u
                              Text = "c" } |] }
-              // wait for typechecking to propogate?
-              do! Async.Sleep 1000
 
               let! completions =
                 server.TextDocumentCompletion
