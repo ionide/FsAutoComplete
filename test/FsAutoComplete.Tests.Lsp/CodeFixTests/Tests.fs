@@ -3709,4 +3709,5 @@ let tests textFactory state =
       AddBindingToSignatureFileTests.tests state
       ReplaceLambdaWithDotLambdaTests.tests state
       IgnoreExpressionTests.tests state
-      ExprTypeMismatchTests.tests state ]
+      ExprTypeMismatchTests.tests state
+      AddMissingSeqTests.tests state ]
