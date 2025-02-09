@@ -43,6 +43,8 @@ module SignatureFormatter =
   let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
     let context = context.WithPrefixGenericParameters()
 
+    let nullabilityClause = if typ.HasNullAnnotation then " | null" else ""
+
     try
       if typ.IsTupleType || typ.IsStructTupleType then
         let refTupleStr =
@@ -59,7 +61,7 @@ module SignatureFormatter =
         else
           refTupleStr
       elif typ.IsGenericParameter then // no longer need to differentiate between SRTP and normal generic parameter types
-        "'" + typ.GenericParameter.Name
+        "'" + typ.GenericParameter.Name + nullabilityClause
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
         let typeDef = typ.TypeDefinition
 
@@ -68,19 +70,20 @@ module SignatureFormatter =
 
         if entityIsArray typeDef then
           if typ.GenericArguments.Count = 1 && typ.GenericArguments.[0].IsTupleType then
-            sprintf "(%s) array" genericArgs
+            $"(%s{genericArgs}) array%s{nullabilityClause}"
           else
-            sprintf "%s array" genericArgs
+            $"%s{genericArgs} array%s{nullabilityClause}"
         elif isMeasureType typeDef then
-          typ.Format context
+          typ.Format context + nullabilityClause
         else
-          sprintf "%s<%s>" (FSharpKeywords.NormalizeIdentifierBackticks typeDef.DisplayName) genericArgs
+          $"%s{FSharpKeywords.NormalizeIdentifierBackticks typeDef.DisplayName}<%s{genericArgs}>%s{nullabilityClause}"
       else if typ.HasTypeDefinition then
         FSharpKeywords.NormalizeIdentifierBackticks typ.TypeDefinition.DisplayName
+        + nullabilityClause
       else
-        typ.Format context
+        typ.Format context + nullabilityClause
     with _ ->
-      typ.Format context
+      typ.Format context + nullabilityClause
 
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
@@ -357,7 +360,7 @@ module SignatureFormatter =
             if String.IsNullOrWhiteSpace formattedParam then
               formattedParam
             else
-              "(requires " + formattedParam + " )"
+              "(requires " + formattedParam + ")"
 
           if paramConstraint = retTypeConstraint then
             paramFormat
