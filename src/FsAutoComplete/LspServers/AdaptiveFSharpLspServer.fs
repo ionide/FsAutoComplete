@@ -381,7 +381,7 @@ type AdaptiveFSharpLspServer
 
               match peeks with
               | [] -> []
-              | [ CommandResponse.WorkspacePeekFound.Directory projs ] -> projs.Fsprojs
+              | [ CommandResponse.WorkspacePeekFound.Directory projs ] -> projs.Fsprojs |> List.map (fun p -> p.Path)
               | CommandResponse.WorkspacePeekFound.Solution sln :: _ ->
                 sln.Items |> List.collect Workspace.foldFsproj |> List.map fst
               | _ -> []

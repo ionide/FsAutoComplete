@@ -367,7 +367,7 @@ module Workspace =
     | Interesting.Directory(p, fsprojs) ->
       WorkspacePeekFound.Directory
         { WorkspacePeekFoundDirectory.Directory = p
-          Fsprojs = fsprojs }
+          Fsprojs = fsprojs |> List.map (fun x -> { Path = x.Path; CompileItems = x.CompileItems}) }
     | Interesting.Solution(p, sd) ->
       let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
         let kind =
@@ -410,7 +410,7 @@ module Workspace =
         | Folder folder -> folder.Items |> List.collect getProjs
 
       sln.Items |> List.collect getProjs
-    | WorkspacePeekFound.Directory dir -> dir.Fsprojs
+    | WorkspacePeekFound.Directory dir -> dir.Fsprojs |> List.map (fun x -> x.Path)
 
   let rec foldFsproj (item: WorkspacePeekFoundSolutionItem) =
     match item.Kind with
