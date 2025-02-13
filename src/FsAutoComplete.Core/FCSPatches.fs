@@ -85,9 +85,9 @@ module SyntaxTreeOps =
       | SynExpr.InferredDowncast(e, _)
       | SynExpr.Lazy(e, _)
       | SynExpr.TraitCall(_, _, e, _)
-      | SynExpr.YieldOrReturn(_, e, _)
-      | SynExpr.YieldOrReturnFrom(_, e, _)
-      | SynExpr.DoBang(e, _)
+      | SynExpr.YieldOrReturn(expr = e)
+      | SynExpr.YieldOrReturnFrom(expr = e)
+      | SynExpr.DoBang(expr = e)
       | SynExpr.Fixed(e, _)
       | SynExpr.Paren(e, _, _, _)
       | SynExpr.DotLambda(expr = e) -> walkExpr e
