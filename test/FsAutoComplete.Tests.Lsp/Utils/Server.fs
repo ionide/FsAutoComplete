@@ -14,6 +14,7 @@ open FSharpx.Control
 open Expecto
 open Utils
 open Ionide.ProjInfo.Logging
+open FsAutoComplete.Telemetry
 
 let private logger = LogProvider.getLoggerByName "Utils.Server"
 
@@ -221,7 +222,7 @@ module Document =
 
 
   /// in ms
-  let private waitForLateDiagnosticsDelay =
+  let private _waitForLateDiagnosticsDelay =
     let envVar = "FSAC_WaitForLateDiagnosticsDelay"
 
     System.Environment.GetEnvironmentVariable envVar
@@ -271,34 +272,53 @@ module Document =
   /// -> All past `documentAnalyzed` events and their diags are all received at once
   /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
   //ENHANCEMENT: Send `publishDiagnostics` with Doc Version (LSP `3.15.0`) -> can correlate `documentAnalyzed` and `publishDiagnostics`
-  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+  let waitForLatestDiagnostics (timeout : TimeSpan) (doc: Document) : Async<Diagnostic[]> =
     async {
+      timeout |> ignore
+      let tags = seq {
+        "document.filepath", box doc.FilePath
+        "document.uri", doc.Uri
+        "document.version", doc.Version
+      }
+      use _trace = OpenTelemetry.source.StartActivityForFunc(tags = tags)
       logger.trace (
         Log.setMessage "Waiting for diags for {uri} at version {version}"
         >> Log.addContext "uri" doc.Uri
         >> Log.addContext "version" doc.Version
       )
+      let p : DocumentDiagnosticParams = {
+        WorkDoneToken = None
+        PartialResultToken = None
+        TextDocument = { Uri = doc.Uri}
+        Identifier = None
+        PreviousResultId = None
+      }
+      match! doc.Server.Server.TextDocumentDiagnostic p with
+      | Ok (DocumentDiagnosticReport.C1 d) -> return d.Items
+      | Ok (DocumentDiagnosticReport.C2 _) -> return Array.empty
+      | Result.Error _e -> return Array.empty
 
-      let tcs = TaskCompletionSource<_>()
 
-      use _ =
-        doc
-        |> diagnosticsStream
-        |> Observable.takeUntilOther (
-          doc
-          // `fsharp/documentAnalyzed` signals all checks & analyzers done
-          |> analyzedStream
-          |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
-          // wait for late diagnostics
-          |> Observable.delay waitForLateDiagnosticsDelay
-        )
-        |> Observable.bufferSpan (timeout)
-        // |> Observable.timeoutSpan timeout
-        |> Observable.subscribe (fun x -> tcs.SetResult x)
+      // let tcs = TaskCompletionSource<_>(TaskCreationOptions.RunContinuationsAsynchronously)
 
-      let! result = tcs.Task |> Async.AwaitTask
+      // use _ =
+      //   doc
+      //   |> diagnosticsStream
+      //   |> Observable.takeUntilOther (
+      //     doc
+      //     // `fsharp/documentAnalyzed` signals all checks & analyzers done
+      //     |> analyzedStream
+      //     |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+      //     // wait for late diagnostics
+      //     |> Observable.delay waitForLateDiagnosticsDelay
+      //   )
+      //   |> Observable.bufferSpan (timeout)
+      //   // |> Observable.timeoutSpan timeout
+      //   |> Observable.subscribe (fun x -> tcs.SetResult x)
 
-      return result |> Seq.last
+      // let! result = tcs.Task |> Async.AwaitTask
+
+      // return result |> Seq.last
     }
 
 
@@ -344,7 +364,7 @@ module Document =
           ContentChanges = [| U2.C2 { Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
+      // do! Async.Sleep(TimeSpan.FromMilliseconds 15.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
@@ -356,7 +376,7 @@ module Document =
       // Simulate the file being written to disk so we don't hit the typechecker cache
       IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
       do! doc.Server.Server.TextDocumentDidSave p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
+      // do! Async.Sleep(TimeSpan.FromMilliseconds 15.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 

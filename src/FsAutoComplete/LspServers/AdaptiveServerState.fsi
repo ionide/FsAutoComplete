@@ -127,4 +127,8 @@ type AdaptiveState =
   /// See <see href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#window_workDoneProgress_cancel">LSP Spec on WorkDoneProgress Cancel</see> for more information.
   /// </remarks>
   member CancelServerProgress: progressToken: ProgressToken -> unit
+
+  member GetDiagnostics:
+   file: string<LocalPath>
+      -> Async<Result<Diagnostic array,string>>
   interface IDisposable
