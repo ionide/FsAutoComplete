@@ -374,7 +374,7 @@ module Workspace =
           match x.Kind with
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _msbuildProj ->
+          | Ionide.ProjInfo.InspectSln.SolutionItemKind.MSBuildFormat _msbuildProj ->
             Some(
               WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                 { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }

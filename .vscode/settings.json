@@ -1,4 +1,7 @@
 {
+  "[fsharp]": {
+    "editor.formatOnSave": true
+  },
   "FSharp.excludeProjectDirectories": [
     ".git",
     "paket-files",

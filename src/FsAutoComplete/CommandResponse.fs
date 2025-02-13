@@ -470,7 +470,7 @@ module CommandResponse =
             match x.Kind with
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unknown
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Unsupported -> None
-            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MsbuildFormat _ ->
+            | Ionide.ProjInfo.InspectSln.SolutionItemKind.MSBuildFormat _ ->
               Some(
                 WorkspacePeekFoundSolutionItemKind.MsbuildFormat
                   { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }

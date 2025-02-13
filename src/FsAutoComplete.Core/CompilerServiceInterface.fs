@@ -91,7 +91,6 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       enablePartialTypeChecking = not hasAnalyzers,
       parallelReferenceResolution = parallelReferenceResolution,
       captureIdentifiersWhenParsing = true,
-      useSyntaxTreeCache = true,
       useTransparentCompiler = useTransparentCompiler
     )
 
@@ -140,6 +139,7 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
       FSharpProjectSnapshot.Create(
         snapshot.ProjectFileName,
+        snapshot.OutputFileName,
         snapshot.ProjectId,
         snapshot.SourceFiles,
         snapshot.ReferencesOnDisk,

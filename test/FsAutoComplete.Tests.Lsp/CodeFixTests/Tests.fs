@@ -2019,8 +2019,8 @@ let private addMissingXmlDocumentationTests state =
         """
         let f x y =
           /// <summary>some comment</summary>
-          /// <param name=""></param>
-          /// <param name=""></param>
+          /// <param name="a"></param>
+          /// <param name="b"></param>
           /// <returns></returns>
           let g a b =
             a + b
