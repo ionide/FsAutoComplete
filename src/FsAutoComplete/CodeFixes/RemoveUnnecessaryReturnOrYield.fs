@@ -43,7 +43,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Edits =
-                [| { Range = diagnostic.Range
+                [| { Range =
+                       { Start = diagnostic.Range.Start
+                         End = protocolExprRange.End }
                      NewText = exprText } |]
               Kind = FixKind.Refactor } ]
 
