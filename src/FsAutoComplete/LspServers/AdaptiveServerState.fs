@@ -379,6 +379,12 @@ type AdaptiveState
 
   let analyzersLocker = new SemaphoreSlim(1, 1)
 
+  let typecheckLocker =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor(float System.Environment.ProcessorCount * 0.75)) |> int
+
+    new SemaphoreSlim(maxConcurrency, maxConcurrency)
+
   let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
     let filePathUntag = UMX.untag filePath
@@ -1604,6 +1610,8 @@ type AdaptiveState
 
           ]
 
+      let! ct = Async.CancellationToken
+      use! _l = typecheckLocker.LockAsync ct
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
 
