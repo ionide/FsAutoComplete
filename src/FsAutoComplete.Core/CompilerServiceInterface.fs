@@ -78,9 +78,22 @@ type CompilerProjectOption =
     | BackgroundCompiler(options) -> options.OtherOptions |> Array.toList
     | TransparentCompiler(snapshot) -> snapshot.OtherOptions
 
-type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelReferenceResolution, useTransparentCompiler)
-  =
+type FSharpCompilerServiceChecker
+  (
+    hasAnalyzers,
+    typecheckCacheSize,
+    parallelReferenceResolution,
+    useTransparentCompiler,
+    ?transparentCompilerCacheSizes: int
+  ) =
   let checker =
+    let cacheSize =
+      if useTransparentCompiler then
+        TransparentCompiler.CacheSizes.Create(defaultArg transparentCompilerCacheSizes 10)
+        |> Some
+      else
+        None
+
     FSharpChecker.Create(
       projectCacheSize = 200,
       keepAssemblyContents = hasAnalyzers,
@@ -91,7 +104,8 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
       enablePartialTypeChecking = not hasAnalyzers,
       parallelReferenceResolution = parallelReferenceResolution,
       captureIdentifiersWhenParsing = true,
-      useTransparentCompiler = useTransparentCompiler
+      useTransparentCompiler = useTransparentCompiler,
+      ?transparentCompilerCacheSizes = cacheSize
     )
 
   let entityCache = EntityCache()
@@ -502,7 +516,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
             let ops =
               MemoryCacheEntryOptions().SetSize(1).SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
-            return lastCheckResults.Set(filePath, r, ops)
+            lastCheckResults.Set(filePath, WeakReference<ParseAndCheckResults>(r), ops)
+            |> ignore<WeakReference<ParseAndCheckResults>>
+
+            return r
           else
             return r
       with ex ->
@@ -553,7 +570,10 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
             let ops =
               MemoryCacheEntryOptions().SetSize(1).SetSlidingExpiration(TimeSpan.FromMinutes(5.))
 
-            return lastCheckResults.Set(filePath, r, ops)
+            lastCheckResults.Set(filePath, WeakReference<ParseAndCheckResults>(r), ops)
+            |> ignore<WeakReference<ParseAndCheckResults>>
+
+            return r
           else
             return r
       with ex ->
@@ -578,8 +598,11 @@ type FSharpCompilerServiceChecker(hasAnalyzers, typecheckCacheSize, parallelRefe
 
     checkerLogger.info (Log.setMessage "{opName}" >> Log.addContextDestructured "opName" opName)
 
-    match lastCheckResults.TryGetValue<ParseAndCheckResults>(file) with
-    | (true, v) -> Some v
+    match lastCheckResults.TryGetValue<WeakReference<ParseAndCheckResults>>(file) with
+    | (true, v) ->
+      match v.TryGetTarget() with
+      | (true, v) -> Some v
+      | _ -> None
     | _ -> None
 
   member _.TryGetRecentCheckResultsForFile(file: string<LocalPath>, snapshot: FSharpProjectSnapshot) =

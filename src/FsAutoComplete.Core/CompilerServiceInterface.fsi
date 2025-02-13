@@ -29,7 +29,11 @@ type CompilerProjectOption =
 
 type FSharpCompilerServiceChecker =
   new:
-    hasAnalyzers: bool * typecheckCacheSize: int64 * parallelReferenceResolution: bool * useTransparentCompiler: bool ->
+    hasAnalyzers: bool *
+    typecheckCacheSize: int64 *
+    parallelReferenceResolution: bool *
+    useTransparentCompiler: bool *
+    ?transparentCompilerCacheSizes: int ->
       FSharpCompilerServiceChecker
 
   member DisableInMemoryProjectReferences: bool with get, set
