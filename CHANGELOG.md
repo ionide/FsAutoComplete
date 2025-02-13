@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.0] - 2025-02-12
+
+### Changed
+
+- [Update to FSharp.Compiler.Service 43.9.201](https://github.com/ionide/FsAutoComplete/pull/1355) (thanks @TheAngryByrd) See [FCS Release Notes](https://github.com/dotnet/fsharp/blob/main/docs/release-notes/.FSharp.Compiler.Service/9.0.200.md)
+- [Transparent Compiler usage changes](https://github.com/ionide/FsAutoComplete/pull/1356) (thanks @TheAngryByrd)
+
 ## [0.76.2] - 2025-02-09
 
 ### Added 
