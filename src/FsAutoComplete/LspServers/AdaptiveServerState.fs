@@ -377,6 +377,14 @@ type AdaptiveState
     disposables.Add
     <| fileParsed.Publish.Subscribe(fun (parseResults, proj, ct) -> detectTests parseResults proj ct)
 
+  let analyzersLocker = new SemaphoreSlim(1, 1)
+
+  let typecheckLocker =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor(float System.Environment.ProcessorCount * 0.75)) |> int
+
+    new SemaphoreSlim(maxConcurrency, maxConcurrency)
+
   let builtInCompilerAnalyzers config (file: VolatileFile) (tyRes: ParseAndCheckResults) =
     let filePath = file.FileName
     let filePathUntag = UMX.untag filePath
@@ -390,6 +398,8 @@ type AdaptiveState
     let checkUnusedOpens =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
@@ -397,7 +407,6 @@ type AdaptiveState
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
             |> Async.withCancellation progress.CancellationToken
 
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
@@ -406,6 +415,8 @@ type AdaptiveState
     let checkUnusedDeclarations =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
@@ -417,7 +428,6 @@ type AdaptiveState
 
           let unused = unused |> Seq.toArray
 
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused, file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
@@ -426,6 +436,8 @@ type AdaptiveState
     let checkSimplifiedNames =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
           do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
@@ -434,7 +446,6 @@ type AdaptiveState
             |> Async.withCancellation progress.CancellationToken
 
           let simplified = Array.ofSeq simplified
-          let! ct = Async.CancellationToken
           notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified, file.Version), ct)
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
@@ -443,6 +454,8 @@ type AdaptiveState
     let checkUnnecessaryParentheses =
       asyncEx {
         try
+          let! ct = Async.CancellationToken
+          use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient)
           do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
@@ -463,8 +476,6 @@ type AdaptiveState
                 ranges
 
               | _ -> ranges)
-
-          let! ct = Async.CancellationToken
 
           notifications.Trigger(
             NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version),
@@ -1599,6 +1610,8 @@ type AdaptiveState
 
           ]
 
+      let! ct = Async.CancellationToken
+      use! _l = typecheckLocker.LockAsync ct
       use _ = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
 

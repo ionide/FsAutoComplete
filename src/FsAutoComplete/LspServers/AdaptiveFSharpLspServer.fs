@@ -939,7 +939,7 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) = getFilePathAndPosition p
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
-          and! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match tyRes.TryGetToolTipEnhanced pos lineStr with
           | Some tooltipResult ->
@@ -1580,7 +1580,7 @@ type AdaptiveFSharpLspServer
           let filePath = Path.FileUriToLocalPath data.[0] |> Utils.normalizePath
 
           try
-            let! tyRes = state.GetOpenFileTypeCheckResultsCached filePath |> AsyncResult.ofStringErr
+            let! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
 
             logger.info (

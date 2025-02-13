@@ -408,7 +408,7 @@ and AdaptiveCancellableTask<'a>(cancel: unit -> unit, real: Task<'a>) =
       if real.IsCompleted then
         real
       else
-        cachedTcs <- new TaskCompletionSource<'a>()
+        cachedTcs <- new TaskCompletionSource<'a>(TaskCreationOptions.RunContinuationsAsynchronously)
 
         cachedTcs.TrySetFromTaskFinished real
 
