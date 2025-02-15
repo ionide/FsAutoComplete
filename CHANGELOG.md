@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.77.1] - 2025-02-14
+
+### Fixed
+
+- [Update ProjInfo to 0.70.1](https://github.com/ionide/FsAutoComplete/pull/1357) (thanks @TheAngryByrd) - This fixes an issue with trying to design time build projects that can't be built
+
 ## [0.77.0] - 2025-02-12
 
 ### Changed
