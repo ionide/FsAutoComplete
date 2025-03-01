@@ -504,7 +504,10 @@ type AdaptiveState
           && isNotExcluded config.SimplifyNameAnalyzerExclusions
         then
           checkSimplifiedNames
-        if config.UnnecessaryParenthesesAnalyzer then
+        if
+          config.UnnecessaryParenthesesAnalyzer
+          && isNotExcluded config.UnnecessaryParenthesesAnalyzerExclusions
+        then
           checkUnnecessaryParentheses ]
 
     async {
