@@ -723,6 +723,7 @@ type FSharpConfigDto =
     SimplifyNameAnalyzer: bool option
     SimplifyNameAnalyzerExclusions: string array option
     UnnecessaryParenthesesAnalyzer: bool option
+    UnnecessaryParenthesesAnalyzerExclusions: string array option
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
@@ -867,6 +868,7 @@ type FSharpConfig =
     SimplifyNameAnalyzer: bool
     SimplifyNameAnalyzerExclusions: Regex array
     UnnecessaryParenthesesAnalyzer: bool
+    UnnecessaryParenthesesAnalyzerExclusions: Regex array
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool
@@ -922,6 +924,7 @@ type FSharpConfig =
       SimplifyNameAnalyzer = false
       SimplifyNameAnalyzerExclusions = [||]
       UnnecessaryParenthesesAnalyzer = true
+      UnnecessaryParenthesesAnalyzerExclusions = [||]
       ResolveNamespaces = false
       EnableReferenceCodeLens = false
       EnableAnalyzers = false
@@ -975,6 +978,9 @@ type FSharpConfig =
         defaultArg dto.SimplifyNameAnalyzerExclusions [||]
         |> Array.choose tryCreateRegex
       UnnecessaryParenthesesAnalyzer = defaultArg dto.UnnecessaryParenthesesAnalyzer true
+      UnnecessaryParenthesesAnalyzerExclusions =
+        defaultArg dto.UnnecessaryParenthesesAnalyzerExclusions [||]
+        |> Array.choose tryCreateRegex
       ResolveNamespaces = defaultArg dto.ResolveNamespaces false
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens false
       EnableAnalyzers = defaultArg dto.EnableAnalyzers false
@@ -1086,6 +1092,11 @@ type FSharpConfig =
           (dto.SimplifyNameAnalyzerExclusions |> Option.map (Array.choose tryCreateRegex))
           x.SimplifyNameAnalyzerExclusions
       UnnecessaryParenthesesAnalyzer = defaultArg dto.UnnecessaryParenthesesAnalyzer x.UnnecessaryParenthesesAnalyzer
+      UnnecessaryParenthesesAnalyzerExclusions =
+        defaultArg
+          (dto.UnnecessaryParenthesesAnalyzerExclusions
+           |> Option.map (Array.choose tryCreateRegex))
+          x.UnnecessaryParenthesesAnalyzerExclusions
       ResolveNamespaces = defaultArg dto.ResolveNamespaces x.ResolveNamespaces
       EnableReferenceCodeLens = defaultArg dto.EnableReferenceCodeLens x.EnableReferenceCodeLens
       EnableAnalyzers = defaultArg dto.EnableAnalyzers x.EnableAnalyzers

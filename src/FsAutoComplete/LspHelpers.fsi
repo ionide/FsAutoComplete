@@ -306,6 +306,7 @@ type FSharpConfigDto =
     SimplifyNameAnalyzer: bool option
     SimplifyNameAnalyzerExclusions: string array option
     UnnecessaryParenthesesAnalyzer: bool option
+    UnnecessaryParenthesesAnalyzerExclusions: string array option
     ResolveNamespaces: bool option
     EnableReferenceCodeLens: bool option
     EnableAnalyzers: bool option
@@ -409,6 +410,7 @@ type FSharpConfig =
     SimplifyNameAnalyzer: bool
     SimplifyNameAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     UnnecessaryParenthesesAnalyzer: bool
+    UnnecessaryParenthesesAnalyzerExclusions: System.Text.RegularExpressions.Regex array
     ResolveNamespaces: bool
     EnableReferenceCodeLens: bool
     EnableAnalyzers: bool

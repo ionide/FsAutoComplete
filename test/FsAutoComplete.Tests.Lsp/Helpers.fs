@@ -254,6 +254,7 @@ let defaultConfigDto: FSharpConfigDto =
     SimplifyNameAnalyzer = None
     SimplifyNameAnalyzerExclusions = None
     UnnecessaryParenthesesAnalyzer = None
+    UnnecessaryParenthesesAnalyzerExclusions = None
     ResolveNamespaces = None
     EnableReferenceCodeLens = None
     EnableAnalyzers = None
