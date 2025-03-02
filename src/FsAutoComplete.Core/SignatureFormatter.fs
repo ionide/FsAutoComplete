@@ -727,9 +727,28 @@ module SignatureFormatter =
 
       let basicName = modifier + typeName ++ name
 
+      let rec getUnAnnotatedFunctionParameterNames (e: FSharpType) =
+        e.GenericArguments
+        |> Seq.map (fun x ->
+          if x.IsGenericParameter then
+            [ x.GenericParameter.DisplayName ]
+          else if x.IsFunctionType then
+            getUnAnnotatedFunctionParameterNames x
+          else
+            [ x.TypeDefinition.UnAnnotate().DisplayName ])
+        |> List.concat
+
       if fse.IsFSharpAbbreviation then
-        let unannotatedType = fse.UnAnnotate()
-        basicName ++ "=" ++ (unannotatedType.DisplayName)
+        if fse.AbbreviatedType.IsFunctionType then
+          let typeNames =
+            getUnAnnotatedFunctionParameterNames fse.AbbreviatedType |> String.join " -> "
+
+          basicName ++ "=" ++ typeNames
+        else if fse.AbbreviatedType.IsGenericParameter then
+          basicName ++ "=" ++ fse.AbbreviatedType.GenericParameter.DisplayName
+        else
+          let unannotatedType = fse.UnAnnotate()
+          basicName ++ "=" ++ (unannotatedType.DisplayName)
       else
         basicName
 

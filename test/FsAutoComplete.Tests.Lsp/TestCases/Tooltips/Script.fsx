@@ -97,3 +97,8 @@ type Awaitable =
 type IWithAndWithoutParamNames =
     abstract member WithParamNames : arg1: int * arg2: float -> string
     abstract member WithoutParamNames : int * string -> int
+
+type TypeAlias = int
+type FunctionAlias = int -> int
+type GenericTypeAlias<'T> = 'T
+type GenericFunctionAlias<'T> = 'T -> 'T -> int -> unit
