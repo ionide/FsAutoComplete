@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.77.3] - 2025-03-02
+
+- [Add exclusion config for parens analyzer](https://github.com/ionide/FsAutoComplete/pull/1363) (thanks @brianrourkeboll)
+
 ## [0.77.2] - 2025-02-17
 
 - [Update ProjInfo to 0.70.2](https://github.com/ionide/FsAutoComplete/pull/1358) (thanks @TheAngryByrd) - Fixes slow builds when using binlogs with Graph based builds
