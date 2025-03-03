@@ -102,3 +102,6 @@ type TypeAlias = int
 type FunctionAlias = int -> int
 type GenericTypeAlias<'T> = 'T
 type GenericFunctionAlias<'T> = 'T -> 'T -> int -> unit
+type TypeAliasTuple = (int * string)
+type GenericTypeAliasTuple<'A, 'B> = ('A * 'B * int)
+type GenericFunctionTupleAlias<'T> = 'T -> ('T * string)

@@ -592,6 +592,41 @@ module SignatureFormatter =
 
     sprintf "active pattern %s: %s" apc.Name findVal
 
+  type ParameterType =
+    | Generic of FSharpGenericParameter
+    | Concrete of FSharpEntity
+    | Function of ParameterType list
+    | Tuple of ParameterType list
+    | StructTuple of ParameterType list
+
+    static member displayName =
+      function
+      | Generic x -> "'" + x.DisplayName
+      | Concrete x -> x.DisplayName
+      | Function x -> x |> List.map ParameterType.displayName |> String.join " -> "
+      | Tuple x ->
+        let args = x |> List.map ParameterType.displayName |> String.join " * "
+        $"({args})"
+      | StructTuple x ->
+        let args = x |> List.map ParameterType.displayName |> String.join " * "
+        $"struct ({args})"
+
+  let rec getUnAnnotatedParameterNames (e: FSharpType) =
+    e.GenericArguments
+    |> Seq.map (fun x ->
+      if x.IsGenericParameter then
+        Generic x.GenericParameter
+      else if x.IsFunctionType then
+        Function(getUnAnnotatedParameterNames x)
+      else if x.IsTupleType then
+        Tuple(getUnAnnotatedParameterNames x)
+      else if x.IsStructTupleType then
+        StructTuple(getUnAnnotatedParameterNames x)
+      else
+        x.TypeDefinition.UnAnnotate() |> Concrete)
+    |> Seq.toList
+
+
   let getEntitySignature displayContext (fse: FSharpEntity) =
     let modifier =
       match fse.Accessibility with
@@ -727,25 +762,23 @@ module SignatureFormatter =
 
       let basicName = modifier + typeName ++ name
 
-      let rec getUnAnnotatedFunctionParameterNames (e: FSharpType) =
-        e.GenericArguments
-        |> Seq.map (fun x ->
-          if x.IsGenericParameter then
-            [ x.GenericParameter.DisplayName ]
-          else if x.IsFunctionType then
-            getUnAnnotatedFunctionParameterNames x
-          else
-            [ x.TypeDefinition.UnAnnotate().DisplayName ])
-        |> List.concat
-
       if fse.IsFSharpAbbreviation then
         if fse.AbbreviatedType.IsFunctionType then
           let typeNames =
-            getUnAnnotatedFunctionParameterNames fse.AbbreviatedType |> String.join " -> "
+            getUnAnnotatedParameterNames fse.AbbreviatedType
+            |> List.map ParameterType.displayName
+            |> String.join " -> "
 
           basicName ++ "=" ++ typeNames
         else if fse.AbbreviatedType.IsGenericParameter then
-          basicName ++ "=" ++ fse.AbbreviatedType.GenericParameter.DisplayName
+          basicName ++ "=" ++ "'" + fse.AbbreviatedType.GenericParameter.DisplayName
+        else if fse.AbbreviatedType.IsTupleType then
+          let typeNames =
+            getUnAnnotatedParameterNames fse.AbbreviatedType
+            |> List.map ParameterType.displayName
+            |> String.join " * "
+
+          basicName ++ "=" ++ "(" + typeNames + ")"
         else
           let unannotatedType = fse.UnAnnotate()
           basicName ++ "=" ++ (unannotatedType.DisplayName)
@@ -755,6 +788,10 @@ module SignatureFormatter =
     if fse.IsFSharpUnion then typeDisplay + unionTip ()
     elif fse.IsEnum then typeDisplay + enumTip ()
     elif fse.IsDelegate then typeDisplay + delegateTip ()
+    elif
+      fse.IsFSharpAbbreviation
+      && (fse.AbbreviatedType.IsTupleType || fse.AbbreviatedType.IsStructTupleType)
+    then typeDisplay
     else typeDisplay + typeTip ()
 
   let footerForType (entity: FSharpSymbolUse) =

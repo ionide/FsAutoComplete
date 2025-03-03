@@ -605,22 +605,37 @@ let tooltipTests state =
           verifySignature
             100u
             7u
-            (concatLines ["type TypeAlias = Int32"])
+           "type TypeAlias = Int32"
 
           verifySignature
             101u
             7u
-            (concatLines ["type FunctionAlias = Int32 -> Int32"])
+            "type FunctionAlias = Int32 -> Int32"
 
           verifySignature
             102u
             7u
-            (concatLines ["type GenericTypeAlias<'T> = T"])
+           "type GenericTypeAlias<'T> = 'T"
 
           verifySignature
             103u
             7u
-            (concatLines ["type GenericFunctionAlias<'T> = T -> T -> Int32 -> Unit"]) ] ]
+           "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
+
+          verifySignature
+            104u
+            7u
+           "type TypeAliasTuple = (Int32 * String)"
+
+          verifySignature
+            105u
+            7u
+            "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
+
+          verifySignature
+            106u
+            7u
+            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
