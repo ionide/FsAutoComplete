@@ -618,10 +618,10 @@ module SignatureFormatter =
         Generic x.GenericParameter
       else if x.IsFunctionType then
         Function(getUnAnnotatedParameterNames x)
-      else if x.IsTupleType then
-        Tuple(getUnAnnotatedParameterNames x)
       else if x.IsStructTupleType then
         StructTuple(getUnAnnotatedParameterNames x)
+      else if x.IsTupleType then
+        Tuple(getUnAnnotatedParameterNames x)
       else
         x.TypeDefinition.UnAnnotate() |> Concrete)
     |> Seq.toList
@@ -772,6 +772,13 @@ module SignatureFormatter =
           basicName ++ "=" ++ typeNames
         else if fse.AbbreviatedType.IsGenericParameter then
           basicName ++ "=" ++ "'" + fse.AbbreviatedType.GenericParameter.DisplayName
+        else if fse.AbbreviatedType.IsStructTupleType then
+          let typeNames =
+            getUnAnnotatedParameterNames fse.AbbreviatedType
+            |> List.map ParameterType.displayName
+            |> String.join " * "
+
+          basicName ++ "=" ++ "struct (" + typeNames + ")"
         else if fse.AbbreviatedType.IsTupleType then
           let typeNames =
             getUnAnnotatedParameterNames fse.AbbreviatedType

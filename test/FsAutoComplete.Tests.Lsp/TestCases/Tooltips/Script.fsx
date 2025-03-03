@@ -105,3 +105,5 @@ type GenericFunctionAlias<'T> = 'T -> 'T -> int -> unit
 type TypeAliasTuple = (int * string)
 type GenericTypeAliasTuple<'A, 'B> = ('A * 'B * int)
 type GenericFunctionTupleAlias<'T> = 'T -> ('T * string)
+type StructTupleAlias = (struct (int * string))
+type StructFunctionTupleAlias = int -> (struct (int * string))

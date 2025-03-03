@@ -635,7 +635,17 @@ let tooltipTests state =
           verifySignature
             106u
             7u
-            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)" ] ]
+            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
+
+          verifySignature
+            107u
+            7u
+            "type StructTupleAlias = struct (Int32 * String)"
+
+          verifySignature
+            108u
+            7u
+            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
