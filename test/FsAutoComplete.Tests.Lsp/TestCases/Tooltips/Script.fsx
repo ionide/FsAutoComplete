@@ -97,3 +97,14 @@ type Awaitable =
 type IWithAndWithoutParamNames =
     abstract member WithParamNames : arg1: int * arg2: float -> string
     abstract member WithoutParamNames : int * string -> int
+
+type TypeAlias = int
+type FunctionAlias = int -> int
+type GenericTypeAlias<'T> = 'T
+type GenericFunctionAlias<'T> = 'T -> 'T -> int -> unit
+type TypeAliasTuple = (int * string)
+type GenericTypeAliasTuple<'A, 'B> = ('A * 'B * int)
+type GenericFunctionTupleAlias<'T> = 'T -> ('T * string)
+type StructTupleAlias = (struct (int * string))
+type StructFunctionTupleAlias = int -> (struct (int * string))
+let functionAliasValue: FunctionAlias = fun _ -> 2

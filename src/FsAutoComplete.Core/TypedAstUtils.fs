@@ -238,7 +238,7 @@ module TypedAstExtensionHelpers =
     member this.GetAbbreviatedParent() =
       match this with
       | Entity e ->
-        if e.IsFSharpAbbreviation then
+        if e.IsFSharpAbbreviation && e.AbbreviatedType.HasTypeDefinition then
           e.AbbreviatedType.TypeDefinition.GetAbbreviatedParent()
         else
           this
