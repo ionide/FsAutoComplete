@@ -615,40 +615,45 @@ let tooltipTests state =
           verifySignature
             102u
             7u
-           "type GenericTypeAlias<'T> = 'T"
+            "type FunctionAliasWithGenerics = Int32 -> String -> Option<Result<Int32, String>>"
 
           verifySignature
             103u
             7u
-           "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
+           "type GenericTypeAlias<'T> = 'T"
 
           verifySignature
             104u
             7u
-           "type TypeAliasTuple = (Int32 * String)"
+           "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
 
           verifySignature
             105u
             7u
-            "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
+           "type TypeAliasTuple = (Int32 * String)"
 
           verifySignature
             106u
             7u
-            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
+            "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
 
           verifySignature
             107u
             7u
-            "type StructTupleAlias = struct (Int32 * String)"
+            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
 
           verifySignature
             108u
             7u
-            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
+            "type StructTupleAlias = struct (Int32 * String)"
 
           verifySignature
             109u
+            7u
+            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
+
+          verifySignature
+            110u
             7u
             "val functionAliasValue: int -> int" ] ]
 
