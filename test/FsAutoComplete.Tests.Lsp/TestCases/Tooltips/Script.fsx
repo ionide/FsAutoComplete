@@ -107,3 +107,4 @@ type GenericTypeAliasTuple<'A, 'B> = ('A * 'B * int)
 type GenericFunctionTupleAlias<'T> = 'T -> ('T * string)
 type StructTupleAlias = (struct (int * string))
 type StructFunctionTupleAlias = int -> (struct (int * string))
+let functionAliasValue: FunctionAlias = fun _ -> 2

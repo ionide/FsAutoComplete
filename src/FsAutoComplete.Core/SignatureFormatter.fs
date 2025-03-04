@@ -40,6 +40,52 @@ module SignatureFormatter =
 
   let private isMeasureType (t: FSharpEntity) = Set.contains t.FullName measureTypeNames
 
+  type ParameterType =
+    | Generic of FSharpGenericParameter
+    | Concrete of FSharpEntity
+    | Function of ParameterType list
+    | Tuple of ParameterType list
+    | StructTuple of ParameterType list
+
+    static member displayName =
+      function
+      | Generic x -> "'" + x.DisplayName
+      | Concrete x -> x.DisplayName
+      | Function x -> x |> List.map ParameterType.displayName |> String.join " -> "
+      | Tuple x ->
+        let args = x |> List.map ParameterType.displayName |> String.join " * "
+        $"({args})"
+      | StructTuple x ->
+        let args = x |> List.map ParameterType.displayName |> String.join " * "
+        $"struct ({args})"
+
+    static member displayNameUnAnnotated =
+      function
+      | Generic x -> "'" + x.DisplayName
+      | Concrete x -> x.UnAnnotate().DisplayName
+      | Function x -> x |> List.map ParameterType.displayNameUnAnnotated |> String.join " -> "
+      | Tuple x ->
+        let args = x |> List.map ParameterType.displayNameUnAnnotated |> String.join " * "
+        $"({args})"
+      | StructTuple x ->
+        let args = x |> List.map ParameterType.displayNameUnAnnotated |> String.join " * "
+        $"struct ({args})"
+
+  let rec getGenericArgumentTypes (e: FSharpType) =
+    e.GenericArguments
+    |> Seq.map (fun x ->
+      if x.IsGenericParameter then
+        Generic x.GenericParameter
+      else if x.IsFunctionType then
+        Function(getGenericArgumentTypes x)
+      else if x.IsStructTupleType then
+        StructTuple(getGenericArgumentTypes x)
+      else if x.IsTupleType then
+        Tuple(getGenericArgumentTypes x)
+      else
+        x.TypeDefinition |> Concrete)
+    |> Seq.toList
+
   let rec formatFSharpType (context: FSharpDisplayContext) (typ: FSharpType) : string =
     let context = context.WithPrefixGenericParameters()
 
@@ -58,6 +104,11 @@ module SignatureFormatter =
           sprintf "struct (%s)" refTupleStr
         else
           refTupleStr
+      elif typ.IsAbbreviation && typ.AbbreviatedType.IsFunctionType then
+        typ.AbbreviatedType
+          |> getGenericArgumentTypes
+          |> List.map ParameterType.displayName
+          |> String.join " -> "
       elif typ.IsGenericParameter then // no longer need to differentiate between SRTP and normal generic parameter types
         "'" + typ.GenericParameter.Name
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
@@ -592,41 +643,6 @@ module SignatureFormatter =
 
     sprintf "active pattern %s: %s" apc.Name findVal
 
-  type ParameterType =
-    | Generic of FSharpGenericParameter
-    | Concrete of FSharpEntity
-    | Function of ParameterType list
-    | Tuple of ParameterType list
-    | StructTuple of ParameterType list
-
-    static member displayName =
-      function
-      | Generic x -> "'" + x.DisplayName
-      | Concrete x -> x.DisplayName
-      | Function x -> x |> List.map ParameterType.displayName |> String.join " -> "
-      | Tuple x ->
-        let args = x |> List.map ParameterType.displayName |> String.join " * "
-        $"({args})"
-      | StructTuple x ->
-        let args = x |> List.map ParameterType.displayName |> String.join " * "
-        $"struct ({args})"
-
-  let rec getUnAnnotatedParameterNames (e: FSharpType) =
-    e.GenericArguments
-    |> Seq.map (fun x ->
-      if x.IsGenericParameter then
-        Generic x.GenericParameter
-      else if x.IsFunctionType then
-        Function(getUnAnnotatedParameterNames x)
-      else if x.IsStructTupleType then
-        StructTuple(getUnAnnotatedParameterNames x)
-      else if x.IsTupleType then
-        Tuple(getUnAnnotatedParameterNames x)
-      else
-        x.TypeDefinition.UnAnnotate() |> Concrete)
-    |> Seq.toList
-
-
   let getEntitySignature displayContext (fse: FSharpEntity) =
     let modifier =
       match fse.Accessibility with
@@ -765,8 +781,8 @@ module SignatureFormatter =
       if fse.IsFSharpAbbreviation then
         if fse.AbbreviatedType.IsFunctionType then
           let typeNames =
-            getUnAnnotatedParameterNames fse.AbbreviatedType
-            |> List.map ParameterType.displayName
+            getGenericArgumentTypes fse.AbbreviatedType
+            |> List.map ParameterType.displayNameUnAnnotated
             |> String.join " -> "
 
           basicName ++ "=" ++ typeNames
@@ -774,15 +790,15 @@ module SignatureFormatter =
           basicName ++ "=" ++ $"'{fse.AbbreviatedType.GenericParameter.DisplayName}"
         else if fse.AbbreviatedType.IsStructTupleType then
           let typeNames =
-            getUnAnnotatedParameterNames fse.AbbreviatedType
-            |> List.map ParameterType.displayName
+            getGenericArgumentTypes fse.AbbreviatedType
+            |> List.map ParameterType.displayNameUnAnnotated
             |> String.join " * "
 
           basicName ++ "=" ++ $"struct ({typeNames})"
         else if fse.AbbreviatedType.IsTupleType then
           let typeNames =
-            getUnAnnotatedParameterNames fse.AbbreviatedType
-            |> List.map ParameterType.displayName
+            getGenericArgumentTypes fse.AbbreviatedType
+            |> List.map ParameterType.displayNameUnAnnotated
             |> String.join " * "
 
           basicName ++ "=" ++ $"({typeNames})"

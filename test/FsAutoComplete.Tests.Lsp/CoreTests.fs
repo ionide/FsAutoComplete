@@ -645,7 +645,12 @@ let tooltipTests state =
           verifySignature
             108u
             7u
-            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)" ] ]
+            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
+
+          verifySignature
+            109u
+            7u
+            "val functionAliasValue: int -> int" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
