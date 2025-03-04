@@ -362,6 +362,7 @@ let tooltipTests state =
                             U2.C1 _showDocumentationLink
                             U2.C1 _fullname
                             U2.C1 _assembly |] } -> Some tooltip
+    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 ""; U2.C1 _docComment |] } -> Some tooltip
     | _ -> None
 
   let (|Description|_|) (hover: Hover) =
@@ -599,7 +600,57 @@ let tooltipTests state =
             (concatLines
               [ "interface IWithAndWithoutParamNames"
                 "  abstract member WithParamNames: arg1: int * arg2: float -> string"
-                "  abstract member WithoutParamNames: int * string -> int" ]) ] ]
+                "  abstract member WithoutParamNames: int * string -> int" ])
+
+          verifySignature
+            100u
+            7u
+           "type TypeAlias = Int32"
+
+          verifySignature
+            101u
+            7u
+            "type FunctionAlias = Int32 -> Int32"
+
+          verifySignature
+            102u
+            7u
+           "type GenericTypeAlias<'T> = 'T"
+
+          verifySignature
+            103u
+            7u
+           "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
+
+          verifySignature
+            104u
+            7u
+           "type TypeAliasTuple = (Int32 * String)"
+
+          verifySignature
+            105u
+            7u
+            "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
+
+          verifySignature
+            106u
+            7u
+            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
+
+          verifySignature
+            107u
+            7u
+            "type StructTupleAlias = struct (Int32 * String)"
+
+          verifySignature
+            108u
+            7u
+            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
+
+          verifySignature
+            109u
+            7u
+            "val functionAliasValue: int -> int" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
