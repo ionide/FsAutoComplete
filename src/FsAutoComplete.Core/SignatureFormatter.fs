@@ -106,9 +106,9 @@ module SignatureFormatter =
           refTupleStr
       elif typ.IsAbbreviation && typ.AbbreviatedType.IsFunctionType then
         typ.AbbreviatedType
-          |> getGenericArgumentTypes
-          |> List.map ParameterType.displayName
-          |> String.join " -> "
+        |> getGenericArgumentTypes
+        |> List.map ParameterType.displayName
+        |> String.join " -> "
       elif typ.IsGenericParameter then // no longer need to differentiate between SRTP and normal generic parameter types
         "'" + typ.GenericParameter.Name
       elif typ.HasTypeDefinition && typ.GenericArguments.Count > 0 then
@@ -808,14 +808,19 @@ module SignatureFormatter =
       else
         basicName
 
-    if fse.IsFSharpUnion then typeDisplay + unionTip ()
-    elif fse.IsEnum then typeDisplay + enumTip ()
-    elif fse.IsDelegate then typeDisplay + delegateTip ()
+    if fse.IsFSharpUnion then
+      typeDisplay + unionTip ()
+    elif fse.IsEnum then
+      typeDisplay + enumTip ()
+    elif fse.IsDelegate then
+      typeDisplay + delegateTip ()
     elif
       fse.IsFSharpAbbreviation
       && (fse.AbbreviatedType.IsTupleType || fse.AbbreviatedType.IsStructTupleType)
-    then typeDisplay
-    else typeDisplay + typeTip ()
+    then
+      typeDisplay
+    else
+      typeDisplay + typeTip ()
 
   let footerForType (entity: FSharpSymbolUse) =
     let formatFooter (fullName, asmName) = $"Full name: %s{fullName}{nl}Assembly: %s{asmName}"
