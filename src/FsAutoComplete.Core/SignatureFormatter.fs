@@ -54,7 +54,7 @@ module SignatureFormatter =
       | WithGenericArguments x ->
         let parameters =
           x.GenericArguments
-          |> Seq.map (ParameterType.getParameterType >> ParameterType.displayNameUnAnnotated)
+          |> Seq.map (ParameterType.getParameterType >> ParameterType.displayName)
           |> String.join ", "
 
         let displayName = x.TypeDefinition.DisplayName
@@ -75,9 +75,7 @@ module SignatureFormatter =
       | WithGenericArguments x ->
         let parameters =
           x.GenericArguments
-          |> Seq.map ParameterType.getParameterType
-          |> Seq.toList
-          |> List.map ParameterType.displayNameUnAnnotated
+          |> Seq.map (ParameterType.getParameterType >> ParameterType.displayNameUnAnnotated)
           |> String.join ", "
 
         let displayName = x.TypeDefinition.UnAnnotate().DisplayName
