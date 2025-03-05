@@ -100,6 +100,7 @@ type IWithAndWithoutParamNames =
 
 type TypeAlias = int
 type FunctionAlias = int -> int
+type FunctionAliasWithGenerics = int -> string -> Result<int, string> option
 type GenericTypeAlias<'T> = 'T
 type GenericFunctionAlias<'T> = 'T -> 'T -> int -> unit
 type TypeAliasTuple = (int * string)
