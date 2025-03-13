@@ -21,13 +21,14 @@ let private getDocumentText (lines: string[]) (ranges: Range array) : string =
     let endLine = lines.[int r.End.Line]
 
     if r.Start.Line = r.End.Line then
-      startLine.Substring(int  r.Start.Character, int  (r.End.Character - r.Start.Character))
+      startLine.Substring(int r.Start.Character, int (r.End.Character - r.Start.Character))
     else
-      let start = startLine.Substring(int  r.Start.Character)
+      let start = startLine.Substring(int r.Start.Character)
       let ``end`` = endLine.Substring(0, int r.End.Character)
 
       let middle =
-        lines.[int (r.Start.Line + 1u) .. int (r.End.Line - 1u)] |> Array.map (fun l -> l.Trim())
+        lines.[int (r.Start.Line + 1u) .. int (r.End.Line - 1u)]
+        |> Array.map (fun l -> l.Trim())
 
       let middle = String.Join(" ", middle)
       start + middle + ``end``)
@@ -89,7 +90,7 @@ let hasLanguages name source expectedLanguages server =
 let tests state =
   testList
     "nested languages"
-    [ ptestList
+    [ testList
         "unsupported scenarios"
         // pending because class members don't return attributes in the FCS Parameter API
         [ serverTestList "class member" state defaultConfigDto None (fun server ->

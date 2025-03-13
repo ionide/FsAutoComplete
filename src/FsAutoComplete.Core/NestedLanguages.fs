@@ -17,6 +17,13 @@ type private StringParameter =
     rangesToRemove: Range array
     parameterPosition: int }
 
+let private pattern =
+  System.Text.RegularExpressions.Regex(
+    @"(?<percent>%)(?<flags>[0\+\-]?)(?<width>\d*)(\.(?<precision>\d+))?(?<type>[bscdiuxXoBeEfFgGMOAat%])",
+    System.Text.RegularExpressions.RegexOptions.Compiled
+  )
+
+let private isFormatSpecifier (text: string) = pattern.Match(text)
 
 /// for virtual documents based on interpolated strings we need to remove two kinds of trivia from the overall string portions.
 /// * for interpolation expressions we need to remove the entire range of the expression - this will be invisible to the virtual document since it is F# code.
@@ -35,19 +42,33 @@ let private discoverRangesToRemoveForInterpolatedString
     match part with
     | SynInterpolatedStringPart.FillExpr(fillExpr = e) -> [| e.Range |]
     // for the first part we have whatever 'leading' element on the left and a trailing interpolation piece (which can include a format specifier) on the right
-    | SynInterpolatedStringPart.String(range = range) when index = 0 ->
+    | SynInterpolatedStringPart.String(value = value; range = range) when index = 0 ->
       [|
          // leading tokens adjustment
          // GAP: we don't know how many interpolation $ or " there are, so we are guessing
-         match stringKind with
-         | SynStringKind.Regular ->
-           // 'regular' means $" leading identifier
-           range.WithEnd(range.Start.WithColumn(range.StartColumn + 2))
-         | SynStringKind.TripleQuote ->
-           // 'triple quote' means $""" leading identifier
-           range.WithEnd(range.Start.WithColumn(range.StartColumn + 4))
-         // there's no such thing as a verbatim interpolated string
-         | SynStringKind.Verbatim -> ()
+         let startRange =
+           match stringKind with
+           | SynStringKind.Regular ->
+             // 'regular' means $" leading identifier
+             range.WithEnd(range.Start.WithColumn(range.StartColumn + 2))
+           | SynStringKind.TripleQuote ->
+             // 'triple quote' means $""" leading identifier
+             range.WithEnd(range.Start.WithColumn(range.StartColumn + 4))
+           // there's no such thing as a verbatim interpolated string
+           | SynStringKind.Verbatim -> range
+
+
+         // GAP: we don't know if there's a format specifier at the front: %[flags][width][.precision][type]
+         // flags are 0,+,-, width is an integer, precision is `.` followed by an integer, type is one of the following: b, s, c, d, i, u, x, X, o, B, e, E, f, F, g, G, M, O, A, a, t, %
+         let adjustedRangeForFormatSpecifier =
+           let formatmatch = isFormatSpecifier value
+
+           if formatmatch.Success then
+             startRange.WithEnd(startRange.End.WithColumn(startRange.StartColumn + formatmatch.Index - 1))
+           else
+             startRange
+
+         adjustedRangeForFormatSpecifier
 
          // trailing token adjustment- only an opening bracket {
          // GAP: this is the feature gap - we don't know about format specifiers
