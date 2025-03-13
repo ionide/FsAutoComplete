@@ -4,6 +4,7 @@
     <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net8.0;net9.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);FS0057</NoWarn> <!-- Allows using experimental FCS APIs -->
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
@@ -61,6 +62,7 @@
     <Compile Include="SignatureHelp.fs" />
     <Compile Include="InlayHints.fs" />
     <Compile Include="SymbolLocation.fs" />
+    <Compile Include="NestedLanguages.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

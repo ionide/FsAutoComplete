@@ -3,7 +3,6 @@ namespace FsAutoComplete.Lsp
 
 open FsAutoComplete
 open Ionide.LanguageServerProtocol
-open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
 open FsAutoComplete.LspHelpers
@@ -12,6 +11,14 @@ open System.Threading.Tasks
 open FsAutoComplete.Utils
 open System.Threading
 open IcedTasks
+
+type NestedLanguage =
+  { Language: string
+    Ranges: Types.Range[] }
+
+type TextDocumentNestedLanguages =
+  { TextDocument: VersionedTextDocumentIdentifier
+    NestedLanguages: NestedLanguage[] }
 
 
 type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServerRequest: ClientRequestSender) =
@@ -63,6 +70,10 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   member __.NotifyTestDetected(p: TestDetectedNotification) =
     sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
+
+  member _.NotifyNestedLanguages(p: TextDocumentNestedLanguages) =
+    sendServerNotification "fsharp/textDocument/nestedLanguages" (box p)
+    |> Async.Ignore
 
   member x.CodeLensRefresh() =
     match x.ClientCapabilities with

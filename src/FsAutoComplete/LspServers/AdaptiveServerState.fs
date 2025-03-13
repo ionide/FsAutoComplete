@@ -563,19 +563,26 @@ type AdaptiveState
           Loggers.analyzers.error (Log.setMessageI $"Run failed for {file:file}" >> Log.addExn ex)
     }
 
+  let checkForNestedLanguages _config parseAndCheckResults (volatileFile: VolatileFile) =
+    async {
+      let! languages = NestedLanguages.findNestedLanguages (parseAndCheckResults, volatileFile)
+
+      notifications.Trigger(
+        NotificationEvent.NestedLanguagesFound(volatileFile.FileName, volatileFile.Version, languages),
+        CancellationToken.None
+      )
+    }
+
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
       if volatileFile.Source.Length = 0 then
         () // Don't analyze and error on an empty file
       else
-        async {
-          let config = config |> AVal.force
-          do! builtInCompilerAnalyzers config volatileFile parseAndCheck
-          do! runAnalyzers config parseAndCheck volatileFile
-
-        }
-        |> Async.StartWithCT ct)
+        let config = config |> AVal.force
+        Async.Start(builtInCompilerAnalyzers config volatileFile parseAndCheck, ct)
+        Async.Start(runAnalyzers config parseAndCheck volatileFile, ct)
+        Async.Start(checkForNestedLanguages config parseAndCheck volatileFile, ct))
 
 
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
@@ -784,6 +791,19 @@ type AdaptiveState
               { File = Path.LocalPathToUri file
                 Tests = tests |> Array.map map }
               |> lspClient.NotifyTestDetected
+          | NotificationEvent.NestedLanguagesFound(file, version, nestedLanguages) ->
+            let uri = Path.LocalPathToUri file
+
+            do!
+              lspClient.NotifyNestedLanguages(
+                { TextDocument = { Version = version; Uri = uri }
+                  NestedLanguages =
+                    nestedLanguages
+                    |> Array.map (fun n ->
+                      { Language = n.Language
+                        Ranges = n.Ranges |> Array.map fcsRangeToLsp }) }
+              )
+
         with ex ->
           logger.error (
             Log.setMessage "Exception while handling command event {evt}: {ex}"

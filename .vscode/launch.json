@@ -9,7 +9,10 @@
       "type": "coreclr",
       "request": "launch",
       "program": "${workspaceFolder}/src/FsAutoComplete/bin/Debug/net8.0/fsautocomplete.dll",
-      "args": ["--mode", "lsp"],
+      "args": [
+        "--mode",
+        "lsp"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole",
       "stopAtEntry": false,
@@ -47,7 +50,11 @@
         }
       },
       "enableStepFiltering": false,
-      "args": ["--debug", "--filter", "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"],
+      "args": [
+        "--debug",
+        "--filter",
+        "FSAC.lsp.${input:loader}.${input:compiler}.${input:testName}"
+      ],
       "preLaunchTask": "build debug"
     },
     {
@@ -69,7 +76,11 @@
         }
       },
       "enableStepFiltering": false,
-      "args": ["--debug", "--filter", "FSAC.general.${input:testName}"],
+      "args": [
+        "--debug",
+        "--filter",
+        "FSAC.general.${input:testName}"
+      ],
       "preLaunchTask": "build debug"
     }
   ],
@@ -77,21 +88,30 @@
     {
       "id": "tfm",
       "description": "The TFM of the test to run",
-      "options": ["net8.0", "net9.0"],
+      "options": [
+        "net8.0",
+        "net9.0"
+      ],
       "default": "net8.0",
       "type": "pickString"
     },
     {
       "id": "loader",
       "description": "The loader to use for the test",
-      "options": ["Ionide WorkspaceLoader", "MSBuild Project Graph WorkspaceLoader"],
+      "options": [
+        "Ionide WorkspaceLoader",
+        "MSBuild Project Graph WorkspaceLoader"
+      ],
       "default": "WorkspaceLoader",
       "type": "pickString"
     },
     {
       "id": "compiler",
       "description": "The compiler to use",
-      "options": ["BackgroundCompiler", "TransparentCompiler"],
+      "options": [
+        "BackgroundCompiler",
+        "TransparentCompiler"
+      ],
       "default": "BackgroundCompiler",
       "type": "pickString"
     },
