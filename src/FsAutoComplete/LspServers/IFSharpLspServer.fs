@@ -2,6 +2,7 @@ namespace FsAutoComplete.Lsp
 
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete.LspHelpers
 
 type OptionallyVersionedTextDocumentPositionParams =

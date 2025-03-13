@@ -1288,3 +1288,8 @@ module Extensions =
     (p: 't)
     =
     p.TextDocument.GetFilePath() |> Utils.normalizePath, protocolPosToPos p.Position
+
+  let (|CompletionItems|) (x: U2<array<CompletionItem>, CompletionList>) =
+    match x with
+    | U2.C1 items -> items
+    | U2.C2 list -> list.Items

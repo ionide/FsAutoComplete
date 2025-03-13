@@ -598,12 +598,11 @@ let tests state =
 
                     let groups =
                       diags
-                      |> Array.map (fun (d : Diagnostic) ->
+                      |> Array.map (fun (d: Diagnostic) ->
                         // simplify `The value or constructor 'value' is not defined.` error (contains names and recommendations)
                         match d.CodeAsString with
                         | Some "39" -> "The value or constructor is not defined"
-                        | _ -> d.Message
-                        )
+                        | _ -> d.Message)
                       |> Array.countBy id
                       |> Map.ofArray
 
@@ -853,11 +852,11 @@ f2 "bar" |> ignore
                     let! (doc, _) = doc
                     let! completions = doc |> completionAt { Line = 1u; Character = 24u }
                     Expect.isSome completions "Should be some completions"
-                    let completions = completions.Value
-                    Expect.isNonEmpty completions.Items "Should be completions"
+                    let (CompletionItems completions) = completions.Value
+                    Expect.isNonEmpty completions "Should be completions"
 
                     Expect.exists
-                      completions.Items
+                      completions
                       (fun i -> i.Label = "IsNullOrWhiteSpace")
                       "Should have `IsNullOrWhiteSpace` completion"
                   }
@@ -867,11 +866,11 @@ f2 "bar" |> ignore
                     let! (doc, _) = doc
                     let! completions = doc |> completionAt { Line = 1u; Character = 24u }
                     Expect.isSome completions "Should be some completions"
-                    let completions = completions.Value
-                    Expect.isNonEmpty completions.Items "Should be completions"
+                    let (CompletionItems completions) = completions.Value
+                    Expect.isNonEmpty completions "Should be completions"
 
                     Expect.exists
-                      completions.Items
+                      completions
                       (fun i -> i.Label = "IsNullOrWhiteSpace")
                       "Should have `IsNullOrWhiteSpace` completion"
                   }
@@ -880,9 +879,10 @@ f2 "bar" |> ignore
                   <| async {
                     let! (doc, _) = doc
 
-                    let ps: TextDocumentPositionParams =
+                    let ps: HoverParams =
                       { TextDocument = doc.TextDocumentIdentifier
-                        Position = { Line = 0u; Character = 6u } }
+                        Position = { Line = 0u; Character = 6u }
+                        WorkDoneToken = None }
 
                     let! res = doc.Server.Server.TextDocumentHover ps
                     Expect.isOk res "Should have hover data"

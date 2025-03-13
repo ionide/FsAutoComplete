@@ -109,7 +109,7 @@ module Server =
   let shutdown (server: CachedServer) =
     async {
       let! server = server
-      do! server.Server.Shutdown()
+      do! server.Server.Shutdown() |> Async.Ignore
     }
 
   let private createDocument fullPath uri server =

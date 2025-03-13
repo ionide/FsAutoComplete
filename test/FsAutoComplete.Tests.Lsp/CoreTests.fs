@@ -23,6 +23,7 @@ open FsToolkit.ErrorHandling.Operator.AsyncResult
 open FSharpx.Control
 open Utils.Tests
 open Helpers.Expecto.ShadowedTimeouts
+open Ionide.LanguageServerProtocol.JsonRpc
 
 ///Test for initialization of the server
 let initTests createServer =
@@ -141,10 +142,7 @@ let initTests createServer =
     })
 
 let validateSymbolExists msgType symbolInfos predicate =
-  Expect.exists
-      symbolInfos
-      predicate
-      $"{msgType}s do not contain the expected symbol"
+  Expect.exists symbolInfos predicate $"{msgType}s do not contain the expected symbol"
 
 let allSymbolInfosExist (infos: SymbolInformation seq) predicates =
   predicates |> List.iter (validateSymbolExists (nameof SymbolInformation) infos)
@@ -187,16 +185,12 @@ let documentSymbolTest state =
         | Ok(Some(U2.C1 symbolInformations)) ->
           Expect.equal symbolInformations.Length 15 "Document Symbol has all symbols"
 
-          allSymbolInfosExist
-            symbolInformations
-            [fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class]
+          allSymbolInfosExist symbolInformations [ fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class ]
 
         | Ok(Some(U2.C2 documentSymbols)) ->
           Expect.equal documentSymbols.Length 15 "Document Symbol has all symbols"
 
-          allDocumentSymbolsExist
-            documentSymbols
-            [fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class]
+          allDocumentSymbolsExist documentSymbols [ fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class ]
       } ]
 
 let workspaceSymbolTest state =
@@ -213,8 +207,7 @@ let workspaceSymbolTest state =
 
   testList
     "Workspace Symbols Tests"
-    [
-      testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
+    [ testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
       <| async {
         let! server, _path = server
 
@@ -231,16 +224,12 @@ let workspaceSymbolTest state =
         | Ok(Some(U2.C1 symbolInfos)) ->
           Expect.equal symbolInfos.Length 1 "Workspace did not find all the expected symbols"
 
-          allSymbolInfosExist
-            symbolInfos
-            [fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module]
+          allSymbolInfosExist symbolInfos [ fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module ]
 
         | Ok(Some(U2.C2 workspaceSymbols)) ->
           Expect.equal workspaceSymbols.Length 1 "Workspace did not find all the expected symbols"
 
-          allWorkspaceSymbolsExist
-            workspaceSymbols
-            [fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module]
+          allWorkspaceSymbolsExist workspaceSymbols [ fun n -> n.Name = "Script" && n.Kind = SymbolKind.Module ]
       }
 
       testCaseAsync "Get Workspace Symbols Using Query w/ Text"
@@ -262,26 +251,22 @@ let workspaceSymbolTest state =
 
           allSymbolInfosExist
             symbolInfos
-            [
-              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+            [ fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
               fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
-              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
-            ]
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class ]
 
         | Ok(Some(U2.C2 workspaceSymbols)) ->
           Expect.equal workspaceSymbols.Length 5 "Workspace did not find all the expected symbols"
 
           allWorkspaceSymbolsExist
             workspaceSymbols
-            [
-              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+            [ fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
               fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
-              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
-            ]
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class ]
       }
 
       testCaseAsync "Get Workspace Symbols Using Query w/o Text"
@@ -298,12 +283,9 @@ let workspaceSymbolTest state =
         match res with
         | Result.Error e -> failtestf "Request failed: %A" e
         | Ok None -> failtest "Request none"
-        | Ok(Some(U2.C1 res)) ->
-          Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
-        | Ok(Some(U2.C2 res)) ->
-          Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
-      }
-    ]
+        | Ok(Some(U2.C1 res)) -> Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
+        | Ok(Some(U2.C2 res)) -> Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
+      } ]
 
 
 let foldingTests state =
@@ -337,7 +319,7 @@ let foldingTests state =
             )
 
           match rangeResponse with
-          | Ok(Some(ranges)) ->
+          | LspResult.Ok(Some(ranges)) ->
             Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
           | Ok(None) -> failtestf "No ranges found in file, problem parsing?"
           | LspResult.Error e -> failtestf "Error from range LSP call: %A" e
@@ -399,9 +381,10 @@ let tooltipTests state =
       (async {
         let! server, scriptPath = server
 
-        let pos: TextDocumentPositionParams =
+        let pos: HoverParams =
           { TextDocument = { Uri = sprintf "file://%s" scriptPath }
-            Position = { Line = line; Character = character } }
+            Position = { Line = line; Character = character }
+            WorkDoneToken = None }
 
         match! server.TextDocumentHover pos with
         | Ok(Some(Signature signature)) ->
@@ -420,9 +403,10 @@ let tooltipTests state =
       (async {
         let! server, scriptPath = server
 
-        let pos: TextDocumentPositionParams =
+        let pos: HoverParams =
           { TextDocument = { Uri = sprintf "file://%s" scriptPath }
-            Position = { Line = line; Character = character } }
+            Position = { Line = line; Character = character }
+            WorkDoneToken = None }
 
         match! server.TextDocumentHover pos with
         | Ok(Some(Description description)) ->
@@ -561,19 +545,17 @@ let tooltipTests state =
           verifySignature
             77u
             5u
-             (concatLines [
-                "val testIWSAMTest:"
+            (concatLines
+              [ "val testIWSAMTest:"
                 "      unit"
-                "   -> Result<string,'e> (requires :> IWSAMTest<'e>)"
-             ])
+                "   -> Result<string,'e> (requires :> IWSAMTest<'e>)" ])
           verifySignature
             90u
             25u
-             (concatLines [
-                "static member GetAwaiter:"
+            (concatLines
+              [ "static member GetAwaiter:"
                 "   awaitable: 'Awaitable (requires member GetAwaiter )"
-                "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)"
-             ])
+                "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)" ])
           verifySignature
             65u
             7u
@@ -602,60 +584,27 @@ let tooltipTests state =
                 "  abstract member WithParamNames: arg1: int * arg2: float -> string"
                 "  abstract member WithoutParamNames: int * string -> int" ])
 
-          verifySignature
-            100u
-            7u
-           "type TypeAlias = Int32"
+          verifySignature 100u 7u "type TypeAlias = Int32"
 
-          verifySignature
-            101u
-            7u
-            "type FunctionAlias = Int32 -> Int32"
+          verifySignature 101u 7u "type FunctionAlias = Int32 -> Int32"
 
-          verifySignature
-            102u
-            7u
-            "type FunctionAliasWithGenerics = Int32 -> String -> Option<Result<Int32, String>>"
+          verifySignature 102u 7u "type FunctionAliasWithGenerics = Int32 -> String -> Option<Result<Int32, String>>"
 
-          verifySignature
-            103u
-            7u
-           "type GenericTypeAlias<'T> = 'T"
+          verifySignature 103u 7u "type GenericTypeAlias<'T> = 'T"
 
-          verifySignature
-            104u
-            7u
-           "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
+          verifySignature 104u 7u "type GenericFunctionAlias<'T> = 'T -> 'T -> Int32 -> Unit"
 
-          verifySignature
-            105u
-            7u
-           "type TypeAliasTuple = (Int32 * String)"
+          verifySignature 105u 7u "type TypeAliasTuple = (Int32 * String)"
 
-          verifySignature
-            106u
-            7u
-            "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
+          verifySignature 106u 7u "type GenericTypeAliasTuple<'A,'B> = ('A * 'B * Int32)"
 
-          verifySignature
-            107u
-            7u
-            "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
+          verifySignature 107u 7u "type GenericFunctionTupleAlias<'T> = 'T -> ('T * String)"
 
-          verifySignature
-            108u
-            7u
-            "type StructTupleAlias = struct (Int32 * String)"
+          verifySignature 108u 7u "type StructTupleAlias = struct (Int32 * String)"
 
-          verifySignature
-            109u
-            7u
-            "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
+          verifySignature 109u 7u "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
 
-          verifySignature
-            110u
-            7u
-            "val functionAliasValue: int -> int" ] ]
+          verifySignature 110u 7u "val functionAliasValue: int -> int" ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

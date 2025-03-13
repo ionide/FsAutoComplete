@@ -111,13 +111,10 @@ let tests state =
                   $"should have an error FS0039: identifier not defined %A{errors}"
 
               match! completions with
-              | Ok(Some completions) ->
-                Expect.isGreaterThan
-                  completions.Items.Length
-                  30
-                  "should have a complete completion list all containing c"
+              | Ok(Some(CompletionItems completions)) ->
+                Expect.isGreaterThan completions.Length 30 "should have a complete completion list all containing c"
 
-                let firstItem = completions.Items.[0]
+                let firstItem = completions.[0]
                 Expect.equal firstItem.Label "abs" "first member should be abs"
               | Ok None -> failtest "Should have gotten some completion items"
               | Error e -> failtestf "Got an error while retrieving completions: %A" e

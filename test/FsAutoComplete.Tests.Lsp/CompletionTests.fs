@@ -10,6 +10,7 @@ open FsAutoComplete.Lsp
 open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
 open Utils.Server
+open FsAutoComplete.LspHelpers
 
 
 let documentChanges path range text : DidChangeTextDocumentParams =
@@ -84,19 +85,21 @@ let tests state =
 
           let! response = server.TextDocumentCompletion completionParams
 
-          match response with
-          | Ok(Some completions) ->
+          let handleCompletion (completions: CompletionItem seq) =
             Expect.isLessThan
-              completions.Items.Length
+              (Seq.length completions)
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions |> Seq.head
 
             Expect.equal
               firstItem.Label
               "CancellationToken"
               "first member should be CancellationToken, since properties are preferred over functions"
+
+          match response with
+          | Ok(Some(CompletionItems completions)) -> handleCompletion completions
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
@@ -123,13 +126,13 @@ let tests state =
           do! c
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -154,13 +157,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -191,13 +194,13 @@ let tests state =
           do! c
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -222,13 +225,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -259,13 +262,13 @@ let tests state =
           do! c
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -290,13 +293,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               100
               "shouldn't have an incredibly huge completion list for a simple module completion"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -315,13 +318,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isGreaterThanOrEqual
-              completions.Items.Length
+              completions.Length
               106
               "at time of writing the List module has 106 exposed members"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -340,13 +343,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isGreaterThanOrEqual
-              completions.Items.Length
+              completions.Length
               106
               "at time of writing the List module has 106 exposed members"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -365,18 +368,18 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isLessThan
-              completions.Items.Length
+              completions.Length
               300
               "shouldn't have a very long list of completion items that are only types"
 
             Expect.isGreaterThanOrEqual
-              completions.Items.Length
+              completions.Length
               100
               "should have a reasonable number of completion items that are only types"
 
-            Expect.exists completions.Items (fun item -> item.Label = "list") "completion should contain the list type"
+            Expect.exists completions (fun item -> item.Label = "list") "completion should contain the list type"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
@@ -391,9 +394,9 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
-            Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
-            let firstItem = completions.Items.[0]
+          | Ok(Some(CompletionItems completions)) ->
+            Expect.isGreaterThan completions.Length 100 "should have a very long list of all symbols"
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -412,9 +415,9 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
-            Expect.isGreaterThan completions.Items.Length 100 "should have a very long list of all symbols"
-            let firstItem = completions.Items.[0]
+          | Ok(Some(CompletionItems completions)) ->
+            Expect.isGreaterThan completions.Length 100 "should have a very long list of all symbols"
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -431,9 +434,9 @@ let tests state =
 
           let completionParams: CompletionParams = completion path (pos 3u 9u) Invoked
 
-          let! response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
-          let ctokMember = response.Items[0]
-          let! resolved = server.CompletionItemResolve(ctokMember)
+          let! CompletionItems response = server.TextDocumentCompletion completionParams |> AsyncResult.map Option.get
+
+          let! resolved = server.CompletionItemResolve(Seq.head response)
 
           Expect.equal
             resolved.Label
@@ -457,13 +460,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isGreaterThanOrEqual
-              completions.Items.Length
+              completions.Length
               106
               "at time of writing the List module has 106 exposed members"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -482,13 +485,13 @@ let tests state =
           let! response = server.TextDocumentCompletion completionParams
 
           match response with
-          | Ok(Some completions) ->
+          | Ok(Some(CompletionItems completions)) ->
             Expect.isGreaterThanOrEqual
-              completions.Items.Length
+              completions.Length
               106
               "at time of writing the List module has 106 exposed members"
 
-            let firstItem = completions.Items.[0]
+            let firstItem = completions.[0]
 
             Expect.equal
               firstItem.Label
@@ -539,11 +542,11 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
+          | Result.Ok(Some(CompletionItems res)) ->
 
-            Expect.equal res.Items.Length 2 "Autocomplete has all symbols"
-            Expect.exists res.Items (fun n -> n.Label = "func") "Autocomplete contains given symbol"
-            Expect.exists res.Items (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
+            Expect.equal res.Length 2 "Autocomplete has all symbols"
+            Expect.exists res (fun n -> n.Label = "func") "Autocomplete contains given symbol"
+            Expect.exists res (fun n -> n.Label = "sample func") "Autocomplete contains given symbol"
         })
 
       testCaseAsync
@@ -557,10 +560,10 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
+          | Result.Ok(Some(CompletionItems res)) ->
             //TODO
             // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
-            Expect.exists res.Items (fun n -> n.Label = "System") "Autocomplete contains given symbol"
+            Expect.exists res (fun n -> n.Label = "System") "Autocomplete contains given symbol"
 
         })
 
@@ -576,10 +579,10 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
+          | Result.Ok(Some(CompletionItems res)) ->
             //TODO
             // Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
-            Expect.exists res.Items (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
+            Expect.exists res (fun n -> n.Label = "DateTime") "Autocomplete contains given symbol"
 
         })
 
@@ -595,10 +598,10 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
+          | Result.Ok(Some(CompletionItems res)) ->
 
-            Expect.equal res.Items.Length 1 "Autocomplete has all symbols"
-            Expect.exists res.Items (fun n -> n.Label = "z") "Autocomplete contains given symbol"
+            Expect.equal res.Length 1 "Autocomplete has all symbols"
+            Expect.exists res (fun n -> n.Label = "z") "Autocomplete contains given symbol"
         })
 
       testCaseAsync
@@ -613,9 +616,9 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
-            Expect.exists res.Items (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
-            Expect.exists res.Items (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
+          | Result.Ok(Some(CompletionItems res)) ->
+            Expect.exists res (fun n -> n.Label = "bar") "Autocomplete contains given symbol"
+            Expect.exists res (fun n -> n.Label = "baz") "Autocomplete contains given symbol"
         })
 
       testCaseAsync
@@ -630,9 +633,9 @@ let autocompleteTest state =
           match res with
           | Result.Error e -> failtestf "Request failed: %A" e
           | Result.Ok None -> failtest "Request none"
-          | Result.Ok(Some res) ->
-            Expect.exists res.Items (fun n -> n.Label = "Bar") "Autocomplete contains given symbol"
-            Expect.exists res.Items (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
+          | Result.Ok(Some(CompletionItems res)) ->
+            Expect.exists res (fun n -> n.Label = "Bar") "Autocomplete contains given symbol"
+            Expect.exists res (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
         }) ]
 
   testSequenced
@@ -745,7 +748,8 @@ let autoOpenTests state =
       match! server.TextDocumentCompletion p with
       | Error e -> failtestf "Request failed: %A" e
       | Ok None -> failtest "Request none"
-      | Ok(Some res) ->
+      | Ok(Some(U2.C1 _res)) -> failwith "Should be a CompletionList"
+      | Ok(Some(U2.C2 res)) ->
         Expect.isFalse res.IsIncomplete "Result is incomplete"
         // with ExternalAutoComplete, completions are like "Regex (open System.Text.RegularExpressions)"
         let ci = res.Items |> Array.filter (fun c -> c.Label.Split()[0] = word)
@@ -952,15 +956,23 @@ let fullNameExternalAutocompleteTest state =
       })
 
   let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
-    [ makeAutocompleteTest serverConfig "Autocomplete for Array.map contains no backticks" (0u, 8u) (fun res ->
-        let n = res.Items |> Array.tryFind (fun i -> i.Label = "Array.map")
-        Expect.isSome n "Completion doesn't exist"
-        Expect.equal n.Value.InsertText (Some "Array.map") "Autocomplete for Array.map contains backticks")
+    [ makeAutocompleteTest
+        serverConfig
+        "Autocomplete for Array.map contains no backticks"
+        (0u, 8u)
+        (fun (CompletionItems res) ->
+          let n = res |> Array.tryFind (fun i -> i.Label = "Array.map")
+          Expect.isSome n "Completion doesn't exist"
+          Expect.equal n.Value.InsertText (Some "Array.map") "Autocomplete for Array.map contains backticks")
 
-      makeAutocompleteTest serverConfig "Autocomplete for ``a.b`` contains backticks" (2u, 1u) (fun res ->
-        let n = res.Items |> Array.tryFind (fun i -> i.Label = "a.b")
-        Expect.isSome n "Completion doesn't exist"
-        Expect.equal n.Value.InsertText (Some "``a.b``") "Autocomplete for a.b contains no backticks")
+      makeAutocompleteTest
+        serverConfig
+        "Autocomplete for ``a.b`` contains backticks"
+        (2u, 1u)
+        (fun (CompletionItems res) ->
+          let n = res |> Array.tryFind (fun i -> i.Label = "a.b")
+          Expect.isSome n "Completion doesn't exist"
+          Expect.equal n.Value.InsertText (Some "``a.b``") "Autocomplete for a.b contains no backticks")
 
       testCaseAsync
         "Autocompletes with same label have different description"
@@ -969,10 +981,10 @@ let fullNameExternalAutocompleteTest state =
 
           let p: CompletionParams = completion path (pos 3u 4u) Invoked
 
-          let! response = server.TextDocumentCompletion p |> AsyncResult.map Option.get
+          let! CompletionItems response = server.TextDocumentCompletion p |> AsyncResult.map Option.get
 
           let! items =
-            response.Items
+            response
             |> Array.filter (fun i -> i.Label = "bind")
             |> Array.map (server.CompletionItemResolve)
             |> Async.Parallel
@@ -992,9 +1004,9 @@ let fullNameExternalAutocompleteTest state =
         serverConfig
         "Check Autocomplete for System.Text.RegularExpressions.Regex"
         (4u, 5u)
-        (fun res ->
+        (fun (CompletionItems res) ->
           let n =
-            res.Items
+            res
             |> Array.tryFind (fun i -> i.Label = "Regex (System.Text.RegularExpressions)")
 
           Expect.isSome n "Completion doesn't exist"
@@ -1009,8 +1021,8 @@ let fullNameExternalAutocompleteTest state =
             (Some "RegexSystem.Text.RegularExpressions.Regex")
             "Autocomplete for Regex is not System.Text.RegularExpressions.Regex")
 
-      makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5u, 6u) (fun res ->
-        let n = res.Items |> Array.tryFind (fun i -> i.Label = "Result")
+      makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5u, 6u) (fun (CompletionItems res) ->
+        let n = res |> Array.tryFind (fun i -> i.Label = "Result")
         Expect.isSome n "Completion doesn't exist"
         Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol") ]
 

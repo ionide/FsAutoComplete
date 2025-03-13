@@ -9,7 +9,9 @@ open FsAutoComplete.CodeFix.Types
 open FsAutoComplete.Logging
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Server
-open Ionide.LanguageServerProtocol.Types.LspResult
+open Ionide.LanguageServerProtocol.Mappings
+
+open Ionide.LanguageServerProtocol.JsonRpc
 open Ionide.LanguageServerProtocol.Types
 open Newtonsoft.Json.Linq
 open Ionide.ProjInfo.ProjectSystem
@@ -319,7 +321,7 @@ type AdaptiveFSharpLspServer
     | None, _, _ -> None, dto
 
   interface IFSharpLspServer with
-    override x.Shutdown() = (x :> System.IDisposable).Dispose() |> async.Return
+    override x.Shutdown() = asyncResult { return (x :> System.IDisposable).Dispose() }
 
     override _.Initialize(p: InitializeParams) =
       asyncResult {
@@ -434,7 +436,7 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override __.Initialized() =
+    override __.Initialized(_) =
       async {
         use trace = fsacActivitySource.StartActivityForType(thisType)
 
@@ -595,7 +597,7 @@ type AdaptiveFSharpLspServer
                   ItemDefaults = None }
 
 
-              return! success (Some completionList)
+              return! LspResult.success (Some(U2.C2 completionList))
             else
               let config = state.Config
 
@@ -700,7 +702,7 @@ type AdaptiveFSharpLspServer
                   (getCompletions state.GetOpenFileTypeCheckResultsCached)
                 |> AsyncResult.ofStringErr
               with
-              | None -> return! success (None)
+              | None -> return! LspResult.success (None)
               | Some(decls, _, shouldKeywords, typeCheckResults, _, volatileFile) ->
 
                 return!
@@ -727,7 +729,7 @@ type AdaptiveFSharpLspServer
                         Items = its
                         ItemDefaults = None }
 
-                    success (Some completionList)
+                    LspResult.success (Some(U2.C2 completionList))
 
         with e ->
           trace |> Tracing.recordException e
@@ -844,7 +846,7 @@ type AdaptiveFSharpLspServer
                 | None -> ci
                 | Some text -> mapHelpText ci text)
                 (fun _ -> ci)
-              |> success
+              |> LspResult.success
 
         with e ->
           trace |> Tracing.recordException e
@@ -883,7 +885,7 @@ type AdaptiveFSharpLspServer
           with
           | None ->
             ()
-            return! success None
+            return! LspResult.success None
           | Some sigHelp ->
             // sigHelpKind <- Some sigHelp.SigHelpKind
 
@@ -914,7 +916,7 @@ type AdaptiveFSharpLspServer
                 ActiveSignature = sigHelp.ActiveOverload
                 ActiveParameter = sigHelp.ActiveParameter }
 
-            return! success (Some res)
+            return! LspResult.success (Some res)
         with e ->
           trace |> Tracing.recordException e
 
@@ -925,9 +927,9 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override x.TextDocumentHover(p: TextDocumentPositionParams) =
+    override x.TextDocumentHover(p: HoverParams) =
       asyncResult {
-        let tags = [ "TextDocumentPositionParams", box p ]
+        let tags = [ "HoverParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1022,7 +1024,7 @@ type AdaptiveFSharpLspServer
 
         let! (_, _, range) =
           Commands.renameSymbolRange state.GetDeclarationLocation false pos lineStr volatileFile.Source tyRes
-          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+          |> AsyncResult.mapError (fun msg -> Error.InvalidParams msg)
 
         return range |> fcsRangeToLsp |> U3.C1 |> Some
       }
@@ -1046,16 +1048,16 @@ type AdaptiveFSharpLspServer
           // validate name and surround with backticks if necessary
           let! newName =
             Commands.adjustRenameSymbolNewName pos lineStr tyRes p.NewName
-            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+            |> AsyncResult.mapError (fun msg -> Error.InvalidParams msg)
 
           // safety check: rename valid?
           let! _ =
             Commands.renameSymbolRange state.GetDeclarationLocation false pos lineStr volatileFile.Source tyRes
-            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+            |> AsyncResult.mapError (fun msg -> Error.InvalidParams msg)
 
           let! ranges =
             state.SymbolUseWorkspace(true, true, true, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.Create(JsonRpc.ErrorCodes.invalidParams, msg))
+            |> AsyncResult.mapError (fun msg -> Error.InvalidParams msg)
 
           let! documentChanges =
             ranges
@@ -1098,9 +1100,9 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override x.TextDocumentDefinition(p: TextDocumentPositionParams) =
+    override x.TextDocumentDefinition(p: DefinitionParams) =
       asyncResult {
-        let tags = [ "TextDocumentPositionParams", box p ]
+        let tags = [ "DefinitionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1115,7 +1117,7 @@ type AdaptiveFSharpLspServer
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> U2.C1 |> Some
+          return decl |> findDeclToLspLocation |> U2.C1 |> U2.C1 |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1126,9 +1128,9 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override x.TextDocumentTypeDefinition(p: TextDocumentPositionParams) =
+    override x.TextDocumentTypeDefinition(p: TypeDefinitionParams) =
       asyncResult {
-        let tags = [ "TextDocumentPositionParams", box p ]
+        let tags = [ "TypeDefinitionParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1143,7 +1145,7 @@ type AdaptiveFSharpLspServer
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           let! decl = tyRes.TryFindTypeDeclaration pos lineStr |> AsyncResult.ofStringErr
-          return decl |> findDeclToLspLocation |> U2.C1 |> Some
+          return decl |> findDeclToLspLocation |> U2.C1 |> U2.C1 |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1172,7 +1174,7 @@ type AdaptiveFSharpLspServer
 
           let! usages =
             state.SymbolUseWorkspace(true, true, false, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+            |> AsyncResult.mapError (fun s -> Error.InternalError s)
 
           let references =
             usages.Values |> Seq.collect (Seq.map fcsRangeToLspLocation) |> Seq.toArray
@@ -1188,9 +1190,9 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override x.TextDocumentDocumentHighlight(p: TextDocumentPositionParams) =
+    override x.TextDocumentDocumentHighlight(p: DocumentHighlightParams) =
       asyncResult {
-        let tags = [ "TextDocumentPositionParams", box p ]
+        let tags = [ "DocumentHighlightParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1228,9 +1230,9 @@ type AdaptiveFSharpLspServer
 
       }
 
-    override x.TextDocumentImplementation(p: TextDocumentPositionParams) =
+    override x.TextDocumentImplementation(p: ImplementationParams) =
       asyncResult {
-        let tags = [ "TextDocumentPositionParams", box p ]
+        let tags = [ "ImplementationParams", box p ]
         use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
         try
@@ -1276,8 +1278,8 @@ type AdaptiveFSharpLspServer
 
             match mappedRanges with
             | [||] -> return None
-            | [| single |] -> return Some(U2.C1 single)
-            | multiple -> return Some(U2.C2 multiple)
+            | [| single |] -> return Some(U2.C1(U2.C1 single))
+            | multiple -> return Some(U2.C1(U2.C2 multiple))
         with e ->
           trace |> Tracing.recordException e
 
@@ -1650,7 +1652,7 @@ type AdaptiveFSharpLspServer
                   >> Log.addContextDestructured "error" msg
                 )
 
-                return { p with Command = None } |> Some |> success
+                return { p with Command = None } |> Some |> LspResult.success
               | CoreResponse.Res(typ, parms, _) ->
                 let formatted = SignatureData.formatSignature typ parms
 
@@ -1659,11 +1661,11 @@ type AdaptiveFSharpLspServer
                     Command = ""
                     Arguments = None }
 
-                return { p with Command = Some cmd } |> Some |> success
+                return { p with Command = Some cmd } |> Some |> LspResult.success
             elif typ = "reference" then
               let! uses =
                 state.SymbolUseWorkspace(false, true, false, pos, lineStr, sourceText, tyRes)
-                |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+                |> AsyncResult.mapError (fun s -> Error.InternalError s)
 
               match uses with
               | Error msg ->
@@ -1674,7 +1676,7 @@ type AdaptiveFSharpLspServer
                 )
 
                 return
-                  success (
+                  LspResult.success (
                     Some
                       { p with
                           Command =
@@ -1697,7 +1699,7 @@ type AdaptiveFSharpLspServer
                       Command = "fsharp.showReferences"
                       Arguments = writePayload (file, pos, allUses) }
 
-                return { p with Command = Some cmd } |> Some |> success
+                return { p with Command = Some cmd } |> Some |> LspResult.success
             else
               logger.error (
                 Log.setMessage "CodeLensResolve - unknown type {file} - {typ}"
@@ -1705,7 +1707,7 @@ type AdaptiveFSharpLspServer
                 >> Log.addContextDestructured "typ" typ
               )
 
-              return { p with Command = None } |> Some |> success
+              return { p with Command = None } |> Some |> LspResult.success
           })
         p
 
@@ -1791,7 +1793,7 @@ type AdaptiveFSharpLspServer
             }
 
           let! scopes = Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
-          return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> List.ofSeq |> Some
+          return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> Array.ofSeq |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -1823,7 +1825,7 @@ type AdaptiveFSharpLspServer
 
           let file = selectionRangeP.TextDocument.GetFilePath() |> Utils.normalizePath
 
-          let poss = selectionRangeP.Positions |> Array.map protocolPosToPos |> Array.toList
+          let poss = selectionRangeP.Positions |> Array.map protocolPosToPos
 
           let getParseResultsForFile file =
             asyncResult {
@@ -1835,7 +1837,7 @@ type AdaptiveFSharpLspServer
             Commands.getRangesAtPosition getParseResultsForFile file poss
             |> AsyncResult.ofStringErr
 
-          return ranges |> List.choose mkSelectionRanges |> Some
+          return ranges |> Array.choose mkSelectionRanges |> Some
         with e ->
           trace |> Tracing.recordException e
 
@@ -2158,7 +2160,7 @@ type AdaptiveFSharpLspServer
 
           let! usages =
             state.SymbolUseWorkspace(true, true, false, pos, lineStr, volatileFile.Source, tyRes)
-            |> AsyncResult.mapError (JsonRpc.Error.InternalErrorMessage)
+            |> AsyncResult.mapError (fun s -> JsonRpc.Error.InternalError s)
 
           let! references =
             usages.Values
@@ -2470,7 +2472,7 @@ type AdaptiveFSharpLspServer
             | CoreResponse.ErrorRes msg -> LspResult.internalError msg
             | CoreResponse.Res found ->
               { Content = CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found }
-              |> success
+              |> LspResult.success
 
           return! res
         with e ->
@@ -3056,7 +3058,7 @@ type AdaptiveFSharpLspServer
 
     override x.Dispose() = disposables.Dispose()
 
-    member this.WorkDoneProgressCancel(param: WorkDoneProgressCancelParams) : Async<unit> =
+    member this.WindowWorkDoneProgressCancel(param: WorkDoneProgressCancelParams) : Async<unit> =
       async {
 
         let tags = [ "WorkDoneProgressCancelParams", box param ]
@@ -3085,6 +3087,14 @@ type AdaptiveFSharpLspServer
       (_arg1: CallHierarchyOutgoingCallsParams)
       : AsyncLspResult<CallHierarchyOutgoingCall array option> =
       AsyncLspResult.notImplemented
+
+    member this.CancelRequest(_arg1: CancelParams) : Async<unit> = ignoreNotification
+    member this.NotebookDocumentDidChange(_arg1: DidChangeNotebookDocumentParams) : Async<unit> = ignoreNotification
+    member this.NotebookDocumentDidClose(_arg1: DidCloseNotebookDocumentParams) : Async<unit> = ignoreNotification
+    member this.NotebookDocumentDidOpen(_arg1: DidOpenNotebookDocumentParams) : Async<unit> = ignoreNotification
+    member this.NotebookDocumentDidSave(_arg1: DidSaveNotebookDocumentParams) : Async<unit> = ignoreNotification
+    member this.Progress(_arg1: ProgressParams) : Async<unit> = ignoreNotification
+    member this.SetTrace(_arg1: SetTraceParams) : Async<unit> = ignoreNotification
 
 module AdaptiveFSharpLspServer =
 
@@ -3180,7 +3190,13 @@ module AdaptiveFSharpLspServer =
       let loader = workspaceLoaderFactory toolsPath
       new AdaptiveFSharpLspServer(loader, lspClient, sourceTextFactory, useTransparentCompiler) :> IFSharpLspServer
 
-    Ionide.LanguageServerProtocol.Server.start requestsHandlings input output FSharpLspClient adaptiveServer createRpc
+    Ionide.LanguageServerProtocol.Server.start
+      requestsHandlings
+      input
+      output
+      (fun x -> new FSharpLspClient(x))
+      adaptiveServer
+      createRpc
 
   let start (startCore: unit -> LspCloseReason) =
     let logger = LogProvider.getLoggerByName "Startup"

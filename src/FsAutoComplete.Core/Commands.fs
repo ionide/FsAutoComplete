@@ -201,7 +201,7 @@ module Commands =
   let getRangesAtPosition (getParseResultsForFile: _ -> Async<Result<FSharpParseFileResults, _>>) file positions =
     asyncResult {
       let! ast = getParseResultsForFile file
-      return positions |> List.map (FoldingRange.getRangesAtPosition ast.ParseTree)
+      return positions |> Array.map (FoldingRange.getRangesAtPosition ast.ParseTree)
     }
 
   let scopesForFile
