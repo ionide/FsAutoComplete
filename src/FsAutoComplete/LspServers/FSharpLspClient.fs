@@ -3,13 +3,12 @@ namespace FsAutoComplete.Lsp
 
 open FsAutoComplete
 open Ionide.LanguageServerProtocol
-open Ionide.LanguageServerProtocol.Types.LspResult
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete.LspHelpers
 open System
 open System.Threading.Tasks
-open FsAutoComplete.Utils
 open System.Threading
 open IcedTasks
 
@@ -39,8 +38,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   override __.WorkspaceApplyEdit(p: ApplyWorkspaceEditParams) : AsyncLspResult<ApplyWorkspaceEditResult> =
     sendServerRequest.Send "workspace/applyEdit" (box p)
 
-  override __.WorkspaceSemanticTokensRefresh() =
-    sendServerNotification "workspace/semanticTokens/refresh" () |> Async.Ignore
+  override __.WorkspaceSemanticTokensRefresh() = sendServerRequest.Send "workspace/semanticTokens/refresh" ()
 
   override __.TextDocumentPublishDiagnostics(p: PublishDiagnosticsParams) =
     sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
@@ -70,20 +68,23 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
       sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
     | _ -> async { return () }
 
-  override x.WorkDoneProgressCreate(token) =
+  override x.WindowWorkDoneProgressCreate(token) =
     match x.ClientCapabilities with
     | Some { Window = Some { WorkDoneProgress = Some true } } ->
-      let progressCreate: WorkDoneProgressCreateParams = { Token = token }
+      let progressCreate: WorkDoneProgressCreateParams = { Token = token.Token }
       sendServerRequest.Send "window/workDoneProgress/create" (box progressCreate)
-    | _ -> async { return Error(JsonRpc.Error.InternalErrorMessage "workDoneProgress is disabled") }
+    | _ -> async { return Error(JsonRpc.Error.InternalError "workDoneProgress is disabled") }
 
-  override x.Progress(token, value) =
+
+  override x.Progress(p: ProgressParams) = sendServerNotification "$/progress" p |> Async.Ignore
+
+  member x.Progress(token, value) =
 
     let progress: ProgressParams =
       { Token = token
         Value = Json.fromObject value }
 
-    sendServerNotification "$/progress" (box progress) |> Async.Ignore
+    x.Progress progress
 
 type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?cancellableDefault: bool) =
 
@@ -109,7 +110,7 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
       use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
 
       if not endSent then
-        let! result = lspClient.WorkDoneProgressCreate x.ProgressToken
+        let! result = lspClient.WindowWorkDoneProgressCreate { Token = x.ProgressToken }
 
         match result with
         | Ok() -> canReportProgress <- true

@@ -6,6 +6,7 @@ open System.IO
 open FsAutoComplete.Lsp
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Control.Reactive
@@ -226,7 +227,7 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
         member __.Send name payload = record serverInteractions name payload }
 
   let loader = workspaceLoader ()
-  let client = FSharpLspClient(recordNotifications, recordRequests)
+  let client = new FSharpLspClient(recordNotifications, recordRequests)
 
   let server =
     new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)

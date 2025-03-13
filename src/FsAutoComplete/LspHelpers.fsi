@@ -498,3 +498,5 @@ module Extensions =
   val inline getFilePathAndPosition<'t
     when 't: (member TextDocument: TextDocumentIdentifier)
     and 't: (member Position: Ionide.LanguageServerProtocol.Types.Position)> : p: 't -> string<LocalPath> * FcsPos
+
+  val (|CompletionItems|): x: U2<CompletionItem array, CompletionList> -> CompletionItem array

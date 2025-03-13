@@ -6,6 +6,7 @@ open System.IO
 open FsAutoComplete.Lsp
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FSharp.Control.Reactive

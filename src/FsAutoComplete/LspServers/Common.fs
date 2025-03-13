@@ -25,7 +25,7 @@ module ErrorMsgUtils =
 
 
 module Result =
-  let ofStringErr r = r |> Result.mapError JsonRpc.Error.InternalErrorMessage
+  let ofStringErr r = r |> Result.mapError (fun s -> JsonRpc.Error.InternalError s)
 
   let lineLookupErr
     (r:
@@ -36,17 +36,17 @@ module Result =
        >)
     =
     r
-    |> Result.mapError (ErrorMsgUtils.formatLineLookErr >> JsonRpc.Error.InternalErrorMessage)
+    |> Result.mapError (fun s -> JsonRpc.Error.InternalError(s |> ErrorMsgUtils.formatLineLookErr))
 
   let ofCoreResponse (r: CoreResponse<'a>) =
     match r with
     | CoreResponse.Res a -> Ok(Some a)
-    | CoreResponse.ErrorRes msg -> Error(JsonRpc.Error.InternalErrorMessage msg)
+    | CoreResponse.ErrorRes msg -> Error(JsonRpc.Error.InternalError msg)
     | CoreResponse.InfoRes _ -> Ok None
 
 module AsyncResult =
   let ofCoreResponse (ar: Async<CoreResponse<'a>>) = ar |> Async.map Result.ofCoreResponse
-  let ofStringErr (ar: Async<Result<'a, string>>) = ar |> AsyncResult.mapError JsonRpc.Error.InternalErrorMessage
+  let ofStringErr (ar: Async<Result<'a, string>>) = ar |> AsyncResult.mapError (fun s -> JsonRpc.Error.InternalError s)
 
 
 
@@ -206,6 +206,7 @@ module ObservableExtensions =
       x.Publish(fun shared -> shared.Window(shared.Throttle(ts))).SelectMany(fun l -> l.ToList())
 
 module Helpers =
+  open Ionide.LanguageServerProtocol.JsonRpc
   let notImplemented<'t> = async.Return LspResult.notImplemented<'t>
   let ignoreNotification = async.Return(())
 

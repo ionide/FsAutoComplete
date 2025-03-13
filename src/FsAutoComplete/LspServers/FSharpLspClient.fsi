@@ -3,6 +3,7 @@ namespace FsAutoComplete.Lsp
 open Ionide.LanguageServerProtocol
 open Ionide.LanguageServerProtocol.Server
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete.LspHelpers
 open System
 open System.Threading
@@ -21,7 +22,7 @@ type FSharpLspClient =
   override WorkspaceWorkspaceFolders: unit -> AsyncLspResult<WorkspaceFolder array option>
   override WorkspaceConfiguration: ConfigurationParams -> AsyncLspResult<Newtonsoft.Json.Linq.JToken array>
   override WorkspaceApplyEdit: ApplyWorkspaceEditParams -> AsyncLspResult<ApplyWorkspaceEditResult>
-  override WorkspaceSemanticTokensRefresh: unit -> Async<unit>
+  override WorkspaceSemanticTokensRefresh: unit -> AsyncLspResult<unit>
   override TextDocumentPublishDiagnostics: PublishDiagnosticsParams -> Async<unit>
   ///Custom notification for workspace/solution/project loading events
   member NotifyWorkspace: p: PlainNotification -> Async<unit>
@@ -32,8 +33,9 @@ type FSharpLspClient =
   member NotifyDocumentAnalyzed: p: DocumentAnalyzedNotification -> Async<unit>
   member NotifyTestDetected: p: TestDetectedNotification -> Async<unit>
   member CodeLensRefresh: unit -> Async<unit>
-  override WorkDoneProgressCreate: ProgressToken -> AsyncLspResult<unit>
-  override Progress: ProgressToken * 'Progress -> Async<unit>
+  override WindowWorkDoneProgressCreate: WorkDoneProgressCreateParams -> AsyncLspResult<unit>
+  member Progress: ProgressToken * 'Progress -> Async<unit>
+  override Progress: ProgressParams -> Async<unit>
 
 ///<summary>
 /// Represents a progress report that can be used to report progress to the client.
