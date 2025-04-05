@@ -13,7 +13,6 @@ open FsAutoComplete.Logging.Types
 [<AutoOpen>]
 module AdaptiveExtensions =
   let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
-  open System.Runtime.ExceptionServices
 
   type CancellationTokenSource with
 
@@ -46,9 +45,13 @@ module AdaptiveExtensions =
         match task.Status with
         | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
         | TaskStatus.Canceled ->
-          tcs.TrySetCanceled(TaskCanceledException(task).CancellationToken)
-          |> ignore<bool>
-        | TaskStatus.Faulted -> tcs.TrySetException(task.Exception.InnerExceptions) |> ignore<bool>
+          let ct = TaskCanceledException(task).CancellationToken
+
+          if ct.IsCancellationRequested then
+            tcs.TrySetCanceled ct |> ignore<bool>
+          else
+            tcs.TrySetCanceled() |> ignore<bool>
+        | TaskStatus.Faulted -> tcs.TrySetException task.Exception.InnerExceptions |> ignore<bool>
         | _ -> ()
 
 #endif
@@ -921,3 +924,16 @@ module AMapAsync =
       | Some x -> return! x
       | None -> return Error reason
     }
+
+module AdaptiveFile =
+  open System.IO
+
+  let getLastWriteTimeUtcEnsureDir (path: string) =
+    let fi = FileInfo path
+
+    try
+      fi.Directory.Create()
+    with _ ->
+      ()
+
+    AdaptiveFile.GetLastWriteTimeUtc path
