@@ -406,3 +406,15 @@ module AMapAsync =
     key: 'Key ->
     map: amap<'Key, asyncaval<Result<'Value, 'Error>>> ->
       asyncaval<Result<'Value, 'Error>>
+
+
+module AdaptiveFile =
+  open System
+  open FSharp.Data.Adaptive
+
+  /// <summary>
+  /// Adaptively gets last write time (in UTC) for the specified file.
+  /// Since this uses FileSystemWatcher underneath, it will throw if the directory does not exist.
+  /// This will create the directory.
+  /// </summary>
+  val getLastWriteTimeUtcEnsureDir: path: string -> aval<DateTime>

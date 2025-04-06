@@ -137,7 +137,7 @@ module Snapshots =
       let file = UMX.untag sourceFilePath
       // Useful as files may change from an external process, like a git pull, code generation or a save from another editor
       // So we'll want to do typechecks when the file changes on disk
-      let! writeTime = AdaptiveFile.GetLastWriteTimeUtc file
+      let! writeTime = AdaptiveFile.getLastWriteTimeUtcEnsureDir file
       and! sourceTextFactory = sourceTextFactory
 
       let getSource () =
@@ -160,7 +160,7 @@ module Snapshots =
 
   let private createReferenceOnDisk path : aval<ProjectSnapshot.ReferenceOnDisk> =
     aval {
-      let! lastModified = AdaptiveFile.GetLastWriteTimeUtc path
+      let! lastModified = AdaptiveFile.getLastWriteTimeUtcEnsureDir path
 
       return
         { LastModified = lastModified
@@ -202,8 +202,7 @@ module Snapshots =
 
         let resolvedTargetPath =
           aval {
-            // TODO: Find if this needs to be adaptive, unsure if we need to check if the file has changed on disk if we need a new snapshot
-            let! _ = AdaptiveFile.GetLastWriteTimeUtc proj.ResolvedTargetPath
+            let! _ = AdaptiveFile.getLastWriteTimeUtcEnsureDir proj.ResolvedTargetPath
             return proj.ResolvedTargetPath
           }
 
@@ -328,5 +327,5 @@ module Snapshots =
       let optionsToSnapshot =
         optionsToSnapshot cachedSnapshots inMemorySourceFiles sourceTextFactory mapReferences
 
-      ps |> HashMap.map (fun _ v -> (v, optionsToSnapshot v)))
+      ps |> HashMap.map (fun _ v -> v, optionsToSnapshot v))
     |> AMap.ofAVal
