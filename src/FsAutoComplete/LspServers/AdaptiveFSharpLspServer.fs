@@ -590,7 +590,7 @@ type AdaptiveFSharpLspServer
 
             let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
 
-            if lineStr.StartsWith("#", StringComparison.Ordinal) then
+            if lineStr.TrimStart().StartsWith("#", StringComparison.Ordinal) then
               let completionList =
                 { IsIncomplete = false
                   Items = KeywordList.hashSymbolCompletionItems
