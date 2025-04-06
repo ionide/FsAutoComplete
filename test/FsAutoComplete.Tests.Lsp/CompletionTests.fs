@@ -499,6 +499,26 @@ let tests state =
               "first member should be List.Empty, since properties are preferred over functions"
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
+        "completion in indented hash directive"
+        (async {
+          let! server, path = server
+
+          let completionParams: CompletionParams = completion path (pos 26u 4u) Invoked
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok(Some(CompletionItems completions)) ->
+            Expect.isGreaterThanOrEqual completions.Length 2 "endif and else should be listed"
+
+            let labels = completions |> Array.map _.Label
+            Expect.contains labels "#else" "#else is a possible directive"
+            Expect.contains labels "#endif" "#endif is another possible directive"
+
+          | Ok None -> failtest "Should have gotten some completion items"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
         }) ]
 
 ///Tests for getting autocomplete
