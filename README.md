@@ -86,7 +86,11 @@ Then configure your [environment](https://opentelemetry.io/docs/concepts/sdk-con
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT = "http://localhost:4317"
 ```
-Start FsAutocomplete (either by `code .` or `dotnet fsautocomplete`)
+
+Start FsAutocomplete by `dotnet fsautocomplete --otel-exporter-enabled`.
+
+Or by `code .` with setting `"FSharp.fsac.fsacArgs": ["--otel-exporter-enabled"]`.
+(If you also want to observe fsc traces, use the `FSharp.notifications` settings.)
 
 Do some actions like opening documents, saving, getting tooltips, etc.
 
