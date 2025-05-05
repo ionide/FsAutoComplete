@@ -1,6 +1,15 @@
 # Changelog
 
+## [0.77.6] - 2025-05-05
+
+## Fixed
+- [Enable completion of indented hash directives](https://github.com/ionide/FsAutoComplete/pull/1371) (thanks @Martin521)
+- [Add guards for MsBuild file watching in ProjectWorkspace](https://github.com/ionide/FsAutoComplete/pull/1370) (thanks @TheAngryByrd)
+
+
 ## [0.77.5] - 2025-03-25
+
+## Changed
 
 - [Update FSharp.Analyzers.SDK to 0.30.0](https://github.com/ionide/FsAutoComplete/pull/1369) (thanks @TheAngryByrd)
 - [Update to Ionide.LSP 0.7.0](https://github.com/ionide/FsAutoComplete/pull/1368) (thanks @TheAngryByrd)
