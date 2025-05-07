@@ -3,7 +3,8 @@
     <TargetFrameworks>net8.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net8.0;net9.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);FS0057</NoWarn> <!-- Allows using experimental FCS APIs -->
+    <NoWarn>$(NoWarn);FS0057</NoWarn>
+    <!-- Allows using experimental FCS APIs -->
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
@@ -18,6 +19,7 @@
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
+    <Compile Include="VSTestAdapter.fs" />
     <Compile Include="TestAdapter.fs" />
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="DotnetCli.fs" />
