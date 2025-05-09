@@ -36,7 +36,7 @@ NUGET
       Serilog (>= 3.1.1)
     DiffPlex (1.7.2) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
     Dotnet.ReproducibleBuilds (1.2.25) - copy_local: true
-    Expecto (10.2.1) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
+    Expecto (10.2.3)
       FSharp.Core (>= 7.0.200) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
       Mono.Cecil (>= 0.11.4 < 1.0) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net6.0)) (&& (== netstandard2.1) (>= net6.0))
     Expecto.Diff (10.2.1)
