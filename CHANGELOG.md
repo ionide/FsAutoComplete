@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.78.1] - 2025-05-17
+
+### Changed
+
+- [Update Ionide.ProjInfo and related packages to version 0.71.1](https://github.com/ionide/proj-info/releases/tag/v0.71.1) check out Ionide.ProjInfo [release notes](https://github.com/ionide/proj-info/releases/tag/v0.71.1) for more details.
+
 ## [0.78.0] - 2025-05-17
 
 ### Changed 
