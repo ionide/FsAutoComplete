@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.78.0] - 2025-05-17
+
+### Changed 
+
+- [Update FSharp.Compiler.Service 43.9.300, FSharp.Analyzers.SDK 0.31.0](https://github.com/ionide/FsAutoComplete/pull/1374) (thanks @TheAngryByrd)
+
 ## [0.77.7] - 2025-05-05
 
 ### Fixed
