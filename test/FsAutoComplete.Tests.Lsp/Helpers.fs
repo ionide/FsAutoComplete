@@ -293,8 +293,7 @@ let defaultConfigDto: FSharpConfigDto =
         { Enabled = Some true
           Prefix = Some "//" }
     Notifications = None
-    Fsac = None
-    Debug = None }
+    Fsac = None }
 
 let clientCaps: ClientCapabilities =
 
