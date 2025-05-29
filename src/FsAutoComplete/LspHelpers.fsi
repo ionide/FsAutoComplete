@@ -268,12 +268,6 @@ type NotificationsDto =
   { Trace: bool option
     TraceNamespaces: string array option }
 
-type DebugDto =
-  { DontCheckRelatedFiles: bool option
-    CheckFileDebouncerTimeout: int option
-    LogDurationBetweenCheckFiles: bool option
-    LogCheckFileDuration: bool option }
-
 type FSACDto =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
@@ -330,8 +324,7 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option
-    Debug: DebugDto option }
+    Notifications: NotificationsDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
@@ -373,14 +366,6 @@ type FSACConfig =
   static member Default: FSACConfig
   static member FromDto: dto: FSACDto -> FSACConfig
   member AddDto: dto: FSACDto -> FSACConfig
-
-type DebugConfig =
-  { DontCheckRelatedFiles: bool
-    CheckFileDebouncerTimeout: int
-    LogDurationBetweenCheckFiles: bool
-    LogCheckFileDuration: bool }
-
-  static member Default: DebugConfig
 
 type FSharpConfig =
   { AutomaticWorkspaceInit: bool
@@ -431,8 +416,7 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig
-    Debug: DebugConfig }
+    Fsac: FSACConfig }
 
   static member Default: FSharpConfig
   static member FromDto: dto: FSharpConfigDto -> FSharpConfig

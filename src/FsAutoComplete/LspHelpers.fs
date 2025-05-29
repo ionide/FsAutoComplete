@@ -684,13 +684,6 @@ type NotificationsDto =
   { Trace: bool option
     TraceNamespaces: string array option }
 
-type DebugDto =
-  { DontCheckRelatedFiles: bool option
-    CheckFileDebouncerTimeout: int option
-    LogDurationBetweenCheckFiles: bool option
-    LogCheckFileDuration: bool option }
-
-
 type FSACDto =
   {
     /// <summary>The <see cref='F:Microsoft.Extensions.Caching.Memory.MemoryCacheOptions.SizeLimit '/> for typecheck cache. </summary>
@@ -747,8 +740,7 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option
-    Debug: DebugDto option }
+    Notifications: NotificationsDto option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
@@ -819,18 +811,6 @@ type FSACConfig =
     { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount
       ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution this.ParallelReferenceResolution }
 
-type DebugConfig =
-  { DontCheckRelatedFiles: bool
-    CheckFileDebouncerTimeout: int
-    LogDurationBetweenCheckFiles: bool
-    LogCheckFileDuration: bool }
-
-  static member Default =
-    { DontCheckRelatedFiles = false
-      CheckFileDebouncerTimeout = 250
-      LogDurationBetweenCheckFiles = false
-      LogCheckFileDuration = false }
-
 let logger = lazy (LogProvider.getLoggerByName "LspHelpers")
 
 let tryCreateRegex (pattern: string) =
@@ -893,8 +873,7 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig
-    Debug: DebugConfig }
+    Fsac: FSACConfig }
 
   static member Default: FSharpConfig =
     { AutomaticWorkspaceInit = false
@@ -945,8 +924,7 @@ type FSharpConfig =
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
       Notifications = NotificationsConfig.Default
-      Fsac = FSACConfig.Default
-      Debug = DebugConfig.Default }
+      Fsac = FSACConfig.Default }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
     { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
@@ -1035,17 +1013,7 @@ type FSharpConfig =
       Fsac =
         dto.Fsac
         |> Option.map FSACConfig.FromDto
-        |> Option.defaultValue FSACConfig.Default
-      Debug =
-        match dto.Debug with
-        | None -> DebugConfig.Default
-        | Some dDto ->
-          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles DebugConfig.Default.DontCheckRelatedFiles
-            CheckFileDebouncerTimeout =
-              defaultArg dDto.CheckFileDebouncerTimeout DebugConfig.Default.CheckFileDebouncerTimeout
-            LogDurationBetweenCheckFiles =
-              defaultArg dDto.LogDurationBetweenCheckFiles DebugConfig.Default.LogDurationBetweenCheckFiles
-            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration DebugConfig.Default.LogCheckFileDuration } }
+        |> Option.defaultValue FSACConfig.Default }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -1148,16 +1116,7 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map x.Notifications.AddDto
         |> Option.defaultValue NotificationsConfig.Default
-      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default
-      Debug =
-        match dto.Debug with
-        | None -> DebugConfig.Default
-        | Some dDto ->
-          { DontCheckRelatedFiles = defaultArg dDto.DontCheckRelatedFiles x.Debug.DontCheckRelatedFiles
-            CheckFileDebouncerTimeout = defaultArg dDto.CheckFileDebouncerTimeout x.Debug.CheckFileDebouncerTimeout
-            LogDurationBetweenCheckFiles =
-              defaultArg dDto.LogDurationBetweenCheckFiles x.Debug.LogDurationBetweenCheckFiles
-            LogCheckFileDuration = defaultArg dDto.LogCheckFileDuration x.Debug.LogCheckFileDuration } }
+      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
