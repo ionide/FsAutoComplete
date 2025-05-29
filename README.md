@@ -33,9 +33,6 @@ Requirements:
 1. Restore dotnet tools to install local Paket `dotnet tool restore`
 2. Build FSAC with `dotnet build`
 
-* To build release fsautocomplete binaries in `~/bin` directory, use the `LocalRelease` target
-* To build, run all tests and create packages, use the `All` target
-
 ### DevContainer
 
 The repository additionally provides DevContainer definition that can be used with VSCode's Remote Containers extension - use it to get stable development environment
