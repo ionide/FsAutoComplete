@@ -1,5 +1,14 @@
 # Changelog
 
+
+### [0.78.2] - 2025-06-01
+
+### Changed
+
+- [Update Ionide.ProjInfo and related packages to version 0.71.2](https://github.com/ionide/FsAutoComplete/pull/1378) check out Ionide.ProjInfo [release notes](https://github.com/ionide/proj-info/releases/tag/v0.71.2) for more details.
+- [Remove unused Debug settings](https://github.com/ionide/FsAutoComplete/pull/1376) (thanks @svenvanheugten)
+
+
 ## [0.78.1] - 2025-05-17
 
 ### Changed
