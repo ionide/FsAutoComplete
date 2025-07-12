@@ -38,6 +38,7 @@ open FsAutoComplete.Lsp
 open FsAutoComplete.Lsp.Helpers
 open FSharp.Compiler.Syntax
 open FsAutoComplete.ProjectWorkspace
+open FSharp.Analyzers.SDK
 
 
 /// <summary>Handle tracking in-flight ServerProgressReport and allow cancellation of actions if a client decides to.</summary>
@@ -345,7 +346,8 @@ type AdaptiveState
   let fileParsed =
     Event<FSharpParseFileResults * CompilerProjectOption * CancellationToken>()
 
-  let fileChecked = Event<ParseAndCheckResults * VolatileFile * CancellationToken>()
+  let fileChecked =
+    Event<CompilerProjectOption * ParseAndCheckResults * VolatileFile * CancellationToken>()
 
   let detectTests (parseResults: FSharpParseFileResults) (proj: CompilerProjectOption) ct =
     try
@@ -521,7 +523,12 @@ type AdaptiveState
     }
 
 
-  let runAnalyzers (config: FSharpConfig) (parseAndCheck: ParseAndCheckResults) (volatileFile: VolatileFile) =
+  let runAnalyzers
+    (config: FSharpConfig)
+    (parseAndCheck: ParseAndCheckResults)
+    (volatileFile: VolatileFile)
+    (options: CompilerProjectOption)
+    =
     asyncEx {
       if config.EnableAnalyzers then
         let file = volatileFile.FileName
@@ -535,6 +542,13 @@ type AdaptiveState
             >> Log.addContextDestructured "file" file
           )
 
+          let analyzerOptions =
+            match options with
+            | CompilerProjectOption.BackgroundCompiler po -> AnalyzerProjectOptions.BackgroundCompilerOptions po
+            | CompilerProjectOption.TransparentCompiler po -> AnalyzerProjectOptions.TransparentCompilerOptions po
+
+
+
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
             // Since analyzers are not async, we need to switch to a new thread to not block threadpool
@@ -547,7 +561,8 @@ type AdaptiveState
                 volatileFile.Source,
                 parseAndCheck.GetParseResults,
                 tast,
-                parseAndCheck.GetCheckResults
+                parseAndCheck.GetCheckResults,
+                analyzerOptions
               )
 
             let! ct = Async.CancellationToken
@@ -565,14 +580,14 @@ type AdaptiveState
 
   do
     disposables.Add
-    <| fileChecked.Publish.Subscribe(fun (parseAndCheck, volatileFile, ct) ->
+    <| fileChecked.Publish.Subscribe(fun (projectOptions, parseAndCheck, volatileFile, ct) ->
       if volatileFile.Source.Length = 0 then
         () // Don't analyze and error on an empty file
       else
         async {
           let config = config |> AVal.force
           do! builtInCompilerAnalyzers config volatileFile parseAndCheck
-          do! runAnalyzers config parseAndCheck volatileFile
+          do! runAnalyzers config parseAndCheck volatileFile projectOptions
 
         }
         |> Async.StartWithCT ct)
@@ -1668,7 +1683,7 @@ type AdaptiveState
 
 
         fileParsed.Trigger(parseAndCheck.GetParseResults, options, ct)
-        fileChecked.Trigger(parseAndCheck, file, ct)
+        fileChecked.Trigger(options, parseAndCheck, file, ct)
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
