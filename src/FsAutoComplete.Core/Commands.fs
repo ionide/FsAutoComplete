@@ -87,6 +87,8 @@ type NotificationEvent =
 
 module Commands =
   open System.Collections.Concurrent
+  open FSharp.Analyzers.SDK
+
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
@@ -1147,7 +1149,8 @@ module Commands =
       content: ISourceText,
       pt,
       tast,
-      checkFileResults: FSharpCheckFileResults
+      checkFileResults: FSharpCheckFileResults,
+      projectOptions: AnalyzerProjectOptions
     ) =
     let ctx: SDK.EditorContext =
       { FileName = UMX.untag file
@@ -1155,7 +1158,8 @@ module Commands =
         ParseFileResults = pt
         CheckFileResults = Some checkFileResults
         TypedTree = Some tast
-        CheckProjectResults = None }
+        CheckProjectResults = None
+        ProjectOptions = projectOptions }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
