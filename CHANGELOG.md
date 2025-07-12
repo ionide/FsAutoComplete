@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [0.78.4] - 2025-07-12
+
+### Changed
+
+- [Update FSharp.Analyzers.SDK to 0.32.0 and Ionide.Analyzers to 0.14.6, Fixing ReturnStructPartialActivePatternAnalyzer](https://github.com/ionide/ionide-analyzers/pull/152) (thanks @TheAngryByrd)
+- Checkout [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.32.0) for more details
+- Checkout [Ionide.Analyzers release notes](https://github.com/ionide/ionide-analyzers/releases/tag/v0.14.6) for more details
+
 ## [0.78.3] - 2025-06-01
 
 ### Changed
