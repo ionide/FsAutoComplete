@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Sample.fs" />
+    <Compile Include="TestDiscovery.fs" />
     <Compile Include="Main.fs" />
+    <Content Include="SampleTestProjects/**/*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj" />

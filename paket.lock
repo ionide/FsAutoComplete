@@ -400,6 +400,8 @@ NUGET
     Microsoft.TestPlatform.TestHost (17.12) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
       Microsoft.TestPlatform.ObjectModel (>= 17.12) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
       Newtonsoft.Json (>= 13.0.1) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= netcoreapp3.1)) (&& (== netstandard2.1) (>= netcoreapp3.1))
+    Microsoft.TestPlatform.TranslationLayer (17.13)
+      NETStandard.Library (>= 2.0)
     Microsoft.VisualStudio.SolutionPersistence (1.0.28) - restriction: || (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
     Microsoft.VisualStudio.Threading (17.12.19)
       Microsoft.Bcl.AsyncInterfaces (>= 6.0) - restriction: || (&& (== net8.0) (>= net472)) (&& (== net8.0) (< net6.0)) (&& (== net9.0) (>= net472)) (&& (== net9.0) (< net6.0)) (== netstandard2.0) (== netstandard2.1)
@@ -423,6 +425,8 @@ NUGET
       Microsoft.VisualStudio.Validation (>= 17.8.8)
       System.IO.Pipelines (>= 8.0)
       System.Runtime.CompilerServices.Unsafe (>= 6.0) - restriction: || (&& (== net8.0) (< net6.0)) (&& (== net8.0) (< netstandard2.1)) (&& (== net9.0) (< net6.0)) (&& (== net9.0) (< netstandard2.1)) (== netstandard2.0) (== netstandard2.1)
+    NETStandard.Library (2.0.3)
+      Microsoft.NETCore.Platforms (>= 1.1)
     Newtonsoft.Json (13.0.3)
     Nuget.Frameworks (6.12.1) - copy_local: false
     OpenTelemetry (1.10)

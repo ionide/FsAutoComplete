@@ -59,3 +59,8 @@ nuget CommunityToolkit.HighPerformance
 nuget System.Security.Cryptography.Pkcs
 nuget System.Net.Http
 nuget System.Text.RegularExpressions
+
+
+## Test Explorer
+nuget Microsoft.TestPlatform.TranslationLayer
+nuget Microsoft.TestPlatform.ObjectModel
