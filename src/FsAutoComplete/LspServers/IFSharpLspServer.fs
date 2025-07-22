@@ -47,3 +47,4 @@ type IFSharpLspServer =
   abstract FsProjAddFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjRemoveFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
   abstract FsProjAddExistingFile: DotnetFileRequest -> Async<LspResult<PlainNotification option>>
+  abstract TestDiscoverTests: unit -> Async<LspResult<PlainNotification option>>
