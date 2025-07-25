@@ -11,17 +11,11 @@ let tryFindVsTest () : string =
     Ionide.ProjInfo.Paths.dotnetRoot.Value
     |> Option.defaultWith (fun () -> failwith "Couldn't find dotnet root. The dotnet sdk must be installed to run these tests")
 
-  let cwd = System.Environment.CurrentDirectory |> DirectoryInfo
+  let cwd = System.Environment.CurrentDirectory |> Some
   
-  match Ionide.ProjInfo.SdkDiscovery.versionAt cwd dotnetBinary with
-  | Ok sdkVersion ->
-    let sdks = Ionide.ProjInfo.SdkDiscovery.sdks dotnetBinary
-
-    match sdks |> Array.tryFind (fun sdk -> sdk.Version = sdkVersion) with
-    | Some sdk ->
-      Path.Combine(sdk.Path.FullName, "vstest.console.dll")
-    | None -> failwith $"Couldn't install location for dotnet sdk {sdkVersion}"
-  | Error _ -> failwith $"Couldn't identify the dotnet version for directory {cwd.FullName}"
+  VSTestWrapper.tryFindVsTestFromDotnetRoot dotnetBinary.FullName cwd
+  |> Result.defaultWith failwith
+  |> _.FullName
   
 
 let vstestPath = tryFindVsTest ()

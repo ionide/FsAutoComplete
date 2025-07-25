@@ -465,7 +465,6 @@ type FSharpInlayHintsRequest =
   { TextDocument: TextDocumentIdentifier
     Range: Range }
 
-
 [<AutoOpen>]
 module Extensions =
 
