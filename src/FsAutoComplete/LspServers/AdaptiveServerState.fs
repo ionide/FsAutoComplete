@@ -2567,6 +2567,53 @@ type AdaptiveState
 
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
+  member state.DiscoverTests () =
+    let tryGetWorkspaceProjects (workspace: WorkspaceChosen) =
+      match workspace with
+      | WorkspaceChosen.NotChosen -> Error "No workspace loaded. Can't discover tests"
+      | WorkspaceChosen.Projs projectPaths -> 
+        projectPaths |> List.ofSeq |> List.map string |> workspaceLoader.LoadProjects |> Ok
+
+    let isTestProject (project: Types.ProjectOptions) =
+      let testProjectIndicators =
+          set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
+
+      project.PackageReferences
+      |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
+      
+    asyncResult {
+      let! vstestBinary = VSTestAdapter.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
+      
+      let! projects = tryGetWorkspaceProjects state.WorkspacePaths 
+      let testProjects = projects |> List.ofSeq |> List.filter isTestProject
+
+      let testProjectBinaries = testProjects |> List.map _.TargetPath
+
+      let projectLookup = 
+        projects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
+      let testCases =
+        VSTestAdapter.VSTestWrapper.discoverTests vstestBinary.FullName testProjectBinaries
+
+      let testDTOs : CommandResponse.TestItem list = 
+        testCases |> List.choose (fun testCase -> 
+          match projectLookup |> Map.tryFind testCase.Source with
+          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+          | Some project -> 
+            Some {
+              FullName = testCase.FullyQualifiedName
+              DisplayName = testCase.DisplayName
+              ExecutorUri = testCase.ExecutorUri |> string
+              ProjectFilePath = project.ProjectFileName
+              TargetFramework = project.TargetFramework
+              CodeFilePath = Some testCase.CodeFilePath
+              CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
+            }
+        ) 
+
+      return testDTOs
+    }
+
   member x.CancelServerProgress(progressToken: ProgressToken) = progressLookup.Cancel progressToken
 
 
