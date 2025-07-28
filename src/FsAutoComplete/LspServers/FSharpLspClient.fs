@@ -62,6 +62,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyTestDetected(p: TestDetectedNotification) =
     sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
+  member __.NotifyTestDiscoveryUpdate(p: TestDiscoveryUpdateNotification) =
+    sendServerNotification "test/testDiscoveryUpdate" (box { Content = JsonSerializer.writeJson p}) |> Async.Ignore
+
   member x.CodeLensRefresh() =
     match x.ClientCapabilities with
     | Some { Workspace = Some { CodeLens = Some { RefreshSupport = Some true } } } ->

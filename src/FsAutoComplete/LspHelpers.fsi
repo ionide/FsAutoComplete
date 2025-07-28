@@ -198,6 +198,9 @@ type TestDetectedNotification =
   { File: string
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
+type TestDiscoveryUpdateNotification =
+  { Tests: VSTestAdapter.TestItem array }
+
 type ProjectParms =
   {
     /// Project file to compile

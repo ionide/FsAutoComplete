@@ -25,7 +25,7 @@ let tests =
   testList "VSTestWrapper Test Discovery" [
     testCase "should return an empty list if given no projects" <| fun () ->
       let expected = []
-      let actual = VSTestWrapper.discoverTests vstestPath [] 
+      let actual = VSTestWrapper.discoverTests vstestPath ignore [] 
       Expect.equal actual expected ""
     
     testCase "should discover tests given a single xunit project" <| fun () -> 
@@ -36,7 +36,7 @@ let tests =
         Path.Combine(sourceDir, "SampleTestProjects/VSTest.XUnit.Tests/bin/Debug/net8.0/VSTest.XUnit.Tests.dll")
       ]
 
-      let discovered = VSTestWrapper.discoverTests vstestPath sources
+      let discovered = VSTestWrapper.discoverTests vstestPath ignore sources
       let actual = discovered |> List.map _.FullyQualifiedName
 
       Expect.equal actual expectedTestIds ""

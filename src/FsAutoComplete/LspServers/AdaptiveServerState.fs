@@ -801,6 +801,7 @@ type AdaptiveState
               { File = Path.LocalPathToUri file
                 Tests = tests |> Array.map map }
               |> lspClient.NotifyTestDetected
+
         with ex ->
           logger.error (
             Log.setMessage "Exception while handling command event {evt}: {ex}"
@@ -2580,6 +2581,20 @@ type AdaptiveState
 
       project.PackageReferences
       |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
+
+    let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : VSTestAdapter.TestItem option= 
+        match projectLookup |> Map.tryFind testCase.Source with
+        | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+        | Some project -> 
+          Some {
+            FullName = testCase.FullyQualifiedName
+            DisplayName = testCase.DisplayName
+            ExecutorUri = testCase.ExecutorUri |> string
+            ProjectFilePath = project.ProjectFileName
+            TargetFramework = project.TargetFramework
+            CodeFilePath = Some testCase.CodeFilePath
+            CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
+          }
       
     asyncResult {
       let! vstestBinary = VSTestAdapter.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
@@ -2589,27 +2604,20 @@ type AdaptiveState
 
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
-      let projectLookup = 
-        projects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+      let tryTestCasesToDTOs testCases =
+        let projectLookup = 
+          projects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+        testCases |> List.choose (tryTestCaseToDTO projectLookup) 
+
+      let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) = 
+        lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList})
+        |> Async.RunSynchronously
 
       let testCases =
-        VSTestAdapter.VSTestWrapper.discoverTests vstestBinary.FullName testProjectBinaries
+        VSTestAdapter.VSTestWrapper.discoverTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
 
-      let testDTOs : CommandResponse.TestItem list = 
-        testCases |> List.choose (fun testCase -> 
-          match projectLookup |> Map.tryFind testCase.Source with
-          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
-          | Some project -> 
-            Some {
-              FullName = testCase.FullyQualifiedName
-              DisplayName = testCase.DisplayName
-              ExecutorUri = testCase.ExecutorUri |> string
-              ProjectFilePath = project.ProjectFileName
-              TargetFramework = project.TargetFramework
-              CodeFilePath = Some testCase.CodeFilePath
-              CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
-            }
-        ) 
+      let testDTOs : VSTestAdapter.TestItem list = 
+        testCases |> tryTestCasesToDTOs
 
       return testDTOs
     }

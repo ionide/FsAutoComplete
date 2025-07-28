@@ -3193,7 +3193,7 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
       |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
-      |> Map.add "test/discoverTests" (serverRequestHandling (fun s p -> s.TestDiscoverTests() ))
+      |> Map.add "test/discoverTests" (serverRequestHandling (fun s _ -> s.TestDiscoverTests() ))
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath

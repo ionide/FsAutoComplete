@@ -262,23 +262,6 @@ module CommandResponse =
   val fsharpLiterate: serialize: Serializer -> content: string -> string
   val pipelineHint: serialize: Serializer -> content: (int * int option * string list)[] -> string
 
-  type TestFileRange = {
-    StartLine: int
-    EndLine: int
-  }
-  type TestItem = {
-      FullName : string
-      DisplayName : string
-      /// Identifies the test adapter that ran the tests
-      /// Example: executor://xunit/VsTestRunner2/netcoreapp 
-      /// Used for determining the test library, which effects how tests names are broken down
-      ExecutorUri : string
-      ProjectFilePath : string
-      TargetFramework : string
-      CodeFilePath : string option
-      CodeLocationRange : TestFileRange option  
-    }
-
-  type DiscoverTestsResponse = TestItem list
+  type DiscoverTestsResponse = VSTestAdapter.TestItem list
 
   val discoverTests: serialize: Serializer -> content: DiscoverTestsResponse -> string

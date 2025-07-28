@@ -10,18 +10,20 @@ module VSTestWrapper =
 
     type TestProjectDll = string 
 
-    type private TestDiscoveryHandler () =
+    type private TestDiscoveryHandler (notifyIncrementalUpdate: TestCase list -> unit) =
 
         member val DiscoveredTests : TestCase ResizeArray = ResizeArray() with get,set
 
         interface ITestDiscoveryEventsHandler with 
             member this.HandleDiscoveredTests (discoveredTestCases: System.Collections.Generic.IEnumerable<TestCase>): unit = 
                 if (not << isNull) discoveredTestCases then 
-                    this.DiscoveredTests.AddRange(discoveredTestCases) 
+                    this.DiscoveredTests.AddRange(discoveredTestCases)
+                    notifyIncrementalUpdate (discoveredTestCases |> List.ofSeq) 
                
             member this.HandleDiscoveryComplete (_totalTests: int64, lastChunk: System.Collections.Generic.IEnumerable<TestCase>, _isAborted: bool): unit = 
                 if (not << isNull) lastChunk then 
                     this.DiscoveredTests.AddRange(lastChunk)
+                    notifyIncrementalUpdate (lastChunk |> List.ofSeq)
             
             member this.HandleLogMessage (_level: TestMessageLevel, _message: string): unit = 
                 ()
@@ -30,11 +32,11 @@ module VSTestWrapper =
                 ()
         
     open System.Linq
-    let discoverTests (vstestPath: string) (sources: TestProjectDll list) : TestCase list = 
+    let discoverTests (vstestPath: string) (incrementalUpdateHandler: TestCase list -> unit)  (sources: TestProjectDll list) : TestCase list = 
         let consoleParams = ConsoleParameters()
 
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-        let discoveryHandler = TestDiscoveryHandler()
+        let discoveryHandler = TestDiscoveryHandler(incrementalUpdateHandler)
         
         vstest.DiscoverTests(sources, null, discoveryHandler)
         discoveryHandler.DiscoveredTests |> List.ofSeq
@@ -65,6 +67,23 @@ module VSTestWrapper =
             | None -> Error $"Couldn't find the install location for dotnet sdk version: {sdkVersion}"
         | Error _ -> Error $"Couldn't identify the dotnet version for working directory: {cwd.FullName}"
     
-        
+
+type TestFileRange = {
+    StartLine: int
+    EndLine: int
+  }
+type TestItem = {
+    FullName : string
+    DisplayName : string
+    /// Identifies the test adapter that ran the tests
+    /// Example: executor://xunit/VsTestRunner2/netcoreapp 
+    /// Used for determining the test library, which effects how tests names are broken down
+    ExecutorUri : string
+    ProjectFilePath : string
+    TargetFramework : string
+    CodeFilePath : string option
+    CodeLocationRange : TestFileRange option  
+}
+    
 
         
