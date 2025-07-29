@@ -1,4 +1,4 @@
-module Tests
+module TestRunTests
 
 open Expecto
 open FsAutoComplete.VSTestAdapter
@@ -22,22 +22,29 @@ let vstestPath = tryFindVsTest ()
 
 [<Tests>]
 let tests =
-  testList "VSTestWrapper Test Discovery" [
+  testList "VSTestWrapper Test Run" [
     testCase "should return an empty list if given no projects" <| fun () ->
       let expected = []
       let actual = VSTestWrapper.discoverTests vstestPath ignore [] 
       Expect.equal actual expected ""
     
-    testCase "should discover tests given a single xunit project" <| fun () -> 
-      let expectedTestIds = ["Tests.My test"]
+    testCase "should be able to report expected test run outcomes" <| fun () -> 
+      let expected = [
+        ("Tests.My test", TestOutcome.Passed)
+        ("Tests.Fails", TestOutcome.Failed)
+        ("Tests.Skipped", TestOutcome.Skipped)
+        ("Tests.Exception", TestOutcome.Failed)
+      ]
       
       let sourceDir = __SOURCE_DIRECTORY__
       let sources = [
-        Path.Combine(sourceDir, "SampleTestProjects/VSTest.XUnit.Tests/bin/Debug/net8.0/VSTest.XUnit.Tests.dll")
+        Path.Combine(sourceDir, "SampleTestProjects/VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let discovered = VSTestWrapper.discoverTests vstestPath ignore sources
-      let actual = discovered |> List.map _.FullyQualifiedName
+      let discovered = VSTestWrapper.runTests vstestPath sources
 
-      Expect.equal actual expectedTestIds ""
+      let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
+      let actual = discovered |> List.map likenessOfTestResult
+
+      Expect.equal (set actual) (set expected) ""
   ]

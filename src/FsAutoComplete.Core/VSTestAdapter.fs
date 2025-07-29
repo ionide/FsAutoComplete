@@ -31,18 +31,45 @@ module VSTestWrapper =
             member this.HandleRawMessage (_rawMessage: string): unit = 
                 ()
         
-    open System.Linq
     let discoverTests (vstestPath: string) (incrementalUpdateHandler: TestCase list -> unit)  (sources: TestProjectDll list) : TestCase list = 
         let consoleParams = ConsoleParameters()
-
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
         let discoveryHandler = TestDiscoveryHandler(incrementalUpdateHandler)
         
         vstest.DiscoverTests(sources, null, discoveryHandler)
         discoveryHandler.DiscoveredTests |> List.ofSeq
 
+
+    type TestRunHandler() = 
+        member val TestResults : TestResult ResizeArray = ResizeArray() with get,set
+
+        interface ITestRunEventsHandler with
+            member _.HandleLogMessage (_level: TestMessageLevel, _message: string): unit = 
+                ()
+
+            member _.HandleRawMessage (_rawMessage: string): unit = 
+                ()
+
+            member this.HandleTestRunComplete (_testRunCompleteArgs: TestRunCompleteEventArgs, lastChunkArgs: TestRunChangedEventArgs, _runContextAttachments: System.Collections.Generic.ICollection<AttachmentSet>, _executorUris: System.Collections.Generic.ICollection<string>): unit = 
+                if((not << isNull) lastChunkArgs && (not << isNull) lastChunkArgs.NewTestResults) then
+                    this.TestResults.AddRange(lastChunkArgs.NewTestResults)
+
+            member this.HandleTestRunStatsChange (testRunChangedArgs: TestRunChangedEventArgs): unit = 
+                if((not << isNull) testRunChangedArgs && (not << isNull) testRunChangedArgs.NewTestResults) then
+                    this.TestResults.AddRange(testRunChangedArgs.NewTestResults)
+
+            member _.LaunchProcessWithDebuggerAttached (_testProcessStartInfo: TestProcessStartInfo): int = 
+                raise (System.NotImplementedException())
+
+    let runTests (vstestPath: string) (sources: TestProjectDll list) = 
+        let consoleParams = ConsoleParameters()
+        let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
+        let runHandler = TestRunHandler()
+        
+        vstest.RunTests(sources, null, runHandler)
+        runHandler.TestResults |> List.ofSeq
+
     open System.IO
-    open FsToolkit.ErrorHandling
     let tryFindVsTestFromDotnetRoot (dotnetRoot: string) (workspaceRoot: string option) : Result<FileInfo, string> =
         let cwd = defaultArg workspaceRoot System.Environment.CurrentDirectory |> DirectoryInfo
         let dotnetBinary = 
