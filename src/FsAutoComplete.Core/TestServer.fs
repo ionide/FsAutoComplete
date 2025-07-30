@@ -1,12 +1,10 @@
-namespace FsAutoComplete.VSTestAdapter
-
-open Microsoft.TestPlatform.VsTestConsole.TranslationLayer;
-open Microsoft.VisualStudio.TestPlatform.ObjectModel;
-open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
-open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client.Interfaces;
-open Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
+namespace FsAutoComplete.TestServer
 
 module VSTestWrapper = 
+    open Microsoft.TestPlatform.VsTestConsole.TranslationLayer;
+    open Microsoft.VisualStudio.TestPlatform.ObjectModel;
+    open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
+    open Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
 
     type TestProjectDll = string 
 
@@ -61,7 +59,7 @@ module VSTestWrapper =
             member _.LaunchProcessWithDebuggerAttached (_testProcessStartInfo: TestProcessStartInfo): int = 
                 raise (System.NotImplementedException())
 
-    let runTests (vstestPath: string) (sources: TestProjectDll list) = 
+    let runTests (vstestPath: string) (sources: TestProjectDll list) : TestResult list = 
         let consoleParams = ConsoleParameters()
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
         let runHandler = TestRunHandler()
@@ -110,7 +108,4 @@ type TestItem = {
     TargetFramework : string
     CodeFilePath : string option
     CodeLocationRange : TestFileRange option  
-}
-    
-
-        
+} 

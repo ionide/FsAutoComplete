@@ -705,7 +705,7 @@ module CommandResponse =
 
   
 
-  type DiscoverTestsResponse = VSTestAdapter.TestItem list
+  type DiscoverTestsResponse = TestServer.TestItem list
 
   let discoverTests (serialize: Serializer) (content: DiscoverTestsResponse) =
     serialize { Kind = "discoverTests"; Data = content }

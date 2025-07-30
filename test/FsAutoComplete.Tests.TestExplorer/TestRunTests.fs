@@ -1,7 +1,7 @@
 module TestRunTests
 
 open Expecto
-open FsAutoComplete.VSTestAdapter
+open FsAutoComplete.TestServer
 open Microsoft.VisualStudio.TestPlatform.ObjectModel;
 open System.IO
 
@@ -28,7 +28,7 @@ let tests =
       let actual = VSTestWrapper.discoverTests vstestPath ignore [] 
       Expect.equal actual expected ""
     
-    testCase "should be able to report expected test run outcomes" <| fun () -> 
+    testCase "should be able to report basic test run outcomes" <| fun () -> 
       let expected = [
         ("Tests.My test", TestOutcome.Passed)
         ("Tests.Fails", TestOutcome.Failed)

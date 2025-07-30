@@ -1,7 +1,7 @@
 module TestDiscoveryTests
 
 open Expecto
-open FsAutoComplete.VSTestAdapter
+open FsAutoComplete.TestServer
 open Microsoft.VisualStudio.TestPlatform.ObjectModel;
 open System.IO
 

@@ -262,6 +262,6 @@ module CommandResponse =
   val fsharpLiterate: serialize: Serializer -> content: string -> string
   val pipelineHint: serialize: Serializer -> content: (int * int option * string list)[] -> string
 
-  type DiscoverTestsResponse = VSTestAdapter.TestItem list
+  type DiscoverTestsResponse = TestServer.TestItem list
 
   val discoverTests: serialize: Serializer -> content: DiscoverTestsResponse -> string

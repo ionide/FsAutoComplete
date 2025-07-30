@@ -2582,7 +2582,7 @@ type AdaptiveState
       project.PackageReferences
       |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
 
-    let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : VSTestAdapter.TestItem option= 
+    let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestServer.TestItem option= 
         match projectLookup |> Map.tryFind testCase.Source with
         | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
         | Some project -> 
@@ -2597,7 +2597,7 @@ type AdaptiveState
           }
       
     asyncResult {
-      let! vstestBinary = VSTestAdapter.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
+      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
       
       let! projects = tryGetWorkspaceProjects state.WorkspacePaths 
       let testProjects = projects |> List.ofSeq |> List.filter isTestProject
@@ -2614,9 +2614,9 @@ type AdaptiveState
         |> Async.RunSynchronously
 
       let testCases =
-        VSTestAdapter.VSTestWrapper.discoverTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
+        TestServer.VSTestWrapper.discoverTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
 
-      let testDTOs : VSTestAdapter.TestItem list = 
+      let testDTOs : TestServer.TestItem list = 
         testCases |> tryTestCasesToDTOs
 
       return testDTOs

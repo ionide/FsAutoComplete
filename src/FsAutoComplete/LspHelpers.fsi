@@ -199,7 +199,7 @@ type TestDetectedNotification =
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
 type TestDiscoveryUpdateNotification =
-  { Tests: VSTestAdapter.TestItem array }
+  { Tests: TestServer.TestItem array }
 
 type ProjectParms =
   {

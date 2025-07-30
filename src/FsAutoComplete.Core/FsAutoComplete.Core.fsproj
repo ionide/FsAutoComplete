@@ -19,7 +19,7 @@
     <Compile Include="Debug.fs" />
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
-    <Compile Include="VSTestAdapter.fs" />
+    <Compile Include="TestServer.fs" />
     <Compile Include="TestAdapter.fs" />
     <Compile Include="DotnetNewTemplate.fs" />
     <Compile Include="DotnetCli.fs" />
