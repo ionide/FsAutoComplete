@@ -156,6 +156,25 @@ type FindFirstProject() =
 
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
+module TestProjectHelpers = 
+  let tryGetWorkspaceProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) =
+    match workspace with
+    | WorkspaceChosen.NotChosen -> Error "No workspace loaded. Can't discover tests"
+    | WorkspaceChosen.Projs projectPaths -> 
+      projectPaths |> List.ofSeq |> List.map string |> workspaceLoader.LoadProjects |> Ok
+
+  let isTestProject (project: Types.ProjectOptions) =
+    let testProjectIndicators =
+        set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
+
+    project.PackageReferences
+    |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
+
+  let tryGetTestProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) = 
+    result {
+      let! projects = tryGetWorkspaceProjects workspaceLoader workspace 
+      return projects |> List.ofSeq |> List.filter isTestProject
+    }
 
 type AdaptiveState
   (
@@ -2569,44 +2588,20 @@ type AdaptiveState
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
   member state.DiscoverTests () =
-    let tryGetWorkspaceProjects (workspace: WorkspaceChosen) =
-      match workspace with
-      | WorkspaceChosen.NotChosen -> Error "No workspace loaded. Can't discover tests"
-      | WorkspaceChosen.Projs projectPaths -> 
-        projectPaths |> List.ofSeq |> List.map string |> workspaceLoader.LoadProjects |> Ok
-
-    let isTestProject (project: Types.ProjectOptions) =
-      let testProjectIndicators =
-          set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
-
-      project.PackageReferences
-      |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
-
-    let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestServer.TestItem option= 
-        match projectLookup |> Map.tryFind testCase.Source with
-        | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
-        | Some project -> 
-          Some {
-            FullName = testCase.FullyQualifiedName
-            DisplayName = testCase.DisplayName
-            ExecutorUri = testCase.ExecutorUri |> string
-            ProjectFilePath = project.ProjectFileName
-            TargetFramework = project.TargetFramework
-            CodeFilePath = Some testCase.CodeFilePath
-            CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
-          }
       
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
       
-      let! projects = tryGetWorkspaceProjects state.WorkspacePaths 
-      let testProjects = projects |> List.ofSeq |> List.filter isTestProject
-
+      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
       let tryTestCasesToDTOs testCases =
+        let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestServer.TestItem option= 
+          match projectLookup |> Map.tryFind testCase.Source with
+          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+          | Some project -> TestServer.TestItem.ofVsTestCase project.ProjectFileName project.TargetFramework testCase |> Some
         let projectLookup = 
-          projects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+          testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
         testCases |> List.choose (tryTestCaseToDTO projectLookup) 
 
       let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) = 
@@ -2620,6 +2615,28 @@ type AdaptiveState
         testCases |> tryTestCasesToDTOs
 
       return testDTOs
+    }
+
+  member state.RunTests () =
+    asyncResult {
+      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
+      let testProjectBinaries = testProjects |> List.map _.TargetPath
+
+      let testResults =
+        TestServer.VSTestWrapper.runTests vstestBinary.FullName testProjectBinaries
+
+      let tryTestResultsToDTOs testCases =
+        let tryTestResultToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testResult: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult) : TestServer.TestResult option = 
+          match projectLookup |> Map.tryFind testResult.TestCase.Source with
+          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+          | Some project -> TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult |> Some
+        let projectLookup = 
+          testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+        testCases |> List.choose (tryTestResultToDTO projectLookup) 
+
+      let resultDtos = testResults |> tryTestResultsToDTOs
+      return resultDtos
     }
 
   member x.CancelServerProgress(progressToken: ProgressToken) = progressLookup.Cancel progressToken

@@ -41,10 +41,10 @@ let tests =
         Path.Combine(sourceDir, "SampleTestProjects/VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let discovered = VSTestWrapper.runTests vstestPath sources
+      let runResults = VSTestWrapper.runTests vstestPath sources
 
       let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
-      let actual = discovered |> List.map likenessOfTestResult
+      let actual = runResults |> List.map likenessOfTestResult
 
       Expect.equal (set actual) (set expected) ""
   ]

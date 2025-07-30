@@ -709,3 +709,6 @@ module CommandResponse =
 
   let discoverTests (serialize: Serializer) (content: DiscoverTestsResponse) =
     serialize { Kind = "discoverTests"; Data = content }
+
+  let runTests (serialize: Serializer) (content: TestServer.TestResult list) =
+    serialize { Kind = "discoverTests"; Data = content |> Array.ofList }

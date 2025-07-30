@@ -5,6 +5,7 @@ open Xunit
 
 [<Fact>]
 let ``My test`` () =
+    System.Console.WriteLine("Where do I show up in the results")
     Assert.True(true)
 
 [<Fact>]
@@ -16,5 +17,5 @@ let ``Skipped`` () =
     Assert.True(true)
 
 [<Fact>]
-let ``Exception`` () = 
+let ``Exception`` () : unit = 
     failwith "Report as an exception"

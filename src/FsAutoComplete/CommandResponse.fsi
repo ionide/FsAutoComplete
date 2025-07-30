@@ -265,3 +265,4 @@ module CommandResponse =
   type DiscoverTestsResponse = TestServer.TestItem list
 
   val discoverTests: serialize: Serializer -> content: DiscoverTestsResponse -> string
+  val runTests: serialize: Serializer -> content: TestServer.TestResult list -> string

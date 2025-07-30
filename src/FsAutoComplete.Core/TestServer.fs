@@ -1,5 +1,7 @@
 namespace FsAutoComplete.TestServer
 
+open System
+
 module VSTestWrapper = 
     open Microsoft.TestPlatform.VsTestConsole.TranslationLayer;
     open Microsoft.VisualStudio.TestPlatform.ObjectModel;
@@ -65,7 +67,7 @@ module VSTestWrapper =
         let runHandler = TestRunHandler()
         
         vstest.RunTests(sources, null, runHandler)
-        runHandler.TestResults |> List.ofSeq
+        runHandler.TestResults |> List.ofSeq 
 
     open System.IO
     let tryFindVsTestFromDotnetRoot (dotnetRoot: string) (workspaceRoot: string option) : Result<FileInfo, string> =
@@ -109,3 +111,64 @@ type TestItem = {
     CodeFilePath : string option
     CodeLocationRange : TestFileRange option  
 } 
+
+module TestItem = 
+    let ofVsTestCase (projFilePath: string) (targetFramework: string) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestItem = 
+        {
+            FullName = testCase.FullyQualifiedName
+            DisplayName = testCase.DisplayName
+            ExecutorUri = testCase.ExecutorUri |> string
+            ProjectFilePath = projFilePath
+            TargetFramework = targetFramework
+            CodeFilePath = Some testCase.CodeFilePath
+            CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
+        }
+
+[<RequireQualifiedAccess>]
+type TestOutcome = 
+    | Failed = 0
+    | Passed = 1
+    | Skipped = 2
+    | None = 3
+    | NotFound = 4
+ 
+module TestOutcome =
+    type VSTestOutcome = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestOutcome
+    let ofVSTestOutcome (vsTestOutcome: VSTestOutcome) = 
+        match vsTestOutcome with
+        | VSTestOutcome.Passed -> TestOutcome.Passed
+        | VSTestOutcome.Failed -> TestOutcome.Failed
+        | VSTestOutcome.Skipped -> TestOutcome.Skipped
+        | VSTestOutcome.NotFound -> TestOutcome.NotFound
+        | VSTestOutcome.None -> TestOutcome.None
+        | _ -> TestOutcome.None
+
+type TestResult = {
+    TestItem : TestItem
+    Outcome : TestOutcome
+    ErrorMessage: string option
+    ErrorStackTrace: string option
+    AdditionalOutput: string option
+    Duration: TimeSpan
+}
+       
+module TestResult = 
+    type VSTestResult = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult
+
+    let ofVsTestResult (projFilePath: string) (targetFramework: string) (vsTestResult: VSTestResult) : TestResult =
+        let stringToOption (text: string) = 
+            if String.IsNullOrEmpty(text)
+            then None
+            else Some text
+
+        {
+            Outcome = TestOutcome.ofVSTestOutcome vsTestResult.Outcome
+            ErrorMessage = vsTestResult.ErrorMessage |> stringToOption
+            ErrorStackTrace = vsTestResult.ErrorStackTrace |> stringToOption
+            AdditionalOutput = 
+                match vsTestResult.Messages |> Seq.toList with
+                | [] -> None
+                | messages -> messages |> List.map _.Text |> String.concat Environment.NewLine |> Some
+            Duration = vsTestResult.Duration
+            TestItem = TestItem.ofVsTestCase projFilePath targetFramework vsTestResult.TestCase
+        } 
