@@ -122,7 +122,12 @@ jobs:
     - name: Run analyzers
       run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net8.0
 
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: analysisreports
+
+    # SARIF v3 requires categories to be used per file and since
+    # Github Actions doesn't know what a for loop is I'm just ignoring this for now.
+    # Otherwise we have to generate a matrix and upload the files for the next job
+    # to use. What a mess.
+    # - name: Upload SARIF file
+    #   uses: github/codeql-action/upload-sarif@v2
+    #   with:
+    #     sarif_file: analysisreports
