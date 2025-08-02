@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.5] - 2025-08-02
+
+### Changed
+
+- [Update FSharp.Analyzers.SDK and Ionide.Analyzers to version 0.32.1 and 0.14.7](https://github.com/ionide/FsAutoComplete/pull/1382/files)
+- Checkout [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.32.1) for more details
+- Checkout [Ionide.Analyzers release notes](https://github.com/ionide/ionide-analyzers/releases/tag/v0.14.7) for more details
 
 ## [0.78.4] - 2025-07-12
 
