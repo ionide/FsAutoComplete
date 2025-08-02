@@ -122,31 +122,12 @@ jobs:
     - name: Run analyzers
       run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net8.0
 
-    - name: Generate Categories
-      id: sarif-files
-      run: |
-        if [ -d "analysisreports" ]; then
-          # List all SARIF files and create matrix (compact JSON)
-          files=$(ls analysisreports/*.sarif 2>/dev/null | xargs -I {} basename {} .sarif | jq -R . | jq -s -c .)
-          echo "matrix=$files" >> $GITHUB_OUTPUT
-          echo "Generated matrix: $files"
-        else
-          echo "matrix=[]" >> $GITHUB_OUTPUT
-          echo "No analysisreports directory found"
-        fi
-    outputs:
-      matrix: ${{ steps.sarif-files.outputs.matrix }}
-  upload-sarifs:
-    runs-on: ubuntu-latest
-    needs: analyze
-    strategy:
-      matrix: ${{ fromJson(needs.analyze.outputs.matrix) }}
 
-    steps:
-
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: analysisreports
-        category: ${{ matrix.value }}
-
+    # SARIF v3 requires categories to be used per file and since
+    # Github Actions doesn't know what a for loop is I'm just ignoring this for now.
+    # Otherwise we have to generate a matrix and upload the files for the next job
+    # to use. What a mess.
+    # - name: Upload SARIF file
+    #   uses: github/codeql-action/upload-sarif@v2
+    #   with:
+    #     sarif_file: analysisreports
