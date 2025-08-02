@@ -126,8 +126,8 @@ jobs:
       id: sarif-files
       run: |
         if [ -d "analysisreports" ]; then
-          # List all SARIF files and create matrix
-          files=$(ls analysisreports/*.sarif 2>/dev/null | xargs -I {} basename {} .sarif | jq -R . | jq -s .)
+          # List all SARIF files and create matrix (compact JSON)
+          files=$(ls analysisreports/*.sarif 2>/dev/null | xargs -I {} basename {} .sarif | jq -R . | jq -s -c .)
           echo "matrix=$files" >> $GITHUB_OUTPUT
           echo "Generated matrix: $files"
         else
@@ -148,4 +148,5 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: analysisreports
+        category: ${{ matrix.value }}
 
