@@ -122,7 +122,30 @@ jobs:
     - name: Run analyzers
       run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net8.0
 
+    - name: Generate Categories
+      id: sarif-files
+      run: |
+        if [ -d "analysisreports" ]; then
+          # List all SARIF files and create matrix
+          files=$(ls analysisreports/*.sarif 2>/dev/null | xargs -I {} basename {} .sarif | jq -R . | jq -s .)
+          echo "matrix=$files" >> $GITHUB_OUTPUT
+          echo "Generated matrix: $files"
+        else
+          echo "matrix=[]" >> $GITHUB_OUTPUT
+          echo "No analysisreports directory found"
+        fi
+    outputs:
+      matrix: ${{ steps.sarif-files.outputs.matrix }}
+  upload-sarifs:
+    runs-on: ubuntu-latest
+    needs: analyze
+    strategy:
+      matrix: ${{ fromJson(needs.analyze.outputs.matrix) }}
+
+    steps:
+
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: analysisreports
+
