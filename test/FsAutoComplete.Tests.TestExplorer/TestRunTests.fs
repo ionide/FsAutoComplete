@@ -36,9 +36,8 @@ let tests =
         ("Tests.Exception", TestOutcome.Failed)
       ]
       
-      let sourceDir = __SOURCE_DIRECTORY__
       let sources = [
-        Path.Combine(sourceDir, "SampleTestProjects/VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
+        Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
       let runResults = VSTestWrapper.runTests vstestPath sources

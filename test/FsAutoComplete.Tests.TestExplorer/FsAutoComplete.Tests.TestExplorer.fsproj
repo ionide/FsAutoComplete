@@ -1,19 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
-
   <ItemGroup>
+    <Compile Include="ResourceLocators.fs" />
     <Compile Include="TestDiscoveryTests.fs" />
     <Compile Include="TestRunTests.fs" />
     <Compile Include="Main.fs" />
-    <Content Include="SampleTestProjects/**/*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj" />
+    <ProjectReferences Include="../SampleTestProjects/VSTest.XUnit.Tests/VSTest.XUnit.Tests.fsproj" />
+    <ProjectReferences Include="../SampleTestProjects/VSTest.XUnit.RunResults/VSTest.XUnit.RunResults.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
