@@ -40,7 +40,7 @@ let tests =
         Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let runResults = VSTestWrapper.runTests vstestPath sources
+      let runResults = VSTestWrapper.runTests vstestPath ignore sources
 
       let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
       let actual = runResults |> List.map likenessOfTestResult

@@ -2596,13 +2596,9 @@ type AdaptiveState
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
       let tryTestCasesToDTOs testCases =
-        let tryTestCaseToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestServer.TestItem option= 
-          match projectLookup |> Map.tryFind testCase.Source with
-          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
-          | Some project -> TestServer.TestItem.ofVsTestCase project.ProjectFileName project.TargetFramework testCase |> Some
         let projectLookup = 
           testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
-        testCases |> List.choose (tryTestCaseToDTO projectLookup) 
+        testCases |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) 
 
       let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) = 
         lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList})
@@ -2622,18 +2618,25 @@ type AdaptiveState
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
       let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
       let testProjectBinaries = testProjects |> List.map _.TargetPath
-
-      let testResults =
-        TestServer.VSTestWrapper.runTests vstestBinary.FullName testProjectBinaries
-
+      
+      let projectLookup = 
+        testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
       let tryTestResultsToDTOs testCases =
         let tryTestResultToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testResult: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult) : TestServer.TestResult option = 
           match projectLookup |> Map.tryFind testResult.TestCase.Source with
           | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
           | Some project -> TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult |> Some
-        let projectLookup = 
-          testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
         testCases |> List.choose (tryTestResultToDTO projectLookup) 
+
+      let incrementalUpdateHandler (runUpdate: Microsoft.VisualStudio.TestPlatform.ObjectModel.Client.TestRunChangedEventArgs) = 
+        lspClient.NotifyTestRunUpdate({ 
+            TestResults = runUpdate.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
+            ActiveTests = runUpdate.ActiveTests |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) |> Array.ofSeq
+          })
+        |> Async.RunSynchronously
+
+      let testResults =
+        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
 
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos

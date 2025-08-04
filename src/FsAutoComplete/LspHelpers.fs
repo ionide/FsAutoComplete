@@ -615,6 +615,10 @@ type TestDetectedNotification =
 type TestDiscoveryUpdateNotification =
   { Tests: TestServer.TestItem array }
 
+type TestRunUpdateNotification =
+  { TestResults: TestServer.TestResult array
+    ActiveTests: TestServer.TestItem array }
+
 type ProjectParms =
   {
     /// Project file to compile

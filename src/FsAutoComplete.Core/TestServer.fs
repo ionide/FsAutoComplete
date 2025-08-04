@@ -40,7 +40,7 @@ module VSTestWrapper =
         discoveryHandler.DiscoveredTests |> List.ofSeq
 
 
-    type TestRunHandler() = 
+    type TestRunHandler(notifyIncrementalUpdate: TestRunChangedEventArgs -> unit) = 
         member val TestResults : TestResult ResizeArray = ResizeArray() with get,set
 
         interface ITestRunEventsHandler with
@@ -53,18 +53,20 @@ module VSTestWrapper =
             member this.HandleTestRunComplete (_testRunCompleteArgs: TestRunCompleteEventArgs, lastChunkArgs: TestRunChangedEventArgs, _runContextAttachments: System.Collections.Generic.ICollection<AttachmentSet>, _executorUris: System.Collections.Generic.ICollection<string>): unit = 
                 if((not << isNull) lastChunkArgs && (not << isNull) lastChunkArgs.NewTestResults) then
                     this.TestResults.AddRange(lastChunkArgs.NewTestResults)
+                    notifyIncrementalUpdate lastChunkArgs
 
             member this.HandleTestRunStatsChange (testRunChangedArgs: TestRunChangedEventArgs): unit = 
                 if((not << isNull) testRunChangedArgs && (not << isNull) testRunChangedArgs.NewTestResults) then
                     this.TestResults.AddRange(testRunChangedArgs.NewTestResults)
+                    notifyIncrementalUpdate testRunChangedArgs
 
             member _.LaunchProcessWithDebuggerAttached (_testProcessStartInfo: TestProcessStartInfo): int = 
                 raise (System.NotImplementedException())
 
-    let runTests (vstestPath: string) (sources: TestProjectDll list) : TestResult list = 
+    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunChangedEventArgs -> unit) (sources: TestProjectDll list) : TestResult list = 
         let consoleParams = ConsoleParameters()
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-        let runHandler = TestRunHandler()
+        let runHandler = TestRunHandler(incrementalUpdateHandler)
         
         vstest.RunTests(sources, null, runHandler)
         runHandler.TestResults |> List.ofSeq 
@@ -123,6 +125,11 @@ module TestItem =
             CodeFilePath = Some testCase.CodeFilePath
             CodeLocationRange = Some { StartLine = testCase.LineNumber; EndLine = testCase.LineNumber }
         }
+
+    let tryTestCaseToDTO (projectLookup: string -> Ionide.ProjInfo.Types.ProjectOptions option) (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase) : TestItem option = 
+        match projectLookup testCase.Source with
+        | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+        | Some project -> ofVsTestCase project.ProjectFileName project.TargetFramework testCase |> Some
 
 [<RequireQualifiedAccess>]
 type TestOutcome = 
