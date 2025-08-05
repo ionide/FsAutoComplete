@@ -612,6 +612,9 @@ type TestDetectedNotification =
   { File: string
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
+type TestRunRequest = 
+  { TestCaseFilter: string option }
+
 type TestDiscoveryUpdateNotification =
   { Tests: TestServer.TestItem array }
 

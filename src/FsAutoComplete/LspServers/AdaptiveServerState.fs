@@ -2613,7 +2613,7 @@ type AdaptiveState
       return testDTOs
     }
 
-  member state.RunTests () =
+  member state.RunTests (testCaseFilter: string option) =
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
       let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
@@ -2636,7 +2636,7 @@ type AdaptiveState
         |> Async.RunSynchronously
 
       let testResults =
-        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries None
+        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries testCaseFilter
 
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos

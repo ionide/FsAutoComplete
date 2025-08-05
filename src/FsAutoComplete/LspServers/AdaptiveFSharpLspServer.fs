@@ -3063,9 +3063,9 @@ type AdaptiveFSharpLspServer
         return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs}
       }
 
-    override this.TestRunTests (): Async<LspResult<PlainNotification option>> = 
+    override this.TestRunTests (p: TestRunRequest): Async<LspResult<PlainNotification option>> = 
       asyncResult {
-        let! testDTOs = state.RunTests() |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+        let! testDTOs = state.RunTests(p.TestCaseFilter) |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
         return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs}
       }
@@ -3201,7 +3201,7 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
       |> Map.add "test/discoverTests" (serverRequestHandling (fun s _ -> s.TestDiscoverTests() ))
-      |> Map.add "test/runTests" (serverRequestHandling (fun s _ -> s.TestRunTests() ))
+      |> Map.add "test/runTests" (serverRequestHandling (fun s p -> s.TestRunTests(p) ))
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath
