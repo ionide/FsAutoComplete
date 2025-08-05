@@ -25,7 +25,7 @@ let tests =
   testList "VSTestWrapper Test Run" [
     testCase "should return an empty list if given no projects" <| fun () ->
       let expected = []
-      let actual = VSTestWrapper.discoverTests vstestPath ignore [] 
+      let actual = VSTestWrapper.runTests vstestPath ignore [] None
       Expect.equal actual expected ""
     
     testCase "should be able to report basic test run outcomes" <| fun () -> 
@@ -34,13 +34,32 @@ let tests =
         ("Tests.Fails", TestOutcome.Failed)
         ("Tests.Skipped", TestOutcome.Skipped)
         ("Tests.Exception", TestOutcome.Failed)
+        ("Tests+Nested.Test 1", TestOutcome.Passed)
+        ("Tests+Nested.Test 2", TestOutcome.Passed)
       ]
       
       let sources = [
         Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let runResults = VSTestWrapper.runTests vstestPath ignore sources
+      let runResults = VSTestWrapper.runTests vstestPath ignore sources None
+
+      let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
+      let actual = runResults |> List.map likenessOfTestResult
+
+      Expect.equal (set actual) (set expected) ""
+
+    testCase "should run only tests that match the case filter" <| fun () -> 
+      let expected = [
+        ("Tests+Nested.Test 1", TestOutcome.Passed)
+        ("Tests+Nested.Test 2", TestOutcome.Passed)
+      ]
+      
+      let sources = [
+        Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
+      ]
+
+      let runResults = VSTestWrapper.runTests vstestPath ignore sources (Some "FullyQualifiedName~Tests+Nested")
 
       let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
       let actual = runResults |> List.map likenessOfTestResult

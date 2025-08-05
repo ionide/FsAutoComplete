@@ -19,3 +19,12 @@ let ``Skipped`` () =
 [<Fact>]
 let ``Exception`` () : unit = 
     failwith "Report as an exception"
+
+module Nested = 
+    [<Fact>]
+    let ``Test 1`` () : unit = 
+        ()
+
+    [<Fact>]
+    let ``Test 2`` () : unit = 
+        ()

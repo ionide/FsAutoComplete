@@ -63,12 +63,19 @@ module VSTestWrapper =
             member _.LaunchProcessWithDebuggerAttached (_testProcessStartInfo: TestProcessStartInfo): int = 
                 raise (System.NotImplementedException())
 
-    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunChangedEventArgs -> unit) (sources: TestProjectDll list) : TestResult list = 
+    module TestPlatformOptions = 
+        let withTestCaseFilter (options: TestPlatformOptions) filterExpression =
+            options.TestCaseFilter <- filterExpression 
+
+    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunChangedEventArgs -> unit) (sources: TestProjectDll list) (testCaseFilter: string option): TestResult list = 
         let consoleParams = ConsoleParameters()
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
         let runHandler = TestRunHandler(incrementalUpdateHandler)
         
-        vstest.RunTests(sources, null, runHandler)
+        let options = new TestPlatformOptions()
+        testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
+        
+        vstest.RunTests(sources, null, options, runHandler)
         runHandler.TestResults |> List.ofSeq 
 
     open System.IO

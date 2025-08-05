@@ -2636,7 +2636,7 @@ type AdaptiveState
         |> Async.RunSynchronously
 
       let testResults =
-        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
+        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries None
 
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos

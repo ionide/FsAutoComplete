@@ -12,8 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj" />
-    <ProjectReferences Include="../SampleTestProjects/VSTest.XUnit.Tests/VSTest.XUnit.Tests.fsproj" />
-    <ProjectReferences Include="../SampleTestProjects/VSTest.XUnit.RunResults/VSTest.XUnit.RunResults.fsproj" />
+    <ProjectReference Include="../SampleTestProjects/VSTest.XUnit.Tests/VSTest.XUnit.Tests.fsproj" />
+    <ProjectReference Include="../SampleTestProjects/VSTest.XUnit.RunResults/VSTest.XUnit.RunResults.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
