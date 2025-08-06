@@ -32,13 +32,17 @@ module VSTestWrapper =
             member this.HandleRawMessage (_rawMessage: string): unit = 
                 ()
         
-    let discoverTests (vstestPath: string) (incrementalUpdateHandler: TestCase list -> unit)  (sources: TestProjectDll list) : TestCase list = 
-        let consoleParams = ConsoleParameters()
-        let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-        let discoveryHandler = TestDiscoveryHandler(incrementalUpdateHandler)
-        
-        vstest.DiscoverTests(sources, null, discoveryHandler)
-        discoveryHandler.DiscoveredTests |> List.ofSeq
+    let discoverTestsAsync (vstestPath: string) (incrementalUpdateHandler: TestCase list -> unit)  (sources: TestProjectDll list) : Async<TestCase list> =
+        async {
+            let consoleParams = ConsoleParameters()
+            let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
+            let discoveryHandler = TestDiscoveryHandler(incrementalUpdateHandler)
+            
+            use! _onCancel = Async.OnCancel(fun () -> vstest.CancelDiscovery())
+
+            vstest.DiscoverTests(sources, null, discoveryHandler)
+            return discoveryHandler.DiscoveredTests |> List.ofSeq
+        } 
 
     type ProcessId = string
     type TestRunUpdate = 
@@ -48,7 +52,6 @@ module VSTestWrapper =
     type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) = 
 
         let debugProcessIdRegex = Regex(@"Process Id: (.*),")
-
         let tryGetDebugProcessId consoleOutput =
             let m = debugProcessIdRegex.Match(consoleOutput)
 
@@ -86,21 +89,6 @@ module VSTestWrapper =
         let withTestCaseFilter (options: TestPlatformOptions) filterExpression =
             options.TestCaseFilter <- filterExpression 
 
-    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunUpdate -> unit) (sources: TestProjectDll list) (testCaseFilter: string option) (shouldDebug: bool): TestResult list = 
-        let consoleParams = ConsoleParameters()
-        if shouldDebug then
-            consoleParams.EnvironmentVariables <- [
-                "VSTEST_HOST_DEBUG", "1"
-            ] |> dict |> System.Collections.Generic.Dictionary
-        let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-        let runHandler = TestRunHandler(incrementalUpdateHandler)
-        
-        let options = new TestPlatformOptions()
-        testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
-        
-        vstest.RunTests(sources, null, options, runHandler)
-        runHandler.TestResults |> List.ofSeq 
-
     let runTestsAsync (vstestPath: string) (incrementalUpdateHandler: TestRunUpdate -> unit) (sources: TestProjectDll list) (testCaseFilter: string option) (shouldDebug: bool) : Async<TestResult list> = 
         async {
             let consoleParams = ConsoleParameters()
@@ -118,6 +106,7 @@ module VSTestWrapper =
                 printfn "Cancelling test run"
                 vstest.CancelTestRun()
                 printfn "Test Run Cancelled")
+
             vstest.RunTests(sources, null, options, runHandler) 
             return runHandler.TestResults |> List.ofSeq 
         }
