@@ -8,7 +8,7 @@ module VSTestWrapper =
     open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
     open Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
     open System.Text.RegularExpressions
-
+  
     type TestProjectDll = string 
 
     type private TestDiscoveryHandler (notifyIncrementalUpdate: TestCase list -> unit) =
@@ -47,7 +47,7 @@ module VSTestWrapper =
     type ProcessId = string
     type TestRunUpdate = 
         | Progress of TestRunChangedEventArgs
-        | AttachDebugProcess of ProcessId
+        | ProcessWaitingForDebugger of ProcessId
 
     type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) = 
 
@@ -66,7 +66,7 @@ module VSTestWrapper =
         interface ITestRunEventsHandler with
             member _.HandleLogMessage (_level: TestMessageLevel, message: string): unit = 
                 match tryGetDebugProcessId message with
-                | Some processId -> notifyIncrementalUpdate (AttachDebugProcess processId)
+                | Some processId -> notifyIncrementalUpdate (ProcessWaitingForDebugger processId)
                 | None -> () 
 
             member _.HandleRawMessage (_rawMessage: string): unit = 
@@ -88,6 +88,7 @@ module VSTestWrapper =
     module TestPlatformOptions = 
         let withTestCaseFilter (options: TestPlatformOptions) filterExpression =
             options.TestCaseFilter <- filterExpression 
+    
 
     let runTestsAsync (vstestPath: string) (incrementalUpdateHandler: TestRunUpdate -> unit) (sources: TestProjectDll list) (testCaseFilter: string option) (shouldDebug: bool) : Async<TestResult list> = 
         async {

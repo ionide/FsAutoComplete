@@ -5,7 +5,6 @@ open FsAutoComplete.TestServer
 open Microsoft.VisualStudio.TestPlatform.ObjectModel;
 open System.IO
 
-
 let tryFindVsTest () : string =
   let dotnetBinary =  
     Ionide.ProjInfo.Paths.dotnetRoot.Value
@@ -75,7 +74,7 @@ let tests =
       let mutable actualProcessId : string option = None
       let updateSpy (update: VSTestWrapper.TestRunUpdate) =
         match update with
-        | VSTestWrapper.TestRunUpdate.AttachDebugProcess processId -> 
+        | VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId -> 
           actualProcessId <- Some processId
           tokenSource.Cancel()
         | _ -> ()
@@ -87,9 +86,32 @@ let tests =
         let sources = [
           Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
         ]
-        Async.RunSynchronously (VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true, 2000, tokenSource.Token) |> ignore
+        Async.RunSynchronously (VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true, cancellationToken = tokenSource.Token) |> ignore
       ) ""
       
       Expect.isSome actualProcessId "Expected runTest to report a processId"
+    }
+
+    testCaseAsync "should report a processId only once per process" <| async {
+      use tokenSource = new System.Threading.CancellationTokenSource(1000)
+      
+      let mutable reportedProcessIds : string list = []
+      let updateSpy (update: VSTestWrapper.TestRunUpdate) =
+        match update with
+        | VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId -> 
+          reportedProcessIds <- processId :: reportedProcessIds
+        | _ -> ()
+
+      use! _c = Async.OnCancel(fun _ -> 
+        tokenSource.Cancel())
+
+      Expect.throws (fun () ->
+        let sources = [
+          Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
+        ]
+        Async.RunSynchronously (VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true, cancellationToken = tokenSource.Token) |> ignore
+      ) ""
+      
+      Expect.hasLength reportedProcessIds 1 "Expected runTest to report a processId"
     }
   ]

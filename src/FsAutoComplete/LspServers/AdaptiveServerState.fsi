@@ -120,7 +120,7 @@ type AdaptiveState =
   member GetAllDeclarations: unit -> Async<(string<LocalPath> * NavigationTopLevelDeclaration array) array>
   member GlyphToSymbolKind: (FSharpGlyph -> SymbolKind option)
   member DiscoverTests: unit -> Async<Result<TestServer.TestItem list, string>>
-  member RunTests: string option -> Async<Result<TestServer.TestResult list, string>>
+  member RunTests: string option -> bool -> Async<Result<TestServer.TestResult list, string>>
   /// <summary>
   /// Signals the server to cancel an operation that is associated with the given progress token.
   /// </summary>
