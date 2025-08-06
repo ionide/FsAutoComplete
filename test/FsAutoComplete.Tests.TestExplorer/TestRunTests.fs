@@ -25,7 +25,7 @@ let tests =
   testList "VSTestWrapper Test Run" [
     testCase "should return an empty list if given no projects" <| fun () ->
       let expected = []
-      let actual = VSTestWrapper.runTests vstestPath ignore [] None
+      let actual = VSTestWrapper.runTests vstestPath ignore [] None false
       Expect.equal actual expected ""
     
     testCase "should be able to report basic test run outcomes" <| fun () -> 
@@ -42,9 +42,9 @@ let tests =
         Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let runResults = VSTestWrapper.runTests vstestPath ignore sources None
+      let runResults = VSTestWrapper.runTests vstestPath ignore sources None false
 
-      let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
+      let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome)
       let actual = runResults |> List.map likenessOfTestResult
 
       Expect.equal (set actual) (set expected) ""
@@ -59,10 +59,34 @@ let tests =
         Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
       ]
 
-      let runResults = VSTestWrapper.runTests vstestPath ignore sources (Some "FullyQualifiedName~Tests+Nested")
+      let runResults = VSTestWrapper.runTests vstestPath ignore sources (Some "FullyQualifiedName~Tests+Nested") false
 
       let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome) 
       let actual = runResults |> List.map likenessOfTestResult
 
       Expect.equal (set actual) (set expected) ""
+
+    testCaseAsync "should report processIds when debugging is on" <| async {
+      use tokenSource = new System.Threading.CancellationTokenSource(2000)
+      
+      let mutable actualProcessId : string option = None
+      let updateSpy (update: VSTestWrapper.TestRunUpdate) =
+        match update with
+        | VSTestWrapper.TestRunUpdate.AttachDebugProcess processId -> 
+          actualProcessId <- Some processId
+          tokenSource.Cancel()
+        | _ -> ()
+
+      use! _c = Async.OnCancel(fun _ -> 
+        tokenSource.Cancel())
+
+      Expect.throws (fun () ->
+        let sources = [
+          Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll")
+        ]
+        Async.RunSynchronously (VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true, 2000, tokenSource.Token) |> ignore
+      ) ""
+      
+      Expect.isSome actualProcessId "Expected runTest to report a processId"
+    }
   ]

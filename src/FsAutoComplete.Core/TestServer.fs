@@ -7,6 +7,7 @@ module VSTestWrapper =
     open Microsoft.VisualStudio.TestPlatform.ObjectModel;
     open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client;
     open Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging;
+    open System.Text.RegularExpressions
 
     type TestProjectDll = string 
 
@@ -39,13 +40,31 @@ module VSTestWrapper =
         vstest.DiscoverTests(sources, null, discoveryHandler)
         discoveryHandler.DiscoveredTests |> List.ofSeq
 
+    type ProcessId = string
+    type TestRunUpdate = 
+        | Progress of TestRunChangedEventArgs
+        | AttachDebugProcess of ProcessId
 
-    type TestRunHandler(notifyIncrementalUpdate: TestRunChangedEventArgs -> unit) = 
+    type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) = 
+
+        let debugProcessIdRegex = Regex(@"Process Id: (.*),")
+
+        let tryGetDebugProcessId consoleOutput =
+            let m = debugProcessIdRegex.Match(consoleOutput)
+
+            if m.Success then
+                let processId = m.Groups.[1].Value
+                Some processId
+            else
+                None
+
         member val TestResults : TestResult ResizeArray = ResizeArray() with get,set
 
         interface ITestRunEventsHandler with
-            member _.HandleLogMessage (_level: TestMessageLevel, _message: string): unit = 
-                ()
+            member _.HandleLogMessage (_level: TestMessageLevel, message: string): unit = 
+                match tryGetDebugProcessId message with
+                | Some processId -> notifyIncrementalUpdate (AttachDebugProcess processId)
+                | None -> () 
 
             member _.HandleRawMessage (_rawMessage: string): unit = 
                 ()
@@ -53,12 +72,12 @@ module VSTestWrapper =
             member this.HandleTestRunComplete (_testRunCompleteArgs: TestRunCompleteEventArgs, lastChunkArgs: TestRunChangedEventArgs, _runContextAttachments: System.Collections.Generic.ICollection<AttachmentSet>, _executorUris: System.Collections.Generic.ICollection<string>): unit = 
                 if((not << isNull) lastChunkArgs && (not << isNull) lastChunkArgs.NewTestResults) then
                     this.TestResults.AddRange(lastChunkArgs.NewTestResults)
-                    notifyIncrementalUpdate lastChunkArgs
+                    notifyIncrementalUpdate (Progress lastChunkArgs)
 
             member this.HandleTestRunStatsChange (testRunChangedArgs: TestRunChangedEventArgs): unit = 
                 if((not << isNull) testRunChangedArgs && (not << isNull) testRunChangedArgs.NewTestResults) then
                     this.TestResults.AddRange(testRunChangedArgs.NewTestResults)
-                    notifyIncrementalUpdate testRunChangedArgs
+                    notifyIncrementalUpdate (Progress testRunChangedArgs)
 
             member _.LaunchProcessWithDebuggerAttached (_testProcessStartInfo: TestProcessStartInfo): int = 
                 raise (System.NotImplementedException())
@@ -67,8 +86,12 @@ module VSTestWrapper =
         let withTestCaseFilter (options: TestPlatformOptions) filterExpression =
             options.TestCaseFilter <- filterExpression 
 
-    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunChangedEventArgs -> unit) (sources: TestProjectDll list) (testCaseFilter: string option): TestResult list = 
+    let runTests (vstestPath: string) (incrementalUpdateHandler: TestRunUpdate -> unit) (sources: TestProjectDll list) (testCaseFilter: string option) (shouldDebug: bool): TestResult list = 
         let consoleParams = ConsoleParameters()
+        if shouldDebug then
+            consoleParams.EnvironmentVariables <- [
+                "VSTEST_HOST_DEBUG", "1"
+            ] |> dict |> System.Collections.Generic.Dictionary
         let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
         let runHandler = TestRunHandler(incrementalUpdateHandler)
         
@@ -77,6 +100,28 @@ module VSTestWrapper =
         
         vstest.RunTests(sources, null, options, runHandler)
         runHandler.TestResults |> List.ofSeq 
+
+    let runTestsAsync (vstestPath: string) (incrementalUpdateHandler: TestRunUpdate -> unit) (sources: TestProjectDll list) (testCaseFilter: string option) (shouldDebug: bool) : Async<TestResult list> = 
+        async {
+            let consoleParams = ConsoleParameters()
+            if shouldDebug then
+                consoleParams.EnvironmentVariables <- [
+                    "VSTEST_HOST_DEBUG", "1"
+                ] |> dict |> System.Collections.Generic.Dictionary
+            let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
+            let runHandler = TestRunHandler(incrementalUpdateHandler)
+            
+            let options = new TestPlatformOptions()
+            testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
+            
+            use! _cancel = Async.OnCancel(fun () -> 
+                printfn "Cancelling test run"
+                vstest.CancelTestRun()
+                printfn "Test Run Cancelled")
+            vstest.RunTests(sources, null, options, runHandler) 
+            return runHandler.TestResults |> List.ofSeq 
+        }
+        
 
     open System.IO
     let tryFindVsTestFromDotnetRoot (dotnetRoot: string) (workspaceRoot: string option) : Result<FileInfo, string> =

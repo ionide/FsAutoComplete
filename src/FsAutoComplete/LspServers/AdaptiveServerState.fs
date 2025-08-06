@@ -2628,15 +2628,20 @@ type AdaptiveState
           | Some project -> TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult |> Some
         testCases |> List.choose (tryTestResultToDTO projectLookup) 
 
-      let incrementalUpdateHandler (runUpdate: Microsoft.VisualStudio.TestPlatform.ObjectModel.Client.TestRunChangedEventArgs) = 
-        lspClient.NotifyTestRunUpdate({ 
-            TestResults = runUpdate.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
-            ActiveTests = runUpdate.ActiveTests |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) |> Array.ofSeq
-          })
-        |> Async.RunSynchronously
+      let incrementalUpdateHandler (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) = 
+        match runUpdate with
+        | TestServer.VSTestWrapper.TestRunUpdate.Progress progress ->
+          lspClient.NotifyTestRunUpdate(TestRunUpdateNotification.Progress { 
+              TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
+              ActiveTests = progress.ActiveTests |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) |> Array.ofSeq
+            })
+          |> Async.RunSynchronously
+        | TestServer.VSTestWrapper.TestRunUpdate.AttachDebugProcess processId ->
+          () // TODO: 
 
-      let testResults =
-        TestServer.VSTestWrapper.runTests vstestBinary.FullName incrementalUpdateHandler testProjectBinaries testCaseFilter
+
+      let! testResults =
+        TestServer.VSTestWrapper.runTestsAsync vstestBinary.FullName incrementalUpdateHandler testProjectBinaries testCaseFilter attachDebugger
 
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos
