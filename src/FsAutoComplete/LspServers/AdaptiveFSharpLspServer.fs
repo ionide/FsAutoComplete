@@ -3056,18 +3056,22 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override this.TestDiscoverTests (): Async<LspResult<PlainNotification option>> = 
+    override this.TestDiscoverTests() : Async<LspResult<PlainNotification option>> =
       asyncResult {
-        let! testDTOs = state.DiscoverTests() |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+        let! testDTOs =
+          state.DiscoverTests()
+          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
-        return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs}
+        return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
       }
 
-    override this.TestRunTests (p: TestRunRequest): Async<LspResult<PlainNotification option>> = 
+    override this.TestRunTests(p: TestRunRequest) : Async<LspResult<PlainNotification option>> =
       asyncResult {
-        let! testDTOs = state.RunTests p.TestCaseFilter p.AttachDebugger |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+        let! testDTOs =
+          state.RunTests p.TestCaseFilter p.AttachDebugger
+          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
-        return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs}
+        return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
       }
 
     override x.Dispose() = disposables.Dispose()
@@ -3200,8 +3204,8 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
       |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
-      |> Map.add "test/discoverTests" (serverRequestHandling (fun s _ -> s.TestDiscoverTests() ))
-      |> Map.add "test/runTests" (serverRequestHandling (fun s p -> s.TestRunTests(p) ))
+      |> Map.add "test/discoverTests" (serverRequestHandling (fun s _ -> s.TestDiscoverTests()))
+      |> Map.add "test/runTests" (serverRequestHandling (fun s p -> s.TestRunTests(p)))
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath

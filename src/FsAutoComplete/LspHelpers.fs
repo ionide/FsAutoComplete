@@ -612,14 +612,13 @@ type TestDetectedNotification =
   { File: string
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
-type TestRunRequest = 
-  { TestCaseFilter: string option 
-    AttachDebugger: bool}
+type TestRunRequest =
+  { TestCaseFilter: string option
+    AttachDebugger: bool }
 
-type TestDiscoveryUpdateNotification =
-  { Tests: TestServer.TestItem array }
+type TestDiscoveryUpdateNotification = { Tests: TestServer.TestItem array }
 
-type TestRunProgress = 
+type TestRunProgress =
   { TestResults: TestServer.TestResult array
     ActiveTests: TestServer.TestItem array }
 

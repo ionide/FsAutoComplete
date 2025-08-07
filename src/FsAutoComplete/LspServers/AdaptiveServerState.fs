@@ -156,23 +156,27 @@ type FindFirstProject() =
 
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
-module TestProjectHelpers = 
+module TestProjectHelpers =
   let tryGetWorkspaceProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) =
     match workspace with
     | WorkspaceChosen.NotChosen -> Error "No workspace loaded. Can't discover tests"
-    | WorkspaceChosen.Projs projectPaths -> 
-      projectPaths |> List.ofSeq |> List.map string |> workspaceLoader.LoadProjects |> Ok
+    | WorkspaceChosen.Projs projectPaths ->
+      projectPaths
+      |> List.ofSeq
+      |> List.map string
+      |> workspaceLoader.LoadProjects
+      |> Ok
 
   let isTestProject (project: Types.ProjectOptions) =
     let testProjectIndicators =
-        set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
+      set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
 
     project.PackageReferences
     |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
 
-  let tryGetTestProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) = 
+  let tryGetTestProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) =
     result {
-      let! projects = tryGetWorkspaceProjects workspaceLoader workspace 
+      let! projects = tryGetWorkspaceProjects workspaceLoader workspace
       return projects |> List.ofSeq |> List.filter isTestProject
     }
 
@@ -2587,28 +2591,28 @@ type AdaptiveState
 
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
 
-  member state.DiscoverTests () =
-      
+  member state.DiscoverTests() =
+
     asyncResult {
-      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath 
-      
-      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
+      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+
+      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
       let tryTestCasesToDTOs testCases =
-        let projectLookup = 
-          testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
-        testCases |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) 
+        let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
 
-      let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) = 
-        lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList})
+        testCases
+        |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+
+      let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) =
+        lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList })
         |> Async.RunSynchronously
 
       let! testCases =
         TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
 
-      let testDTOs : TestServer.TestItem list = 
-        testCases |> tryTestCasesToDTOs
+      let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
 
       return testDTOs
     }
@@ -2616,45 +2620,66 @@ type AdaptiveState
   member state.RunTests (testCaseFilter: string option) (attachDebugger: bool) =
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
-      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths 
+      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
       let testProjectBinaries = testProjects |> List.map _.TargetPath
-      
-      let projectLookup = 
-        testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
+      let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
       let tryTestResultsToDTOs testCases =
-        let tryTestResultToDTO (projectLookup: Map<string, Types.ProjectOptions>) (testResult: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult) : TestServer.TestResult option = 
+        let tryTestResultToDTO
+          (projectLookup: Map<string, Types.ProjectOptions>)
+          (testResult: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult)
+          : TestServer.TestResult option =
           match projectLookup |> Map.tryFind testResult.TestCase.Source with
           | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
-          | Some project -> TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult |> Some
-        testCases |> List.choose (tryTestResultToDTO projectLookup) 
+          | Some project ->
+            TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult
+            |> Some
+
+        testCases |> List.choose (tryTestResultToDTO projectLookup)
 
       use tokenSource = new CancellationTokenSource()
-      use! _onCancel = Async.OnCancel(fun _ -> 
-        printfn "Sya: cancelling update handlers"
-        tokenSource.Cancel()
-        printfn "Sya: update handlers cancelled")
-      let incrementalUpdateHandler (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) = 
-        let dto = 
+
+      use! _onCancel =
+        Async.OnCancel(fun _ ->
+          printfn "Sya: cancelling update handlers"
+          tokenSource.Cancel()
+          printfn "Sya: update handlers cancelled")
+
+      let incrementalUpdateHandler (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
+        let dto =
           match runUpdate with
           | TestServer.VSTestWrapper.TestRunUpdate.Progress progress ->
-            TestRunUpdateNotification.Progress { 
-              TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
-              ActiveTests = progress.ActiveTests |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind) |> Array.ofSeq
-            }
+            TestRunUpdateNotification.Progress
+              { TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
+                ActiveTests =
+                  progress.ActiveTests
+                  |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+                  |> Array.ofSeq }
           | TestServer.VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId ->
             printfn $"Sya: processId reported: {processId}"
-            TestRunUpdateNotification.ProcessWaitingForDebugger processId 
-        Async.RunSynchronously(async {
-          use! _c = Async.OnCancel(fun _ -> printfn "Sya: Cancelled notification")
-          do! lspClient.NotifyTestRunUpdate(dto) 
-        }, cancellationToken = tokenSource.Token)
+            TestRunUpdateNotification.ProcessWaitingForDebugger processId
+
+        Async.RunSynchronously(
+          async {
+            use! _c = Async.OnCancel(fun _ -> printfn "Sya: Cancelled notification")
+            do! lspClient.NotifyTestRunUpdate(dto)
+          },
+          cancellationToken = tokenSource.Token
+        )
 
       printfn "Sya: running tests"
+
       let! testResults =
-        TestServer.VSTestWrapper.runTestsAsync vstestBinary.FullName incrementalUpdateHandler testProjectBinaries testCaseFilter attachDebugger
+        TestServer.VSTestWrapper.runTestsAsync
+          vstestBinary.FullName
+          incrementalUpdateHandler
+          testProjectBinaries
+          testCaseFilter
+          attachDebugger
 
       printfn "Sya: test results returned"
-      
+
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos
     }
