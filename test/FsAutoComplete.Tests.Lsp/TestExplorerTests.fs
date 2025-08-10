@@ -22,9 +22,6 @@ let tests createServer =
     "TestExplorerTests"
     [ testCaseAsync "it should report a processId when debug a test project"
       <| async {
-        // let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "XunitTests")
-        //X:\source\dotnet\FsAutoComplete\test\FsAutoComplete.Tests.Lsp\TestCases\XunitTests\bin\Debug\net8.0
-        //X:\source\dotnet\FsAutoComplete\test\SampleTestProjects\VSTest.XUnit.RunResults\bin\Debug\net8.0
         let workspaceRoot =
           Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
 
