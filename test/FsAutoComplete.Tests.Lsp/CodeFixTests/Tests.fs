@@ -64,6 +64,114 @@ let private addMissingInstanceMemberTests state =
         """
         type C () =
           member x.Foo() = ()
+        """
+        
+      testCaseAsync "can add instance member prefix to method with parameters"
+      <| CodeFix.check
+        server
+        """
+        type Calculator() =
+          member $0Add(a: int, b: int) = a + b
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type Calculator() =
+          member x.Add(a: int, b: int) = a + b
+        """
+        
+      testCaseAsync "can add instance member prefix to property getter"
+      <| CodeFix.check
+        server
+        """
+        type Person(name: string) =
+          member $0Name = name
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type Person(name: string) =
+          member x.Name = name
+        """
+        
+      testCaseAsync "can add instance member prefix to property with getter and setter"
+      <| CodeFix.check
+        server
+        """
+        type Counter() =
+          let mutable count = 0
+          member $0Count
+            with get() = count
+            and set(value) = count <- value
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type Counter() =
+          let mutable count = 0
+          member x.Count
+            with get() = count
+            and set(value) = count <- value
+        """
+        
+      testCaseAsync "can add instance member prefix to abstract member"
+      <| CodeFix.check
+        server
+        """
+        [<AbstractClass>]
+        type Shape() =
+          abstract member $0Area: unit -> float
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        [<AbstractClass>]
+        type Shape() =
+          abstract member x.Area: unit -> float
+        """
+        
+      testCaseAsync "can add instance member prefix to method with generic parameters"
+      <| CodeFix.check
+        server
+        """
+        type Container<'T>() =
+          member $0Create<'U>(value: 'U) : 'U = value
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type Container<'T>() =
+          member x.Create<'U>(value: 'U) : 'U = value
+        """
+        
+      testCaseAsync "can add instance member prefix to member with return type annotation"
+      <| CodeFix.check
+        server
+        """
+        type StringHelper() =
+          member $0IsEmpty(s: string) : bool = System.String.IsNullOrEmpty(s)
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        type StringHelper() =
+          member x.IsEmpty(s: string) : bool = System.String.IsNullOrEmpty(s)
+        """
+        
+      testCaseAsync "can add instance member prefix to member in nested type"
+      <| CodeFix.check
+        server
+        """
+        module MyModule =
+          type Inner() =
+            member $0DoWork() = printfn "working"
+        """
+        (Diagnostics.expectCode "673")
+        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingInstanceMember.title)
+        """
+        module MyModule =
+          type Inner() =
+            member x.DoWork() = printfn "working"
         """ ])
 
 let private addMissingRecKeywordTests state =
@@ -2983,6 +3091,140 @@ let private resolveNamespaceTests state =
   serverTestList (nameof ResolveNamespace) state config None (fun server ->
     [ let selectCodeFix =
         CodeFix.matching (fun ca -> ca.Title.StartsWith("open", StringComparison.Ordinal))
+      let selectQualifierFix prefix =
+        CodeFix.matching (fun ca -> ca.Title.StartsWith("Use " + prefix, StringComparison.Ordinal))
+
+      // Comprehensive namespace resolution tests
+      testCaseAsync "can resolve DateTime to System namespace with open"
+      <| CodeFix.check
+        server
+        """
+        let today = $0DateTime.Now
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        open System
+        let today = DateTime.Now
+        """
+        
+      testCaseAsync "can resolve DateTime with qualifier option"
+      <| CodeFix.checkApplicable
+        server
+        """
+        let today = $0DateTime.Now
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.log >> selectQualifierFix "System.DateTime")
+        
+      testCaseAsync "can resolve List to Collections.Generic namespace"
+      <| CodeFix.check
+        server
+        """
+        let myList = $0List<int>()
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        open System.Collections.Generic
+        let myList = List<int>()
+        """
+        
+      testCaseAsync "can resolve Regex to Text.RegularExpressions namespace"
+      <| CodeFix.check
+        server
+        """
+        let pattern = $0Regex(@"\\d+")
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        open System.Text.RegularExpressions
+        let pattern = Regex(@"\\d+")
+        """
+        
+      testCaseAsync "can resolve in nested module with proper indentation"
+      <| CodeFix.check
+        server
+        """
+        module OuterModule =
+          module InnerModule =
+            let convert = $0Convert.ToInt32("42")
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        module OuterModule =
+          module InnerModule =
+            open System
+            let convert = Convert.ToInt32("42")
+        """
+        
+      testCaseAsync "can resolve in namespace context"
+      <| CodeFix.check
+        server
+        """
+        namespace MyNamespace
+        
+        module MyModule =
+          let timer = $0Timer(1000.0)
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        namespace MyNamespace
+        
+        module MyModule =
+          open System.Timers
+          let timer = Timer(1000.0)
+        """
+        
+      testCaseAsync "places open after existing opens with proper indentation"
+      <| CodeFix.check
+        server
+        """
+        module MyModule =
+          open System.IO
+          let encoding = $0Encoding.UTF8
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        module MyModule =
+          open System.IO
+          open System.Text
+          let encoding = Encoding.UTF8
+        """
+        
+      testCaseAsync "handles attribute before module correctly"
+      <| CodeFix.check
+        server
+        """
+        [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+        module MyModule =
+          let hash = $0MD5.Create()
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+        module MyModule =
+          open System.Security.Cryptography
+          let hash = MD5.Create()
+        """
+        
+      testCaseAsync "can resolve type in generic context"
+      <| CodeFix.check
+        server
+        """
+        let dict = Dictionary<string, $0Guid>()
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        open System
+        let dict = Dictionary<string, Guid>()
+        """
 
       testCaseAsync "doesn't fail when target not in last line"
       <| CodeFix.checkApplicable
