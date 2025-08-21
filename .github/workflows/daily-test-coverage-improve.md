@@ -64,7 +64,8 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 1. Analyze the state of test coverage:
    a. Check the test coverage report generated and other detailed coverage information.
-   b. Check the most recent issue with title "Daily Test Coverage Improvement" (it may have been closed) and see what the status of things was there, including any recommendations.
+   b. The coverage reports are already generated in `coverage.xml` files. You don't need to run tests on your own.
+   c. Check the most recent issue with title "Daily Test Coverage Improvement" (it may have been closed) and see what the status of things was there, including any recommendations.
 2. Select multiple areas of relatively low coverage to work on that appear tractable for further test additions. Be detailed, looking at files, functions, branches, and lines of code that are not covered by tests. Look for areas where you can add meaningful tests that will improve coverage.
 
 3. For each area identified
