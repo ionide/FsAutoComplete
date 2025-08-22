@@ -452,23 +452,141 @@ let private changeRefCellDerefToNotTests state =
 
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can suggest fix"
+    [ let selectCodeFix = CodeFix.ofKind "refactor" >> CodeFix.withTitle ChangeTypeOfNameToNameOf.title
+    
+      testCaseAsync "can suggest fix for basic generic type"
       <| CodeFix.check
         server
         """
         let x = $0typeof<Async<string>>.Name
         """
         (Diagnostics.acceptAll)
-        (CodeFix.ofKind "refactor" >> CodeFix.withTitle ChangeTypeOfNameToNameOf.title)
+        selectCodeFix
         """
         let x = nameof(Async<string>)
+        """
+
+      testCaseAsync "can suggest fix for simple type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<string>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(string)
+        """
+
+      testCaseAsync "can suggest fix for array type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<int[]>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(int[])
+        """
+
+      testCaseAsync "can suggest fix for F# array type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<int array>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(int array)
+        """
+
+      testCaseAsync "can suggest fix for tuple type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<int * string>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(int * string)
+        """
+
+      testCaseAsync "can suggest fix for custom type"
+      <| CodeFix.check
+        server
+        """
+        type MyType = A | B
+        let x = $0typeof<MyType>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        type MyType = A | B
+        let x = nameof(MyType)
+        """
+
+      testCaseAsync "can suggest fix for nested generic type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<Result<int, string>>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(Result<int, string>)
+        """
+
+      testCaseAsync "can suggest fix for function type"
+      <| CodeFix.check
+        server
+        """
+        let x = $0typeof<int -> string>.Name
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let x = nameof(int -> string)
+        """
+
+      testCaseAsync "can suggest fix in complex expression"
+      <| CodeFix.check
+        server
+        """
+        let getName (t: System.Type) =
+          match t with
+          | _ when t = $0typeof<string>.Name -> "string"
+          | _ -> "unknown"
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        let getName (t: System.Type) =
+          match t with
+          | _ when t = nameof(string) -> "string"
+          | _ -> "unknown"
+        """
+
+      testCaseAsync "can suggest fix inside function call"
+      <| CodeFix.check
+        server
+        """
+        printfn "%s" ($0typeof<List<int>>.Name)
+        """
+        (Diagnostics.acceptAll)
+        selectCodeFix
+        """
+        printfn "%s" (nameof(List<int>))
         """ ])
 
 let private convertBangEqualsToInequalityTests state =
   serverTestList (nameof ConvertBangEqualsToInequality) state defaultConfigDto None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ConvertBangEqualsToInequality.title
 
-      testCaseAsync "can change != to <>"
+      testCaseAsync "can change != to <> with integers"
       <| CodeFix.check
         server
         """
@@ -478,6 +596,84 @@ let private convertBangEqualsToInequalityTests state =
         selectCodeFix
         """
         1 <> 2
+        """
+
+      testCaseAsync "can change != to <> with strings"
+      <| CodeFix.check
+        server
+        """
+        "hello" $0!= "world"
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        "hello" <> "world"
+        """
+
+      testCaseAsync "can change != to <> with variables"
+      <| CodeFix.check
+        server
+        """
+        let x = 1
+        let y = 2
+        x $0!= y
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        let x = 1
+        let y = 2
+        x <> y
+        """
+
+      testCaseAsync "can change != to <> in if condition"
+      <| CodeFix.check
+        server
+        """
+        if x $0!= y then
+          printfn "different"
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        if x <> y then
+          printfn "different"
+        """
+
+      testCaseAsync "can change != to <> with parentheses"
+      <| CodeFix.check
+        server
+        """
+        (x + 1) $0!= (y + 2)
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        (x + 1) <> (y + 2)
+        """
+
+      testCaseAsync "can change != to <> with function calls"
+      <| CodeFix.check
+        server
+        """
+        getValue() $0!= getOtherValue()
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        getValue() <> getOtherValue()
+        """
+
+      testCaseAsync "can change != to <> with option values"
+      <| CodeFix.check
+        server
+        """
+        Some(1) $0!= None
+        """
+        (Diagnostics.expectCode "43")
+        selectCodeFix
+        """
+        Some(1) <> None
         """ ])
 
 let private convertCSharpLambdaToFSharpLambdaTests state =
