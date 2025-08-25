@@ -38,16 +38,100 @@ let private addMissingEqualsToTypeDefinitionTests state =
 
 let private addMissingFunKeywordTests state =
   serverTestList (nameof AddMissingFunKeyword) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can generate the fun keyword when error 10 is raised"
+    [ let selectCodeFix = CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingFunKeyword.title
+
+      testCaseAsync "can generate the fun keyword when error 10 is raised"
       <| CodeFix.check
         server
         """
         let doThing = x $0-> printfn "%s" x
         """
         (Diagnostics.expectCode "10")
-        (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingFunKeyword.title)
+        selectCodeFix
         """
         let doThing = fun x -> printfn "%s" x
+        """
+
+      testCaseAsync "can generate fun keyword for multiple parameters"
+      <| CodeFix.check
+        server
+        """
+        let calculate = x y z $0-> x + y * z
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let calculate = fun x y z -> x + y * z
+        """
+
+      testCaseAsync "can generate fun keyword in let binding with assignment"
+      <| CodeFix.check
+        server
+        """
+        let mapper = item $0-> item.ToString()
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let mapper = fun item -> item.ToString()
+        """
+
+      testCaseAsync "can generate fun keyword in nested expression"
+      <| CodeFix.check
+        server
+        """
+        let result = List.map (x $0-> x * 2) [1; 2; 3]
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let result = List.map (fun x -> x * 2) [1; 2; 3]
+        """
+
+      testCaseAsync "can generate fun keyword with complex expression body"
+      <| CodeFix.check
+        server
+        """
+        let processor = data $0-> 
+          let processed = data |> List.filter (fun x -> x > 0)
+          processed |> List.sum
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let processor = fun data -> 
+          let processed = data |> List.filter (fun x -> x > 0)
+          processed |> List.sum
+        """
+
+      testCaseAsync "can generate fun keyword with tuple parameter"
+      <| CodeFix.check
+        server
+        """
+        let addTuple = (a, b) $0-> a + b
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let addTuple = fun (a, b) -> a + b
+        """
+
+      testCaseAsync "can generate fun keyword in piping context"
+      <| CodeFix.check
+        server
+        """
+        let result = 
+          [1..10] 
+          |> List.filter (n $0-> n % 2 = 0)
+          |> List.sum
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        let result = 
+          [1..10] 
+          |> List.filter (fun n -> n % 2 = 0)
+          |> List.sum
         """ ])
 
 let private addMissingInstanceMemberTests state =
@@ -82,6 +166,102 @@ let private addMissingRecKeywordTests state =
         """
         let rec a x = x
         and b x = x
+        """
+
+      testCaseAsync "can add rec to mutually recursive functions with pattern matching"
+      <| CodeFix.check
+        server
+        """
+        $0let isEven x = 
+          match x with
+          | 0 -> true
+          | n -> isOdd (n - 1)
+        and isOdd x = 
+          match x with
+          | 0 -> false
+          | n -> isEven (n - 1)
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "isEven"))
+        """
+        let rec isEven x = 
+          match x with
+          | 0 -> true
+          | n -> isOdd (n - 1)
+        and isOdd x = 
+          match x with
+          | 0 -> false
+          | n -> isEven (n - 1)
+        """
+
+      testCaseAsync "can add rec to mutually recursive functions with complex expressions"
+      <| CodeFix.check
+        server
+        """
+        $0let fibonacci n = 
+          if n <= 1 then n
+          else fibHelper (n - 1) + fibHelper (n - 2)
+        and fibHelper n = fibonacci n
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "fibonacci"))
+        """
+        let rec fibonacci n = 
+          if n <= 1 then n
+          else fibHelper (n - 1) + fibHelper (n - 2)
+        and fibHelper n = fibonacci n
+        """
+
+      testCaseAsync "can add rec to first function when second function has complex parameters"
+      <| CodeFix.check
+        server
+        """
+        $0let processData items = 
+          items |> List.map transformItem
+        and transformItem item = 
+          { item with Processed = processData item.Children }
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "processData"))
+        """
+        let rec processData items = 
+          items |> List.map transformItem
+        and transformItem item = 
+          { item with Processed = processData item.Children }
+        """
+
+      testCaseAsync "can add rec to functions with type annotations"
+      <| CodeFix.check
+        server
+        """
+        $0let parseExpression (tokens: string list) : int = 
+          parseTerm tokens + parseExpression (List.tail tokens)
+        and parseTerm (tokens: string list) : int = 
+          int (List.head tokens)
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "parseExpression"))
+        """
+        let rec parseExpression (tokens: string list) : int = 
+          parseTerm tokens + parseExpression (List.tail tokens)
+        and parseTerm (tokens: string list) : int = 
+          int (List.head tokens)
+        """
+
+      testCaseAsync "can add rec to three mutually recursive functions"
+      <| CodeFix.check
+        server
+        """
+        $0let funcA x = funcB x + 1
+        and funcB x = funcC x * 2
+        and funcC x = funcA x - 1
+        """
+        (Diagnostics.expectCode "576")
+        (CodeFix.withTitle (AddMissingRecKeyword.title "funcA"))
+        """
+        let rec funcA x = funcB x + 1
+        and funcB x = funcC x * 2
+        and funcC x = funcA x - 1
         """ ])
 
 let private addNewKeywordToDisposableConstructorInvocationTests state =
@@ -383,11 +563,126 @@ let private changeEqualsInFieldTypeToColonTests state =
           Name : string
           Key : int
         }
+        """
+
+      testCaseAsync "can change = to : with complex type annotation"
+      <| CodeFix.check
+        server
+        """
+        type Person = { 
+          Name : string
+          Age : int
+          Addresses $0= list<string>
+        }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        type Person = { 
+          Name : string
+          Age : int
+          Addresses : list<string>
+        }
+        """
+
+      testCaseAsync "can change = to : with generic type"
+      <| CodeFix.check
+        server
+        """
+        type Container<'T> = { 
+          Value $0= 'T
+          Metadata : string
+        }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        type Container<'T> = { 
+          Value : 'T
+          Metadata : string
+        }
+        """
+
+      testCaseAsync "can change = to : with option type"
+      <| CodeFix.check
+        server
+        """
+        type Config = {
+          ConnectionString : string
+          Timeout $0= int option
+        }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        type Config = {
+          ConnectionString : string
+          Timeout : int option
+        }
+        """
+
+      testCaseAsync "can change = to : with tuple type"
+      <| CodeFix.check
+        server
+        """
+        type Point = { 
+          Coordinates $0= int * int
+          Name : string 
+        }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        type Point = { 
+          Coordinates : int * int
+          Name : string 
+        }
+        """
+
+      testCaseAsync "can change = to : with function type"
+      <| CodeFix.check
+        server
+        """
+        type Processor = {
+          Transform $0= string -> int
+          Name : string
+        }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        type Processor = {
+          Transform : string -> int
+          Name : string
+        }
+        """
+
+      testCaseAsync "can change = to : in nested record with indentation"
+      <| CodeFix.check
+        server
+        """
+        module Data =
+          type User = {
+            Id : int
+            Profile $0= {| Name: string; Email: string |}
+          }
+        """
+        (Diagnostics.expectCode "10")
+        selectCodeFix
+        """
+        module Data =
+          type User = {
+            Id : int
+            Profile : {| Name: string; Email: string |}
+          }
         """ ])
 
 let private changePrefixNegationToInfixSubtractionTests state =
   serverTestList (nameof ChangePrefixNegationToInfixSubtraction) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "converts negation to subtraction"
+    [ let selectCodeFix = 
+        CodeFix.ofKind "quickfix" >> CodeFix.withTitle ChangePrefixNegationToInfixSubtraction.title
+
+      testCaseAsync "converts negation to subtraction"
       <| CodeFix.check
         server
         """
@@ -396,12 +691,105 @@ let private changePrefixNegationToInfixSubtractionTests state =
           list[ 1 .. $0l -1 ]
         """
         (Diagnostics.expectCode "3")
-        (CodeFix.ofKind "quickfix"
-         >> CodeFix.withTitle ChangePrefixNegationToInfixSubtraction.title)
+        selectCodeFix
         """
         let getListWithoutFirstAndLastElement list =
           let l = List.length list
           list[ 1 .. l - 1 ]
+        """
+
+      testCaseAsync "converts negation to subtraction in arithmetic expression"
+      <| CodeFix.check
+        server
+        """
+        let calculate x y = 
+          let result = x + $0y -5
+          result
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let calculate x y = 
+          let result = x + y - 5
+          result
+        """
+
+      testCaseAsync "converts negation to subtraction in complex arithmetic"
+      <| CodeFix.check
+        server
+        """
+        let formula a b c = a * b + $0c -10 / 2
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let formula a b c = a * b + c - 10 / 2
+        """
+
+      testCaseAsync "converts negation to subtraction in array indexing"
+      <| CodeFix.check
+        server
+        """
+        let getElement arr index = 
+          let lastIndex = Array.length arr
+          arr.[index..$0lastIndex -1]
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let getElement arr index = 
+          let lastIndex = Array.length arr
+          arr.[index..lastIndex - 1]
+        """
+
+      testCaseAsync "converts negation to subtraction in function call context"
+      <| CodeFix.check
+        server
+        """
+        let processRange start count = 
+          List.init count (fun i -> start + i)
+          |> List.take ($0count -2)
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let processRange start count = 
+          List.init count (fun i -> start + i)
+          |> List.take (count - 2)
+        """
+
+      testCaseAsync "converts negation to subtraction in nested expression"
+      <| CodeFix.check
+        server
+        """
+        let nested x = 
+          match x with
+          | n when n > 0 -> Some(n + $0x -1)
+          | _ -> None
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let nested x = 
+          match x with
+          | n when n > 0 -> Some(n + x - 1)
+          | _ -> None
+        """
+
+      testCaseAsync "converts negation to subtraction with variable names"
+      <| CodeFix.check
+        server
+        """
+        let difference first second = 
+          let gap = first - second
+          gap + $0first -gap
+        """
+        (Diagnostics.expectCode "3")
+        selectCodeFix
+        """
+        let difference first second = 
+          let gap = first - second
+          gap + first - gap
         """ ])
 
 let private changeRefCellDerefToNotTests state =
