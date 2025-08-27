@@ -11,6 +11,8 @@ open FsAutoComplete.Tests.CoreTest
 open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
+open FsAutoComplete.Tests.FsprojEditTests
+open FsAutoComplete.Tests.KeywordListTests
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
@@ -143,6 +145,8 @@ let generalTests = testList "general" [
   testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
   InlayHintTests.explicitTypeInfoTests sourceTextFactory
   FindReferences.tryFixupRangeTests sourceTextFactory
+  fsprojEditTests
+  keywordListTests
 ]
 
 [<Tests>]
