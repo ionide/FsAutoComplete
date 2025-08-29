@@ -80,7 +80,7 @@ let tests =
       <| async {
         use tokenSource = new System.Threading.CancellationTokenSource(2000)
 
-        let mutable actualProcessId: string option = None
+        let mutable actualProcessId: int option = None
 
         let updateSpy (update: VSTestWrapper.TestRunUpdate) =
           match update with
@@ -113,12 +113,13 @@ let tests =
       <| async {
         use tokenSource = new System.Threading.CancellationTokenSource(1000)
 
-        let mutable reportedProcessIds: string list = []
+        let mutable reportedProcessIds: int list = []
 
         let updateSpy (update: VSTestWrapper.TestRunUpdate) =
           match update with
           | VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId ->
             reportedProcessIds <- processId :: reportedProcessIds
+            tokenSource.Cancel()
           | _ -> ()
 
         use! _c = Async.OnCancel(fun _ -> tokenSource.Cancel())

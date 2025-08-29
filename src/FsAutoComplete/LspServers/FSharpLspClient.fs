@@ -72,7 +72,7 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
       sendServerNotification "test/testRunProgressUpdate" (box { Content = JsonSerializer.writeJson progress })
       |> Async.Ignore
     | ProcessWaitingForDebugger processId ->
-      sendServerNotification "test/processWaitingForDebugger" (box { Content = JsonSerializer.writeJson processId })
+      sendServerNotification "test/processWaitingForDebugger" (box { Content = string processId })
       |> Async.Ignore
 
   member x.CodeLensRefresh() =

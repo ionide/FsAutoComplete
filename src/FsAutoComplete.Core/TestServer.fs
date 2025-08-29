@@ -8,6 +8,7 @@ module VSTestWrapper =
   open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client
   open Microsoft.VisualStudio.TestPlatform.ObjectModel.Logging
   open System.Text.RegularExpressions
+  open Microsoft.VisualStudio.TestPlatform.ObjectModel.Client.Interfaces
 
   type TestProjectDll = string
 
@@ -48,7 +49,7 @@ module VSTestWrapper =
       return discoveryHandler.DiscoveredTests |> List.ofSeq
     }
 
-  type ProcessId = string
+  type ProcessId = int
 
   type TestRunUpdate =
     | Progress of TestRunChangedEventArgs
@@ -56,24 +57,10 @@ module VSTestWrapper =
 
   type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) =
 
-    let debugProcessIdRegex = Regex(@"Process Id: (.*),")
-
-    let tryGetDebugProcessId consoleOutput =
-      let m = debugProcessIdRegex.Match(consoleOutput)
-
-      if m.Success then
-        let processId = m.Groups.[1].Value
-        Some processId
-      else
-        None
-
     member val TestResults: TestResult ResizeArray = ResizeArray() with get, set
 
     interface ITestRunEventsHandler with
-      member _.HandleLogMessage(_level: TestMessageLevel, message: string) : unit =
-        match tryGetDebugProcessId message with
-        | Some processId -> notifyIncrementalUpdate (ProcessWaitingForDebugger processId)
-        | None -> ()
+      member _.HandleLogMessage(_level: TestMessageLevel, _message: string) : unit = ()
 
       member _.HandleRawMessage(_rawMessage: string) : unit = ()
 
@@ -99,6 +86,37 @@ module VSTestWrapper =
       member _.LaunchProcessWithDebuggerAttached(_testProcessStartInfo: TestProcessStartInfo) : int =
         raise (System.NotImplementedException())
 
+  type TestHostLauncher(isDebug: bool, notifyProcessWaitingForDebugger: ProcessId -> unit) =
+    // IMPORTANT: RunTestsWithCustomTestHost says it takes an ITestHostLauncher, but it actually calls a method that is only available on ITestHostLauncher3
+
+    interface ITestHostLauncher3 with
+      member _.IsDebug: bool = isDebug
+
+      member _.LaunchTestHost(_defaultTestHostStartInfo: TestProcessStartInfo) : int = raise (NotImplementedException())
+
+      member _.LaunchTestHost
+        (_defaultTestHostStartInfo: TestProcessStartInfo, _cancellationToken: Threading.CancellationToken)
+        : int =
+        raise (NotImplementedException())
+
+      member _.AttachDebuggerToProcess
+        (attachDebuggerInfo: AttachDebuggerInfo, _cancellationToken: Threading.CancellationToken)
+        : bool =
+        printfn $"Sya: AttachDebuggerToProcess 3"
+        notifyProcessWaitingForDebugger attachDebuggerInfo.ProcessId
+        true
+
+      member _.AttachDebuggerToProcess(pid: int) : bool =
+        printfn $"Sya: AttachDebuggerToProcess pid only"
+        notifyProcessWaitingForDebugger pid
+        true
+
+      member _.AttachDebuggerToProcess(pid: int, _cancellationToken: Threading.CancellationToken) : bool =
+        printfn $"Sya: AttachDebuggerToProcess pid + cancel token"
+        notifyProcessWaitingForDebugger pid
+        true
+
+
   module TestPlatformOptions =
     let withTestCaseFilter (options: TestPlatformOptions) filterExpression = options.TestCaseFilter <- filterExpression
 
@@ -113,10 +131,6 @@ module VSTestWrapper =
     async {
       let consoleParams = ConsoleParameters()
 
-      if shouldDebug then
-        consoleParams.EnvironmentVariables <-
-          [ "VSTEST_HOST_DEBUG", "1" ] |> dict |> System.Collections.Generic.Dictionary
-
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
       let runHandler = TestRunHandler(incrementalUpdateHandler)
 
@@ -129,7 +143,17 @@ module VSTestWrapper =
           vstest.CancelTestRun()
           printfn "Test Run Cancelled")
 
-      vstest.RunTests(sources, null, options, runHandler)
+      if shouldDebug then
+        printfn "Sya: Running debug"
+
+        let hostLauncher =
+          TestHostLauncher(shouldDebug, fun pid -> incrementalUpdateHandler (ProcessWaitingForDebugger pid))
+
+        vstest.RunTestsWithCustomTestHost(sources, null, options, runHandler, hostLauncher)
+      else
+        printfn "Sya: Running non-debug"
+        vstest.RunTests(sources, null, options, runHandler)
+
       return runHandler.TestResults |> List.ofSeq
     }
 

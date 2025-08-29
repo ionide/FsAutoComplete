@@ -624,7 +624,7 @@ type TestRunProgress =
 
 type TestRunUpdateNotification =
   | Progress of TestRunProgress
-  | ProcessWaitingForDebugger of processId: string
+  | ProcessWaitingForDebugger of processId: int
 
 type ProjectParms =
   {
