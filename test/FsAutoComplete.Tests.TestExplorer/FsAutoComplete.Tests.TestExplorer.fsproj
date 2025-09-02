@@ -12,8 +12,12 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj" />
-    <ProjectReference Include="../SampleTestProjects/VSTest.XUnit.Tests/VSTest.XUnit.Tests.fsproj" />
-    <ProjectReference Include="../SampleTestProjects/VSTest.XUnit.RunResults/VSTest.XUnit.RunResults.fsproj" />
   </ItemGroup>
+  <PropertyGroup>
+    <PostBuildEvent>
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.Tests/
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.RunResults/
+    </PostBuildEvent>
+  </PropertyGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

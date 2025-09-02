@@ -1,6 +1,7 @@
-﻿module FsAutoComplete.Tests.TestExplorer
+﻿namespace FsAutoComplete.Tests.TestExplorer
+
 open Expecto
 
-[<EntryPoint>]
-let main argv =
-    Tests.runTestsInAssemblyWithCLIArgs [] argv
+module Program =
+  [<EntryPoint>]
+  let main argv = Tests.runTestsInAssemblyWithCLIArgs [] argv

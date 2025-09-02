@@ -39,7 +39,7 @@ let tests createServer =
     [ testCaseAsync "it should report tests of all basic outcomes"
       <| async {
         let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
+          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
         let! server, _ = initializeServer workspaceRoot
         use server = server
@@ -72,7 +72,7 @@ let tests createServer =
       testCaseAsync "it should report a processId when debugging a test project"
       <| async {
         let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
+          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
         let! server, clientNotifications = initializeServer workspaceRoot
 
@@ -121,7 +121,7 @@ let tests createServer =
         "it should inherit environment variables from it's parent, allowing tests to depend on environment variables"
       <| async {
         let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
+          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
         let! server, _ = initializeServer workspaceRoot
 
