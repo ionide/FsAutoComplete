@@ -8,6 +8,21 @@ open System.Threading
 open Helpers.Expecto.ShadowedTimeouts
 open FsAutoComplete.Tests.Lsp.Helpers
 
+module TestRunResult =
+  open Ionide.LanguageServerProtocol.JsonRpc
+
+  let tryUnwrapTestRunResult (res: LspResult<PlainNotification option>) =
+    match res with
+    | Ok plainNotification ->
+      plainNotification
+      |> Option.get
+      |> _.Content
+      |> FsAutoComplete.JsonSerializer.readJson<
+        FsAutoComplete.CommandResponse.ResponseMsg<FsAutoComplete.TestServer.TestResult list>
+          >
+      |> _.Data
+    | Error err -> failwith $"TestRunTests returned error: {err.Message}"
+
 let tests createServer =
   let initializeServer workspaceRoot =
     async {
@@ -39,25 +54,17 @@ let tests createServer =
         let! res = server.TestRunTests(runRequest)
 
         let actual =
-          match res with
-          | Ok plainNotification ->
-            plainNotification
-            |> Option.get
-            |> _.Content
-            |> FsAutoComplete.JsonSerializer.readJson<
-              FsAutoComplete.CommandResponse.ResponseMsg<FsAutoComplete.TestServer.TestResult list>
-                >
-            |> _.Data
-            |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-          | Error err -> failwith $"TestRunTests returne error: {err.Message}"
+          TestRunResult.tryUnwrapTestRunResult res
+          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
 
         let expected =
-          [ ("Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed)
-            ("Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed)
-            ("Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped)
-            ("Tests.Exception", FsAutoComplete.TestServer.TestOutcome.Failed)
-            ("Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed)
-            ("Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed) ]
+          [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+            "Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed
+            "Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped
+            "Tests.Exception", FsAutoComplete.TestServer.TestOutcome.Failed
+            "Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed
+            "Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed
+            "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed ]
 
         Expect.equal (set actual) (set expected) ""
       }
@@ -108,4 +115,37 @@ let tests createServer =
           |> Array.tryFind (fun p -> Some p.Id = processIdSpy)
 
         Expect.isNone maybeHangingTestProcess "All test processes should be canceled with the test run"
+      }
+
+      testCaseAsync
+        "it should inherit environment variables from it's parent, allowing tests to depend on environment variables"
+      <| async {
+        let workspaceRoot =
+          Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
+
+        let! server, _ = initializeServer workspaceRoot
+
+        use server = server
+
+        let buildResult = DotnetCli.build workspaceRoot
+        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+
+        System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "Set me")
+
+        let! response =
+          server.TestRunTests(
+            { TestCaseFilter = Some "FullyQualifiedName~Tests.Expects environment variable"
+              AttachDebugger = false }
+          )
+
+        let expected =
+          [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
+
+        let actual =
+          TestRunResult.tryUnwrapTestRunResult response
+          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+
+        Expect.equal (set actual) (set expected) ""
+
+        System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "")
       } ]

@@ -36,12 +36,13 @@ let tests =
       testCaseAsync "should be able to report basic test run outcomes"
       <| async {
         let expected =
-          [ ("Tests.My test", TestOutcome.Passed)
-            ("Tests.Fails", TestOutcome.Failed)
-            ("Tests.Skipped", TestOutcome.Skipped)
-            ("Tests.Exception", TestOutcome.Failed)
-            ("Tests+Nested.Test 1", TestOutcome.Passed)
-            ("Tests+Nested.Test 2", TestOutcome.Passed) ]
+          [ "Tests.My test", TestOutcome.Passed
+            "Tests.Fails", TestOutcome.Failed
+            "Tests.Skipped", TestOutcome.Skipped
+            "Tests.Exception", TestOutcome.Failed
+            "Tests+Nested.Test 1", TestOutcome.Passed
+            "Tests+Nested.Test 2", TestOutcome.Passed
+            "Tests.Expects environment variable", TestOutcome.Failed ]
 
         let sources =
           [ Path.Combine(
