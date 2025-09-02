@@ -205,10 +205,9 @@ type TestRunRequest =
 type TestDiscoveryUpdateNotification = { Tests: TestServer.TestItem array }
 
 type TestRunProgress =
-  { TestResults: TestServer.TestResult array
+  { TestLogs: string array
+    TestResults: TestServer.TestResult array
     ActiveTests: TestServer.TestItem array }
-
-type TestRunUpdateNotification = Progress of TestRunProgress
 
 type ProjectParms =
   {

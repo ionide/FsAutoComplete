@@ -2605,12 +2605,12 @@ type AdaptiveState
         testCases
         |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
 
-      let incrementalUpdateHandler (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) =
+      let onDiscoveryProgress (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) =
         lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList })
         |> Async.RunSynchronously
 
       let! testCases =
-        TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName incrementalUpdateHandler testProjectBinaries
+        TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
 
       let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
 
@@ -2642,20 +2642,24 @@ type AdaptiveState
 
       use! _onCancel = Async.OnCancel(fun _ -> tokenSource.Cancel())
 
-      let incrementalUpdateHandler (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
+      let onTestRunProgress (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
         let dto =
           match runUpdate with
           | TestServer.VSTestWrapper.TestRunUpdate.Progress progress ->
-            TestRunUpdateNotification.Progress
-              { TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
-                ActiveTests =
-                  progress.ActiveTests
-                  |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
-                  |> Array.ofSeq }
+            { TestLogs = [||]
+              TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
+              ActiveTests =
+                progress.ActiveTests
+                |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+                |> Array.ofSeq }
+          | TestServer.VSTestWrapper.TestRunUpdate.LogMessage message ->
+            { TestLogs = [| message |]
+              TestResults = [||]
+              ActiveTests = [||] }
 
         Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
 
-      let attachDebugger (processId: int) : bool =
+      let onAttachDebugger (processId: int) : bool =
         let result =
           Async.RunSynchronously(lspClient.AttachDebuggerForTestRun(processId), cancellationToken = tokenSource.Token)
 
@@ -2672,8 +2676,8 @@ type AdaptiveState
       let! testResults =
         TestServer.VSTestWrapper.runTestsAsync
           vstestBinary.FullName
-          incrementalUpdateHandler
-          attachDebugger
+          onTestRunProgress
+          onAttachDebugger
           testProjectBinaries
           testCaseFilter
           shouldDebug

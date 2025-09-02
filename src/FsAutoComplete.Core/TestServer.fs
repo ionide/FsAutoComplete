@@ -12,7 +12,7 @@ module VSTestWrapper =
 
   type TestProjectDll = string
 
-  type private TestDiscoveryHandler(notifyIncrementalUpdate: TestCase list -> unit) =
+  type private TestDiscoveryHandler(notifyDiscoveryProgress: TestCase list -> unit) =
 
     member val DiscoveredTests: TestCase ResizeArray = ResizeArray() with get, set
 
@@ -20,14 +20,14 @@ module VSTestWrapper =
       member this.HandleDiscoveredTests(discoveredTestCases: System.Collections.Generic.IEnumerable<TestCase>) : unit =
         if (not << isNull) discoveredTestCases then
           this.DiscoveredTests.AddRange(discoveredTestCases)
-          notifyIncrementalUpdate (discoveredTestCases |> List.ofSeq)
+          notifyDiscoveryProgress (discoveredTestCases |> List.ofSeq)
 
       member this.HandleDiscoveryComplete
         (_totalTests: int64, lastChunk: System.Collections.Generic.IEnumerable<TestCase>, _isAborted: bool)
         : unit =
         if (not << isNull) lastChunk then
           this.DiscoveredTests.AddRange(lastChunk)
-          notifyIncrementalUpdate (lastChunk |> List.ofSeq)
+          notifyDiscoveryProgress (lastChunk |> List.ofSeq)
 
       member this.HandleLogMessage(_level: TestMessageLevel, _message: string) : unit = ()
 
@@ -35,13 +35,13 @@ module VSTestWrapper =
 
   let discoverTestsAsync
     (vstestPath: string)
-    (incrementalUpdateHandler: TestCase list -> unit)
+    (onDiscoveryProgress: TestCase list -> unit)
     (sources: TestProjectDll list)
     : Async<TestCase list> =
     async {
       let consoleParams = ConsoleParameters()
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-      let discoveryHandler = TestDiscoveryHandler(incrementalUpdateHandler)
+      let discoveryHandler = TestDiscoveryHandler(onDiscoveryProgress)
 
       use! _onCancel = Async.OnCancel(fun () -> vstest.CancelDiscovery())
 
@@ -52,14 +52,17 @@ module VSTestWrapper =
   type ProcessId = int
   type DidDebuggerAttach = bool
 
-  type TestRunUpdate = Progress of TestRunChangedEventArgs
+  type TestRunUpdate =
+    | Progress of TestRunChangedEventArgs
+    | LogMessage of string
 
-  type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) =
+  type TestRunHandler(notifyTestRunProgress: TestRunUpdate -> unit) =
 
     member val TestResults: TestResult ResizeArray = ResizeArray() with get, set
 
     interface ITestRunEventsHandler with
-      member _.HandleLogMessage(_level: TestMessageLevel, _message: string) : unit = ()
+      member _.HandleLogMessage(level: TestMessageLevel, message: string) : unit =
+        notifyTestRunProgress (LogMessage $"[{level}] {message}")
 
       member _.HandleRawMessage(_rawMessage: string) : unit = ()
 
@@ -72,7 +75,7 @@ module VSTestWrapper =
         ) : unit =
         if ((not << isNull) lastChunkArgs && (not << isNull) lastChunkArgs.NewTestResults) then
           this.TestResults.AddRange(lastChunkArgs.NewTestResults)
-          notifyIncrementalUpdate (Progress lastChunkArgs)
+          notifyTestRunProgress (Progress lastChunkArgs)
 
       member this.HandleTestRunStatsChange(testRunChangedArgs: TestRunChangedEventArgs) : unit =
         if
@@ -80,7 +83,7 @@ module VSTestWrapper =
            && (not << isNull) testRunChangedArgs.NewTestResults)
         then
           this.TestResults.AddRange(testRunChangedArgs.NewTestResults)
-          notifyIncrementalUpdate (Progress testRunChangedArgs)
+          notifyTestRunProgress (Progress testRunChangedArgs)
 
       member _.LaunchProcessWithDebuggerAttached(_testProcessStartInfo: TestProcessStartInfo) : int =
         raise (System.NotImplementedException())
@@ -116,7 +119,7 @@ module VSTestWrapper =
   /// attachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
   let runTestsAsync
     (vstestPath: string)
-    (incrementalUpdateHandler: TestRunUpdate -> unit)
+    (onTestRunProgress: TestRunUpdate -> unit)
     (onAttachDebugger: ProcessId -> DidDebuggerAttach)
     (sources: TestProjectDll list)
     (testCaseFilter: string option)
@@ -125,7 +128,7 @@ module VSTestWrapper =
     async {
       let consoleParams = ConsoleParameters()
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-      let runHandler = TestRunHandler(incrementalUpdateHandler)
+      let runHandler = TestRunHandler(onTestRunProgress)
 
       let options = new TestPlatformOptions()
       testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)

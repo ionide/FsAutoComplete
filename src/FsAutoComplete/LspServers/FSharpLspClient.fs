@@ -66,11 +66,9 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     sendServerNotification "test/testDiscoveryUpdate" (box { Content = JsonSerializer.writeJson p })
     |> Async.Ignore
 
-  member __.NotifyTestRunUpdate(p: TestRunUpdateNotification) =
-    match p with
-    | Progress progress ->
-      sendServerNotification "test/testRunProgressUpdate" (box { Content = JsonSerializer.writeJson progress })
-      |> Async.Ignore
+  member __.NotifyTestRunUpdate(p: TestRunProgress) =
+    sendServerNotification "test/testRunProgressUpdate" (box { Content = JsonSerializer.writeJson p })
+    |> Async.Ignore
 
   member __.AttachDebuggerForTestRun(processId: int) : AsyncLspResult<bool> =
     sendServerRequest.Send "test/processWaitingForDebugger" (box { Content = string processId })
