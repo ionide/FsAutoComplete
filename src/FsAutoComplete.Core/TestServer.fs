@@ -50,10 +50,9 @@ module VSTestWrapper =
     }
 
   type ProcessId = int
+  type DidDebuggerAttach = bool
 
-  type TestRunUpdate =
-    | Progress of TestRunChangedEventArgs
-    | ProcessWaitingForDebugger of ProcessId
+  type TestRunUpdate = Progress of TestRunChangedEventArgs
 
   type TestRunHandler(notifyIncrementalUpdate: TestRunUpdate -> unit) =
 
@@ -86,7 +85,7 @@ module VSTestWrapper =
       member _.LaunchProcessWithDebuggerAttached(_testProcessStartInfo: TestProcessStartInfo) : int =
         raise (System.NotImplementedException())
 
-  type TestHostLauncher(isDebug: bool, notifyProcessWaitingForDebugger: ProcessId -> unit) =
+  type TestHostLauncher(isDebug: bool, onAttachDebugger: ProcessId -> DidDebuggerAttach) =
     // IMPORTANT: RunTestsWithCustomTestHost says it takes an ITestHostLauncher, but it actually calls a method that is only available on ITestHostLauncher3
 
     interface ITestHostLauncher3 with
@@ -102,35 +101,29 @@ module VSTestWrapper =
       member _.AttachDebuggerToProcess
         (attachDebuggerInfo: AttachDebuggerInfo, _cancellationToken: Threading.CancellationToken)
         : bool =
-        printfn $"Sya: AttachDebuggerToProcess 3"
-        notifyProcessWaitingForDebugger attachDebuggerInfo.ProcessId
-        true
+        onAttachDebugger attachDebuggerInfo.ProcessId
 
-      member _.AttachDebuggerToProcess(pid: int) : bool =
-        printfn $"Sya: AttachDebuggerToProcess pid only"
-        notifyProcessWaitingForDebugger pid
-        true
+      member _.AttachDebuggerToProcess(pid: int) : bool = onAttachDebugger pid
 
       member _.AttachDebuggerToProcess(pid: int, _cancellationToken: Threading.CancellationToken) : bool =
-        printfn $"Sya: AttachDebuggerToProcess pid + cancel token"
-        notifyProcessWaitingForDebugger pid
-        true
+        onAttachDebugger pid
 
 
   module TestPlatformOptions =
     let withTestCaseFilter (options: TestPlatformOptions) filterExpression = options.TestCaseFilter <- filterExpression
 
 
+  /// attachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
   let runTestsAsync
     (vstestPath: string)
     (incrementalUpdateHandler: TestRunUpdate -> unit)
+    (onAttachDebugger: ProcessId -> DidDebuggerAttach)
     (sources: TestProjectDll list)
     (testCaseFilter: string option)
     (shouldDebug: bool)
     : Async<TestResult list> =
     async {
       let consoleParams = ConsoleParameters()
-
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
       let runHandler = TestRunHandler(incrementalUpdateHandler)
 
@@ -144,14 +137,9 @@ module VSTestWrapper =
           printfn "Test Run Cancelled")
 
       if shouldDebug then
-        printfn "Sya: Running debug"
-
-        let hostLauncher =
-          TestHostLauncher(shouldDebug, fun pid -> incrementalUpdateHandler (ProcessWaitingForDebugger pid))
-
+        let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
         vstest.RunTestsWithCustomTestHost(sources, null, options, runHandler, hostLauncher)
       else
-        printfn "Sya: Running non-debug"
         vstest.RunTests(sources, null, options, runHandler)
 
       return runHandler.TestResults |> List.ofSeq

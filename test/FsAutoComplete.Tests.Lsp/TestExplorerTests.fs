@@ -6,6 +6,7 @@ open System.IO
 open FsAutoComplete.LspHelpers
 open System.Threading
 open Helpers.Expecto.ShadowedTimeouts
+open FsAutoComplete.Tests.Lsp.Helpers
 
 let tests createServer =
   let initializeServer workspaceRoot =
@@ -20,7 +21,48 @@ let tests createServer =
   testSequenced
   <| testList
     "TestExplorerTests"
-    [ testCaseAsync "it should report a processId when debug a test project"
+    [ testCaseAsync "it should report tests of all basic outcomes"
+      <| async {
+        let workspaceRoot =
+          Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
+
+        let! server, _ = initializeServer workspaceRoot
+        use server = server
+
+        let buildResult = DotnetCli.build workspaceRoot
+        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+
+        let runRequest: TestRunRequest =
+          { TestCaseFilter = None
+            AttachDebugger = false }
+
+        let! res = server.TestRunTests(runRequest)
+
+        let actual =
+          match res with
+          | Ok plainNotification ->
+            plainNotification
+            |> Option.get
+            |> _.Content
+            |> FsAutoComplete.JsonSerializer.readJson<
+              FsAutoComplete.CommandResponse.ResponseMsg<FsAutoComplete.TestServer.TestResult list>
+                >
+            |> _.Data
+            |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+          | Error err -> failwith $"TestRunTests returne error: {err.Message}"
+
+        let expected =
+          [ ("Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed)
+            ("Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed)
+            ("Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped)
+            ("Tests.Exception", FsAutoComplete.TestServer.TestOutcome.Failed)
+            ("Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed)
+            ("Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed) ]
+
+        Expect.equal (set actual) (set expected) ""
+      }
+
+      testCaseAsync "it should report a processId when debugging a test project"
       <| async {
         let workspaceRoot =
           Path.Combine(__SOURCE_DIRECTORY__, "..", "SampleTestProjects", "VSTest.XUnit.RunResults")
@@ -29,41 +71,25 @@ let tests createServer =
 
         use server = server
 
+        let buildResult = DotnetCli.build workspaceRoot
+        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+
         use tokenSource = new CancellationTokenSource()
-        let mutable processIdSpy: string option = None
+        let mutable processIdSpy: int option = None
         use! _onCancel = Async.OnCancel(fun () -> tokenSource.Cancel())
 
         use _ =
           clientNotifications.Subscribe(fun (msgType: string, data: obj) ->
             if msgType = "test/processWaitingForDebugger" then
-              printfn $"Sya: update message {data}"
-
-              let processId: string =
+              let processId: int =
                 data :?> PlainNotification
                 |> _.Content
                 |> FsAutoComplete.JsonSerializer.readJson
 
               processIdSpy <- Some processId
-              tokenSource.Cancel()
+              tokenSource.Cancel())
 
-              let tryParseProcessId (str: string) =
-                let (success, value) = System.Int32.TryParse(str)
-                printfn $"Sya: parsed process id: {success}, {value}. Original: {str}"
-                if success then Some value else None
-
-              printfn $"Sya: process spy {processIdSpy}"
-
-              processId
-              |> tryParseProcessId
-              |> Option.iter (fun pid ->
-                try
-                  printfn $"Sya: trying to kill process {pid}"
-                  System.Diagnostics.Process.GetProcessById(pid).Kill(true)
-                  printfn $"Sya: killed process {pid}"
-                with e ->
-                  printfn $"Sya: failed to kill process {pid}"))
-
-        Expect.throws
+        Expect.throwsT<System.OperationCanceledException>
           (fun () ->
             let runRequest: TestRunRequest =
               { TestCaseFilter = None
@@ -75,7 +101,11 @@ let tests createServer =
             ))
           ""
 
-        printfn "Sya: Server test run closed"
         Expect.isSome processIdSpy ""
-        printfn "Sya: test complete"
+
+        let maybeHangingTestProcess =
+          System.Diagnostics.Process.GetProcesses()
+          |> Array.tryFind (fun p -> Some p.Id = processIdSpy)
+
+        Expect.isNone maybeHangingTestProcess "All test processes should be canceled with the test run"
       } ]

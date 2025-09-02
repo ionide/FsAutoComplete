@@ -2617,7 +2617,7 @@ type AdaptiveState
       return testDTOs
     }
 
-  member state.RunTests (testCaseFilter: string option) (attachDebugger: bool) =
+  member state.RunTests (testCaseFilter: string option) (shouldDebug: bool) =
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
       let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
@@ -2640,11 +2640,7 @@ type AdaptiveState
 
       use tokenSource = new CancellationTokenSource()
 
-      use! _onCancel =
-        Async.OnCancel(fun _ ->
-          printfn "Sya: cancelling update handlers"
-          tokenSource.Cancel()
-          printfn "Sya: update handlers cancelled")
+      use! _onCancel = Async.OnCancel(fun _ -> tokenSource.Cancel())
 
       let incrementalUpdateHandler (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
         let dto =
@@ -2656,29 +2652,31 @@ type AdaptiveState
                   progress.ActiveTests
                   |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
                   |> Array.ofSeq }
-          | TestServer.VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId ->
-            printfn $"Sya: processId reported: {processId}"
-            TestRunUpdateNotification.ProcessWaitingForDebugger processId
 
-        Async.RunSynchronously(
-          async {
-            use! _c = Async.OnCancel(fun _ -> printfn "Sya: Cancelled notification")
-            do! lspClient.NotifyTestRunUpdate(dto)
-          },
-          cancellationToken = tokenSource.Token
-        )
+        Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
 
-      printfn "Sya: running tests"
+      let attachDebugger (processId: int) : bool =
+        let result =
+          Async.RunSynchronously(lspClient.AttachDebuggerForTestRun(processId), cancellationToken = tokenSource.Token)
+
+        match result with
+        | Ok didAttach -> didAttach
+        | Error err ->
+          logger.warn (
+            Log.setMessageI
+              $"Failed to attach debugger for test run with Process Id: {processId}; Error Code: {err.Code}; Error message: {err.Message}"
+          )
+
+          false
 
       let! testResults =
         TestServer.VSTestWrapper.runTestsAsync
           vstestBinary.FullName
           incrementalUpdateHandler
+          attachDebugger
           testProjectBinaries
           testCaseFilter
-          attachDebugger
-
-      printfn "Sya: test results returned"
+          shouldDebug
 
       let resultDtos = testResults |> tryTestResultsToDTOs
       return resultDtos

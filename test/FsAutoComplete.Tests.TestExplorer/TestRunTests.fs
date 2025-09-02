@@ -20,6 +20,8 @@ let tryFindVsTest () : string =
 
 let vstestPath = tryFindVsTest ()
 
+let nullAttachDebugger _ = false
+
 [<Tests>]
 let tests =
   testList
@@ -27,7 +29,7 @@ let tests =
     [ testCaseAsync "should return an empty list if given no projects"
       <| async {
         let expected = []
-        let! actual = VSTestWrapper.runTestsAsync vstestPath ignore [] None false
+        let! actual = VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger [] None false
         Expect.equal actual expected ""
       }
 
@@ -47,7 +49,7 @@ let tests =
               "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll"
             ) ]
 
-        let! runResults = VSTestWrapper.runTestsAsync vstestPath ignore sources None false
+        let! runResults = VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger sources None false
 
         let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome)
         let actual = runResults |> List.map likenessOfTestResult
@@ -68,7 +70,13 @@ let tests =
             ) ]
 
         let! runResults =
-          VSTestWrapper.runTestsAsync vstestPath ignore sources (Some "FullyQualifiedName~Tests+Nested") false
+          VSTestWrapper.runTestsAsync
+            vstestPath
+            ignore
+            nullAttachDebugger
+            sources
+            (Some "FullyQualifiedName~Tests+Nested")
+            false
 
         let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome)
         let actual = runResults |> List.map likenessOfTestResult
@@ -82,16 +90,14 @@ let tests =
 
         let mutable actualProcessId: int option = None
 
-        let updateSpy (update: VSTestWrapper.TestRunUpdate) =
-          match update with
-          | VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId ->
-            actualProcessId <- Some processId
-            tokenSource.Cancel()
-          | _ -> ()
+        let updateSpy (processId: int) =
+          actualProcessId <- Some processId
+          tokenSource.Cancel()
+          false
 
         use! _c = Async.OnCancel(fun _ -> tokenSource.Cancel())
 
-        Expect.throws
+        Expect.throwsT<System.OperationCanceledException>
           (fun () ->
             let sources =
               [ Path.Combine(
@@ -100,7 +106,7 @@ let tests =
                 ) ]
 
             Async.RunSynchronously(
-              VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true,
+              VSTestWrapper.runTestsAsync vstestPath ignore updateSpy sources None true,
               cancellationToken = tokenSource.Token
             )
             |> ignore)
@@ -115,16 +121,14 @@ let tests =
 
         let mutable reportedProcessIds: int list = []
 
-        let updateSpy (update: VSTestWrapper.TestRunUpdate) =
-          match update with
-          | VSTestWrapper.TestRunUpdate.ProcessWaitingForDebugger processId ->
-            reportedProcessIds <- processId :: reportedProcessIds
-            tokenSource.Cancel()
-          | _ -> ()
+        let updateSpy (processId: int) =
+          reportedProcessIds <- processId :: reportedProcessIds
+          tokenSource.Cancel()
+          false
 
         use! _c = Async.OnCancel(fun _ -> tokenSource.Cancel())
 
-        Expect.throws
+        Expect.throwsT<System.OperationCanceledException>
           (fun () ->
             let sources =
               [ Path.Combine(
@@ -133,7 +137,7 @@ let tests =
                 ) ]
 
             Async.RunSynchronously(
-              VSTestWrapper.runTestsAsync vstestPath updateSpy sources None true,
+              VSTestWrapper.runTestsAsync vstestPath ignore updateSpy sources None true,
               cancellationToken = tokenSource.Token
             )
             |> ignore)

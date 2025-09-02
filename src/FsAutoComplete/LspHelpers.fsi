@@ -208,9 +208,7 @@ type TestRunProgress =
   { TestResults: TestServer.TestResult array
     ActiveTests: TestServer.TestItem array }
 
-type TestRunUpdateNotification =
-  | Progress of TestRunProgress
-  | ProcessWaitingForDebugger of processId: int
+type TestRunUpdateNotification = Progress of TestRunProgress
 
 type ProjectParms =
   {
