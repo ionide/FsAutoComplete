@@ -12,6 +12,9 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
+open FsAutoComplete.Tests.Lsp.SourcelinkTests
+open FsAutoComplete.Tests.Lsp.DecompilerTests
+open FsAutoComplete.Tests.Lsp.RecordStubGeneratorTests
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
@@ -143,6 +146,9 @@ let lspTests =
 let generalTests = testList "general" [
   testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
   UtilsTests.allTests
+  FsAutoComplete.Tests.Lsp.SourcelinkTests.tests
+  FsAutoComplete.Tests.Lsp.DecompilerTests.tests
+  FsAutoComplete.Tests.Lsp.RecordStubGeneratorTests.tests
   InlayHintTests.explicitTypeInfoTests sourceTextFactory
   FindReferences.tryFixupRangeTests sourceTextFactory
 ]
