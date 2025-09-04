@@ -2617,11 +2617,19 @@ type AdaptiveState
       return testDTOs
     }
 
-  member state.RunTests (testCaseFilter: string option) (shouldDebug: bool) =
+  member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
       let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
-      let testProjectBinaries = testProjects |> List.map _.TargetPath
+
+      let filteredTestProjects =
+        match limitToProjects with
+        | None -> testProjects
+        | Some specifiedProjects ->
+          let specifiedProjectsSet = specifiedProjects |> List.map Path.GetFullPath |> set
+          testProjects |> List.filter (_.ProjectFileName >> specifiedProjectsSet.Contains)
+
+      let testProjectBinaries = filteredTestProjects |> List.map _.TargetPath
 
       let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
 

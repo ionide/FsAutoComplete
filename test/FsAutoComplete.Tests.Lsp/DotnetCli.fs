@@ -3,13 +3,13 @@ namespace FsAutoComplete.Tests.Lsp.Helpers
 module DotnetCli =
   open System
 
-  let private executeProcess (wd: string) (processName: string) (processArgs: string) =
+  let private executeProcess (wd: string option) (processName: string) (processArgs: string) =
     let psi = new Diagnostics.ProcessStartInfo(processName, processArgs)
     psi.UseShellExecute <- false
     psi.RedirectStandardOutput <- true
     psi.RedirectStandardError <- true
     psi.CreateNoWindow <- true
-    psi.WorkingDirectory <- wd
+    wd |> Option.iter (fun wd -> psi.WorkingDirectory <- wd)
     let proc = Diagnostics.Process.Start(psi)
     let output = new Text.StringBuilder()
     let error = new Text.StringBuilder()
@@ -23,4 +23,4 @@ module DotnetCli =
        StdOut = output.ToString()
        StdErr = error.ToString() |}
 
-  let build path = executeProcess path "dotnet" "build"
+  let build path = executeProcess None "dotnet" $"build {path}"

@@ -3068,7 +3068,7 @@ type AdaptiveFSharpLspServer
     override this.TestRunTests(p: TestRunRequest) : Async<LspResult<PlainNotification option>> =
       asyncResult {
         let! testDTOs =
-          state.RunTests p.TestCaseFilter p.AttachDebugger
+          state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
           |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
         return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
