@@ -115,8 +115,15 @@ module VSTestWrapper =
   module TestPlatformOptions =
     let withTestCaseFilter (options: TestPlatformOptions) filterExpression = options.TestCaseFilter <- filterExpression
 
+  module RunSettings =
+    let defaultRunSettings =
+      "<RunSettings>
+    <RunConfiguration>
+        <DesignMode>False</DesignMode>
+    </RunConfiguration>
+</RunSettings>"
 
-  /// attachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
+  /// onAttachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
   let runTestsAsync
     (vstestPath: string)
     (onTestRunProgress: TestRunUpdate -> unit)
@@ -129,6 +136,7 @@ module VSTestWrapper =
       let consoleParams = ConsoleParameters()
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
       let runHandler = TestRunHandler(onTestRunProgress)
+      let runSettings = RunSettings.defaultRunSettings
 
       let options = new TestPlatformOptions()
       testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
@@ -141,9 +149,9 @@ module VSTestWrapper =
 
       if shouldDebug then
         let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
-        vstest.RunTestsWithCustomTestHost(sources, null, options, runHandler, hostLauncher)
+        vstest.RunTestsWithCustomTestHost(sources, runSettings, options, runHandler, hostLauncher)
       else
-        vstest.RunTests(sources, null, options, runHandler)
+        vstest.RunTests(sources, runSettings, options, runHandler)
 
       return runHandler.TestResults |> List.ofSeq
     }

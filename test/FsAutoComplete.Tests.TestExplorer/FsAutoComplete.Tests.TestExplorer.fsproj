@@ -17,6 +17,7 @@
     <PostBuildEvent>
       dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.Tests/
       dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.RunResults/
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.NUnit/
     </PostBuildEvent>
   </PropertyGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

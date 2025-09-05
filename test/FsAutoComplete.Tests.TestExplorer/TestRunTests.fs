@@ -13,14 +13,14 @@ let nullAttachDebugger _ = false
 let tests =
   testList
     "VSTestWrapper Test Run"
-    [ testCaseAsync "should return an empty list if given no projects"
+    [ testCaseAsync "it should return an empty list if given no projects"
       <| async {
         let expected = []
         let! actual = VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger [] None false
         Expect.equal actual expected ""
       }
 
-      testCaseAsync "should be able to report basic test run outcomes"
+      testCaseAsync "it should be able to report basic test run outcomes"
       <| async {
         let expected =
           [ "Tests.My test", TestOutcome.Passed
@@ -45,7 +45,7 @@ let tests =
         Expect.equal (set actual) (set expected) ""
       }
 
-      testCaseAsync "should run only tests that match the case filter"
+      testCaseAsync "it should run only tests that match the case filter"
       <| async {
         let expected =
           [ ("Tests+Nested.Test 1", TestOutcome.Passed)
@@ -72,7 +72,36 @@ let tests =
         Expect.equal (set actual) (set expected) ""
       }
 
-      testCaseAsync "should report processIds when debugging is on"
+      testCaseAsync "it should respect test filters on NUnit projects"
+      <| async {
+        // NOTE: This is an NUnit bug. NUnit doesn't respect filters when VSTest is in Design Mode, which VsTestConsoleWrapper is by default
+        //       https://github.com/ionide/FsAutoComplete/pull/1383#issuecomment-3245590606
+        let expected = [ "VSTest.NUnit.Test1", TestOutcome.Passed ]
+
+        let sources =
+          [ Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.NUnit/bin/Debug/net8.0/VSTest.NUnit.dll") ]
+
+        let onTestRunProgress (progress: VSTestWrapper.TestRunUpdate) =
+          match progress with
+          | VSTestWrapper.TestRunUpdate.LogMessage message -> printfn $"Sya: {message}"
+          | _ -> ()
+
+        let! runResults =
+          VSTestWrapper.runTestsAsync
+            vstestPath
+            onTestRunProgress
+            nullAttachDebugger
+            sources
+            (Some "FullyQualifiedName~Test1")
+            false
+
+        let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome)
+        let actual = runResults |> List.map likenessOfTestResult
+
+        Expect.equal (set actual) (set expected) ""
+      }
+
+      testCaseAsync "it should report processIds when debugging is on"
       <| async {
         use tokenSource = new System.Threading.CancellationTokenSource(2000)
 
@@ -103,7 +132,7 @@ let tests =
         Expect.isSome actualProcessId "Expected runTest to report a processId"
       }
 
-      testCaseAsync "should report a processId only once per process"
+      testCaseAsync "it should report a processId only once per process"
       <| async {
         use tokenSource = new System.Threading.CancellationTokenSource(1000)
 
