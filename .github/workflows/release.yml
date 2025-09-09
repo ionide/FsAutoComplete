@@ -44,5 +44,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           body: ${{ steps.changelog_reader.outputs.log_entry }}
 
+          # Get a short-lived NuGet API key
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{secrets.NUGET_USER}}
+
       - name: Push packages
-        run: dotnet nuget push bin/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
+        run: dotnet nuget push bin/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{steps.login.outputs.NUGET_API_KEY}}
