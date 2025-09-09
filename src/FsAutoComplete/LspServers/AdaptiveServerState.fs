@@ -2605,9 +2605,20 @@ type AdaptiveState
         testCases
         |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
 
-      let onDiscoveryProgress (tests: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase list) =
-        lspClient.NotifyTestDiscoveryUpdate({ Tests = tests |> tryTestCasesToDTOs |> Array.ofList })
-        |> Async.RunSynchronously
+      let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
+        let dto =
+          match update with
+          | TestServer.VSTestWrapper.TestDiscoveryUpdate.Progress tests ->
+            { Tests = tests |> tryTestCasesToDTOs |> Array.ofList
+              TestLogs = [||] }
+          | TestServer.VSTestWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
+            { Tests = [||]
+              TestLogs =
+                [| { Message = message
+                     Level = string level } |] }
+
+
+        lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
 
       let! testCases =
         TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
@@ -2660,8 +2671,10 @@ type AdaptiveState
                 progress.ActiveTests
                 |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
                 |> Array.ofSeq }
-          | TestServer.VSTestWrapper.TestRunUpdate.LogMessage message ->
-            { TestLogs = [| message |]
+          | TestServer.VSTestWrapper.TestRunUpdate.LogMessage(level, message) ->
+            { TestLogs =
+                [| { Message = message
+                     Level = string level } |]
               TestResults = [||]
               ActiveTests = [||] }
 

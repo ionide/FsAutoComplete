@@ -12,7 +12,11 @@ module VSTestWrapper =
 
   type TestProjectDll = string
 
-  type private TestDiscoveryHandler(notifyDiscoveryProgress: TestCase list -> unit) =
+  type TestDiscoveryUpdate =
+    | Progress of TestCase list
+    | LogMessage of TestMessageLevel * string
+
+  type private TestDiscoveryHandler(notifyDiscoveryProgress: TestDiscoveryUpdate -> unit) =
 
     member val DiscoveredTests: TestCase ResizeArray = ResizeArray() with get, set
 
@@ -20,22 +24,23 @@ module VSTestWrapper =
       member this.HandleDiscoveredTests(discoveredTestCases: System.Collections.Generic.IEnumerable<TestCase>) : unit =
         if (not << isNull) discoveredTestCases then
           this.DiscoveredTests.AddRange(discoveredTestCases)
-          notifyDiscoveryProgress (discoveredTestCases |> List.ofSeq)
+          notifyDiscoveryProgress (discoveredTestCases |> List.ofSeq |> Progress)
 
       member this.HandleDiscoveryComplete
         (_totalTests: int64, lastChunk: System.Collections.Generic.IEnumerable<TestCase>, _isAborted: bool)
         : unit =
         if (not << isNull) lastChunk then
           this.DiscoveredTests.AddRange(lastChunk)
-          notifyDiscoveryProgress (lastChunk |> List.ofSeq)
+          notifyDiscoveryProgress (lastChunk |> List.ofSeq |> Progress)
 
-      member this.HandleLogMessage(_level: TestMessageLevel, _message: string) : unit = ()
+      member this.HandleLogMessage(level: TestMessageLevel, message: string) : unit =
+        notifyDiscoveryProgress (LogMessage(level, message))
 
       member this.HandleRawMessage(_rawMessage: string) : unit = ()
 
   let discoverTestsAsync
     (vstestPath: string)
-    (onDiscoveryProgress: TestCase list -> unit)
+    (onDiscoveryProgress: TestDiscoveryUpdate -> unit)
     (sources: TestProjectDll list)
     : Async<TestCase list> =
     async {
@@ -54,7 +59,7 @@ module VSTestWrapper =
 
   type TestRunUpdate =
     | Progress of TestRunChangedEventArgs
-    | LogMessage of string
+    | LogMessage of TestMessageLevel * string
 
   type TestRunHandler(notifyTestRunProgress: TestRunUpdate -> unit) =
 
@@ -62,7 +67,7 @@ module VSTestWrapper =
 
     interface ITestRunEventsHandler with
       member _.HandleLogMessage(level: TestMessageLevel, message: string) : unit =
-        notifyTestRunProgress (LogMessage $"[{level}] {message}")
+        notifyTestRunProgress (LogMessage(level, message))
 
       member _.HandleRawMessage(_rawMessage: string) : unit = ()
 

@@ -203,10 +203,14 @@ type TestRunRequest =
     TestCaseFilter: string option
     AttachDebugger: bool }
 
-type TestDiscoveryUpdateNotification = { Tests: TestServer.TestItem array }
+type TestLogMessage = { Level: string; Message: string }
+
+type TestDiscoveryUpdateNotification =
+  { Tests: TestServer.TestItem array
+    TestLogs: TestLogMessage array }
 
 type TestRunProgress =
-  { TestLogs: string array
+  { TestLogs: TestLogMessage array
     TestResults: TestServer.TestResult array
     ActiveTests: TestServer.TestItem array }
 

@@ -81,15 +81,10 @@ let tests =
         let sources =
           [ Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.NUnit/bin/Debug/net8.0/VSTest.NUnit.dll") ]
 
-        let onTestRunProgress (progress: VSTestWrapper.TestRunUpdate) =
-          match progress with
-          | VSTestWrapper.TestRunUpdate.LogMessage message -> printfn $"Sya: {message}"
-          | _ -> ()
-
         let! runResults =
           VSTestWrapper.runTestsAsync
             vstestPath
-            onTestRunProgress
+            ignore
             nullAttachDebugger
             sources
             (Some "FullyQualifiedName~Test1")
