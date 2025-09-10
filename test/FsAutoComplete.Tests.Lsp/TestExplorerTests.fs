@@ -64,7 +64,19 @@ let tests createServer =
   testSequenced
   <| testList
     "TestExplorerTests"
-    [ testCaseAsync "it should report tests of all basic outcomes"
+    [ testCaseAsync "it should error if the workspace hasn't been built"
+      <| async {
+        let workspaceRoot =
+          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+
+        let! server, _ = initializeServer workspaceRoot
+        use server = server
+
+        let! res = server.TestDiscoverTests()
+
+        Expect.isTrue res.IsError ""
+      }
+      testCaseAsync "it should report tests of all basic outcomes"
       <| async {
         let workspaceRoot =
           Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")

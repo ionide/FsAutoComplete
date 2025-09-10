@@ -2599,6 +2599,28 @@ type AdaptiveState
       let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
+      if testProjects |> List.isEmpty then
+        let message = "No test projects found. Make sure you've restored your projects"
+
+        do!
+          lspClient.WindowShowMessage(
+            { Type = MessageType.Error
+              Message = message }
+          )
+
+        return! (Error message)
+      elif testProjectBinaries |> List.filter File.Exists |> List.isEmpty then
+        let message =
+          "No binaries found for test projects. Make sure you've built your projects"
+
+        do!
+          lspClient.WindowShowMessage(
+            { Type = MessageType.Error
+              Message = message }
+          )
+
+        return! (Error message)
+
       let tryTestCasesToDTOs testCases =
         let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
 
