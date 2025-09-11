@@ -23,8 +23,23 @@ module TestRunResult =
       |> _.Data
     | Error err -> failwith $"TestRunTests returned error: {err.Message}"
 
+module TestDiscoveryResult =
+  open Ionide.LanguageServerProtocol.JsonRpc
+
+  let tryUnwrapTestDiscoveryResult (res: LspResult<PlainNotification option>) =
+    match res with
+    | Ok plainNotification ->
+      plainNotification
+      |> Option.get
+      |> _.Content
+      |> FsAutoComplete.JsonSerializer.readJson<
+        FsAutoComplete.CommandResponse.ResponseMsg<FsAutoComplete.TestServer.TestItem list>
+          >
+      |> _.Data
+    | Error err -> failwith $"TestDiscoverTests returned error: {err.Message}"
+
 module ExpectedTests =
-  let XUnitRunResults =
+  let VSTestXUnitRunResults =
     [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed
       "Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped
@@ -32,6 +47,9 @@ module ExpectedTests =
       "Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed ]
+
+  let VSTestXunitTests =
+    [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ]
 
 module Workspace =
 
@@ -64,232 +82,258 @@ let tests createServer =
   testSequenced
   <| testList
     "TestExplorerTests"
-    [ testCaseAsync "it should error if the workspace hasn't been built"
-      <| async {
-        let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+    [ testList
+        "DiscoverTests"
+        [ testCaseAsync "it should error if the workspace hasn't been built"
+          <| async {
+            let workspaceRoot =
+              Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
-        let! server, _ = initializeServer workspaceRoot
-        use server = server
+            let! server, _ = initializeServer workspaceRoot
+            use server = server
 
-        let! res = server.TestDiscoverTests()
+            let! res = server.TestDiscoverTests()
 
-        Expect.isTrue res.IsError ""
-      }
-      testCaseAsync "it should report tests of all basic outcomes"
-      <| async {
-        let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+            Expect.isError res ""
+          }
+          testCaseAsync "it should discover tests in all projects"
+          <| async {
+            let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
 
-        let! server, _ = initializeServer workspaceRoot
-        use server = server
+            let! server, _ = initializeServer workspaceRoot
+            use server = server
 
-        let buildResult = DotnetCli.build workspaceRoot
-        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Workspace.build workspaceRoot
 
-        let runRequest: TestRunRequest =
-          { LimitToProjects = None
-            TestCaseFilter = None
-            AttachDebugger = false }
+            let! res = server.TestDiscoverTests()
 
-        let! res = server.TestRunTests(runRequest)
+            let expected =
+              [ ExpectedTests.VSTestXUnitRunResults; ExpectedTests.VSTestXunitTests ]
+              |> List.concat
+              |> List.map (fun (testName, _) -> testName)
 
-        let actual =
-          TestRunResult.tryUnwrapTestRunResult res
-          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+            let actual =
+              res |> TestDiscoveryResult.tryUnwrapTestDiscoveryResult |> List.map _.FullName
 
-        let expected = ExpectedTests.XUnitRunResults
+            Expect.equal (set actual) (set expected) ""
+          } ]
+      testList
+        "RunTests"
+        [ testCaseAsync "it should report tests of all basic outcomes"
+          <| async {
+            let workspaceRoot =
+              Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
-        Expect.equal (set actual) (set expected) ""
-      }
+            let! server, _ = initializeServer workspaceRoot
+            use server = server
 
-      testCaseAsync "it should report a processId when debugging a test project"
-      <| async {
-        let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+            let buildResult = DotnetCli.build workspaceRoot
+            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
 
-        let! server, clientNotifications = initializeServer workspaceRoot
-
-        use server = server
-
-        let buildResult = DotnetCli.build workspaceRoot
-        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
-
-        use tokenSource = new CancellationTokenSource()
-        let mutable processIdSpy: int option = None
-        use! _onCancel = Async.OnCancel(fun () -> tokenSource.Cancel())
-
-        use _ =
-          clientNotifications.Subscribe(fun (msgType: string, data: obj) ->
-            if msgType = "test/processWaitingForDebugger" then
-              let processId: int =
-                data :?> PlainNotification
-                |> _.Content
-                |> FsAutoComplete.JsonSerializer.readJson
-
-              processIdSpy <- Some processId
-              tokenSource.Cancel())
-
-        Expect.throwsT<System.OperationCanceledException>
-          (fun () ->
             let runRequest: TestRunRequest =
               { LimitToProjects = None
                 TestCaseFilter = None
-                AttachDebugger = true }
+                AttachDebugger = false }
 
-            Async.RunSynchronously(
-              server.TestRunTests(runRequest) |> Async.Ignore,
-              cancellationToken = tokenSource.Token
-            ))
-          ""
+            let! res = server.TestRunTests(runRequest)
 
-        Expect.isSome processIdSpy ""
+            let actual =
+              TestRunResult.tryUnwrapTestRunResult res
+              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
 
-        let maybeHangingTestProcess =
-          System.Diagnostics.Process.GetProcesses()
-          |> Array.tryFind (fun p -> Some p.Id = processIdSpy)
+            let expected = ExpectedTests.VSTestXUnitRunResults
 
-        Expect.isNone maybeHangingTestProcess "All test processes should be canceled with the test run"
-      }
+            Expect.equal (set actual) (set expected) ""
+          }
 
-      testCaseAsync
-        "it should inherit environment variables from it's parent, allowing tests to depend on environment variables"
-      <| async {
-        let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+          testCaseAsync "it should report a processId when debugging a test project"
+          <| async {
+            let workspaceRoot =
+              Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
-        let! server, _ = initializeServer workspaceRoot
+            let! server, clientNotifications = initializeServer workspaceRoot
 
-        use server = server
+            use server = server
 
-        let buildResult = DotnetCli.build workspaceRoot
-        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            let buildResult = DotnetCli.build workspaceRoot
+            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
 
-        System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "Set me")
+            use tokenSource = new CancellationTokenSource()
+            let mutable processIdSpy: int option = None
+            use! _onCancel = Async.OnCancel(fun () -> tokenSource.Cancel())
 
-        let! response =
-          server.TestRunTests(
-            { LimitToProjects = None
-              TestCaseFilter = Some "FullyQualifiedName~Tests.Expects environment variable"
-              AttachDebugger = false }
-          )
+            use _ =
+              clientNotifications.Subscribe(fun (msgType: string, data: obj) ->
+                if msgType = "test/processWaitingForDebugger" then
+                  let processId: int =
+                    data :?> PlainNotification
+                    |> _.Content
+                    |> FsAutoComplete.JsonSerializer.readJson
 
-        let expected =
-          [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
+                  processIdSpy <- Some processId
+                  tokenSource.Cancel())
 
-        let actual =
-          TestRunResult.tryUnwrapTestRunResult response
-          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+            Expect.throwsT<System.OperationCanceledException>
+              (fun () ->
+                let runRequest: TestRunRequest =
+                  { LimitToProjects = None
+                    TestCaseFilter = None
+                    AttachDebugger = true }
 
-        Expect.equal (set actual) (set expected) ""
+                Async.RunSynchronously(
+                  server.TestRunTests(runRequest) |> Async.Ignore,
+                  cancellationToken = tokenSource.Token
+                ))
+              ""
 
-        System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "")
-      }
+            Expect.isSome processIdSpy ""
 
-      testCaseAsync "it should ignore test project filters that aren't projects in the workspace"
-      <| async {
-        let workspaceRoot =
-          Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
+            let maybeHangingTestProcess =
+              System.Diagnostics.Process.GetProcesses()
+              |> Array.tryFind (fun p -> Some p.Id = processIdSpy)
 
-        let! server, _ = initializeServer workspaceRoot
+            Expect.isNone maybeHangingTestProcess "All test processes should be canceled with the test run"
+          }
 
-        use server = server
+          testCaseAsync
+            "it should inherit environment variables from it's parent, allowing tests to depend on environment variables"
+          <| async {
+            let workspaceRoot =
+              Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
-        let buildResult = DotnetCli.build workspaceRoot
-        Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            let! server, _ = initializeServer workspaceRoot
 
-        let! response =
-          server.TestRunTests(
-            { LimitToProjects = Some [ Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj") ]
-              TestCaseFilter = None
-              AttachDebugger = false }
-          )
+            use server = server
 
-        let expected = []
+            let buildResult = DotnetCli.build workspaceRoot
+            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
 
-        let actual =
-          TestRunResult.tryUnwrapTestRunResult response
-          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+            System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "Set me")
 
-        Expect.equal (set actual) (set expected) ""
-      }
+            let! response =
+              server.TestRunTests(
+                { LimitToProjects = None
+                  TestCaseFilter = Some "FullyQualifiedName~Tests.Expects environment variable"
+                  AttachDebugger = false }
+              )
 
-      testCaseAsync "it should run only test projects in the project filter when specified"
-      <| async {
-        let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
+            let expected =
+              [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
 
-        let! server, _ = initializeServer workspaceRoot
+            let actual =
+              TestRunResult.tryUnwrapTestRunResult response
+              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
 
-        use server = server
+            Expect.equal (set actual) (set expected) ""
 
-        Workspace.build workspaceRoot
+            System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "")
+          }
 
-        let! response =
-          server.TestRunTests(
-            { LimitToProjects =
-                Some
-                  [ Path.Combine(
-                      __SOURCE_DIRECTORY__,
-                      "SampleTestProjects",
-                      "VSTest.XUnit.RunResults",
-                      "VSTest.XUnit.RunResults.fsproj"
-                    ) ]
-              TestCaseFilter = None
-              AttachDebugger = false }
-          )
+          testCaseAsync "it should ignore test project filters that aren't projects in the workspace"
+          <| async {
+            let workspaceRoot =
+              Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
 
-        let expected = ExpectedTests.XUnitRunResults
+            let! server, _ = initializeServer workspaceRoot
 
-        let actual =
-          TestRunResult.tryUnwrapTestRunResult response
-          |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+            use server = server
 
-        Expect.equal (set actual) (set expected) ""
-      }
-      testCaseAsync "it should only attach the debugger for projects in the project filter if filter is specified"
-      <| async {
-        let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
+            let buildResult = DotnetCli.build workspaceRoot
+            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
 
-        let! server, clientNotifications = initializeServer workspaceRoot
+            let! response =
+              server.TestRunTests(
+                { LimitToProjects =
+                    Some [ Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj") ]
+                  TestCaseFilter = None
+                  AttachDebugger = false }
+              )
 
-        use server = server
+            let expected = []
 
-        Workspace.build workspaceRoot
+            let actual =
+              TestRunResult.tryUnwrapTestRunResult response
+              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
 
-        use tokenSource = new CancellationTokenSource()
-        let mutable processIdSpy: int list = []
-        use! _onCancel = Async.OnCancel(fun () -> tokenSource.Cancel())
+            Expect.equal (set actual) (set expected) ""
+          }
 
-        use _ =
-          clientNotifications.Subscribe(fun (msgType: string, data: obj) ->
-            if msgType = "test/processWaitingForDebugger" then
-              let processId: int =
-                data :?> PlainNotification
-                |> _.Content
-                |> FsAutoComplete.JsonSerializer.readJson
+          testCaseAsync "it should run only test projects in the project filter when specified"
+          <| async {
+            let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
 
-              processIdSpy <- processId :: processIdSpy
-              tokenSource.Cancel())
+            let! server, _ = initializeServer workspaceRoot
 
-        Expect.throwsT<System.OperationCanceledException>
-          (fun () ->
-            let runRequest: TestRunRequest =
-              { LimitToProjects =
-                  Some
-                    [ Path.Combine(
-                        __SOURCE_DIRECTORY__,
-                        "SampleTestProjects",
-                        "VSTest.XUnit.RunResults",
-                        "VSTest.XUnit.RunResults.fsproj"
-                      ) ]
-                TestCaseFilter = None
-                AttachDebugger = true }
+            use server = server
 
-            Async.RunSynchronously(
-              server.TestRunTests(runRequest) |> Async.Ignore,
-              cancellationToken = tokenSource.Token
-            ))
-          ""
+            Workspace.build workspaceRoot
 
-        Expect.hasLength processIdSpy 1 "Should only launch one process to debug"
-      } ]
+            let! response =
+              server.TestRunTests(
+                { LimitToProjects =
+                    Some
+                      [ Path.Combine(
+                          __SOURCE_DIRECTORY__,
+                          "SampleTestProjects",
+                          "VSTest.XUnit.RunResults",
+                          "VSTest.XUnit.RunResults.fsproj"
+                        ) ]
+                  TestCaseFilter = None
+                  AttachDebugger = false }
+              )
+
+            let expected = ExpectedTests.VSTestXUnitRunResults
+
+            let actual =
+              TestRunResult.tryUnwrapTestRunResult response
+              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
+
+            Expect.equal (set actual) (set expected) ""
+          }
+          testCaseAsync "it should only attach the debugger for projects in the project filter if filter is specified"
+          <| async {
+            let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
+
+            let! server, clientNotifications = initializeServer workspaceRoot
+
+            use server = server
+
+            Workspace.build workspaceRoot
+
+            use tokenSource = new CancellationTokenSource()
+            let mutable processIdSpy: int list = []
+            use! _onCancel = Async.OnCancel(fun () -> tokenSource.Cancel())
+
+            use _ =
+              clientNotifications.Subscribe(fun (msgType: string, data: obj) ->
+                if msgType = "test/processWaitingForDebugger" then
+                  let processId: int =
+                    data :?> PlainNotification
+                    |> _.Content
+                    |> FsAutoComplete.JsonSerializer.readJson
+
+                  processIdSpy <- processId :: processIdSpy
+                  tokenSource.Cancel())
+
+            Expect.throwsT<System.OperationCanceledException>
+              (fun () ->
+                let runRequest: TestRunRequest =
+                  { LimitToProjects =
+                      Some
+                        [ Path.Combine(
+                            __SOURCE_DIRECTORY__,
+                            "SampleTestProjects",
+                            "VSTest.XUnit.RunResults",
+                            "VSTest.XUnit.RunResults.fsproj"
+                          ) ]
+                    TestCaseFilter = None
+                    AttachDebugger = true }
+
+                Async.RunSynchronously(
+                  server.TestRunTests(runRequest) |> Async.Ignore,
+                  cancellationToken = tokenSource.Token
+                ))
+              ""
+
+            Expect.hasLength processIdSpy 1 "Should only launch one process to debug"
+          } ] ]
