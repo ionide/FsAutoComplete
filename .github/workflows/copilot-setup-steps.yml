@@ -12,43 +12,43 @@ on:
         default: 'Manual trigger'
 
 jobs:
-  setup:
+  copilot-setup-steps:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
         global-json-file: global.json
-        
+
     - name: Announce .NET version
       run: dotnet --info
-      
+
     - name: Restore tools
       run: dotnet tool restore
-      
+
     - name: Restore packages
       run: dotnet restore
-      
+
     - name: Build solution
       run: dotnet build -c Release --no-restore
-      
+
     - name: Verify Fantomas formatting
       run: dotnet fantomas --check build.fsx src
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
-        
+
     - name: Run quick tests
       run: dotnet test -c Release -f net8.0 --no-restore --no-build --logger "console;verbosity=minimal" -- Expecto.fail-on-focused-tests=true
       working-directory: test/FsAutoComplete.Tests.Lsp
       timeout-minutes: 5
       continue-on-error: true # Don't fail the setup if tests fail
-      
+
     - name: Setup completed
       run: |
         echo "✅ Copilot setup completed successfully!"
