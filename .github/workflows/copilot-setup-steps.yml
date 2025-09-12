@@ -5,11 +5,12 @@ name: Copilot Setup Steps
 
 on:
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Reason for running setup'
-        required: false
-        default: 'Manual trigger'
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
 
 jobs:
   copilot-setup-steps:
