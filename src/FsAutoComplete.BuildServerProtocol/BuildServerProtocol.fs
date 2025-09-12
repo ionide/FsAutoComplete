@@ -1,8 +1,6 @@
-namespace FsAutoComplete.BuildServer
+namespace FsAutoComplete.BuildServerProtocol
 
 open System
-open System.IO
-open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 
 /// Build Server Protocol types based on https://build-server-protocol.github.io/docs/specification.html
@@ -103,6 +101,9 @@ module BuildServerProtocol =
       CanRun: bool
       CanDebug: bool }
 
+  type WorkspaceBuildTargetsResult = 
+    { Targets: BuildTarget[] }
+
   /// Build/compile related types
 
   type CompileParams = 
@@ -175,24 +176,3 @@ module BuildServerProtocol =
 
   type FSharpProjectResponse = 
     { Project: ProjectDetails }
-
-  /// JSON RPC message types
-
-  type JsonRpcRequest = 
-    { Id: JToken
-      Method: string
-      Params: JToken option }
-
-  type JsonRpcResponse = 
-    { Id: JToken option
-      Result: JToken option
-      Error: JsonRpcError option }
-
-  and JsonRpcError = 
-    { Code: int
-      Message: string
-      Data: JToken option }
-
-  type JsonRpcNotification = 
-    { Method: string
-      Params: JToken option }

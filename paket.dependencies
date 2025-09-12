@@ -25,6 +25,7 @@ nuget Microsoft.CodeAnalysis
 nuget FSharp.Analyzers.SDK 0.32.1
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
+nuget Newtonsoft.Json >= 13.0
 nuget FSharpLint.Core
 nuget Serilog >= 2.10.0
 nuget Serilog.Sinks.File >= 5.0.0

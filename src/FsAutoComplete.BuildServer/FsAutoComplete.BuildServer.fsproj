@@ -8,8 +8,11 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
+    <ProjectReference Include="../FsAutoComplete.BuildServerProtocol/FsAutoComplete.BuildServerProtocol.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="WorkspaceOperations.fs" />
+    <Compile Include="JsonRpcServer.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

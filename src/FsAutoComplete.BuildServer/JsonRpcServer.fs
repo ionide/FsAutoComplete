@@ -7,7 +7,8 @@ open System.Threading.Tasks
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open FsAutoComplete.Logging
-open BuildServerProtocol
+open FsAutoComplete.BuildServerProtocol.JsonRpc
+open FsAutoComplete.BuildServerProtocol.BuildServerProtocol
 open WorkspaceOperations
 
 /// JSON RPC server for Build Server Protocol communication
@@ -48,204 +49,156 @@ module JsonRpcServer =
       Error = Some { Code = code; Message = message; Data = None } }
 
   /// Handle BSP requests
-  let private handleRequest (request: JsonRpcRequest) : Task<JsonRpcResponse> =
+  let private handleBspRequest (request: JsonRpcRequest) : Task<JsonRpcResponse> =
     task {
-      logger.debug $"Handling request: {request.Method}"
-      
       try
-        match request.Method with
-        
-        // Build/Initialize
-        | "build/initialize" ->
-          let capabilities = 
-            { CompileProvider = Some true
-              TestProvider = Some false
-              RunProvider = Some false
-              DebugProvider = Some false
-              InverseSourcesProvider = Some false
-              DependencySourcesProvider = Some false
-              DependencyModulesProvider = Some false
-              ResourcesProvider = Some false
-              OutputPathsProvider = Some false
-              BuildTargetChangedProvider = Some true
-              JvmRunEnvironmentProvider = Some false
-              JvmTestEnvironmentProvider = Some false
-              CanReload = Some true }
-          return createSuccessResponse request.Id capabilities
+        logger.info (Log.setMessage "Handling BSP request: {method}" >> Log.addContext "method" request.Method)
 
-        | "build/initialized" ->
-          logger.info "Build server initialized"
-          return createSuccessResponse request.Id ()
+        match request.Method with
+        | "build/initialize" ->
+          let! result = initializeWorkspace()
+          match result with
+          | Result.Ok () ->
+            let capabilities = { 
+              CompileProvider = Some true
+              TestProvider = None
+              RunProvider = None
+              DebugProvider = None
+              InverseSourcesProvider = None
+              DependencySourcesProvider = None
+              DependencyModulesProvider = None
+              ResourcesProvider = None
+              OutputPathsProvider = None
+              BuildTargetChangedProvider = None
+              JvmRunEnvironmentProvider = None
+              JvmTestEnvironmentProvider = None
+              CanReload = Some true 
+            }
+            return createSuccessResponse (Some request.Id) capabilities
+          | Result.Error msg ->
+            return createErrorResponse (Some request.Id) ErrorCodes.InternalError msg
 
         | "build/shutdown" ->
-          logger.info "Build server shutting down"
-          shutdown()
-          return createSuccessResponse request.Id ()
+          let! result = shutdown()
+          match result with
+          | Result.Ok () ->
+            return createSuccessResponse (Some request.Id) ()
+          | Result.Error msg ->
+            return createErrorResponse (Some request.Id) ErrorCodes.InternalError msg
 
-        // Workspace operations
-        | "workspace/peek" | "fsharp/workspacePeek" ->
-          match request.Params |> Option.bind tryDeserialize<FSharpWorkspacePeekRequest> with
-          | Some peekRequest ->
-            let! result = peekWorkspace peekRequest
-            match result with
-            | Ok response -> return createSuccessResponse request.Id response
-            | Error error -> return createErrorResponse request.Id -1 error
-          | None ->
-            return createErrorResponse request.Id -32602 "Invalid parameters for workspace/peek"
+        | "workspace/buildTargets" ->
+          // Return empty build targets for now
+          let result = { Targets = [||] }
+          return createSuccessResponse (Some request.Id) result
 
-        | "workspace/load" | "fsharp/workspaceLoad" ->
-          match request.Params |> Option.bind tryDeserialize<FSharpWorkspaceLoadRequest> with
-          | Some loadRequest ->
-            let! result = loadWorkspace loadRequest
-            match result with
-            | Ok response -> return createSuccessResponse request.Id response
-            | Error error -> return createErrorResponse request.Id -1 error
+        | "fsharp/workspacePeek" ->
+          match request.Params with
+          | Some parameters ->
+            match tryDeserialize<WorkspacePeekRequest> parameters with
+            | Some peekRequest ->
+              let! result = peekWorkspace peekRequest
+              match result with
+              | Result.Ok response ->
+                return createSuccessResponse (Some request.Id) response
+              | Result.Error msg ->
+                return createErrorResponse (Some request.Id) ErrorCodes.InternalError msg
+            | None ->
+              return createErrorResponse (Some request.Id) ErrorCodes.InvalidParams "Invalid workspace peek parameters"
           | None ->
-            return createErrorResponse request.Id -32602 "Invalid parameters for workspace/load"
+            return createErrorResponse (Some request.Id) ErrorCodes.InvalidParams "Missing workspace peek parameters"
 
-        | "fsharp/project" ->
-          match request.Params |> Option.bind tryDeserialize<FSharpProjectRequest> with
-          | Some projectRequest ->
-            let! result = getProject projectRequest
-            match result with
-            | Ok response -> return createSuccessResponse request.Id response
-            | Error error -> return createErrorResponse request.Id -1 error
+        | "fsharp/workspaceLoad" ->
+          match request.Params with
+          | Some parameters ->
+            match tryDeserialize<WorkspaceLoadRequest> parameters with
+            | Some loadRequest ->
+              let! result = loadWorkspace loadRequest  
+              match result with
+              | Result.Ok response ->
+                return createSuccessResponse (Some request.Id) response
+              | Result.Error msg ->
+                return createErrorResponse (Some request.Id) ErrorCodes.InternalError msg
+            | None ->
+              return createErrorResponse (Some request.Id) ErrorCodes.InvalidParams "Invalid workspace load parameters"
           | None ->
-            return createErrorResponse request.Id -32602 "Invalid parameters for fsharp/project"
-
-        // Build operations
-        | "buildTarget/compile" ->
-          match request.Params |> Option.bind tryDeserialize<CompileParams> with
-          | Some compileRequest ->
-            let! result = compileTargets compileRequest
-            match result with
-            | Ok response -> return createSuccessResponse request.Id response
-            | Error error -> return createErrorResponse request.Id -1 error
-          | None ->
-            return createErrorResponse request.Id -32602 "Invalid parameters for buildTarget/compile"
+            return createErrorResponse (Some request.Id) ErrorCodes.InvalidParams "Missing workspace load parameters"
 
         | _ ->
-          logger.warn $"Unhandled request method: {request.Method}"
-          return createErrorResponse request.Id -32601 $"Method not found: {request.Method}"
-
+          logger.warn (Log.setMessage "Unknown method: {method}" >> Log.addContext "method" request.Method)
+          return createErrorResponse (Some request.Id) ErrorCodes.MethodNotFound $"Method not found: {request.Method}"
       with
       | ex ->
-        logger.error $"Error handling request {request.Method}: {ex.Message}"
-        return createErrorResponse request.Id -32603 "Internal error"
+        logger.error (Log.setMessage "Error handling request: {error}" >> Log.addContext "error" ex.Message)
+        return createErrorResponse (Some request.Id) ErrorCodes.InternalError ex.Message
     }
 
-  /// Handle notifications (no response expected)
+  /// Handle JSON RPC notifications
   let private handleNotification (notification: JsonRpcNotification) : Task<unit> =
     task {
-      logger.debug $"Handling notification: {notification.Method}"
-      
-      match notification.Method with
-      | "build/exit" ->
-        logger.info "Received exit notification"
-        Environment.Exit(0)
-      | _ ->
-        logger.debug $"Unhandled notification: {notification.Method}"
+      try
+        logger.info (Log.setMessage "Handling notification: {method}" >> Log.addContext "method" notification.Method)
+        
+        match notification.Method with
+        | "build/exit" ->
+          logger.info (Log.setMessage "Received exit notification")
+          Environment.Exit(0)
+        | _ ->
+          logger.warn (Log.setMessage "Unknown notification method: {method}" >> Log.addContext "method" notification.Method)
+      with
+      | ex ->
+        logger.error (Log.setMessage "Error handling notification: {error}" >> Log.addContext "error" ex.Message)
     }
 
-  /// Parse a JSON RPC message from a string
-  let private parseMessage (json: string) =
-    try
-      let jobj = JObject.Parse(json)
-      
-      if jobj.ContainsKey("id") then
-        // Request
-        let request = jobj.ToObject<JsonRpcRequest>()
-        Some (Choice1Of2 request)
-      else
-        // Notification
-        let notification = jobj.ToObject<JsonRpcNotification>()
-        Some (Choice2Of2 notification)
-    with
-    | ex ->
-      logger.error $"Failed to parse JSON RPC message: {ex.Message}"
-      None
-
-  /// Read a single message from the input stream
-  let private readMessage (reader: StreamReader) : Task<string option> =
+  /// Process a single JSON RPC message
+  let processMessage (messageText: string) : Task<string option> =
     task {
       try
-        // Read headers
-        let mutable contentLength = 0
-        let mutable line = ""
+        let message = JObject.Parse(messageText)
         
-        // Read headers until empty line
-        let mutable keepReading = true
-        while keepReading do
-          let! currentLine = reader.ReadLineAsync()
-          line <- currentLine
-          
-          if String.IsNullOrEmpty(line) then
-            keepReading <- false
-          elif line.StartsWith("Content-Length: ") then
-            Int32.TryParse(line.Substring(16), &contentLength) |> ignore
-        
-        if contentLength > 0 then
-          // Read content
-          let buffer = Array.zeroCreate<char> contentLength
-          let! bytesRead = reader.ReadAsync(buffer, 0, contentLength)
-          
-          if bytesRead = contentLength then
-            return Some (String(buffer))
-          else
-            logger.warn $"Expected {contentLength} bytes but read {bytesRead}"
-            return None
+        if message.ContainsKey("id") then
+          // This is a request
+          let request = message.ToObject<JsonRpcRequest>()
+          let! response = handleBspRequest request
+          return Some (serialize response)
         else
-          logger.warn "No content length found"
+          // This is a notification
+          let notification = message.ToObject<JsonRpcNotification>()
+          do! handleNotification notification
           return None
       with
       | ex ->
-        logger.error $"Error reading message: {ex.Message}"
-        return None
+        logger.error (Log.setMessage "Error processing message: {error}" >> Log.addContext "error" ex.Message)
+        let errorResponse = createErrorResponse None ErrorCodes.ParseError "Parse error"
+        return Some (serialize errorResponse)
     }
 
-  /// Write a response message to the output stream
-  let private writeMessage (writer: StreamWriter) (message: string) : Task<unit> =
+  /// Main server loop for stdin/stdout communication
+  let runServer () =
     task {
-      try
-        let contentBytes = Encoding.UTF8.GetBytes(message)
-        let header = $"Content-Length: {contentBytes.Length}\r\n\r\n"
-        
-        do! writer.WriteAsync(header)
-        do! writer.WriteAsync(message)
-        do! writer.FlushAsync()
-      with
-      | ex ->
-        logger.error $"Error writing message: {ex.Message}"
-    }
+      logger.info (Log.setMessage "Starting JSON RPC server...")
+      
+      use reader = new StreamReader(Console.OpenStandardInput())
+      use writer = new StreamWriter(Console.OpenStandardOutput())
+      writer.AutoFlush <- true
 
-  /// Main server loop
-  let runServer (input: Stream) (output: Stream) : Task<unit> =
-    task {
-      logger.info "Starting JSON RPC server"
-      
-      use reader = new StreamReader(input, Encoding.UTF8)
-      use writer = new StreamWriter(output, Encoding.UTF8)
-      
       let mutable keepRunning = true
       
       while keepRunning do
-        let! messageOpt = readMessage reader
-        
-        match messageOpt with
-        | Some json ->
-          match parseMessage json with
-          | Some (Choice1Of2 request) ->
-            let! response = handleRequest request
-            let responseJson = serialize response
-            do! writeMessage writer responseJson
-            
-          | Some (Choice2Of2 notification) ->
-            do! handleNotification notification
-            
-          | None ->
-            logger.warn "Failed to parse message"
-            
-        | None ->
-          logger.info "No more messages, stopping server"
+        try
+          let! line = reader.ReadLineAsync()
+          if not (isNull line) then
+            let! response = processMessage line
+            match response with
+            | Some responseText ->
+              do! writer.WriteLineAsync(responseText)
+            | None ->
+              () // No response needed for notifications
+          else
+            keepRunning <- false
+        with
+        | ex ->
+          logger.error (Log.setMessage "Server loop error: {error}" >> Log.addContext "error" ex.Message)
           keepRunning <- false
+      
+      logger.info (Log.setMessage "JSON RPC server stopped")
     }

@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.BuildServerProtocol\FsAutoComplete.BuildServerProtocol.fsproj" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>fsautocomplete</AssemblyName>
