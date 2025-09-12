@@ -137,50 +137,51 @@ module Parser =
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
     rootCommand.SetHandler(
-      Func<_, _, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled useTransparentCompiler useBuildServer ->
-        let workspaceLoaderFactory =
-          fun toolsPath ->
-            if useBuildServer then
-              BuildServerWorkspaceLoaderFactory.create toolsPath
-            elif projectGraphEnabled then
-              Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
+      Func<_, _, _, _, _, Task>
+        (fun projectGraphEnabled stateDirectory adaptiveLspEnabled useTransparentCompiler useBuildServer ->
+          let workspaceLoaderFactory =
+            fun toolsPath ->
+              if useBuildServer then
+                BuildServerWorkspaceLoaderFactory.create toolsPath
+              elif projectGraphEnabled then
+                Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
+              else
+                Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
+
+          let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
+
+          let dotnetPath =
+            if
+              Environment.ProcessPath.EndsWith("dotnet", StringComparison.Ordinal)
+              || Environment.ProcessPath.EndsWith("dotnet.exe", StringComparison.Ordinal)
+            then
+              // this is valid when not running as a global tool
+              Some(FileInfo(Environment.ProcessPath))
             else
-              Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
+              None
 
-        let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
+          let toolsPath =
+            Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
 
-        let dotnetPath =
-          if
-            Environment.ProcessPath.EndsWith("dotnet", StringComparison.Ordinal)
-            || Environment.ProcessPath.EndsWith("dotnet.exe", StringComparison.Ordinal)
-          then
-            // this is valid when not running as a global tool
-            Some(FileInfo(Environment.ProcessPath))
-          else
-            None
+          let lspFactory =
+            if adaptiveLspEnabled then
+              fun () ->
+                AdaptiveFSharpLspServer.startCore
+                  toolsPath
+                  workspaceLoaderFactory
+                  sourceTextFactory
+                  useTransparentCompiler
+            else
+              fun () ->
+                AdaptiveFSharpLspServer.startCore
+                  toolsPath
+                  workspaceLoaderFactory
+                  sourceTextFactory
+                  useTransparentCompiler
 
-        let toolsPath =
-          Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
+          let result = AdaptiveFSharpLspServer.start lspFactory
 
-        let lspFactory =
-          if adaptiveLspEnabled then
-            fun () ->
-              AdaptiveFSharpLspServer.startCore
-                toolsPath
-                workspaceLoaderFactory
-                sourceTextFactory
-                useTransparentCompiler
-          else
-            fun () ->
-              AdaptiveFSharpLspServer.startCore
-                toolsPath
-                workspaceLoaderFactory
-                sourceTextFactory
-                useTransparentCompiler
-
-        let result = AdaptiveFSharpLspServer.start lspFactory
-
-        Task.FromResult result),
+          Task.FromResult result),
       projectGraphOption,
       stateLocationOption,
       adaptiveLspServerOption,

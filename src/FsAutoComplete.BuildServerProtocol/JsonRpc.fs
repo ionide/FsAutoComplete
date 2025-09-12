@@ -6,25 +6,25 @@ open Newtonsoft.Json.Linq
 module JsonRpc =
 
   /// JSON RPC request message
-  type JsonRpcRequest = 
+  type JsonRpcRequest =
     { Id: JToken
       Method: string
       Params: JToken option }
 
   /// JSON RPC response message
-  type JsonRpcResponse = 
+  type JsonRpcResponse =
     { Id: JToken option
       Result: JToken option
       Error: JsonRpcError option }
 
   /// JSON RPC error object
-  and JsonRpcError = 
+  and JsonRpcError =
     { Code: int
       Message: string
       Data: JToken option }
 
   /// JSON RPC notification message
-  type JsonRpcNotification = 
+  type JsonRpcNotification =
     { Method: string
       Params: JToken option }
 
@@ -35,7 +35,7 @@ module JsonRpc =
     let MethodNotFound = -32601
     let InvalidParams = -32602
     let InternalError = -32603
-    
+
     // Server error range
     let ServerErrorStart = -32099
     let ServerErrorEnd = -32000

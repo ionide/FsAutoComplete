@@ -7,10 +7,9 @@ open Newtonsoft.Json.Linq
 module BuildServerProtocol =
 
   /// Base types for BSP
-  type BuildClientCapabilities = 
-    { LanguageIds: string[] }
+  type BuildClientCapabilities = { LanguageIds: string[] }
 
-  type BuildServerCapabilities = 
+  type BuildServerCapabilities =
     { CompileProvider: bool option
       TestProvider: bool option
       RunProvider: bool option
@@ -27,41 +26,37 @@ module BuildServerProtocol =
 
   /// Workspace/project discovery and loading
 
-  type WorkspacePeekRequest = 
+  type WorkspacePeekRequest =
     { Directory: string
       Deep: int
       ExcludedDirs: string[] }
 
-  type WorkspacePeekResponse = 
-    { Found: WorkspaceProjectState[] }
+  type WorkspacePeekResponse = { Found: WorkspaceProjectState[] }
 
-  and WorkspaceProjectState = 
+  and WorkspaceProjectState =
     { Project: ProjectDescription
       Crosswalk: Crosswalk[] option
       Sdk: ProjectSdkInfo option }
 
-  and ProjectDescription = 
+  and ProjectDescription =
     { Project: string
       Name: string
       Virtual: bool option
       Dependencies: string[] option }
 
-  and Crosswalk = 
+  and Crosswalk =
     { MSBuildProject: string
       ProjectFile: string }
 
-  and ProjectSdkInfo = 
-    { Type: string
-      Path: string option }
+  and ProjectSdkInfo = { Type: string; Path: string option }
 
-  type WorkspaceLoadRequest = 
-    { TextDocuments: string[] }
+  type WorkspaceLoadRequest = { TextDocuments: string[] }
 
-  type WorkspaceLoadResponse = 
+  type WorkspaceLoadResponse =
     { WorkspaceRoot: string
       Projects: ProjectDetails[] }
 
-  and ProjectDetails = 
+  and ProjectDetails =
     { Project: string
       Name: string
       SourceFiles: string[]
@@ -74,17 +69,16 @@ module BuildServerProtocol =
       IsTestProject: bool option
       Properties: Map<string, string> option }
 
-  and PackageReference = 
+  and PackageReference =
     { Name: string
       Version: string
       FullPath: string option }
 
   /// Build target related types
 
-  type BuildTargetIdentifier = 
-    { Uri: string }
+  type BuildTargetIdentifier = { Uri: string }
 
-  type BuildTarget = 
+  type BuildTarget =
     { Id: BuildTargetIdentifier
       DisplayName: string option
       BaseDirectory: string option
@@ -95,23 +89,22 @@ module BuildServerProtocol =
       DataKind: string option
       Data: JObject option }
 
-  and BuildTargetCapabilities = 
+  and BuildTargetCapabilities =
     { CanCompile: bool
       CanTest: bool
       CanRun: bool
       CanDebug: bool }
 
-  type WorkspaceBuildTargetsResult = 
-    { Targets: BuildTarget[] }
+  type WorkspaceBuildTargetsResult = { Targets: BuildTarget[] }
 
   /// Build/compile related types
 
-  type CompileParams = 
+  type CompileParams =
     { Targets: BuildTargetIdentifier[]
       OriginId: string option
       Arguments: string[] option }
 
-  type CompileResult = 
+  type CompileResult =
     { OriginId: string option
       StatusCode: int
       DataKind: string option
@@ -119,7 +112,7 @@ module BuildServerProtocol =
 
   /// Diagnostics and notifications
 
-  type Diagnostic = 
+  type Diagnostic =
     { Range: Range
       Severity: DiagnosticSeverity option
       Code: string option
@@ -130,49 +123,43 @@ module BuildServerProtocol =
       RelatedInformation: DiagnosticRelatedInformation[] option
       Data: JObject option }
 
-  and Range = 
-    { Start: Position
-      End: Position }
+  and Range = { Start: Position; End: Position }
 
-  and Position = 
-    { Line: int
-      Character: int }
+  and Position = { Line: int; Character: int }
 
-  and DiagnosticSeverity = Error = 1 | Warning = 2 | Information = 3 | Hint = 4
+  and DiagnosticSeverity =
+    | Error = 1
+    | Warning = 2
+    | Information = 3
+    | Hint = 4
 
-  and CodeDescription = 
-    { Href: string }
+  and CodeDescription = { Href: string }
 
-  and DiagnosticTag = Unnecessary = 1 | Deprecated = 2
+  and DiagnosticTag =
+    | Unnecessary = 1
+    | Deprecated = 2
 
-  and DiagnosticRelatedInformation = 
-    { Location: Location
-      Message: string }
+  and DiagnosticRelatedInformation = { Location: Location; Message: string }
 
-  and Location = 
-    { Uri: string
-      Range: Range }
+  and Location = { Uri: string; Range: Range }
 
-  type PublishDiagnosticsParams = 
+  type PublishDiagnosticsParams =
     { TextDocument: TextDocumentIdentifier
       BuildTarget: BuildTargetIdentifier
       OriginId: string option
       Diagnostics: Diagnostic[]
       Reset: bool }
 
-  and TextDocumentIdentifier = 
-    { Uri: string }
+  and TextDocumentIdentifier = { Uri: string }
 
   /// Custom FSAC extensions for F# specific functionality
 
   type FSharpWorkspacePeekRequest = WorkspacePeekRequest
 
-  type FSharpWorkspaceLoadRequest = 
+  type FSharpWorkspaceLoadRequest =
     { TextDocuments: string[]
       ExcludeProjectDirectories: string[] option }
 
-  type FSharpProjectRequest = 
-    { Project: string }
+  type FSharpProjectRequest = { Project: string }
 
-  type FSharpProjectResponse = 
-    { Project: ProjectDetails }
+  type FSharpProjectResponse = { Project: ProjectDetails }

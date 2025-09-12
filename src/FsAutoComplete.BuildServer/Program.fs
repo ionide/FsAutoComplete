@@ -12,10 +12,9 @@ let main _args =
 
   try
     // Run the JSON RPC server
-    let serverTask = runServer()
+    let serverTask = runServer ()
     serverTask.Wait()
     0
-  with
-  | ex ->
+  with ex ->
     printfn "Build server error: %s" ex.Message
     1

@@ -15,7 +15,7 @@ module BuildServerClient =
 
   let logger = LogProvider.getLoggerByName "BuildServerClient"
 
-  type BuildServerProcess = 
+  type BuildServerProcess =
     { Process: Process
       Writer: StreamWriter
       Reader: StreamReader }
@@ -27,7 +27,7 @@ module BuildServerClient =
     task {
       try
         logger.info (Log.setMessage "Starting build server")
-        
+
         let startInfo = ProcessStartInfo()
         startInfo.FileName <- "dotnet"
         startInfo.Arguments <- buildServerPath
@@ -36,25 +36,24 @@ module BuildServerClient =
         startInfo.RedirectStandardOutput <- true
         startInfo.RedirectStandardError <- true
         startInfo.CreateNoWindow <- true
-        
+
         let proc = Process.Start(startInfo)
-        
+
         if isNull proc then
           return Error "Failed to start build server process"
         else
           let writer = new StreamWriter(proc.StandardInput.BaseStream, Encoding.UTF8)
           let reader = new StreamReader(proc.StandardOutput.BaseStream, Encoding.UTF8)
-          
-          let buildServer = 
+
+          let buildServer =
             { Process = proc
               Writer = writer
               Reader = reader }
-          
+
           currentBuildServer <- Some buildServer
           logger.info (Log.setMessage "Build server started successfully")
           return Ok buildServer
-      with
-      | ex ->
+      with ex ->
         logger.error (Log.setMessage "Failed to start build server" >> Log.addExn ex)
         return Error ex.Message
     }
@@ -64,19 +63,18 @@ module BuildServerClient =
     task {
       try
         logger.debug (Log.setMessage "Sending message to build server")
-        
+
         do! buildServer.Writer.WriteLineAsync(message)
         do! buildServer.Writer.FlushAsync()
-        
+
         let! response = buildServer.Reader.ReadLineAsync()
-        
+
         if isNull response then
           return Error "Build server returned null response"
         else
           logger.debug (Log.setMessage "Received response from build server")
           return Ok response
-      with
-      | ex ->
+      with ex ->
         logger.error (Log.setMessage "Failed to communicate with build server" >> Log.addExn ex)
         return Error ex.Message
     }
@@ -86,26 +84,25 @@ module BuildServerClient =
     task {
       try
         logger.info (Log.setMessage "Stopping build server")
-        
+
         buildServer.Writer.Dispose()
         buildServer.Reader.Dispose()
-        
+
         if not buildServer.Process.HasExited then
           buildServer.Process.Kill()
           let! _exited = buildServer.Process.WaitForExitAsync()
           ()
-        
+
         buildServer.Process.Dispose()
-        
+
         logger.info (Log.setMessage "Build server stopped")
-      with
-      | ex ->
+      with ex ->
         logger.error (Log.setMessage "Error stopping build server" >> Log.addExn ex)
     }
 
 /// Factory function to create a Build Server workspace loader
 module BuildServerWorkspaceLoaderFactory =
-  
+
   let create (toolsPath) : IWorkspaceLoader =
     let logger = LogProvider.getLoggerByName "BuildServerWorkspaceLoaderFactory"
     logger.info (Log.setMessage "Creating BuildServerWorkspaceLoader - falling back to regular loader for now")
