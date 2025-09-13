@@ -16,3 +16,4 @@ Ionide.ProjInfo.ProjectSystem
 FSharp.Analyzers.SDK
 Ionide.Analyzers
 FSharp.Analyzers.Build
+Serilog.Extensions.Logging
