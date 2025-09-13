@@ -39,7 +39,7 @@ open FsAutoComplete.Lsp.Helpers
 open FSharp.Compiler.Syntax
 open FsAutoComplete.ProjectWorkspace
 open FSharp.Analyzers.SDK
-
+open Serilog.Extensions.Logging
 
 /// <summary>Handle tracking in-flight ServerProgressReport and allow cancellation of actions if a client decides to.</summary>
 type ServerProgressLookup() =
@@ -170,13 +170,14 @@ type AdaptiveState
   let progressLookup = new ServerProgressLookup()
   do disposables.Add progressLookup
 
+  let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
+  do disposables.Add serilogLoggerFactory
 
   let projectSelector = cval<IFindProject> (FindFirstProject())
 
   let rootPath = cval<string option> None
 
   let config = cval<FSharpConfig> FSharpConfig.Default
-  // let useTransparentCompiler = cval<bool> true
 
   let checker =
     config
@@ -223,9 +224,10 @@ type AdaptiveState
       [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
          yield! fsiExtraParameters |]
 
+
   let analyzersClient =
     FSharp.Analyzers.SDK.Client<FSharp.Analyzers.SDK.EditorAnalyzerAttribute, FSharp.Analyzers.SDK.EditorContext>(
-      Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
+      serilogLoggerFactory.CreateLogger "FSharp.Analyzers.SDK"
     )
 
   /// <summary>Loads F# Analyzers from the configured directories</summary>
@@ -268,7 +270,7 @@ type AdaptiveState
 
           Loggers.analyzers.info (
             Log.setMessageI
-              $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers"
+              $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers with {assemblyLoadStats.FailedAssemblies:failedAssemblies} failed assemblies"
           ))
 
     else
