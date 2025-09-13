@@ -30,6 +30,7 @@ nuget Serilog >= 2.10.0
 nuget Serilog.Sinks.File >= 5.0.0
 nuget Serilog.Sinks.Console >= 4.0.0
 nuget Serilog.Sinks.Async >= 1.5
+nuget Serilog.Extensions.Logging
 nuget Destructurama.FSharp
 nuget FSharp.UMX >= 1.1
 nuget FSharp.Formatting >= 14.0
