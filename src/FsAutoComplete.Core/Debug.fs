@@ -8,7 +8,7 @@ namespace FsAutoComplete
 module Loggers =
   open FsAutoComplete.Logging
 
-  let analyzers = LogProvider.getLoggerByName "Analyzers"
+  let analyzers = LogProvider.getLoggerByName "FsAutoComplete.Analyzers"
 
 
 [<RequireQualifiedAccess>]
