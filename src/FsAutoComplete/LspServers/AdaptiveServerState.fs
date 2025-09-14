@@ -2664,7 +2664,8 @@ type AdaptiveState
 
       let testProjectBinaries = filteredTestProjects |> List.map _.TargetPath
 
-      let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+      let projectsByBinaryPath =
+        testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
 
       let tryTestResultsToDTOs testCases =
         let tryTestResultToDTO
@@ -2677,7 +2678,7 @@ type AdaptiveState
             TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult
             |> Some
 
-        testCases |> List.choose (tryTestResultToDTO projectLookup)
+        testCases |> List.choose (tryTestResultToDTO projectsByBinaryPath)
 
       use tokenSource = new CancellationTokenSource()
 
@@ -2691,7 +2692,7 @@ type AdaptiveState
               TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
               ActiveTests =
                 progress.ActiveTests
-                |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+                |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectsByBinaryPath.TryFind)
                 |> Array.ofSeq }
           | TestServer.VSTestWrapper.TestRunUpdate.LogMessage(level, message) ->
             { TestLogs =
