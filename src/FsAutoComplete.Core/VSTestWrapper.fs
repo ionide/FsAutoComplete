@@ -145,11 +145,7 @@ module VSTestWrapper =
       let options = new TestPlatformOptions()
       testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
 
-      use! _cancel =
-        Async.OnCancel(fun () ->
-          printfn "Cancelling test run"
-          vstest.CancelTestRun()
-          printfn "Test Run Cancelled")
+      use! _cancel = Async.OnCancel(fun () -> vstest.CancelTestRun())
 
       if shouldDebug then
         let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
