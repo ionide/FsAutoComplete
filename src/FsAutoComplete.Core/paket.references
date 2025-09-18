@@ -17,3 +17,6 @@ FSharp.Analyzers.SDK
 Ionide.Analyzers
 FSharp.Analyzers.Build
 Serilog.Extensions.Logging
+
+Microsoft.TestPlatform.ObjectModel
+Microsoft.TestPlatform.TranslationLayer

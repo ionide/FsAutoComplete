@@ -3056,6 +3056,24 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
+    override this.TestDiscoverTests() : Async<LspResult<PlainNotification option>> =
+      asyncResult {
+        let! testDTOs =
+          state.DiscoverTests()
+          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+
+        return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+      }
+
+    override this.TestRunTests(p: TestRunRequest) : Async<LspResult<PlainNotification option>> =
+      asyncResult {
+        let! testDTOs =
+          state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
+          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+
+        return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+      }
+
     override x.Dispose() = disposables.Dispose()
 
     member this.WindowWorkDoneProgressCancel(param: WorkDoneProgressCancelParams) : Async<unit> =
@@ -3095,6 +3113,7 @@ type AdaptiveFSharpLspServer
     member this.NotebookDocumentDidSave(_arg1: DidSaveNotebookDocumentParams) : Async<unit> = ignoreNotification
     member this.Progress(_arg1: ProgressParams) : Async<unit> = ignoreNotification
     member this.SetTrace(_arg1: SetTraceParams) : Async<unit> = ignoreNotification
+
 
 module AdaptiveFSharpLspServer =
 
@@ -3185,6 +3204,8 @@ module AdaptiveFSharpLspServer =
       |> Map.add "fsproj/addExistingFile" (serverRequestHandling (fun s p -> s.FsProjAddExistingFile(p)))
       |> Map.add "fsproj/renameFile" (serverRequestHandling (fun s p -> s.FsProjRenameFile(p)))
       |> Map.add "fsproj/removeFile" (serverRequestHandling (fun s p -> s.FsProjRemoveFile(p)))
+      |> Map.add "test/discoverTests" (serverRequestHandling (fun s _ -> s.TestDiscoverTests()))
+      |> Map.add "test/runTests" (serverRequestHandling (fun s p -> s.TestRunTests(p)))
 
     let adaptiveServer lspClient =
       let loader = workspaceLoaderFactory toolsPath
