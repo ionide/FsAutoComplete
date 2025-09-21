@@ -58,6 +58,7 @@ module Conversions =
 
 
   let fcsRangeToLspLocation (range: FcsRange) : LspLocation =
+    // let range = range.ApplyLineDirectives()  // Possibly for F# 10.0 (rc1 or later)
     let fileUri = Path.FilePathToUri range.FileName
     let lspRange = fcsRangeToLsp range
     { Uri = fileUri; Range = lspRange }

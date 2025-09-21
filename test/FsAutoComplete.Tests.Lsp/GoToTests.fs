@@ -158,6 +158,36 @@ let private gotoTest state =
         })
 
       testCaseAsync
+        "Go-to-definition-with-line-directive"
+        (async {
+          let! server, path, _externalPath, _definitionPath = server
+
+          let p: DefinitionParams =
+            { TextDocument = { Uri = Path.FilePathToUri path }
+              Position = { Line = 16u; Character = 24u }
+              WorkDoneToken = None
+              PartialResultToken = None }
+
+          let! res = server.TextDocumentDefinition p
+
+          match res with
+          | Result.Error e -> failtestf "Request failed: %A" e
+          | Result.Ok None -> failtest "Request none"
+          | Result.Ok(Some res) ->
+            match res with
+            | U2.C2 _ -> failtest "Should be single GotoResult"
+            | U2.C1(U2.C1 res) ->
+              Expect.stringContains res.Uri "Definition.fs" "Result should be in Definition.fs"
+
+              Expect.equal
+                res.Range
+                { Start = { Line = 15u; Character = 4u }
+                  End = { Line = 15u; Character = 13u } }
+                "Result should have correct range (line directives not applied)"
+            | U2.C1(_) -> failwith "Not Implemented"
+        })
+
+      testCaseAsync
         "Go-to-definition on custom type binding"
         (async {
           let! server, path, _externalPath, _definitionPath = server
