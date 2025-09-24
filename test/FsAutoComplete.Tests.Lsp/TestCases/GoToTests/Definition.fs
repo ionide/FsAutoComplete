@@ -2,10 +2,15 @@ module Definitions
 
 let sample_value = 123
 
-type A = {x: int; y: int}
+type A = { x: int; y: int }
 
-let value_with_type = {x = 123; y = 456}
+let value_with_type = { x = 123; y = 456 }
 
 type IInterface =
-    abstract member C : int -> int
-    abstract member D : int -> int
+  abstract member C: int -> int
+  abstract member D: int -> int
+
+let generatorValue = 42
+
+#line "13"
+let generated = 42
