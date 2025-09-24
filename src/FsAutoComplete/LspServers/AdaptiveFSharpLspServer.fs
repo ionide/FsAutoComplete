@@ -3058,20 +3058,48 @@ type AdaptiveFSharpLspServer
 
     override this.TestDiscoverTests() : Async<LspResult<PlainNotification option>> =
       asyncResult {
-        let! testDTOs =
-          state.DiscoverTests()
-          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+        use trace = fsacActivitySource.StartActivityForType(thisType)
 
-        return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+        try
+          logger.info (Log.setMessage "TestDiscoverTests Request")
+
+          let! testDTOs =
+            state.DiscoverTests()
+            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+
+          return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg = Log.setMessage "TestDiscoverTests Request Errored"
+
+          return! returnException e logCfg
       }
 
     override this.TestRunTests(p: TestRunRequest) : Async<LspResult<PlainNotification option>> =
       asyncResult {
-        let! testDTOs =
-          state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
-          |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+        let tags = [ "TestRunRequest", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
-        return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+        try
+          logger.info (
+            Log.setMessage "TestRunTests Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let! testDTOs =
+            state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
+            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+
+          return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "TestRunTests Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
       }
 
     override x.Dispose() = disposables.Dispose()
