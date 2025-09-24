@@ -156,6 +156,13 @@ type FindFirstProject() =
 
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
+module TestProjectHelpers =
+  let isTestProject (project: Types.ProjectOptions) =
+    let testProjectIndicators =
+      set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
+
+    project.PackageReferences
+    |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
 
 type AdaptiveState
   (
@@ -801,6 +808,7 @@ type AdaptiveState
               { File = Path.LocalPathToUri file
                 Tests = tests |> Array.map map }
               |> lspClient.NotifyTestDetected
+
         with ex ->
           logger.error (
             Log.setMessage "Exception while handling command event {evt}: {ex}"
@@ -2566,6 +2574,153 @@ type AdaptiveState
   member x.GetAllDeclarations() = getAllDeclarations ()
 
   member x.GlyphToSymbolKind = glyphToSymbolKind |> AVal.force
+
+  member state.DiscoverTests() =
+
+    asyncResult {
+      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+
+      let! projects = projectOptions |> AsyncAVal.forceAsync
+
+      let testProjects =
+        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+
+      let testProjectBinaries = testProjects |> List.map _.TargetPath
+
+      if testProjects |> List.isEmpty then
+        let message = "No test projects found. Make sure you've restored your projects"
+
+        do!
+          lspClient.WindowShowMessage(
+            { Type = MessageType.Error
+              Message = message }
+          )
+
+        return! (Error message)
+      elif testProjectBinaries |> List.filter File.Exists |> List.isEmpty then
+        let message =
+          "No binaries found for test projects. Make sure you've built your projects"
+
+        do!
+          lspClient.WindowShowMessage(
+            { Type = MessageType.Error
+              Message = message }
+          )
+
+        return! (Error message)
+
+      let tryTestCasesToDTOs testCases =
+        let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
+        testCases
+        |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+
+      let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
+        let dto =
+          match update with
+          | TestServer.VSTestWrapper.TestDiscoveryUpdate.Progress tests ->
+            { Tests = tests |> tryTestCasesToDTOs |> Array.ofList
+              TestLogs = [||] }
+          | TestServer.VSTestWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
+            { Tests = [||]
+              TestLogs =
+                [| { Message = message
+                     Level = string level } |] }
+
+
+        lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
+
+      let! testCases =
+        TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
+
+      let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
+
+      return testDTOs
+    }
+
+  member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
+    asyncResult {
+      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+
+      let! projects = projectOptions |> AsyncAVal.forceAsync
+
+      let testProjects =
+        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+
+      let filteredTestProjects =
+        match limitToProjects with
+        | None -> testProjects
+        | Some specifiedProjects ->
+          let specifiedProjectsSet = specifiedProjects |> List.map Path.GetFullPath |> set
+          testProjects |> List.filter (_.ProjectFileName >> specifiedProjectsSet.Contains)
+
+      let testProjectBinaries = filteredTestProjects |> List.map _.TargetPath
+
+      let projectsByBinaryPath =
+        testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
+      let tryTestResultsToDTOs testCases =
+        let tryTestResultToDTO
+          (projectLookup: Map<string, Types.ProjectOptions>)
+          (testResult: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult)
+          : TestServer.TestResult option =
+          match projectLookup |> Map.tryFind testResult.TestCase.Source with
+          | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
+          | Some project ->
+            TestServer.TestResult.ofVsTestResult project.ProjectFileName project.TargetFramework testResult
+            |> Some
+
+        testCases |> List.choose (tryTestResultToDTO projectsByBinaryPath)
+
+      use tokenSource = new CancellationTokenSource()
+
+      use! _onCancel = Async.OnCancel(fun _ -> tokenSource.Cancel())
+
+      let onTestRunProgress (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
+        let dto =
+          match runUpdate with
+          | TestServer.VSTestWrapper.TestRunUpdate.Progress progress ->
+            { TestLogs = [||]
+              TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
+              ActiveTests =
+                progress.ActiveTests
+                |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectsByBinaryPath.TryFind)
+                |> Array.ofSeq }
+          | TestServer.VSTestWrapper.TestRunUpdate.LogMessage(level, message) ->
+            { TestLogs =
+                [| { Message = message
+                     Level = string level } |]
+              TestResults = [||]
+              ActiveTests = [||] }
+
+        Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
+
+      let onAttachDebugger (processId: int) : bool =
+        let result =
+          Async.RunSynchronously(lspClient.AttachDebuggerForTestRun(processId), cancellationToken = tokenSource.Token)
+
+        match result with
+        | Ok didAttach -> didAttach
+        | Error err ->
+          logger.warn (
+            Log.setMessageI
+              $"Failed to attach debugger for test run with Process Id: {processId}; Error Code: {err.Code}; Error message: {err.Message}"
+          )
+
+          false
+
+      let! testResults =
+        TestServer.VSTestWrapper.runTestsAsync
+          vstestBinary.FullName
+          onTestRunProgress
+          onAttachDebugger
+          testProjectBinaries
+          testCaseFilter
+          shouldDebug
+
+      let resultDtos = testResults |> tryTestResultsToDTOs
+      return resultDtos
+    }
 
   member x.CancelServerProgress(progressToken: ProgressToken) = progressLookup.Cancel progressToken
 

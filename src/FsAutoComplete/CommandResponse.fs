@@ -702,3 +702,17 @@ module CommandResponse =
           PrecedingNonPipeExprLine = pnp })
 
     serialize { Kind = "pipelineHint"; Data = ctn }
+
+
+
+  type DiscoverTestsResponse = TestServer.TestItem list
+
+  let discoverTests (serialize: Serializer) (content: DiscoverTestsResponse) =
+    serialize
+      { Kind = "discoverTests"
+        Data = content }
+
+  let runTests (serialize: Serializer) (content: TestServer.TestResult list) =
+    serialize
+      { Kind = "runTests"
+        Data = content |> Array.ofList }
