@@ -22,6 +22,7 @@
     <None Include="logo.png" Pack="true" PackagePath="\" />
     <Compile Include="CommandResponse.fsi" />
     <Compile Include="CommandResponse.fs" />
+    <Compile Include="BuildServerWorkspaceLoader.fs" />
     <Compile Include="JsonSerializer.fs" />
     <Compile Include="LspHelpers.fsi" />
     <Compile Include="LspHelpers.fs" />
@@ -49,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Core\FsAutoComplete.Core.fsproj" />
+    <ProjectReference Include="..\FsAutoComplete.BuildServerProtocol\FsAutoComplete.BuildServerProtocol.fsproj" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(PackAsTool)' == 'true' ">
     <AssemblyName>fsautocomplete</AssemblyName>
