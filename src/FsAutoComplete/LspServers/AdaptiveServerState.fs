@@ -157,28 +157,12 @@ type FindFirstProject() =
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
 module TestProjectHelpers =
-  let tryGetWorkspaceProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) =
-    match workspace with
-    | WorkspaceChosen.NotChosen -> Error "No workspace loaded. Can't discover tests"
-    | WorkspaceChosen.Projs projectPaths ->
-      projectPaths
-      |> List.ofSeq
-      |> List.map string
-      |> workspaceLoader.LoadProjects
-      |> Ok
-
   let isTestProject (project: Types.ProjectOptions) =
     let testProjectIndicators =
       set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
 
     project.PackageReferences
     |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
-
-  let tryGetTestProjects (workspaceLoader: IWorkspaceLoader) (workspace: WorkspaceChosen) =
-    result {
-      let! projects = tryGetWorkspaceProjects workspaceLoader workspace
-      return projects |> List.ofSeq |> List.filter isTestProject
-    }
 
 type AdaptiveState
   (
@@ -2596,7 +2580,11 @@ type AdaptiveState
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
 
-      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
+      let! projects = projectOptions |> AsyncAVal.forceAsync
+
+      let testProjects =
+        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
       if testProjects |> List.isEmpty then
@@ -2653,7 +2641,11 @@ type AdaptiveState
   member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
     asyncResult {
       let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
-      let! testProjects = TestProjectHelpers.tryGetTestProjects workspaceLoader state.WorkspacePaths
+
+      let! projects = projectOptions |> AsyncAVal.forceAsync
+
+      let testProjects =
+        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
 
       let filteredTestProjects =
         match limitToProjects with
