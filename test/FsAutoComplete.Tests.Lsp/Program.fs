@@ -12,6 +12,9 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
+open FsAutoComplete.Tests.FileSystem
+open FsAutoComplete.Tests.UntypedAstUtils
+open FsAutoComplete.Tests.UnionPatternMatchCaseGenerator
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
@@ -145,6 +148,21 @@ let generalTests = testList "general" [
   UtilsTests.allTests
   InlayHintTests.explicitTypeInfoTests sourceTextFactory
   FindReferences.tryFixupRangeTests sourceTextFactory
+  // New test modules for core functionality
+  fileModuleTests
+  positionExtensionTests
+  rangeExtensionTests
+  moduleAccessibilityTests
+  syntaxActivePatternsTests
+  syntaxCollectorTests
+  untypedAstUtilsTests
+  rangeCollectorTests
+  moduleIntegrationTests
+  patternMatchExprTests
+  unionMatchCasesInsertionParamsTests
+  edgeCaseTests
+  positionIntegrationTests
+  typeSystemTests
 ]
 
 [<Tests>]
