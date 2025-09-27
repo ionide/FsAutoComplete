@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.79.0] - 2025-09-27
+## [0.79.1] - 2025-09-27
 
 ### Added
 - [Test Explorer Support via VSTest](https://github.com/ionide/FsAutoComplete/pull/1383) (thanks @farlee2121!)
