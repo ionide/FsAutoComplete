@@ -261,3 +261,8 @@ module CommandResponse =
   val compile: serialize: Serializer -> errors: #FSharpDiagnostic array * code: int -> string
   val fsharpLiterate: serialize: Serializer -> content: string -> string
   val pipelineHint: serialize: Serializer -> content: (int * int option * string list)[] -> string
+
+  type DiscoverTestsResponse = TestServer.TestItem list
+
+  val discoverTests: serialize: Serializer -> content: DiscoverTestsResponse -> string
+  val runTests: serialize: Serializer -> content: TestServer.TestResult list -> string

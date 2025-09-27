@@ -32,6 +32,9 @@ type FSharpLspClient =
   member NotifyFileParsed: p: PlainNotification -> Async<unit>
   member NotifyDocumentAnalyzed: p: DocumentAnalyzedNotification -> Async<unit>
   member NotifyTestDetected: p: TestDetectedNotification -> Async<unit>
+  member NotifyTestDiscoveryUpdate: p: TestDiscoveryUpdateNotification -> Async<unit>
+  member NotifyTestRunUpdate: p: TestRunProgress -> Async<unit>
+  member AttachDebuggerForTestRun: processId: int -> AsyncLspResult<bool>
   member CodeLensRefresh: unit -> Async<unit>
   override WindowWorkDoneProgressCreate: WorkDoneProgressCreateParams -> AsyncLspResult<unit>
   member Progress: ProgressToken * 'Progress -> Async<unit>

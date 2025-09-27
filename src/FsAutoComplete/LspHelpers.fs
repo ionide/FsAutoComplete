@@ -613,6 +613,22 @@ type TestDetectedNotification =
   { File: string
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
+type TestRunRequest =
+  { LimitToProjects: FilePath list option
+    TestCaseFilter: string option
+    AttachDebugger: bool }
+
+type TestLogMessage = { Level: string; Message: string }
+
+type TestDiscoveryUpdateNotification =
+  { Tests: TestServer.TestItem array
+    TestLogs: TestLogMessage array }
+
+type TestRunProgress =
+  { TestLogs: TestLogMessage array
+    TestResults: TestServer.TestResult array
+    ActiveTests: TestServer.TestItem array }
+
 type ProjectParms =
   {
     /// Project file to compile

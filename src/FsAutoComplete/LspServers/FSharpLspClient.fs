@@ -62,6 +62,17 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member __.NotifyTestDetected(p: TestDetectedNotification) =
     sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
 
+  member __.NotifyTestDiscoveryUpdate(p: TestDiscoveryUpdateNotification) =
+    sendServerNotification "test/testDiscoveryUpdate" (box { Content = JsonSerializer.writeJson p })
+    |> Async.Ignore
+
+  member __.NotifyTestRunUpdate(p: TestRunProgress) =
+    sendServerNotification "test/testRunProgressUpdate" (box { Content = JsonSerializer.writeJson p })
+    |> Async.Ignore
+
+  member __.AttachDebuggerForTestRun(processId: int) : AsyncLspResult<bool> =
+    sendServerRequest.Send "test/processWaitingForDebugger" (box { Content = string processId })
+
   member x.CodeLensRefresh() =
     match x.ClientCapabilities with
     | Some { Workspace = Some { CodeLens = Some { RefreshSupport = Some true } } } ->

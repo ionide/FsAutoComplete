@@ -1,0 +1,2 @@
+# SampleTestProjects aren't managed with paket
+# This is here to prevent the FsAutoComplete paket from trying manage sample project dependencies

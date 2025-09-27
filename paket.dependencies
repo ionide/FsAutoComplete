@@ -44,6 +44,7 @@ nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true
 
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
+nuget Expecto ~> 10
 nuget Expecto.Diff
 nuget YoloDev.Expecto.TestSdk
 nuget AltCover
@@ -58,3 +59,8 @@ nuget CommunityToolkit.HighPerformance
 nuget System.Security.Cryptography.Pkcs
 nuget System.Net.Http
 nuget System.Text.RegularExpressions
+
+
+## Test Explorer
+nuget Microsoft.TestPlatform.TranslationLayer
+nuget Microsoft.TestPlatform.ObjectModel
