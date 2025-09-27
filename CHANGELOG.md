@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.0] - 2025-09-27
+
+### Added
+- [Test Explorer Support via VSTest](https://github.com/ionide/FsAutoComplete/pull/1383) (thanks @farlee2121!)
+- [add warnon to the list of hash directives](https://github.com/ionide/FsAutoComplete/pull/1416) (thanks @Martin521!)
+- [Add Logging to FSharp.Analyzer.SDK](https://github.com/ionide/FsAutoComplete/pull/1413) (thanks @TheAngryByrd!)
+
 ## [0.78.5] - 2025-08-02
 
 ### Changed
