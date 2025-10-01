@@ -2218,13 +2218,26 @@ type AdaptiveFSharpLspServer
             // Get all symbol uses in the entire file
             let allSymbolUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
 
-            // Filter to symbol uses within the function body that are not definitions
+            // Filter to symbol uses within the function body, focusing only on calls
             let bodySymbolUses =
               allSymbolUses
               |> Seq.filter (fun su ->
                 Range.rangeContainsRange bindingRange su.Range
                 && not su.IsFromDefinition
-                && su.Range.Start <> pos)
+                && su.Range.Start <> pos
+                // Filter to only include actual function/method calls, not parameter references or type annotations
+                && match su.Symbol with
+                   | :? FSharpMemberOrFunctionOrValue as mfv ->
+                     // Include functions, methods, constructors but be careful with parameters vs calls
+                     mfv.IsFunction
+                     || mfv.IsMethod
+                     || mfv.IsConstructor
+                     || (mfv.IsProperty
+                         && not (mfv.LogicalName.Contains("get_") || mfv.LogicalName.Contains("set_")))
+                   | :? FSharpEntity as ent ->
+                     // Include entities only if used as constructors (when they appear in expressions)
+                     ent.IsClass || ent.IsFSharpRecord || ent.IsFSharpUnion
+                   | _ -> false)
               |> Seq.toArray
 
             // Group symbol uses by the called symbol
