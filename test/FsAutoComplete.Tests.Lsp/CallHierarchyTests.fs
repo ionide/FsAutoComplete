@@ -199,6 +199,137 @@ let outgoingTests createServer =
           (callNames
            |> Array.exists (fun name -> name.Contains("map") || name.Contains("filter")))
           "Should find higher-order function calls"
+      }
+
+      testCaseAsync "RecursiveExample1 - Simple recursion and mutual recursion"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "RecursiveExample1.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from factorial function (line 3, on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 3u 10u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "factorial" "Should find factorial function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find recursive call to factorial itself
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "factorial" "Should find recursive call to itself"
+      }
+
+      testCaseAsync "RecursiveExample1 - Mutual recursion calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "RecursiveExample1.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from isEven function (line 8, on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 8u 10u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "isEven" "Should find isEven function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find call to isOdd (mutual recursion)
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "isOdd" "Should find mutual recursive call to isOdd"
+      }
+
+
+
+      testCaseAsync "RecursiveExample2 - Tree traversal with recursion"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "RecursiveExample2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from sumTree function (line 5, on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 5u 10u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "sumTree" "Should find sumTree function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to List.fold, List.map, and recursive sumTree
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "sumTree" "Should find recursive call to sumTree"
+      // Note: List.fold and List.map might not be detected depending on F# compiler service behavior
+      }
+
+      testCaseAsync "RecursiveExample3 - Async recursive patterns"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "RecursiveExample3.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from asyncFactorial function (line 3, on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 3u 10u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "asyncFactorial" "Should find asyncFactorial function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find recursive call to asyncFactorial itself
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "asyncFactorial" "Should find recursive call to asyncFactorial"
       } ])
 
 let tests createServer =
