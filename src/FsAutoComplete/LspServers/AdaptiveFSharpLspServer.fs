@@ -2182,7 +2182,133 @@ type AdaptiveFSharpLspServer
 
       }
 
+    override x.CallHierarchyOutgoingCalls(p: CallHierarchyOutgoingCallsParams) =
+      asyncResult {
+        // OutgoingCalls finds all functions/methods called FROM the current symbol
+        let tags = [ "CallHierarchyOutgoingCalls", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
+        try
+          logger.info (
+            Log.setMessage "CallHierarchyOutgoingCalls Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          // let! _volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
+          let! parseResults = state.GetParseResults filePath |> AsyncResult.ofStringErr
+
+          // Find the binding that contains our position
+          let containingBinding =
+            (pos, parseResults.ParseTree)
+            ||> ParsedInput.tryPickLast (fun _path node ->
+              match node with
+              | SyntaxNode.SynBinding(SynBinding(headPat = _pat; expr = expr) as binding) when
+                Range.rangeContainsPos binding.RangeOfBindingWithRhs pos
+                ->
+                Some(binding.RangeOfBindingWithRhs, expr)
+              | _ -> None)
+
+          match containingBinding with
+          | None -> return Some [||]
+          | Some(bindingRange, _bodyExpr) ->
+
+            // Get all symbol uses in the entire file
+            let allSymbolUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
+
+            // Filter to symbol uses within the function body that are not definitions
+            let bodySymbolUses =
+              allSymbolUses
+              |> Seq.filter (fun su ->
+                Range.rangeContainsRange bindingRange su.Range
+                && not su.IsFromDefinition
+                && su.Range.Start <> pos)
+              |> Seq.toArray
+
+            // Group symbol uses by the called symbol
+            let groupedBySymbol = bodySymbolUses |> Array.groupBy (fun su -> su.Symbol.FullName)
+
+            let createOutgoingCallItem (_symbolName: string, uses: FSharp.Compiler.CodeAnalysis.FSharpSymbolUse[]) =
+              asyncOption {
+                if uses.Length = 0 then
+                  do! None
+
+                let representativeUse = uses.[0]
+                let symbol = representativeUse.Symbol
+
+                // Convert the ranges where this symbol is called
+                let fromRanges = uses |> Array.map (fun u -> fcsRangeToLsp u.Range)
+
+                // Determine the target file and location
+                let! targetLocation =
+                  match symbol.DeclarationLocation with
+                  | Some declLoc ->
+                    let targetFile = declLoc.FileName |> Utils.normalizePath
+                    let targetUri = Path.LocalPathToUri targetFile
+
+                    // Get symbol kind
+                    let symbolKind =
+                      match symbol with
+                      | :? FSharpMemberOrFunctionOrValue as mfv ->
+                        if mfv.IsConstructor then SymbolKind.Constructor
+                        elif mfv.IsProperty then SymbolKind.Property
+                        elif mfv.IsMethod then SymbolKind.Method
+                        else SymbolKind.Function
+                      | :? FSharpEntity as ent ->
+                        if ent.IsClass then SymbolKind.Class
+                        elif ent.IsInterface then SymbolKind.Interface
+                        elif ent.IsFSharpModule then SymbolKind.Module
+                        else SymbolKind.Object
+                      | _ -> SymbolKind.Function
+
+                    let displayName = symbol.DisplayName
+                    let detail = sprintf $"In {System.IO.Path.GetFileName(UMX.untag targetFile)}"
+
+                    Some
+                      { CallHierarchyItem.Name = displayName
+                        Kind = symbolKind
+                        Tags = None
+                        Detail = Some detail
+                        Uri = targetUri
+                        Range = fcsRangeToLsp declLoc
+                        SelectionRange = fcsRangeToLsp declLoc
+                        Data = None }
+                  | None ->
+                    // Symbol without declaration location (e.g., built-in functions)
+                    Some
+                      { CallHierarchyItem.Name = symbol.DisplayName
+                        Kind = SymbolKind.Function
+                        Tags = None
+                        Detail = Some "Built-in"
+                        Uri = p.Item.Uri // Use current file as fallback
+                        Range = p.Item.Range
+                        SelectionRange = p.Item.SelectionRange
+                        Data = None }
+
+                return
+                  { CallHierarchyOutgoingCall.To = targetLocation
+                    FromRanges = fromRanges }
+              }
+
+            let! outgoingCalls =
+              groupedBySymbol
+              |> Array.map createOutgoingCallItem
+              |> Async.parallel75
+              |> Async.map (Array.choose id)
+
+            return Some outgoingCalls
+
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "CallHierarchyOutgoingCalls Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
 
     override x.TextDocumentPrepareCallHierarchy(p: CallHierarchyPrepareParams) =
       asyncResult {
@@ -3128,11 +3254,6 @@ type AdaptiveFSharpLspServer
 
         return ()
       }
-
-    member this.CallHierarchyOutgoingCalls
-      (_arg1: CallHierarchyOutgoingCallsParams)
-      : AsyncLspResult<CallHierarchyOutgoingCall array option> =
-      AsyncLspResult.notImplemented
 
     member this.CancelRequest(_arg1: CancelParams) : Async<unit> = ignoreNotification
     member this.NotebookDocumentDidChange(_arg1: DidChangeNotebookDocumentParams) : Async<unit> = ignoreNotification

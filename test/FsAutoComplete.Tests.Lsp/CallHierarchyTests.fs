@@ -15,6 +15,7 @@ open Ionide.LanguageServerProtocol.Types
 
 let examples = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CallHierarchy")
 let incomingExamples = Path.Combine(examples, "IncomingCalls")
+let outgoingExamples = Path.Combine(examples, "OutgoingCalls")
 let sourceFactory: ISourceTextFactory = RoslynSourceTextFactory()
 
 let resultGet =
@@ -97,4 +98,105 @@ let incomingTests createServer =
       } ])
 
 
-let tests createServer = testList "CallHierarchy" [ incomingTests createServer ]
+let outgoingTests createServer =
+  serverTestList "OutgoingTests" createServer defaultConfigDto (Some outgoingExamples) (fun server ->
+    [ testCaseAsync "Example1 - Simple function calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "Example1.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from mainFunction (line 8, character 8)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 8u 8u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "mainFunction" "Should find mainFunction"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+        
+        // Should find calls to: helper, calculate, printfn
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "helper" "Should find call to helper"
+        Expect.contains callNames "calculate" "Should find call to calculate"
+      }
+      
+      testCaseAsync "Example2 - Method and constructor calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "Example2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from complexFunction (line 12, character 8)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 11u 8u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "complexFunction" "Should find complexFunction"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+        
+        // Should find calls to: Calculator constructor, Add methods, Multiply methods, createPerson
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "createPerson" "Should find call to createPerson"
+      }
+      
+      testCaseAsync "Example3 - System calls and higher-order functions"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "Example3.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from processData (line 7, character 8)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 6u 8u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "processData" "Should find processData"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+        
+        // Should find calls to various system and List functions
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        // Note: Some system calls might not be found depending on F# compiler service behavior
+        Expect.isTrue (callNames |> Array.exists (fun name -> name.Contains("map") || name.Contains("filter"))) 
+                     "Should find higher-order function calls"
+      } ])
+
+let tests createServer = testList "CallHierarchy" [ incomingTests createServer; outgoingTests createServer ]
