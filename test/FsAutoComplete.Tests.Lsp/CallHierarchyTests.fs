@@ -239,8 +239,8 @@ let outgoingTests createServer =
         use aDoc = aDoc
         let! server = server
 
-        // Test outgoing calls from isEven function (line 8, on function name)
-        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 8u 10u
+        // Test outgoing calls from isEven function (line 7, 0-based is 6, position on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 6u 10u
 
         let! prepareResult =
           server.Server.TextDocumentPrepareCallHierarchy prepareParams
@@ -338,8 +338,8 @@ let outgoingTests createServer =
         use aDoc = aDoc
         let! server = server
 
-        // Test from entryPoint (line 28, most nested function)
-        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 28u 4u
+        // Test from entryPoint (line 27, 0-based is 26, position on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 26u 4u
 
         let! prepareResult =
           server.Server.TextDocumentPrepareCallHierarchy prepareParams
@@ -407,8 +407,8 @@ let outgoingTests createServer =
         use aDoc = aDoc
         let! server = server
 
-        // Test branching from complexLevel2 (line 23)
-        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 23u 4u
+        // Test branching from complexLevel2 (line 22, 0-based is 21, position on function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 21u 4u
 
         let! prepareResult =
           server.Server.TextDocumentPrepareCallHierarchy prepareParams
@@ -461,8 +461,8 @@ let outgoingTests createServer =
         use aDoc = aDoc
         let! server = server
 
-        // Start from topLevelEntry (line 12, 0-based indexing)
-        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 12u 8u
+        // Start from topLevelEntry (line 10, 0-based is 9)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 9u 4u
 
         let! prepareResult =
           server.Server.TextDocumentPrepareCallHierarchy prepareParams
