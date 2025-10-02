@@ -2196,7 +2196,6 @@ type AdaptiveFSharpLspServer
 
           let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
           let pos = protocolPosToPos p.Item.SelectionRange.Start
-          // let! _volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
           let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
           let! parseResults = state.GetParseResults filePath |> AsyncResult.ofStringErr
 
@@ -2277,7 +2276,7 @@ type AdaptiveFSharpLspServer
                       | _ -> SymbolKind.Function
 
                     let displayName = symbol.DisplayName
-                    let detail = sprintf $"In {System.IO.Path.GetFileName(UMX.untag targetFile)}"
+                    let detail = $"In {System.IO.Path.GetFileName(UMX.untag targetFile)}"
 
                     Some
                       { CallHierarchyItem.Name = displayName
