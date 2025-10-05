@@ -1150,7 +1150,8 @@ module Commands =
       pt,
       tast,
       checkFileResults: FSharpCheckFileResults,
-      projectOptions: AnalyzerProjectOptions
+      projectOptions: AnalyzerProjectOptions,
+      analyzerPredicate
     ) =
     let ctx: SDK.EditorContext =
       { FileName = UMX.untag file
@@ -1185,7 +1186,8 @@ module Commands =
 
     async {
       try
-        let! r = client.RunAnalyzersSafely ctx
+        let! r = client.RunAnalyzersSafely(ctx, analyzerPredicate)
+
         return r |> List.collect extractResultsFromAnalyzer |> List.toArray
       with ex ->
         Loggers.analyzers.error (

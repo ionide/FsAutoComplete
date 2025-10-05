@@ -69,7 +69,7 @@ type AdaptiveState =
   member GetProjectOptionsForFile: filePath: string<LocalPath> -> Async<Result<CompilerProjectOption, string>>
 
   member GetTypeCheckResultsForFile:
-    filePath: string<LocalPath> * opts: CompilerProjectOption -> Async<Result<ParseAndCheckResults, string>>
+    filePath: string<LocalPath> * opts: LoadedProject -> Async<Result<ParseAndCheckResults, string>>
 
   member GetTypeCheckResultsForFile: filePath: string<LocalPath> -> Async<Result<ParseAndCheckResults, string>>
   member GetFilesToProject: unit -> Async<(string<LocalPath> * LoadedProject) array>
