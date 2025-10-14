@@ -949,7 +949,13 @@ module AsyncAValExtensions =
       let last = ref ValueNone
 
       let sub =
-        value.AddMarkingCallback(fun () ->
+        let cb =
+          if weak then
+            value.AddWeakMarkingCallback
+          else
+            value.AddMarkingCallback
+
+        cb (fun () ->
           let t = Transaction.Running.Value
 
           t.AddFinalizer(fun () ->
