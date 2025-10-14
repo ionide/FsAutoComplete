@@ -248,23 +248,41 @@ type AdaptiveState
     )
 
   /// <summary>Loads F# Analyzers from the configured directories</summary>
-  /// <param name="config">The FSharpConfig</param>
-  /// <param name="rootPath">The RootPath</param>
-  /// <param name="options">The loaded projects</param>
-  /// <returns></returns>
-  let loadAnalyzers (config: FSharpConfig) (rootPath: string option) (options: LoadedProject list) =
+  let loadAnalyzers
+
+    (enableAnalyzers: bool)
+    (includeAnalyzers: string array)
+    (excludeAnalyzers: string array)
+    (analyzerPaths: string array)
+    (options: LoadedProject list)
+    =
 
 
-    if config.EnableAnalyzers then
+    if enableAnalyzers then
       let mutable assemblyLoadStats =
         { AnalyzerAssemblies = 0
           Analyzers = 0
           FailedAssemblies = 0 }
 
+      let excludeInclude =
+        match excludeAnalyzers, includeAnalyzers with
+        | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.ExcludeFilter(fun (s: string) -> Array.contains s e)
+        | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
+        | _e, i ->
+          Loggers.analyzers.warn (
+            Log.setMessage
+              "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
+          )
+
+          FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
+
       for opt in options do
         for analyzer in opt.ProjectOptions.Analyzers do
 
-          Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {analyzer:dir}")
+          Loggers.analyzers.info (
+            Log.setMessageI $"Loading analyzer {analyzer:dir} from {opt.ProjectFileName:projectName}"
+          )
+
           let stats = analyzersClient.LoadAnalyzers(analyzer.DllRootPath)
 
           assemblyLoadStats <-
@@ -272,72 +290,26 @@ type AdaptiveState
               Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
               FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
 
+
+      analyzerPaths
+      |> Array.iter (fun analyzerPath ->
+        Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {analyzerPath:dir}")
+        let stats = analyzersClient.LoadAnalyzers(analyzerPath, excludeInclude)
+
+        assemblyLoadStats <-
+          { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
+            Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
+            FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
+
+      )
+
       Loggers.analyzers.info (
         Log.setMessageI
           $"{assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers with {assemblyLoadStats.FailedAssemblies:failedAssemblies} failed assemblies"
       )
-
-
     else
       Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
 
-
-
-  // (assemblyLoadStats, options)
-  // ||> List.fold(fun stats opt ->
-  //   opt.ProjectOptions.Analyzers
-  //   |>
-  // )
-
-  // Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
-  // let assemblyLoadStats = analyzersClient.LoadAnalyzers(dir, excludeInclude)
-
-  // Loggers.analyzers.info (
-  //   Log.setMessageI
-  //     $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers with {assemblyLoadStats.FailedAssemblies:failedAssemblies} failed assemblies"
-  // )
-
-
-  // if config.EnableAnalyzers then
-  //   Loggers.analyzers.info (Log.setMessageI $"Using analyzer roots of {config.AnalyzersPath:roots}")
-
-  //   let excludeInclude =
-  //     match config.ExcludeAnalyzers, config.IncludeAnalyzers with
-  //     | e, [||] -> FSharp.Analyzers.SDK.ExcludeInclude.ExcludeFilter(fun (s: string) -> Array.contains s e)
-  //     | [||], i -> FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
-  //     | _e, i ->
-  //       Loggers.analyzers.warn (
-  //         Log.setMessage
-  //           "--exclude-analyzers and --include-analyzers are mutually exclusive, ignoring --exclude-analyzers"
-  //       )
-
-  //       FSharp.Analyzers.SDK.ExcludeInclude.IncludeFilter(fun (s: string) -> Array.contains s i)
-
-  //   config.AnalyzersPath
-  //   |> Array.iter (fun analyzerPath ->
-  //     match rootPath with
-  //     | None -> ()
-  //     | Some workspacePath ->
-  //       let dir =
-  //         if
-  //           System.IO.Path.IsPathRooted analyzerPath
-  //         // if analyzer is using absolute path, use it as is
-  //         then
-  //           analyzerPath
-  //         // otherwise, it is a relative path and should be combined with the workspace path
-  //         else
-  //           System.IO.Path.Combine(workspacePath, analyzerPath)
-
-  //       Loggers.analyzers.info (Log.setMessageI $"Loading analyzers from {dir:dir}")
-  //       let assemblyLoadStats = analyzersClient.LoadAnalyzers(dir, excludeInclude)
-
-  //       Loggers.analyzers.info (
-  //         Log.setMessageI
-  //           $"From {analyzerPath:name}: {assemblyLoadStats.AnalyzerAssemblies:dllNo} dlls including {assemblyLoadStats.Analyzers:analyzersNo} analyzers with {assemblyLoadStats.FailedAssemblies:failedAssemblies} failed assemblies"
-  //       ))
-
-  // else
-  //   Loggers.analyzers.info (Log.setMessage "Analyzers disabled")
 
   /// <summary></summary>
   /// <param name="checker">the FSharpCompilerServiceChecker</param>
@@ -411,8 +383,6 @@ type AdaptiveState
 
   let fileParsed =
     Event<FSharpParseFileResults * CompilerProjectOption * CancellationToken>()
-
-
 
   let fileChecked = Event<FileHasBeenChecked>()
 
@@ -592,6 +562,7 @@ type AdaptiveState
 
   let runAnalyzers
     (config: FSharpConfig)
+    (analyzerPaths: string array)
     (parseAndCheck: ParseAndCheckResults)
     (volatileFile: VolatileFile)
     (options: LoadedProject)
@@ -615,14 +586,19 @@ type AdaptiveState
             | CompilerProjectOption.BackgroundCompiler po -> AnalyzerProjectOptions.BackgroundCompilerOptions po
             | CompilerProjectOption.TransparentCompiler po -> AnalyzerProjectOptions.TransparentCompilerOptions po
 
-
-
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
 
             let analyzerPredicate (analyzer: FSharp.Analyzers.SDK.Client.RegisteredAnalyzer<EditorContext>) =
-              options.ProjectOptions.Analyzers
-              |> List.exists (fun a -> a.DllRootPath = IO.Path.GetDirectoryName analyzer.AssemblyPath)
+              let inline inMainAnalyzer () =
+                analyzerPaths
+                |> Array.exists (fun p -> p = IO.Path.GetDirectoryName analyzer.AssemblyPath)
+
+              let inline inPackageReference () =
+                options.ProjectOptions.Analyzers
+                |> List.exists (fun a -> a.DllRootPath = IO.Path.GetDirectoryName analyzer.AssemblyPath)
+
+              inMainAnalyzer () || inPackageReference ()
 
 
             let! res =
@@ -650,26 +626,6 @@ type AdaptiveState
           Loggers.analyzers.error (Log.setMessageI $"Run failed for {file:file}" >> Log.addExn ex)
     }
 
-  do
-    disposables.Add
-    <| fileChecked.Publish.Subscribe(fun (checkedFile) ->
-      if checkedFile.VolatileFile.Source.Length = 0 then
-        () // Don't analyze and error on an empty file
-      else
-        async {
-          let config = config |> AVal.force
-          do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
-
-          do!
-            runAnalyzers
-              config
-              checkedFile.ParseAndCheckResults
-              checkedFile.VolatileFile
-              checkedFile.Options
-              checkedFile.CompilerOptions
-
-        }
-        |> Async.StartWithCT checkedFile.CancellationToken)
 
 
   let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
@@ -1265,23 +1221,69 @@ type AdaptiveState
 
     }
 
+  let analyzerPaths =
+    aval {
+      let! rootPath = rootPath
+      and! analyzerPaths = config |> AVal.map (fun c -> c.AnalyzersPath)
+
+      return
+        analyzerPaths
+        |> Array.choose (fun analyzerPath ->
+          rootPath
+          |> Option.map (fun workspacePath ->
+
+            if
+              System.IO.Path.IsPathRooted analyzerPath
+            // if analyzer is using absolute path, use it as is
+            then
+              analyzerPath
+            // otherwise, it is a relative path and should be combined with the workspace path
+            else
+              System.IO.Path.Combine(workspacePath, analyzerPath)))
+    }
+
   let analyzersConfigChanges =
     asyncAVal {
-      let! config = config
-      and! rootPath = rootPath
+      let! enableAnalyzers = config |> AVal.map (fun c -> c.EnableAnalyzers)
+      and! includeAnalyzers = config |> AVal.map (fun c -> c.IncludeAnalyzers)
+      and! excludeAnalyzers = config |> AVal.map (fun c -> c.ExcludeAnalyzers)
+      and! analyzerPaths = analyzerPaths
       and! loadedProjects = getAllLoadedProjects
 
-      return config, rootPath, loadedProjects
+      return enableAnalyzers, includeAnalyzers, excludeAnalyzers, analyzerPaths, loadedProjects
     }
 
   do
     analyzersConfigChanges.AddCallback(
       true,
-      fun (config, rootPath, loadedProjects) -> async { loadAnalyzers config rootPath loadedProjects }
-    // |> Observable.subscribe (fun (config, rootPath, options) -> loadAnalyzers config rootPath options
-
+      fun (enableAnalyzers, includeAnalyzers, excludeAnalyzers, analyzerPaths, loadedProjects) ->
+        async { loadAnalyzers enableAnalyzers includeAnalyzers excludeAnalyzers analyzerPaths loadedProjects }
     )
     |> disposables.Add
+
+
+  do
+    disposables.Add
+    <| fileChecked.Publish.Subscribe(fun (checkedFile) ->
+      if checkedFile.VolatileFile.Source.Length = 0 then
+        () // Don't analyze and error on an empty file
+      else
+        async {
+          let config = config |> AVal.force
+          let analyzerPaths = analyzerPaths |> AVal.force
+          do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
+
+          do!
+            runAnalyzers
+              config
+              analyzerPaths
+              checkedFile.ParseAndCheckResults
+              checkedFile.VolatileFile
+              checkedFile.Options
+              checkedFile.CompilerOptions
+
+        }
+        |> Async.StartWithCT checkedFile.CancellationToken)
 
 
 
