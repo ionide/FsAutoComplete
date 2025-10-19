@@ -937,3 +937,52 @@ module AdaptiveFile =
       ()
 
     AdaptiveFile.GetLastWriteTimeUtc path
+
+
+[<AutoOpen>]
+module AsyncAValExtensions =
+  type asyncaval<'T> with
+    /// Adds a disposable callback to the aval that will be executed whenever the
+    /// avals value changed.
+    member value.AddCallback(weak: bool, action: 'T -> Async<unit>) : IDisposable =
+
+      let last = ref ValueNone
+
+      let sub =
+        let cb =
+          if weak then
+            value.AddWeakMarkingCallback
+          else
+            value.AddMarkingCallback
+
+        cb (fun () ->
+          let t = Transaction.Running.Value
+
+          t.AddFinalizer(fun () ->
+            async {
+              let! v = AsyncAVal.forceAsync value
+
+              match last.Value with
+              | ValueSome o when DefaultEquality.equals o v -> ()
+              | _ ->
+                last.Value <- ValueSome v
+                do! action v
+            }
+            |> Async.StartImmediate))
+
+      match Transaction.Running with
+      | ValueSome t ->
+        t.AddFinalizer(fun () ->
+          async {
+            let! v = value |> AsyncAVal.forceAsync
+            do! action v
+          }
+          |> Async.StartImmediate)
+      | ValueNone ->
+        async {
+          let! v = value |> AsyncAVal.forceAsync
+          do! action v
+        }
+        |> Async.StartImmediate
+
+      sub

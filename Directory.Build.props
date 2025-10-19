@@ -11,7 +11,9 @@
     <WarnOn Condition="'$(Configuration)' != 'Debug'">$(WarnOn);1182</WarnOn> <!-- Unused
     variables,https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-options#opt-in-warnings -->
     <NoWarn>$(NoWarn);FS0044</NoWarn>       <!-- Ignore deprecations -->
+    <NoWarn>$(NoWarn);FS3397</NoWarn> <!--  This expression uses unit for an obj-typed argument. This will lead to passing null at runtime -->
     <WarnOn>$(WarnOn);3390</WarnOn><!-- Malformed XML doc comments -->
+
         <!-- Package Reference with no usable assets -->
     <NoWarn>$(NoWarn);NU1701</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

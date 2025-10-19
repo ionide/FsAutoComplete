@@ -418,3 +418,13 @@ module AdaptiveFile =
   /// This will create the directory.
   /// </summary>
   val getLastWriteTimeUtcEnsureDir: path: string -> aval<DateTime>
+
+[<AutoOpen>]
+module AsyncAValExtensions =
+  type asyncaval<'T> with
+
+    /// <summary>
+    /// Adds a disposable callback to the aval that will be executed whenever the
+    /// avals value changed.
+    /// </summary>
+    member AddCallback: weak: bool * action: ('T -> Async<unit>) -> System.IDisposable
