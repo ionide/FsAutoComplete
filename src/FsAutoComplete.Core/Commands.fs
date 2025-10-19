@@ -1160,7 +1160,8 @@ module Commands =
         CheckFileResults = Some checkFileResults
         TypedTree = Some tast
         CheckProjectResults = None
-        ProjectOptions = projectOptions }
+        ProjectOptions = projectOptions
+        AnalyzerIgnoreRanges = Ignore.getAnalyzerIgnoreRanges pt content }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
