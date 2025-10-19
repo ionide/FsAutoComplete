@@ -1,5 +1,13 @@
 # Changelog
 
+
+## [0.80.0] - 2025-10-19
+
+### Added
+- [Allow fsharp analyzers to be loaded from nuget](https://github.com/ionide/FsAutoComplete/pull/1419) (thanks @TheAngryByrd!)
+-  Update FSharp.Analyzers.SDK to `0.33.0`. Checkout the [release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.33.0) for details. 
+    - Notably this adds the ability to ignore analyzers via comments. [See documentation](https://ionide.io/FSharp.Analyzers.SDK/content/getting-started/Ignore%20Analyzer%20Hits.html)]
+
 ## [0.79.2] - 2025-09-27
 
 ### Added
