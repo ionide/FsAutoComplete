@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.80.1] - 2025-10-23
+
+### Fixed
+
+[Fix Analyzer not loading from settings path](https://github.com/ionide/FsAutoComplete/pull/1423) (thanks @TheAngryByrd!)
+
 ## [0.80.0] - 2025-10-19
 
 ### Added
