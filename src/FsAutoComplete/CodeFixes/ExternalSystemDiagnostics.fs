@@ -21,10 +21,18 @@ let private mapExternalDiagnostic diagnosticType =
     | Some fixes ->
       match fixes with
       | Payload(fixes: list<TextEdit>) ->
+        let title =
+          diagnostic.Code
+          |> Option.map (function
+            | U2.C1 n -> n.ToString()
+            | U2.C2 s -> s)
+          |> Option.map (sprintf "Fix %s")
+          |> Option.defaultValue "Fix Issue"
+
         AsyncResult.retn
           [ { SourceDiagnostic = Some diagnostic
               File = codeActionParams.TextDocument
-              Title = $"Fix issue"
+              Title = title
               Edits = fixes |> List.toArray
               Kind = FixKind.Fix } ]
 
