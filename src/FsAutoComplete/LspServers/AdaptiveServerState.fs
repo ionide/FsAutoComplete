@@ -559,6 +559,10 @@ type AdaptiveState
                 Version = version } }
     }
 
+  let tryUriCreate (s: string) =
+    match Uri.TryCreate(s, UriKind.Absolute) with
+    | true, uri -> ValueSome uri
+    | _ -> ValueNone
 
   let runAnalyzers
     (config: FSharpConfig)
@@ -589,19 +593,26 @@ type AdaptiveState
           match parseAndCheck.GetCheckResults.ImplementationFile with
           | Some tast ->
             let analyzerPredicate (analyzer: FSharp.Analyzers.SDK.Client.RegisteredAnalyzer<EditorContext>) =
-              let currentAnalyzerDllPath = Uri(IO.Path.GetFullPathSafe analyzer.AssemblyPath)
+              let currentAnalyzerDllPath =
+                tryUriCreate (IO.Path.GetFullPathSafe analyzer.AssemblyPath)
 
               let inline inMainAnalyzer () =
                 analyzerPaths
                 |> Array.exists (fun p ->
-                  let baseAnalyzerLoadingPath = Uri p
-                  baseAnalyzerLoadingPath.IsBaseOf currentAnalyzerDllPath)
+                  let baseAnalyzerLoadingPath = tryUriCreate p
+
+                  (baseAnalyzerLoadingPath, currentAnalyzerDllPath)
+                  ||> ValueOption.map2 (fun basePath currentPath -> basePath.IsBaseOf currentPath)
+                  |> ValueOption.exists id)
 
               let inline inPackageReference () =
                 options.ProjectOptions.Analyzers
                 |> List.exists (fun a ->
-                  let projectSpecificAnalyzerPath = Uri a.DllRootPath
-                  projectSpecificAnalyzerPath.IsBaseOf currentAnalyzerDllPath)
+                  let projectSpecificAnalyzerPath = tryUriCreate a.DllRootPath
+
+                  (projectSpecificAnalyzerPath, currentAnalyzerDllPath)
+                  ||> ValueOption.map2 (fun basePath currentPath -> basePath.IsBaseOf currentPath)
+                  |> ValueOption.exists id)
 
               inMainAnalyzer () || inPackageReference ()
 
