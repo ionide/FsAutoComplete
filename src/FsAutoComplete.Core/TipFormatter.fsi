@@ -37,6 +37,7 @@ module private Format =
   type private Term = string
   type private Definition = string
 
+  [<Struct>]
   type private ListStyle =
     | Bulleted
     | Numbered
@@ -55,7 +56,7 @@ module private Format =
 
   val applyAll: text: string -> string
 
-[<RequireQualifiedAccess>]
+[<RequireQualifiedAccess; Struct>]
 type FormatCommentStyle =
   | Legacy
   | FullEnhanced

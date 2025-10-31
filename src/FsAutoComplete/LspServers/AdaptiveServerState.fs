@@ -2722,7 +2722,7 @@ type AdaptiveState
           )
 
         return! (Error message)
-      elif testProjectBinaries |> List.filter File.Exists |> List.isEmpty then
+      elif not (testProjectBinaries |> List.exists File.Exists) then
         let message =
           "No binaries found for test projects. Make sure you've built your projects"
 

@@ -50,8 +50,7 @@ let query (queryStr: string) =
         "language", "fsharp"
         "single_letter_as_variable", "enabled"
         "limit", "50" ]
-      |> List.map (fun (k, v) -> k, System.Uri.EscapeDataString(v))
-      |> List.map (fun (k, v) -> sprintf "%s=%s" k v)
+      |> List.map (fun (k, v) -> sprintf "%s=%s" k (System.Uri.EscapeDataString v))
       |> String.concat "&"
 
     let! req =

@@ -886,16 +886,16 @@ module Tracing =
         let activity =
           activitySource.StartActivity(ActivityKind.Server, name = request.Method, tags = tags)
 
-        if activity <> null then
+        if not (isNull activity) then
           activity.TraceStateString <- request.TraceState
 
-          if request.TraceParent <> null then
+          if not (isNull request.TraceParent) then
             activity.SetParentId(request.TraceParent) |> ignore
 
         activity
 
       member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest) : unit =
-        if Activity.Current <> null && Activity.Current.IdFormat = ActivityIdFormat.W3C then
+        if not (isNull Activity.Current) && Activity.Current.IdFormat = ActivityIdFormat.W3C then
           request.TraceParent <- Activity.Current.Id
           request.TraceState <- Activity.Current.TraceStateString
 

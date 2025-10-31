@@ -267,7 +267,7 @@ type FSharpCompilerServiceChecker
           |> Seq.distinctBy (fun o -> o.ProjectFileName)
           |> Seq.filter (fun o ->
             o.ReferencedProjectsPath
-            |> List.map (fun p -> Path.GetFullPath p)
+            |> List.map Path.GetFullPath
             |> List.contains option.ProjectFileName) ])
 
   member private __.GetNetFxScriptSnapshot(file: string<LocalPath>, source) =
