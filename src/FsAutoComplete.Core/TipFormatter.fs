@@ -33,7 +33,7 @@ module private Section =
       content
       |> Seq.map (fun kv ->
         let text =
-          if kv.Value.Contains("\n") then
+          if kv.Value.Contains '\n' then
             kv.Value.Split('\n')
             |> Seq.map (fun line -> "> " + line.TrimStart())
             |> String.concat Environment.NewLine
@@ -453,6 +453,8 @@ module private Format =
       text
 
 
+  let private thsPattern = Regex "<th\s?>"
+
   let private convertTable =
     { TagName = "table"
       Formatter =
@@ -461,7 +463,7 @@ module private Format =
 
         | NonVoidElement(innerText, _) ->
 
-          let rowCount = Regex.Matches(innerText, "<th\s?>").Count
+          let rowCount = thsPattern.Matches(innerText).Count
 
           let convertedTable =
             innerText
@@ -488,6 +490,7 @@ module private Format =
   type private Term = string
   type private Definition = string
 
+  [<Struct>]
   type private ListStyle =
     | Bulleted
     | Numbered
@@ -535,8 +538,10 @@ module private Format =
 
     let tryGetTerm (text: string) = tryGetInnerTextOnNonVoidElement text "term"
 
+    let itmPattern = Regex(tagPattern "item", RegexOptions.IgnoreCase)
+
     let rec extractItemList (res: ItemList list) (text: string) =
-      match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
+      match itmPattern.Match text with
       | m when m.Success ->
         let newText = text.Substring(m.Value.Length)
 
@@ -559,8 +564,10 @@ module private Format =
           extractItemList res newText
       | _ -> res
 
+    let listHeader = Regex(tagPattern "listheader", RegexOptions.IgnoreCase)
+
     let rec extractColumnHeader (res: string list) (text: string) =
-      match Regex.Match(text, tagPattern "listheader", RegexOptions.IgnoreCase) with
+      match listHeader.Match text with
       | m when m.Success ->
         let newText = text.Substring(m.Value.Length)
 
@@ -580,9 +587,10 @@ module private Format =
           extractColumnHeader res newText
       | _ -> res
 
+    let itemPattern = Regex(tagPattern "item", RegexOptions.IgnoreCase)
 
     let rec extractRowsForTable (res: (string list) list) (text: string) =
-      match Regex.Match(text, tagPattern "item", RegexOptions.IgnoreCase) with
+      match itemPattern.Match text with
       | m when m.Success ->
         let newText = text.Substring(m.Value.Length)
 
@@ -707,7 +715,7 @@ module private Format =
     |> handleMicrosoftOrList
     |> unescapeSpecialCharacters
 
-[<RequireQualifiedAccess>]
+[<RequireQualifiedAccess; Struct>]
 type FormatCommentStyle =
   | Legacy
   | FullEnhanced
@@ -907,8 +915,10 @@ let private findLocalizedXmlFile (xmlFile: string) =
 
   findCultures System.Globalization.CultureInfo.CurrentUICulture
   |> List.map (fun culture -> Path.Combine(path, culture, xmlName))
-  |> List.tryFind (fun i -> File.Exists i)
+  |> List.tryFind File.Exists
   |> Option.defaultValue xmlFile
+
+let pPattern = Regex """(<p .*?>)+(.*)(<\/?p>)*"""
 
 let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
@@ -925,9 +935,9 @@ let private getXmlDoc dllFile =
 
   let xmlFile = findLocalizedXmlFile xmlFile
 
-  if xmlDocCache.ContainsKey xmlFile then
-    Some xmlDocCache.[xmlFile]
-  else
+  match xmlDocCache.TryGetValue xmlFile with
+  | true, cachedXmlFile -> Some cachedXmlFile
+  | false, _ ->
     let rec exists filePath tryAgain =
       match File.Exists filePath, tryAgain with
       | true, _ -> Some filePath
@@ -948,7 +958,7 @@ let private getXmlDoc dllFile =
         //Workaround for netstandard xmlDoc
         let cnt =
           if actualXmlFile.Contains "netstandard.xml" then
-            let cnt = Regex.Replace(cnt, """(<p .*?>)+(.*)(<\/?p>)*""", "$2")
+            let cnt = pPattern.Replace(cnt, "$2")
 
             cnt.Replace("<p>", "").Replace("</p>", "").Replace("<br>", "")
           else
@@ -995,7 +1005,7 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
       let rec findIndentationSize (lines: string list) =
         match lines with
         | head :: tail ->
-          let lesserThanIndex = head.IndexOf("<", StringComparison.Ordinal)
+          let lesserThanIndex = head.IndexOf('<', StringComparison.Ordinal)
 
           if lesserThanIndex <> -1 then
             lesserThanIndex
@@ -1012,8 +1022,10 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
 
     | FSharpXmlDoc.FromXmlFile(dllFile, memberName) ->
       match getXmlDoc dllFile with
-      | Some doc when doc.ContainsKey memberName -> TryGetXmlDocMemberResult.Some doc.[memberName]
-
+      | Some doc ->
+        match doc.TryGetValue memberName with
+        | true, docmember -> TryGetXmlDocMemberResult.Some docmember
+        | false, _ -> TryGetXmlDocMemberResult.None
       | _ -> TryGetXmlDocMemberResult.None
 
     | FSharpXmlDoc.None -> TryGetXmlDocMemberResult.None

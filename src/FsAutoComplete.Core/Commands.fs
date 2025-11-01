@@ -728,7 +728,7 @@ module Commands =
               Position.mkPos l indentation
             else
               pos
-          | Pos(_, _) -> pos
+          | Pos _ -> pos
 
         { Namespace = n
           Position = pos

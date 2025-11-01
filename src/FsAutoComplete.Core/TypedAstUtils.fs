@@ -82,7 +82,7 @@ module TypedAstExtensionHelpers =
         match fullName with
         | Some fullName ->
           match Option.attempt (fun _ -> x.DisplayName) with
-          | Some shortDisplayName when not (shortDisplayName.Contains ".") ->
+          | Some shortDisplayName when not (shortDisplayName.Contains '.') ->
             Some(fullName |> Array.replace (fullName.Length - 1) shortDisplayName)
           | _ -> Some fullName
         | None -> None
@@ -171,7 +171,7 @@ module TypedAstExtensionHelpers =
       match fullName with
       | Some fullName ->
         match Option.attempt (fun _ -> x.DisplayName) with
-        | Some shortDisplayName when not (shortDisplayName.Contains ".") ->
+        | Some shortDisplayName when not (shortDisplayName.Contains '.') ->
           Some(fullName |> Array.replace (fullName.Length - 1) shortDisplayName)
         | _ -> Some fullName
       | None -> None

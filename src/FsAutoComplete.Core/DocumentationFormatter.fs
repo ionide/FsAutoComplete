@@ -50,6 +50,8 @@ module DocumentationFormatter =
 
       $"<a href='command:fsharp.showDocumentation?%s{content}'>%s{name}</a>", name.Length
 
+  let tag = Regex """<.*>"""
+
   let rec formatType (displayContext: FSharpDisplayContext) (typ: FSharpType) : string * int =
     let combineParts (parts: (string * int) seq) : string * int =
       // make a single type name out of all of the tuple parts, since each part is correct by construction
@@ -101,7 +103,7 @@ module DocumentationFormatter =
       // we set this context specifically because we want to enforce prefix-generic form on tooltip displays
       let newContext = displayContext.WithPrefixGenericParameters()
       let org = typ.Format newContext
-      let t = Regex.Replace(org, """<.*>""", "<")
+      let t = tag.Replace(org, "<")
 
       [ yield formatShowDocumentationLink t xmlDocSig assemblyName
         if t.EndsWith("<", StringComparison.Ordinal) then
