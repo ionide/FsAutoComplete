@@ -454,6 +454,7 @@ module private Format =
 
 
   let private thsPattern = Regex "<th\s?>"
+
   let private convertTable =
     { TagName = "table"
       Formatter =
@@ -537,7 +538,8 @@ module private Format =
 
     let tryGetTerm (text: string) = tryGetInnerTextOnNonVoidElement text "term"
 
-    let itmPattern = Regex (tagPattern "item", RegexOptions.IgnoreCase)
+    let itmPattern = Regex(tagPattern "item", RegexOptions.IgnoreCase)
+
     let rec extractItemList (res: ItemList list) (text: string) =
       match itmPattern.Match text with
       | m when m.Success ->
@@ -562,7 +564,8 @@ module private Format =
           extractItemList res newText
       | _ -> res
 
-    let listHeader = Regex (tagPattern "listheader", RegexOptions.IgnoreCase)
+    let listHeader = Regex(tagPattern "listheader", RegexOptions.IgnoreCase)
+
     let rec extractColumnHeader (res: string list) (text: string) =
       match listHeader.Match text with
       | m when m.Success ->
@@ -585,6 +588,7 @@ module private Format =
       | _ -> res
 
     let itemPattern = Regex(tagPattern "item", RegexOptions.IgnoreCase)
+
     let rec extractRowsForTable (res: (string list) list) (text: string) =
       match itemPattern.Match text with
       | m when m.Success ->
@@ -915,6 +919,7 @@ let private findLocalizedXmlFile (xmlFile: string) =
   |> Option.defaultValue xmlFile
 
 let pPattern = Regex """(<p .*?>)+(.*)(<\/?p>)*"""
+
 let private getXmlDoc dllFile =
   let xmlFile = Path.ChangeExtension(dllFile, ".xml")
   //Workaround for netstandard.dll

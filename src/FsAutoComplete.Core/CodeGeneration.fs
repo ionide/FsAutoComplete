@@ -672,7 +672,7 @@ module CodeGenerationUtils =
     // This rule match when we are at the end of the namespace and there is no more tokens
     // interface System.Collections.ICollection
     //                              ^
-    | potentialDot :: [validIdentifier] when
+    | potentialDot :: [ validIdentifier ] when
       potentialDot.CharClass = FSharpTokenCharKind.Delimiter
       && potentialDot.TokenName = "DOT"
       && validIdentifier.CharClass = FSharpTokenCharKind.Identifier

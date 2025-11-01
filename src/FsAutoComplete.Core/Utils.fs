@@ -895,7 +895,10 @@ module Tracing =
         activity
 
       member this.ApplyOutboundActivity(request: Protocol.JsonRpcRequest) : unit =
-        if not (isNull Activity.Current) && Activity.Current.IdFormat = ActivityIdFormat.W3C then
+        if
+          not (isNull Activity.Current)
+          && Activity.Current.IdFormat = ActivityIdFormat.W3C
+        then
           request.TraceParent <- Activity.Current.Id
           request.TraceState <- Activity.Current.TraceStateString
 

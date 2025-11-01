@@ -51,6 +51,7 @@ module DocumentationFormatter =
       $"<a href='command:fsharp.showDocumentation?%s{content}'>%s{name}</a>", name.Length
 
   let tag = Regex """<.*>"""
+
   let rec formatType (displayContext: FSharpDisplayContext) (typ: FSharpType) : string * int =
     let combineParts (parts: (string * int) seq) : string * int =
       // make a single type name out of all of the tuple parts, since each part is correct by construction
