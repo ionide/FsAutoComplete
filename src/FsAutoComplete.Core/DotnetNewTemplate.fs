@@ -118,9 +118,9 @@ module DotnetNewTemplate =
 
             ] } ]
 
-  let isMatch (filterstr: string) (x: string) = x.ToLower().Contains(filterstr.ToLower())
+  let isMatch (filterstr: string) (x: string) = x.Contains(filterstr, StringComparison.OrdinalIgnoreCase)
 
-  let nameMatch (filterstr: string) (x: string) = x.ToLower() = filterstr.ToLower()
+  let nameMatch (filterstr: string) (x: string) = String.Equals(x, filterstr, StringComparison.OrdinalIgnoreCase)
 
   let extractString (t: Template) = [ t.Name; t.ShortName ]
 
