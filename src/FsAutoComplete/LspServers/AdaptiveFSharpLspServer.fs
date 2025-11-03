@@ -359,55 +359,63 @@ type AdaptiveFSharpLspServer
             | None -> None
 
           // Stage 1 & 2: Use workspaceFolders instead of deprecated RootPath/RootUri
-          // Probe all workspace folders for F# code when AutomaticWorkspaceInit is enabled
+          // When AutomaticWorkspaceInit is enabled, probe workspace folders for F# code
           let actualRootPath =
-            match p.WorkspaceFolders with
-            | Some(NonEmptyArray folders) ->
-              // Stage 1: Use first workspace folder (or probe if AutomaticWorkspaceInit is true)
+            // Check if we have deprecated fields (for backward compatibility)
+            let deprecatedPath =
+              match p.RootUri with
+              | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
+              | None -> p.RootPath
+
+            match p.WorkspaceFolders, c.AutomaticWorkspaceInit, deprecatedPath with
+            // When we have workspace folders and AutomaticWorkspaceInit is enabled, probe them
+            | Some(NonEmptyArray folders), true, _ ->
               let folderPaths =
                 folders |> Array.map (fun f -> Path.FileUriToLocalPath f.Uri) |> Array.toList
 
               logger.info (
-                Log.setMessage "Workspace folders provided: {folders}"
+                Log.setMessage "Probing workspace folders for F# code: {folders}"
                 >> Log.addContextDestructured "folders" folderPaths
               )
 
-              // Stage 2: Only probe for F# code when AutomaticWorkspaceInit is enabled
-              if c.AutomaticWorkspaceInit then
-                // Find first folder with F# projects
-                let firstFolderWithFSharp =
-                  folderPaths
-                  |> List.tryFind (fun folderPath ->
-                    let peeks =
-                      WorkspacePeek.peek
-                        folderPath
-                        c.WorkspaceModePeekDeepLevel
-                        (c.ExcludeProjectDirectories |> List.ofArray)
+              // Stage 2: Find first folder with F# projects
+              let firstFolderWithFSharp =
+                folderPaths
+                |> List.tryFind (fun folderPath ->
+                  let peeks =
+                    WorkspacePeek.peek
+                      folderPath
+                      c.WorkspaceModePeekDeepLevel
+                      (c.ExcludeProjectDirectories |> List.ofArray)
 
-                    not (List.isEmpty peeks))
+                  not (List.isEmpty peeks))
 
-                match firstFolderWithFSharp with
-                | Some path ->
-                  logger.info (
-                    Log.setMessage "Selected workspace folder with F# code: {path}"
-                    >> Log.addContextDestructured "path" path
-                  )
+              match firstFolderWithFSharp with
+              | Some path ->
+                logger.info (
+                  Log.setMessage "Selected workspace folder with F# code: {path}"
+                  >> Log.addContextDestructured "path" path
+                )
 
-                  Some path
-                | None ->
-                  // No F# code found, use first folder
-                  logger.info (Log.setMessage "No F# code found in any workspace folder, using first")
-                  Some folderPaths.Head
-              else
-                // AutomaticWorkspaceInit is false, just use first workspace folder
-                logger.info (Log.setMessage "Using first workspace folder (AutomaticWorkspaceInit disabled)")
+                Some path
+              | None ->
+                // No F# code found, use first folder
+                logger.info (Log.setMessage "No F# code found in any workspace folder, using first")
                 Some folderPaths.Head
-            | Some EmptyArray
-            | None ->
-              // Fallback to deprecated fields for backward compatibility
-              match p.RootUri with
-              | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
-              | None -> p.RootPath
+            // When we have workspace folders but AutomaticWorkspaceInit is false, prefer deprecated fields if available
+            | Some(NonEmptyArray _folders), false, Some deprecatedPath ->
+              logger.info (Log.setMessage "Using deprecated RootPath/RootUri (AutomaticWorkspaceInit disabled, deprecated fields present)")
+              Some deprecatedPath
+            // When we have workspace folders, AutomaticWorkspaceInit is false, and no deprecated fields, use first workspace folder
+            | Some(NonEmptyArray folders), false, None ->
+              let folderPath = Path.FileUriToLocalPath folders.[0].Uri
+              logger.info (Log.setMessage "Using first workspace folder (AutomaticWorkspaceInit disabled, no deprecated fields)")
+              Some folderPath
+            // No workspace folders, use deprecated fields
+            | Some EmptyArray, _, _
+            | None, _, _ ->
+              logger.info (Log.setMessage "Using deprecated RootPath/RootUri (no workspace folders)")
+              deprecatedPath
 
           let projs =
             match actualRootPath, c.AutomaticWorkspaceInit with
