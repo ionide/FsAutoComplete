@@ -404,12 +404,20 @@ type AdaptiveFSharpLspServer
                 Some folderPaths.Head
             // When we have workspace folders but AutomaticWorkspaceInit is false, prefer deprecated fields if available
             | Some(NonEmptyArray _folders), false, Some deprecatedPath ->
-              logger.info (Log.setMessage "Using deprecated RootPath/RootUri (AutomaticWorkspaceInit disabled, deprecated fields present)")
+              logger.info (
+                Log.setMessage
+                  "Using deprecated RootPath/RootUri (AutomaticWorkspaceInit disabled, deprecated fields present)"
+              )
+
               Some deprecatedPath
             // When we have workspace folders, AutomaticWorkspaceInit is false, and no deprecated fields, use first workspace folder
             | Some(NonEmptyArray folders), false, None ->
               let folderPath = Path.FileUriToLocalPath folders.[0].Uri
-              logger.info (Log.setMessage "Using first workspace folder (AutomaticWorkspaceInit disabled, no deprecated fields)")
+
+              logger.info (
+                Log.setMessage "Using first workspace folder (AutomaticWorkspaceInit disabled, no deprecated fields)"
+              )
+
               Some folderPath
             // No workspace folders, use deprecated fields
             | Some EmptyArray, _, _
