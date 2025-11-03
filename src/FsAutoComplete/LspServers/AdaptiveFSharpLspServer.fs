@@ -362,35 +362,42 @@ type AdaptiveFSharpLspServer
           // Probe all workspace folders for F# code and select the first one with F# projects
           let actualRootPath =
             match p.WorkspaceFolders with
-            | Some (NonEmptyArray folders) ->
+            | Some(NonEmptyArray folders) ->
               // Stage 2: Probe each workspace folder for F# code
-              let folderPaths = 
-                folders 
-                |> Array.map (fun f -> Path.FileUriToLocalPath f.Uri)
-                |> Array.toList
-              
+              let folderPaths =
+                folders |> Array.map (fun f -> Path.FileUriToLocalPath f.Uri) |> Array.toList
+
               logger.info (
                 Log.setMessage "Probing workspace folders {folders}"
                 >> Log.addContextDestructured "folders" folderPaths
               )
-              
+
               // Find first folder with F# projects
               let firstFolderWithFSharp =
                 folderPaths
                 |> List.tryFind (fun folderPath ->
-                  let peeks = 
-                    WorkspacePeek.peek folderPath c.WorkspaceModePeekDeepLevel (c.ExcludeProjectDirectories |> List.ofArray)
+                  let peeks =
+                    WorkspacePeek.peek
+                      folderPath
+                      c.WorkspaceModePeekDeepLevel
+                      (c.ExcludeProjectDirectories |> List.ofArray)
+
                   not (List.isEmpty peeks))
-              
+
               match firstFolderWithFSharp with
-              | Some path -> 
-                logger.info (Log.setMessage "Selected workspace folder with F# code: {path}" >> Log.addContextDestructured "path" path)
+              | Some path ->
+                logger.info (
+                  Log.setMessage "Selected workspace folder with F# code: {path}"
+                  >> Log.addContextDestructured "path" path
+                )
+
                 Some path
-              | None -> 
+              | None ->
                 // No F# code found, use first folder
                 logger.info (Log.setMessage "No F# code found, using first workspace folder")
                 Some folderPaths.Head
-            | Some EmptyArray | None ->
+            | Some EmptyArray
+            | None ->
               // Fallback to deprecated fields for backward compatibility
               match p.RootUri with
               | Some rootUri -> Some(Path.FileUriToLocalPath rootUri)
