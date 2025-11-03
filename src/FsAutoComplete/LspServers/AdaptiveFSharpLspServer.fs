@@ -359,42 +359,48 @@ type AdaptiveFSharpLspServer
             | None -> None
 
           // Stage 1 & 2: Use workspaceFolders instead of deprecated RootPath/RootUri
-          // Probe all workspace folders for F# code and select the first one with F# projects
+          // Probe all workspace folders for F# code when AutomaticWorkspaceInit is enabled
           let actualRootPath =
             match p.WorkspaceFolders with
             | Some(NonEmptyArray folders) ->
-              // Stage 2: Probe each workspace folder for F# code
+              // Stage 1: Use first workspace folder (or probe if AutomaticWorkspaceInit is true)
               let folderPaths =
                 folders |> Array.map (fun f -> Path.FileUriToLocalPath f.Uri) |> Array.toList
 
               logger.info (
-                Log.setMessage "Probing workspace folders {folders}"
+                Log.setMessage "Workspace folders provided: {folders}"
                 >> Log.addContextDestructured "folders" folderPaths
               )
 
-              // Find first folder with F# projects
-              let firstFolderWithFSharp =
-                folderPaths
-                |> List.tryFind (fun folderPath ->
-                  let peeks =
-                    WorkspacePeek.peek
-                      folderPath
-                      c.WorkspaceModePeekDeepLevel
-                      (c.ExcludeProjectDirectories |> List.ofArray)
+              // Stage 2: Only probe for F# code when AutomaticWorkspaceInit is enabled
+              if c.AutomaticWorkspaceInit then
+                // Find first folder with F# projects
+                let firstFolderWithFSharp =
+                  folderPaths
+                  |> List.tryFind (fun folderPath ->
+                    let peeks =
+                      WorkspacePeek.peek
+                        folderPath
+                        c.WorkspaceModePeekDeepLevel
+                        (c.ExcludeProjectDirectories |> List.ofArray)
 
-                  not (List.isEmpty peeks))
+                    not (List.isEmpty peeks))
 
-              match firstFolderWithFSharp with
-              | Some path ->
-                logger.info (
-                  Log.setMessage "Selected workspace folder with F# code: {path}"
-                  >> Log.addContextDestructured "path" path
-                )
+                match firstFolderWithFSharp with
+                | Some path ->
+                  logger.info (
+                    Log.setMessage "Selected workspace folder with F# code: {path}"
+                    >> Log.addContextDestructured "path" path
+                  )
 
-                Some path
-              | None ->
-                // No F# code found, use first folder
-                logger.info (Log.setMessage "No F# code found, using first workspace folder")
+                  Some path
+                | None ->
+                  // No F# code found, use first folder
+                  logger.info (Log.setMessage "No F# code found in any workspace folder, using first")
+                  Some folderPaths.Head
+              else
+                // AutomaticWorkspaceInit is false, just use first workspace folder
+                logger.info (Log.setMessage "Using first workspace folder (AutomaticWorkspaceInit disabled)")
                 Some folderPaths.Head
             | Some EmptyArray
             | None ->
