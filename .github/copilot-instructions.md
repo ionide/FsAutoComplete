@@ -243,3 +243,17 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 - [FSharpLint](https://github.com/fsprojects/FSharpLint/) - Static analysis tool
 - [Paket](https://fsprojects.github.io/Paket/) - Dependency management
 - [FAKE](https://fake.build/) - Build automation (used for scaffolding)
+
+
+### MCP Tools
+
+> [!IMPORTANT]
+
+You have access to a long-term memory system via the Model Context Protocol (MCP) at the endpoint `memorizer`. Use the following tools:
+- `store`: Store a new memory. Parameters: `type`, `content` (markdown), `source`, `tags`, `confidence`, `relatedTo` (optional, memory ID), `relationshipType` (optional).
+- `search`: Search for similar memories. Parameters: `query`, `limit`, `minSimilarity`, `filterTags`.
+- `get`: Retrieve a memory by ID. Parameter: `id`.
+- `getMany`: Retrieve multiple memories by their IDs. Parameter: `ids` (list of IDs).
+- `delete`: Delete a memory by ID. Parameter: `id`.
+- `createRelationship`: Create a relationship between two memories. Parameters: `fromId`, `toId`, `type`.
+Use these tools to remember, recall, relate, and manage information as needed to assist the user. You can also manually retrieve or relate memories by their IDs when necessary.

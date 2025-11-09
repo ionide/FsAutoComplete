@@ -1,0 +1,8 @@
+{
+	"servers": {
+		"ionide-memorizer": {
+			"url": "http://localhost:5001/sse",
+		}
+	},
+	"inputs": []
+}
