@@ -159,7 +159,7 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 * `fsharp/compile` - accepts `ProjectParms`, tries to compile project, returns list of errors and exit status code
 * `fsharp/workspacePeek` - accepts `WorkspacePeekRequest`, returns list of possible workspaces (resolved solution files, or list of projects if there are no solution files)
 * `fsharp/workspaceLoad` - accepts `WorkspaceLoadParms`, loads given list of projects in the background, partial result notified by `fsharp/notifyWorkspace` notification
-* ~~`fsharp/project`~~ - **NOT IMPLEMENTED** - previously accepted `ProjectParms` to load a given project
+* `fsharp/project`  - accepts a `ProjectParms` object (which points to a single project by URI) and loads that project into the current session
 * ~~`fsharp/fsdn`~~ - **NOT IMPLEMENTED** - previously queried FSDN for function signatures (FSDN service is offline)
 * `fsharp/f1Help` - accepts `TextDocumentPositionParams`, returns URL to MSDN documentation for symbol at given position
 * `fsharp/documentation` - accepts `TextDocumentPositionParams`, returns documentation data about symbol at given position, used for InfoPanel
