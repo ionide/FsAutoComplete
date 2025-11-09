@@ -113,7 +113,7 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
 * `textDocument/didSave`
 * `textDocument/hover`
 * `textDocument/completion` & `completionItem/resolve`
-* `textDocument/rename`
+* `textDocument/prepareRename` & `textDocument/rename`
 * `textDocument/definition`
 * `textDocument/typeDefinition`
 * `textDocument/implementation`
@@ -131,12 +131,19 @@ FsAutoComplete supports [LSP](https://microsoft.github.io/language-server-protoc
   * signature Code Lenses
   * reference number Code Lenses
 * `textDocument/formatting` - powered by [fantomas](https://github.com/fsprojects/fantomas)
+* `textDocument/rangeFormatting` - powered by [fantomas](https://github.com/fsprojects/fantomas)
 * `textDocument/references`
 * `textDocument/documentHighlight`
 * `textDocument/signatureHelp`
 * `textDocument/documentSymbol`
 * `textDocument/inlayHint`
 * `textDocument/inlineValue`
+* `textDocument/foldingRange`
+* `textDocument/selectionRange`
+* `textDocument/semanticTokens/full`
+* `textDocument/semanticTokens/range`
+* `callHierarchy/prepareCallHierarchy`
+* `callHierarchy/incomingCalls`
 * `workspace/didChangeWatchedFiles`
 * `workspace/didChangeConfiguration`
 * `workspace/symbol`
@@ -152,8 +159,8 @@ Custom endpoints are using (for messages body) `PlainNotification` type and stri
 * `fsharp/compile` - accepts `ProjectParms`, tries to compile project, returns list of errors and exit status code
 * `fsharp/workspacePeek` - accepts `WorkspacePeekRequest`, returns list of possible workspaces (resolved solution files, or list of projects if there are no solution files)
 * `fsharp/workspaceLoad` - accepts `WorkspaceLoadParms`, loads given list of projects in the background, partial result notified by `fsharp/notifyWorkspace` notification
-* `fsharp/project` - accepts `ProjectParms`, loads given project
-* `fsharp/fsdn` - accepts `ProjectParms` (`Project` filed contain query string), query FSDN and returns list of functions
+* `fsharp/project`  - accepts a `ProjectParms` object (which points to a single project by URI) and loads that project into the current session
+* ~~`fsharp/fsdn`~~ - **NOT IMPLEMENTED** - previously queried FSDN for function signatures (FSDN service is offline)
 * `fsharp/f1Help` - accepts `TextDocumentPositionParams`, returns URL to MSDN documentation for symbol at given position
 * `fsharp/documentation` - accepts `TextDocumentPositionParams`, returns documentation data about symbol at given position, used for InfoPanel
 * `fsharp/documentationSymbol` - accepts `DocumentationForSymbolReuqest`, returns documentation data about given symbol from given assembly, used for InfoPanel
