@@ -154,9 +154,11 @@ let writeAbstractClassStub
         // need the enclosing entity because we're always looking at a ctor, which isn't an Entity, but a MemberOrFunctionOrValue
         match usage.Symbol with
         | :? FSharpMemberOrFunctionOrValue as v ->
-          if isAbstractClass v.ApparentEnclosingEntity then
+          let! aee = v.ApparentEnclosingEntity
+
+          if isAbstractClass aee then
             let! displayContext = checkResultForFile.GetCheckResults.GetDisplayContextForPos(pos)
-            return! Some(displayContext, v.ApparentEnclosingEntity)
+            return! Some(displayContext, aee)
           else
             return! None
         | _ -> return! None

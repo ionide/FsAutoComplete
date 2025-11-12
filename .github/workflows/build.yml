@@ -27,7 +27,7 @@ jobs:
           - windows-latest
           - macos-15
           - ubuntu-latest
-        dotnet-version: ["8.0.x", "9.0.x"]
+        dotnet-version: ["8.x", "9.x", "10.x"]
         use-transparent-compiler:
           - "TransparentCompiler"
           - "BackgroundCompiler"
@@ -38,18 +38,28 @@ jobs:
         include:
           # latest 8.0
           - global-json-file: "global.json"
-            dotnet-version: "8.0.x"
+            dotnet-version: "8.x"
             include-prerelease: false
             label: "8.0"
             build_net9: false
+            build_net10: false
             test_tfm: net8.0
           # latest 9.0
           - global-json-file: "global.json"
-            dotnet-version: "9.0.x"
+            dotnet-version: "9.x"
             include-prerelease: true
             label: "9.0"
             build_net9: true
+            build_net10: false
             test_tfm: net9.0
+          # latest 10.0
+          - global-json-file: "global.json"
+            dotnet-version: "10.x"
+            include-prerelease: true
+            label: "10.0"
+            build_net9: false
+            build_net10: true
+            test_tfm: net10.0
       fail-fast: false # we have timing issues on some OS, so we want them all to run
 
     runs-on: ${{ matrix.os }}
@@ -98,12 +108,14 @@ jobs:
       run: dotnet build -c Release
       env:
         BuildNet9: ${{ matrix.build_net9 }}
+        BuildNet10: ${{ matrix.build_net10 }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build  --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet9: ${{ matrix.build_net9 }}
+        BuildNet10: ${{ matrix.build_net10 }}
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
 

@@ -279,13 +279,6 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynExpr.YieldOrReturn(expr = synExpr)
       | SynExpr.YieldOrReturnFrom(expr = synExpr)
       | SynExpr.DoBang(expr = synExpr) -> walkExpr synExpr
-
-      | SynExpr.LetOrUseBang(rhs = synExpr1; andBangs = ands; body = synExpr2) ->
-        [ synExpr1
-          yield! ands |> List.map (fun (SynExprAndBang(body = body)) -> body)
-          synExpr2 ]
-        |> List.tryPick walkExpr
-
       | SynExpr.LibraryOnlyILAssembly _
       | SynExpr.LibraryOnlyStaticOptimization _
       | SynExpr.LibraryOnlyUnionCaseFieldGet _
@@ -323,7 +316,7 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
 
     | SynPat.Record(recordInnerPatList, _) ->
       recordInnerPatList
-      |> List.map (fun (_, _, innerPat) -> innerPat)
+      |> List.map (fun (NamePatPairField(pat = innerPat)) -> innerPat)
       |> List.forall checkPattern
 
     | SynPat.OptionalVal _ -> true
@@ -342,7 +335,8 @@ let getWrittenCases (patMatchExpr: PatternMatchExpr) =
       else
         None
     | SynArgPats.NamePatPairs(namedPatList, _, _) ->
-      let patList = namedPatList |> List.unzip3 |> (fun (_, _, pat) -> pat)
+      let patList =
+        namedPatList |> List.map (fun (NamePatPairField(pat = innerPat)) -> innerPat)
 
       if List.forall checkPattern patList then
         Some(func ())

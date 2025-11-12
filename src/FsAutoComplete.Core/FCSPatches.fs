@@ -156,13 +156,6 @@ module SyntaxTreeOps =
 
       | SynExpr.MatchBang(expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
 
-      | SynExpr.LetOrUseBang(rhs = e1; body = e2; andBangs = es) ->
-        walkExpr e1
-        || walkExprs
-          [ for (SynExprAndBang(body = e)) in es do
-              yield e ]
-        || walkExpr e2
-
       | SynExpr.InterpolatedString(parts, _, _m) ->
         walkExprs (
           parts

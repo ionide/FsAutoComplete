@@ -33,6 +33,7 @@ jobs:
         run: dotnet pack -c Release -o ./bin
         env:
           BuildNet9: true
+          BuildNet10: true
 
       - name: Get Changelog Entry
         id: changelog_reader

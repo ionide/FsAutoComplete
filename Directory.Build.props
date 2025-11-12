@@ -12,6 +12,7 @@
     variables,https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-options#opt-in-warnings -->
     <NoWarn>$(NoWarn);FS0044</NoWarn>       <!-- Ignore deprecations -->
     <NoWarn>$(NoWarn);FS3397</NoWarn> <!--  This expression uses unit for an obj-typed argument. This will lead to passing null at runtime -->
+    <NoWarn>$(NoWarn);NU1510</NoWarn> <!-- PackageReference will not be pruned. Consider removing this package from your dependencies, as it is likely unnecessary -->
     <WarnOn>$(WarnOn);3390</WarnOn><!-- Malformed XML doc comments -->
 
         <!-- Package Reference with no usable assets -->
