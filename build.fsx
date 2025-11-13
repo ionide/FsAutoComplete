@@ -6,6 +6,8 @@
 open Fun.Build
 open Fake.Tools
 
+let toolRestore = stage "ToolRestore" { run "dotnet tool restore" }
+
 module ScaffoldCodeFix =
   open System
   open System.IO
@@ -424,11 +426,61 @@ pipeline "Build" {
   workingDir __SOURCE_DIRECTORY__
 
   stage "Build" {
-    run "dotnet tool restore"
+    toolRestore
     run "dotnet build"
   }
 
-  runIfOnlySpecified false
+// runIfOnlySpecified false
+}
+
+
+let (</>) a b = System.IO.Path.Combine(a, b)
+
+
+let lspTestsPath = (__SOURCE_DIRECTORY__ </> "test" </> "FsAutoComplete.Tests.Lsp")
+
+/// Ionide.ProjInfo loads the current SDK's MsBuild library so we need to ensure we
+/// run on the version associated with the SDK we want to test against.
+/// https://learn.microsoft.com/en-us/dotnet/core/deploying/?pivots=cli#framework-dependent-deployment
+let createGlobalJson sdkVersion =
+  $"dotnet new globaljson --force --sdk-version %s{sdkVersion} --roll-forward LatestMinor"
+
+let net80Tests =
+  stage "test:net8.0" {
+    workingDir lspTestsPath
+    run (createGlobalJson "8.0.300")
+    toolRestore
+    run "dotnet test -c Release -f net8.0"
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
+  }
+
+let net90Tests =
+  stage "test:net9.0" {
+    workingDir lspTestsPath
+    envVars [ "BuildNet9", "true" ]
+    run (createGlobalJson "9.0.100")
+    toolRestore
+    run "dotnet test -c Release -f net9.0"
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
+  }
+
+let net100Tests =
+  stage "test:net10.0" {
+    workingDir lspTestsPath
+    envVars [ "BuildNet10", "true" ]
+    run (createGlobalJson "10.0.100")
+    toolRestore
+    run "dotnet test -c Release -f net10.0"
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
+  }
+
+
+pipeline "Tests" {
+  description "Run all tests"
+  net80Tests
+  net90Tests
+  net100Tests
+  runIfOnlySpecified true
 }
 
 tryPrintPipelineCommandHelp ()

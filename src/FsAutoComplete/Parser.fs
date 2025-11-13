@@ -117,7 +117,6 @@ module Parser =
 
     rootCommand.SetAction(fun (parseResult: ParseResult) ->
       let projectGraphEnabled = parseResult.GetValue(projectGraphOption)
-      // let stateDirectory = parseResult.GetValue(stateLocationOption)
       let adaptiveLspEnabled = parseResult.GetValue(adaptiveLspServerOption)
       let useTransparentCompiler = parseResult.GetValue(useTransparentCompilerOption)
 
