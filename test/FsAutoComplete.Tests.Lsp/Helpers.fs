@@ -45,6 +45,7 @@ module Expecto =
       | (true, v) -> Some v
       | _ -> None)
     |> Option.defaultValue (60000)
+    |> float
     |> TimeSpan.FromMilliseconds
 
   /// Contains testCase functions that have a `DEFAULT_TIMEOUT` set to them

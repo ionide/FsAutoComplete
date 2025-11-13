@@ -1,12 +1,14 @@
 version 7.2.1
 
-framework: netstandard2.0, netstandard2.1, net8.0, net9.0
+framework: netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
 # source: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json
 # source: ./libs
 storage: none
+lowest_matching:true
+strategy: min
 
 nuget BenchmarkDotNet
 nuget Fantomas.Client >= 0.9
@@ -34,11 +36,12 @@ nuget Serilog.Extensions.Logging
 nuget Destructurama.FSharp
 nuget FSharp.UMX >= 1.1
 nuget FSharp.Formatting >= 14.0
-nuget FsToolkit.ErrorHandling.TaskResult >= 4.4 framework: netstandard2.1, net8.0, net9.0
+nuget FsToolkit.ErrorHandling < 5
+nuget FsToolkit.ErrorHandling.TaskResult < 5
 nuget IcedTasks >= 0.11.7
 nuget FSharpx.Async >= 1.14
 nuget CliWrap >= 3.0
-nuget System.CommandLine prerelease
+nuget System.CommandLine 2.0
 nuget FSharp.Data.Adaptive >= 1.2
 nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true
