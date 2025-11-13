@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [0.81.0] - 2025-11-12
+
+### Added
+
+- [F# 10 and .NET 10 support](https://github.com/ionide/FsAutoComplete/pull/1429) (Thanks @TheAngryByrd)
+
 ## [0.80.1] - 2025-10-23
 
 ### Fixed
