@@ -586,7 +586,7 @@ let tests state =
               member _.Dispose () = ()
           }
           async {
-              use! value : IDisposable = async { return d }
+              use! value: IDisposable = async { return d }
               ()
           } |> ignore
           """

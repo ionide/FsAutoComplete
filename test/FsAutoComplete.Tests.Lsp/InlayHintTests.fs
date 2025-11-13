@@ -2012,7 +2012,7 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 member _.Dispose() = ()
             }
             async {
-                use! $0value = async { return d }
+                use! $($0value$I$) = async { return d }
                 ()
             } |> ignore
             """
