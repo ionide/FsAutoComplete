@@ -7,7 +7,6 @@ open Serilog.Core
 open Serilog.Events
 open System.CommandLine
 open System.CommandLine.Parsing
-open System.CommandLine.Builder
 open Serilog.Filters
 open System.Threading.Tasks
 open FsAutoComplete.Lsp
@@ -32,322 +31,274 @@ module Parser =
       Start: FSharp.Compiler.Text.pos
       End: FSharp.Compiler.Text.pos }
 
-  let setArity arity (o: #Option) =
-    o.Arity <- arity
+  let verboseOption =
+    let o = Option<bool>("--verbose", "-v", "--debug")
+    o.Description <- "Enable verbose logging. This is equivalent to --log-level debug."
     o
 
-  /// set option to expect no arguments (e.g a flag-style argument: `--verbose`)
-  let inline zero x = setArity ArgumentArity.Zero x
-  /// set option to expect one argument (e.g a single value: `--foo bar)
-  let inline one x = setArity ArgumentArity.ExactlyOne x
-
-  /// set option to expect multiple arguments
-  /// (e.g a list of values: `--foo bar baz` or `--foo bar --foo baz` depending on the style)
-  let inline many x = setArity ArgumentArity.OneOrMore x
-
-  let verboseOption =
-    Option<bool>([| "--verbose"; "-v"; "--debug" |], "Enable verbose logging. This is equivalent to --log-level debug.")
-    |> setArity ArgumentArity.Zero
-
   let logLevelOption =
-    Option<LogEventLevel>("--log-level", "Set the log verbosity to a specific level.")
+    let o = Option<LogEventLevel>("--log-level")
+    o.Description <- "Set the log verbosity to a specific level."
+    o
 
   let attachOption =
-    Option<bool>("--attach-debugger", "Launch the system debugger and break immediately")
-    |> zero
+    let o = Option<bool>("--attach-debugger")
+    o.Description <- "Launch the system debugger and break immediately"
+    o
 
   let logFileOption =
-    Option<string>([| "--logfile"; "-l"; "--log-file" |], "Send log output to specified file.")
-    |> one
+    let o = Option<string>("--logfile", "-l", "--log-file")
+    o.Description <- "Send log output to specified file."
+    o
 
   let logFilterOption =
-    Option<string[]>(
-      [| "--filter"; "--log-filter" |],
-      "Filter logs by category. The category can be seen in the logs inside []. For example: [Compiler]."
-    )
-    |> many
-    |> fun o ->
-        o.AllowMultipleArgumentsPerToken <- true
-        o
+    let o = Option<string[]>("--filter", "--log-filter")
+    o.Description <- "Filter logs by category. The category can be seen in the logs inside []. For example: [Compiler]."
+    o.AllowMultipleArgumentsPerToken <- true
+    o
 
   let waitForDebuggerOption =
-    Option<bool>(
-      [| "--wait-for-debugger"; "--attachdebugger" |],
-      "Stop execution on startup until an external debugger to attach to this process"
-    )
-    |> zero
+    let o = Option<bool>("--wait-for-debugger", "--attachdebugger")
+    o.Description <- "Stop execution on startup until an external debugger to attach to this process"
+    o
 
   let projectGraphOption =
-    Option<bool>(
-      "--project-graph-enabled",
-      "Enable MSBuild Graph workspace loading. Should be faster than the default, but is experimental."
-    )
-    |> zero
+    let o = Option<bool>("--project-graph-enabled")
+    o.Description <- "Enable MSBuild Graph workspace loading. Should be faster than the default, but is experimental."
+    o
 
   let adaptiveLspServerOption =
-    Option<bool>(
-      "--adaptive-lsp-server-enabled",
-      "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
-    )
+    let o = Option<bool>("--adaptive-lsp-server-enabled")
+    o.Description <- "Enable LSP Server based on FSharp.Data.Adaptive. Should be more stable, but is experimental."
+    o
 
   let otelTracingOption =
-    Option<bool>(
-      "--otel-exporter-enabled",
+    let o = Option<bool>("--otel-exporter-enabled")
+
+    o.Description <-
       "Enabled OpenTelemetry exporter. See https://opentelemetry.io/docs/reference/specification/protocol/exporter/ for environment variables to configure for the exporter."
-    )
+
+    o
 
   let useTransparentCompilerOption =
-    Option<bool>(
-      "--use-fcs-transparent-compiler",
+    let o = Option<bool>("--use-fcs-transparent-compiler")
+
+    o.Description <-
       "Use Transparent Compiler in FSharp.Compiler.Services. Should have better performance characteristics, but is experimental. See https://github.com/dotnet/fsharp/pull/15179 for more details."
-    )
+
+    o
 
   let stateLocationOption =
-    Option<DirectoryInfo>(
-      "--state-directory",
-      getDefaultValue = Func<_>(fun () -> DirectoryInfo System.Environment.CurrentDirectory),
-      description =
-        "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location."
-    )
+    let o = Option<DirectoryInfo>("--state-directory")
+
+    o.Description <-
+      "Set the directory to store the state of the server. This should be a per-workspace location, not a shared-workspace location."
+
+    o.DefaultValueFactory <- fun _ -> DirectoryInfo System.Environment.CurrentDirectory
+    o
 
   let rootCommand =
     let rootCommand = RootCommand("An F# LSP server implementation")
 
-    rootCommand.AddOption verboseOption
-    rootCommand.AddOption attachOption
-    rootCommand.AddOption logFileOption
-    rootCommand.AddOption logFilterOption
-    rootCommand.AddOption waitForDebuggerOption
-    rootCommand.AddOption projectGraphOption
-    rootCommand.AddOption adaptiveLspServerOption
-    rootCommand.AddOption logLevelOption
-    rootCommand.AddOption stateLocationOption
-    rootCommand.AddOption otelTracingOption
-    rootCommand.AddOption useTransparentCompilerOption
+    rootCommand.Options.Add verboseOption
+    rootCommand.Options.Add attachOption
+    rootCommand.Options.Add logFileOption
+    rootCommand.Options.Add logFilterOption
+    rootCommand.Options.Add waitForDebuggerOption
+    rootCommand.Options.Add projectGraphOption
+    rootCommand.Options.Add adaptiveLspServerOption
+    rootCommand.Options.Add logLevelOption
+    rootCommand.Options.Add stateLocationOption
+    rootCommand.Options.Add otelTracingOption
+    rootCommand.Options.Add useTransparentCompilerOption
 
     // for back-compat - we removed some options and this broke some clients.
     rootCommand.TreatUnmatchedTokensAsErrors <- false
 
-    rootCommand.SetHandler(
-      Func<_, _, _, _, Task>(fun projectGraphEnabled stateDirectory adaptiveLspEnabled useTransparentCompiler ->
-        let workspaceLoaderFactory =
-          fun toolsPath ->
-            if projectGraphEnabled then
-              Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
-            else
-              Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
+    rootCommand.SetAction(fun (parseResult: ParseResult) ->
+      let projectGraphEnabled = parseResult.GetValue(projectGraphOption)
+      let adaptiveLspEnabled = parseResult.GetValue(adaptiveLspServerOption)
+      let useTransparentCompiler = parseResult.GetValue(useTransparentCompilerOption)
 
-        let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
-
-        let dotnetPath =
-          if
-            Environment.ProcessPath.EndsWith("dotnet", StringComparison.Ordinal)
-            || Environment.ProcessPath.EndsWith("dotnet.exe", StringComparison.Ordinal)
-          then
-            // this is valid when not running as a global tool
-            Some(FileInfo(Environment.ProcessPath))
+      let workspaceLoaderFactory =
+        fun toolsPath ->
+          if projectGraphEnabled then
+            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
           else
-            None
+            Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
 
-        let toolsPath =
-          Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
+      let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
 
-        let lspFactory =
-          if adaptiveLspEnabled then
-            fun () ->
-              AdaptiveFSharpLspServer.startCore
-                toolsPath
-                workspaceLoaderFactory
-                sourceTextFactory
-                useTransparentCompiler
-          else
-            fun () ->
-              AdaptiveFSharpLspServer.startCore
-                toolsPath
-                workspaceLoaderFactory
-                sourceTextFactory
-                useTransparentCompiler
+      let dotnetPath =
+        if
+          Environment.ProcessPath.EndsWith("dotnet", StringComparison.Ordinal)
+          || Environment.ProcessPath.EndsWith("dotnet.exe", StringComparison.Ordinal)
+        then
+          // this is valid when not running as a global tool
+          Some(FileInfo(Environment.ProcessPath))
+        else
+          None
 
-        let result = AdaptiveFSharpLspServer.start lspFactory
+      let toolsPath =
+        Ionide.ProjInfo.Init.init (IO.DirectoryInfo Environment.CurrentDirectory) dotnetPath
 
-        Task.FromResult result),
-      projectGraphOption,
-      stateLocationOption,
-      adaptiveLspServerOption,
-      useTransparentCompilerOption
-    )
+      let lspFactory =
+        if adaptiveLspEnabled then
+          fun () ->
+            AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
+        else
+          fun () ->
+            AdaptiveFSharpLspServer.startCore toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
+
+      let result = AdaptiveFSharpLspServer.start lspFactory
+
+      result)
 
     rootCommand
 
-  let waitForDebugger =
-    Invocation.InvocationMiddleware(fun ctx next ->
-      let waitForDebugger = ctx.ParseResult.HasOption waitForDebuggerOption
+  let handleWaitForDebugger (parseResult: ParseResult) =
+    if parseResult.GetValue(waitForDebuggerOption) then
+      Debug.waitForDebugger ()
 
-      if waitForDebugger then
-        Debug.waitForDebugger ()
+  let handleImmediateAttach (parseResult: ParseResult) =
+    if parseResult.GetValue(attachOption) then
+      Diagnostics.Debugger.Launch() |> ignore<bool>
 
-      next.Invoke(ctx))
+  let warnOnUnknownOptions (parseResult: ParseResult) =
+    if
+      not (isNull parseResult.UnmatchedTokens)
+      && parseResult.UnmatchedTokens.Count > 0
+    then
+      eprintfn
+        $"""The following options were not recognized - please consider removing them: {String.Join(", ", parseResult.UnmatchedTokens)}"""
 
-  let immediateAttach =
-    Invocation.InvocationMiddleware(fun ctx next ->
-      let attachDebugger = ctx.ParseResult.HasOption attachOption
+  let configureOTel (parseResult: ParseResult) =
+    if parseResult.GetValue(otelTracingOption) then
 
-      if attachDebugger then
-        Diagnostics.Debugger.Launch() |> ignore<bool>
+      let serviceName = FsAutoComplete.Utils.Tracing.serviceName
+      let version = FsAutoComplete.Utils.Version.info().Version
 
-      next.Invoke(ctx))
-
-  let warnOnUnknownOptions =
-    Invocation.InvocationMiddleware(fun ctx next ->
-      if
-        isNull ctx.ParseResult.UnmatchedTokens
-        || ctx.ParseResult.UnmatchedTokens.Count = 0
-      then
-        next.Invoke(ctx)
-      else
-        ctx.Console.Error.Write(
-          $"""The following options were not recognized - please consider removing them: {String.Join(", ", ctx.ParseResult.UnmatchedTokens)}"""
-        )
-
-        next.Invoke(ctx))
-
-  let configureOTel =
-    Invocation.InvocationMiddleware(fun ctx next ->
+      let resourceBuilder =
+        ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
 
 
+      meterProvider <-
+        Sdk
+          .CreateMeterProviderBuilder()
+          .AddMeter()
+          .AddRuntimeInstrumentation()
+          .SetResourceBuilder(resourceBuilder)
+          .AddOtlpExporter()
+          .Build()
 
-      if ctx.ParseResult.GetValueForOption otelTracingOption then
+      tracerProvider <-
+        Sdk
+          .CreateTracerProviderBuilder()
+          .AddSource(serviceName, Tracing.fscServiceName)
+          .SetResourceBuilder(resourceBuilder)
+          .AddOtlpExporter()
+          .Build()
 
-        let serviceName = FsAutoComplete.Utils.Tracing.serviceName
-        let version = FsAutoComplete.Utils.Version.info().Version
-
-        let resourceBuilder =
-          ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
-
-
-        meterProvider <-
-          Sdk
-            .CreateMeterProviderBuilder()
-            .AddMeter()
-            .AddRuntimeInstrumentation()
-            .SetResourceBuilder(resourceBuilder)
-            .AddOtlpExporter()
-            .Build()
-
-        tracerProvider <-
-          Sdk
-            .CreateTracerProviderBuilder()
-            .AddSource(serviceName, Tracing.fscServiceName)
-            .SetResourceBuilder(resourceBuilder)
-            .AddOtlpExporter()
-            .Build()
-
-      next.Invoke(ctx))
-
-  let configureLogging =
-    Invocation.InvocationMiddleware(fun ctx next ->
-      let isCategory (category: string) (e: LogEvent) =
-        match e.Properties.TryGetValue "SourceContext" with
-        | true, loggerName ->
-          match loggerName with
-          | :? ScalarValue as v ->
-            match v.Value with
-            | :? string as s when s = category -> true
-            | _ -> false
+  let configureLogging (parseResult: ParseResult) =
+    let isCategory (category: string) (e: LogEvent) =
+      match e.Properties.TryGetValue "SourceContext" with
+      | true, loggerName ->
+        match loggerName with
+        | :? ScalarValue as v ->
+          match v.Value with
+          | :? string as s when s = category -> true
           | _ -> false
-        | false, _ -> false
+        | _ -> false
+      | false, _ -> false
 
-      let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) = e.Level >= minLevel
+    let hasMinLevel (minLevel: LogEventLevel) (e: LogEvent) = e.Level >= minLevel
 
-      // will use later when a mapping-style config of { "category": "minLevel" } is established
-      let _excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
+    // will use later when a mapping-style config of { "category": "minLevel" } is established
+    let _excludeByLevelWhenCategory category level event = isCategory category event || not (hasMinLevel level event)
 
-      let args = ctx.ParseResult
+    let logLevel =
+      if parseResult.GetValue(verboseOption) then
+        LogEventLevel.Debug
+      else if parseResult.GetValue(logLevelOption) <> Unchecked.defaultof<_> then
+        parseResult.GetValue(logLevelOption)
+      else
+        LogEventLevel.Warning
 
-      let logLevel =
-        if args.HasOption verboseOption then
-          LogEventLevel.Debug
-        else if args.HasOption logLevelOption then
-          args.GetValueForOption logLevelOption
-        else
-          LogEventLevel.Warning
+    let logSourcesToExclude =
+      let filterValue = parseResult.GetValue(logFilterOption)
+      if isNull filterValue then [||] else filterValue
 
-      let logSourcesToExclude =
-        if args.HasOption logFilterOption then
-          args.GetValueForOption logFilterOption
-        else
-          [||]
+    let sourcesToExclude =
+      Matching.WithProperty<string>(
+        Constants.SourceContextPropertyName,
+        fun s -> not (isNull s) && Array.contains s logSourcesToExclude
+      )
 
-      let sourcesToExclude =
-        Matching.WithProperty<string>(
-          Constants.SourceContextPropertyName,
-          fun s -> not (isNull s) && Array.contains s logSourcesToExclude
-        )
+    let verbositySwitch = LoggingLevelSwitch(logLevel)
 
-      let verbositySwitch = LoggingLevelSwitch(logLevel)
+    let outputTemplate =
+      "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
 
-      let outputTemplate =
-        "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
+    let logConf =
+      LoggerConfiguration()
+        .MinimumLevel.ControlledBy(verbositySwitch)
+        .Filter.ByExcluding(Matching.FromSource("FileSystem"))
+        .Filter.ByExcluding(sourcesToExclude)
+        .Enrich.FromLogContext()
+        .Destructure.FSharpTypes()
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
+          { File = r.FileName
+            Start = r.Start
+            End = r.End })
+        .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> { Line = r.Line; Column = r.Column })
+        .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
+        .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
+        .WriteTo.Async(fun c ->
+          c.Console(
+            outputTemplate = outputTemplate,
+            standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
+            theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
+          )
+          |> ignore) // make it so that every console log is logged to stderr so that we don't interfere with LSP stdio
 
-      let logConf =
-        LoggerConfiguration()
-          .MinimumLevel.ControlledBy(verbositySwitch)
-          .Filter.ByExcluding(Matching.FromSource("FileSystem"))
-          .Filter.ByExcluding(sourcesToExclude)
-          .Enrich.FromLogContext()
-          .Destructure.FSharpTypes()
-          .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
-            { File = r.FileName
-              Start = r.Start
-              End = r.End })
-          .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> { Line = r.Line; Column = r.Column })
-          .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
-          .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-          .WriteTo.Async(fun c ->
-            c.Console(
-              outputTemplate = outputTemplate,
-              standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
-              theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
-            )
-            |> ignore) // make it so that every console log is logged to stderr so that we don't interfere with LSP stdio
+    let logFile = parseResult.GetValue(logFileOption)
 
-      if args.HasOption logFileOption then
-        let logFile = args.GetValueForOption logFileOption
+    if not (isNull logFile) then
+      try
+        logConf.WriteTo.Async(fun c -> c.File(path = logFile, levelSwitch = verbositySwitch) |> ignore)
+        |> ignore
+      with e ->
+        eprintfn "Bad log file: %s" e.Message
+        exit 1
 
-        try
-          logConf.WriteTo.Async(fun c -> c.File(path = logFile, levelSwitch = verbositySwitch) |> ignore)
-          |> ignore
-        with e ->
-          eprintfn "Bad log file: %s" e.Message
-          exit 1
+    let categories = parseResult.GetValue(logFilterOption)
 
-      if args.HasOption logFilterOption then
-        let categories = args.GetValueForOption logFilterOption
+    if not (isNull categories) then
+      categories
+      |> Array.iter (fun category ->
+        // category is encoded in the SourceContext property, so we filter messages based on that property's value
+        logConf.Filter.ByExcluding(Func<_, _>(isCategory category)) |> ignore)
 
-        categories
-        |> Array.iter (fun category ->
-          // category is encoded in the SourceContext property, so we filter messages based on that property's value
-          logConf.Filter.ByExcluding(Func<_, _>(isCategory category)) |> ignore)
+    let logger = logConf.CreateLogger()
+    Serilog.Log.Logger <- logger
+    Logging.LogProvider.setLoggerProvider (Logging.Providers.SerilogProvider.create ())
 
-      let logger = logConf.CreateLogger()
-      Serilog.Log.Logger <- logger
-      Logging.LogProvider.setLoggerProvider (Logging.Providers.SerilogProvider.create ())
-      next.Invoke(ctx))
+  let parse (args: string[]) =
+    let parseResult = rootCommand.Parse(args)
 
-  let serilogFlush =
-    Invocation.InvocationMiddleware(fun ctx next ->
-      task {
-        do! next.Invoke ctx
-        Serilog.Log.CloseAndFlush()
-      })
+    // Execute setup logic before invocation
+    handleWaitForDebugger parseResult
+    handleImmediateAttach parseResult
+    configureLogging parseResult
+    configureOTel parseResult
+    warnOnUnknownOptions parseResult
 
-  let parser =
-    CommandLineBuilder(rootCommand)
-      .UseDefaults()
-      .AddMiddleware(waitForDebugger)
-      .AddMiddleware(immediateAttach)
-      .AddMiddleware(serilogFlush)
-      .AddMiddleware(configureLogging)
-      .AddMiddleware(configureOTel)
-      .AddMiddleware(warnOnUnknownOptions)
-      .Build()
+    parseResult
+
+  let invoke (args: string[]) =
+    let parseResult = parse args
+
+    try
+      parseResult.Invoke()
+    finally
+      Serilog.Log.CloseAndFlush()

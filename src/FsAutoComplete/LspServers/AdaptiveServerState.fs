@@ -2219,7 +2219,7 @@ type AdaptiveState
           |> tryGetLineStr pos
           |> Result.mapError ErrorMsgUtils.formatLineLookErr
         //TODO ⮝⮝⮝ good candidate for better error model -- review!
-        and! tyRes = forceGetOpenFileTypeCheckResultsOrCheck filePath
+        let! tyRes = forceGetOpenFileTypeCheckResultsOrCheck filePath
         return tyRes, lineStr, file.Source
       }
 

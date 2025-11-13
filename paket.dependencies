@@ -1,28 +1,30 @@
 version 7.2.1
 
-framework: netstandard2.0, netstandard2.1, net8.0, net9.0
+framework: netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
 # source: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json
 # source: ./libs
 storage: none
+lowest_matching:true
+strategy: min
 
 nuget BenchmarkDotNet
 nuget Fantomas.Client >= 0.9
-nuget FSharp.Compiler.Service >= 43.9.300
-nuget Ionide.Analyzers 0.14.9
+nuget FSharp.Compiler.Service >= 43.10.100
+nuget Ionide.Analyzers 0.14.10
 nuget FSharp.Analyzers.Build
-nuget Ionide.ProjInfo >= 0.72.0
-nuget Ionide.ProjInfo.FCS >= 0.72.0
-nuget Ionide.ProjInfo.ProjectSystem >= 0.72.0
+nuget Ionide.ProjInfo >= 0.73.0
+nuget Ionide.ProjInfo.FCS >= 0.73.0
+nuget Ionide.ProjInfo.ProjectSystem >= 0.73.0
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis
-nuget FSharp.Analyzers.SDK 0.33.1
+nuget FSharp.Analyzers.SDK 0.34.1
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core
@@ -34,11 +36,12 @@ nuget Serilog.Extensions.Logging
 nuget Destructurama.FSharp
 nuget FSharp.UMX >= 1.1
 nuget FSharp.Formatting >= 14.0
-nuget FsToolkit.ErrorHandling.TaskResult >= 4.4 framework: netstandard2.1, net8.0, net9.0
+nuget FsToolkit.ErrorHandling < 5
+nuget FsToolkit.ErrorHandling.TaskResult < 5
 nuget IcedTasks >= 0.11.7
 nuget FSharpx.Async >= 1.14
 nuget CliWrap >= 3.0
-nuget System.CommandLine prerelease
+nuget System.CommandLine 2.0
 nuget FSharp.Data.Adaptive >= 1.2
 nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true

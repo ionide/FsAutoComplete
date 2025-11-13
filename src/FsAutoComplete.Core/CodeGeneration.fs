@@ -358,7 +358,10 @@ module CodeGenerationUtils =
         | _, true, _, name -> name + parArgs
         // Ordinary functions or values
         | false, _, _, name when
-          not (hasAttribute<RequireQualifiedAccessAttribute> v.ApparentEnclosingEntity.Attributes)
+          not (
+            v.ApparentEnclosingEntity
+            |> Option.exists (fun aee -> aee.Attributes |> hasAttribute<RequireQualifiedAccessAttribute>)
+          )
           ->
           name + " " + parArgs
         // Ordinary static members or things (?) that require fully qualified access

@@ -1991,7 +1991,7 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 (ExplicitType.Missing
                   { Ident = fromCursorAndInsert
                     InsertAt = fromCursor
-                    Parens = Parens.Required fromCursors
+                    Parens = Parens.Optional fromCursors
                     SpecialRules = [] })
               testCaseAsync "let! (value: int) = ..."
               <| testExplicitType
@@ -2012,11 +2012,15 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 member _.Dispose() = ()
             }
             async {
-                use! $0value = async { return d }
+                use! $($0value$I$) = async { return d }
                 ()
             } |> ignore
             """
-                (ExplicitType.Invalid) ]
+                (ExplicitType.Missing
+                  { Ident = fromCursorAndInsert
+                    InsertAt = fromCursor
+                    Parens = Parens.Optional fromCursors
+                    SpecialRules = [] }) ]
 
           testList
             "foreach loop"

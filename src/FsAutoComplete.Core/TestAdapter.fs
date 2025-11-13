@@ -204,7 +204,6 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     | SynExpr.TryFinally(tryExpr = expr1; finallyExpr = expr2)
     | SynExpr.NamedIndexedPropertySet(_, expr1, expr2, _)
     | SynExpr.DotNamedIndexedPropertySet(_, _, expr1, expr2, _)
-    | SynExpr.LetOrUseBang(rhs = expr1; body = expr2)
     | SynExpr.While(_, expr1, expr2, _) ->
       visitExpr parent expr1
       visitExpr parent expr2

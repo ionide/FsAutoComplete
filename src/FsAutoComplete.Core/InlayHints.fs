@@ -42,13 +42,13 @@ and private defaultTraversePat visitor origPath pat =
     | SynArgPats.Pats ps -> ps |> List.tryPick (traversePat visitor path)
     | SynArgPats.NamePatPairs(ps, _, _) ->
       ps
-      |> List.map (fun (_, _, pat) -> pat)
+      |> List.map (fun (NamePatPairField(pat = innerPat)) -> innerPat)
       |> List.tryPick (traversePat visitor path)
   | SynPat.Typed(p, _ty, _) -> traversePat visitor path p
   // no access to `traverseSynType` -> no traversing into `ty`
   | SynPat.Record(fieldPats = fieldPats) ->
     fieldPats
-    |> List.map (fun (_, _, pat) -> pat)
+    |> List.map (fun (NamePatPairField(pat = innerPat)) -> innerPat)
     |> List.tryPick (traversePat visitor path)
   | _ -> None
 
@@ -479,13 +479,6 @@ let rec private getParensForPatternWithIdent (patternRange: Range) (identStart: 
     //   ^           ^
     //   must exist to be valid
     Parens.Optional patternRange
-  | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = true)) :: _ ->
-    // use! x =
-    // Note: Type is forbidden too...
-    Parens.Forbidden
-  | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = false)) :: _ ->
-    // let! x =
-    Parens.Required patternRange
   | SyntaxNode.SynExpr(SynExpr.ForEach _) :: _ ->
     // for i in [1..4] do
     Parens.Optional patternRange
@@ -600,7 +593,7 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
         member visitor.VisitPat(path, defaultTraverse, pat) =
           let invalidPositionForTypeAnnotation (path: SyntaxNode list) =
             match path with
-            | SyntaxNode.SynExpr(SynExpr.LetOrUseBang(isUse = true)) :: _ ->
+            | SyntaxNode.SynExpr(SynExpr.LetOrUse(isUse = true)) :: _ ->
               // use! value =
               true
             | _ -> false
