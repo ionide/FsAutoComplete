@@ -553,6 +553,7 @@ module ClassificationUtils =
     (* custom modifiers *)
     | Mutable = 0b100_0000_0000
     | Disposable = 0b1000_0000_0000
+    | Extension = 0b1_0000_0000_0000
 
 
   let map (t: SemanticClassificationType) : SemanticTokenTypes * SemanticTokenModifier list =
@@ -561,22 +562,22 @@ module ClassificationUtils =
     | SemanticClassificationType.ReferenceType
     | SemanticClassificationType.Type
     | SemanticClassificationType.TypeDef
-    | SemanticClassificationType.ConstructorForReferenceType -> SemanticTokenTypes.Type, []
+    | SemanticClassificationType.ConstructorForReferenceType -> SemanticTokenTypes.Class, []
     | SemanticClassificationType.ValueType
     | SemanticClassificationType.ConstructorForValueType -> SemanticTokenTypes.Struct, []
-    | SemanticClassificationType.UnionCase
-    | SemanticClassificationType.UnionCaseField -> SemanticTokenTypes.EnumMember, []
+    | SemanticClassificationType.UnionCase -> SemanticTokenTypes.EnumMember, []
+    | SemanticClassificationType.UnionCaseField -> SemanticTokenTypes.Parameter, []
     | SemanticClassificationType.Function
-    | SemanticClassificationType.Method
-    | SemanticClassificationType.ExtensionMethod -> SemanticTokenTypes.Function, []
+    | SemanticClassificationType.IntrinsicFunction -> SemanticTokenTypes.Function, []
+    | SemanticClassificationType.Method -> SemanticTokenTypes.Method, []
+    | SemanticClassificationType.ExtensionMethod -> SemanticTokenTypes.Method, [ SemanticTokenModifier.Extension ]
     | SemanticClassificationType.Property -> SemanticTokenTypes.Property, []
-    | SemanticClassificationType.MutableVar
-    | SemanticClassificationType.MutableRecordField -> SemanticTokenTypes.Member, [ SemanticTokenModifier.Mutable ]
+    | SemanticClassificationType.MutableVar -> SemanticTokenTypes.Variable, [ SemanticTokenModifier.Mutable ]
+    | SemanticClassificationType.MutableRecordField -> SemanticTokenTypes.Property, [ SemanticTokenModifier.Mutable ]
     | SemanticClassificationType.Module -> SemanticTokenTypes.Module, []
     | SemanticClassificationType.Namespace -> SemanticTokenTypes.Namespace, []
     | SemanticClassificationType.Printf -> SemanticTokenTypes.Regexp, []
     | SemanticClassificationType.ComputationExpression -> SemanticTokenTypes.Cexpr, []
-    | SemanticClassificationType.IntrinsicFunction -> SemanticTokenTypes.Function, []
     | SemanticClassificationType.Enumeration -> SemanticTokenTypes.Enum, []
     | SemanticClassificationType.Interface -> SemanticTokenTypes.Interface, []
     | SemanticClassificationType.TypeArgument -> SemanticTokenTypes.TypeParameter, []
@@ -592,8 +593,8 @@ module ClassificationUtils =
     | SemanticClassificationType.Exception
     | SemanticClassificationType.Field
     | SemanticClassificationType.Event
-    | SemanticClassificationType.Delegate
-    | SemanticClassificationType.NamedArgument -> SemanticTokenTypes.Member, []
+    | SemanticClassificationType.Delegate -> SemanticTokenTypes.Member, []
+    | SemanticClassificationType.NamedArgument -> SemanticTokenTypes.Modifier, []
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
     | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
