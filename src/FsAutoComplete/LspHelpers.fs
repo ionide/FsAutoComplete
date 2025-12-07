@@ -560,9 +560,9 @@ module ClassificationUtils =
     match t with
     | SemanticClassificationType.Operator -> SemanticTokenTypes.Operator, []
     | SemanticClassificationType.ReferenceType
-    | SemanticClassificationType.Type
-    | SemanticClassificationType.TypeDef
     | SemanticClassificationType.ConstructorForReferenceType -> SemanticTokenTypes.Class, []
+    | SemanticClassificationType.Type
+    | SemanticClassificationType.TypeDef -> SemanticTokenTypes.Type, []
     | SemanticClassificationType.ValueType
     | SemanticClassificationType.ConstructorForValueType -> SemanticTokenTypes.Struct, []
     | SemanticClassificationType.UnionCase -> SemanticTokenTypes.EnumMember, []
