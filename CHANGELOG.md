@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.82.0] - 2025-12-07
+
+### Changed
+
+- [Make semantic token mapping more accurate](https://github.com/ionide/FsAutoComplete/pull/1434) (thanks @ijklam!)
+- Update Ionide.ProjInfo and related packages to version `0.74.1` Checkout the [release notes](https://github.com/ionide/proj-info/releases/tag/v0.74.1) for more details. (thanks @TheAngryByrd!) 
 
 ## [0.81.0] - 2025-11-12
 
