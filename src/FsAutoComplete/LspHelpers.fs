@@ -593,8 +593,8 @@ module ClassificationUtils =
     | SemanticClassificationType.Exception
     | SemanticClassificationType.Field
     | SemanticClassificationType.Event
-    | SemanticClassificationType.Delegate -> SemanticTokenTypes.Member, []
-    | SemanticClassificationType.NamedArgument -> SemanticTokenTypes.Modifier, []
+    | SemanticClassificationType.Delegate
+    | SemanticClassificationType.NamedArgument -> SemanticTokenTypes.Member, []
     | SemanticClassificationType.Value
     | SemanticClassificationType.LocalValue -> SemanticTokenTypes.Variable, []
     | SemanticClassificationType.Plaintext -> SemanticTokenTypes.Text, []
