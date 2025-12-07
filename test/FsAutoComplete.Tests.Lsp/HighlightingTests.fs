@@ -148,7 +148,7 @@ let tests state =
         "tests"
         [ tokenIsOfType (0u, 29u) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
           tokenIsOfType (0u, 44u) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
-          tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Type fullHighlights // the `string` type annotation in the PooPoo srtp member
+          tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights // the `string` type annotation in the PooPoo srtp member
           tokenIsOfType (6u, 21u) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
-          tokenIsOfType (9u, 10u) ClassificationUtils.SemanticTokenTypes.Type fullHighlights //the `SomeJson` type alias should be a type
+          tokenIsOfType (9u, 10u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights //the `SomeJson` type alias should be a type
           tokenIsOfType (15u, 2u) ClassificationUtils.SemanticTokenTypes.Module fullHighlights ] ] // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
