@@ -804,22 +804,26 @@ module Commands =
             // Get all symbol uses in the file to find related cases
             let allSymbolUsesInFile = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile(ct)
 
-            // Find case usages where the case's group declaring entity matches this function
+            // Find case usages where the case belongs to this active pattern
             let caseUsages =
               allSymbolUsesInFile
               |> Seq.filter (fun u ->
                 match u.Symbol with
                 | :? FSharpActivePatternCase as case ->
-                  // Check if this case's group is declared by our active pattern function
-                  // The group's declaring entity should match the entity containing our function
+                  // Check if this case belongs to our active pattern
+                  // Compare the case's group with our pattern
                   try
-                    match case.Group.DeclaringEntity, mfv.DeclaringEntity with
-                    | Some caseEntity, Some mfvEntity ->
-                      // For patterns like (|ParseInt|_|), check if the case belongs to this pattern
-                      // We compare the full names and the pattern name
-                      caseEntity.TryFullName = mfvEntity.TryFullName
-                      && case.Group.Name = Some mfv.DisplayName
-                    | _ -> false
+                    // The case's Group should reference our active pattern function
+                    // Check by comparing the case name with what's in the pattern name
+                    let patternDisplayName = mfv.DisplayName
+
+                    // For (|ParseInt|_|), DisplayName is "|ParseInt|_|" and case.Name is "ParseInt"
+                    // For (|Even|Odd|), DisplayName is "|Even|Odd|" and case names are "Even" or "Odd"
+                    // Simple check: does the pattern contain this case name between pipes?
+                    let caseName = case.Name
+                    patternDisplayName.Contains("|" + caseName + "|")
+                    || patternDisplayName.Contains("|" + caseName + "_|")
+                    || patternDisplayName = ("|" + caseName + "|")
                   with _ ->
                     false
                 | _ -> false)
