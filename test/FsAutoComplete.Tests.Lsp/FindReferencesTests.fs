@@ -501,11 +501,11 @@ let private checkRangesScript server sourceWithCursors =
     let tempFile = Path.GetTempFileName()
     let scriptFile = Path.ChangeExtension(tempFile, ".fsx")
     File.WriteAllText(scriptFile, source)
-    
+
     try
       let! (doc, diags) = server |> Server.openDocument scriptFile
       Expect.isEmpty diags "There should be no diagnostics in script file"
-      
+
       let request: ReferenceParams =
         { TextDocument = doc.TextDocumentIdentifier
           Position = cursors.Cursor.Value
@@ -514,7 +514,7 @@ let private checkRangesScript server sourceWithCursors =
           PartialResultToken = None }
 
       let! refs = doc.Server.Server.TextDocumentReferences request
-      
+
       let refs =
           refs
           |> Flip.Expect.wantOk "Should not fail"
