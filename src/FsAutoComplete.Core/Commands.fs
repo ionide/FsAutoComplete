@@ -801,34 +801,28 @@ module Commands =
           | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
             // Querying from the active pattern function declaration
             // We want both the function declaration AND the case usages
+            // Get all symbol uses in the file to find related cases
             let allSymbolUsesInFile = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile(ct)
 
-            // Extract pattern name from display name like "|ParseInt|_|" -> "ParseInt"
-            let patternName =
-              let name = mfv.DisplayName
-
-              if name.StartsWith("|") && name.EndsWith("|") then
-                let inner = name.Substring(1, name.Length - 2)
-                // For partial patterns like "|ParseInt|_|", split and take first part
-                let parts = inner.Split('|')
-
-                if parts.Length > 0 && parts.[0] <> "_" then
-                  Some parts.[0]
-                else
-                  None
-              else
-                None
-
-            // Find all case usages that match this pattern
+            // Find case usages where the case's group declaring entity matches this function
             let caseUsages =
-              match patternName with
-              | Some pname ->
-                allSymbolUsesInFile
-                |> Seq.filter (fun u ->
-                  match u.Symbol with
-                  | :? FSharpActivePatternCase as case -> case.Name = pname
-                  | _ -> false)
-              | None -> Seq.empty
+              allSymbolUsesInFile
+              |> Seq.filter (fun u ->
+                match u.Symbol with
+                | :? FSharpActivePatternCase as case ->
+                  // Check if this case's group is declared by our active pattern function
+                  // The group's declaring entity should match the entity containing our function
+                  try
+                    match case.Group.DeclaringEntity, mfv.DeclaringEntity with
+                    | Some caseEntity, Some mfvEntity ->
+                      // For patterns like (|ParseInt|_|), check if the case belongs to this pattern
+                      // We compare the full names and the pattern name
+                      caseEntity.TryFullName = mfvEntity.TryFullName
+                      && case.Group.Name = Some mfv.DisplayName
+                    | _ -> false
+                  with _ ->
+                    false
+                | _ -> false)
 
             // Combine declaration with case usages
             baseFiltered |> Seq.append caseUsages
