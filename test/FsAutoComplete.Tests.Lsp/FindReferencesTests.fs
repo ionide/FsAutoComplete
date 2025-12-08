@@ -759,6 +759,179 @@ let private activePatternTests state =
           | MyModule.$<ParseInt>$ i -> i
           | _ -> 0
         """
+
+
+      testCaseAsync "can find references for Partial Active Pattern - nested in match result"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let _ =
+          match 100 with
+          | i when i > 50 -> i
+          | _ ->
+            match "42" with
+            | $<ParseInt>$ i -> i
+            | _ -> 0
+
+        let _ =
+          match "test" with
+          | MyModule.$<ParseInt>$ i -> i
+          | _ -> 0
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - deeply nested matches"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let processValue x =
+          match x with
+          | Some s ->
+            match s with
+            | $<ParseInt>$ i ->
+              match i with
+              | i when i > 0 -> "positive"
+              | _ -> "non-positive"
+            | _ -> "not int"
+          | None -> "no value"
+
+        let nested =
+          if true then
+            match "123" with
+            | $<ParseInt>$ x -> x * 2
+            | _ -> 0
+          else
+            42
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - in try-with"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let safeParse str =
+          try
+            match str with
+            | $<ParseInt>$ i -> Some i
+            | _ -> None
+          with
+          | ex -> None
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - in sequence expressions"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let parseAll items =
+          seq {
+            for item in items do
+              match item with
+              | $<ParseInt>$ i -> yield i
+              | _ -> ()
+          }
+
+        let parseList = [
+          for x in ["1"; "2"; "abc"] do
+            match x with
+            | $<ParseInt>$ i -> yield i
+            | _ -> ()
+        ]
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - in lambda and match lambda"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let parser = function
+          | $<ParseInt>$ i -> Some i
+          | _ -> None
+
+        let mapper = fun x ->
+          match x with
+          | $<ParseInt>$ i -> i * 2
+          | _ -> 0
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - mixed with complete patterns"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+          let (|Even|Odd|) n = if n % 2 = 0 then Even else Odd
+
+        open MyModule
+
+        let categorize str =
+          match str with
+          | $<ParseInt>$ i ->
+            match i with
+            | Even -> "even number"
+            | Odd -> "odd number"
+          | _ -> "not a number"
+        """
+
+      testCaseAsync "can find references for Partial Active Pattern - in let bindings with patterns"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+
+        let example =
+          let parse x =
+            match x with
+            | $<ParseInt>$ i -> Some i
+            | _ -> None
+
+          let result =
+            match "42" with
+            | $<ParseInt>$ i -> i + 10
+            | _ -> 0
+
+          result
+        """
+
       testCaseAsync "can find references for three-case Active Pattern - first case"
       <| checkRanges
         server

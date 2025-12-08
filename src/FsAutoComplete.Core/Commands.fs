@@ -867,22 +867,43 @@ module Commands =
                 let rec walkExpr (expr: SynExpr) =
                   seq {
                     match expr with
-                    | SynExpr.Match(clauses = clauses) ->
+                    | SynExpr.Match(expr = matchExpr; clauses = clauses) ->
+                      // Walk the discriminator expression
+                      yield! walkExpr matchExpr
+
                       for clause in clauses do
                         match clause with
-                        | SynMatchClause(pat = pat) -> yield! walkPat pat
-                    | SynExpr.MatchBang(clauses = clauses) ->
+                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+                          yield! walkPat pat
+                          // Walk the result expression to find nested matches
+                          yield! walkExpr resultExpr
+                    | SynExpr.MatchBang(expr = matchExpr; clauses = clauses) ->
+                      // Walk the discriminator expression
+                      yield! walkExpr matchExpr
+
                       for clause in clauses do
                         match clause with
-                        | SynMatchClause(pat = pat) -> yield! walkPat pat
-                    | SynExpr.TryWith(withCases = clauses) ->
+                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+                          yield! walkPat pat
+                          // Walk the result expression to find nested matches
+                          yield! walkExpr resultExpr
+                    | SynExpr.TryWith(tryExpr = tryExpr; withCases = clauses) ->
+                      // Walk the try expression
+                      yield! walkExpr tryExpr
+
                       for clause in clauses do
                         match clause with
-                        | SynMatchClause(pat = pat) -> yield! walkPat pat
+                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+                          yield! walkPat pat
+                          // Walk the result expression to find nested matches
+                          yield! walkExpr resultExpr
                     | SynExpr.MatchLambda(matchClauses = clauses) ->
                       for clause in clauses do
                         match clause with
-                        | SynMatchClause(pat = pat) -> yield! walkPat pat
+                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+                          yield! walkPat pat
+                          // Walk the result expression to find nested matches
+                          yield! walkExpr resultExpr
                     | SynExpr.Lambda(args = args; body = body) ->
                       match args with
                       | SynSimplePats.SimplePats(pats = pats) ->
@@ -899,11 +920,18 @@ module Commands =
                           | _ -> ()
 
                       yield! walkExpr body
-                    // Continue walking nested expressions (simplified - could be more complete)
+                    // Continue walking nested expressions
                     | SynExpr.App(funcExpr = e1; argExpr = e2) ->
                       yield! walkExpr e1
                       yield! walkExpr e2
-                    | SynExpr.LetOrUse(body = body) -> yield! walkExpr body
+                    | SynExpr.LetOrUse(bindings = bindings; body = body) ->
+                      // Walk the binding expressions
+                      for binding in bindings do
+                        match binding with
+                        | SynBinding(expr = expr) -> yield! walkExpr expr
+
+                      // Walk the body
+                      yield! walkExpr body
                     | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
                       yield! walkExpr e1
                       yield! walkExpr e2
@@ -915,6 +943,32 @@ module Commands =
                       | Some e3 -> yield! walkExpr e3
                       | None -> ()
                     | SynExpr.Paren(expr, _, _, _) -> yield! walkExpr expr
+                    // Computation expressions (seq, async, task, etc.)
+                    | SynExpr.ComputationExpr(expr = expr) -> yield! walkExpr expr
+                    // Array or list expressions
+                    | SynExpr.ArrayOrList(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+                    | SynExpr.ArrayOrListComputed(expr = expr) -> yield! walkExpr expr
+                    // For loops
+                    | SynExpr.For(doBody = body) -> yield! walkExpr body
+                    | SynExpr.ForEach(enumExpr = enumExpr; bodyExpr = body) ->
+                      yield! walkExpr enumExpr
+                      yield! walkExpr body
+                    // While loop
+                    | SynExpr.While(whileExpr = whileExpr; doExpr = doExpr) ->
+                      yield! walkExpr whileExpr
+                      yield! walkExpr doExpr
+                    // Tuples
+                    | SynExpr.Tuple(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+                    // Record expressions
+                    | SynExpr.Record(copyInfo = copyInfo; recordFields = fields) ->
+                      match copyInfo with
+                      | Some(expr, _) -> yield! walkExpr expr
+                      | None -> ()
+
+                      for (SynExprRecordField(expr = exprOpt)) in fields do
+                        match exprOpt with
+                        | Some expr -> yield! walkExpr expr
+                        | None -> ()
                     | _ -> ()
                   }
 
