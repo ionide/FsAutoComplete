@@ -780,7 +780,7 @@ module Commands =
         let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
 
         let symbolUses: _ seq =
-          let filtered =
+          let baseFiltered: _ seq =
             if includeDeclarations then
               symbolUses
             else
@@ -790,11 +790,11 @@ module Commands =
           // We need to filter to only the symbol that matches our query
           match symbolUse.Symbol with
           | :? FSharpActivePatternCase as apc ->
-            filtered |> Seq.filter (fun u -> 
+            baseFiltered |> Seq.filter (fun u -> 
               match u.Symbol with
               | :? FSharpActivePatternCase as foundApc -> foundApc.Name = apc.Name
               | _ -> false)
-          | _ -> filtered
+          | _ -> baseFiltered
 
         let ranges = symbolUses |> Seq.map (fun u -> u.Range)
         // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`

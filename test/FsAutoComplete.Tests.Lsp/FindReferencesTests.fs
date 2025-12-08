@@ -628,13 +628,173 @@ let private rangeTests state =
         }
         """ ])
 
+/// Tests specifically for Active Pattern reference filtering
+let private activePatternTests state =
+  let checkRanges server sourceWithCursors =
+    async {
+      let (source, cursors) = sourceWithCursors |> extractRanges
+      let! (doc, diags) = server |> Server.createUntitledDocument source
+
+      use doc = doc
+      Expect.hasLength diags 0 "There should be no diags"
+
+      let request: ReferenceParams =
+        { TextDocument = doc.TextDocumentIdentifier
+          Position = cursors.Cursor.Value
+          Context = { IncludeDeclaration = true }
+          WorkDoneToken = None
+          PartialResultToken = None }
+
+      let! refs = doc.Server.Server.TextDocumentReferences request
+
+      let refs =
+        refs
+        |> Flip.Expect.wantOk "Should not fail"
+        |> Flip.Expect.wantSome "Should return references"
+        |> Array.sortBy (fun l -> l.Range.Start)
+
+      Expect.all refs (fun r -> r.Uri = doc.Uri) "there should only be references in current doc"
+
+      let expected =
+        Array.append cursors.Declarations cursors.Usages
+        |> Array.sortBy (fun r -> r.Start)
+        |> Array.map (mkLocation doc)
+
+      if refs <> expected then
+        Expect.equal (markRanges source refs) (markRanges source expected) "Should find correct references"
+    }
+
+  serverTestList "active patterns" state defaultConfigDto None (fun server ->
+    [ testCaseAsync "can find references for Active Pattern Case 'Even' without including 'Odd'"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<Even>D$|Odd|) value =
+            if value % 2 = 0 then $<Even>$ else Odd
+
+        open MyModule
+        let _ =
+          match 42 with
+          | $<Ev$0en>$ -> ()
+          | Odd -> ()
+        let _ =
+          match 42 with
+          | MyModule.$<Even>$ -> ()
+          | MyModule.Odd -> ()
+        """
+      testCaseAsync "can find references for Active Pattern Case 'Odd' without including 'Even'"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|Even|$D<Odd>D$|) value =
+            if value % 2 = 0 then Even else $<Odd>$
+
+        open MyModule
+        let _ =
+          match 42 with
+          | Even -> ()
+          | $<Od$0d>$ -> ()
+        let _ =
+          match 42 with
+          | MyModule.Even -> ()
+          | MyModule.$<Odd>$ -> ()
+        """
+      testCaseAsync "can find references for Partial Active Pattern"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<ParseInt>D$|_|) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+        let _ =
+          match "42" with
+          | $<ParseI$0nt>$ i -> i
+          | _ -> 0
+        let _ =
+          match "test" with
+          | MyModule.$<ParseInt>$ i -> i
+          | _ -> 0
+        """
+      testCaseAsync "can find references for three-case Active Pattern - first case"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<Positive>D$|Zero|Negative|) value =
+            if value > 0 then $<Positive>$ 
+            elif value = 0 then Zero 
+            else Negative
+
+        open MyModule
+        let _ =
+          match 42 with
+          | $<Positiv$0e>$ -> "positive"
+          | Zero -> "zero"
+          | Negative -> "negative"
+        let _ =
+          match -5 with
+          | MyModule.$<Positive>$ -> "positive"
+          | MyModule.Zero -> "zero"
+          | MyModule.Negative -> "negative"
+        """
+      testCaseAsync "can find references for three-case Active Pattern - middle case"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|Positive|$D<Zero>D$|Negative|) value =
+            if value > 0 then Positive 
+            elif value = 0 then $<Zero>$ 
+            else Negative
+
+        open MyModule
+        let _ =
+          match 42 with
+          | Positive -> "positive"
+          | $<Zer$0o>$ -> "zero"
+          | Negative -> "negative"
+        let _ =
+          match -5 with
+          | MyModule.Positive -> "positive"
+          | MyModule.$<Zero>$ -> "zero"
+          | MyModule.Negative -> "negative"
+        """
+      testCaseAsync "can find references for three-case Active Pattern - last case"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|Positive|Zero|$D<Negative>D$|) value =
+            if value > 0 then Positive 
+            elif value = 0 then Zero 
+            else $<Negative>$
+
+        open MyModule
+        let _ =
+          match 42 with
+          | Positive -> "positive"
+          | Zero -> "zero"
+          | $<Negativ$0e>$ -> "negative"
+        let _ =
+          match -5 with
+          | MyModule.Positive -> "positive"
+          | MyModule.Zero -> "zero"
+          | MyModule.$<Negative>$ -> "negative"
+        """ ])
+
 let tests state =
   testList
     "Find All References tests"
     [ scriptTests state
       solutionTests state
       untitledTests state
-      rangeTests state ]
+      rangeTests state
+      activePatternTests state ]
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
