@@ -785,12 +785,13 @@ module Commands =
               symbolUses
             else
               symbolUses |> Seq.filter (fun u -> not u.IsFromDefinition)
-          
+
           // For Active Pattern Cases, FCS returns all cases in the pattern, not just the specific one
           // We need to filter to only the symbol that matches our query
           match symbolUse.Symbol with
           | :? FSharpActivePatternCase as apc ->
-            baseFiltered |> Seq.filter (fun u -> 
+            baseFiltered
+            |> Seq.filter (fun u ->
               match u.Symbol with
               | :? FSharpActivePatternCase as foundApc -> foundApc.Name = apc.Name
               | _ -> false)
