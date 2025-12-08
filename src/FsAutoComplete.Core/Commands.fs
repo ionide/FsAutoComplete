@@ -789,14 +789,49 @@ module Commands =
           // For Active Pattern Cases, FCS returns all cases in the pattern, not just the specific one
           // We need to filter to only the symbol that matches our query
           // BUT: if querying from the Active Pattern declaration itself (FSharpMemberOrFunctionOrValue),
-          // we want ALL cases, not filtered
+          // we also want to find the case usages
           match symbolUse.Symbol with
           | :? FSharpActivePatternCase as apc ->
+            // Querying from a specific case - filter to just that case
             baseFiltered
             |> Seq.filter (fun u ->
               match u.Symbol with
               | :? FSharpActivePatternCase as foundApc -> foundApc.Name = apc.Name
               | _ -> false)
+          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+            // Querying from the active pattern function declaration
+            // We want both the function declaration AND the case usages
+            let allSymbolUsesInFile = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile(ct)
+
+            // Extract pattern name from display name like "|ParseInt|_|" -> "ParseInt"
+            let patternName =
+              let name = mfv.DisplayName
+
+              if name.StartsWith("|") && name.EndsWith("|") then
+                let inner = name.Substring(1, name.Length - 2)
+                // For partial patterns like "|ParseInt|_|", split and take first part
+                let parts = inner.Split('|')
+
+                if parts.Length > 0 && parts.[0] <> "_" then
+                  Some parts.[0]
+                else
+                  None
+              else
+                None
+
+            // Find all case usages that match this pattern
+            let caseUsages =
+              match patternName with
+              | Some pname ->
+                allSymbolUsesInFile
+                |> Seq.filter (fun u ->
+                  match u.Symbol with
+                  | :? FSharpActivePatternCase as case -> case.Name = pname
+                  | _ -> false)
+              | None -> Seq.empty
+
+            // Combine declaration with case usages
+            baseFiltered |> Seq.append caseUsages
           | _ -> baseFiltered
 
         let ranges = symbolUses |> Seq.map (fun u -> u.Range)

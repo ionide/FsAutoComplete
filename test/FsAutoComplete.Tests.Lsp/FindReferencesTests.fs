@@ -752,11 +752,11 @@ let private activePatternTests state =
         open MyModule
         let _ =
           match "42" with
-          | ParseInt i -> i
+          | $<ParseInt>$ i -> i
           | _ -> 0
         let _ =
           match "test" with
-          | MyModule.ParseInt i -> i
+          | MyModule.$<ParseInt>$ i -> i
           | _ -> 0
         """
       testCaseAsync "can find references for three-case Active Pattern - first case"
