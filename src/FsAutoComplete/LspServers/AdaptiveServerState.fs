@@ -2180,8 +2180,7 @@ type AdaptiveState
             | CompilerProjectOption.TransparentCompiler snap ->
               checker.FindReferencesForSymbolInFile(file, snap, symbol)
             // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-            | CompilerProjectOption.BackgroundCompiler opts ->
-              checker.FindReferencesForSymbolInFile(file, opts, symbol)
+            | CompilerProjectOption.BackgroundCompiler opts -> checker.FindReferencesForSymbolInFile(file, opts, symbol)
           else
             // untitled script files
             async {
@@ -2195,8 +2194,13 @@ type AdaptiveState
 
         // For partial active patterns, also find case usages in match expressions
         match (symbol: FSharpSymbol) with
-        | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+        | :? FSharpMemberOrFunctionOrValue as mfv when
+          mfv.IsActivePattern
+          || (mfv.DisplayName.StartsWith("(|") && mfv.DisplayName.EndsWith("|)"))
+          ->
           let patternDisplayName = mfv.DisplayName
+          // Check if it's a partial active pattern (contains |_|)
+          // Note: IsActivePattern is true for direct definitions, but let-bound values need DisplayName check
           let isPartialActivePattern = patternDisplayName.Contains("|_|")
 
           if isPartialActivePattern then
@@ -2213,6 +2217,24 @@ type AdaptiveState
                 Commands.findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
 
               return Seq.append baseRanges caseUsageRanges
+          else
+            return baseRanges
+        | :? FSharpActivePatternCase as apc ->
+          // When user clicks on a specific active pattern case usage (e.g., LetterOrDigit in a match expression),
+          // FCS returns all usages correctly in project files, but may not in .fsx files for partial patterns
+          let isPartialPattern = apc.Group.IsTotal |> not
+
+          if isPartialPattern then
+            match! forceGetOpenFileTypeCheckResultsStale file with
+            | Error _ -> return baseRanges
+            | Ok tyRes ->
+              let caseUsageRanges =
+                Commands.findPartialActivePatternCaseUsages [ apc.Name ] tyRes.GetParseResults
+
+              // Combine and deduplicate
+              return
+                Seq.append baseRanges caseUsageRanges
+                |> Seq.distinctBy (fun r -> r.Start, r.End)
           else
             return baseRanges
         | _ -> return baseRanges

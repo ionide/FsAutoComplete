@@ -98,19 +98,22 @@ module Commands =
     let rec walkPat (pat: SynPat) =
       seq {
         match pat with
-        | SynPat.LongIdent(longDotId = SynLongIdent(id = idents); argPats = args) ->
+        | SynPat.LongIdent(longDotId = synLongIdent; argPats = args) ->
           // Check if this is a potential case usage
-          match idents with
-          | [] -> ()
-          | [ singleIdent ] when List.contains singleIdent.idText caseNames ->
-            // Single identifier that matches a case name
-            yield singleIdent.idRange
-          | multipleIdents ->
-            // Qualified identifier (e.g., MyModule.ParseInt)
-            let lastIdent = List.last multipleIdents
+          match synLongIdent with
+          | SynLongIdent(id = idents) ->
+            match idents with
+            | [] -> ()
+            | [ singleIdent ] when List.contains singleIdent.idText caseNames ->
+              // Single identifier that matches a case name
+              yield singleIdent.idRange
+            | multipleIdents ->
+              // Qualified identifier (e.g., MyModule.ParseInt)
+              let lastIdent = List.last multipleIdents
 
-            if List.contains lastIdent.idText caseNames then
-              yield lastIdent.idRange
+              if List.contains lastIdent.idText caseNames then
+                // Return the full qualified range to match what FCS returns
+                yield synLongIdent.Range
 
           // Recursively check arguments
           match args with
@@ -184,11 +187,9 @@ module Commands =
               | SynSimplePat.Typed(pat, _, _)
               | SynSimplePat.Attrib(pat, _, _) ->
                 match pat with
-                | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
-                  yield ident.idRange
+                | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames -> yield ident.idRange
                 | _ -> ()
-              | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
-                yield ident.idRange
+              | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames -> yield ident.idRange
               | _ -> ()
 
           yield! walkExpr body
@@ -215,6 +216,7 @@ module Commands =
           | Some e3 -> yield! walkExpr e3
           | None -> ()
         | SynExpr.Paren(expr, _, _, _) -> yield! walkExpr expr
+        | SynExpr.Typed(expr = expr) -> yield! walkExpr expr
         // Computation expressions (seq, async, task, etc.)
         | SynExpr.ComputationExpr(expr = expr) -> yield! walkExpr expr
         // Array or list expressions
@@ -932,7 +934,14 @@ module Commands =
     asyncResult {
       let symbol = symbolUse.Symbol
 
-      let symbolNameCore = symbol.DisplayNameCore
+      let symbolNameCore =
+        match symbol with
+        | :? FSharpMemberOrFunctionOrValue as mfv when
+          mfv.IsActivePattern
+          || (mfv.DisplayName.StartsWith("(|") && mfv.DisplayName.EndsWith("|)"))
+          ->
+          mfv.DisplayName.TrimStart('(', '|').TrimEnd(')', '|', '_')
+        | _ -> symbol.DisplayNameCore
 
       let tryAdjustRanges (text: IFSACSourceText, ranges: seq<Range>) =
         let ranges = ranges |> Seq.map (fun range -> range.NormalizeDriveLetterCasing())
@@ -982,11 +991,26 @@ module Commands =
                 | :? FSharpActivePatternCase as foundApc -> foundApc.Name = apc.Name
                 | _ -> false)
 
-            filtered, []
-          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+            // For partial active patterns in .fsx files, FCS may not return case usages
+            // We walk the AST and deduplicate with what FCS found
+            let isPartialPattern = apc.Group.IsTotal |> not
+
+            let caseUsageRanges =
+              if isPartialPattern then
+                findPartialActivePatternCaseUsages [ apc.Name ] tyRes.GetParseResults
+              else
+                // Complete patterns - FCS handles these correctly
+                []
+
+            filtered, caseUsageRanges
+          | :? FSharpMemberOrFunctionOrValue as mfv when
+            mfv.IsActivePattern
+            || (mfv.DisplayName.StartsWith("(|") && mfv.DisplayName.EndsWith("|)"))
+            ->
             // Querying from the active pattern function declaration
             // For partial active patterns like (|ParseInt|_|), include case usages in match expressions
             // For complete active patterns like (|Even|Odd|), only return the function declaration
+            // Note: IsActivePattern is true for direct definitions, but let-bound values need DisplayName check
 
             let patternDisplayName = mfv.DisplayName
             // DisplayName includes parens: "(|ParseInt|_|)" so we need to check for "|_|)" not just "|_|"
@@ -1003,7 +1027,8 @@ module Commands =
                 |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
                 |> Array.toList
 
-              let caseUsageRanges = findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
+              let caseUsageRanges =
+                findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
 
               // For partial patterns, FCS doesn't include case usages in pattern matches
               // We found them by walking the AST, so we return them as additional ranges
@@ -1013,7 +1038,9 @@ module Commands =
         let ranges =
           let baseRanges = symbolUses |> Seq.map (fun u -> u.Range)
           // Add any additional ranges we found from walking the AST for partial active patterns
+          // Deduplicate based on range start and end positions
           Seq.append baseRanges (Seq.ofList additionalRangesForPartialPatterns)
+          |> Seq.distinctBy (fun r -> r.Start, r.End)
         // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`
         let! ranges = tryAdjustRanges (text, ranges)
         let ranges = dict [ (text.FileName, Seq.toArray ranges) ]
