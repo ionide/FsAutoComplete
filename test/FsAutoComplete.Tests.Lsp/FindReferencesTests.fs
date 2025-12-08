@@ -765,8 +765,8 @@ let private activePatternTests state =
         """
         module MyModule =
           let (|$D<Positive>D$|Zero|Negative|) value =
-            if value > 0 then $<Positive>$ 
-            elif value = 0 then Zero 
+            if value > 0 then $<Positive>$
+            elif value = 0 then Zero
             else Negative
 
         open MyModule
@@ -787,8 +787,8 @@ let private activePatternTests state =
         """
         module MyModule =
           let (|Positive|$D<Zero>D$|Negative|) value =
-            if value > 0 then Positive 
-            elif value = 0 then $<Zero>$ 
+            if value > 0 then Positive
+            elif value = 0 then $<Zero>$
             else Negative
 
         open MyModule
@@ -809,8 +809,8 @@ let private activePatternTests state =
         """
         module MyModule =
           let (|Positive|Zero|$D<Negative>D$|) value =
-            if value > 0 then Positive 
-            elif value = 0 then Zero 
+            if value > 0 then Positive
+            elif value = 0 then Zero
             else $<Negative>$
 
         open MyModule
