@@ -788,6 +788,8 @@ module Commands =
 
           // For Active Pattern Cases, FCS returns all cases in the pattern, not just the specific one
           // We need to filter to only the symbol that matches our query
+          // BUT: if querying from the Active Pattern declaration itself (FSharpMemberOrFunctionOrValue),
+          // we want ALL cases, not filtered
           match symbolUse.Symbol with
           | :? FSharpActivePatternCase as apc ->
             baseFiltered

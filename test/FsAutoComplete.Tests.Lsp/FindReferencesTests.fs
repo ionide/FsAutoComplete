@@ -665,7 +665,27 @@ let private activePatternTests state =
     }
 
   serverTestList "active patterns" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can find references for Active Pattern Case 'Even' without including 'Odd'"
+    [ testCaseAsync "can find references for full Active Pattern from declaration"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Even|$0Odd|>D$) value =
+            if value % 2 = 0 then Even else Odd
+
+        open MyModule
+        let _ = ($<|Even|Odd|>$) 42
+        let _ = MyModule.($<|Even|Odd|>$) 42
+        let _ =
+          match 42 with
+          | Even -> ()
+          | Odd -> ()
+        let _ =
+          match 42 with
+          | MyModule.Even -> ()
+          | MyModule.Odd -> ()
+        """
+      testCaseAsync "can find references for Active Pattern Case 'Even' without including 'Odd'"
       <| checkRanges
         server
         """
@@ -718,6 +738,25 @@ let private activePatternTests state =
         let _ =
           match "test" with
           | MyModule.$<ParseInt>$ i -> i
+          | _ -> 0
+        """
+      testCaseAsync "can find references for Partial Active Pattern - from definition"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|ParseInt|$0_|>D$) (str: string) =
+            let success, i = System.Int32.TryParse str
+            if success then Some i else None
+
+        open MyModule
+        let _ =
+          match "42" with
+          | ParseInt i -> i
+          | _ -> 0
+        let _ =
+          match "test" with
+          | MyModule.ParseInt i -> i
           | _ -> 0
         """
       testCaseAsync "can find references for three-case Active Pattern - first case"
