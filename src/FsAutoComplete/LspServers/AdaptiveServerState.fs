@@ -28,6 +28,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Data.Adaptive
 open Ionide.ProjInfo
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Collections.Concurrent
 open System.Text.RegularExpressions
@@ -2173,21 +2174,48 @@ type AdaptiveState
       async {
         let checker = checker |> AVal.force
 
-        if File.Exists(UMX.untag file) then
-          match project with
-          | CompilerProjectOption.TransparentCompiler snap ->
-            return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          | CompilerProjectOption.BackgroundCompiler opts ->
-            return! checker.FindReferencesForSymbolInFile(file, opts, symbol)
-        else
-          // untitled script files
-          match! forceGetOpenFileTypeCheckResultsStale file with
-          | Error _ -> return Seq.empty
-          | Ok tyRes ->
-            let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-            return usages |> Seq.map (fun u -> u.Range)
+        let! baseRanges =
+          if File.Exists(UMX.untag file) then
+            match project with
+            | CompilerProjectOption.TransparentCompiler snap ->
+              checker.FindReferencesForSymbolInFile(file, snap, symbol)
+            // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+            | CompilerProjectOption.BackgroundCompiler opts ->
+              checker.FindReferencesForSymbolInFile(file, opts, symbol)
+          else
+            // untitled script files
+            async {
+              match! forceGetOpenFileTypeCheckResultsStale file with
+              | Error _ -> return Seq.empty
+              | Ok tyRes ->
+                let! ct = Async.CancellationToken
+                let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+                return usages |> Seq.map (fun u -> u.Range)
+            }
+
+        // For partial active patterns, also find case usages in match expressions
+        match (symbol: FSharpSymbol) with
+        | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+          let patternDisplayName = mfv.DisplayName
+          let isPartialActivePattern = patternDisplayName.Contains("|_|")
+
+          if isPartialActivePattern then
+            // Get parse results for this file to walk the AST
+            match! forceGetOpenFileTypeCheckResultsStale file with
+            | Error _ -> return baseRanges
+            | Ok tyRes ->
+              let caseNames =
+                patternDisplayName.TrimStart('|', '(').TrimEnd('|', '_', ')').Split('|')
+                |> Array.filter (fun s -> not (System.String.IsNullOrWhiteSpace(s)))
+                |> Array.toList
+
+              let caseUsageRanges =
+                Commands.findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
+
+              return Seq.append baseRanges caseUsageRanges
+          else
+            return baseRanges
+        | _ -> return baseRanges
       }
 
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =

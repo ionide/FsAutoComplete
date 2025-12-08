@@ -92,6 +92,188 @@ module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
+  /// Find case usages for partial active patterns by walking the AST
+  /// Returns ranges where the case names appear in pattern matches
+  let findPartialActivePatternCaseUsages (caseNames: string list) (parseResults: FSharpParseFileResults) : range list =
+    let rec walkPat (pat: SynPat) =
+      seq {
+        match pat with
+        | SynPat.LongIdent(longDotId = SynLongIdent(id = idents); argPats = args) ->
+          // Check if this is a potential case usage
+          match idents with
+          | [] -> ()
+          | [ singleIdent ] when List.contains singleIdent.idText caseNames ->
+            // Single identifier that matches a case name
+            yield singleIdent.idRange
+          | multipleIdents ->
+            // Qualified identifier (e.g., MyModule.ParseInt)
+            let lastIdent = List.last multipleIdents
+
+            if List.contains lastIdent.idText caseNames then
+              yield lastIdent.idRange
+
+          // Recursively check arguments
+          match args with
+          | SynArgPats.Pats pats -> yield! List.collect (walkPat >> Seq.toList) pats
+          | SynArgPats.NamePatPairs(pats = pairs; range = _) ->
+            yield! List.collect (fun (NamePatPairField(pat = pat)) -> walkPat pat |> Seq.toList) pairs
+
+        | SynPat.Paren(pat, _) -> yield! walkPat pat
+        | SynPat.Tuple(elementPats = pats) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.ArrayOrList(_, pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.Ands(pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.Or(lhsPat = pat1; rhsPat = pat2) ->
+          yield! walkPat pat1
+          yield! walkPat pat2
+        | SynPat.As(lpat, rpat, _) ->
+          yield! walkPat lpat
+          yield! walkPat rpat
+        | SynPat.Typed(pat, _, _) -> yield! walkPat pat
+        | SynPat.Attrib(pat, _, _) -> yield! walkPat pat
+        | SynPat.ListCons(lpat, rpat, _, _) ->
+          yield! walkPat lpat
+          yield! walkPat rpat
+        | _ -> ()
+      }
+
+    let rec walkExpr (expr: SynExpr) =
+      seq {
+        match expr with
+        | SynExpr.Match(expr = matchExpr; clauses = clauses) ->
+          // Walk the discriminator expression
+          yield! walkExpr matchExpr
+
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              // Walk the result expression to find nested matches
+              yield! walkExpr resultExpr
+        | SynExpr.MatchBang(expr = matchExpr; clauses = clauses) ->
+          // Walk the discriminator expression
+          yield! walkExpr matchExpr
+
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              // Walk the result expression to find nested matches
+              yield! walkExpr resultExpr
+        | SynExpr.TryWith(tryExpr = tryExpr; withCases = clauses) ->
+          // Walk the try expression
+          yield! walkExpr tryExpr
+
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              // Walk the result expression to find nested matches
+              yield! walkExpr resultExpr
+        | SynExpr.MatchLambda(matchClauses = clauses) ->
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              // Walk the result expression to find nested matches
+              yield! walkExpr resultExpr
+        | SynExpr.Lambda(args = args; body = body) ->
+          match args with
+          | SynSimplePats.SimplePats(pats = pats) ->
+            for spat in pats do
+              match spat with
+              | SynSimplePat.Typed(pat, _, _)
+              | SynSimplePat.Attrib(pat, _, _) ->
+                match pat with
+                | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
+                  yield ident.idRange
+                | _ -> ()
+              | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
+                yield ident.idRange
+              | _ -> ()
+
+          yield! walkExpr body
+        // Continue walking nested expressions
+        | SynExpr.App(funcExpr = e1; argExpr = e2) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+        | SynExpr.LetOrUse(bindings = bindings; body = body) ->
+          // Walk the binding expressions
+          for binding in bindings do
+            match binding with
+            | SynBinding(expr = expr) -> yield! walkExpr expr
+
+          // Walk the body
+          yield! walkExpr body
+        | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+        | SynExpr.IfThenElse(ifExpr = e1; thenExpr = e2; elseExpr = e3opt) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+
+          match e3opt with
+          | Some e3 -> yield! walkExpr e3
+          | None -> ()
+        | SynExpr.Paren(expr, _, _, _) -> yield! walkExpr expr
+        // Computation expressions (seq, async, task, etc.)
+        | SynExpr.ComputationExpr(expr = expr) -> yield! walkExpr expr
+        // Array or list expressions
+        | SynExpr.ArrayOrList(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+        | SynExpr.ArrayOrListComputed(expr = expr) -> yield! walkExpr expr
+        // For loops
+        | SynExpr.For(doBody = body) -> yield! walkExpr body
+        | SynExpr.ForEach(enumExpr = enumExpr; bodyExpr = body) ->
+          yield! walkExpr enumExpr
+          yield! walkExpr body
+        // While loop
+        | SynExpr.While(whileExpr = whileExpr; doExpr = doExpr) ->
+          yield! walkExpr whileExpr
+          yield! walkExpr doExpr
+        // Tuples
+        | SynExpr.Tuple(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+        // Record expressions
+        | SynExpr.Record(copyInfo = copyInfo; recordFields = fields) ->
+          match copyInfo with
+          | Some(expr, _) -> yield! walkExpr expr
+          | None -> ()
+
+          for (SynExprRecordField(expr = exprOpt)) in fields do
+            match exprOpt with
+            | Some expr -> yield! walkExpr expr
+            | None -> ()
+        | _ -> ()
+      }
+
+    let rec walkDecl (decl: SynModuleDecl) =
+      seq {
+        match decl with
+        | SynModuleDecl.Let(bindings = bindings) ->
+          for binding in bindings do
+            match binding with
+            | SynBinding(expr = expr) -> yield! walkExpr expr
+        | SynModuleDecl.Expr(expr, _) -> yield! walkExpr expr
+        | SynModuleDecl.NestedModule(decls = decls) -> yield! List.collect (walkDecl >> Seq.toList) decls
+        | SynModuleDecl.Types(typeDefs, _) ->
+          for typeDef in typeDefs do
+            match typeDef with
+            | SynTypeDefn(members = members) ->
+              for memb in members do
+                match memb with
+                | SynMemberDefn.Member(SynBinding(expr = expr), _) -> yield! walkExpr expr
+                | SynMemberDefn.LetBindings(bindings, _, _, _) ->
+                  for SynBinding(expr = expr) in bindings do
+                    yield! walkExpr expr
+                | _ -> ()
+        | _ -> ()
+      }
+
+    match parseResults.ParseTree with
+    | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
+      modules
+      |> List.collect (fun (SynModuleOrNamespace(decls = decls)) -> decls |> List.collect (walkDecl >> Seq.toList))
+      |> List.distinct
+    | _ -> []
+
   let addFile (fsprojPath: string) fileVirtPath =
     async {
       try
@@ -821,192 +1003,7 @@ module Commands =
                 |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
                 |> Array.toList
 
-              // Walk the untyped AST to find pattern usages
-              let findCaseUsages () =
-                let rec walkPat (pat: SynPat) =
-                  seq {
-                    match pat with
-                    | SynPat.LongIdent(longDotId = SynLongIdent(id = idents); argPats = args) ->
-                      // Check if this is a potential case usage
-                      match idents with
-                      | [] -> ()
-                      | [ singleIdent ] when List.contains singleIdent.idText caseNames ->
-                        // Single identifier that matches a case name
-                        yield singleIdent.idRange
-                      | multipleIdents ->
-                        // Qualified identifier (e.g., MyModule.ParseInt)
-                        let lastIdent = List.last multipleIdents
-
-                        if List.contains lastIdent.idText caseNames then
-                          yield lastIdent.idRange
-
-                      // Recursively check arguments
-                      match args with
-                      | SynArgPats.Pats pats -> yield! List.collect (walkPat >> Seq.toList) pats
-                      | SynArgPats.NamePatPairs(pats = pairs; range = _) ->
-                        yield! List.collect (fun (NamePatPairField(pat = pat)) -> walkPat pat |> Seq.toList) pairs
-
-                    | SynPat.Paren(pat, _) -> yield! walkPat pat
-                    | SynPat.Tuple(elementPats = pats) -> yield! List.collect (walkPat >> Seq.toList) pats
-                    | SynPat.ArrayOrList(_, pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
-                    | SynPat.Ands(pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
-                    | SynPat.Or(lhsPat = pat1; rhsPat = pat2) ->
-                      yield! walkPat pat1
-                      yield! walkPat pat2
-                    | SynPat.As(lpat, rpat, _) ->
-                      yield! walkPat lpat
-                      yield! walkPat rpat
-                    | SynPat.Typed(pat, _, _) -> yield! walkPat pat
-                    | SynPat.Attrib(pat, _, _) -> yield! walkPat pat
-                    | SynPat.ListCons(lpat, rpat, _, _) ->
-                      yield! walkPat lpat
-                      yield! walkPat rpat
-                    | _ -> ()
-                  }
-
-                let rec walkExpr (expr: SynExpr) =
-                  seq {
-                    match expr with
-                    | SynExpr.Match(expr = matchExpr; clauses = clauses) ->
-                      // Walk the discriminator expression
-                      yield! walkExpr matchExpr
-
-                      for clause in clauses do
-                        match clause with
-                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-                          yield! walkPat pat
-                          // Walk the result expression to find nested matches
-                          yield! walkExpr resultExpr
-                    | SynExpr.MatchBang(expr = matchExpr; clauses = clauses) ->
-                      // Walk the discriminator expression
-                      yield! walkExpr matchExpr
-
-                      for clause in clauses do
-                        match clause with
-                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-                          yield! walkPat pat
-                          // Walk the result expression to find nested matches
-                          yield! walkExpr resultExpr
-                    | SynExpr.TryWith(tryExpr = tryExpr; withCases = clauses) ->
-                      // Walk the try expression
-                      yield! walkExpr tryExpr
-
-                      for clause in clauses do
-                        match clause with
-                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-                          yield! walkPat pat
-                          // Walk the result expression to find nested matches
-                          yield! walkExpr resultExpr
-                    | SynExpr.MatchLambda(matchClauses = clauses) ->
-                      for clause in clauses do
-                        match clause with
-                        | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-                          yield! walkPat pat
-                          // Walk the result expression to find nested matches
-                          yield! walkExpr resultExpr
-                    | SynExpr.Lambda(args = args; body = body) ->
-                      match args with
-                      | SynSimplePats.SimplePats(pats = pats) ->
-                        for spat in pats do
-                          match spat with
-                          | SynSimplePat.Typed(pat, _, _)
-                          | SynSimplePat.Attrib(pat, _, _) ->
-                            match pat with
-                            | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
-                              yield ident.idRange
-                            | _ -> ()
-                          | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames ->
-                            yield ident.idRange
-                          | _ -> ()
-
-                      yield! walkExpr body
-                    // Continue walking nested expressions
-                    | SynExpr.App(funcExpr = e1; argExpr = e2) ->
-                      yield! walkExpr e1
-                      yield! walkExpr e2
-                    | SynExpr.LetOrUse(bindings = bindings; body = body) ->
-                      // Walk the binding expressions
-                      for binding in bindings do
-                        match binding with
-                        | SynBinding(expr = expr) -> yield! walkExpr expr
-
-                      // Walk the body
-                      yield! walkExpr body
-                    | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
-                      yield! walkExpr e1
-                      yield! walkExpr e2
-                    | SynExpr.IfThenElse(ifExpr = e1; thenExpr = e2; elseExpr = e3opt) ->
-                      yield! walkExpr e1
-                      yield! walkExpr e2
-
-                      match e3opt with
-                      | Some e3 -> yield! walkExpr e3
-                      | None -> ()
-                    | SynExpr.Paren(expr, _, _, _) -> yield! walkExpr expr
-                    // Computation expressions (seq, async, task, etc.)
-                    | SynExpr.ComputationExpr(expr = expr) -> yield! walkExpr expr
-                    // Array or list expressions
-                    | SynExpr.ArrayOrList(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
-                    | SynExpr.ArrayOrListComputed(expr = expr) -> yield! walkExpr expr
-                    // For loops
-                    | SynExpr.For(doBody = body) -> yield! walkExpr body
-                    | SynExpr.ForEach(enumExpr = enumExpr; bodyExpr = body) ->
-                      yield! walkExpr enumExpr
-                      yield! walkExpr body
-                    // While loop
-                    | SynExpr.While(whileExpr = whileExpr; doExpr = doExpr) ->
-                      yield! walkExpr whileExpr
-                      yield! walkExpr doExpr
-                    // Tuples
-                    | SynExpr.Tuple(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
-                    // Record expressions
-                    | SynExpr.Record(copyInfo = copyInfo; recordFields = fields) ->
-                      match copyInfo with
-                      | Some(expr, _) -> yield! walkExpr expr
-                      | None -> ()
-
-                      for (SynExprRecordField(expr = exprOpt)) in fields do
-                        match exprOpt with
-                        | Some expr -> yield! walkExpr expr
-                        | None -> ()
-                    | _ -> ()
-                  }
-
-                let rec walkDecl (decl: SynModuleDecl) =
-                  seq {
-                    match decl with
-                    | SynModuleDecl.Let(bindings = bindings) ->
-                      for binding in bindings do
-                        match binding with
-                        | SynBinding(expr = expr) -> yield! walkExpr expr
-                    | SynModuleDecl.Expr(expr, _) -> yield! walkExpr expr
-                    | SynModuleDecl.NestedModule(decls = decls) -> yield! List.collect (walkDecl >> Seq.toList) decls
-                    | SynModuleDecl.Types(typeDefs, _) ->
-                      for typeDef in typeDefs do
-                        match typeDef with
-                        | SynTypeDefn(members = members) ->
-                          for memb in members do
-                            match memb with
-                            | SynMemberDefn.Member(SynBinding(expr = expr), _) -> yield! walkExpr expr
-                            | SynMemberDefn.LetBindings(bindings, _, _, _) ->
-                              for SynBinding(expr = expr) in bindings do
-                                yield! walkExpr expr
-                            | _ -> ()
-                    | _ -> ()
-                  }
-
-                // Get the parse results
-                let parseResults = tyRes.GetParseResults
-
-                match parseResults.ParseTree with
-                | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
-                  modules
-                  |> List.collect (fun (SynModuleOrNamespace(decls = decls)) ->
-                    decls |> List.collect (walkDecl >> Seq.toList))
-                  |> List.distinct
-                | _ -> []
-
-              let caseUsageRanges = findCaseUsages ()
+              let caseUsageRanges = findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
 
               // For partial patterns, FCS doesn't include case usages in pattern matches
               // We found them by walking the AST, so we return them as additional ranges

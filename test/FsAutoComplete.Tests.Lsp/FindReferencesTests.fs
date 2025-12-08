@@ -999,6 +999,52 @@ let private activePatternTests state =
           | MyModule.$<Negative>$ -> "negative"
         """ ])
 
+let private activePatternProjectTests state =
+  let path =
+    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "ActivePatternProject")
+
+  serverTestList "ActivePatternProject" state defaultConfigDto (Some path) (fun server ->
+    [ testCaseAsync "can find references for Partial Active Pattern across .fs files in project"
+      <| async {
+        let! (activePatDoc, activePatDiags) = server |> Server.openDocument "ActivePatterns.fs"
+        Expect.isEmpty activePatDiags "There should be no diagnostics in ActivePatterns.fs"
+
+        let! (_programDoc, programDiags) = server |> Server.openDocument "Program.fs"
+        Expect.isEmpty programDiags "There should be no diagnostics in Program.fs"
+
+        // Find references from the definition in ActivePatterns.fs
+        let definitionPos = { Line = 2u; Character = 9u } // (|ParseInt|_|)
+
+        let request: ReferenceParams =
+          { TextDocument = activePatDoc.TextDocumentIdentifier
+            Position = definitionPos
+            Context = { IncludeDeclaration = true }
+            WorkDoneToken = None
+            PartialResultToken = None }
+
+        let! refs = activePatDoc.Server.Server.TextDocumentReferences request
+
+        let allLocations =
+          refs
+          |> Flip.Expect.wantOk "Should not fail"
+          |> Flip.Expect.wantSome "Should return references"
+
+        // Count references by file
+        let programRefs =
+          allLocations |> Array.filter (fun loc -> loc.Uri.Contains("Program.fs"))
+
+        // Critical test: verify that cross-file partial active pattern references work
+        // We should find BOTH usages in Program.fs (test1 and test2/async)
+        Expect.hasLength programRefs 2 "Should find 2 usages in Program.fs (cross-file from ActivePatterns.fs)"
+
+        // Verify the references are at the expected lines
+        let line4Ref = programRefs |> Array.exists (fun loc -> loc.Range.Start.Line = 4u)
+        let line11Ref = programRefs |> Array.exists (fun loc -> loc.Range.Start.Line = 11u)
+
+        Expect.isTrue line4Ref "Should find reference at line 4 (test1 function)"
+        Expect.isTrue line11Ref "Should find reference at line 11 (test2 async block)"
+      } ])
+
 let tests state =
   testList
     "Find All References tests"
@@ -1006,7 +1052,8 @@ let tests state =
       solutionTests state
       untitledTests state
       rangeTests state
-      activePatternTests state ]
+      activePatternTests state
+      activePatternProjectTests state ]
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
