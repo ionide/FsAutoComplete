@@ -92,6 +92,21 @@ module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
+  /// Extracts the case name(s) from an active pattern name string.
+  /// For partial patterns like "|CaseName|_|" returns "CaseName"
+  /// For full patterns like "|Even|Odd|" returns the first case name
+  let extractActivePatternCaseName (name: string) : string =
+    let parts = name.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
+    if parts.Length > 0 then parts.[0] else name
+
+  /// Extracts all case names from an active pattern display name.
+  /// For "(|ParseInt|_|)" returns ["ParseInt"]
+  /// For "(|Even|Odd|)" returns ["Even"; "Odd"]
+  let extractActivePatternCaseNames (displayName: string) : string list =
+    displayName.TrimStart('|', '(').TrimEnd('|', '_', ')').Split('|')
+    |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
+    |> Array.toList
+
   /// Find case usages for partial active patterns by walking the AST
   /// Returns ranges where the case names appear in pattern matches
   let findPartialActivePatternCaseUsages (caseNames: string list) (parseResults: FSharpParseFileResults) : range list =
@@ -140,45 +155,27 @@ module Commands =
       }
 
     let rec walkExpr (expr: SynExpr) =
+      let walkMatchClauses clauses =
+        seq {
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              yield! walkExpr resultExpr
+        }
+
       seq {
         match expr with
         | SynExpr.Match(expr = matchExpr; clauses = clauses) ->
-          // Walk the discriminator expression
           yield! walkExpr matchExpr
-
-          for clause in clauses do
-            match clause with
-            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-              yield! walkPat pat
-              // Walk the result expression to find nested matches
-              yield! walkExpr resultExpr
+          yield! walkMatchClauses clauses
         | SynExpr.MatchBang(expr = matchExpr; clauses = clauses) ->
-          // Walk the discriminator expression
           yield! walkExpr matchExpr
-
-          for clause in clauses do
-            match clause with
-            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-              yield! walkPat pat
-              // Walk the result expression to find nested matches
-              yield! walkExpr resultExpr
+          yield! walkMatchClauses clauses
         | SynExpr.TryWith(tryExpr = tryExpr; withCases = clauses) ->
-          // Walk the try expression
           yield! walkExpr tryExpr
-
-          for clause in clauses do
-            match clause with
-            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-              yield! walkPat pat
-              // Walk the result expression to find nested matches
-              yield! walkExpr resultExpr
-        | SynExpr.MatchLambda(matchClauses = clauses) ->
-          for clause in clauses do
-            match clause with
-            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
-              yield! walkPat pat
-              // Walk the result expression to find nested matches
-              yield! walkExpr resultExpr
+          yield! walkMatchClauses clauses
+        | SynExpr.MatchLambda(matchClauses = clauses) -> yield! walkMatchClauses clauses
         | SynExpr.Lambda(args = args; body = body) ->
           match args with
           | SynSimplePats.SimplePats(pats = pats) ->
@@ -937,30 +934,20 @@ module Commands =
       let symbolNameCore =
         match symbol with
         | :? FSharpActivePatternCase as apc ->
-          // For active pattern cases, use the case name directly
+          // For active pattern cases, extract just the case name without bars
           // apc.Name may include bars like "|LetterOrDigit|_|" for partial patterns
-          // We need to extract just the case name without bars
-          let name = apc.Name
-
-          if name.StartsWith("|") then
-            // Partial pattern: "|CaseName|_|" -> extract "CaseName"
-            let parts = name.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
-            if parts.Length > 0 then parts.[0] else name
+          if apc.Name.StartsWith("|") then
+            extractActivePatternCaseName apc.Name
           else
-            name
+            apc.Name
         | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
-          // For active pattern functions (the function definition), extract just the case name(s)
-          // DisplayNameCore is like "|LetterOrDigit|_|" for partial patterns
-          // For multi-case patterns like "(|Even|Odd|)", we should return the full pattern
+          // For active pattern functions, extract just the case name for partial patterns
+          // For full patterns like "(|Even|Odd|)", use DisplayNameCore as-is
           let displayName = symbol.DisplayNameCore
 
           if displayName.Contains("|_|") then
-            // Partial active pattern - extract just the case name(s) without the partial marker
-            // "|CaseName|_|" -> "CaseName"
-            let parts = displayName.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
-            if parts.Length > 0 then parts.[0] else displayName
+            extractActivePatternCaseName displayName
           else
-            // Full active pattern - use DisplayNameCore as-is
             displayName
         | _ -> symbol.DisplayNameCore
 
@@ -1042,11 +1029,7 @@ module Commands =
               baseFiltered, []
             else
               // For partial patterns, find case usages by walking the AST
-              // Extract case names from the pattern (e.g., "|ParseInt|_|" -> ["ParseInt"])
-              let caseNames =
-                patternDisplayName.TrimStart('|', '(').TrimEnd('|', '_', ')').Split('|')
-                |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
-                |> Array.toList
+              let caseNames = extractActivePatternCaseNames patternDisplayName
 
               let caseUsageRanges =
                 findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
