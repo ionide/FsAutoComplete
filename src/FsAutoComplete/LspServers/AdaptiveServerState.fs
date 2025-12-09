@@ -28,6 +28,7 @@ open FSharp.Compiler.EditorServices
 open FSharp.Data.Adaptive
 open Ionide.ProjInfo
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 open FsAutoComplete.UnionPatternMatchCaseGenerator
 open System.Collections.Concurrent
 open System.Text.RegularExpressions
@@ -2169,25 +2170,90 @@ type AdaptiveState
     tyRes
     =
 
-    let findReferencesForSymbolInFile (file: string<LocalPath>, project: CompilerProjectOption, symbol) =
+    let findReferencesForSymbolInFile (file: string<LocalPath>, project: CompilerProjectOption, symbol: FSharpSymbol) =
       async {
         let checker = checker |> AVal.force
 
-        if File.Exists(UMX.untag file) then
-          match project with
-          | CompilerProjectOption.TransparentCompiler snap ->
-            return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
-          // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
-          | CompilerProjectOption.BackgroundCompiler opts ->
-            return! checker.FindReferencesForSymbolInFile(file, opts, symbol)
+        // Check if the symbol is a partial active pattern definition
+        // If so, we need to also find usages in match expressions via AST walking
+        let partialActivePatternCaseNames =
+          match symbol with
+          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+            let displayName = mfv.DisplayName
+            // Check if it's a partial active pattern (contains |_|)
+            if displayName.Contains("|_|") then
+              Commands.extractActivePatternCaseNames displayName
+            else
+              []
+          | :? FSharpActivePatternCase as apc ->
+            // Check if it's a partial active pattern by examining the group's name
+            // The group name will contain "|_|" for partial patterns (e.g., "|ParseInt|_|")
+            // Note: We don't use IsTotal because it returns true for [<return: Struct>] patterns
+            // that return ValueOption
+            let groupName = apc.Group.Name |> Option.defaultValue ""
+            if groupName.Contains("|_|") then
+              // It's a partial active pattern - use the case name
+              [ apc.DisplayName ]
+            else
+              []
+          | _ -> []
+
+        let baseRanges =
+          async {
+            if File.Exists(UMX.untag file) then
+              match project with
+              | CompilerProjectOption.TransparentCompiler snap ->
+                return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
+              // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
+              | CompilerProjectOption.BackgroundCompiler opts ->
+                return! checker.FindReferencesForSymbolInFile(file, opts, symbol)
+            else
+              // untitled script files
+              match! forceGetOpenFileTypeCheckResultsStale file with
+              | Error _ -> return Seq.empty
+              | Ok tyRes ->
+                let! ct = Async.CancellationToken
+                let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+                return usages |> Seq.map (fun u -> u.Range)
+          }
+
+        let! baseRanges = baseRanges
+
+        // For partial active patterns, also find case usages via AST walking
+        if partialActivePatternCaseNames.IsEmpty then
+          return baseRanges
         else
-          // untitled script files
-          match! forceGetOpenFileTypeCheckResultsStale file with
-          | Error _ -> return Seq.empty
-          | Ok tyRes ->
-            let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
-            return usages |> Seq.map (fun u -> u.Range)
+          // Get parse results for this file to walk the AST
+          let! parseResultsOpt =
+            async {
+              if File.Exists(UMX.untag file) then
+                match project with
+                | CompilerProjectOption.TransparentCompiler snap ->
+                  let! parseResults = checker.ParseFile(file, snap)
+                  return Some parseResults
+                | CompilerProjectOption.BackgroundCompiler opts ->
+                  // Get the source text for parsing
+                  match! forceFindSourceText file with
+                  | Error _ -> return None
+                  | Ok sourceText ->
+                    let! parseResults = checker.ParseFile(file, sourceText, opts)
+                    return Some parseResults
+              else
+                // untitled script files
+                match! forceGetOpenFileTypeCheckResultsStale file with
+                | Error _ -> return None
+                | Ok tyRes -> return Some tyRes.GetParseResults
+            }
+
+          match parseResultsOpt with
+          | None -> return baseRanges
+          | Some parseResults ->
+            let caseUsageRanges =
+              Commands.findPartialActivePatternCaseUsages partialActivePatternCaseNames parseResults
+
+            return
+              Seq.append baseRanges caseUsageRanges
+              |> Seq.distinctBy (fun r -> r.Start, r.End)
       }
 
     let tryGetProjectOptionsForFsproj (file: string<LocalPath>) =
