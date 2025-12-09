@@ -651,6 +651,156 @@ let outgoingTests createServer =
         Expect.isTrue
           (level5Calls.Length = 0 || level5Calls.Length <= 1)
           "Leaf function should have no or minimal outgoing calls"
+      }
+
+      testCaseAsync "NestedExample2 - parallelWorkflow duplicate calls have multiple fromRanges"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "NestedExample2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test parallelWorkflow which calls Services.serviceOperation twice
+        // Line 53 (1-indexed) = Line 52 (0-indexed), character 4 on function name
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 52u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "parallelWorkflow" "Should find parallelWorkflow function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Find the serviceOperation call
+        let serviceOperationCall =
+          outgoingResult |> Array.tryFind (fun call -> call.To.Name = "serviceOperation")
+
+        Expect.isSome serviceOperationCall "Should find call to serviceOperation"
+
+        // Verify that serviceOperation has 2 fromRanges (called twice on lines 54 and 55)
+        let serviceOpCall = serviceOperationCall.Value
+        Expect.equal
+          serviceOpCall.FromRanges.Length
+          2
+          "serviceOperation should have 2 fromRanges for the two calls"
+
+        // Verify the fromRanges point to lines 53 and 54 (0-indexed)
+        let fromLines = serviceOpCall.FromRanges |> Array.map (fun r -> r.Start.Line) |> Array.sort
+
+        Expect.equal fromLines.[0] 53u "First fromRange should be on line 53 (0-indexed)"
+        Expect.equal fromLines.[1] 54u "Second fromRange should be on line 54 (0-indexed)"
+      }
+
+      testCaseAsync "NestedExample2 - serviceOperation cross-module calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "NestedExample2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test serviceOperation within Services module
+        // Line 35 (1-indexed) = Line 34 (0-indexed), character 6 on function name
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 34u 6u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "serviceOperation" "Should find serviceOperation function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to calculateMetrics and transformData
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "calculateMetrics" "Should find call to calculateMetrics"
+        Expect.contains callNames "transformData" "Should find call to transformData"
+      }
+
+      testCaseAsync "NestedExample2 - orchestrateWorkflow multi-module calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "NestedExample2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test orchestrateWorkflow within Services module
+        // Line 40 (1-indexed) = Line 39 (0-indexed), character 6 on function name
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 39u 6u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "orchestrateWorkflow" "Should find orchestrateWorkflow function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to serviceOperation, validateData, and formatData
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "serviceOperation" "Should find call to serviceOperation"
+        Expect.contains callNames "validateData" "Should find call to validateData"
+        Expect.contains callNames "formatData" "Should find call to formatData"
+      }
+
+      testCaseAsync "NestedExample2 - mainWorkflow simple delegation"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "NestedExample2.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test mainWorkflow at module level
+        // Line 51 (1-indexed) = Line 50 (0-indexed), character 4 on function name
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 50u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "mainWorkflow" "Should find mainWorkflow function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find call to orchestrateWorkflow
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "orchestrateWorkflow" "Should find call to orchestrateWorkflow"
       } ])
 
 let tests createServer =
