@@ -44,11 +44,59 @@ open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
 open Helpers
 open System.Runtime.ExceptionServices
+open FSharp.Compiler.CodeAnalysis
 
 module ArrayHelpers =
   let (|EmptyArray|NonEmptyArray|) (a: 'a array) = if a.Length = 0 then EmptyArray else NonEmptyArray a
 
 open ArrayHelpers
+
+module CallHierarchyHelpers =
+  /// Determines if a symbol represents a callable (function, method, constructor, or applicable entity)
+  let isCallableSymbol (symbol: FSharpSymbol) =
+    match symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv ->
+      mfv.IsFunction
+      || mfv.IsMethod
+      || mfv.IsConstructor
+      || (mfv.IsProperty
+          && not (mfv.LogicalName.Contains("get_") || mfv.LogicalName.Contains("set_")))
+    | :? FSharpEntity as ent -> ent.IsClass || ent.IsFSharpRecord || ent.IsFSharpUnion
+    | _ -> false
+
+  /// Filters symbol uses to those within a binding range that represent outgoing calls
+  let getOutgoingCallsInBinding
+    (bindingRange: Range)
+    (pos: FSharp.Compiler.Text.Position)
+    (allSymbolUses: FSharpSymbolUse seq)
+    =
+    allSymbolUses
+    |> Seq.filter (fun su ->
+      Range.rangeContainsRange bindingRange su.Range
+      && not su.IsFromDefinition
+      && su.Range.Start <> pos
+      && isCallableSymbol su.Symbol)
+    |> Seq.toArray
+
+  /// Gets the appropriate SymbolKind for a given FSharpSymbol
+  let getSymbolKind (symbol: FSharpSymbol) =
+    match symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv ->
+      if mfv.IsConstructor then SymbolKind.Constructor
+      elif mfv.IsProperty then SymbolKind.Property
+      elif mfv.IsMethod then SymbolKind.Method
+      elif mfv.IsEvent then SymbolKind.Event
+      else SymbolKind.Function
+    | :? FSharpEntity as ent ->
+      if ent.IsClass then SymbolKind.Class
+      elif ent.IsInterface then SymbolKind.Interface
+      elif ent.IsFSharpModule then SymbolKind.Module
+      elif ent.IsEnum then SymbolKind.Enum
+      elif ent.IsValueType then SymbolKind.Struct
+      else SymbolKind.Object
+    | _ -> SymbolKind.Function
+
+open CallHierarchyHelpers
 
 type AdaptiveFSharpLspServer
   (
@@ -2218,31 +2266,12 @@ type AdaptiveFSharpLspServer
             let allSymbolUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
 
             // Filter to symbol uses within the function body, focusing only on calls
-            let bodySymbolUses =
-              allSymbolUses
-              |> Seq.filter (fun su ->
-                Range.rangeContainsRange bindingRange su.Range
-                && not su.IsFromDefinition
-                && su.Range.Start <> pos
-                // Filter to only include actual function/method calls, not parameter references or type annotations
-                && match su.Symbol with
-                   | :? FSharpMemberOrFunctionOrValue as mfv ->
-                     // Include functions, methods, constructors but be careful with parameters vs calls
-                     mfv.IsFunction
-                     || mfv.IsMethod
-                     || mfv.IsConstructor
-                     || (mfv.IsProperty
-                         && not (mfv.LogicalName.Contains("get_") || mfv.LogicalName.Contains("set_")))
-                   | :? FSharpEntity as ent ->
-                     // Include entities only if used as constructors (when they appear in expressions)
-                     ent.IsClass || ent.IsFSharpRecord || ent.IsFSharpUnion
-                   | _ -> false)
-              |> Seq.toArray
+            let bodySymbolUses = getOutgoingCallsInBinding bindingRange pos allSymbolUses
 
             // Group symbol uses by the called symbol
             let groupedBySymbol = bodySymbolUses |> Array.groupBy (fun su -> su.Symbol.FullName)
 
-            let createOutgoingCallItem (_symbolName: string, uses: FSharp.Compiler.CodeAnalysis.FSharpSymbolUse[]) =
+            let createOutgoingCallItem (_symbolName: string, uses: FSharpSymbolUse[]) =
               asyncOption {
                 if uses.Length = 0 then
                   do! None
@@ -2260,20 +2289,8 @@ type AdaptiveFSharpLspServer
                     let targetFile = declLoc.FileName |> Utils.normalizePath
                     let targetUri = Path.LocalPathToUri targetFile
 
-                    // Get symbol kind
-                    let symbolKind =
-                      match symbol with
-                      | :? FSharpMemberOrFunctionOrValue as mfv ->
-                        if mfv.IsConstructor then SymbolKind.Constructor
-                        elif mfv.IsProperty then SymbolKind.Property
-                        elif mfv.IsMethod then SymbolKind.Method
-                        else SymbolKind.Function
-                      | :? FSharpEntity as ent ->
-                        if ent.IsClass then SymbolKind.Class
-                        elif ent.IsInterface then SymbolKind.Interface
-                        elif ent.IsFSharpModule then SymbolKind.Module
-                        else SymbolKind.Object
-                      | _ -> SymbolKind.Function
+                    // Get symbol kind using helper
+                    let symbolKind = getSymbolKind symbol
 
                     let displayName = symbol.DisplayName
                     let detail = $"In {System.IO.Path.GetFileName(UMX.untag targetFile)}"
@@ -2291,7 +2308,7 @@ type AdaptiveFSharpLspServer
                     // Symbol without declaration location (e.g., built-in functions)
                     Some
                       { CallHierarchyItem.Name = symbol.DisplayName
-                        Kind = SymbolKind.Function
+                        Kind = getSymbolKind symbol
                         Tags = None
                         Detail = Some "Built-in"
                         Uri = p.Item.Uri // Use current file as fallback

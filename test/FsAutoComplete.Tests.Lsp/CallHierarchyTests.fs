@@ -201,6 +201,108 @@ let outgoingTests createServer =
           "Should find higher-order function calls"
       }
 
+      testCaseAsync "OperatorExample - Custom operator calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "OperatorExample.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from main function (line 10, character 4 - on the function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 10u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "main" "Should find main function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to custom operators ++ and |>>
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.isTrue
+          (callNames |> Array.exists (fun name -> name.Contains("++") || name = "op_PlusPlus"))
+          "Should find call to custom ++ operator"
+      }
+
+      testCaseAsync "LocalFunctionExample - Local function calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "LocalFunctionExample.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from outerFunction (line 2, character 4 - on the function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 2u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "outerFunction" "Should find outerFunction"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to local functions
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "localHelper" "Should find call to localHelper"
+        Expect.contains callNames "localProcessor" "Should find call to localProcessor"
+        Expect.contains callNames "nestedOuter" "Should find call to nestedOuter"
+      }
+
+      testCaseAsync "PropertyExample - Property and method calls"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "PropertyExample.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test outgoing calls from main function (line 18 1-indexed = line 17 0-indexed, character 4 - on the function name)
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 17u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "main" "Should find main function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Should find calls to methods
+        let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+        Expect.contains callNames "Increment" "Should find call to Increment method"
+        Expect.contains callNames "GetDouble" "Should find call to GetDouble method"
+        Expect.contains callNames "createPerson" "Should find call to createPerson function"
+      }
+
       testCaseAsync "RecursiveExample1 - Simple recursion and mutual recursion"
       <| async {
         let! (aDoc, _) = Server.openDocument "RecursiveExample1.fsx" server
