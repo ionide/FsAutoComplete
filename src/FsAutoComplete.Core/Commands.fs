@@ -107,8 +107,13 @@ module Commands =
     |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
     |> Array.toList
 
-  /// Find case usages for partial active patterns by walking the AST
-  /// Returns ranges where the case names appear in pattern matches
+  /// Finds usages of partial active pattern cases by walking the AST.
+  ///
+  /// Returns syntactic ranges from the AST where the specified case names appear in pattern matches.
+  /// For qualified identifiers (e.g., `MyModule.ParseInt`), returns the full qualified range to match FCS behavior.
+  /// Recursively traverses all pattern forms, including nested and composite patterns (tuples, lists, or/and/as patterns, etc.).
+  ///
+  /// Note: Only syntactic (AST) ranges are returned; semantic information is not considered.
   let findPartialActivePatternCaseUsages (caseNames: string list) (parseResults: FSharpParseFileResults) : range list =
     let rec walkPat (pat: SynPat) =
       seq {
@@ -270,7 +275,7 @@ module Commands =
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
       modules
       |> List.collect (fun (SynModuleOrNamespace(decls = decls)) -> decls |> List.collect (walkDecl >> Seq.toList))
-      |> List.distinct
+      |> List.distinctBy (fun r -> r.Start, r.End)
     | _ -> []
 
   let addFile (fsprojPath: string) fileVirtPath =

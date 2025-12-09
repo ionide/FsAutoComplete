@@ -1173,10 +1173,9 @@ type AdaptiveState
           binlogConfig
           |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
 
-        let! projects =
-          // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
-          // and when other adaptive values await on this, the scheduler won't block those other tasks
-          loadProjects loader binlogConfig projects |> AMap.toAVal
+        // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
+        // and when other adaptive values await on this, the scheduler won't block those other tasks
+        let! projects = loadProjects loader binlogConfig projects |> AMap.toAVal
 
         and! checker = checker
         checker.ClearCaches()
@@ -2208,10 +2207,7 @@ type AdaptiveState
             match! forceGetOpenFileTypeCheckResultsStale file with
             | Error _ -> return baseRanges
             | Ok tyRes ->
-              let caseNames =
-                patternDisplayName.TrimStart('|', '(').TrimEnd('|', '_', ')').Split('|')
-                |> Array.filter (fun s -> not (System.String.IsNullOrWhiteSpace(s)))
-                |> Array.toList
+              let caseNames = Commands.extractActivePatternCaseNames patternDisplayName
 
               let caseUsageRanges =
                 Commands.findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
