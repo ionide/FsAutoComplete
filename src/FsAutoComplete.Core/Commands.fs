@@ -941,6 +941,7 @@ module Commands =
           // apc.Name may include bars like "|LetterOrDigit|_|" for partial patterns
           // We need to extract just the case name without bars
           let name = apc.Name
+
           if name.StartsWith("|") then
             // Partial pattern: "|CaseName|_|" -> extract "CaseName"
             let parts = name.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
@@ -952,6 +953,7 @@ module Commands =
           // DisplayNameCore is like "|LetterOrDigit|_|" for partial patterns
           // For multi-case patterns like "(|Even|Odd|)", we should return the full pattern
           let displayName = symbol.DisplayNameCore
+
           if displayName.Contains("|_|") then
             // Partial active pattern - extract just the case name(s) without the partial marker
             // "|CaseName|_|" -> "CaseName"
