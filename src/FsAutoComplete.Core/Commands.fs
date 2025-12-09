@@ -936,11 +936,30 @@ module Commands =
 
       let symbolNameCore =
         match symbol with
-        | :? FSharpMemberOrFunctionOrValue as mfv when
-          mfv.IsActivePattern
-          || (mfv.DisplayName.StartsWith("(|") && mfv.DisplayName.EndsWith("|)"))
-          ->
-          mfv.DisplayName.TrimStart('(', '|').TrimEnd(')', '|', '_')
+        | :? FSharpActivePatternCase as apc ->
+          // For active pattern cases, use the case name directly
+          // apc.Name may include bars like "|LetterOrDigit|_|" for partial patterns
+          // We need to extract just the case name without bars
+          let name = apc.Name
+          if name.StartsWith("|") then
+            // Partial pattern: "|CaseName|_|" -> extract "CaseName"
+            let parts = name.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
+            if parts.Length > 0 then parts.[0] else name
+          else
+            name
+        | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+          // For active pattern functions (the function definition), extract just the case name(s)
+          // DisplayNameCore is like "|LetterOrDigit|_|" for partial patterns
+          // For multi-case patterns like "(|Even|Odd|)", we should return the full pattern
+          let displayName = symbol.DisplayNameCore
+          if displayName.Contains("|_|") then
+            // Partial active pattern - extract just the case name(s) without the partial marker
+            // "|CaseName|_|" -> "CaseName"
+            let parts = displayName.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
+            if parts.Length > 0 then parts.[0] else displayName
+          else
+            // Full active pattern - use DisplayNameCore as-is
+            displayName
         | _ -> symbol.DisplayNameCore
 
       let tryAdjustRanges (text: IFSACSourceText, ranges: seq<Range>) =

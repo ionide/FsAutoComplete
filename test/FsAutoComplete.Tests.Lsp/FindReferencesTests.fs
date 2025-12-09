@@ -743,6 +743,138 @@ let fix (getFileLines: obj) : obj =
 
     return ()
   }
+        """
+      testCaseAsync "can get range of partial Active Pattern definition and usages"
+      <| checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<Pars$0eInt>D$|_|) (s: string) =
+            match System.Int32.TryParse s with
+            | true, i -> Some i
+            | _ -> None
+
+        open MyModule
+        let test input =
+          match input with
+          | $<ParseInt>$ i -> printfn "Got %d" i
+          | _ -> printfn "Not an int"
+
+        let test2 input =
+          match input with
+          | MyModule.$<ParseInt>$ i -> i
+          | _ -> 0
+        """
+      testCaseAsync "can get range of partial Active Pattern with nested matches"
+      <| checkRanges
+        server
+        """
+        let (|$D<Posi$0tive>D$|_|) n = if n > 0 then Some n else None
+        let (|Negative|_|) n = if n < 0 then Some n else None
+
+        let classify n =
+          match n with
+          | $<Positive>$ p ->
+            match p with
+            | $<Positive>$ _ -> "still positive"
+            | _ -> "?"
+          | Negative _ -> "negative"
+          | _ -> "zero"
+        """
+      testCaseAsync "can get range of partial Active Pattern used in Or pattern"
+      <| checkRanges
+        server
+        """
+        let (|$D<Even$0>D$|_|) n = if n % 2 = 0 then Some() else None
+        let (|DivisibleBy3|_|) n = if n % 3 = 0 then Some() else None
+
+        let test n =
+          match n with
+          | $<Even>$ | DivisibleBy3 -> "divisible by 2 or 3"
+          | _ -> "other"
+        """
+      testCaseAsync "can get range of partial Active Pattern used in And pattern"
+      <| checkRanges
+        server
+        """
+        let (|$D<Posi$0tive>D$|_|) n = if n > 0 then Some n else None
+        let (|LessThan100|_|) n = if n < 100 then Some n else None
+
+        let test n =
+          match n with
+          | $<Positive>$ _ & LessThan100 _ -> "positive and less than 100"
+          | _ -> "other"
+        """
+      testCaseAsync "can get range of partial Active Pattern with extracted value"
+      <| checkRanges
+        server
+        """
+        let (|$D<RegexMat$0ch>D$|_|) pattern input =
+          let m = System.Text.RegularExpressions.Regex.Match(input, pattern)
+          if m.Success then Some m.Value else None
+
+        let parseEmail s =
+          match s with
+          | $<RegexMatch>$ @"[\w.-]+@[\w.-]+" email -> Some email
+          | _ -> None
+        """
+      testCaseAsync "can get range of partial Active Pattern in script with local definition"
+      <| checkRangesScript
+        server
+        """
+let (|$D<Trima$0ble>D$|_|) (s: string) =
+  let trimmed = s.Trim()
+  if trimmed <> s then Some trimmed else None
+
+let processInput input =
+  match input with
+  | $<Trimable>$ trimmed -> printfn "Trimmed: %s" trimmed
+  | other -> printfn "No trim needed: %s" other
+
+let test () =
+  match "  hello  " with
+  | $<Trimable>$ s -> s
+  | s -> s
+        """
+      testCaseAsync "can get range of partial Active Pattern in script with multiple usages in same match"
+      <| checkRangesScript
+        server
+        """
+let (|$D<Upp$0er>D$|_|) (c: char) = if System.Char.IsUpper c then Some c else None
+let (|Lower|_|) (c: char) = if System.Char.IsLower c then Some c else None
+
+let classifyChar c =
+  match c with
+  | $<Upper>$ u -> sprintf "Upper: %c" u
+  | Lower l -> sprintf "Lower: %c" l
+  | _ -> "Other"
+
+let testMultiple chars =
+  chars |> List.map (fun c ->
+    match c with
+    | $<Upper>$ _ -> "U"
+    | Lower _ -> "L"
+    | _ -> "O")
+        """
+      testCaseAsync "can get range of partial Active Pattern defined in nested module"
+      <| checkRanges
+        server
+        """
+        module Outer =
+          module Inner =
+            let (|$D<StartsWit$0hA>D$|_|) (s: string) =
+              if s.StartsWith "A" then Some s else None
+
+        open Outer.Inner
+        let test s =
+          match s with
+          | $<StartsWithA>$ v -> v
+          | _ -> ""
+
+        let test2 s =
+          match s with
+          | Outer.Inner.$<StartsWithA>$ v -> v
+          | _ -> ""
         """ ])
 
 let private activePatternProjectTests state =
@@ -914,7 +1046,7 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
         // backticks
         let _ = ($<|``Even``|Odd|>$) 42
         let _ = ($<|``Even``|``Odd``|>$) 42
-        let _ = (``$<|Even|Odd|``) 42
+        let _ = (``$<|Even|Odd|>$``) 42
 
         // spaces
         let _ = ($<| Even | Odd |>$) 42
