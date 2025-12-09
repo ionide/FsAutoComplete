@@ -12,6 +12,7 @@ open Utils.ServerTests
 open Helpers
 open Utils.Server
 open Ionide.LanguageServerProtocol.Types
+open Ionide.LanguageServerProtocol.Mappings
 
 let examples = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CallHierarchy")
 let incomingExamples = Path.Combine(examples, "IncomingCalls")
@@ -230,8 +231,10 @@ let outgoingTests createServer =
 
         // Should find calls to custom operators ++ and |>>
         let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
+
         Expect.isTrue
-          (callNames |> Array.exists (fun name -> name.Contains("++") || name = "op_PlusPlus"))
+          (callNames
+           |> Array.exists (fun name -> name.Contains("++") || name = "op_PlusPlus"))
           "Should find call to custom ++ operator"
       }
 
@@ -689,13 +692,11 @@ let outgoingTests createServer =
 
         // Verify that serviceOperation has 2 fromRanges (called twice on lines 54 and 55)
         let serviceOpCall = serviceOperationCall.Value
-        Expect.equal
-          serviceOpCall.FromRanges.Length
-          2
-          "serviceOperation should have 2 fromRanges for the two calls"
+        Expect.equal serviceOpCall.FromRanges.Length 2 "serviceOperation should have 2 fromRanges for the two calls"
 
         // Verify the fromRanges point to lines 53 and 54 (0-indexed)
-        let fromLines = serviceOpCall.FromRanges |> Array.map (fun r -> r.Start.Line) |> Array.sort
+        let fromLines =
+          serviceOpCall.FromRanges |> Array.map (fun r -> r.Start.Line) |> Array.sort
 
         Expect.equal fromLines.[0] 53u "First fromRange should be on line 53 (0-indexed)"
         Expect.equal fromLines.[1] 54u "Second fromRange should be on line 54 (0-indexed)"
@@ -801,6 +802,79 @@ let outgoingTests createServer =
         // Should find call to orchestrateWorkflow
         let callNames = outgoingResult |> Array.map (fun call -> call.To.Name)
         Expect.contains callNames "orchestrateWorkflow" "Should find call to orchestrateWorkflow"
+      }
+
+      testCaseAsync "NestedExample1 - External symbols have local file URIs via SourceLink"
+      <| async {
+        let! (aDoc, _) = Server.openDocument "NestedExample1.fsx" server
+        use aDoc = aDoc
+        let! server = server
+
+        // Test from complexLevel2 which uses the + operator (external FSharp.Core symbol)
+        // Line 22, 0-based is 21, position on function name
+        let prepareParams = CallHierarchyPrepareParams.create aDoc.Uri 21u 4u
+
+        let! prepareResult =
+          server.Server.TextDocumentPrepareCallHierarchy prepareParams
+          |> Async.map resultOptionGet
+
+        Expect.equal prepareResult.Length 1 "Should find one symbol"
+        Expect.equal prepareResult[0].Name "complexLevel2" "Should find complexLevel2 function"
+
+        let outgoingParams: CallHierarchyOutgoingCallsParams =
+          { Item = prepareResult[0]
+            PartialResultToken = None
+            WorkDoneToken = None }
+
+        let! outgoingResult =
+          server.Server.CallHierarchyOutgoingCalls outgoingParams
+          |> Async.map resultOptionGet
+
+        Expect.isGreaterThan outgoingResult.Length 0 "Should find outgoing calls"
+
+        // Find the + operator call (external symbol from FSharp.Core)
+        let plusOperatorCall =
+          outgoingResult
+          |> Array.tryFind (fun call -> call.To.Name = "(+)" || call.To.Name = "op_Addition")
+
+        // If we found the + operator, verify its URI points to a local file
+        match plusOperatorCall with
+        | Some call ->
+          let uri = call.To.Uri
+
+          // The URI should NOT be a non-existent build path like "file:///d%3A/a/_work/..."
+          // Instead, it should be a local temp file path from SourceLink
+          let uriStr = uri.ToString()
+
+          // Check that it's a file URI
+          Expect.isTrue (uriStr.StartsWith("file://")) "URI should be a file URI"
+
+          // The URI should NOT contain Azure DevOps build paths
+          Expect.isFalse
+            (uriStr.Contains("/_work/") || uriStr.Contains("%2F_work%2F"))
+            "URI should not contain Azure DevOps build paths"
+
+          // Extract the local path from the URI and verify the file exists
+          let localPath = Path.FileUriToLocalPath uri
+
+          Expect.isTrue (File.Exists localPath) $"SourceLink file should exist locally at {localPath}"
+        | None ->
+          // The + operator might not be detected depending on FCS behavior, which is acceptable
+          // In that case, we just verify the other calls have valid local URIs
+          ()
+
+        // Verify all outgoing calls have valid local file URIs (either local workspace or SourceLink temp files)
+        for call in outgoingResult do
+          let uri = call.To.Uri
+          let uriStr = uri.ToString()
+
+          // All URIs should be file URIs
+          Expect.isTrue (uriStr.StartsWith("file://")) $"URI for {call.To.Name} should be a file URI"
+
+          // Extract local path and verify file exists
+          let localPath = Path.FileUriToLocalPath uri
+
+          Expect.isTrue (File.Exists localPath) $"File for {call.To.Name} should exist locally at {localPath}"
       } ])
 
 let tests createServer =

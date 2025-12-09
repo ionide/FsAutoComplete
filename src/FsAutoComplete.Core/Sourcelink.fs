@@ -229,17 +229,26 @@ let private downloadFileToTempDir
   Directory.CreateDirectory tempDir |> ignore
 
   async {
-    logger.info (
-      Log.setMessage "Getting file from {url} for document {repoPath}"
-      >> Log.addContextDestructured "url" url
-      >> Log.addContextDestructured "repoPath" repoPathFragment
-    )
+    // Check if file already exists (cached from previous download)
+    if File.Exists tempFile then
+      logger.info (
+        Log.setMessage "Using cached SourceLink file for document {repoPath}"
+        >> Log.addContextDestructured "repoPath" repoPathFragment
+      )
 
-    let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+      return UMX.tag<LocalPath> tempFile
+    else
+      logger.info (
+        Log.setMessage "Getting file from {url} for document {repoPath}"
+        >> Log.addContextDestructured "url" url
+        >> Log.addContextDestructured "repoPath" repoPathFragment
+      )
 
-    use fileStream = File.OpenWrite tempFile
-    do! response.CopyToAsync fileStream |> Async.AwaitTask
-    return UMX.tag<LocalPath> tempFile
+      let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+
+      use fileStream = File.OpenWrite tempFile
+      do! response.CopyToAsync fileStream |> Async.AwaitTask
+      return UMX.tag<LocalPath> tempFile
   }
 
 type Errors =
