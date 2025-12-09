@@ -92,6 +92,192 @@ module Commands =
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
 
+  /// Extracts the case name(s) from an active pattern name string.
+  /// For partial patterns like "|CaseName|_|" returns "CaseName"
+  /// For full patterns like "|Even|Odd|" returns the first case name
+  let extractActivePatternCaseName (name: string) : string =
+    let parts = name.Split('|') |> Array.filter (fun s -> s <> "" && s <> "_")
+    if parts.Length > 0 then parts.[0] else name
+
+  /// Extracts all case names from an active pattern display name.
+  /// For "(|ParseInt|_|)" returns ["ParseInt"]
+  /// For "(|Even|Odd|)" returns ["Even"; "Odd"]
+  let extractActivePatternCaseNames (displayName: string) : string list =
+    displayName.TrimStart('|', '(').TrimEnd('|', '_', ')').Split('|')
+    |> Array.filter (fun s -> not (String.IsNullOrWhiteSpace(s)))
+    |> Array.toList
+
+  /// Finds usages of partial active pattern cases by walking the AST.
+  ///
+  /// Returns syntactic ranges from the AST where the specified case names appear in pattern matches.
+  /// For qualified identifiers (e.g., `MyModule.ParseInt`), returns the full qualified range to match FCS behavior.
+  /// Recursively traverses all pattern forms, including nested and composite patterns (tuples, lists, or/and/as patterns, etc.).
+  ///
+  /// Note: Only syntactic (AST) ranges are returned; semantic information is not considered.
+  let findPartialActivePatternCaseUsages (caseNames: string list) (parseResults: FSharpParseFileResults) : range list =
+    let rec walkPat (pat: SynPat) =
+      seq {
+        match pat with
+        | SynPat.LongIdent(longDotId = synLongIdent; argPats = args) ->
+          // Check if this is a potential case usage
+          match synLongIdent with
+          | SynLongIdent(id = idents) ->
+            match idents with
+            | [] -> ()
+            | [ singleIdent ] when List.contains singleIdent.idText caseNames ->
+              // Single identifier that matches a case name
+              yield singleIdent.idRange
+            | multipleIdents ->
+              // Qualified identifier (e.g., MyModule.ParseInt)
+              let lastIdent = List.last multipleIdents
+
+              if List.contains lastIdent.idText caseNames then
+                // Return the full qualified range to match what FCS returns
+                yield synLongIdent.Range
+
+          // Recursively check arguments
+          match args with
+          | SynArgPats.Pats pats -> yield! List.collect (walkPat >> Seq.toList) pats
+          | SynArgPats.NamePatPairs(pats = pairs; range = _) ->
+            yield! List.collect (fun (NamePatPairField(pat = pat)) -> walkPat pat |> Seq.toList) pairs
+
+        | SynPat.Paren(pat, _) -> yield! walkPat pat
+        | SynPat.Tuple(elementPats = pats) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.ArrayOrList(_, pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.Ands(pats, _) -> yield! List.collect (walkPat >> Seq.toList) pats
+        | SynPat.Or(lhsPat = pat1; rhsPat = pat2) ->
+          yield! walkPat pat1
+          yield! walkPat pat2
+        | SynPat.As(lpat, rpat, _) ->
+          yield! walkPat lpat
+          yield! walkPat rpat
+        | SynPat.Typed(pat, _, _) -> yield! walkPat pat
+        | SynPat.Attrib(pat, _, _) -> yield! walkPat pat
+        | SynPat.ListCons(lpat, rpat, _, _) ->
+          yield! walkPat lpat
+          yield! walkPat rpat
+        | _ -> ()
+      }
+
+    let rec walkExpr (expr: SynExpr) =
+      let walkMatchClauses clauses =
+        seq {
+          for clause in clauses do
+            match clause with
+            | SynMatchClause(pat = pat; resultExpr = resultExpr) ->
+              yield! walkPat pat
+              yield! walkExpr resultExpr
+        }
+
+      seq {
+        match expr with
+        | SynExpr.Match(expr = matchExpr; clauses = clauses) ->
+          yield! walkExpr matchExpr
+          yield! walkMatchClauses clauses
+        | SynExpr.MatchBang(expr = matchExpr; clauses = clauses) ->
+          yield! walkExpr matchExpr
+          yield! walkMatchClauses clauses
+        | SynExpr.TryWith(tryExpr = tryExpr; withCases = clauses) ->
+          yield! walkExpr tryExpr
+          yield! walkMatchClauses clauses
+        | SynExpr.MatchLambda(matchClauses = clauses) -> yield! walkMatchClauses clauses
+        | SynExpr.Lambda(args = args; body = body) ->
+          match args with
+          | SynSimplePats.SimplePats(pats = pats) ->
+            for spat in pats do
+              match spat with
+              | SynSimplePat.Typed(pat, _, _)
+              | SynSimplePat.Attrib(pat, _, _) ->
+                match pat with
+                | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames -> yield ident.idRange
+                | _ -> ()
+              | SynSimplePat.Id(ident, _, _, _, _, _) when List.contains ident.idText caseNames -> yield ident.idRange
+              | _ -> ()
+
+          yield! walkExpr body
+        // Continue walking nested expressions
+        | SynExpr.App(funcExpr = e1; argExpr = e2) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+        | SynExpr.LetOrUse(bindings = bindings; body = body) ->
+          // Walk the binding expressions
+          for binding in bindings do
+            match binding with
+            | SynBinding(expr = expr) -> yield! walkExpr expr
+
+          // Walk the body
+          yield! walkExpr body
+        | SynExpr.Sequential(expr1 = e1; expr2 = e2) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+        | SynExpr.IfThenElse(ifExpr = e1; thenExpr = e2; elseExpr = e3opt) ->
+          yield! walkExpr e1
+          yield! walkExpr e2
+
+          match e3opt with
+          | Some e3 -> yield! walkExpr e3
+          | None -> ()
+        | SynExpr.Paren(expr, _, _, _) -> yield! walkExpr expr
+        | SynExpr.Typed(expr = expr) -> yield! walkExpr expr
+        // Computation expressions (seq, async, task, etc.)
+        | SynExpr.ComputationExpr(expr = expr) -> yield! walkExpr expr
+        // Array or list expressions
+        | SynExpr.ArrayOrList(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+        | SynExpr.ArrayOrListComputed(expr = expr) -> yield! walkExpr expr
+        // For loops
+        | SynExpr.For(doBody = body) -> yield! walkExpr body
+        | SynExpr.ForEach(enumExpr = enumExpr; bodyExpr = body) ->
+          yield! walkExpr enumExpr
+          yield! walkExpr body
+        // While loop
+        | SynExpr.While(whileExpr = whileExpr; doExpr = doExpr) ->
+          yield! walkExpr whileExpr
+          yield! walkExpr doExpr
+        // Tuples
+        | SynExpr.Tuple(exprs = exprs) -> yield! List.collect (walkExpr >> Seq.toList) exprs
+        // Record expressions
+        | SynExpr.Record(copyInfo = copyInfo; recordFields = fields) ->
+          match copyInfo with
+          | Some(expr, _) -> yield! walkExpr expr
+          | None -> ()
+
+          for (SynExprRecordField(expr = exprOpt)) in fields do
+            match exprOpt with
+            | Some expr -> yield! walkExpr expr
+            | None -> ()
+        | _ -> ()
+      }
+
+    let rec walkDecl (decl: SynModuleDecl) =
+      seq {
+        match decl with
+        | SynModuleDecl.Let(bindings = bindings) ->
+          for binding in bindings do
+            match binding with
+            | SynBinding(expr = expr) -> yield! walkExpr expr
+        | SynModuleDecl.Expr(expr, _) -> yield! walkExpr expr
+        | SynModuleDecl.NestedModule(decls = decls) -> yield! List.collect (walkDecl >> Seq.toList) decls
+        | SynModuleDecl.Types(typeDefs, _) ->
+          for typeDef in typeDefs do
+            match typeDef with
+            | SynTypeDefn(members = members) ->
+              for memb in members do
+                match memb with
+                | SynMemberDefn.Member(SynBinding(expr = expr), _) -> yield! walkExpr expr
+                | SynMemberDefn.LetBindings(bindings, _, _, _) ->
+                  for SynBinding(expr = expr) in bindings do
+                    yield! walkExpr expr
+                | _ -> ()
+        | _ -> ()
+      }
+
+    match parseResults.ParseTree with
+    | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
+      modules
+      |> List.collect (fun (SynModuleOrNamespace(decls = decls)) -> decls |> List.collect (walkDecl >> Seq.toList))
+      |> List.distinctBy (fun r -> r.Start, r.End)
+    | _ -> []
+
   let addFile (fsprojPath: string) fileVirtPath =
     async {
       try
@@ -750,7 +936,25 @@ module Commands =
     asyncResult {
       let symbol = symbolUse.Symbol
 
-      let symbolNameCore = symbol.DisplayNameCore
+      let symbolNameCore =
+        match symbol with
+        | :? FSharpActivePatternCase as apc ->
+          // For active pattern cases, extract just the case name without bars
+          // apc.Name may include bars like "|LetterOrDigit|_|" for partial patterns
+          if apc.Name.StartsWith("|") then
+            extractActivePatternCaseName apc.Name
+          else
+            apc.Name
+        | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+          // For active pattern functions, extract just the case name for partial patterns
+          // For full patterns like "(|Even|Odd|)", use DisplayNameCore as-is
+          let displayName = symbol.DisplayNameCore
+
+          if displayName.Contains("|_|") then
+            extractActivePatternCaseName displayName
+          else
+            displayName
+        | _ -> symbol.DisplayNameCore
 
       let tryAdjustRanges (text: IFSACSourceText, ranges: seq<Range>) =
         let ranges = ranges |> Seq.map (fun range -> range.NormalizeDriveLetterCasing())
@@ -779,13 +983,73 @@ module Commands =
         let! ct = Async.CancellationToken
         let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
 
-        let symbolUses: _ seq =
-          if includeDeclarations then
-            symbolUses
-          else
-            symbolUses |> Seq.filter (fun u -> not u.IsFromDefinition)
+        let (symbolUses: _ seq), additionalRangesForPartialPatterns =
+          let baseFiltered: _ seq =
+            if includeDeclarations then
+              symbolUses
+            else
+              symbolUses |> Seq.filter (fun u -> not u.IsFromDefinition)
 
-        let ranges = symbolUses |> Seq.map (fun u -> u.Range)
+          // For Active Pattern Cases, FCS returns all cases in the pattern, not just the specific one
+          // We need to filter to only the symbol that matches our query
+          // BUT: if querying from the Active Pattern declaration itself (FSharpMemberOrFunctionOrValue),
+          // we also want to find the case usages
+          match symbolUse.Symbol with
+          | :? FSharpActivePatternCase as apc ->
+            // Querying from a specific case - filter to just that case
+            let filtered =
+              baseFiltered
+              |> Seq.filter (fun u ->
+                match u.Symbol with
+                | :? FSharpActivePatternCase as foundApc -> foundApc.Name = apc.Name
+                | _ -> false)
+
+            // For partial active patterns in .fsx files, FCS may not return case usages
+            // We walk the AST and deduplicate with what FCS found
+            let isPartialPattern = apc.Group.IsTotal |> not
+
+            let caseUsageRanges =
+              if isPartialPattern then
+                findPartialActivePatternCaseUsages [ apc.Name ] tyRes.GetParseResults
+              else
+                // Complete patterns - FCS handles these correctly
+                []
+
+            filtered, caseUsageRanges
+          | :? FSharpMemberOrFunctionOrValue as mfv when
+            mfv.IsActivePattern
+            || (mfv.DisplayName.StartsWith("(|") && mfv.DisplayName.EndsWith("|)"))
+            ->
+            // Querying from the active pattern function declaration
+            // For partial active patterns like (|ParseInt|_|), include case usages in match expressions
+            // For complete active patterns like (|Even|Odd|), only return the function declaration
+            // Note: IsActivePattern is true for direct definitions, but let-bound values need DisplayName check
+
+            let patternDisplayName = mfv.DisplayName
+            // DisplayName includes parens: "(|ParseInt|_|)" so we need to check for "|_|)" not just "|_|"
+            let isPartialActivePattern = patternDisplayName.Contains("|_|")
+
+            if not isPartialActivePattern then
+              // For complete patterns, only return the pattern function declaration
+              baseFiltered, []
+            else
+              // For partial patterns, find case usages by walking the AST
+              let caseNames = extractActivePatternCaseNames patternDisplayName
+
+              let caseUsageRanges =
+                findPartialActivePatternCaseUsages caseNames tyRes.GetParseResults
+
+              // For partial patterns, FCS doesn't include case usages in pattern matches
+              // We found them by walking the AST, so we return them as additional ranges
+              baseFiltered, caseUsageRanges
+          | _ -> baseFiltered, []
+
+        let ranges =
+          let baseRanges = symbolUses |> Seq.map (fun u -> u.Range)
+          // Add any additional ranges we found from walking the AST for partial active patterns
+          // Deduplicate based on range start and end positions
+          Seq.append baseRanges (Seq.ofList additionalRangesForPartialPatterns)
+          |> Seq.distinctBy (fun r -> r.Start, r.End)
         // Note: tryAdjustRanges is designed to only be able to fail iff `errorOnFailureToFixRange` is `true`
         let! ranges = tryAdjustRanges (text, ranges)
         let ranges = dict [ (text.FileName, Seq.toArray ranges) ]
