@@ -9,6 +9,7 @@ open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
 open Ionide.ProjInfo.ProjectSystem
+open IcedTasks
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -217,6 +218,8 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
       else
         tryGetUrlWithExactMatch path url document)
 
+let sourceLinkSemaphore = new System.Threading.SemaphoreSlim(1, 1)
+
 let private downloadFileToTempDir
   (url: string<Url>)
   (repoPathFragment: string<NormalizedRepoPathSegment>)
@@ -228,7 +231,8 @@ let private downloadFileToTempDir
   let tempDir = Path.GetDirectoryName tempFile
   Directory.CreateDirectory tempDir |> ignore
 
-  async {
+  asyncEx {
+    use! _ = sourceLinkSemaphore.LockAsync()
     // Check if file already exists (cached from previous download)
     if File.Exists tempFile then
       logger.info (
