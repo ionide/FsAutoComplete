@@ -232,7 +232,7 @@ let private downloadFileToTempDir
   Directory.CreateDirectory tempDir |> ignore
 
   asyncEx {
-    use! _ = sourceLinkSemaphore.LockAsync()
+    use! _lock = sourceLinkSemaphore.LockAsync()
     // Check if file already exists (cached from previous download)
     if File.Exists tempFile then
       logger.info (
