@@ -855,6 +855,7 @@ let outgoingTests createServer =
           // 1. The file exists locally (SourceLink success or local workspace file)
           // 2. OR the path contains build artifact indicators (SourceLink unavailable - acceptable in CI)
           let fileExists = File.Exists localPath
+
           let isExternalBuildPath =
             uriStr.Contains("/_work/")
             || uriStr.Contains("%2F_work%2F")
@@ -885,7 +886,11 @@ let outgoingTests createServer =
           // Check if this is a workspace file (not external)
           let isWorkspaceFile =
             localPath.Contains("TestCases")
-            || localPath.Contains(Path.DirectorySeparatorChar.ToString() + "test" + Path.DirectorySeparatorChar.ToString())
+            || localPath.Contains(
+              Path.DirectorySeparatorChar.ToString()
+              + "test"
+              + Path.DirectorySeparatorChar.ToString()
+            )
 
           // Workspace files must exist
           if isWorkspaceFile then
