@@ -702,15 +702,8 @@ let private activePatternProjectTests state =
         let definitionRefs = refs |> Array.filter (fun r -> r.Uri.Contains "ActivePatterns.fs")
         let usageRefs = refs |> Array.filter (fun r -> r.Uri.Contains "Program.fs")
 
-        // Note: TransparentCompiler has a known limitation where finding references
-        // from the definition position may return fewer/different results.
-        // For BackgroundCompiler, we verify all expected references are found.
-        // For TransparentCompiler, we accept that results may be empty or different.
-        if definitionRefs.Length > 0 && usageRefs.Length > 0 then
-          // BackgroundCompiler - verify all expected references are found
-          Expect.isGreaterThanOrEqual definitionRefs.Length 1 "Should find definition in ActivePatterns.fs"
-          Expect.isGreaterThanOrEqual usageRefs.Length 1 "Should find usage in Program.fs"
-        // else: TransparentCompiler limitation or no results - skip detailed assertions
+        Expect.isGreaterThanOrEqual definitionRefs.Length 1 "Should find definition in ActivePatterns.fs"
+        Expect.isGreaterThanOrEqual usageRefs.Length 1 "Should find usage in Program.fs"
       }
 
       testCaseAsync "can find partial active pattern with parameters across files (from usage)"
@@ -774,16 +767,8 @@ let private activePatternProjectTests state =
         // 2. The usage in Program.fs
         let definitionRefs = refs |> Array.filter (fun r -> r.Uri.Contains "ActivePatterns.fs")
         let usageRefs = refs |> Array.filter (fun r -> r.Uri.Contains "Program.fs")
-
-        // Note: TransparentCompiler has a known limitation where finding references
-        // from the definition position may return fewer/different results.
-        // For BackgroundCompiler, we verify all expected references are found.
-        // For TransparentCompiler, we accept that results may be empty or different.
-        if definitionRefs.Length > 0 && usageRefs.Length > 0 then
-          // BackgroundCompiler - verify all expected references are found
-          Expect.isGreaterThanOrEqual definitionRefs.Length 1 "Should find definition in ActivePatterns.fs"
-          Expect.isGreaterThanOrEqual usageRefs.Length 1 "Should find usage in Program.fs"
-        // else: TransparentCompiler limitation or no results - skip detailed assertions
+        Expect.isGreaterThanOrEqual definitionRefs.Length 1 "Should find definition in ActivePatterns.fs"
+        Expect.isGreaterThanOrEqual usageRefs.Length 1 "Should find usage in Program.fs"
       }
 
       testCaseAsync "can find struct partial active pattern (ValueOption) across files (from usage)"

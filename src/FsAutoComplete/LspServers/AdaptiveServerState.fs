@@ -2191,6 +2191,7 @@ type AdaptiveState
             // Note: We don't use IsTotal because it returns true for [<return: Struct>] patterns
             // that return ValueOption
             let groupName = apc.Group.Name |> Option.defaultValue ""
+
             if groupName.Contains("|_|") then
               // It's a partial active pattern - use the case name
               [ apc.DisplayName ]
@@ -2251,8 +2252,19 @@ type AdaptiveState
             let caseUsageRanges =
               Commands.findPartialActivePatternCaseUsages partialActivePatternCaseNames parseResults
 
+            // Include the symbol's declaration range if it's in this file
+            // This is important for TransparentCompiler which may not return the definition
+            // from FindReferencesForSymbolInFile when called at the definition site
+            let declarationRanges =
+              match symbol.DeclarationLocation with
+              | Some declLoc when declLoc.FileName = (UMX.untag file) ->
+                // Declaration is in the current file - include it
+                [ declLoc ]
+              | _ -> []
+
             return
               Seq.append baseRanges caseUsageRanges
+              |> Seq.append declarationRanges
               |> Seq.distinctBy (fun r -> r.Start, r.End)
       }
 
