@@ -159,6 +159,7 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 4. Include edge cases and error conditions
 5. For code fixes: Run focused tests with `dotnet run -f net8.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj`
 6. Remove focused test markers before submitting PRs (they cause CI failures)
+7. Do not delete tests without permission.
 
 ### Test Data
 - Sample F# projects in `TestCases/` directories

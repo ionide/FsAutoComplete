@@ -12,6 +12,7 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
+open FsAutoComplete.Tests.CallHierarchy
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters

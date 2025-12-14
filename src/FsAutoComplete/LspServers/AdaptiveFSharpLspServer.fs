@@ -44,11 +44,128 @@ open System.Threading.Tasks
 open FsAutoComplete.FCSPatches
 open Helpers
 open System.Runtime.ExceptionServices
+open FSharp.Compiler.CodeAnalysis
 
 module ArrayHelpers =
   let (|EmptyArray|NonEmptyArray|) (a: 'a array) = if a.Length = 0 then EmptyArray else NonEmptyArray a
 
 open ArrayHelpers
+
+module CallHierarchyHelpers =
+  /// Determines if a symbol represents a callable (function, method, constructor, or applicable entity)
+  let isCallableSymbol (symbol: FSharpSymbol) =
+    match symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv ->
+      mfv.IsFunction
+      || mfv.IsMethod
+      || mfv.IsConstructor
+      || (mfv.IsProperty
+          && not (mfv.LogicalName.Contains("get_") || mfv.LogicalName.Contains("set_")))
+    | :? FSharpEntity as ent -> ent.IsClass || ent.IsFSharpRecord || ent.IsFSharpUnion
+    | _ -> false
+
+  /// Filters symbol uses to those within a binding range that represent outgoing calls
+  let getOutgoingCallsInBinding
+    (bindingRange: Range)
+    (pos: FSharp.Compiler.Text.Position)
+    (allSymbolUses: FSharpSymbolUse seq)
+    =
+    allSymbolUses
+    |> Seq.filter (fun su ->
+      Range.rangeContainsRange bindingRange su.Range
+      && not su.IsFromDefinition
+      && su.Range.Start <> pos
+      && isCallableSymbol su.Symbol)
+    |> Seq.toArray
+
+  /// Gets the appropriate SymbolKind for a given FSharpSymbol
+  let getSymbolKind (symbol: FSharpSymbol) =
+    match symbol with
+    | :? FSharpMemberOrFunctionOrValue as mfv ->
+      if mfv.IsConstructor then SymbolKind.Constructor
+      elif mfv.IsProperty then SymbolKind.Property
+      elif mfv.IsMethod then SymbolKind.Method
+      elif mfv.IsEvent then SymbolKind.Event
+      else SymbolKind.Function
+    | :? FSharpEntity as ent ->
+      if ent.IsClass then SymbolKind.Class
+      elif ent.IsInterface then SymbolKind.Interface
+      elif ent.IsFSharpModule then SymbolKind.Module
+      elif ent.IsEnum then SymbolKind.Enum
+      elif ent.IsValueType then SymbolKind.Struct
+      else SymbolKind.Object
+    | _ -> SymbolKind.Function
+
+  /// Extracts the normalized file path segment from a declaration location, handling OS differences
+  let private getSourceFileSegment (loc: FSharp.Compiler.Text.Range) : string<NormalizedRepoPathSegment> =
+    if Ionide.ProjInfo.ProjectSystem.Environment.isWindows then
+      UMX.tag<NormalizedRepoPathSegment> loc.FileName
+    else
+      UMX.tag<NormalizedRepoPathSegment> (System.IO.Path.GetFileName loc.FileName)
+
+  /// Result of resolving an external symbol's source location
+  [<RequireQualifiedAccess>]
+  type ExternalSymbolLocationResult =
+    /// The file exists locally (either in workspace or already downloaded via SourceLink)
+    | LocalFile of filePath: string<LocalPath> * range: FSharp.Compiler.Text.Range
+    /// The file was fetched via SourceLink and is now available locally
+    | SourceLinkFile of localFilePath: string<LocalPath> * originalRange: FSharp.Compiler.Text.Range
+    /// The symbol is external but we couldn't resolve to a local file
+    | External of assemblyName: string * range: FSharp.Compiler.Text.Range
+    /// No location information available
+    | NoLocation
+
+  let private resolveLogger = LogProvider.getLoggerByName "CallHierarchyHelpers"
+
+  /// Tries to resolve a symbol's declaration location to a local file path.
+  /// For external symbols (from NuGet packages or FSharp.Core), attempts to fetch the source via SourceLink.
+  /// This is a reusable helper that can be used for Call Hierarchy, Go to Definition, etc.
+  let tryResolveExternalSymbolLocation (symbol: FSharpSymbol) : Async<ExternalSymbolLocationResult> =
+    async {
+      match symbol.DeclarationLocation with
+      | None -> return ExternalSymbolLocationResult.NoLocation
+      | Some declLoc ->
+        // Check if the file exists locally
+        if System.IO.File.Exists declLoc.FileName then
+          return ExternalSymbolLocationResult.LocalFile(Utils.normalizePath declLoc.FileName, declLoc)
+        else
+          // File doesn't exist locally - try SourceLink
+          resolveLogger.info (
+            Log.setMessage "Declaration file does not exist locally, attempting SourceLink: {file}"
+            >> Log.addContextDestructured "file" declLoc.FileName
+          )
+
+          match symbol.Assembly.FileName with
+          | None ->
+            resolveLogger.warn (
+              Log.setMessage "Symbol {symbol} has no assembly file path"
+              >> Log.addContextDestructured "symbol" symbol.DisplayName
+            )
+
+            return ExternalSymbolLocationResult.External(symbol.Assembly.SimpleName, declLoc)
+          | Some assemblyPath ->
+            let dllPath = Utils.normalizePath assemblyPath
+            let sourceFile = getSourceFileSegment declLoc
+
+            match! Sourcelink.tryFetchSourcelinkFile dllPath sourceFile with
+            | Ok localFilePath ->
+              resolveLogger.info (
+                Log.setMessage "Successfully fetched source via SourceLink: {localPath}"
+                >> Log.addContextDestructured "localPath" localFilePath
+              )
+
+              return ExternalSymbolLocationResult.SourceLinkFile(localFilePath, declLoc)
+            | Error err ->
+              resolveLogger.info (
+                Log.setMessage "SourceLink fetch failed for {file}: {error}"
+                >> Log.addContextDestructured "file" declLoc.FileName
+                >> Log.addContextDestructured "error" err
+              )
+
+              return ExternalSymbolLocationResult.External(symbol.Assembly.SimpleName, declLoc)
+    }
+
+open CallHierarchyHelpers
 
 type AdaptiveFSharpLspServer
   (
@@ -2182,7 +2299,147 @@ type AdaptiveFSharpLspServer
 
       }
 
+    override x.CallHierarchyOutgoingCalls(p: CallHierarchyOutgoingCallsParams) =
+      asyncResult {
+        // OutgoingCalls finds all functions/methods called FROM the current symbol
+        let tags = [ "CallHierarchyOutgoingCalls", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
+        try
+          logger.info (
+            Log.setMessage "CallHierarchyOutgoingCalls Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          let! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
+          let! parseResults = state.GetParseResults filePath |> AsyncResult.ofStringErr
+
+          // Find the binding that contains our position
+          let containingBinding =
+            (pos, parseResults.ParseTree)
+            ||> ParsedInput.tryPickLast (fun _path node ->
+              match node with
+              | SyntaxNode.SynBinding(SynBinding(headPat = _pat; expr = expr) as binding) when
+                Range.rangeContainsPos binding.RangeOfBindingWithRhs pos
+                ->
+                Some(binding.RangeOfBindingWithRhs, expr)
+              | _ -> None)
+
+          match containingBinding with
+          | None -> return Some [||]
+          | Some(bindingRange, _bodyExpr) ->
+
+            // Get all symbol uses in the entire file
+            let allSymbolUses = tyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
+
+            // Filter to symbol uses within the function body, focusing only on calls
+            let bodySymbolUses = getOutgoingCallsInBinding bindingRange pos allSymbolUses
+
+            // Group symbol uses by the called symbol
+            let groupedBySymbol = bodySymbolUses |> Array.groupBy (fun su -> su.Symbol.FullName)
+
+            let createOutgoingCallItem (_symbolName: string, uses: FSharpSymbolUse[]) =
+              asyncOption {
+                if uses.Length = 0 then
+                  do! None
+
+                let representativeUse = uses.[0]
+                let symbol = representativeUse.Symbol
+
+                // Convert the ranges where this symbol is called
+                let fromRanges = uses |> Array.map (fun u -> fcsRangeToLsp u.Range)
+
+                // Resolve the target file and location using SourceLink for external symbols
+                let! locationResult = tryResolveExternalSymbolLocation symbol
+
+                let targetLocation =
+                  match locationResult with
+                  | ExternalSymbolLocationResult.LocalFile(localPath, declLoc) ->
+                    let targetUri = Path.LocalPathToUri localPath
+                    let symbolKind = getSymbolKind symbol
+                    let displayName = symbol.DisplayName
+                    let detail = $"In {System.IO.Path.GetFileName(UMX.untag localPath)}"
+
+                    { CallHierarchyItem.Name = displayName
+                      Kind = symbolKind
+                      Tags = None
+                      Detail = Some detail
+                      Uri = targetUri
+                      Range = fcsRangeToLsp declLoc
+                      SelectionRange = fcsRangeToLsp declLoc
+                      Data = None }
+
+                  | ExternalSymbolLocationResult.SourceLinkFile(localPath, originalRange) ->
+                    // SourceLink successfully fetched the file - use the local temp path
+                    let targetUri = Path.LocalPathToUri localPath
+                    let symbolKind = getSymbolKind symbol
+                    let displayName = symbol.DisplayName
+                    let detail = $"In {System.IO.Path.GetFileName(UMX.untag localPath)}"
+
+                    { CallHierarchyItem.Name = displayName
+                      Kind = symbolKind
+                      Tags = None
+                      Detail = Some detail
+                      Uri = targetUri
+                      Range = fcsRangeToLsp originalRange
+                      SelectionRange = fcsRangeToLsp originalRange
+                      Data = None }
+
+                  | ExternalSymbolLocationResult.External(assemblyName, declLoc) ->
+                    // External symbol without SourceLink - provide what info we can
+                    let symbolKind = getSymbolKind symbol
+                    let displayName = symbol.DisplayName
+                    let detail = $"In {assemblyName}"
+
+                    // Use the original declaration location but note it's external
+                    // The URI won't be navigable but at least provides context
+                    let targetUri = Path.LocalPathToUri(Utils.normalizePath declLoc.FileName)
+
+                    { CallHierarchyItem.Name = displayName
+                      Kind = symbolKind
+                      Tags = None
+                      Detail = Some detail
+                      Uri = targetUri
+                      Range = fcsRangeToLsp declLoc
+                      SelectionRange = fcsRangeToLsp declLoc
+                      Data = None }
+
+                  | ExternalSymbolLocationResult.NoLocation ->
+                    // Symbol without declaration location (e.g., built-in functions)
+
+                    { CallHierarchyItem.Name = symbol.DisplayName
+                      Kind = getSymbolKind symbol
+                      Tags = None
+                      Detail = Some "Built-in"
+                      Uri = p.Item.Uri // Use current file as fallback
+                      Range = p.Item.Range
+                      SelectionRange = p.Item.SelectionRange
+                      Data = None }
+
+                return
+                  { CallHierarchyOutgoingCall.To = targetLocation
+                    FromRanges = fromRanges }
+              }
+
+            let! outgoingCalls =
+              groupedBySymbol
+              |> Array.map createOutgoingCallItem
+              |> Async.parallel75
+              |> Async.map (Array.choose id)
+
+            return Some outgoingCalls
+
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "CallHierarchyOutgoingCalls Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
 
     override x.TextDocumentPrepareCallHierarchy(p: CallHierarchyPrepareParams) =
       asyncResult {
@@ -3128,11 +3385,6 @@ type AdaptiveFSharpLspServer
 
         return ()
       }
-
-    member this.CallHierarchyOutgoingCalls
-      (_arg1: CallHierarchyOutgoingCallsParams)
-      : AsyncLspResult<CallHierarchyOutgoingCall array option> =
-      AsyncLspResult.notImplemented
 
     member this.CancelRequest(_arg1: CancelParams) : Async<unit> = ignoreNotification
     member this.NotebookDocumentDidChange(_arg1: DidChangeNotebookDocumentParams) : Async<unit> = ignoreNotification

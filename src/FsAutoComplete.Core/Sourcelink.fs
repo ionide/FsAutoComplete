@@ -9,6 +9,7 @@ open FsAutoComplete.Logging
 open FSharp.UMX
 open FsAutoComplete.Utils
 open Ionide.ProjInfo.ProjectSystem
+open IcedTasks
 
 let logger = LogProvider.getLoggerByName "FsAutoComplete.Sourcelink"
 
@@ -217,6 +218,8 @@ let private tryGetUrlForDocument (json: SourceLinkJson) (document: Document) =
       else
         tryGetUrlWithExactMatch path url document)
 
+let sourceLinkSemaphore = new System.Threading.SemaphoreSlim(1, 1)
+
 let private downloadFileToTempDir
   (url: string<Url>)
   (repoPathFragment: string<NormalizedRepoPathSegment>)
@@ -228,18 +231,28 @@ let private downloadFileToTempDir
   let tempDir = Path.GetDirectoryName tempFile
   Directory.CreateDirectory tempDir |> ignore
 
-  async {
-    logger.info (
-      Log.setMessage "Getting file from {url} for document {repoPath}"
-      >> Log.addContextDestructured "url" url
-      >> Log.addContextDestructured "repoPath" repoPathFragment
-    )
+  asyncEx {
+    use! _lock = sourceLinkSemaphore.LockAsync()
+    // Check if file already exists (cached from previous download)
+    if File.Exists tempFile then
+      logger.info (
+        Log.setMessage "Using cached SourceLink file for document {repoPath}"
+        >> Log.addContextDestructured "repoPath" repoPathFragment
+      )
 
-    let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+      return UMX.tag<LocalPath> tempFile
+    else
+      logger.info (
+        Log.setMessage "Getting file from {url} for document {repoPath}"
+        >> Log.addContextDestructured "url" url
+        >> Log.addContextDestructured "repoPath" repoPathFragment
+      )
 
-    use fileStream = File.OpenWrite tempFile
-    do! response.CopyToAsync fileStream |> Async.AwaitTask
-    return UMX.tag<LocalPath> tempFile
+      let! response = httpClient.GetStreamAsync(UMX.untag url) |> Async.AwaitTask
+
+      use fileStream = File.OpenWrite tempFile
+      do! response.CopyToAsync fileStream |> Async.AwaitTask
+      return UMX.tag<LocalPath> tempFile
   }
 
 type Errors =

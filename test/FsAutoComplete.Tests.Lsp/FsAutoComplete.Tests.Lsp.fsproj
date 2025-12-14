@@ -13,6 +13,7 @@
          in .net 6 the TestCases projects don't know about these flags -->
     <!-- Yes we know 'times' is for test only, thanks FSC :) -->
     <NoWarn>$(NoWarn);FS0075</NoWarn>
+    <NoWarn>$(NoWarn);FS3397</NoWarn>
     <OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:DumpCheckingGraph</OtherFlags>
     <!-- end graph-based-checking options -->
   </PropertyGroup>
