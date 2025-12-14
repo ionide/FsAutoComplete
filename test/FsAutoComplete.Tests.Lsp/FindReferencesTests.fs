@@ -460,51 +460,15 @@ let private untitledTests state =
 
         }) ])
 
-let private checkRanges server sourceWithCursors =
-  async {
-    let (source, cursors) = sourceWithCursors |> extractRanges
-    let! (doc, diags) = server |> Server.createUntitledDocument source
+/// Tests to check references span the correct range. For example: `Delay`, not `Task.Delay`
+let private rangeTests state =
+  let checkRanges server sourceWithCursors =
+    async {
+      let (source, cursors) = sourceWithCursors |> extractRanges
+      let! (doc, diags) = server |> Server.createUntitledDocument source
 
-    use doc = doc
-    Expect.hasLength diags 0 "There should be no diags"
-
-    let request: ReferenceParams =
-      { TextDocument = doc.TextDocumentIdentifier
-        Position = cursors.Cursor.Value
-        Context = { IncludeDeclaration = true }
-        WorkDoneToken = None
-        PartialResultToken = None }
-
-    let! refs = doc.Server.Server.TextDocumentReferences request
-
-    let refs =
-      refs
-      |> Flip.Expect.wantOk "Should not fail"
-      |> Flip.Expect.wantSome "Should return references"
-      |> Array.sortBy (fun l -> l.Range.Start)
-
-    Expect.all refs (fun r -> r.Uri = doc.Uri) "there should only be references in current doc"
-
-    let expected =
-      Array.append cursors.Declarations cursors.Usages
-      |> Array.sortBy (fun r -> r.Start)
-      |> Array.map (mkLocation doc)
-
-    // Expect.sequenceEqual refs expected "Should find all refs with correct range"
-    if refs <> expected then
-      Expect.equal (markRanges source refs) (markRanges source expected) "Should find correct references"
-  }
-
-let private checkRangesScript server sourceWithCursors =
-  async {
-    let (source, cursors) = sourceWithCursors |> extractRanges
-    let tempFile = Path.GetTempFileName()
-    let scriptFile = Path.ChangeExtension(tempFile, ".fsx")
-    File.WriteAllText(scriptFile, source)
-
-    try
-      let! (doc, diags) = server |> Server.openDocument scriptFile
-      Expect.isEmpty diags "There should be no diagnostics in script file"
+      use doc = doc
+      Expect.hasLength diags 0 "There should be no diags"
 
       let request: ReferenceParams =
         { TextDocument = doc.TextDocumentIdentifier
@@ -516,27 +480,23 @@ let private checkRangesScript server sourceWithCursors =
       let! refs = doc.Server.Server.TextDocumentReferences request
 
       let refs =
-          refs
-          |> Flip.Expect.wantOk "Should not fail"
-          |> Flip.Expect.wantSome "Should return references"
-          |> Array.sortBy (fun l -> l.Range.Start)
+        refs
+        |> Flip.Expect.wantOk "Should not fail"
+        |> Flip.Expect.wantSome "Should return references"
+        |> Array.sortBy (fun l -> l.Range.Start)
 
       Expect.all refs (fun r -> r.Uri = doc.Uri) "there should only be references in current doc"
 
       let expected =
         Array.append cursors.Declarations cursors.Usages
         |> Array.sortBy (fun r -> r.Start)
+        |> Array.map (mkLocation doc)
 
-      let refs = refs |> Array.map (fun l -> l.Range)
+      // Expect.sequenceEqual refs expected "Should find all refs with correct range"
+      if refs <> expected then
+        Expect.equal (markRanges source refs) (markRanges source expected) "Should find correct references"
+    }
 
-      Expect.equal refs expected "Should find correct references"
-    finally
-      try File.Delete(scriptFile) with _ -> ()
-      try File.Delete(tempFile) with _ -> ()
-  }
-
-/// Tests to check references span the correct range. For example: `Delay`, not `Task.Delay`
-let private rangeTests state =
   serverTestList "range" state defaultConfigDto None (fun server ->
     [ testCaseAsync "can get range of variable"
       <| checkRanges
@@ -666,262 +626,7 @@ let private rangeTests state =
               .$<Task>$
               .Delay TimeSpan.MaxValue
         }
-        """
-      testCaseAsync "can find references in example2.fsx (script)"
-      <| checkRangesScript
-        server
-        """
-module FsAutoComplete.CodeFix.RemoveUnnecessaryParentheses
-
-open System
-
-let title = "Remove unnecessary parentheses"
-
-[<AutoOpen>]
-module private Patterns =
-  let inline toPat f x = if f x then ValueSome() else ValueNone
-
-  /// Starts with //.
-  [<return: Struct>]
-  let (|StartsWithSingleLineComment|_|) (s: string) =
-    if s.AsSpan().TrimStart(' ').StartsWith("//".AsSpan()) then
-      ValueSome StartsWithSingleLineComment
-    else
-      ValueNone
-
-  /// Starts with match, e.g.,
-  ///
-  ///     (match … with
-  ///     | … -> …)
-  [<return: Struct>]
-  let (|StartsWithMatch|_|) (s: string) =
-    let s = s.AsSpan().TrimStart ' '
-
-    if s.StartsWith("match".AsSpan()) && (s.Length = 5 || s[5] = ' ') then
-      ValueSome StartsWithMatch
-    else
-      ValueNone
-
-  [<AutoOpen>]
-  module Char =
-    [<return: Struct>]
-    let inline (|$D<LetterOr$0Digit>D$|_|) c = toPat Char.IsLetterOrDigit c
-
-    [<return: Struct>]
-    let inline (|Punctuation|_|) c = toPat Char.IsPunctuation c
-
-    [<return: Struct>]
-    let inline (|Symbol|_|) c = toPat Char.IsSymbol c
-
-/// A codefix that removes unnecessary parentheses from the source.
-let fix (getFileLines: obj) : obj =
-  async {
-    let (|ShouldPutSpaceBefore|_|) (s: string) =
-      match s with
-      | StartsWithMatch -> None
-      | _ ->
-        // ……(……)
-        // ↑↑ ↑
-        (Some ' ', Some ' ')
-        ||> Option.map2 (fun twoBefore oneBefore ->
-          match twoBefore, oneBefore, s[0] with
-          | _, _, ('\n' | '\r') -> None
-          | '[', '|', (Punctuation | $<LetterOrDigit>$) -> None
-          | _, '[', '<' -> Some ShouldPutSpaceBefore
-          | _, ('(' | '[' | '{'), _ -> None
-          | _, '>', _ -> Some ShouldPutSpaceBefore
-          | ' ', '=', _ -> Some ShouldPutSpaceBefore
-          | _, '=', ('(' | '[' | '{') -> None
-          | _, '=', (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
-          | _, $<LetterOrDigit>$, '(' -> None
-          | _, ($<LetterOrDigit>$ | '`'), _ -> Some ShouldPutSpaceBefore
-          | _, (Punctuation | Symbol), (Punctuation | Symbol) -> Some ShouldPutSpaceBefore
-          | _ -> None)
-        |> Option.flatten
-
-    ()
-
-    return ()
-  }
-        """
-      testCaseAsync "can get range of partial Active Pattern definition and usages"
-      <| checkRanges
-        server
-        """
-        module MyModule =
-          let (|$D<Pars$0eInt>D$|_|) (s: string) =
-            match System.Int32.TryParse s with
-            | true, i -> Some i
-            | _ -> None
-
-        open MyModule
-        let test input =
-          match input with
-          | $<ParseInt>$ i -> printfn "Got %d" i
-          | _ -> printfn "Not an int"
-
-        let test2 input =
-          match input with
-          | MyModule.$<ParseInt>$ i -> i
-          | _ -> 0
-        """
-      testCaseAsync "can get range of partial Active Pattern with nested matches"
-      <| checkRanges
-        server
-        """
-        let (|$D<Posi$0tive>D$|_|) n = if n > 0 then Some n else None
-        let (|Negative|_|) n = if n < 0 then Some n else None
-
-        let classify n =
-          match n with
-          | $<Positive>$ p ->
-            match p with
-            | $<Positive>$ _ -> "still positive"
-            | _ -> "?"
-          | Negative _ -> "negative"
-          | _ -> "zero"
-        """
-      testCaseAsync "can get range of partial Active Pattern used in Or pattern"
-      <| checkRanges
-        server
-        """
-        let (|$D<Even$0>D$|_|) n = if n % 2 = 0 then Some() else None
-        let (|DivisibleBy3|_|) n = if n % 3 = 0 then Some() else None
-
-        let test n =
-          match n with
-          | $<Even>$ | DivisibleBy3 -> "divisible by 2 or 3"
-          | _ -> "other"
-        """
-      testCaseAsync "can get range of partial Active Pattern used in And pattern"
-      <| checkRanges
-        server
-        """
-        let (|$D<Posi$0tive>D$|_|) n = if n > 0 then Some n else None
-        let (|LessThan100|_|) n = if n < 100 then Some n else None
-
-        let test n =
-          match n with
-          | $<Positive>$ _ & LessThan100 _ -> "positive and less than 100"
-          | _ -> "other"
-        """
-      testCaseAsync "can get range of partial Active Pattern with extracted value"
-      <| checkRanges
-        server
-        """
-        let (|$D<RegexMat$0ch>D$|_|) pattern input =
-          let m = System.Text.RegularExpressions.Regex.Match(input, pattern)
-          if m.Success then Some m.Value else None
-
-        let parseEmail s =
-          match s with
-          | $<RegexMatch>$ @"[\w.-]+@[\w.-]+" email -> Some email
-          | _ -> None
-        """
-      testCaseAsync "can get range of partial Active Pattern in script with local definition"
-      <| checkRangesScript
-        server
-        """
-let (|$D<Trima$0ble>D$|_|) (s: string) =
-  let trimmed = s.Trim()
-  if trimmed <> s then Some trimmed else None
-
-let processInput input =
-  match input with
-  | $<Trimable>$ trimmed -> printfn "Trimmed: %s" trimmed
-  | other -> printfn "No trim needed: %s" other
-
-let test () =
-  match "  hello  " with
-  | $<Trimable>$ s -> s
-  | s -> s
-        """
-      testCaseAsync "can get range of partial Active Pattern in script with multiple usages in same match"
-      <| checkRangesScript
-        server
-        """
-let (|$D<Upp$0er>D$|_|) (c: char) = if System.Char.IsUpper c then Some c else None
-let (|Lower|_|) (c: char) = if System.Char.IsLower c then Some c else None
-
-let classifyChar c =
-  match c with
-  | $<Upper>$ u -> sprintf "Upper: %c" u
-  | Lower l -> sprintf "Lower: %c" l
-  | _ -> "Other"
-
-let testMultiple chars =
-  chars |> List.map (fun c ->
-    match c with
-    | $<Upper>$ _ -> "U"
-    | Lower _ -> "L"
-    | _ -> "O")
-        """
-      testCaseAsync "can get range of partial Active Pattern defined in nested module"
-      <| checkRanges
-        server
-        """
-        module Outer =
-          module Inner =
-            let (|$D<StartsWit$0hA>D$|_|) (s: string) =
-              if s.StartsWith "A" then Some s else None
-
-        open Outer.Inner
-        let test s =
-          match s with
-          | $<StartsWithA>$ v -> v
-          | _ -> ""
-
-        let test2 s =
-          match s with
-          | Outer.Inner.$<StartsWithA>$ v -> v
-          | _ -> ""
         """ ])
-
-let private activePatternProjectTests state =
-  let path =
-    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "ActivePatternProject")
-
-  serverTestList "ActivePatternProject" state defaultConfigDto (Some path) (fun server ->
-    [ testCaseAsync "can find references for Partial Active Pattern across .fs files in project"
-      <| async {
-        let! (activePatDoc, activePatDiags) = server |> Server.openDocument "ActivePatterns.fs"
-        Expect.isEmpty activePatDiags "There should be no diagnostics in ActivePatterns.fs"
-
-        let! (_programDoc, programDiags) = server |> Server.openDocument "Program.fs"
-        Expect.isEmpty programDiags "There should be no diagnostics in Program.fs"
-
-        // Find references from the definition in ActivePatterns.fs
-        let definitionPos = { Line = 2u; Character = 9u } // (|ParseInt|_|)
-
-        let request: ReferenceParams =
-          { TextDocument = activePatDoc.TextDocumentIdentifier
-            Position = definitionPos
-            Context = { IncludeDeclaration = true }
-            WorkDoneToken = None
-            PartialResultToken = None }
-
-        let! refs = activePatDoc.Server.Server.TextDocumentReferences request
-
-        let allLocations =
-          refs
-          |> Flip.Expect.wantOk "Should not fail"
-          |> Flip.Expect.wantSome "Should return references"
-
-        // Count references by file
-        let programRefs =
-          allLocations |> Array.filter (fun loc -> loc.Uri.Contains("Program.fs"))
-
-        // Critical test: verify that cross-file partial active pattern references work
-        // We should find BOTH usages in Program.fs (test1 and test2/async)
-        Expect.hasLength programRefs 2 "Should find 2 usages in Program.fs (cross-file from ActivePatterns.fs)"
-
-        // Verify the references are at the expected lines
-        let line4Ref = programRefs |> Array.exists (fun loc -> loc.Range.Start.Line = 4u)
-        let line11Ref = programRefs |> Array.exists (fun loc -> loc.Range.Start.Line = 11u)
-
-        Expect.isTrue line4Ref "Should find reference at line 4 (test1 function)"
-        Expect.isTrue line11Ref "Should find reference at line 11 (test2 async block)"
-      } ])
 
 let tests state =
   testList
@@ -929,10 +634,7 @@ let tests state =
     [ scriptTests state
       solutionTests state
       untitledTests state
-      rangeTests state
-      // activePatternTests state
-
-      activePatternProjectTests state ]
+      rangeTests state ]
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
@@ -1086,6 +788,7 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
                 Odd|>$
               ) 42
       let _ = MyModule.(
+
               $<|Even|
                 Odd|>$
 
@@ -1143,6 +846,7 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
                 Odd|>$
               ) 42
       let _ = MyModule.(
+
               $<|Even|
                 Odd|>$
 
@@ -1462,5 +1166,3 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
               $<-.->$
               ) 1 2
         """ ]
-
-
