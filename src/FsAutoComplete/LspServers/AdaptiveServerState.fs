@@ -379,6 +379,43 @@ type AdaptiveState
 
   let notifications = Event<NotificationEvent * CancellationToken>()
 
+  do
+    workspaceLoader.Notifications.Subscribe(fun n ->
+      let inline trigger n = notifications.Trigger(n, CancellationToken.None)
+
+      match n with
+      | Ionide.ProjInfo.Types.WorkspaceProjectState.Loading(p) -> ProjectResponse.ProjectLoading(p)
+      | Ionide.ProjInfo.Types.WorkspaceProjectState.Loaded(p, _knownProjs, cache) ->
+
+        let projViewerItemsNormalized = ProjectViewer.render p
+
+        let responseFiles =
+          projViewerItemsNormalized.Items
+          |> List.map (function
+            | ProjectViewerItem.Compile(p, c) -> ProjectViewerItem.Compile(Helpers.fullPathNormalized p, c))
+          |> List.choose (function
+            | ProjectViewerItem.Compile(p, _) -> Some p)
+
+        let references = FscArguments.references (p.OtherOptions)
+
+        let ws =
+          { ProjectFileName = p.ProjectFileName
+            ProjectFiles = responseFiles
+            OutFileOpt = Option.ofObj p.TargetPath
+            References = references
+            Extra = p
+            ProjectItems = projViewerItemsNormalized.Items
+            Additionals = Map.empty }
+
+        ProjectResponse.Project(ws, cache)
+
+      | Ionide.ProjInfo.Types.WorkspaceProjectState.Failed(p, e) -> ProjectResponse.ProjectError(p, e)
+      |> NotificationEvent.Workspace
+      |> trigger
+
+    )
+    |> disposables.Add
+
   let scriptFileProjectOptions = Event<CompilerProjectOption>()
 
   let fileParsed =
@@ -1001,34 +1038,12 @@ type AdaptiveState
           >> Log.addContextDestructured "path" ((|BaseIntermediateOutputPath|_|) p.Properties)
         )
 
-        let projectFileName = p.ProjectFileName
-        let projViewerItemsNormalized = ProjectViewer.render p
-
-        let responseFiles =
-          projViewerItemsNormalized.Items
-          |> List.map (function
-            | ProjectViewerItem.Compile(p, c) -> ProjectViewerItem.Compile(Helpers.fullPathNormalized p, c))
-          |> List.choose (function
-            | ProjectViewerItem.Compile(p, _) -> Some p)
-
-        let references = FscArguments.references (p.OtherOptions)
-
         logger.info (
           Log.setMessage "ProjectLoaded {file}"
-          >> Log.addContextDestructured "file" projectFileName
+          >> Log.addContextDestructured "file" p.ProjectFileName
         )
 
-        let ws =
-          { ProjectFileName = projectFileName
-            ProjectFiles = responseFiles
-            OutFileOpt = Option.ofObj p.TargetPath
-            References = references
-            Extra = p
-            ProjectItems = projViewerItemsNormalized.Items
-            Additionals = Map.empty }
 
-        let not = ProjectResponse.Project(ws, false) |> NotificationEvent.Workspace
-        notifications.Trigger(not, CancellationToken.None)
 
       let not = ProjectResponse.WorkspaceLoad true |> NotificationEvent.Workspace
 
