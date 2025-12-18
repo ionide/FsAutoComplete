@@ -86,3 +86,31 @@ module Module1 =
         match n with
         | DivisibleByStruct 3 result -> ValueSome result
         | _ -> ValueNone
+
+    // ============================================
+    // INLINE GENERIC ACTIVE PATTERNS
+    // ============================================
+
+    // Using IsOneOfChoice - inline generic struct parameterized pattern
+    let checkIfStartsWithPrefix input =
+        match input with
+        | IsOneOfChoice ((|StrStartsWith|_|), ["hello"; "hi"; "hey"]) -> true
+//>       ^^^^^^^^^^^^^ IsOneOfChoice
+        | _ -> false
+
+    // Using IsOneOfChoice as a function
+    let checkPrefixDirect input =
+        (|IsOneOfChoice|_|) ((|StrStartsWith|_|), ["hello"; "hi"]) input
+//>      ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+
+    // Using StrStartsWithOneOf which uses IsOneOfChoice internally
+    let checkGreeting input =
+        match input with
+        | StrStartsWithOneOf ["hello"; "hi"; "hey"] -> "greeting"
+        | _ -> "not a greeting"
+
+    // Using StrStartsWith directly
+    let startsWithHello input =
+        match input with
+        | StrStartsWith "hello" -> true
+        | _ -> false

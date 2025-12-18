@@ -1,5 +1,13 @@
 namespace ActivePatternProject
 
+module Seq =
+    let inline tryPickV chooser (source: seq<'T>) =
+        use e = source.GetEnumerator()
+        let mutable res = ValueNone
+        while (ValueOption.isNone res && e.MoveNext()) do
+            res <- chooser e.Current
+        res
+
 /// Module containing various active pattern definitions
 module Patterns =
 
@@ -83,3 +91,19 @@ module Patterns =
     let inline (|DivisibleByStruct|_|) divisor value =
         if value % divisor = 0 then ValueSome(value / divisor)
         else ValueNone
+
+
+    [<return: Struct>]
+    let inline (|IsOneOfChoice|_|) (chooser: 'a -> 'b -> 'c voption, values : 'a seq) (item : 'b) =
+//>             ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+        values |> Seq.tryPickV (fun x -> chooser x item)
+
+    [<return: Struct>]
+    let inline (|StrStartsWith|_|) (value : string) (item : string) =
+        if item.StartsWith value then ValueSome ()
+        else ValueNone
+
+    [<return: Struct>]
+    let inline (|StrStartsWithOneOf|_|) (values : string seq) (item : string) =
+        (|IsOneOfChoice|_|) ((|StrStartsWith|_|), values) item
+//>      ^^^^^^^^^^^^^^^^^ IsOneOfChoice

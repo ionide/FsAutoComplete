@@ -842,16 +842,15 @@ module Commands =
         let dict = ConcurrentDictionary()
 
         // For active patterns, we need to search for both the function and its cases
-        // because FCS doesn't always find cross-file references correctly
+        // because FCS doesn't always find cross-file references correctly.
+        // The function symbol finds function-call style usages, the case symbol finds match-case usages.
         let symbolsToSearch =
           match symbol with
           | :? FSharpActivePatternCase as apCase ->
-            // At a usage site: we have a case, also search for the declaring function
-            // e.g., for case `ParseInt` in `(|ParseInt|_|)`, also search for the function
+            // At a case symbol (either at declaration or usage)
+            // Search for both the case (for match-case usages) AND the function (for function-call usages)
             match apCase.Group.DeclaringEntity with
             | Some entity ->
-              // Search for the function using the pattern "|CaseName|" to match within the full pattern name
-              // e.g., for case "ParseInt", search for function containing "|ParseInt|"
               let apcSearchString = $"|{apCase.DisplayName}|"
 
               let declaringMember =
@@ -868,28 +867,24 @@ module Commands =
               | None -> [ symbol ]
             | None -> [ symbol ]
           | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
-            // At a declaration site: this is an active pattern function
-            // We need to search for both the function AND its individual cases to find all usages
+            // At an active pattern function symbol - search for both the function AND its cases
             // FCS finds function-call style usages (e.g., `(|ParseFloat|_|) x`) for the function
             // FCS finds match-case style usages (e.g., `| ParseFloat x ->`) for the cases
             match mfv.DeclaringEntity with
             | Some entity ->
-              // Get all active pattern cases in the entity and find those matching this function's cases
               let functionCases =
                 try
                   entity.ActivePatternCases
                   |> Seq.filter (fun apc ->
-                    // Match case to function by checking if the function's display name contains the case name
-                    // e.g., for function "|ParseFloat|_|", case would be "ParseFloat"
                     mfv.DisplayName.Contains($"|{apc.DisplayName}|", System.StringComparison.OrdinalIgnoreCase))
                   |> Seq.map (fun apc -> apc :> FSharpSymbol)
                   |> Seq.toList
                 with _ ->
                   []
+
               symbol :: functionCases
             | None -> [ symbol ]
-          | :? FSharpMemberOrFunctionOrValue ->
-            [ symbol ]
+          | :? FSharpMemberOrFunctionOrValue -> [ symbol ]
           | _ -> [ symbol ]
 
         /// Adds References of `symbol` in `file` to `dict`
@@ -910,9 +905,22 @@ module Commands =
                 allReferences
                 |> Array.concat
                 // Deduplicate - when searching for multiple symbols (e.g., active pattern function + cases),
-                // they may return duplicate ranges at the same location
-                // Use distinctBy with a tuple key since Range objects may not be structurally equal
-                |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn, r.EndLine, r.EndColumn)
+                // they may return overlapping ranges at the same location.
+                // For example, at an active pattern declaration we might find both:
+                //   `|IsOneOfChoice|_|` (function symbol) and `IsOneOfChoice` (case symbol)
+                // Keep only the outermost (longest) range when ranges overlap or are contained within each other.
+                |> Array.groupBy (fun r -> r.StartLine)
+                |> Array.collect (fun (_, rangesOnLine) ->
+                  // For ranges on the same line, filter out those that are contained within another
+                  rangesOnLine
+                  |> Array.filter (fun r ->
+                    rangesOnLine
+                    |> Array.exists (fun other ->
+                      // Check if 'other' strictly contains 'r' (r is nested inside other)
+                      other.StartColumn <= r.StartColumn
+                      && other.EndColumn >= r.EndColumn
+                      && (other.StartColumn < r.StartColumn || other.EndColumn > r.EndColumn))
+                    |> not))
                 |> Array.toSeq
 
               let references =
@@ -1034,6 +1042,13 @@ module Commands =
             result.[k] <- [| yield! result.[k]; yield! v |]
           else
             result.Add(k, v)
+
+      // Deduplicate across all symbol searches - when clicking on an active pattern,
+      // TryGetSymbolUses may return both the function and case symbol, leading to duplicates
+      for KeyValue(k, v) in result do
+        result.[k] <-
+          v
+          |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn, r.EndLine, r.EndColumn)
 
       return result
     }

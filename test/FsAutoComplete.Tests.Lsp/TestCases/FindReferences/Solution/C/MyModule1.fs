@@ -29,14 +29,15 @@ let classifyInCOpen n =
     | Even -> "even"
     | Odd -> "odd"
 
-// Partial active pattern usage (qualified)
+// Partial active pattern usage (qualified) - cross-file
+// NOTE: No markers here - see B/WorkingModule.fs for explanation of FCS limitations
 let _ = B.WorkingModule.(|ParseInt|_|) "777"
 let parseInCQualified input =
     match input with
     | B.WorkingModule.ParseInt n -> Some n
     | _ -> None
 
-// Partial active pattern usage (open)
+// Partial active pattern usage (open) - cross-file
 let _ = (|ParseInt|_|) "888"
 let parseInCOpen input =
     match input with

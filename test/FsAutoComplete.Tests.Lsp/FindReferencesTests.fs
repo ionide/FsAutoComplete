@@ -371,6 +371,109 @@ let private solutionTests state =
                 Expect.locationsEqual getSource false refs expected
               }) ]) ])
 
+/// Tests for ActivePatternProject - tests cross-file active pattern references
+let private activePatternProjectTests state =
+
+  let marker = "//>"
+
+  let readReferences path =
+    let lines = File.ReadAllLines path
+    let refs = Dictionary<string, IList<Location>>()
+
+    for i in 0 .. (lines.Length - 1) do
+      let line = lines[i].TrimStart()
+
+      if line.StartsWith(marker, StringComparison.Ordinal) then
+        let l = line.Substring(marker.Length).Trim()
+        let splits = l.Split([| ' ' |], 2)
+        let mark = splits[0]
+
+        let range =
+          let col = line.IndexOf(mark, StringComparison.Ordinal)
+          let length = mark.Length
+          let line = i - 1 // marker is line AFTER actual range
+
+          { Start =
+              { Line = uint32 line
+                Character = uint32 col }
+            End =
+              { Line = uint32 line
+                Character = uint32 (col + length) } }
+
+        let loc =
+          { Uri = path |> normalizePath |> Path.LocalPathToUri
+            Range = range }
+
+        let name = if splits.Length > 1 then splits[1] else ""
+
+        if not (refs.ContainsKey name) then
+          refs[name] <- List<_>()
+
+        let existing = refs[name]
+        existing.Add loc |> ignore
+
+    refs
+
+  let readAllReferences dir =
+    let files = Directory.GetFiles(dir, "*.fs", SearchOption.AllDirectories)
+
+    files
+    |> Seq.map readReferences
+    |> Seq.map (fun dict -> dict |> Seq.map (fun kvp -> kvp.Key, kvp.Value))
+    |> Seq.collect id
+    |> Seq.groupBy fst
+    |> Seq.map (fun (name, locs) -> (name, locs |> Seq.map snd |> Seq.collect id |> Seq.toArray))
+    |> Seq.map (fun (name, locs) -> {| Name = name; Locations = locs |})
+    |> Seq.toArray
+
+
+  let path =
+    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "ActivePatternProject")
+
+  serverTestList "ActivePatternProject" state defaultConfigDto (Some path) (fun server ->
+    [
+      let mainDoc = "Patterns.fs"
+
+      documentTestList "inside Patterns.fs" server (Server.openDocument mainDoc) (fun doc ->
+        [ let refs = readAllReferences path
+
+          for r in refs do
+            testCaseAsync
+              r.Name
+              (async {
+                let! (doc, _) = doc
+
+                let cursor =
+                  let cursor =
+                    r.Locations
+                    |> Seq.filter (fun l -> l.Uri = doc.Uri)
+                    |> Seq.minBy (fun l -> l.Range.Start)
+
+                  cursor.Range.Start
+
+                let request: ReferenceParams =
+                  { TextDocument = doc.TextDocumentIdentifier
+                    Position = cursor
+                    Context = { IncludeDeclaration = true }
+                    WorkDoneToken = None
+                    PartialResultToken = None }
+
+                let! refs = doc.Server.Server.TextDocumentReferences request
+
+                let refs =
+                  refs
+                  |> Flip.Expect.wantOk "Should not fail"
+                  |> Flip.Expect.wantSome "Should return references"
+
+                let expected = r.Locations
+
+                let getSource uri =
+                  let path = Path.FileUriToLocalPath uri
+                  File.ReadAllText path
+
+                Expect.locationsEqual getSource false refs expected
+              }) ]) ])
+
 /// multiple untitled files (-> all docs are unrelated)
 /// -> Tests for external symbols (-> over all docs) & symbol just in current doc (-> no matches in other unrelated docs)
 let private untitledTests state =
@@ -898,6 +1001,67 @@ let private rangeTests state =
           | MyModule.$<Regex>$ @"\d+" v -> v
           | _ -> ""
         """
+      testCaseAsync "can get range of inline struct partial Active Pattern - full pattern"
+      <|
+      // Inline struct partial active pattern - clicking on the full pattern (|StrStartsWith|_|)
+      // Tests that both function-call style usages like `(|StrStartsWith|_|) "hello" "world"`
+      // and match-case style usages like `| StrStartsWith "hello" ->` are found.
+      checkRanges
+        server
+        """
+        module MyModule =
+          [<return: Struct>]
+          let inline ($D<|StrSta$0rtsWith|_|>D$) (prefix: string) (item: string) =
+            if item.StartsWith prefix then ValueSome () else ValueNone
+
+          // Function-call style usage in same module
+          let testDirect = ($<|StrStartsWith|_|>$) "hello" "hello world"
+
+        open MyModule
+        // Function-call style usage with open
+        let _ = ($<|StrStartsWith|_|>$) "hello" "hello world"
+        // Function-call style usage with qualified name
+        let _ = MyModule.($<|StrStartsWith|_|>$) "hello" "hello world"
+        // Match-case style usage
+        let _ =
+          match "hello world" with
+          | StrStartsWith "hello" -> true
+          | _ -> false
+        let _ =
+          match "hello world" with
+          | MyModule.StrStartsWith "hello" -> true
+          | _ -> false
+        """
+      testCaseAsync "can get range of inline struct partial Active Pattern case"
+      <|
+      // When clicking on the case name in an inline struct partial active pattern
+      // Only match-case style usages are found for the case (FCS limitation)
+      // Function-call style usages use the full pattern, not individual cases
+      checkRanges
+        server
+        """
+        module MyModule =
+          [<return: Struct>]
+          let inline (|$D<StrStartsWith>D$|_|) (prefix: string) (item: string) =
+            if item.StartsWith prefix then ValueSome () else ValueNone
+
+          // Function-call style usage - NOT marked because FCS doesn't find it for case symbols
+          let testDirect = (|StrStartsWith|_|) "hello" "hello world"
+
+        open MyModule
+        // Function-call style usages - NOT marked
+        let _ = (|StrStartsWith|_|) "hello" "hello world"
+        let _ = MyModule.(|StrStartsWith|_|) "hello" "hello world"
+        // Match-case style usages - these ARE found
+        let _ =
+          match "hello world" with
+          | $<StrSta$0rtsWith>$ "hello" -> true
+          | _ -> false
+        let _ =
+          match "hello world" with
+          | MyModule.$<StrStartsWith>$ "hello" -> true
+          | _ -> false
+        """
       testCaseAsync "can get range of type for static function call"
       <| checkRanges
         server
@@ -922,6 +1086,7 @@ let tests state =
     "Find All References tests"
     [ scriptTests state
       solutionTests state
+      activePatternProjectTests state
       untitledTests state
       rangeTests state ]
 

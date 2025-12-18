@@ -82,6 +82,9 @@ let _ =
     | Odd -> "odd"
 
 // Partial active pattern: ParseInt
+// NOTE: Cross-file Find All References for active patterns has FCS limitations:
+// - FCS doesn't find cross-file match-case usages for active pattern cases
+// - TransparentCompiler has additional issues with cross-file references
 let (|ParseInt|_|) (input: string) =
     match System.Int32.TryParse input with
     | true, v -> Some v
@@ -93,3 +96,22 @@ let _ =
     match "123" with
     | ParseInt n -> n
     | _ -> 0
+
+// ============================================
+// INLINE STRUCT PARTIAL ACTIVE PATTERNS
+// NOTE: Cross-file references for inline active patterns have FCS limitations
+// See comments in Partial active pattern section above
+// ============================================
+
+/// Inline struct partial active pattern for string prefix matching
+[<return: Struct>]
+let inline (|StrPrefix|_|) (prefix: string) (item: string) =
+    if item.StartsWith prefix then ValueSome () else ValueNone
+
+// Function-call style usage in same module
+let _ = (|StrPrefix|_|) "hello" "hello world"
+// Match-case style usage in same module
+let _ =
+    match "hello world" with
+    | StrPrefix "hello" -> true
+    | _ -> false

@@ -86,3 +86,24 @@ module Module2 =
         | Patterns.DivisibleByStruct 3 _ -> "divisible by 3 (struct)"
         | Patterns.DivisibleByStruct 5 _ -> "divisible by 5 (struct)"
         | _ -> "not divisible by 2, 3, or 5"
+
+    // ============================================
+    // INLINE GENERIC ACTIVE PATTERNS (qualified access)
+    // ============================================
+
+    // Using IsOneOfChoice as a function with qualified access
+    let checkPrefixQualified input =
+        Patterns.(|IsOneOfChoice|_|) (Patterns.(|StrStartsWith|_|), ["hello"; "hi"]) input
+//>               ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+
+    // Using StrStartsWithOneOf with qualified access
+    let checkGreetingQualified input =
+        match input with
+        | Patterns.StrStartsWithOneOf ["hello"; "hi"; "hey"] -> "greeting"
+        | _ -> "not a greeting"
+
+    // Using StrStartsWith with qualified access
+    let startsWithHelloQualified input =
+        match input with
+        | Patterns.StrStartsWith "hello" -> true
+        | _ -> false

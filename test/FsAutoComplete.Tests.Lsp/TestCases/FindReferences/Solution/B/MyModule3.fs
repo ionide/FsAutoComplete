@@ -27,9 +27,23 @@ let classifyInModule3 n =
     | Even -> "even"
     | Odd -> "odd"
 
-// Partial active pattern usage
+// Partial active pattern usage (cross-file)
+// NOTE: No markers here - see WorkingModule.fs for explanation of FCS limitations
 let _ = (|ParseInt|_|) "999"
 let parseInModule3 input =
     match input with
     | ParseInt n -> Some n
     | _ -> None
+
+// ============================================
+// INLINE ACTIVE PATTERN CROSS-FILE USAGES
+// NOTE: No markers - see B/WorkingModule.fs for explanation of FCS limitations
+// ============================================
+
+// Function-call style usage cross-file
+let _ = (|StrPrefix|_|) "hi" "hi there"
+// Match-case style usage cross-file
+let checkPrefix input =
+    match input with
+    | StrPrefix "test" -> true
+    | _ -> false
