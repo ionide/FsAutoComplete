@@ -24,12 +24,25 @@ open System.Diagnostics
 open OpenTelemetry.Resources
 open OpenTelemetry
 open OpenTelemetry.Exporter
+open OpenTelemetry.Exporter.OtlpFile
 open OpenTelemetry.Trace
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
 
 let resourceBuilder version =
   ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
+
+/// Check if we're running in GitHub Actions CI
+let isCI = Environment.GetEnvironmentVariable("CI") = "true"
+
+/// Directory to write failed test traces to
+let failedTracesDirectory =
+  let dir =
+    Environment.GetEnvironmentVariable("FAILED_TRACES_DIR")
+    |> Option.ofObj
+    |> Option.defaultValue "failed_traces"
+
+  Path.GetFullPath(dir)
 
 type SpanFilter(filter: Activity -> bool) =
   inherit BaseProcessor<Activity>()
@@ -43,7 +56,9 @@ type SpanFilter(filter: Activity -> bool) =
 type TracerProviderBuilder with
   member x.AddSpanFilter(filter: Activity -> bool) = x.AddProcessor(new SpanFilter(filter))
 
-let traceProvider () =
+/// Create trace provider for local development (sends to localhost:4317)
+/// This is NOT used in CI mode - see main function for CI trace configuration
+let traceProviderForLocalDev () =
   let version = FsAutoComplete.Utils.Version.info().Version
 
   Sdk
@@ -60,11 +75,12 @@ let traceProvider () =
     // )
     .Build()
 
+// Only initialize local dev trace provider if NOT in CI mode
+// CI mode sets up its own trace provider in main() with failed test file export
 do
-  let provider = traceProvider ()
-  AppDomain.CurrentDomain.ProcessExit.Add(fun _ -> provider.ForceFlush(3000) |> ignore
-  // provider.Dispose()
-  )
+  if not isCI then
+    let provider = traceProviderForLocalDev ()
+    AppDomain.CurrentDomain.ProcessExit.Add(fun _ -> provider.ForceFlush(3000) |> ignore)
 
 
 let testTimeout =
@@ -217,18 +233,38 @@ open FsAutoComplete.Telemetry
 [<EntryPoint>]
 let main args =
   let serviceName = "FsAutoComplete.Tests.Lsp"
+  let version = FsAutoComplete.Utils.Version.info().Version
 
-  use traceProvider =
-    let version = FsAutoComplete.Utils.Version.info().Version
+  // Create either a CI-specific failure-only exporter or the normal OTLP exporter
+  let traceProvider, failedTestExporter =
+    if isCI then
+      printfn $"Running in CI mode - failed test traces will be written to: {failedTracesDirectory}"
 
-    Sdk
-      .CreateTracerProviderBuilder()
-      .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
-      .SetResourceBuilder(
-        ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
-      )
-      .AddOtlpExporter()
-      .Build()
+      let builder, exporter =
+        Sdk
+          .CreateTracerProviderBuilder()
+          .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+          .SetResourceBuilder(
+            ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
+          )
+          .AddFailedTestOtlpFileExporter(fun opts ->
+            opts.OutputDirectory <- failedTracesDirectory
+            opts.ServiceName <- serviceName
+            opts.ServiceVersion <- version)
+
+      builder.Build(), Some exporter
+    else
+      let provider =
+        Sdk
+          .CreateTracerProviderBuilder()
+          .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+          .SetResourceBuilder(
+            ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
+          )
+          .AddOtlpExporter()
+          .Build()
+
+      provider, None
 
 
   let outputTemplate =
@@ -340,4 +376,23 @@ let main args =
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
   use span = source.StartActivity("runTests")
-  runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+  let result = runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+
+  // Write out failed test traces if in CI mode
+  match failedTestExporter with
+  | Some exporter ->
+    let traceResult = exporter.WriteToFile()
+
+    match traceResult with
+    | Some(file, count) ->
+      // Write the path to a known location for GitHub Actions to pick up
+      let summaryFile = Path.Combine(failedTracesDirectory, "summary.txt")
+      File.WriteAllText(summaryFile, $"Failed test traces: {file}\nFailed test count: {count}")
+      printfn $"::error::Found {count} failed test(s). Traces written to {file}"
+    | None -> printfn "No failed tests - no traces written"
+  | None -> ()
+
+  // Dispose the trace provider
+  traceProvider.Dispose()
+
+  result
