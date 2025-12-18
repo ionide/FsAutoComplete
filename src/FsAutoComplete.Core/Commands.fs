@@ -841,6 +841,57 @@ module Commands =
 
         let dict = ConcurrentDictionary()
 
+        // For active patterns, we need to search for both the function and its cases
+        // because FCS doesn't always find cross-file references correctly
+        let symbolsToSearch =
+          match symbol with
+          | :? FSharpActivePatternCase as apCase ->
+            // At a usage site: we have a case, also search for the declaring function
+            // e.g., for case `ParseInt` in `(|ParseInt|_|)`, also search for the function
+            match apCase.Group.DeclaringEntity with
+            | Some entity ->
+              // Search for the function using the pattern "|CaseName|" to match within the full pattern name
+              // e.g., for case "ParseInt", search for function containing "|ParseInt|"
+              let apcSearchString = $"|{apCase.DisplayName}|"
+
+              let declaringMember =
+                try
+                  entity.MembersFunctionsAndValues
+                  |> Seq.tryFind (fun m ->
+                    m.DisplayName.Contains(apcSearchString, System.StringComparison.OrdinalIgnoreCase)
+                    || m.CompiledName.Contains(apCase.DisplayName, System.StringComparison.OrdinalIgnoreCase))
+                with _ ->
+                  None
+
+              match declaringMember with
+              | Some m -> [ symbol; m :> FSharpSymbol ]
+              | None -> [ symbol ]
+            | None -> [ symbol ]
+          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
+            // At a declaration site: this is an active pattern function
+            // We need to search for both the function AND its individual cases to find all usages
+            // FCS finds function-call style usages (e.g., `(|ParseFloat|_|) x`) for the function
+            // FCS finds match-case style usages (e.g., `| ParseFloat x ->`) for the cases
+            match mfv.DeclaringEntity with
+            | Some entity ->
+              // Get all active pattern cases in the entity and find those matching this function's cases
+              let functionCases =
+                try
+                  entity.ActivePatternCases
+                  |> Seq.filter (fun apc ->
+                    // Match case to function by checking if the function's display name contains the case name
+                    // e.g., for function "|ParseFloat|_|", case would be "ParseFloat"
+                    mfv.DisplayName.Contains($"|{apc.DisplayName}|", System.StringComparison.OrdinalIgnoreCase))
+                  |> Seq.map (fun apc -> apc :> FSharpSymbol)
+                  |> Seq.toList
+                with _ ->
+                  []
+              symbol :: functionCases
+            | None -> [ symbol ]
+          | :? FSharpMemberOrFunctionOrValue ->
+            [ symbol ]
+          | _ -> [ symbol ]
+
         /// Adds References of `symbol` in `file` to `dict`
         ///
         /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
@@ -849,7 +900,20 @@ module Commands =
             if dict.ContainsKey file then
               return Ok()
             else
-              let! references = findReferencesForSymbolInFile (file, project, symbol)
+              // Search for all related symbols (for active pattern cases, includes the declaring member)
+              let! allReferences =
+                symbolsToSearch
+                |> List.map (fun s -> findReferencesForSymbolInFile (file, project, s) |> Async.map Seq.toArray)
+                |> Async.Parallel
+
+              let references =
+                allReferences
+                |> Array.concat
+                // Deduplicate - when searching for multiple symbols (e.g., active pattern function + cases),
+                // they may return duplicate ranges at the same location
+                // Use distinctBy with a tuple key since Range objects may not be structurally equal
+                |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn, r.EndLine, r.EndColumn)
+                |> Array.toSeq
 
               let references =
                 if includeDeclarations then

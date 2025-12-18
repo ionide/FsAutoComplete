@@ -63,3 +63,33 @@ let _ = B.MyModule1.value
 //>                 ^^^^^ function from same project
 let _ = B.MyModule1.``value``
 //>                 ^^^^^^^^^ function from same project
+
+// ============================================
+// ACTIVE PATTERNS
+// ============================================
+
+// Total active pattern: Even|Odd
+// Cross-file references work for BackgroundCompiler
+// TransparentCompiler has issues (tracked separately)
+let (|Even|Odd|) value =
+    if value % 2 = 0 then Even else Odd
+
+// Testing full pattern as function
+let _ = (|Even|Odd|) 42
+let _ =
+    match 42 with
+    | Even -> "even"
+    | Odd -> "odd"
+
+// Partial active pattern: ParseInt
+let (|ParseInt|_|) (input: string) =
+    match System.Int32.TryParse input with
+    | true, v -> Some v
+    | false, _ -> None
+
+// Testing partial pattern as function
+let _ = (|ParseInt|_|) "42"
+let _ =
+    match "123" with
+    | ParseInt n -> n
+    | _ -> 0

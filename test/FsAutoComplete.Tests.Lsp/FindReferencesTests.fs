@@ -609,6 +609,55 @@ let private rangeTests state =
           | MyModule.$<Even>$ -> ()
           | MyModule.Odd -> ()
         """
+      testCaseAsync "can get range of partial Active Pattern"
+      <|
+      // Partial active pattern: `(|ParseInt|_|)` - returns Option
+      // The `|_|` indicates it's partial (can fail to match)
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Pa$0rseInt|_|>D$) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> Some v
+            | false, _ -> None
+
+        open MyModule
+        let _ = ($<|ParseInt|_|>$) "42"
+        let _ = MyModule.($<|ParseInt|_|>$) "42"
+        let _ =
+          match "42" with
+          | ParseInt v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.ParseInt v -> v
+          | _ -> 0
+        """
+      testCaseAsync "can get range of partial Active Pattern case"
+      <|
+      // When clicking on the case name in a partial active pattern
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<ParseInt>D$|_|) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> Some v
+            | false, _ -> None
+
+        open MyModule
+        let _ = (|ParseInt|_|) "42"
+        let _ = MyModule.(|ParseInt|_|) "42"
+        let _ =
+          match "42" with
+          | $<Par$0seInt>$ v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.$<ParseInt>$ v -> v
+          | _ -> 0
+        """
       testCaseAsync "can get range of type for static function call"
       <| checkRanges
         server
