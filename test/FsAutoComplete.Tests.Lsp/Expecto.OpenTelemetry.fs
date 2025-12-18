@@ -4,7 +4,6 @@ module OpenTelemetry =
   open System
   open System.Diagnostics
   open System.Collections.Generic
-  open System.Threading
   open Impl
   open System.Runtime.CompilerServices
 
@@ -44,7 +43,7 @@ module OpenTelemetry =
         span.SetStatus(status) |> ignore
 
     let inline setExn (e: exn) (span: Activity) =
-      if isNotNull span |> not then
+      if isNotNull span then
         let tags =
           ActivityTagsCollection(
             seq {
@@ -61,7 +60,7 @@ module OpenTelemetry =
     let inline setExnMarkFailed (e: exn) (span: Activity) =
       if isNotNull span then
         setExn e span
-        span |> setStatus ActivityStatusCode.Error
+        span.SetStatus(ActivityStatusCode.Error, e.Message) |> ignore
 
     let setSourceLocation (sourceLoc: SourceLocation) (span: Activity) =
       if isNotNull span && sourceLoc <> SourceLocation.empty then
@@ -141,7 +140,29 @@ module OpenTelemetry =
     | Ignored _ -> setExn e span
     | _ -> setExnMarkFailed e span
 
-  let wrapCodeWithSpan (span: Activity) (test: TestCode) =
+  let wrapCodeWithLazySpan
+    (activitySource: ActivitySource)
+    (testName: string)
+    (sourceLoc: SourceLocation)
+    (test: TestCode)
+    =
+    let createAndConfigureSpan () =
+      let previous = Activity.Current
+      Activity.Current <- null
+      let span = activitySource |> createActivity testName
+      span |> setSourceLocation sourceLoc
+      span |> start |> ignore
+
+      if isNull span then
+        Activity.Current <- previous
+
+      span, previous
+
+    let disposeAndRestore (span: Activity) previous =
+      if isNotNull span then
+        span.Dispose()
+
+      Activity.Current <- previous
 
     let inline handleSuccess span =
       setEndTimeNow span
@@ -156,24 +177,30 @@ module OpenTelemetry =
     match test with
     | Sync test ->
       TestCode.Sync(fun () ->
-        use span = start span
+        let span, previous = createAndConfigureSpan ()
 
         try
-          test ()
-          handleSuccess span
-        with e ->
-          handleFailure span e)
+          try
+            test ()
+            handleSuccess span
+          with e ->
+            handleFailure span e
+        finally
+          disposeAndRestore span previous)
 
     | Async test ->
       TestCode.Async(
         async {
-          use span = start span
+          let span, previous = createAndConfigureSpan ()
 
           try
-            do! test
-            handleSuccess span
-          with e ->
-            handleFailure span e
+            try
+              do! test
+              handleSuccess span
+            with e ->
+              handleFailure span e
+          finally
+            disposeAndRestore span previous
         }
       )
 
@@ -183,36 +210,41 @@ module OpenTelemetry =
         stressConfig,
         fun fsCheckConfig ->
           async {
-            use span = start span
+            let span, previous = createAndConfigureSpan ()
 
             try
-              do! test fsCheckConfig
-              handleSuccess span
-            with e ->
-              handleFailure span e
+              try
+                do! test fsCheckConfig
+                handleSuccess span
+              with e ->
+                handleFailure span e
+            finally
+              disposeAndRestore span previous
           }
       )
 
     | SyncWithCancel test ->
       TestCode.SyncWithCancel(fun ct ->
-        use span = start span
+        let span, previous = createAndConfigureSpan ()
 
         try
-          test ct
-          handleSuccess span
-        with e ->
-          handleFailure span e)
+          try
+            test ct
+            handleSuccess span
+          with e ->
+            handleFailure span e
+        finally
+          disposeAndRestore span previous)
 
-  /// Span -> Activity
   let addOpenTelemetry_SpanPerTest (config: ExpectoConfig) (activitySource: ActivitySource) (rootTest: Test) : Test =
     rootTest
     |> Test.toTestCodeList
     |> List.map (fun test ->
-      let span = activitySource |> createActivity (config.joinWith.format test.name)
-      span |> setSourceLocation (config.locate test.test)
+      let testName = config.joinWith.format test.name
+      let sourceLoc = config.locate test.test
 
       { test with
-          test = wrapCodeWithSpan span test.test })
+          test = wrapCodeWithLazySpan activitySource testName sourceLoc test.test })
     |> Test.fromFlatTests config.joinWith.asString
 
   let serviceName = "FsAutoComplete.Tests.Lsp"
