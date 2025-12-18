@@ -698,9 +698,6 @@ type AdaptiveState
         return None
     }
 
-
-  let fcsErrorToDiagnostic = fcsErrorToDiagnostic
-
   let unusedOpensToDiagnostic n =
     { Range = fcsRangeToLsp n
       Code = Some(U2.C2 "FSAC0001")
@@ -1689,23 +1686,6 @@ type AdaptiveState
           })
     }
 
-  let getOpenFilesToProjectOptions () =
-    async {
-      let openFilesToChangesAndProjectOptions = openFilesToChangesAndProjectOptions
-
-      return!
-        openFilesToChangesAndProjectOptions
-        // |> AMap.toASetValues
-        |> AMap.force
-        |> HashMap.toArray
-        |> Array.map (fun (sourceTextPath, projects) ->
-          async {
-            let! projs = AsyncAVal.forceAsync projects
-            return sourceTextPath, projs
-          })
-        |> Async.parallel75
-    }
-
   let getAllFilesToProjectOptions () =
     async {
       let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
@@ -1721,21 +1701,6 @@ type AdaptiveState
             return sourceTextPath, projs
           })
         |> Async.parallel75
-    }
-
-  let getOpenFilesToProjectOptionsSelected () =
-    async {
-      let! set = getOpenFilesToProjectOptions ()
-      let selectProject = projectSelector |> AVal.force
-      let findProject file projects = selectProject.FindProject(file, projects)
-
-      return
-        set
-        |> Array.choose (fun (k, (_, v)) ->
-          v
-          |> Result.bind (findProject k)
-          |> Result.toOption
-          |> Option.map (fun v -> k, v))
     }
 
   let getAllFilesToProjectOptionsSelected () =
@@ -2952,6 +2917,14 @@ type AdaptiveState
 
       let fcsDiags =
         Array.append check.GetParseResults.Diagnostics check.GetCheckResults.Diagnostics
+        |> Array.distinctBy (fun error ->
+          error.Severity,
+          error.ErrorNumber,
+          error.StartLine,
+          error.StartColumn,
+          error.EndLine,
+          error.EndColumn,
+          error.Message)
         |> Array.map fcsErrorToDiagnostic
 
       let analyzerDiags =
