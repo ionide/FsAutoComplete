@@ -2,13 +2,13 @@ services:
   seq:
     profiles:
       - seq
-    image: datalust/seq
+    image: datalust/seq:2024.3
     ports:
       - 5341:80 # http and collection
     environment:
       - ACCEPT_EULA=Y
     # http://localhost:5341
-    # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5341/ingest/otlp/v1/logs
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5341/ingest/otlp/v1/traces
     # OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
     # OTEL_EXPORTER_OTLP_HEADERS="X-Seq-ApiKey=your_api_key"
   jaeger:
@@ -30,4 +30,17 @@ services:
       - COLLECTOR_ZIPKIN_HTTP_PORT=9411
       - COLLECTOR_OTLP_ENABLED=true
     # http://localhost:16686/
+    # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+  aspire:
+    profiles:
+      - aspire
+    image: mcr.microsoft.com/dotnet/nightly/aspire-dashboard
+    ports:
+      - 4317:18889 #otel
+      - 18888:18888 #http
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    #   - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+    #   - OTEL_EXPORTER_OTLP_HEADERS=X-Seq-ApiKey=your_api_key
+    # http://localhost:18888/
     # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317

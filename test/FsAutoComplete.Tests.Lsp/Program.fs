@@ -334,5 +334,5 @@ let main args =
       CLIArguments.Parallel ]
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
-  use span = activitySource.StartActivity("runTests")
+  use span = source.StartActivity("runTests")
   runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests

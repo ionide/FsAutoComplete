@@ -558,8 +558,6 @@ type AdaptiveState
 
               | _ -> ranges)
 
-          let! ct = Async.CancellationToken
-
           return
             NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version)
             |> Some
@@ -2681,6 +2679,8 @@ type AdaptiveState
         let file = VolatileFile.Create(sourceTextFactory.Create(filePath, text), version)
 
         updateOpenFiles file
+
+        failwith "Something stupid happened"
 
         do!
           forceGetOpenFileTypeCheckResults filePath
