@@ -4,7 +4,6 @@ module OpenTelemetry =
   open System
   open System.Diagnostics
   open System.Collections.Generic
-  open System.Threading
   open Impl
   open System.Runtime.CompilerServices
 
@@ -141,7 +140,18 @@ module OpenTelemetry =
     | Ignored _ -> setExn e span
     | _ -> setExnMarkFailed e span
 
-  let wrapCodeWithSpan (span: Activity) (test: TestCode) =
+  /// Wraps test code with a span that is created lazily when the test runs
+  /// This ensures the ActivitySource has a listener registered by the time tests execute
+  let wrapCodeWithLazySpan
+    (activitySource: ActivitySource)
+    (testName: string)
+    (sourceLoc: SourceLocation)
+    (test: TestCode)
+    =
+    let createAndConfigureSpan () =
+      let span = activitySource |> createActivity testName
+      span |> setSourceLocation sourceLoc
+      span
 
     let inline handleSuccess span =
       setEndTimeNow span
@@ -156,7 +166,7 @@ module OpenTelemetry =
     match test with
     | Sync test ->
       TestCode.Sync(fun () ->
-        use span = start span
+        use span = createAndConfigureSpan () |> start
 
         try
           test ()
@@ -167,7 +177,7 @@ module OpenTelemetry =
     | Async test ->
       TestCode.Async(
         async {
-          use span = start span
+          use span = createAndConfigureSpan () |> start
 
           try
             do! test
@@ -183,7 +193,7 @@ module OpenTelemetry =
         stressConfig,
         fun fsCheckConfig ->
           async {
-            use span = start span
+            use span = createAndConfigureSpan () |> start
 
             try
               do! test fsCheckConfig
@@ -195,7 +205,7 @@ module OpenTelemetry =
 
     | SyncWithCancel test ->
       TestCode.SyncWithCancel(fun ct ->
-        use span = start span
+        use span = createAndConfigureSpan () |> start
 
         try
           test ct
@@ -204,15 +214,16 @@ module OpenTelemetry =
           handleFailure span e)
 
   /// Span -> Activity
+  /// Activities are created lazily when tests run, ensuring the TracerProvider listener is registered
   let addOpenTelemetry_SpanPerTest (config: ExpectoConfig) (activitySource: ActivitySource) (rootTest: Test) : Test =
     rootTest
     |> Test.toTestCodeList
     |> List.map (fun test ->
-      let span = activitySource |> createActivity (config.joinWith.format test.name)
-      span |> setSourceLocation (config.locate test.test)
+      let testName = config.joinWith.format test.name
+      let sourceLoc = config.locate test.test
 
       { test with
-          test = wrapCodeWithSpan span test.test })
+          test = wrapCodeWithLazySpan activitySource testName sourceLoc test.test })
     |> Test.fromFlatTests config.joinWith.asString
 
   let serviceName = "FsAutoComplete.Tests.Lsp"
