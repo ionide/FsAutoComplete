@@ -859,7 +859,13 @@ module Commands =
                   |> Seq.tryFind (fun m ->
                     m.DisplayName.Contains(apcSearchString, System.StringComparison.OrdinalIgnoreCase)
                     || m.CompiledName.Contains(apCase.DisplayName, System.StringComparison.OrdinalIgnoreCase))
-                with _ ->
+                with e ->
+                  commandsLogger.debug (
+                    Log.setMessage "Failed to find declaring member for active pattern case {case}: {error}"
+                    >> Log.addContextDestructured "case" apCase.DisplayName
+                    >> Log.addExn e
+                  )
+
                   None
 
               match declaringMember with
@@ -879,7 +885,13 @@ module Commands =
                     mfv.DisplayName.Contains($"|{apc.DisplayName}|", System.StringComparison.OrdinalIgnoreCase))
                   |> Seq.map (fun apc -> apc :> FSharpSymbol)
                   |> Seq.toList
-                with _ ->
+                with e ->
+                  commandsLogger.debug (
+                    Log.setMessage "Failed to find cases for active pattern function {func}: {error}"
+                    >> Log.addContextDestructured "func" mfv.DisplayName
+                    >> Log.addExn e
+                  )
+
                   []
 
               symbol :: functionCases
@@ -904,11 +916,15 @@ module Commands =
               let references =
                 allReferences
                 |> Array.concat
-                // Deduplicate - when searching for multiple symbols (e.g., active pattern function + cases),
-                // they may return overlapping ranges at the same location.
+                // Deduplicate overlapping ranges - when searching for multiple symbols (e.g., active pattern
+                // function + cases), they may return overlapping ranges at the same location.
                 // For example, at an active pattern declaration we might find both:
                 //   `|IsOneOfChoice|_|` (function symbol) and `IsOneOfChoice` (case symbol)
                 // Keep only the outermost (longest) range when ranges overlap or are contained within each other.
+                //
+                // Note: This deduplication assumes active pattern references are single-line identifiers,
+                // so we only need to compare column positions within each line. Multiline ranges would
+                // require comparing StartLine/EndLine as well, but active pattern names cannot span lines.
                 |> Array.groupBy (fun r -> r.StartLine)
                 |> Array.collect (fun (_, rangesOnLine) ->
                   // For ranges on the same line, filter out those that are contained within another
@@ -1043,8 +1059,11 @@ module Commands =
           else
             result.Add(k, v)
 
-      // Deduplicate across all symbol searches - when clicking on an active pattern,
-      // TryGetSymbolUses may return both the function and case symbol, leading to duplicates
+      // Final deduplication pass: remove exact duplicate ranges across all symbol searches.
+      // This is separate from the per-file deduplication in tryFindReferencesInFile which removes
+      // *contained* ranges (e.g., `IsOneOfChoice` inside `|IsOneOfChoice|_|`).
+      // This pass removes *identical* ranges that may arise when TryGetSymbolUses returns both
+      // the function and case symbol pointing to the same location.
       for KeyValue(k, v) in result do
         result.[k] <-
           v
