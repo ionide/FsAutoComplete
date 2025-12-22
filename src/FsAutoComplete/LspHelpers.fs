@@ -750,6 +750,7 @@ type FSharpConfigDto =
     FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
     TooltipMode: string option
+    TooltipShowDocumentationLink: bool option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
@@ -886,6 +887,7 @@ type FSharpConfig =
     FSIExtraSharedParameters: string array
     FSICompilerToolLocations: string array
     TooltipMode: string
+    TooltipShowDocumentationLink: bool
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
@@ -937,6 +939,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = [||]
       FSICompilerToolLocations = [||]
       TooltipMode = "full"
+      TooltipShowDocumentationLink = true
       GenerateBinlog = false
       CodeLenses = CodeLensConfig.Default
       InlayHints = InlayHintsConfig.Default
@@ -998,6 +1001,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode "full"
+      TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink true
       GenerateBinlog = defaultArg dto.GenerateBinlog false
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
       AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
@@ -1105,6 +1109,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
+      TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink x.TooltipShowDocumentationLink
       GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
       CodeLenses =
         match dto.CodeLenses with
