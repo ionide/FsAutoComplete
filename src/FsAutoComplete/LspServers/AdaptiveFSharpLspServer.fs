@@ -1077,7 +1077,7 @@ type AdaptiveFSharpLspServer
               else
                 TipFormatter.FormatCommentStyle.Legacy
 
-            let showExternalDocumentation = state.Config.ShowExternalDocumentation
+            let showExternalDocumentation = state.Config.TooltipShowDocumentationLink
 
             match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
             | TipFormatter.TipFormatterResult.Success tooltipInfo ->

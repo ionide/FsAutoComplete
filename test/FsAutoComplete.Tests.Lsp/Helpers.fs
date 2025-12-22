@@ -276,6 +276,7 @@ let defaultConfigDto: FSharpConfigDto =
     FSIExtraSharedParameters = None
     FSICompilerToolLocations = None
     TooltipMode = None
+    TooltipShowDocumentationLink = None
     GenerateBinlog = Some true
     AbstractClassStubGeneration = None
     AbstractClassStubGenerationMethodBody = None

@@ -332,6 +332,7 @@ type FSharpConfigDto =
     FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
     TooltipMode: string option
+    TooltipShowDocumentationLink: bool option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
@@ -427,6 +428,7 @@ type FSharpConfig =
     FSIExtraSharedParameters: string array
     FSICompilerToolLocations: string array
     TooltipMode: string
+    TooltipShowDocumentationLink: bool
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig

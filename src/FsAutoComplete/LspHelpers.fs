@@ -750,7 +750,7 @@ type FSharpConfigDto =
     FSIExtraSharedParameters: string array option
     FSICompilerToolLocations: string array option
     TooltipMode: string option
-    ShowExternalDocumentation: bool option
+    TooltipShowDocumentationLink: bool option
     GenerateBinlog: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
@@ -887,7 +887,7 @@ type FSharpConfig =
     FSIExtraSharedParameters: string array
     FSICompilerToolLocations: string array
     TooltipMode: string
-    ShowExternalDocumentation: bool
+    TooltipShowDocumentationLink: bool
     GenerateBinlog: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
@@ -939,7 +939,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = [||]
       FSICompilerToolLocations = [||]
       TooltipMode = "full"
-      ShowExternalDocumentation = true
+      TooltipShowDocumentationLink = true
       GenerateBinlog = false
       CodeLenses = CodeLensConfig.Default
       InlayHints = InlayHintsConfig.Default
@@ -1001,7 +1001,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode "full"
-      ShowExternalDocumentation = defaultArg dto.ShowExternalDocumentation true
+      TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink true
       GenerateBinlog = defaultArg dto.GenerateBinlog false
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
       AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
@@ -1109,7 +1109,7 @@ type FSharpConfig =
       FSIExtraSharedParameters = defaultArg dto.FSIExtraSharedParameters FSharpConfig.Default.FSIExtraSharedParameters
       FSICompilerToolLocations = defaultArg dto.FSICompilerToolLocations FSharpConfig.Default.FSICompilerToolLocations
       TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
-      ShowExternalDocumentation = defaultArg dto.ShowExternalDocumentation x.ShowExternalDocumentation
+      TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink x.TooltipShowDocumentationLink
       GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
       CodeLenses =
         match dto.CodeLenses with
