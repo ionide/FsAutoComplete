@@ -1077,6 +1077,8 @@ type AdaptiveFSharpLspServer
               else
                 TipFormatter.FormatCommentStyle.Legacy
 
+            let showExternalDocumentation = state.Config.ShowExternalDocumentation
+
             match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
             | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
@@ -1091,12 +1093,13 @@ type AdaptiveFSharpLspServer
                          U2.C1 tooltipInfo.DocComment
                          match tooltipResult.SymbolInfo with
                          | TryGetToolTipEnhancedResult.Keyword _ -> ()
-                         | TryGetToolTipEnhancedResult.Symbol symbolInfo ->
+                         | TryGetToolTipEnhancedResult.Symbol symbolInfo when showExternalDocumentation ->
                            TipFormatter.renderShowDocumentationLink
                              tooltipInfo.HasTruncatedExamples
                              symbolInfo.XmlDocSig
                              symbolInfo.Assembly
                            |> U2.C1
+                         | TryGetToolTipEnhancedResult.Symbol _ -> ()
                          // Display each footer line as a separate line
                          yield! tooltipResult.Footer |> TipFormatter.prepareFooterLines |> Array.map U2.C1 |]
 
