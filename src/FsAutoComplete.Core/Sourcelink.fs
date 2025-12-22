@@ -64,7 +64,8 @@ let private compareRepoPath (d: Document) fcsPath =
     if Environment.isWindows then
       let s = UMX.untag d.Name
       let normalized = normalizePath s |> UMX.untag
-      UMX.tag<NormalizedRepoPathSegment> normalized
+      // Convert backslashes to forward slashes for consistent comparison
+      UMX.tag<NormalizedRepoPathSegment> (normalized.Replace("\\", "/"))
     else
       normalizeRepoPath d.Name
 
