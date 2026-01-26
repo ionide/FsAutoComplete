@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code for best practices and potential issues",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4.5",
+      "prompt": "You are a code reviewer. Focus on security, performance, maintainability, and binary compatibility.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
+    }
+  },
+  "lsp": {
+
+  },
+  "mcp": {
+    "memorizer" : {
+        "type": "remote",
+        "enabled": true,
+        "url": "http://localhost:5000"
+    }
+  }
+}

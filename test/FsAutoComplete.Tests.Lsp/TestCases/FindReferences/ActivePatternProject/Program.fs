@@ -24,7 +24,9 @@ module Program =
     let demo3 () =
         // Using patterns as functions
         let evenOddResult = (|Even|Odd|) 100
+//>                          ^^^^^^^^^ Even
         let parseResult = (|ParseInt|_|) "456"
+//>                        ^^^^^^^^^^^^ ParseInt
         printfn "EvenOdd: %A, Parse: %A" evenOddResult parseResult
 
     let demo4 () =
@@ -55,6 +57,10 @@ module Program =
             | DivisibleBy 3 q -> printfn "%d / 3 = %d" n q
             | _ -> ()
 
+    // Using DivisibleBy as function
+    let divisibleByDirect n = (|DivisibleBy|_|) 3 n
+//>                            ^^^^^^^^^^^^^^^ DivisibleBy
+
     // ============================================
     // STRUCT PARTIAL ACTIVE PATTERNS demos
     // ============================================
@@ -74,6 +80,7 @@ module Program =
     let demoStruct3 () =
         // Using struct patterns as functions
         let parseIntResult = (|ParseIntStruct|_|) "321"
+//>                           ^^^^^^^^^^^^^^^^^^ ParseIntStruct
         let parseFloatResult = (|ParseFloatStruct|_|) "1.618"
         printfn "ParseInt (struct): %A, ParseFloat (struct): %A" parseIntResult parseFloatResult
 

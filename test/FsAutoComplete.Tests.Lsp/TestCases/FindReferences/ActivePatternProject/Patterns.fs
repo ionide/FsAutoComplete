@@ -17,6 +17,7 @@ module Patterns =
 
     /// Total active pattern for even/odd classification
     let (|Even|Odd|) value =
+//>       ^^^^ Even
         if value % 2 = 0 then Even else Odd
 
     /// Total active pattern for sign classification
@@ -31,6 +32,7 @@ module Patterns =
 
     /// Partial active pattern for parsing integers
     let (|ParseInt|_|) (input: string) =
+//>       ^^^^^^^^ ParseInt
         match System.Int32.TryParse input with
         | true, v -> Some v
         | false, _ -> None
@@ -52,6 +54,7 @@ module Patterns =
 
     /// Parameterized active pattern for divisibility
     let (|DivisibleBy|_|) divisor value =
+//>       ^^^^^^^^^^^ DivisibleBy
         if value % divisor = 0 then Some(value / divisor)
         else None
 
@@ -69,6 +72,7 @@ module Patterns =
     /// Struct partial active pattern for parsing integers
     [<return: Struct>]
     let (|ParseIntStruct|_|) (input: string) =
+//>       ^^^^^^^^^^^^^^ ParseIntStruct
         match System.Int32.TryParse input with
         | true, v -> ValueSome v
         | false, _ -> ValueNone
@@ -95,7 +99,7 @@ module Patterns =
 
     [<return: Struct>]
     let inline (|IsOneOfChoice|_|) (chooser: 'a -> 'b -> 'c voption, values : 'a seq) (item : 'b) =
-//>             ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+//>             ^^^^^^^^^^^^^^^ IsOneOfChoice
         values |> Seq.tryPickV (fun x -> chooser x item)
 
     [<return: Struct>]
@@ -105,5 +109,6 @@ module Patterns =
 
     [<return: Struct>]
     let inline (|StrStartsWithOneOf|_|) (values : string seq) (item : string) =
+//>              ^^^^^^^^^^^^^^^^^^ StrStartsWithOneOf
         (|IsOneOfChoice|_|) ((|StrStartsWith|_|), values) item
-//>      ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+//>      ^^^^^^^^^^^^^^^ IsOneOfChoice

@@ -12,6 +12,7 @@ module Module1 =
 
     // Using total active pattern as function
     let getEvenOdd n = (|Even|Odd|) n
+//>                     ^^^^^^^^^ Even
 
     // Using partial active pattern ParseInt
     let tryParseNumber input =
@@ -21,6 +22,7 @@ module Module1 =
 
     // Using partial active pattern as function
     let parseIntDirect input = (|ParseInt|_|) input
+//>                             ^^^^^^^^^^^^ ParseInt
 
     // Using ParseFloat partial active pattern
     let tryParseFloat input =
@@ -36,6 +38,10 @@ module Module1 =
         match n with
         | DivisibleBy 3 result -> Some result
         | _ -> None
+
+    // Using DivisibleBy as function
+    let divisibleByDirect n = (|DivisibleBy|_|) 3 n
+//>                            ^^^^^^^^^^^^^^^ DivisibleBy
 
     // Using multiple patterns in one match
     let analyzeNumber n =
@@ -65,6 +71,7 @@ module Module1 =
 
     // Using struct partial active pattern as function
     let parseIntStructDirect input = (|ParseIntStruct|_|) input
+//>                                   ^^^^^^^^^^^^^^^^^^ ParseIntStruct
 
     // Using ParseFloatStruct partial active pattern
     let tryParseFloatStruct input =
@@ -95,7 +102,6 @@ module Module1 =
     let checkIfStartsWithPrefix input =
         match input with
         | IsOneOfChoice ((|StrStartsWith|_|), ["hello"; "hi"; "hey"]) -> true
-//>       ^^^^^^^^^^^^^ IsOneOfChoice
         | _ -> false
 
     // Using IsOneOfChoice as a function
@@ -107,6 +113,7 @@ module Module1 =
     let checkGreeting input =
         match input with
         | StrStartsWithOneOf ["hello"; "hi"; "hey"] -> "greeting"
+//>       ^^^^^^^^^^^^^^^^^^ StrStartsWithOneOf
         | _ -> "not a greeting"
 
     // Using StrStartsWith directly

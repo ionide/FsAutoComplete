@@ -593,7 +593,7 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
         member visitor.VisitPat(path, defaultTraverse, pat) =
           let invalidPositionForTypeAnnotation (path: SyntaxNode list) =
             match path with
-            | SyntaxNode.SynExpr(SynExpr.LetOrUse(isUse = true)) :: _ ->
+            | SyntaxNode.SynExpr(SynExpr.LetOrUse l) :: _ when l.IsUse ->
               // use! value =
               true
             | _ -> false

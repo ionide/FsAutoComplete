@@ -17,7 +17,9 @@ module Module2 =
 
     // Using the pattern as a function with qualified name
     let parseIntQualified input = Patterns.(|ParseInt|_|) input
+//>                                         ^^^^^^^^^^^^ ParseInt
     let evenOddQualified n = Patterns.(|Even|Odd|) n
+//>                                    ^^^^^^^^^ Even
 
     // Using Regex pattern
     let matchEmail input =
@@ -52,6 +54,10 @@ module Module2 =
         | Patterns.DivisibleBy 5 _ -> "divisible by 5"
         | _ -> "not divisible by 2, 3, or 5"
 
+    // Using DivisibleBy as function
+    let divisibleByQualified n = Patterns.(|DivisibleBy|_|) 2 n
+//>                                        ^^^^^^^^^^^^^^^ DivisibleBy
+
     // ============================================
     // STRUCT PARTIAL ACTIVE PATTERNS (qualified access)
     // ============================================
@@ -64,6 +70,7 @@ module Module2 =
 
     // Using struct pattern as a function with qualified name
     let parseIntStructQualified input = Patterns.(|ParseIntStruct|_|) input
+//>                                               ^^^^^^^^^^^^^^^^^^ ParseIntStruct
     let parseFloatStructQualified input = Patterns.(|ParseFloatStruct|_|) input
 
     // Complex example with struct patterns
@@ -94,12 +101,13 @@ module Module2 =
     // Using IsOneOfChoice as a function with qualified access
     let checkPrefixQualified input =
         Patterns.(|IsOneOfChoice|_|) (Patterns.(|StrStartsWith|_|), ["hello"; "hi"]) input
-//>               ^^^^^^^^^^^^^^^^^ IsOneOfChoice
+//>              ^^^^^^^^^^^^^^^^^ IsOneOfChoice
 
     // Using StrStartsWithOneOf with qualified access
     let checkGreetingQualified input =
         match input with
         | Patterns.StrStartsWithOneOf ["hello"; "hi"; "hey"] -> "greeting"
+//>                 ^^^^^^^^^^^^^^^^^^ StrStartsWithOneOf
         | _ -> "not a greeting"
 
     // Using StrStartsWith with qualified access

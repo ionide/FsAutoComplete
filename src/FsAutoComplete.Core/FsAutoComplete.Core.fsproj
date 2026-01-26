@@ -67,5 +67,8 @@
     <Compile Include="SymbolLocation.fs" />
     <Compile Include="Commands.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\fsharp-wt\fix-background-refs-transparent-compiler2\src\Compiler\FSharp.Compiler.Service.fsproj" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

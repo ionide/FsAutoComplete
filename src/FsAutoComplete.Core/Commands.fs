@@ -841,64 +841,6 @@ module Commands =
 
         let dict = ConcurrentDictionary()
 
-        // For active patterns, we need to search for both the function and its cases
-        // because FCS doesn't always find cross-file references correctly.
-        // The function symbol finds function-call style usages, the case symbol finds match-case usages.
-        let symbolsToSearch =
-          match symbol with
-          | :? FSharpActivePatternCase as apCase ->
-            // At a case symbol (either at declaration or usage)
-            // Search for both the case (for match-case usages) AND the function (for function-call usages)
-            match apCase.Group.DeclaringEntity with
-            | Some entity ->
-              let apcSearchString = $"|{apCase.DisplayName}|"
-
-              let declaringMember =
-                try
-                  entity.MembersFunctionsAndValues
-                  |> Seq.tryFind (fun m ->
-                    m.DisplayName.Contains(apcSearchString, System.StringComparison.OrdinalIgnoreCase)
-                    || m.CompiledName.Contains(apCase.DisplayName, System.StringComparison.OrdinalIgnoreCase))
-                with e ->
-                  commandsLogger.debug (
-                    Log.setMessage "Failed to find declaring member for active pattern case {case}: {error}"
-                    >> Log.addContextDestructured "case" apCase.DisplayName
-                    >> Log.addExn e
-                  )
-
-                  None
-
-              match declaringMember with
-              | Some m -> [ symbol; m :> FSharpSymbol ]
-              | None -> [ symbol ]
-            | None -> [ symbol ]
-          | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsActivePattern ->
-            // At an active pattern function symbol - search for both the function AND its cases
-            // FCS finds function-call style usages (e.g., `(|ParseFloat|_|) x`) for the function
-            // FCS finds match-case style usages (e.g., `| ParseFloat x ->`) for the cases
-            match mfv.DeclaringEntity with
-            | Some entity ->
-              let functionCases =
-                try
-                  entity.ActivePatternCases
-                  |> Seq.filter (fun apc ->
-                    mfv.DisplayName.Contains($"|{apc.DisplayName}|", System.StringComparison.OrdinalIgnoreCase))
-                  |> Seq.map (fun apc -> apc :> FSharpSymbol)
-                  |> Seq.toList
-                with e ->
-                  commandsLogger.debug (
-                    Log.setMessage "Failed to find cases for active pattern function {func}: {error}"
-                    >> Log.addContextDestructured "func" mfv.DisplayName
-                    >> Log.addExn e
-                  )
-
-                  []
-
-              symbol :: functionCases
-            | None -> [ symbol ]
-          | :? FSharpMemberOrFunctionOrValue -> [ symbol ]
-          | _ -> [ symbol ]
-
         /// Adds References of `symbol` in `file` to `dict`
         ///
         /// `Error` iff adjusting ranges failed (including cannot get source) and `errorOnFailureToFixRange`. Otherwise always `Ok`
@@ -907,37 +849,7 @@ module Commands =
             if dict.ContainsKey file then
               return Ok()
             else
-              // Search for all related symbols (for active pattern cases, includes the declaring member)
-              let! allReferences =
-                symbolsToSearch
-                |> List.map (fun s -> findReferencesForSymbolInFile (file, project, s) |> Async.map Seq.toArray)
-                |> Async.Parallel
-
-              let references =
-                allReferences
-                |> Array.concat
-                // Deduplicate overlapping ranges - when searching for multiple symbols (e.g., active pattern
-                // function + cases), they may return overlapping ranges at the same location.
-                // For example, at an active pattern declaration we might find both:
-                //   `|IsOneOfChoice|_|` (function symbol) and `IsOneOfChoice` (case symbol)
-                // Keep only the outermost (longest) range when ranges overlap or are contained within each other.
-                //
-                // Note: This deduplication assumes active pattern references are single-line identifiers,
-                // so we only need to compare column positions within each line. Multiline ranges would
-                // require comparing StartLine/EndLine as well, but active pattern names cannot span lines.
-                |> Array.groupBy (fun r -> r.StartLine)
-                |> Array.collect (fun (_, rangesOnLine) ->
-                  // For ranges on the same line, filter out those that are contained within another
-                  rangesOnLine
-                  |> Array.filter (fun r ->
-                    rangesOnLine
-                    |> Array.exists (fun other ->
-                      // Check if 'other' strictly contains 'r' (r is nested inside other)
-                      other.StartColumn <= r.StartColumn
-                      && other.EndColumn >= r.EndColumn
-                      && (other.StartColumn < r.StartColumn || other.EndColumn > r.EndColumn))
-                    |> not))
-                |> Array.toSeq
+              let! references = findReferencesForSymbolInFile (file, project, symbol)
 
               let references =
                 if includeDeclarations then

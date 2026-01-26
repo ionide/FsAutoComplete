@@ -310,7 +310,7 @@ module Syntax =
       | SynExpr.TypeApp(e, _, tys, _, _, _, _) ->
         List.iter walkType tys
         walkExpr e
-      | SynExpr.LetOrUse(bindings = bindings; body = e; range = _) ->
+      | SynExpr.LetOrUse { Bindings = bindings; Body = e } ->
         List.iter walkBinding bindings
         walkExpr e
       | SynExpr.TryWith(tryExpr = e; withCases = clauses; range = _) ->
@@ -445,7 +445,7 @@ module Syntax =
       | SynMemberDefn.ImplicitInherit(inheritType = t; inheritArgs = e) ->
         walkType t
         walkExpr e
-      | SynMemberDefn.LetBindings(bindings, _, _, _) -> List.iter walkBinding bindings
+      | SynMemberDefn.LetBindings(bindings = bindings) -> List.iter walkBinding bindings
       | SynMemberDefn.Interface(t, _, members, _) ->
         walkType t
         members |> Option.iter (List.iter walkMember)
@@ -531,7 +531,7 @@ module Syntax =
       | SynModuleDecl.NestedModule(info, _, modules, _, _, _) ->
         walkComponentInfo info
         List.iter walkSynModuleDecl modules
-      | SynModuleDecl.Let(_, bindings, _) -> List.iter walkBinding bindings
+      | SynModuleDecl.Let(bindings = bindings) -> List.iter walkBinding bindings
       | SynModuleDecl.Expr(expr, _) -> walkExpr expr
       | SynModuleDecl.Types(types, _) -> List.iter walkTypeDefn types
       | SynModuleDecl.Attributes(attributes = AllAttrs attrs; range = _) -> List.iter walkAttribute attrs
