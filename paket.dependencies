@@ -13,7 +13,7 @@ strategy: min
 nuget BenchmarkDotNet
 nuget Fantomas.Client >= 0.9
 nuget FSharp.Compiler.Service >= 43.10.100
-nuget Ionide.Analyzers 0.14.10
+nuget Ionide.Analyzers 0.14.11
 nuget FSharp.Analyzers.Build
 nuget Ionide.ProjInfo >= 0.74.1
 nuget Ionide.ProjInfo.FCS >= 0.74.1
@@ -24,7 +24,7 @@ nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis
-nuget FSharp.Analyzers.SDK 0.34.1
+nuget FSharp.Analyzers.SDK 0.35.0
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core
