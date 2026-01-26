@@ -1,2 +1,2 @@
 FSharp.Analyzers.Sdk
-FSharp.Compiler.Service
+# FSharp.Compiler.Service # Using local FCS build via project reference

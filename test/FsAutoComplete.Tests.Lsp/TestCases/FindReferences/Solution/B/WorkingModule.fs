@@ -63,3 +63,55 @@ let _ = B.MyModule1.value
 //>                 ^^^^^ function from same project
 let _ = B.MyModule1.``value``
 //>                 ^^^^^^^^^ function from same project
+
+// ============================================
+// ACTIVE PATTERNS
+// ============================================
+
+// Total active pattern: Even|Odd
+// Cross-file references work for BackgroundCompiler
+// TransparentCompiler has issues (tracked separately)
+let (|Even|Odd|) value =
+    if value % 2 = 0 then Even else Odd
+
+// Testing full pattern as function
+let _ = (|Even|Odd|) 42
+let _ =
+    match 42 with
+    | Even -> "even"
+    | Odd -> "odd"
+
+// Partial active pattern: ParseInt
+// NOTE: Cross-file Find All References for active patterns has FCS limitations:
+// - FCS doesn't find cross-file match-case usages for active pattern cases
+// - TransparentCompiler has additional issues with cross-file references
+let (|ParseInt|_|) (input: string) =
+    match System.Int32.TryParse input with
+    | true, v -> Some v
+    | false, _ -> None
+
+// Testing partial pattern as function
+let _ = (|ParseInt|_|) "42"
+let _ =
+    match "123" with
+    | ParseInt n -> n
+    | _ -> 0
+
+// ============================================
+// INLINE STRUCT PARTIAL ACTIVE PATTERNS
+// NOTE: Cross-file references for inline active patterns have FCS limitations
+// See comments in Partial active pattern section above
+// ============================================
+
+/// Inline struct partial active pattern for string prefix matching
+[<return: Struct>]
+let inline (|StrPrefix|_|) (prefix: string) (item: string) =
+    if item.StartsWith prefix then ValueSome () else ValueNone
+
+// Function-call style usage in same module
+let _ = (|StrPrefix|_|) "hello" "hello world"
+// Match-case style usage in same module
+let _ =
+    match "hello world" with
+    | StrPrefix "hello" -> true
+    | _ -> false

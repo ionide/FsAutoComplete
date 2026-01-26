@@ -26,6 +26,7 @@
     </ProjectReference>
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
+    <ProjectReference Include="..\..\..\fsharp-wt\fix-background-refs-transparent-compiler2\src\Compiler\FSharp.Compiler.Service.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />

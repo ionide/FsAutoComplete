@@ -1,5 +1,5 @@
 FSharp.Core content: once
-FSharp.Compiler.Service
+# FSharp.Compiler.Service # Using local FCS build via project reference
 FSharp.Control.Reactive
 FSharpx.Async
 Expecto.Diff

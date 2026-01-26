@@ -1783,9 +1783,33 @@ type AdaptiveFSharpLspServer
 
                 return { p with Command = Some cmd } |> Some |> LspResult.success
             elif typ = "reference" then
-              let! uses =
-                state.SymbolUseWorkspace(false, true, false, pos, lineStr, sourceText, tyRes)
+              // For active patterns, GetSymbolUseAtLocation only finds the symbol at the END of the case name,
+              // not at the START of the range. So we try both positions.
+              let tryFindReferences searchPos searchLineStr =
+                state.SymbolUseWorkspace(false, true, false, searchPos, searchLineStr, sourceText, tyRes)
                 |> AsyncResult.mapError (fun s -> Error.InternalError s)
+
+              let! uses = tryFindReferences pos lineStr
+
+              // If we found no references at Range.Start, try Range.End
+              // This handles active pattern declarations where the symbol is only found at the end
+              let! uses =
+                async {
+                  match uses with
+                  | Ok usesDict when usesDict.Values |> Seq.sumBy Array.length = 0 ->
+                    // Try with the end position of the range
+                    let endPos = protocolPosToPos p.Range.End
+                    match sourceText |> tryGetLineStr endPos with
+                    | Ok endLineStr ->
+                      let! endUses = tryFindReferences endPos endLineStr
+                      match endUses with
+                      | Ok endUsesResult when endUsesResult.Values |> Seq.sumBy Array.length > 0 ->
+                        return Ok endUsesResult
+                      | _ -> return Ok usesDict // Return original (empty) result
+                    | Error _ -> return Ok usesDict
+                  | Ok usesDict -> return Ok usesDict
+                  | Error e -> return Error e
+                }
 
               match uses with
               | Error msg ->

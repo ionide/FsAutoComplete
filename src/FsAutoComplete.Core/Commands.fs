@@ -971,6 +971,16 @@ module Commands =
           else
             result.Add(k, v)
 
+      // Final deduplication pass: remove exact duplicate ranges across all symbol searches.
+      // This is separate from the per-file deduplication in tryFindReferencesInFile which removes
+      // *contained* ranges (e.g., `IsOneOfChoice` inside `|IsOneOfChoice|_|`).
+      // This pass removes *identical* ranges that may arise when TryGetSymbolUses returns both
+      // the function and case symbol pointing to the same location.
+      for KeyValue(k, v) in result do
+        result.[k] <-
+          v
+          |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn, r.EndLine, r.EndColumn)
+
       return result
     }
 

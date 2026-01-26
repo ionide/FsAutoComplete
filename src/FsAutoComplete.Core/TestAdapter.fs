@@ -218,7 +218,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       visitExpr parent cond
       visitExpr parent trueBranch
       falseBranchOpt |> Option.iter (visitExpr parent)
-    | SynExpr.LetOrUse(bindings = bindings; body = body) ->
+    | SynExpr.LetOrUse({ Bindings = bindings; Body = body }) ->
       visitBindings parent bindings
       visitExpr parent body
     | SynExpr.Record(_, _, fields, _) ->
@@ -237,7 +237,7 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
   let rec visitDeclarations prefix decls =
     for declaration in decls do
       match declaration with
-      | SynModuleDecl.Let(_, bindings, _) -> visitBindings prefix bindings
+      | SynModuleDecl.Let(bindings = bindings) -> visitBindings prefix bindings
       | SynModuleDecl.NestedModule(decls = decls) -> visitDeclarations prefix decls
       | _ -> ()
 
@@ -289,7 +289,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
   let rec visitMember (parent: TestAdapterEntry<range>) =
     function
     | SynMemberDefn.Member(b, _) -> visitBinding parent b
-    | SynMemberDefn.LetBindings(bindings, _, _, _) ->
+    | SynMemberDefn.LetBindings(bindings = bindings) ->
       for b in bindings do
         visitBinding parent b
     | SynMemberDefn.NestedType(typeDef, _, _) -> visitTypeDef parent typeDef
@@ -366,7 +366,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
 
     for declaration in decls do
       match declaration with
-      | SynModuleDecl.Let(_, bindings, _) ->
+      | SynModuleDecl.Let(bindings = bindings) ->
         for b in bindings do
           visitBinding parent b
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
@@ -463,7 +463,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
   let rec visitMember (parent: TestAdapterEntry<range>) =
     function
     | SynMemberDefn.Member(b, _) -> visitBinding parent b
-    | SynMemberDefn.LetBindings(bindings, _, _, _) ->
+    | SynMemberDefn.LetBindings(bindings = bindings) ->
       for b in bindings do
         visitBinding parent b
     | SynMemberDefn.NestedType(typeDef, _, _) -> visitTypeDef parent typeDef
@@ -540,7 +540,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
 
     for declaration in decls do
       match declaration with
-      | SynModuleDecl.Let(_, bindings, _) ->
+      | SynModuleDecl.Let(bindings = bindings) ->
         for b in bindings do
           visitBinding parent b
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->

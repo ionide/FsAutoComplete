@@ -85,7 +85,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
     getIfPosInRange decl.Range (fun () ->
       match decl with
       | SynModuleDecl.Exception(SynExceptionDefn(members = synMembers), _) -> List.tryPick walkSynMemberDefn synMembers
-      | SynModuleDecl.Let(_isRecursive, bindings, _range) -> List.tryPick walkBinding bindings
+      | SynModuleDecl.Let(bindings = bindings) -> List.tryPick walkBinding bindings
       | SynModuleDecl.ModuleAbbrev(_lhs, _rhs, _range) -> None
       | SynModuleDecl.NamespaceFragment(fragment) -> walkSynModuleOrNamespace fragment
       | SynModuleDecl.NestedModule(decls = modules) -> List.tryPick walkSynModuleDecl modules
@@ -119,7 +119,7 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
       | SynMemberDefn.Member(binding, _range) -> walkBinding binding
       | SynMemberDefn.NestedType(typeDef, _access, _range) -> walkSynTypeDefn typeDef
       | SynMemberDefn.ValField(_field, _range) -> None
-      | SynMemberDefn.LetBindings(bindings, _isStatic, _isRec, _range) -> List.tryPick walkBinding bindings
+      | SynMemberDefn.LetBindings(bindings = bindings) -> List.tryPick walkBinding bindings
       | SynMemberDefn.GetSetMember(_get, _set, _range, _) -> None
       | SynMemberDefn.Open _
       | SynMemberDefn.ImplicitInherit _
@@ -230,7 +230,8 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 
       | SynExpr.TypeApp(synExpr, _, _synTypeList, _commas, _, _, _range) -> walkExpr synExpr
 
-      | SynExpr.LetOrUse(body = synExpr; bindings = synBindingList) ->
+      | SynExpr.LetOrUse({ Bindings = synBindingList
+                           Body = synExpr }) ->
         walkExpr synExpr
         |> Option.orElseWith (fun _ -> List.tryPick walkBinding synBindingList)
 

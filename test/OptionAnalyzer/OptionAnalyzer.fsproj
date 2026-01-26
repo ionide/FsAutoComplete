@@ -6,6 +6,7 @@
     <ProjectReference Include="../../src/FsAutoComplete.Logging/FsAutoComplete.Logging.fsproj">
       <Name>FsAutoComplete.Logging.fsproj</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\fsharp-wt\fix-background-refs-transparent-compiler2\src\Compiler\FSharp.Compiler.Service.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Analyzer.fs" />

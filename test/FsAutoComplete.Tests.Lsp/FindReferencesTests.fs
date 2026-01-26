@@ -371,6 +371,109 @@ let private solutionTests state =
                 Expect.locationsEqual getSource false refs expected
               }) ]) ])
 
+/// Tests for ActivePatternProject - tests cross-file active pattern references
+let private activePatternProjectTests state =
+
+  let marker = "//>"
+
+  let readReferences path =
+    let lines = File.ReadAllLines path
+    let refs = Dictionary<string, IList<Location>>()
+
+    for i in 0 .. (lines.Length - 1) do
+      let line = lines[i].TrimStart()
+
+      if line.StartsWith(marker, StringComparison.Ordinal) then
+        let l = line.Substring(marker.Length).Trim()
+        let splits = l.Split([| ' ' |], 2)
+        let mark = splits[0]
+
+        let range =
+          let col = line.IndexOf(mark, StringComparison.Ordinal)
+          let length = mark.Length
+          let line = i - 1 // marker is line AFTER actual range
+
+          { Start =
+              { Line = uint32 line
+                Character = uint32 col }
+            End =
+              { Line = uint32 line
+                Character = uint32 (col + length) } }
+
+        let loc =
+          { Uri = path |> normalizePath |> Path.LocalPathToUri
+            Range = range }
+
+        let name = if splits.Length > 1 then splits[1] else ""
+
+        if not (refs.ContainsKey name) then
+          refs[name] <- List<_>()
+
+        let existing = refs[name]
+        existing.Add loc |> ignore
+
+    refs
+
+  let readAllReferences dir =
+    let files = Directory.GetFiles(dir, "*.fs", SearchOption.AllDirectories)
+
+    files
+    |> Seq.map readReferences
+    |> Seq.map (fun dict -> dict |> Seq.map (fun kvp -> kvp.Key, kvp.Value))
+    |> Seq.collect id
+    |> Seq.groupBy fst
+    |> Seq.map (fun (name, locs) -> (name, locs |> Seq.map snd |> Seq.collect id |> Seq.toArray))
+    |> Seq.map (fun (name, locs) -> {| Name = name; Locations = locs |})
+    |> Seq.toArray
+
+
+  let path =
+    Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "ActivePatternProject")
+
+  serverTestList "ActivePatternProject" state defaultConfigDto (Some path) (fun server ->
+    [
+      let mainDoc = "Patterns.fs"
+
+      documentTestList "inside Patterns.fs" server (Server.openDocument mainDoc) (fun doc ->
+        [ let refs = readAllReferences path
+
+          for r in refs do
+            testCaseAsync
+              r.Name
+              (async {
+                let! (doc, _) = doc
+
+                let cursor =
+                  let cursor =
+                    r.Locations
+                    |> Seq.filter (fun l -> l.Uri = doc.Uri)
+                    |> Seq.minBy (fun l -> l.Range.Start)
+
+                  cursor.Range.Start
+
+                let request: ReferenceParams =
+                  { TextDocument = doc.TextDocumentIdentifier
+                    Position = cursor
+                    Context = { IncludeDeclaration = true }
+                    WorkDoneToken = None
+                    PartialResultToken = None }
+
+                let! refs = doc.Server.Server.TextDocumentReferences request
+
+                let refs =
+                  refs
+                  |> Flip.Expect.wantOk "Should not fail"
+                  |> Flip.Expect.wantSome "Should return references"
+
+                let expected = r.Locations
+
+                let getSource uri =
+                  let path = Path.FileUriToLocalPath uri
+                  File.ReadAllText path
+
+                Expect.locationsEqual getSource false refs expected
+              }) ]) ])
+
 /// multiple untitled files (-> all docs are unrelated)
 /// -> Tests for external symbols (-> over all docs) & symbol just in current doc (-> no matches in other unrelated docs)
 let private untitledTests state =
@@ -609,6 +712,356 @@ let private rangeTests state =
           | MyModule.$<Even>$ -> ()
           | MyModule.Odd -> ()
         """
+      testCaseAsync "can get range of partial Active Pattern"
+      <|
+      // Partial active pattern: `(|ParseInt|_|)` - returns Option
+      // The `|_|` indicates it's partial (can fail to match)
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Pa$0rseInt|_|>D$) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> Some v
+            | false, _ -> None
+
+        open MyModule
+        let _ = ($<|ParseInt|_|>$) "42"
+        let _ = MyModule.($<|ParseInt|_|>$) "42"
+        let _ =
+          match "42" with
+          | ParseInt v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.ParseInt v -> v
+          | _ -> 0
+        """
+      testCaseAsync "can get range of partial Active Pattern case"
+      <|
+      // When clicking on the case name in a partial active pattern
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<ParseInt>D$|_|) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> Some v
+            | false, _ -> None
+
+        open MyModule
+        let _ = (|ParseInt|_|) "42"
+        let _ = MyModule.(|ParseInt|_|) "42"
+        let _ =
+          match "42" with
+          | $<Par$0seInt>$ v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.$<ParseInt>$ v -> v
+          | _ -> 0
+        """
+      testCaseAsync "can get range of struct partial Active Pattern"
+      <|
+      // Struct partial active pattern: `(|ParseIntStruct|_|)` - returns ValueOption
+      // These use ValueSome/ValueNone for better performance (no heap allocation)
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Pa$0rseIntStruct|_|>D$) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> ValueSome v
+            | false, _ -> ValueNone
+
+        open MyModule
+        let _ = ($<|ParseIntStruct|_|>$) "42"
+        let _ = MyModule.($<|ParseIntStruct|_|>$) "42"
+        let _ =
+          match "42" with
+          | ParseIntStruct v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.ParseIntStruct v -> v
+          | _ -> 0
+        """
+      testCaseAsync "can get range of struct partial Active Pattern case"
+      <|
+      // When clicking on the case name in a struct partial active pattern
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<ParseIntStruct>D$|_|) (input: string) =
+            match System.Int32.TryParse input with
+            | true, v -> ValueSome v
+            | false, _ -> ValueNone
+
+        open MyModule
+        let _ = (|ParseIntStruct|_|) "42"
+        let _ = MyModule.(|ParseIntStruct|_|) "42"
+        let _ =
+          match "42" with
+          | $<ParseInt$0Struct>$ v -> v
+          | _ -> 0
+        let _ =
+          match "42" with
+          | MyModule.$<ParseIntStruct>$ v -> v
+          | _ -> 0
+        """
+      testCaseAsync "can get range of parameterized Active Pattern"
+      <|
+      // Parameterized active pattern: `(|DivisibleBy|_|) divisor value`
+      // Takes an extra parameter before the input
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Divi$0sibleBy|_|>D$) divisor value =
+            if value % divisor = 0 then Some(value / divisor)
+            else None
+
+        open MyModule
+        let _ = ($<|DivisibleBy|_|>$) 3 9
+        let _ = MyModule.($<|DivisibleBy|_|>$) 3 9
+        let _ =
+          match 9 with
+          | DivisibleBy 3 q -> q
+          | _ -> 0
+        let _ =
+          match 9 with
+          | MyModule.DivisibleBy 3 q -> q
+          | _ -> 0
+        """
+      testCaseAsync "can get range of parameterized Active Pattern case"
+      <|
+      // When clicking on the case name in a parameterized active pattern
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<DivisibleBy>D$|_|) divisor value =
+            if value % divisor = 0 then Some(value / divisor)
+            else None
+
+        open MyModule
+        let _ = (|DivisibleBy|_|) 3 9
+        let _ = MyModule.(|DivisibleBy|_|) 3 9
+        let _ =
+          match 9 with
+          | $<Divisi$0bleBy>$ 3 q -> q
+          | _ -> 0
+        let _ =
+          match 9 with
+          | MyModule.$<DivisibleBy>$ 3 q -> q
+          | _ -> 0
+        """
+      testCaseAsync "can get range of three-way total Active Pattern"
+      <|
+      // Three-way total active pattern: `(|Positive|Negative|Zero|)`
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Posi$0tive|Negative|Zero|>D$) value =
+            if value > 0 then Positive
+            elif value < 0 then Negative
+            else Zero
+
+        open MyModule
+        let _ = ($<|Positive|Negative|Zero|>$) 42
+        let _ = MyModule.($<|Positive|Negative|Zero|>$) 42
+        let _ =
+          match 42 with
+          | Positive -> 1
+          | Negative -> -1
+          | Zero -> 0
+        let _ =
+          match 42 with
+          | MyModule.Positive -> 1
+          | MyModule.Negative -> -1
+          | MyModule.Zero -> 0
+        """
+      testCaseAsync "can get range of three-way total Active Pattern case (Positive)"
+      <|
+      // When clicking on one case of a three-way total active pattern
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<Positive>D$|Negative|Zero|) value =
+            if value > 0 then $<Positive>$ 
+            elif value < 0 then Negative
+            else Zero
+
+        open MyModule
+        let _ = (|Positive|Negative|Zero|) 42
+        let _ = MyModule.(|Positive|Negative|Zero|) 42
+        let _ =
+          match 42 with
+          | $<Posi$0tive>$ -> 1
+          | Negative -> -1
+          | Zero -> 0
+        let _ =
+          match 42 with
+          | MyModule.$<Positive>$ -> 1
+          | MyModule.Negative -> -1
+          | MyModule.Zero -> 0
+        """
+      testCaseAsync "can get range of NonEmpty partial Active Pattern"
+      <|
+      // Partial active pattern for non-empty strings
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Non$0Empty|_|>D$) (input: string) =
+            if System.String.IsNullOrWhiteSpace input then None
+            else Some input
+
+        open MyModule
+        let _ = ($<|NonEmpty|_|>$) "test"
+        let _ = MyModule.($<|NonEmpty|_|>$) "test"
+        let _ =
+          match "test" with
+          | NonEmpty s -> s
+          | _ -> ""
+        let _ =
+          match "test" with
+          | MyModule.NonEmpty s -> s
+          | _ -> ""
+        """
+      testCaseAsync "can get range of NonEmpty partial Active Pattern case"
+      <|
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<NonEmpty>D$|_|) (input: string) =
+            if System.String.IsNullOrWhiteSpace input then None
+            else Some input
+
+        open MyModule
+        let _ = (|NonEmpty|_|) "test"
+        let _ = MyModule.(|NonEmpty|_|) "test"
+        let _ =
+          match "test" with
+          | $<Non$0Empty>$ s -> s
+          | _ -> ""
+        let _ =
+          match "test" with
+          | MyModule.$<NonEmpty>$ s -> s
+          | _ -> ""
+        """
+      testCaseAsync "can get range of Regex parameterized Active Pattern"
+      <|
+      // Parameterized active pattern for regex matching
+      checkRanges
+        server
+        """
+        module MyModule =
+          let ($D<|Re$0gex|_|>D$) pattern input =
+            let m = System.Text.RegularExpressions.Regex.Match(input, pattern)
+            if m.Success then Some m.Value
+            else None
+
+        open MyModule
+        let _ = ($<|Regex|_|>$) @"\d+" "abc123"
+        let _ = MyModule.($<|Regex|_|>$) @"\d+" "abc123"
+        let _ =
+          match "abc123" with
+          | Regex @"\d+" v -> v
+          | _ -> ""
+        let _ =
+          match "abc123" with
+          | MyModule.Regex @"\d+" v -> v
+          | _ -> ""
+        """
+      testCaseAsync "can get range of Regex parameterized Active Pattern case"
+      <|
+      checkRanges
+        server
+        """
+        module MyModule =
+          let (|$D<Regex>D$|_|) pattern input =
+            let m = System.Text.RegularExpressions.Regex.Match(input, pattern)
+            if m.Success then Some m.Value
+            else None
+
+        open MyModule
+        let _ = (|Regex|_|) @"\d+" "abc123"
+        let _ = MyModule.(|Regex|_|) @"\d+" "abc123"
+        let _ =
+          match "abc123" with
+          | $<Re$0gex>$ @"\d+" v -> v
+          | _ -> ""
+        let _ =
+          match "abc123" with
+          | MyModule.$<Regex>$ @"\d+" v -> v
+          | _ -> ""
+        """
+      testCaseAsync "can get range of inline struct partial Active Pattern - full pattern"
+      <|
+      // Inline struct partial active pattern - clicking on the full pattern (|StrStartsWith|_|)
+      // Tests that both function-call style usages like `(|StrStartsWith|_|) "hello" "world"`
+      // and match-case style usages like `| StrStartsWith "hello" ->` are found.
+      checkRanges
+        server
+        """
+        module MyModule =
+          [<return: Struct>]
+          let inline ($D<|StrSta$0rtsWith|_|>D$) (prefix: string) (item: string) =
+            if item.StartsWith prefix then ValueSome () else ValueNone
+
+          // Function-call style usage in same module
+          let testDirect = ($<|StrStartsWith|_|>$) "hello" "hello world"
+
+        open MyModule
+        // Function-call style usage with open
+        let _ = ($<|StrStartsWith|_|>$) "hello" "hello world"
+        // Function-call style usage with qualified name
+        let _ = MyModule.($<|StrStartsWith|_|>$) "hello" "hello world"
+        // Match-case style usage
+        let _ =
+          match "hello world" with
+          | StrStartsWith "hello" -> true
+          | _ -> false
+        let _ =
+          match "hello world" with
+          | MyModule.StrStartsWith "hello" -> true
+          | _ -> false
+        """
+      testCaseAsync "can get range of inline struct partial Active Pattern case"
+      <|
+      // When clicking on the case name in an inline struct partial active pattern
+      // Only match-case style usages are found for the case (FCS limitation)
+      // Function-call style usages use the full pattern, not individual cases
+      checkRanges
+        server
+        """
+        module MyModule =
+          [<return: Struct>]
+          let inline (|$D<StrStartsWith>D$|_|) (prefix: string) (item: string) =
+            if item.StartsWith prefix then ValueSome () else ValueNone
+
+          // Function-call style usage - NOT marked because FCS doesn't find it for case symbols
+          let testDirect = (|StrStartsWith|_|) "hello" "hello world"
+
+        open MyModule
+        // Function-call style usages - NOT marked
+        let _ = (|StrStartsWith|_|) "hello" "hello world"
+        let _ = MyModule.(|StrStartsWith|_|) "hello" "hello world"
+        // Match-case style usages - these ARE found
+        let _ =
+          match "hello world" with
+          | $<StrSta$0rtsWith>$ "hello" -> true
+          | _ -> false
+        let _ =
+          match "hello world" with
+          | MyModule.$<StrStartsWith>$ "hello" -> true
+          | _ -> false
+        """
       testCaseAsync "can get range of type for static function call"
       <| checkRanges
         server
@@ -633,6 +1086,7 @@ let tests state =
     "Find All References tests"
     [ scriptTests state
       solutionTests state
+      activePatternProjectTests state
       untitledTests state
       rangeTests state ]
 
