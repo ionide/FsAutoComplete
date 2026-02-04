@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.83.0] - 2026-02-04
+
+### Added
+
+- [CallHierarchyOutgoingCalls support](https://github.com/ionide/FsAutoComplete/pull/1418) (thanks @TheAngryByrd!)
+- [Add ShowExternalDocumentation config to disable tooltip documentation link](https://github.com/ionide/FsAutoComplete/pull/1443)
+
+### Changed
+
+- [Update FSharp analyzers 0.35.0 and Ionide.Analyzers 0.14.11](https://github.com/ionide/FsAutoComplete/pull/1445) (thanks @TheAngryByrd!)
+
+### Fixed
+
+- [Prevent console output interference with LSP communication](https://github.com/ionide/FsAutoComplete/pull/1446) (thanks @TheAngryByrd!)
+- [Fix missing project load notifications](https://github.com/ionide/FsAutoComplete/pull/1439) (thanks @TheAngryByrd!)
+
 ## [0.82.0] - 2025-12-07
 
 ### Changed
