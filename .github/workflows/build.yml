@@ -111,13 +111,23 @@ jobs:
         BuildNet10: ${{ matrix.build_net10 }}
 
     - name: Run and report tests
-      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build  --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
+      run: dotnet run -c Release -f ${{ matrix.test_tfm }} --no-build -- --fail-on-focused-tests --parallel
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet9: ${{ matrix.build_net9 }}
         BuildNet10: ${{ matrix.build_net10 }}
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
+        FAILED_TRACES_DIR: ${{ github.workspace }}/failed_traces
+
+    - name: Upload failed test traces
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failed-test-traces-${{ matrix.os }}-${{ matrix.label }}-${{ matrix.workspace-loader }}-${{ matrix.use-transparent-compiler }}
+        path: failed_traces/
+        if-no-files-found: ignore
+        retention-days: 7
 
   analyze:
     runs-on: ubuntu-latest
