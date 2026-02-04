@@ -43,10 +43,11 @@ type ParseAndCheckResults
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
   let getFileName (loc: range) =
-    if Ionide.ProjInfo.ProjectSystem.Environment.isWindows then
-      UMX.tag<NormalizedRepoPathSegment> loc.FileName
-    else
-      UMX.tag<NormalizedRepoPathSegment> (Path.GetFileName loc.FileName)
+    // Keep the full FCS path, just normalize backslashes to forward slashes.
+    // FCS may prepend a workspace prefix if the PDB path isn't absolute on this platform.
+    // The comparison in Sourcelink.compareRepoPath will handle the prefix via suffix matching.
+    let normalized = loc.FileName.Replace('\\', '/')
+    UMX.tag<NormalizedRepoPathSegment> normalized
 
   member __.TryFindDeclaration (pos: Position) (lineStr: LineStr) =
     async {
