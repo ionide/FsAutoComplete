@@ -3458,6 +3458,11 @@ module AdaptiveFSharpLspServer =
     use input = Console.OpenStandardInput()
     use output = Console.OpenStandardOutput()
 
+    // Attempt to prevent any console output from interfering with the LSP communication from libraries that may use Console.WriteLine
+    // https://github.com/ionide/ionide-vscode-fsharp/issues/2102
+    // This is a best-effort mitigation; libraries that write directly to the underlying stream like (Console.OpenStandardOutput) may still interfere.
+    Console.SetOut(TextWriter.Null)
+
     let requestsHandlings =
       (defaultRequestHandlings (): Map<string, ServerRequestHandling<IFSharpLspServer>>)
       |> Map.add "fsharp/signature" (serverRequestHandling (fun s p -> s.FSharpSignature(p)))
