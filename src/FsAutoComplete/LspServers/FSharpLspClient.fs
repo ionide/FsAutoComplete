@@ -356,6 +356,22 @@ type SharedTypecheckProgressReporter
         | None -> CancellationToken.None
     }
 
+  /// <summary>Set up a batch of files synchronously (for contexts where CancellableTask is not available).
+  /// Sets up batch tracking and adds all files to activeFiles so their names appear in the message.
+  /// Returns an IDisposable that ends all file tracking and the batch on dispose.</summary>
+  member x.BeginBatchSync(files: string array) : IDisposable =
+    x.StartBatch (files) CancellationToken.None |> ignore<Task<unit>>
+
+    for file in files do
+      x.StartFile (file) CancellationToken.None |> ignore<Task<unit>>
+
+    { new IDisposable with
+        member _.Dispose() =
+          for file in files do
+            x.EndFile (file) CancellationToken.None |> ignore<Task<unit>>
+
+          x.EndBatch () CancellationToken.None |> ignore<Task<unit>> }
+
   interface IDisposable with
     member x.Dispose() =
       progressReport |> Option.iter (fun r -> (r :> IDisposable).Dispose())

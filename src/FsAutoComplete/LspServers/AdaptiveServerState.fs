@@ -205,6 +205,11 @@ type AdaptiveState
 
   do disposables.Add analyzerProgressReporter
 
+  let projectLoadingProgressReporter =
+    new SharedTypecheckProgressReporter("Loading Projects", fun () -> progressLookup.CreateProgressReport(lspClient))
+
+  do disposables.Add projectLoadingProgressReporter
+
   let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
   do disposables.Add serilogLoggerFactory
 
@@ -1039,13 +1044,12 @@ type AdaptiveState
 
         triggerNotification not CancellationToken.None)
 
-      use progressReport = new ServerProgressReport(lspClient)
+      let projectFiles = projects |> Seq.map (fst >> UMX.untag) |> Seq.toArray
 
-      progressReport.Begin ($"Loading {projects.Count} Projects") (CancellationToken.None)
-      |> ignore<Task<unit>>
+      use _progressReport = projectLoadingProgressReporter.BeginBatchSync(projectFiles)
 
       let projectOptions =
-        loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
+        loader.LoadProjects(projectFiles |> Array.toList, [], binlogConfig)
         |> Seq.toList
 
       for p in projectOptions do
@@ -1802,6 +1806,7 @@ type AdaptiveState
 
       let fileNameStr = UMX.untag file.Source.FileName
       use! _fileProgress = typecheckProgressReporter.Begin(fileNameStr)
+      let! progressCt = typecheckProgressReporter.GetCancellationToken()
 
       let! result =
         match compilerOptions with
@@ -1815,6 +1820,7 @@ type AdaptiveState
             opts,
             shouldCache = shouldCache
           )
+          |> Async.withCancellation progressCt
 
 
       let! ct = Async.CancellationToken
