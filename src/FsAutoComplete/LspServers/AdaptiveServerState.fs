@@ -185,6 +185,14 @@ type AdaptiveState
   let progressLookup = new ServerProgressLookup()
   do disposables.Add progressLookup
 
+  let typecheckProgressReporter =
+    new SharedTypecheckProgressReporter(
+      "Typechecking",
+      fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)
+    )
+
+  do disposables.Add typecheckProgressReporter
+
   let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
   do disposables.Add serilogLoggerFactory
 
@@ -1793,11 +1801,8 @@ type AdaptiveState
       )
 
 
-      use progressReport =
-        progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-      let simpleName = Path.GetFileName(UMX.untag file.Source.FileName)
-      do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Source.FileName}")
+      let fileNameStr = UMX.untag file.Source.FileName
+      use! _fileProgress = typecheckProgressReporter.Begin(fileNameStr)
 
       let! result =
         match compilerOptions with
@@ -2519,29 +2524,23 @@ type AdaptiveState
         |> List.collect (fun (proj, snap) -> snap.SourceFilesTagged |> List.map (fun sourceFile -> proj, sourceFile))
         |> List.toArray
 
-      let mutable checksCompleted = 0
+      let innerChecks =
+        Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
+        |> Array.filter (fun (_, file) ->
+          let file = UMX.untag file
 
-      use progressReporter =
-        progressLookup.CreateProgressReport(lspClient, cancellable = true)
+          file.Contains "AssemblyInfo.fs" |> not
+          && file.Contains "AssemblyAttributes.fs" |> not)
 
-      let percentage numerator denominator =
-        if denominator = 0 then
-          0u
-        else
-          ((float numerator) / (float denominator)) * 100.0 |> uint32
+      let batchFileList = innerChecks |> Array.map (fun (_, file) -> UMX.untag file)
+
+      // Start batch first so the report (and its CancellationToken) exists before per-file work begins
+      use! _batchProgress = typecheckProgressReporter.BeginBatch(batchFileList)
+      let! progressCt = typecheckProgressReporter.GetCancellationToken()
+
+      let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
 
       let checksToPerform =
-        let innerChecks =
-          Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
-          |> Array.filter (fun (_, file) ->
-            let file = UMX.untag file
-
-            file.Contains "AssemblyInfo.fs" |> not
-            && file.Contains "AssemblyAttributes.fs" |> not)
-
-        let checksToPerformLength = innerChecks.Length
-        let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
-
         innerChecks
         |> Array.map (fun (proj, file) ->
           async {
@@ -2549,45 +2548,32 @@ type AdaptiveState
             use joinedToken =
               if file = sourceFilePath then
                 // dont reset the token for the incoming file as it would cancel the whole operation
-                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressReporter.CancellationToken)
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressCt)
               else
                 // only cancel other files
                 // If we have multiple saves from separate root files we want only one to be running
                 let fileToken = resetCancellationToken file None
                 // and join with the root token as well since we want to cancel the whole operation if the root files changes
-                CancellationTokenSource.CreateLinkedTokenSource(
-                  rootToken,
-                  fileToken,
-                  progressReporter.CancellationToken
-                )
+                CancellationTokenSource.CreateLinkedTokenSource(rootToken, fileToken, progressCt)
+
+            // Track per-file progress so the shared reporter updates message and batch counter
+            let! fileProgress =
+              typecheckProgressReporter.Begin (UMX.untag file) CancellationToken.None
+              |> Async.AwaitTask
 
             try
-              let! _ =
-                bypassAdaptiveTypeCheck (file) (proj) (AVal.force proj.FSharpProjectCompilerOptions)
-                |> Async.withCancellation joinedToken.Token
+              try
+                let! _ =
+                  bypassAdaptiveTypeCheck (file) (proj) (AVal.force proj.FSharpProjectCompilerOptions)
+                  |> Async.withCancellation joinedToken.Token
 
-              ()
-            with :? OperationCanceledException ->
-              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
-              ()
-
-            let checksCompleted = Interlocked.Increment(&checksCompleted)
-
-            do!
-              progressReporter.Report(
-                message = $"{checksCompleted}/{checksToPerformLength} remaining",
-                percentage = percentage checksCompleted checksToPerformLength
-              )
+                ()
+              with :? OperationCanceledException ->
+                // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+                ()
+            finally
+              fileProgress.DisposeAsync().AsTask().GetAwaiter().GetResult()
           })
-
-
-
-      do!
-        progressReporter.Begin(
-          "Typechecking Dependent F# files",
-          message = $"0/{checksToPerform.Length} remaining",
-          percentage = percentage 0 checksToPerform.Length
-        )
 
       do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
 

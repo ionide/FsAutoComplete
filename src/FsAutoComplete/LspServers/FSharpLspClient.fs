@@ -180,6 +180,168 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
     member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
+/// <summary>
+/// A shared progress reporter that consolidates multiple concurrent typecheck operations
+/// into a single LSP progress notification. Instead of creating a new Begin/End cycle per file,
+/// this maintains one notification that updates its message with the current file being checked.
+/// </summary>
+type SharedTypecheckProgressReporter
+  (title: string, createReport: unit -> ServerProgressReport) =
+
+  let locker = new SemaphoreSlim(1, 1)
+  /// Display-only set of short file names currently being checked
+  let mutable activeFiles = Set.empty<string>
+  let mutable progressReport: ServerProgressReport option = None
+  let mutable batchTotal = 0
+  let mutable batchCompleted = 0
+  /// Tracks which files belong to active batches (by full normalized path) for accurate counting
+  let mutable batchFiles = Set.empty<string>
+  /// Number of currently active batch scopes (supports overlapping batches)
+  let mutable activeBatchScopes = 0
+
+  let normalizePath (path: string) = IO.Path.GetFullPath(path)
+
+  let buildMessage () =
+    let filesPart =
+      match Set.count activeFiles with
+      | 0 -> None
+      | 1 -> activeFiles |> Set.toList |> List.head |> Some
+      | n ->
+        let fileList = activeFiles |> Set.toList |> List.truncate 3 |> String.concat ", "
+
+        (if n > 3 then $"{fileList} (+{n - 3} more)" else fileList) |> Some
+
+    let batchPart =
+      if batchTotal > 0 then
+        Some $"{batchCompleted}/{batchTotal} completed"
+      else
+        None
+
+    match filesPart, batchPart with
+    | Some files, Some batch -> Some $"{files} ({batch})"
+    | Some files, None -> Some files
+    | None, Some batch -> Some batch
+    | None, None -> None
+
+  let calcPercentage () =
+    if batchTotal > 0 then
+      ((float batchCompleted) / (float batchTotal)) * 100.0 |> uint32 |> Some
+    else
+      None
+
+  member private x.StartFile(fileName: string) =
+    cancellableTask {
+      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+      let simpleName = IO.Path.GetFileName fileName
+      activeFiles <- Set.add simpleName activeFiles
+
+      match progressReport with
+      | None ->
+        let report = createReport ()
+        progressReport <- Some report
+        let message = buildMessage ()
+        do! report.Begin(title, ?message = message, ?percentage = calcPercentage ())
+      | Some report ->
+        let message = buildMessage ()
+        do! report.Report(?message = message, ?percentage = calcPercentage ())
+    }
+
+  member private x.EndFile(fileName: string) =
+    cancellableTask {
+      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+      let simpleName = IO.Path.GetFileName fileName
+      activeFiles <- Set.remove simpleName activeFiles
+
+      let normalizedName = normalizePath fileName
+
+      if batchTotal > 0 && Set.contains normalizedName batchFiles then
+        batchCompleted <- min (batchCompleted + 1) batchTotal
+        batchFiles <- Set.remove normalizedName batchFiles
+
+      match progressReport with
+      | Some report when Set.isEmpty activeFiles && activeBatchScopes <= 0 ->
+        do! report.End()
+        progressReport <- None
+      | Some report ->
+        let message = buildMessage ()
+        do! report.Report(?message = message, ?percentage = calcPercentage ())
+      | None -> ()
+    }
+
+  /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
+  member x.Begin(fileName: string) : CancellableTask<IAsyncDisposable> =
+    cancellableTask {
+      do! x.StartFile(fileName)
+
+      return
+        { new IAsyncDisposable with
+            member _.DisposeAsync() = x.EndFile (fileName) CancellationToken.None |> ValueTask }
+    }
+
+  member private x.StartBatch(files: string array) =
+    cancellableTask {
+      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+      activeBatchScopes <- activeBatchScopes + 1
+      let normalizedFiles = files |> Array.map normalizePath |> Array.distinct
+      batchTotal <- batchTotal + normalizedFiles.Length
+      batchFiles <- Set.union batchFiles (normalizedFiles |> Set.ofArray)
+
+      // Eagerly create the report so the CancellationToken is available for linking
+      match progressReport with
+      | None ->
+        let report = createReport ()
+        progressReport <- Some report
+        do! report.Begin(title, ?percentage = calcPercentage ())
+      | Some report -> do! report.Report(?percentage = calcPercentage ())
+    }
+
+  member private x.EndBatch() =
+    cancellableTask {
+      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+      activeBatchScopes <- activeBatchScopes - 1
+
+      if activeBatchScopes <= 0 then
+        activeBatchScopes <- 0
+        batchTotal <- 0
+        batchCompleted <- 0
+        batchFiles <- Set.empty
+
+      // End the report if nothing else is active
+      if Set.isEmpty activeFiles && activeBatchScopes <= 0 then
+        match progressReport with
+        | Some report ->
+          do! report.End()
+          progressReport <- None
+        | None -> ()
+    }
+
+  /// <summary>Set up a batch of files to be typechecked. Returns an IAsyncDisposable that clears the batch on dispose.</summary>
+  member x.BeginBatch(files: string array) : CancellableTask<IAsyncDisposable> =
+    cancellableTask {
+      do! x.StartBatch(files)
+
+      return
+        { new IAsyncDisposable with
+            member _.DisposeAsync() = x.EndBatch () CancellationToken.None |> ValueTask }
+    }
+
+  /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
+  member x.GetCancellationToken() : Task<CancellationToken> =
+    task {
+      use! __ = locker.LockAsync()
+
+      return
+        match progressReport with
+        | Some report -> report.CancellationToken
+        | None -> CancellationToken.None
+    }
+
+  interface IDisposable with
+    member x.Dispose() =
+      progressReport |> Option.iter (fun r -> (r :> IDisposable).Dispose())
+      locker.Dispose()
+
+
 open System.Diagnostics.Tracing
 open System.Collections.Concurrent
 open System.Diagnostics
