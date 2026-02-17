@@ -87,9 +87,7 @@ type ServerProgressReport =
 /// </summary>
 type SharedTypecheckProgressReporter =
   new:
-    title: string *
-    createReport: (unit -> ServerProgressReport) *
-    ?isEnabled: (unit -> bool) ->
+    title: string * createReport: (unit -> ServerProgressReport) * ?isEnabled: (unit -> bool) ->
       SharedTypecheckProgressReporter
 
   /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>

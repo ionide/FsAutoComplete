@@ -111,6 +111,9 @@ module Async =
   /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
   val parallel75: computations: seq<Async<'a>> -> Async<'a array>
 
+  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 50% of the Environment.ProcessorCount</summary>
+  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
+  val parallel50: computations: seq<Async<'a>> -> Async<'a array>
 
   /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 25% of the Environment.ProcessorCount</summary>
   /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
