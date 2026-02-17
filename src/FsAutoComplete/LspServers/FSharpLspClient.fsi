@@ -100,6 +100,11 @@ type SharedTypecheckProgressReporter =
 
   /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
   member GetCancellationToken: unit -> Task<CancellationToken>
+
+  /// <summary>Set up a batch of files synchronously (for contexts where CancellableTask is not available).
+  /// Sets up batch tracking and adds all files to activeFiles so their names appear in the message.
+  /// Returns an IDisposable that ends all file tracking and the batch on dispose.</summary>
+  member BeginBatchSync: files: string array -> IDisposable
   interface IDisposable
 
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
