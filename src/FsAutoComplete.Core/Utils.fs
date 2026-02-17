@@ -246,6 +246,12 @@ module Async =
 
     Async.Parallel(computations, int maxConcurrency)
 
+  let parallel25 computations =
+    let maxConcurrency =
+      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.25))
+
+    Async.Parallel(computations, int maxConcurrency)
+
   [<RequireQualifiedAccess>]
   module Array =
     /// Async implementation of Array.map.

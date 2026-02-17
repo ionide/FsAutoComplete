@@ -185,13 +185,25 @@ type AdaptiveState
   let progressLookup = new ServerProgressLookup()
   do disposables.Add progressLookup
 
+  let config = cval<FSharpConfig> FSharpConfig.Default
+
   let typecheckProgressReporter =
     new SharedTypecheckProgressReporter(
       "Typechecking",
-      fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)
+      (fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
     )
 
   do disposables.Add typecheckProgressReporter
+
+  let analyzerProgressReporter =
+    new SharedTypecheckProgressReporter(
+      "Analyzing",
+      (fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
+    )
+
+  do disposables.Add analyzerProgressReporter
 
   let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
   do disposables.Add serilogLoggerFactory
@@ -199,8 +211,6 @@ type AdaptiveState
   let projectSelector = cval<IFindProject> (FindFirstProject())
 
   let rootPath = cval<string option> None
-
-  let config = cval<FSharpConfig> FSharpConfig.Default
 
   let checker =
     config
@@ -488,14 +498,12 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unused opens - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           do!
             triggerNotificationAndWait
@@ -510,16 +518,14 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unused declarations - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let isScript = Utils.isAScript (filePathUntag)
 
           let! unused =
             UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           let unused = unused |> Seq.toArray
 
@@ -533,14 +539,12 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Simplify names - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let! simplified =
             SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           let simplified = Array.ofSeq simplified
           do! triggerNotificationAndWait (NotificationEvent.SimplifyNames(filePath, simplified, file.Version)) ct
@@ -553,10 +557,7 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unnecessary parens - {fileName}")
 
           let unnecessaryParentheses =
             (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
@@ -629,10 +630,8 @@ type AdaptiveState
         let file = volatileFile.FileName
 
         try
-          use progress = new ServerProgressReport(lspClient)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin("Running analyzers...", message = UMX.untag file)
+          let fileName = Path.GetFileName(UMX.untag file)
+          use! _progress = analyzerProgressReporter.Begin($"External analyzers - {fileName}")
 
           Loggers.analyzers.info (
             Log.setMessage "begin analysis of {file}"
@@ -2543,7 +2542,7 @@ type AdaptiveState
       let checksToPerform =
         innerChecks
         |> Array.map (fun (proj, file) ->
-          async {
+          asyncEx {
 
             use joinedToken =
               if file = sourceFilePath then
@@ -2557,25 +2556,20 @@ type AdaptiveState
                 CancellationTokenSource.CreateLinkedTokenSource(rootToken, fileToken, progressCt)
 
             // Track per-file progress so the shared reporter updates message and batch counter
-            let! fileProgress =
-              typecheckProgressReporter.Begin (UMX.untag file) CancellationToken.None
-              |> Async.AwaitTask
+            use! _fileProgress = typecheckProgressReporter.Begin(UMX.untag file)
 
             try
-              try
-                let! _ =
-                  bypassAdaptiveTypeCheck (file) (proj) (AVal.force proj.FSharpProjectCompilerOptions)
-                  |> Async.withCancellation joinedToken.Token
+              let! _ =
+                bypassAdaptiveTypeCheck (file) (proj) (AVal.force proj.FSharpProjectCompilerOptions)
+                |> Async.withCancellation joinedToken.Token
 
-                ()
-              with :? OperationCanceledException ->
-                // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
-                ()
-            finally
-              fileProgress.DisposeAsync().AsTask().GetAwaiter().GetResult()
+              ()
+            with :? OperationCanceledException ->
+              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+              ()
           })
 
-      do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
+      do! checksToPerform |> Async.parallel25 |> Async.Ignore<unit array>
 
     }
 

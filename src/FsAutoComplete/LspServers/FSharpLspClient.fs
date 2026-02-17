@@ -186,9 +186,11 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
 /// this maintains one notification that updates its message with the current file being checked.
 /// </summary>
 type SharedTypecheckProgressReporter
-  (title: string, createReport: unit -> ServerProgressReport) =
+  (title: string, createReport: unit -> ServerProgressReport, ?isEnabled: unit -> bool)
+  =
 
   let locker = new SemaphoreSlim(1, 1)
+  let isEnabled = defaultArg isEnabled (fun () -> true)
   /// Display-only set of short file names currently being checked
   let mutable activeFiles = Set.empty<string>
   let mutable progressReport: ServerProgressReport option = None
@@ -231,19 +233,24 @@ type SharedTypecheckProgressReporter
 
   member private x.StartFile(fileName: string) =
     cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      let simpleName = IO.Path.GetFileName fileName
-      activeFiles <- Set.add simpleName activeFiles
+      if isEnabled () then
+        use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+        let simpleName = IO.Path.GetFileName fileName
+        activeFiles <- Set.add simpleName activeFiles
 
-      match progressReport with
-      | None ->
-        let report = createReport ()
-        progressReport <- Some report
-        let message = buildMessage ()
-        do! report.Begin(title, ?message = message, ?percentage = calcPercentage ())
-      | Some report ->
-        let message = buildMessage ()
-        do! report.Report(?message = message, ?percentage = calcPercentage ())
+        match progressReport with
+        | None ->
+          let report = createReport ()
+          progressReport <- Some report
+          let message = buildMessage ()
+          do! report.Begin(title, ?message = message, ?percentage = calcPercentage ())
+        | Some report ->
+          let message = buildMessage ()
+          do! report.Report(?message = message, ?percentage = calcPercentage ())
+
+        return true
+      else
+        return false
     }
 
   member private x.EndFile(fileName: string) =
@@ -271,28 +278,37 @@ type SharedTypecheckProgressReporter
   /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
   member x.Begin(fileName: string) : CancellableTask<IAsyncDisposable> =
     cancellableTask {
-      do! x.StartFile(fileName)
+      let! started = x.StartFile(fileName)
 
       return
         { new IAsyncDisposable with
-            member _.DisposeAsync() = x.EndFile (fileName) CancellationToken.None |> ValueTask }
+            member _.DisposeAsync() =
+              if started then
+                x.EndFile (fileName) CancellationToken.None |> ValueTask
+              else
+                ValueTask() }
     }
 
   member private x.StartBatch(files: string array) =
     cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      activeBatchScopes <- activeBatchScopes + 1
-      let normalizedFiles = files |> Array.map normalizePath |> Array.distinct
-      batchTotal <- batchTotal + normalizedFiles.Length
-      batchFiles <- Set.union batchFiles (normalizedFiles |> Set.ofArray)
+      if isEnabled () then
+        use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
+        activeBatchScopes <- activeBatchScopes + 1
+        let normalizedFiles = files |> Array.map normalizePath |> Array.distinct
+        batchTotal <- batchTotal + normalizedFiles.Length
+        batchFiles <- Set.union batchFiles (normalizedFiles |> Set.ofArray)
 
-      // Eagerly create the report so the CancellationToken is available for linking
-      match progressReport with
-      | None ->
-        let report = createReport ()
-        progressReport <- Some report
-        do! report.Begin(title, ?percentage = calcPercentage ())
-      | Some report -> do! report.Report(?percentage = calcPercentage ())
+        // Eagerly create the report so the CancellationToken is available for linking
+        match progressReport with
+        | None ->
+          let report = createReport ()
+          progressReport <- Some report
+          do! report.Begin(title, ?percentage = calcPercentage ())
+        | Some report -> do! report.Report(?percentage = calcPercentage ())
+
+        return true
+      else
+        return false
     }
 
   member private x.EndBatch() =
@@ -318,11 +334,15 @@ type SharedTypecheckProgressReporter
   /// <summary>Set up a batch of files to be typechecked. Returns an IAsyncDisposable that clears the batch on dispose.</summary>
   member x.BeginBatch(files: string array) : CancellableTask<IAsyncDisposable> =
     cancellableTask {
-      do! x.StartBatch(files)
+      let! started = x.StartBatch(files)
 
       return
         { new IAsyncDisposable with
-            member _.DisposeAsync() = x.EndBatch () CancellationToken.None |> ValueTask }
+            member _.DisposeAsync() =
+              if started then
+                x.EndBatch () CancellationToken.None |> ValueTask
+              else
+                ValueTask() }
     }
 
   /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
