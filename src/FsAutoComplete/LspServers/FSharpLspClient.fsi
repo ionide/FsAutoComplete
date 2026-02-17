@@ -86,7 +86,11 @@ type ServerProgressReport =
 /// this maintains one notification that updates its message with the current file being checked.
 /// </summary>
 type SharedTypecheckProgressReporter =
-  new: title: string * createReport: (unit -> ServerProgressReport) -> SharedTypecheckProgressReporter
+  new:
+    title: string *
+    createReport: (unit -> ServerProgressReport) *
+    ?isEnabled: (unit -> bool) ->
+      SharedTypecheckProgressReporter
 
   /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
   member Begin: fileName: string -> CancellableTask<IAsyncDisposable>
