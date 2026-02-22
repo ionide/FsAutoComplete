@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- [Disable inline values by default to restore pipeline hints](https://github.com/ionide/FsAutoComplete/pull/1456) - `InlineValueProvider` is no longer advertised by default, restoring pipeline hints during normal editing (closes [#1214](https://github.com/ionide/FsAutoComplete/issues/1214))
+
 ## [0.83.0] - 2026-02-04
 
 ### Added
