@@ -1218,6 +1218,7 @@ let encodeSemanticHighlightRanges
         0u
       else
         uint32 (range.End.Character - range.Start.Character)
+
     let tokenTy = uint32 ty
 
     let tokenMods =
