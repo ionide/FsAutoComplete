@@ -805,15 +805,13 @@ type NotificationsConfig =
 
     { Trace = defaultArg dto.Trace defaultConfig.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces
-      BackgroundServiceProgress =
-        defaultArg dto.BackgroundServiceProgress defaultConfig.BackgroundServiceProgress }
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress defaultConfig.BackgroundServiceProgress }
 
 
   member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
     { Trace = defaultArg dto.Trace this.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces
-      BackgroundServiceProgress =
-        defaultArg dto.BackgroundServiceProgress this.BackgroundServiceProgress }
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress this.BackgroundServiceProgress }
 
 type FSACConfig =
   {

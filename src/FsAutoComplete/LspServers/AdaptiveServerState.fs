@@ -477,6 +477,7 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
+
           if config.Notifications.BackgroundServiceProgress then
             do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
@@ -495,6 +496,7 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
+
           if config.Notifications.BackgroundServiceProgress then
             do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
@@ -517,6 +519,7 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
+
           if config.Notifications.BackgroundServiceProgress then
             do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
@@ -536,6 +539,7 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient)
+
           if config.Notifications.BackgroundServiceProgress then
             do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
@@ -619,6 +623,7 @@ type AdaptiveState
 
         try
           use progress = new ServerProgressReport(lspClient)
+
           if config.Notifications.BackgroundServiceProgress then
             do! progress.Begin("Running analyzers...", message = UMX.untag file)
 
