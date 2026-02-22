@@ -18,14 +18,16 @@
     "task10": null,
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "after_1306",
+  "issue_backlog_cursor": "after_1437",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
     {"number": 716, "date": "2026-02-22"},
     {"number": 1259, "date": "2026-02-22", "note": "Explained false positive is upstream FCS issue"},
     {"number": 1252, "date": "2026-02-22", "note": "Stale PR nudge"},
-    {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"}
+    {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
+    {"number": 1381, "date": "2026-02-22", "note": "Explained | null semantic token gap is FCS limitation"},
+    {"number": 1437, "date": "2026-02-22", "note": "Suggested implementation approaches for diagnostic help links"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -38,6 +40,7 @@
       "branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow",
       "date": "2026-02-22",
       "status": "pr_created",
+      "pr_number": 1449,
       "description": "Fix uint32 underflow in semantic token length for multiline ranges"
     },
     {
@@ -45,6 +48,7 @@
       "branch": "repo-assist/fix-issue-1306-readme-remove-deprecated-option",
       "date": "2026-02-22",
       "status": "pr_created",
+      "pr_number": 1451,
       "description": "Remove deprecated --background-service-enabled from README"
     }
   ],
@@ -53,5 +57,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Repo at v0.83.0. Two PRs created. PR #1441 by serefarikan needs maintainer re-review (author addressed feedback). Task3 (improvements) and Task4 (deps), Task8 (release), Task10 (forward work) still not run."
+  "notes": "Repo at v0.83.0. Two Repo Assist PRs created (#1449, #1451). Run 3 done: commented on #1381 (| null semantic token - FCS limitation) and #1437 (diagnostic help links - suggested options). Issue backlog cursor advanced to after_1437. Tasks 3, 4, 8, 10 still not run - prioritize next run. PR #1440 by TheAngryByrd needs review (open since 2026-01-26)."
 }
