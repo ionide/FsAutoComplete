@@ -502,6 +502,22 @@ let tests state =
         })
 
       testCaseAsync
+        "completion triggered by { in interpolated string"
+        (async {
+          let! server, path = server
+
+          // Trigger completion at the '{' in `$"{List.}"` (line 23, 0-indexed, col 3 = position after '{')
+          let completionParams: CompletionParams = completion path (pos 23u 3u) (Char '{')
+          let! response = server.TextDocumentCompletion completionParams
+
+          match response with
+          | Ok(Some(CompletionItems completions)) ->
+            Expect.isGreaterThan completions.Length 0 "should have completions when triggered by { inside interpolated string"
+          | Ok None -> failtest "Should have gotten some completion items when { triggers completion inside interpolated string"
+          | Error e -> failtestf "Got an error while retrieving completions: %A" e
+        })
+
+      testCaseAsync
         "completion in indented hash directive"
         (async {
           let! server, path = server
