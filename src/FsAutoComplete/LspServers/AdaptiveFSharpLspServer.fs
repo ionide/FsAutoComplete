@@ -1208,8 +1208,7 @@ type AdaptiveFSharpLspServer
                     let range = fcsRangeToLsp range
                     U2.C1 { Range = range; NewText = newName })
 
-                let version =
-                  fileContent |> Option.ofResult |> Option.map (fun f -> f.Version)
+                let version = fileContent |> Option.ofResult |> Option.map (fun f -> f.Version)
 
                 return
                   { TextDocument =
