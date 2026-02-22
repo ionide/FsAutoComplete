@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "Y3Vyc29yOnYyOpK0MjAyMy0xMS0xNFQyMzo1Njo1OVrOdtatEg==",
+  "issue_backlog_cursor": "Y3Vyc29yOnYyOpK0MjAyNS0wMi0yMFQxMzo1NjoxNVrOqtdwXQ==",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -36,7 +36,8 @@
     {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"},
     {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"},
     {"number": 840, "date": "2026-02-22", "note": "Root cause: %F3 vs %C3%B3 UTF-8 encoding bug; PR created to fix it"},
-    {"number": 1194, "date": "2026-02-22", "note": "Noted PR #1180 prerequisite merged; sketched implementation approach for _.Property code fix"}
+    {"number": 1194, "date": "2026-02-22", "note": "Noted PR #1180 prerequisite merged; sketched implementation approach for _.Property code fix"},
+    {"number": 1214, "date": "2026-02-22", "note": "Explained inline values only shown during debugging; fix PR created to disable by default"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -47,7 +48,10 @@
     {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1322, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
     {"number": 1307, "labels": ["needs investigation"], "date": "2026-02-22"},
-    {"number": 1194, "labels": ["help wanted"], "date": "2026-02-22"}
+    {"number": 1194, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1214, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1271, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1310, "labels": ["help wanted"], "date": "2026-02-22"}
   ],
   "fix_attempts": [
     {
@@ -99,9 +103,18 @@
       "branch": "repo-assist/fix-issue-840-unicode-path-uri-encoding",
       "date": "2026-02-22",
       "status": "pr_created",
-      "pr_number": null,
+      "pr_number": 1455,
       "description": "Fix FilePathToUri to encode non-ASCII chars using UTF-8 byte sequences (%C3%B3 not %F3 for accented letters)",
       "build_status": "succeeded net8.0 0 errors, 42/42 URI tests pass"
+    },
+    {
+      "issue": 1214,
+      "branch": "repo-assist/fix-issue-1214-disable-inline-values-by-default",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Disable InlineValueProvider by default (change InlineValuesConfig.Default.Enabled from Some true to None) to restore pipeline hints in normal editing",
+      "build_status": "succeeded net8.0 0 errors"
     }
   ],
   "stale_pr_nudges": [
@@ -109,5 +122,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 10 done. Fixed #840 (unicode path encoding): FilePathToUri was emitting %F3 for ó instead of the correct UTF-8 %C3%B3. Fix: use Encoding.UTF8.GetBytes per char. 42/42 URI tests pass. Backlog cursor advanced to ~#1200. Next run priorities: Task 4 (deps, no internet), Task 8 (release prep after merges), continue backlog triage from cursor."
+  "notes": "Run 11 done. Fixed #1214 (inline values): Changed InlineValuesConfig.Default.Enabled from Some true to None. This stops FSAC advertising InlineValueProvider by default, fixing pipeline hints. Build succeeded. Backlog cursor advanced to ~#1359. Next run priorities: Task 4 (deps, needs internet), Task 8 (release prep), continue backlog triage."
 }
