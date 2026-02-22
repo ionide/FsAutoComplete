@@ -1212,7 +1212,12 @@ let encodeSemanticHighlightRanges
       else
         uint32 range.Start.Character
 
-    let tokenLen = uint32 (range.End.Character - range.Start.Character)
+    // Guard against multiline ranges: End.Character < Start.Character would underflow uint32
+    let tokenLen =
+      if range.End.Line > range.Start.Line || range.End.Character < range.Start.Character then
+        0u
+      else
+        uint32 (range.End.Character - range.Start.Character)
     let tokenTy = uint32 ty
 
     let tokenMods =
