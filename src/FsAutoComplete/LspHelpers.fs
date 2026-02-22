@@ -786,7 +786,7 @@ type InlineValuesConfig =
     Prefix: string option }
 
   static member Default =
-    { Enabled = Some true
+    { Enabled = None
       Prefix = Some "//" }
 
 type NotificationsConfig =
