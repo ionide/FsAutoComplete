@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "Y3Vyc29yOnYyOpK0MjAyMS0wMi0wN1QwMDoyMzowN1rOL9oUwg==",
+  "issue_backlog_cursor": "Y3Vyc29yOnYyOpK0MjAyMy0xMS0xNFQyMzo1Njo1OVrOdtatEg==",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -34,7 +34,9 @@
     {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"},
     {"number": 1322, "date": "2026-02-22", "note": "Analysed root cause of missing named-arg completions in constructor calls; outlined FSAC vs FCS fix paths"},
     {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"},
-    {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"}
+    {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"},
+    {"number": 840, "date": "2026-02-22", "note": "Root cause: %F3 vs %C3%B3 UTF-8 encoding bug; PR created to fix it"},
+    {"number": 1194, "date": "2026-02-22", "note": "Noted PR #1180 prerequisite merged; sketched implementation approach for _.Property code fix"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -44,7 +46,8 @@
     {"number": 1415, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1322, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
-    {"number": 1307, "labels": ["needs investigation"], "date": "2026-02-22"}
+    {"number": 1307, "labels": ["needs investigation"], "date": "2026-02-22"},
+    {"number": 1194, "labels": ["help wanted"], "date": "2026-02-22"}
   ],
   "fix_attempts": [
     {
@@ -87,9 +90,18 @@
       "branch": "repo-assist/fix-issue-962-interpolated-string-completion-trigger",
       "date": "2026-02-22",
       "status": "pr_created",
-      "pr_number": null,
+      "pr_number": 1454,
       "description": "Add '{' to TriggerCharacters for completion to fix auto-complete inside interpolated string expressions",
       "build_status": "succeeded net8.0 0 errors; test suite timed out (infrastructure limitation)"
+    },
+    {
+      "issue": 840,
+      "branch": "repo-assist/fix-issue-840-unicode-path-uri-encoding",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Fix FilePathToUri to encode non-ASCII chars using UTF-8 byte sequences (%C3%B3 not %F3 for accented letters)",
+      "build_status": "succeeded net8.0 0 errors, 42/42 URI tests pass"
     }
   ],
   "stale_pr_nudges": [
@@ -97,5 +109,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 9 done. Fixed #962 (interpolated string auto-complete) by adding '{' to TriggerCharacters. Backlog cursor reset to cursor ~#715 (oldest open issues). Release v0.83.0 is latest; only workflow/docs changes since then. Next run priorities: Task 4 (deps, no internet), Task 8 (release prep, check again later), continue backlog triage from #715."
+  "notes": "Run 10 done. Fixed #840 (unicode path encoding): FilePathToUri was emitting %F3 for ó instead of the correct UTF-8 %C3%B3. Fix: use Encoding.UTF8.GetBytes per char. 42/42 URI tests pass. Backlog cursor advanced to ~#1200. Next run priorities: Task 4 (deps, no internet), Task 8 (release prep after merges), continue backlog triage from cursor."
 }
