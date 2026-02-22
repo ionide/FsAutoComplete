@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": 715,
+  "issue_backlog_cursor": 733,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -40,7 +40,9 @@
     {"number": 1214, "date": "2026-02-22", "note": "Inline values only shown during debugging; fix PR created to disable by default"},
     {"number": 1340, "date": "2026-02-22", "note": "Run 13: Traced missing-parens bug to two code paths. Run 14: Created PR #1457 to fix AddExplicitTypeAnnotation path"},
     {"number": 706, "date": "2026-02-22", "note": "Run 15: Noted resolveNamespaceTests exist in CodeFixTests/Tests.fs; suggested closing"},
-    {"number": 715, "date": "2026-02-22", "note": "Run 15: Noted FSAC now releases via NuGet only, no zip files; suggested closing"}
+    {"number": 715, "date": "2026-02-22", "note": "Run 15: Noted FSAC now releases via NuGet only, no zip files; suggested closing"},
+    {"number": 1026, "date": "2026-02-22", "note": "Run 16: TreatUnmatchedTokensAsErrors=false already set in Parser.fs; suggested closing issue"},
+    {"number": 733, "date": "2026-02-22", "note": "Run 16: Noted PR #1427 partially implements workspaceFolders adoption (stages 1 & 2)"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -135,5 +137,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 15 done. Commented on #706 (tests exist for ResolveNamespace - issue resolved) and #715 (release is now NuGet only - zip permissions issue obsolete). All 7 Repo Assist PRs still open/draft, pending CI approval by maintainer (0 CI checks - infrastructure issue). PR #1451 merged by Krzysztof-Cieslak. Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps - needs NuGet internet), Task 8 (release prep after PRs merge), continue backlog triage from issue ~#718 onwards."
+  "notes": "Run 16 done. Commented on #1026 (TreatUnmatchedTokensAsErrors=false already in Parser.fs - suggest closing) and #733 (PR #1427 implements stages 1&2 of workspaceFolders adoption). All 7 Repo Assist PRs still open/draft, pending CI approval (0 checks - infrastructure issue). PR #1451 merged. Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps - needs NuGet internet), Task 8 (release prep after PRs merge), continue backlog triage from #739 onwards."
 }
