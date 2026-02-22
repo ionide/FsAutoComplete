@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": 692,
+  "issue_backlog_cursor": 715,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -38,7 +38,9 @@
     {"number": 840, "date": "2026-02-22", "note": "Root cause: %F3 vs %C3%B3 UTF-8 encoding bug; PR created to fix it"},
     {"number": 1194, "date": "2026-02-22", "note": "Run 10: sketched implementation (wrong). Run 12: corrected - ReplaceLambdaWithDotLambda already implements this; suggested closing issue"},
     {"number": 1214, "date": "2026-02-22", "note": "Inline values only shown during debugging; fix PR created to disable by default"},
-    {"number": 1340, "date": "2026-02-22", "note": "Run 13: Traced missing-parens bug to two code paths. Run 14: Created PR to fix AddExplicitTypeAnnotation path"}
+    {"number": 1340, "date": "2026-02-22", "note": "Run 13: Traced missing-parens bug to two code paths. Run 14: Created PR #1457 to fix AddExplicitTypeAnnotation path"},
+    {"number": 706, "date": "2026-02-22", "note": "Run 15: Noted resolveNamespaceTests exist in CodeFixTests/Tests.fs; suggested closing"},
+    {"number": 715, "date": "2026-02-22", "note": "Run 15: Noted FSAC now releases via NuGet only, no zip files; suggested closing"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -123,7 +125,7 @@
       "branch": "repo-assist/fix-issue-1340-missing-parens-in-function-type",
       "date": "2026-02-22",
       "status": "pr_created",
-      "pr_number": "pending",
+      "pr_number": 1457,
       "description": "Wrap segments containing ' -> ' in parens in AddExplicitTypeAnnotation to fix ambiguous type annotations for tuples with function components",
       "build_status": "succeeded net8.0 0 errors"
     }
@@ -133,5 +135,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 14 done. Implemented fix for #1340 (missing parens in function type annotations) - AddExplicitTypeAnnotation.fs: added check for formattedType.Contains(' -> ') to wrap ambiguous segments in parens. PR pending creation. CI still pending/0-checks on all Repo Assist PRs (infrastructure issue - likely needs maintainer to approve CI for bot PRs). Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps - needs NuGet internet), Task 8 (release prep after PRs merge), Task 5 (check CI status), continue backlog from issue #692 onwards."
+  "notes": "Run 15 done. Commented on #706 (tests exist for ResolveNamespace - issue resolved) and #715 (release is now NuGet only - zip permissions issue obsolete). All 7 Repo Assist PRs still open/draft, pending CI approval by maintainer (0 CI checks - infrastructure issue). PR #1451 merged by Krzysztof-Cieslak. Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps - needs NuGet internet), Task 8 (release prep after PRs merge), continue backlog triage from issue ~#718 onwards."
 }
