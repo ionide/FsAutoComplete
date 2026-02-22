@@ -477,7 +477,8 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-          do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
+          if config.Notifications.BackgroundServiceProgress then
+            do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
 
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
@@ -494,7 +495,8 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-          do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
+          if config.Notifications.BackgroundServiceProgress then
+            do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
 
           let isScript = Utils.isAScript (filePathUntag)
 
@@ -515,7 +517,8 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-          do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
+          if config.Notifications.BackgroundServiceProgress then
+            do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
 
           let! simplified =
             SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
@@ -533,7 +536,8 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use progress = progressLookup.CreateProgressReport(lspClient)
-          do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
+          if config.Notifications.BackgroundServiceProgress then
+            do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
 
           let unnecessaryParentheses =
             (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
@@ -615,7 +619,8 @@ type AdaptiveState
 
         try
           use progress = new ServerProgressReport(lspClient)
-          do! progress.Begin("Running analyzers...", message = UMX.untag file)
+          if config.Notifications.BackgroundServiceProgress then
+            do! progress.Begin("Running analyzers...", message = UMX.untag file)
 
           Loggers.analyzers.info (
             Log.setMessage "begin analysis of {file}"
