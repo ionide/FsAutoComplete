@@ -37,7 +37,8 @@
     {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"},
     {"number": 840, "date": "2026-02-22", "note": "Root cause: %F3 vs %C3%B3 UTF-8 encoding bug; PR created to fix it"},
     {"number": 1194, "date": "2026-02-22", "note": "Run 10: sketched implementation (wrong). Run 12: corrected - ReplaceLambdaWithDotLambda already implements this; suggested closing issue"},
-    {"number": 1214, "date": "2026-02-22", "note": "Inline values only shown during debugging; fix PR created to disable by default"}
+    {"number": 1214, "date": "2026-02-22", "note": "Inline values only shown during debugging; fix PR created to disable by default"},
+    {"number": 1340, "date": "2026-02-22", "note": "Traced missing-parens bug to two code paths (InlayHints FCS Format and AddExplicitTypeAnnotation manual reconstruction); proposed FSAC workaround for code fix path"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -123,5 +124,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 12 done. Corrected #1194 (ReplaceLambdaWithDotLambda is already implemented; issue can be closed). Labelled #1408 with help wanted. Backlog cursor reset - end of open issues reached. CI is pending on all Repo Assist PRs (1449, 1452, 1453, 1454, 1455, 1456) - all created 2026-02-22. Next run priorities: Task 4 (deps - needs internet), Task 8 (release prep - after PRs merge), check CI on open PRs, Task 9 (welcome new contributors), continue any new issues."
+  "notes": "Run 13 done. Investigated #1340 (missing parens in type annotations) - found the issue is in two code paths: InlayHints.FormatType (relies on FCS Format()) and AddExplicitTypeAnnotation.fs (manual type reconstruction - could be fixed with a string-contains check). CI still pending on all Repo Assist PRs (1449, 1452, 1453, 1454, 1455, 1456). Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps), Task 8 (release prep after PRs merge), Task 5 (check CI status), continue issue backlog."
 }
