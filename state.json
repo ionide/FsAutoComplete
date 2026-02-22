@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "~#1408",
+  "issue_backlog_cursor": "~#1432",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -31,7 +31,7 @@
     {"number": 1415, "date": "2026-02-22", "note": "Outlined inheritdoc implementation approach in TipFormatter.fs"},
     {"number": 1414, "date": "2026-02-22", "note": "Suggested debugging steps for property-setter completions in constructor context"},
     {"number": 1097, "date": "2026-02-22", "note": "Updated status: call hierarchy done (all 3 methods in v0.83.0), type hierarchy still TODO"},
-    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach"}
+    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -67,6 +67,15 @@
       "pr_number": 1452,
       "description": "Add FSharp.notifications.backgroundServiceProgress config option (default false) to suppress background analyzer progress notifications",
       "build_status": "succeeded net8.0 0 errors"
+    },
+    {
+      "issue": 1269,
+      "branch": "repo-assist/fix-issue-1269-rename-skip-get-set-accessor-keywords",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "pr_number": "pending",
+      "description": "Filter out get/set accessor keywords and deduplicate ranges in TextDocumentRename to prevent false positive renames",
+      "build_status": "succeeded net8.0 0 errors, 18/18 rename tests pass"
     }
   ],
   "stale_pr_nudges": [
@@ -74,5 +83,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 6 done. Commented on #1097 (call hierarchy complete, type hierarchy TODO) and #1269 (rename get() bug, filter fix approach). PRs #1449 and #1452 still open/draft pending review. CI shows 'pending' with 0 checks for both draft PRs - likely because CI doesn't auto-run on draft PRs. Issue backlog cursor now at ~#1408. Next page would continue from issues after #1408. Task 4 (deps) still not run - no internet access. Task 8 (release prep) skipped - only doc change (README) merged since v0.83.0."
+  "notes": "Run 7 done. Implemented fix for #1269 (rename get/set accessor keywords bug): filter ranges where source text is 'get' or 'set' and deduplicate by start position. Added regression test. 18/18 rename tests pass. PR submitted. Issues #1362, #1359, #1432 have existing good maintainer comments so skipped. PR #1449 (semantic token fix) and #1452 (background progress config) still awaiting review. Next run: continue backlog from ~#1432, check if #1269 PR got a number."
 }
