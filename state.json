@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": 733,
+  "issue_backlog_cursor": 744,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -42,7 +42,10 @@
     {"number": 706, "date": "2026-02-22", "note": "Run 15: Noted resolveNamespaceTests exist in CodeFixTests/Tests.fs; suggested closing"},
     {"number": 715, "date": "2026-02-22", "note": "Run 15: Noted FSAC now releases via NuGet only, no zip files; suggested closing"},
     {"number": 1026, "date": "2026-02-22", "note": "Run 16: TreatUnmatchedTokensAsErrors=false already set in Parser.fs; suggested closing issue"},
-    {"number": 733, "date": "2026-02-22", "note": "Run 16: Noted PR #1427 partially implements workspaceFolders adoption (stages 1 & 2)"}
+    {"number": 733, "date": "2026-02-22", "note": "Run 16: Noted PR #1427 partially implements workspaceFolders adoption (stages 1 & 2)"},
+    {"number": 1029, "date": "2026-02-22", "note": "Run 17: Found root cause (CanonicalTypeTextForSorting used instead of Display); PR #1458 created to fix"},
+    {"number": 822, "date": "2026-02-22", "note": "Run 17: Union cases already on separate lines in DocumentationFormatter.fs; suggested closing"},
+    {"number": 744, "date": "2026-02-22", "note": "Run 17: FCS GetMethods only returns first curried parameter group; outlined fix via mfv.CurriedParameterGroups"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -130,6 +133,15 @@
       "pr_number": 1457,
       "description": "Wrap segments containing ' -> ' in parens in AddExplicitTypeAnnotation to fix ambiguous type annotations for tuples with function components",
       "build_status": "succeeded net8.0 0 errors"
+    },
+    {
+      "issue": 1029,
+      "branch": "repo-assist/fix-issue-1029-parameter-type-display",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "pr_number": 1458,
+      "description": "Use p.Display (TaggedText[] to string) instead of p.CanonicalTypeTextForSorting for signature help parameter Documentation, fixing fully-qualified type names like Microsoft.FSharp.Core.char",
+      "build_status": "succeeded net8.0 0 errors"
     }
   ],
   "stale_pr_nudges": [
@@ -137,5 +149,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 16 done. Commented on #1026 (TreatUnmatchedTokensAsErrors=false already in Parser.fs - suggest closing) and #733 (PR #1427 implements stages 1&2 of workspaceFolders adoption). All 7 Repo Assist PRs still open/draft, pending CI approval (0 checks - infrastructure issue). PR #1451 merged. Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps - needs NuGet internet), Task 8 (release prep after PRs merge), continue backlog triage from #739 onwards."
+  "notes": "Run 17 done. Fixed #1029 (parameter type display using CanonicalTypeTextForSorting). Commented on #822 (union cases already separate lines - suggest close), #744 (FCS GetMethods limitation for curried functions - outlined fix). Monthly summary issue #1450 updated. 8 Repo Assist PRs open (#1449,#1452-#1458). Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps), Task 8 (release prep), continue backlog from #745 onwards."
 }
