@@ -4,7 +4,6 @@
     "number": 1450,
     "month": "2026-02"
   },
-  "tasks_run_this_session": ["task1", "task5", "task7", "task9", "task11"],
   "tasks_last_run": {
     "task1": "2026-02-22",
     "task2": "2026-02-22",
@@ -18,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "~#1415",
+  "issue_backlog_cursor": "~#1408",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -30,14 +29,17 @@
     {"number": 1437, "date": "2026-02-22", "note": "Suggested implementation approaches for diagnostic help links"},
     {"number": 1431, "date": "2026-02-22", "note": "Implemented fix and linked to PR"},
     {"number": 1415, "date": "2026-02-22", "note": "Outlined inheritdoc implementation approach in TipFormatter.fs"},
-    {"number": 1414, "date": "2026-02-22", "note": "Suggested debugging steps for property-setter completions in constructor context"}
+    {"number": 1414, "date": "2026-02-22", "note": "Suggested debugging steps for property-setter completions in constructor context"},
+    {"number": 1097, "date": "2026-02-22", "note": "Updated status: call hierarchy done (all 3 methods in v0.83.0), type hierarchy still TODO"},
+    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
     {"number": 1437, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
     {"number": 1340, "labels": ["bug"], "date": "2026-02-22"},
     {"number": 1414, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1415, "labels": ["help wanted"], "date": "2026-02-22"}
+    {"number": 1415, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"}
   ],
   "fix_attempts": [
     {
@@ -72,5 +74,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 5 done. PR #1451 (README fix) was merged! PRs #1449 and #1452 still open/draft pending review. Commented on #1415 (inheritdoc) and #1414 (property setters). Labelled both with 'help wanted'. Task 4 (deps) still not run - need internet access. Task 8 (release prep) skipped - only doc/workflow changes since v0.83.0. Key open PRs awaiting review: #1449 (semantic token fix), #1452 (background progress config), #1441, #1440."
+  "notes": "Run 6 done. Commented on #1097 (call hierarchy complete, type hierarchy TODO) and #1269 (rename get() bug, filter fix approach). PRs #1449 and #1452 still open/draft pending review. CI shows 'pending' with 0 checks for both draft PRs - likely because CI doesn't auto-run on draft PRs. Issue backlog cursor now at ~#1408. Next page would continue from issues after #1408. Task 4 (deps) still not run - no internet access. Task 8 (release prep) skipped - only doc change (README) merged since v0.83.0."
 }
