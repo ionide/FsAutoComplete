@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "~#1322",
+  "issue_backlog_cursor": "Y3Vyc29yOnYyOpK0MjAyMS0wMi0wN1QwMDoyMzowN1rOL9oUwg==",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -33,7 +33,8 @@
     {"number": 1097, "date": "2026-02-22", "note": "Updated status: call hierarchy done (all 3 methods in v0.83.0), type hierarchy still TODO"},
     {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"},
     {"number": 1322, "date": "2026-02-22", "note": "Analysed root cause of missing named-arg completions in constructor calls; outlined FSAC vs FCS fix paths"},
-    {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"}
+    {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"},
+    {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -80,6 +81,15 @@
       "pr_number": 1453,
       "description": "Filter out get/set accessor keywords and deduplicate ranges in TextDocumentRename to prevent false positive renames",
       "build_status": "succeeded net8.0 0 errors, 18/18 rename tests pass"
+    },
+    {
+      "issue": 962,
+      "branch": "repo-assist/fix-issue-962-interpolated-string-completion-trigger",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Add '{' to TriggerCharacters for completion to fix auto-complete inside interpolated string expressions",
+      "build_status": "succeeded net8.0 0 errors; test suite timed out (infrastructure limitation)"
     }
   ],
   "stale_pr_nudges": [
@@ -87,5 +97,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 8 done. Noted PR #1353 (baronfel) already fixes #1352 nullable hover tooltips - open since Feb 2025, assigned to TheAngryByrd. Commented on #1322 (named-arg completion analysis) and #1307 (TypeProvider hang, asked for repro). Labelled both. All 3 Repo Assist PRs (#1449, #1452, #1453) still awaiting review. Next run: continue backlog from ~#1322, check PR CI status."
+  "notes": "Run 9 done. Fixed #962 (interpolated string auto-complete) by adding '{' to TriggerCharacters. Backlog cursor reset to cursor ~#715 (oldest open issues). Release v0.83.0 is latest; only workflow/docs changes since then. Next run priorities: Task 4 (deps, no internet), Task 8 (release prep, check again later), continue backlog triage from #715."
 }
