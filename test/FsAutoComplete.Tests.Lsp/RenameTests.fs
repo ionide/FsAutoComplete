@@ -274,6 +274,26 @@ let private sameScriptTests state =
         let value = 42
 
         let _ = value + 42
+        """
+
+      // Regression test for https://github.com/ionide/FsAutoComplete/issues/1269
+      // FCS incorrectly returns `get`/`set` accessor keywords as rename targets for the property.
+      testCaseAsync "renaming property with explicit get/set does not rename accessor keywords"
+      <| checkRename
+        """
+        type MyClass() =
+          let mutable _v = 0
+          member this.Va$0lue
+            with get () = _v
+            and set v = _v <- v
+        """
+        "Count"
+        """
+        type MyClass() =
+          let mutable _v = 0
+          member this.Count
+            with get () = _v
+            and set v = _v <- v
         """ ])
 
 let private crossProjectTests state =

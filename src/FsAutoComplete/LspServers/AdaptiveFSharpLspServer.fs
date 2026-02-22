@@ -1183,19 +1183,33 @@ type AdaptiveFSharpLspServer
             ranges
             |> Seq.map (fun kvp ->
               async {
+                let file: string<LocalPath> = kvp.Key
+                let! fileContent = state.GetOpenFileOrRead file
+
+                // FCS incorrectly returns `get` and `set` accessor keywords as symbol uses
+                // of the property when explicit getter/setter syntax is used, e.g.
+                //   member this.Prop with get () = ... and set v = ...
+                // It may also return duplicate ranges for the property name itself.
+                // Filter and deduplicate to avoid spurious renames and overlapping edits.
+                let filteredRanges =
+                  match fileContent with
+                  | Error _ -> kvp.Value
+                  | Ok volatileFile ->
+                    kvp.Value
+                    |> Array.filter (fun range ->
+                      match volatileFile.Source.GetText(range) with
+                      | Ok text -> text <> "get" && text <> "set"
+                      | Error _ -> true)
+                    |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn)
+
                 let edits =
-                  kvp.Value
+                  filteredRanges
                   |> Array.map (fun range ->
                     let range = fcsRangeToLsp range
                     U2.C1 { Range = range; NewText = newName })
 
-                let file: string<LocalPath> = kvp.Key
-
-                let! version =
-                  async {
-                    let! file = state.GetOpenFileOrRead file
-                    return file |> Option.ofResult |> Option.map (fun (f) -> f.Version)
-                  }
+                let version =
+                  fileContent |> Option.ofResult |> Option.map (fun f -> f.Version)
 
                 return
                   { TextDocument =
