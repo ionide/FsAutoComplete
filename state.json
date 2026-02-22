@@ -17,7 +17,7 @@
     "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "~#1432",
+  "issue_backlog_cursor": "~#1322",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -31,7 +31,9 @@
     {"number": 1415, "date": "2026-02-22", "note": "Outlined inheritdoc implementation approach in TipFormatter.fs"},
     {"number": 1414, "date": "2026-02-22", "note": "Suggested debugging steps for property-setter completions in constructor context"},
     {"number": 1097, "date": "2026-02-22", "note": "Updated status: call hierarchy done (all 3 methods in v0.83.0), type hierarchy still TODO"},
-    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"}
+    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"},
+    {"number": 1322, "date": "2026-02-22", "note": "Analysed root cause of missing named-arg completions in constructor calls; outlined FSAC vs FCS fix paths"},
+    {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -39,7 +41,9 @@
     {"number": 1340, "labels": ["bug"], "date": "2026-02-22"},
     {"number": 1414, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1415, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"}
+    {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1322, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
+    {"number": 1307, "labels": ["needs investigation"], "date": "2026-02-22"}
   ],
   "fix_attempts": [
     {
@@ -73,7 +77,7 @@
       "branch": "repo-assist/fix-issue-1269-rename-skip-get-set-accessor-keywords",
       "date": "2026-02-22",
       "status": "pr_created",
-      "pr_number": "pending",
+      "pr_number": 1453,
       "description": "Filter out get/set accessor keywords and deduplicate ranges in TextDocumentRename to prevent false positive renames",
       "build_status": "succeeded net8.0 0 errors, 18/18 rename tests pass"
     }
@@ -83,5 +87,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 7 done. Implemented fix for #1269 (rename get/set accessor keywords bug): filter ranges where source text is 'get' or 'set' and deduplicate by start position. Added regression test. 18/18 rename tests pass. PR submitted. Issues #1362, #1359, #1432 have existing good maintainer comments so skipped. PR #1449 (semantic token fix) and #1452 (background progress config) still awaiting review. Next run: continue backlog from ~#1432, check if #1269 PR got a number."
+  "notes": "Run 8 done. Noted PR #1353 (baronfel) already fixes #1352 nullable hover tooltips - open since Feb 2025, assigned to TheAngryByrd. Commented on #1322 (named-arg completion analysis) and #1307 (TypeProvider hang, asked for repro). Labelled both. All 3 Repo Assist PRs (#1449, #1452, #1453) still awaiting review. Next run: continue backlog from ~#1322, check PR CI status."
 }
