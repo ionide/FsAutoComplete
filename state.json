@@ -4,21 +4,21 @@
     "number": 1450,
     "month": "2026-02"
   },
-  "tasks_run_this_session": ["task1", "task2", "task6", "task7", "task11"],
+  "tasks_run_this_session": ["task3", "task5", "task9", "task11"],
   "tasks_last_run": {
     "task1": "2026-02-22",
     "task2": "2026-02-22",
-    "task3": null,
+    "task3": "2026-02-22",
     "task4": null,
     "task5": "2026-02-22",
     "task6": "2026-02-22",
     "task7": "2026-02-22",
     "task8": null,
     "task9": "2026-02-22",
-    "task10": null,
+    "task10": "2026-02-22",
     "task11": "2026-02-22"
   },
-  "issue_backlog_cursor": "after_1437",
+  "issue_backlog_cursor": "reset",
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
     {"number": 1444, "date": "2026-02-22"},
@@ -27,7 +27,8 @@
     {"number": 1252, "date": "2026-02-22", "note": "Stale PR nudge"},
     {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
     {"number": 1381, "date": "2026-02-22", "note": "Explained | null semantic token gap is FCS limitation"},
-    {"number": 1437, "date": "2026-02-22", "note": "Suggested implementation approaches for diagnostic help links"}
+    {"number": 1437, "date": "2026-02-22", "note": "Suggested implementation approaches for diagnostic help links"},
+    {"number": 1431, "date": "2026-02-22", "note": "Implemented fix and linked to PR"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -50,6 +51,14 @@
       "status": "pr_created",
       "pr_number": 1451,
       "description": "Remove deprecated --background-service-enabled from README"
+    },
+    {
+      "issue": 1431,
+      "branch": "repo-assist/improve-background-service-progress",
+      "date": "2026-02-22",
+      "status": "pr_created",
+      "description": "Add FSharp.notifications.backgroundServiceProgress config option (default false) to suppress background analyzer progress notifications",
+      "build_status": "succeeded net8.0 0 errors"
     }
   ],
   "stale_pr_nudges": [
@@ -57,5 +66,5 @@
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
   "welcomed_contributors": [],
-  "notes": "Repo at v0.83.0. Two Repo Assist PRs created (#1449, #1451). Run 3 done: commented on #1381 (| null semantic token - FCS limitation) and #1437 (diagnostic help links - suggested options). Issue backlog cursor advanced to after_1437. Tasks 3, 4, 8, 10 still not run - prioritize next run. PR #1440 by TheAngryByrd needs review (open since 2026-01-26)."
+  "notes": "Repo at v0.83.0. Three Repo Assist PRs created (#1449, #1451, #1452 approx). Run 4 done: implemented backgroundServiceProgress config for #1431 (build passed). No new issues since last run. Issue backlog cursor reset (end reached). Task 4 (deps) still not run - need internet access to check NuGet. Task 8 (release prep) skipped - no features since v0.83.0. Key open PRs awaiting review: #1449, #1451, ~#1452, #1441, #1440."
 }
