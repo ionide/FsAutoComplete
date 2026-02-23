@@ -6,18 +6,18 @@
   },
   "tasks_last_run": {
     "task1": "2026-02-23",
-    "task2": "2026-02-22",
+    "task2": "2026-02-23",
     "task3": "2026-02-22",
     "task4": null,
     "task5": "2026-02-23",
     "task6": "2026-02-22",
-    "task7": "2026-02-22",
+    "task7": "2026-02-23",
     "task8": "2026-02-23",
     "task9": "2026-02-22",
     "task10": "2026-02-22",
     "task11": "2026-02-23"
   },
-  "issue_backlog_cursor": 865,
+  "issue_backlog_cursor": 870,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true},
     {"number": 1444, "date": "2026-02-22"},
@@ -46,7 +46,8 @@
     {"number": 744, "date": "2026-02-22"},
     {"number": 1252, "date": "2026-02-22", "note": "Stale PR nudge"},
     {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
-    {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback; DeclFound-nonexistent-file path returns Error instead of decompiling"}
+    {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback"},
+    {"number": 1352, "date": "2026-02-23", "note": "Root cause analysis for nullable tooltip bug; fix PR created"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -61,7 +62,10 @@
     {"number": 1214, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1271, "labels": ["help wanted"], "date": "2026-02-22"},
     {"number": 1310, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1408, "labels": ["help wanted"], "date": "2026-02-22"}
+    {"number": 1408, "labels": ["help wanted"], "date": "2026-02-22"},
+    {"number": 1203, "labels": ["help wanted"], "date": "2026-02-23"},
+    {"number": 1225, "labels": ["help wanted"], "date": "2026-02-23"},
+    {"number": 1352, "labels": ["help wanted"], "date": "2026-02-23"}
   ],
   "fix_attempts": [
     {
@@ -141,7 +145,16 @@
       "branch": "repo-assist/release-v0.84.0",
       "date": "2026-02-23",
       "status": "pr_created",
+      "pr_number": 1460,
       "description": "Changelog update for v0.84.0 release prep"
+    },
+    {
+      "issue": 1352,
+      "branch": "repo-assist/fix-issue-1352-nullable-type-in-hover-tooltip",
+      "date": "2026-02-23",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Use typ.Format context instead of TypeDefinition.DisplayName in formatFSharpType to preserve | null annotations"
     }
   ],
   "stale_pr_nudges": [
@@ -152,6 +165,10 @@
     {"type": "pr", "number": 1453, "date": "2026-02-23", "note": "Merged"},
     {"type": "pr", "number": 1454, "date": "2026-02-23", "note": "Merged"},
     {"type": "pr", "number": 1455, "date": "2026-02-23", "note": "Merged"},
+    {"type": "pr", "number": 1449, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
+    {"type": "pr", "number": 1456, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
+    {"type": "pr", "number": 1457, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
+    {"type": "pr", "number": 1458, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
     {"type": "issue_close", "number": 706, "date": "2026-02-22"},
     {"type": "issue_close", "number": 715, "date": "2026-02-22"},
     {"type": "issue_close", "number": 822, "date": "2026-02-22"},
@@ -161,5 +178,5 @@
     {"type": "check_comment", "number": 1322, "date": "2026-02-22"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 18 done (2026-02-23). Task 8: Created release prep PR for v0.84.0 (CHANGELOG update). Task 1: Commented on #865 (missing SourceLink->decompile fallback). Task 5: PRs #1452-#1455 all merged. Remaining open Repo Assist PRs: #1449, #1456, #1457, #1458. Monthly summary #1450 updated. Next run priorities: Task 4 (deps - never done), Task 9 (welcome new contributors), Task 2 (fix issues), continue backlog from #871 onwards."
+  "notes": "Run 19 done (2026-02-23). Task 2: Created PR for #1352 (nullable type in hover tooltip fix) - one-line change in SignatureFormatter.fs. Task 7: Labelled #1203, #1225, #1352 with help wanted. Task 1: Commented on #1352. Task 11: Updated monthly summary #1450. PRs #1449, #1456, #1457, #1458 were checked off by maintainer in monthly issue (verified via [x] checkboxes). Open Repo Assist PRs: #1449, #1456, #1457, #1458, #1460, plus new nullable fix PR. Next run priorities: Task 4 (deps - never done), Task 9 (welcome new contributors), Task 3 (codebase improvements), continue backlog from #870."
 }
