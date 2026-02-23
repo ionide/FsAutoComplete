@@ -1,51 +1,52 @@
 {
-  "last_run": "2026-02-22",
+  "last_run": "2026-02-23",
   "monthly_activity_issue": {
     "number": 1450,
     "month": "2026-02"
   },
   "tasks_last_run": {
-    "task1": "2026-02-22",
+    "task1": "2026-02-23",
     "task2": "2026-02-22",
     "task3": "2026-02-22",
     "task4": null,
-    "task5": "2026-02-22",
+    "task5": "2026-02-23",
     "task6": "2026-02-22",
     "task7": "2026-02-22",
-    "task8": null,
+    "task8": "2026-02-23",
     "task9": "2026-02-22",
     "task10": "2026-02-22",
-    "task11": "2026-02-22"
+    "task11": "2026-02-23"
   },
-  "issue_backlog_cursor": 744,
+  "issue_backlog_cursor": 865,
   "commented_issues": [
-    {"number": 1407, "date": "2026-02-22", "pr_created": true, "pr_branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow"},
+    {"number": 1407, "date": "2026-02-22", "pr_created": true},
     {"number": 1444, "date": "2026-02-22"},
     {"number": 716, "date": "2026-02-22"},
-    {"number": 1259, "date": "2026-02-22", "note": "Explained false positive is upstream FCS issue"},
+    {"number": 1259, "date": "2026-02-22"},
+    {"number": 1381, "date": "2026-02-22"},
+    {"number": 1437, "date": "2026-02-22"},
+    {"number": 1431, "date": "2026-02-22"},
+    {"number": 1415, "date": "2026-02-22"},
+    {"number": 1414, "date": "2026-02-22"},
+    {"number": 1097, "date": "2026-02-22"},
+    {"number": 1269, "date": "2026-02-22"},
+    {"number": 1322, "date": "2026-02-22"},
+    {"number": 1307, "date": "2026-02-22"},
+    {"number": 962, "date": "2026-02-22"},
+    {"number": 840, "date": "2026-02-22"},
+    {"number": 1194, "date": "2026-02-22"},
+    {"number": 1214, "date": "2026-02-22"},
+    {"number": 1340, "date": "2026-02-22"},
+    {"number": 706, "date": "2026-02-22"},
+    {"number": 715, "date": "2026-02-22"},
+    {"number": 1026, "date": "2026-02-22"},
+    {"number": 733, "date": "2026-02-22"},
+    {"number": 1029, "date": "2026-02-22"},
+    {"number": 822, "date": "2026-02-22"},
+    {"number": 744, "date": "2026-02-22"},
     {"number": 1252, "date": "2026-02-22", "note": "Stale PR nudge"},
     {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
-    {"number": 1381, "date": "2026-02-22", "note": "Explained | null semantic token gap is FCS limitation"},
-    {"number": 1437, "date": "2026-02-22", "note": "Suggested implementation approaches for diagnostic help links"},
-    {"number": 1431, "date": "2026-02-22", "note": "Implemented fix and linked to PR"},
-    {"number": 1415, "date": "2026-02-22", "note": "Outlined inheritdoc implementation approach in TipFormatter.fs"},
-    {"number": 1414, "date": "2026-02-22", "note": "Suggested debugging steps for property-setter completions in constructor context"},
-    {"number": 1097, "date": "2026-02-22", "note": "Updated status: call hierarchy done (all 3 methods in v0.83.0), type hierarchy still TODO"},
-    {"number": 1269, "date": "2026-02-22", "note": "Described rename get() bug root cause, suggested filter fix approach; fix implemented in PR"},
-    {"number": 1322, "date": "2026-02-22", "note": "Analysed root cause of missing named-arg completions in constructor calls; outlined FSAC vs FCS fix paths"},
-    {"number": 1307, "date": "2026-02-22", "note": "Asked for repro on current version; suggested OTel tracing"},
-    {"number": 962, "date": "2026-02-22", "note": "Explained missing { trigger char; PR created to fix it"},
-    {"number": 840, "date": "2026-02-22", "note": "Root cause: %F3 vs %C3%B3 UTF-8 encoding bug; PR created to fix it"},
-    {"number": 1194, "date": "2026-02-22", "note": "Run 10: sketched implementation (wrong). Run 12: corrected - ReplaceLambdaWithDotLambda already implements this; suggested closing issue"},
-    {"number": 1214, "date": "2026-02-22", "note": "Inline values only shown during debugging; fix PR created to disable by default"},
-    {"number": 1340, "date": "2026-02-22", "note": "Run 13: Traced missing-parens bug to two code paths. Run 14: Created PR #1457 to fix AddExplicitTypeAnnotation path"},
-    {"number": 706, "date": "2026-02-22", "note": "Run 15: Noted resolveNamespaceTests exist in CodeFixTests/Tests.fs; suggested closing"},
-    {"number": 715, "date": "2026-02-22", "note": "Run 15: Noted FSAC now releases via NuGet only, no zip files; suggested closing"},
-    {"number": 1026, "date": "2026-02-22", "note": "Run 16: TreatUnmatchedTokensAsErrors=false already set in Parser.fs; suggested closing issue"},
-    {"number": 733, "date": "2026-02-22", "note": "Run 16: Noted PR #1427 partially implements workspaceFolders adoption (stages 1 & 2)"},
-    {"number": 1029, "date": "2026-02-22", "note": "Run 17: Found root cause (CanonicalTypeTextForSorting used instead of Display); PR #1458 created to fix"},
-    {"number": 822, "date": "2026-02-22", "note": "Run 17: Union cases already on separate lines in DocumentationFormatter.fs; suggested closing"},
-    {"number": 744, "date": "2026-02-22", "note": "Run 17: FCS GetMethods only returns first curried parameter group; outlined fix via mfv.CurriedParameterGroups"}
+    {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback; DeclFound-nonexistent-file path returns Error instead of decompiling"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -77,44 +78,39 @@
       "date": "2026-02-22",
       "status": "merged",
       "pr_number": 1451,
-      "merged_by": "Krzysztof-Cieslak",
       "description": "Remove deprecated --background-service-enabled from README"
     },
     {
       "issue": 1431,
       "branch": "repo-assist/improve-background-service-progress",
       "date": "2026-02-22",
-      "status": "pr_created",
+      "status": "merged",
       "pr_number": 1452,
-      "description": "Add FSharp.notifications.backgroundServiceProgress config option (default false) to suppress background analyzer progress notifications",
-      "build_status": "succeeded net8.0 0 errors"
+      "description": "Add FSharp.notifications.backgroundServiceProgress config option"
     },
     {
       "issue": 1269,
       "branch": "repo-assist/fix-issue-1269-rename-skip-get-set-accessor-keywords",
       "date": "2026-02-22",
-      "status": "pr_created",
+      "status": "merged",
       "pr_number": 1453,
-      "description": "Filter out get/set accessor keywords and deduplicate ranges in TextDocumentRename to prevent false positive renames",
-      "build_status": "succeeded net8.0 0 errors, 18/18 rename tests pass"
+      "description": "Filter out get/set accessor keywords in TextDocumentRename"
     },
     {
       "issue": 962,
       "branch": "repo-assist/fix-issue-962-interpolated-string-completion-trigger",
       "date": "2026-02-22",
-      "status": "pr_created",
+      "status": "merged",
       "pr_number": 1454,
-      "description": "Add '{' to TriggerCharacters for completion to fix auto-complete inside interpolated string expressions",
-      "build_status": "succeeded net8.0 0 errors; test suite timed out (infrastructure limitation)"
+      "description": "Add { to TriggerCharacters for completion"
     },
     {
       "issue": 840,
       "branch": "repo-assist/fix-issue-840-unicode-path-uri-encoding",
       "date": "2026-02-22",
-      "status": "pr_created",
+      "status": "merged",
       "pr_number": 1455,
-      "description": "Fix FilePathToUri to encode non-ASCII chars using UTF-8 byte sequences (%C3%B3 not %F3 for accented letters)",
-      "build_status": "succeeded net8.0 0 errors, 42/42 URI tests pass"
+      "description": "Fix FilePathToUri to encode non-ASCII chars using UTF-8 byte sequences"
     },
     {
       "issue": 1214,
@@ -122,8 +118,7 @@
       "date": "2026-02-22",
       "status": "pr_created",
       "pr_number": 1456,
-      "description": "Disable InlineValueProvider by default (change InlineValuesConfig.Default.Enabled from Some true to None) to restore pipeline hints in normal editing",
-      "build_status": "succeeded net8.0 0 errors"
+      "description": "Disable InlineValueProvider by default"
     },
     {
       "issue": 1340,
@@ -131,8 +126,7 @@
       "date": "2026-02-22",
       "status": "pr_created",
       "pr_number": 1457,
-      "description": "Wrap segments containing ' -> ' in parens in AddExplicitTypeAnnotation to fix ambiguous type annotations for tuples with function components",
-      "build_status": "succeeded net8.0 0 errors"
+      "description": "Wrap segments containing ' -> ' in parens in AddExplicitTypeAnnotation"
     },
     {
       "issue": 1029,
@@ -140,14 +134,32 @@
       "date": "2026-02-22",
       "status": "pr_created",
       "pr_number": 1458,
-      "description": "Use p.Display (TaggedText[] to string) instead of p.CanonicalTypeTextForSorting for signature help parameter Documentation, fixing fully-qualified type names like Microsoft.FSharp.Core.char",
-      "build_status": "succeeded net8.0 0 errors"
+      "description": "Use p.Display instead of p.CanonicalTypeTextForSorting for signature help"
+    },
+    {
+      "issue": 0,
+      "branch": "repo-assist/release-v0.84.0",
+      "date": "2026-02-23",
+      "status": "pr_created",
+      "description": "Changelog update for v0.84.0 release prep"
     }
   ],
   "stale_pr_nudges": [
     {"pr": 1252, "date": "2026-02-22", "author": "nojaf"},
     {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
   ],
+  "user_checked_off_items": [
+    {"type": "pr", "number": 1453, "date": "2026-02-23", "note": "Merged"},
+    {"type": "pr", "number": 1454, "date": "2026-02-23", "note": "Merged"},
+    {"type": "pr", "number": 1455, "date": "2026-02-23", "note": "Merged"},
+    {"type": "issue_close", "number": 706, "date": "2026-02-22"},
+    {"type": "issue_close", "number": 715, "date": "2026-02-22"},
+    {"type": "issue_close", "number": 822, "date": "2026-02-22"},
+    {"type": "issue_close", "number": 1026, "date": "2026-02-22"},
+    {"type": "issue_close", "number": 1194, "date": "2026-02-22"},
+    {"type": "check_comment", "number": 1415, "date": "2026-02-22"},
+    {"type": "check_comment", "number": 1322, "date": "2026-02-22"}
+  ],
   "welcomed_contributors": [],
-  "notes": "Run 17 done. Fixed #1029 (parameter type display using CanonicalTypeTextForSorting). Commented on #822 (union cases already separate lines - suggest close), #744 (FCS GetMethods limitation for curried functions - outlined fix). Monthly summary issue #1450 updated. 8 Repo Assist PRs open (#1449,#1452-#1458). Latest release v0.83.0 from 2026-02-04. Next run priorities: Task 4 (deps), Task 8 (release prep), continue backlog from #745 onwards."
+  "notes": "Run 18 done (2026-02-23). Task 8: Created release prep PR for v0.84.0 (CHANGELOG update). Task 1: Commented on #865 (missing SourceLink->decompile fallback). Task 5: PRs #1452-#1455 all merged. Remaining open Repo Assist PRs: #1449, #1456, #1457, #1458. Monthly summary #1450 updated. Next run priorities: Task 4 (deps - never done), Task 9 (welcome new contributors), Task 2 (fix issues), continue backlog from #871 onwards."
 }
