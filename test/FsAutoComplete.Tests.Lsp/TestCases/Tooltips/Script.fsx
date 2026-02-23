@@ -109,3 +109,7 @@ type GenericFunctionTupleAlias<'T> = 'T -> ('T * string)
 type StructTupleAlias = (struct (int * string))
 type StructFunctionTupleAlias = int -> (struct (int * string))
 let functionAliasValue: FunctionAlias = fun _ -> 2
+
+// Nullable reference types (F# 9 | null syntax) — issue #1352
+let nullableStringVal: string | null = null
+let returnsNullable (s: string) : string | null = null

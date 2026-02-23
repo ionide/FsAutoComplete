@@ -604,7 +604,16 @@ let tooltipTests state =
 
           verifySignature 109u 7u "type StructFunctionTupleAlias = Int32 -> struct (Int32 * String)"
 
-          verifySignature 110u 7u "val functionAliasValue: int -> int" ] ]
+          verifySignature 110u 7u "val functionAliasValue: int -> int"
+
+          // Nullable reference types (F# 9 | null syntax) — regression for issue #1352.
+          // Hover must show `string | null`, not just `string`.
+          verifySignature 113u 4u "val nullableStringVal: string | null"
+
+          verifySignature
+            114u
+            4u
+            (concatLines [ "val returnsNullable:"; "   s: string"; "   -> string | null" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

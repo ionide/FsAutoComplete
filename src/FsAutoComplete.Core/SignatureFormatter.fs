@@ -148,7 +148,13 @@ module SignatureFormatter =
         else
           sprintf "%s<%s>" (FSharpKeywords.NormalizeIdentifierBackticks typeDef.DisplayName) genericArgs
       else if typ.HasTypeDefinition then
-        FSharpKeywords.NormalizeIdentifierBackticks typ.TypeDefinition.DisplayName
+        if typ.HasNullAnnotation then
+          // Use typ.Format to preserve explicit nullability annotations (e.g. `string | null`).
+          // Only do this when HasNullAnnotation is true to avoid side-effects like
+          // changing `Expr` to `Quotations.Expr` or `obj` to `objnull` for unannotated types.
+          typ.Format context
+        else
+          FSharpKeywords.NormalizeIdentifierBackticks typ.TypeDefinition.DisplayName
       else
         typ.Format context
     with _ ->
