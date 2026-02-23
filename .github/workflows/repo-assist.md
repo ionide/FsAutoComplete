@@ -21,6 +21,7 @@ on:
   reaction: "eyes"
 
 timeout-minutes: 60
+runs-on: ubuntu-latest
 
 permissions: read-all
 
