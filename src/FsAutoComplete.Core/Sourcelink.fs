@@ -46,16 +46,43 @@ type private Document =
     Language: System.Guid
     IsEmbedded: bool }
 
-let private compareRepoPath (d: Document) targetFile =
-  if Environment.isWindows then
-    let s = UMX.untag d.Name
-    let s' = normalizePath s |> UMX.untag
-    let s' = UMX.tag<NormalizedRepoPathSegment> s'
-    s' = targetFile
-  else
-    let t = UMX.untag targetFile |> UMX.tag<RepoPathSegment>
-    let t' = normalizeRepoPath t
-    normalizeRepoPath d.Name = t'
+let private compareRepoPath (d: Document) fcsPath =
+  // The fcsPath is the full path from FCS (normalized, backslashes converted to forward slashes).
+  // FCS may prepend a workspace prefix if the PDB path wasn't absolute on this platform.
+  // The d.Name is a PDB document entry (the original path from when the DLL was compiled).
+  //
+  // The PDB document should be a SUFFIX of (or equal to) the FCS path:
+  // - FCS path: /workspaces/project/D:/a/_work/1/s/src/FSharp.Core/list.fs
+  // - PDB doc:                      D:/a/_work/1/s/src/FSharp.Core/list.fs
+  //   → fcsPath.EndsWith("/" + pdbDoc) = true
+  //
+  // - FCS path: /__w/1/s/src/fsharp/src/FSharp.Core/list.fs
+  // - PDB doc:  /__w/1/s/src/fsharp/src/FSharp.Core/list.fs
+  //   → fcsPath == pdbDoc = true
+
+  let docNormalized: string<NormalizedRepoPathSegment> =
+    if Environment.isWindows then
+      let s = UMX.untag d.Name
+      let normalized = normalizePath s |> UMX.untag
+      // Convert backslashes to forward slashes for consistent comparison
+      UMX.tag<NormalizedRepoPathSegment> (normalized.Replace("\\", "/"))
+    else
+      normalizeRepoPath d.Name
+
+  let fcsNormalized: string<NormalizedRepoPathSegment> =
+    if Environment.isWindows then
+      fcsPath
+    else
+      let t: string = UMX.untag fcsPath
+      let tagged: string<RepoPathSegment> = UMX.tag<RepoPathSegment> t
+      normalizeRepoPath tagged
+
+  let docStr = UMX.untag docNormalized
+  let fcsStr = UMX.untag fcsNormalized
+
+  // PDB doc should be suffix of (or equal to) FCS path
+  fcsStr = docStr
+  || fcsStr.EndsWith("/" + docStr, System.StringComparison.Ordinal)
 
 let private pdbForDll (dllPath: string<LocalPath>) =
   UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
