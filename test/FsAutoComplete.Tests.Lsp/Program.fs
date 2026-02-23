@@ -147,7 +147,9 @@ let generalTests =
     "general"
     [ testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
       InlayHintTests.explicitTypeInfoTests sourceTextFactory
-      FindReferences.tryFixupRangeTests sourceTextFactory ]
+      FindReferences.tryFixupRangeTests sourceTextFactory
+      UtilsTests.allTests
+      LspHelpersTests.allTests ]
 
 [<Tests>]
 let tests =
