@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.84.0] - 2026-02-23
+
+### Added
+
+- [Add `FSharp.notifications.backgroundServiceProgress` config option to suppress background analyzer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1452)
+
+### Fixed
+
+- [Fix SourceLink go-to-definition failure when .NET 10 is used on Linux](https://github.com/ionide/FsAutoComplete/pull/1441) (thanks @serefarikan!)
+- [Fix missing `{` completion trigger character for interpolated string expressions](https://github.com/ionide/FsAutoComplete/pull/1454)
+- [Fix non-ASCII path characters encoded incorrectly in file URIs](https://github.com/ionide/FsAutoComplete/pull/1455)
+- [Fix spurious rename of `get`/`set` accessor keywords when renaming a property](https://github.com/ionide/FsAutoComplete/pull/1453)
+
 ## [0.83.0] - 2026-02-04
 
 ### Added
