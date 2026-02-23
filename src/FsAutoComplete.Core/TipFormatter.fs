@@ -793,7 +793,30 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
   let seeAlso =
     doc.DocumentElement.GetElementsByTagName "seealso"
     |> Seq.cast<XmlNode>
-    |> Seq.map (fun node -> "* `" + Format.extractMemberText node.Attributes.[0].InnerText + "`")
+    |> Seq.choose (fun node ->
+      let attrs =
+        if node.Attributes <> null then
+          [ for i in 0 .. node.Attributes.Count - 1 ->
+              node.Attributes.[i].Name.ToLowerInvariant(), node.Attributes.[i].InnerText ]
+          |> Map.ofList
+        else
+          Map.empty
+
+      match Map.tryFind "cref" attrs with
+      | Some cref -> Some("* `" + Format.extractMemberText cref + "`")
+      | None ->
+        match Map.tryFind "href" attrs with
+        | Some href ->
+          let innerText = node.InnerText.Trim()
+
+          if String.IsNullOrEmpty innerText then
+            Some $"* [{href}]({href})"
+          else
+            Some $"* [{innerText}]({href})"
+        | None ->
+          match Map.tryFind "langword" attrs with
+          | Some langword -> Some $"* `{langword}`"
+          | None -> None)
 
   override x.ToString() =
     summary
