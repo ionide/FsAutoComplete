@@ -110,7 +110,11 @@ let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sou
                   |> List.map (fun t ->
                     let formattedType = t.Format(symbolUse.DisplayContext)
 
-                    if t.IsFunctionType then
+                    // Wrap in parens if the segment is a function type, or if its
+                    // formatted string contains " -> " (e.g. a tuple whose component
+                    // is a function type, such as `int * (unit -> 'c)`).  Without
+                    // parens the reconstructed annotation would be ambiguous.
+                    if t.IsFunctionType || formattedType.Contains(" -> ") then
                       $"({formattedType})"
                     else
                       formattedType)
