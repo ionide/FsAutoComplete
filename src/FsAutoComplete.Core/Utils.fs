@@ -614,17 +614,22 @@ type Path with
             uri.Append('/')
             length <- length + 1
           else
-            uri.Append('%')
-            let buffer = SpanOwner<char>.Allocate 2
-            let mutable out = 0
+            // Encode using UTF-8 bytes so that non-ASCII chars (e.g. accented letters)
+            // produce correct multi-byte sequences like %C3%B3 rather than %F3.
+            let bytes = Text.Encoding.UTF8.GetBytes(string c)
 
-            try
-              (int c).TryFormat(buffer.Span, &out, "X2") |> ignore
-              uri.Append(buffer.Span)
-            finally
-              buffer.Dispose()
+            for b in bytes do
+              uri.Append('%')
+              let buffer = SpanOwner<char>.Allocate 2
+              let mutable out = 0
 
-            length <- length + 2
+              try
+                (int b).TryFormat(buffer.Span, &out, "X2") |> ignore
+                uri.Append(buffer.Span)
+              finally
+                buffer.Dispose()
+
+            length <- length + (bytes.Length * 3)
 
         let file =
           if uri.Length >= 2 && uri.[0] = '/' && uri.[1] = '/' then // UNC path

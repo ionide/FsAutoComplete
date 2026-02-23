@@ -73,7 +73,17 @@ let uriTests =
       "file:///Users/carlyrae/oss/f%23test", "/Users/carlyrae/oss/f#test" // escaped chars, unix-root
       "file:///c%3A/carly rae/oss/f%23test", "c:/carly rae/oss/f#test" // spaces and escaped chars, windows-root
       "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-root
-      "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs" ]
+      "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
+      // unicode (accented chars) in path — .NET Uri normalises %C3%B3 back to ó in its string representation
+      "file:///home/user/c\u00F3digo/Program.fs", "/home/user/c\u00F3digo/Program.fs" ]
+
+  // Separate tests that verify FilePathToUri emits correct UTF-8 percent-encoded sequences
+  // without the normalisation that Uri.ToString() applies.
+  let unicodeEncodingTests =
+    [ test "FilePathToUri encodes accented chars as UTF-8 percent sequences" {
+        let uri = Path.FilePathToUri "/home/user/c\u00F3digo/Program.fs"
+        Expect.equal uri "file:///home/user/c%C3%B3digo/Program.fs" "ó (U+00F3) must encode as %C3%B3 (UTF-8), not %F3"
+      } ]
 
   testList
     "Uri tests"
@@ -81,7 +91,8 @@ let uriTests =
       testList
         "fileName to uri tests"
         (samples
-         |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm)) ]
+         |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
+      testList "unicode encoding tests" unicodeEncodingTests ]
 
 /// Tests for linter
 let linterTests state =
