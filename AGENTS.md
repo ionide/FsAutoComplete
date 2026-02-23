@@ -213,8 +213,9 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 ### Before Submitting Changes
 1. Ensure all tests pass: `dotnet test`
 2. Run code formatting: `dotnet fantomas src/ test/`
-3. Verify the solution builds cleanly
-4. Test your changes with a real F# project if possible
+3. ALWAYS add test cases for changes, run them and report results in PRs
+4. Verify the solution builds cleanly
+5. Test your changes with a real F# project if possible
 
 ### Code Review Focus Areas
 - Correctness of F# language analysis
