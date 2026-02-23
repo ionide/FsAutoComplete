@@ -713,4 +713,34 @@ let tests state =
             """
           let rec a b = b - 1
           and c (d: int) (e: int) : int = d - e
+          """
+
+          // Regression tests for https://github.com/ionide/FsAutoComplete/issues/1340:
+          // When a return-type segment is a tuple type that contains a function type
+          // (e.g. `int * (unit -> int)`), FCS formats it without parens around the inner
+          // function (`int * unit -> int`).  Joining two such segments with ` -> ` gives
+          // an ambiguous annotation that causes a compile error.  The fix wraps any
+          // segment whose formatted string already contains ` -> ` in extra parentheses.
+          testCaseAsync "add return type annotation with tuple-containing-function segment"
+          <| CodeFix.check
+            server
+            """
+          let f1$0 n = fun pair -> fst pair + (snd pair) () + n
+          """
+            Diagnostics.acceptAll
+            selectCodeFix
+            """
+          let f1 (n: int) : (int * (unit -> int)) -> int = fun pair -> fst pair + (snd pair) () + n
+          """
+
+          testCaseAsync "add return type annotation with multi-segment tuple-containing-function"
+          <| CodeFix.check
+            server
+            """
+          let f2$0 () = fun pair -> fst pair + (snd pair) ()
+          """
+            Diagnostics.acceptAll
+            selectCodeFix
+            """
+          let f2 () : (int * (unit -> int)) -> int = fun pair -> fst pair + (snd pair) ()
           """ ] ])
