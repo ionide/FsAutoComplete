@@ -700,7 +700,8 @@ type InlineValueDto =
 
 type NotificationsDto =
   { Trace: bool option
-    TraceNamespaces: string array option }
+    TraceNamespaces: string array option
+    BackgroundServiceProgress: bool option }
 
 type FSACDto =
   {
@@ -791,22 +792,26 @@ type InlineValuesConfig =
 
 type NotificationsConfig =
   { Trace: bool
-    TraceNamespaces: string array }
+    TraceNamespaces: string array
+    BackgroundServiceProgress: bool }
 
   static member Default =
     { Trace = false
-      TraceNamespaces = [||] }
+      TraceNamespaces = [||]
+      BackgroundServiceProgress = false }
 
   static member FromDto(dto: NotificationsDto) : NotificationsConfig =
     let defaultConfig = NotificationsConfig.Default
 
     { Trace = defaultArg dto.Trace defaultConfig.Trace
-      TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces }
+      TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress defaultConfig.BackgroundServiceProgress }
 
 
   member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
     { Trace = defaultArg dto.Trace this.Trace
-      TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces }
+      TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress this.BackgroundServiceProgress }
 
 type FSACConfig =
   {

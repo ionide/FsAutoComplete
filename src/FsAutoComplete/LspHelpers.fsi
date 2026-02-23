@@ -282,7 +282,8 @@ type InlineValueDto =
 
 type NotificationsDto =
   { Trace: bool option
-    TraceNamespaces: string array option }
+    TraceNamespaces: string array option
+    BackgroundServiceProgress: bool option }
 
 type FSACDto =
   {
@@ -366,7 +367,8 @@ type InlineValuesConfig =
 
 type NotificationsConfig =
   { Trace: bool
-    TraceNamespaces: string array }
+    TraceNamespaces: string array
+    BackgroundServiceProgress: bool }
 
   static member Default: NotificationsConfig
   static member FromDto: dto: NotificationsDto -> NotificationsConfig
