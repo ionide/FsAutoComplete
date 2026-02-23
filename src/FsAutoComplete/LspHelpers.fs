@@ -785,9 +785,7 @@ type InlineValuesConfig =
   { Enabled: bool option
     Prefix: string option }
 
-  static member Default =
-    { Enabled = None
-      Prefix = Some "//" }
+  static member Default = { Enabled = None; Prefix = Some "//" }
 
 type NotificationsConfig =
   { Trace: bool
