@@ -255,7 +255,7 @@ module Helpers =
         CompletionProvider =
           Some
             { ResolveProvider = Some true
-              TriggerCharacters = Some([| "."; "'" |])
+              TriggerCharacters = Some([| "."; "'"; "{" |])
               AllCommitCharacters = None //TODO: what chars should commit completions?
               CompletionItem = None
               WorkDoneProgress = Some false }
