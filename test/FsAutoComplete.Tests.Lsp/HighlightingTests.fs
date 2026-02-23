@@ -151,4 +151,26 @@ let tests state =
           tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights // the `string` type annotation in the PooPoo srtp member
           tokenIsOfType (6u, 21u) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
           tokenIsOfType (9u, 10u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights //the `SomeJson` type alias should be a type
-          tokenIsOfType (15u, 2u) ClassificationUtils.SemanticTokenTypes.Module fullHighlights ] ] // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
+          tokenIsOfType (15u, 2u) ClassificationUtils.SemanticTokenTypes.Module fullHighlights // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
+
+          // Regression test for https://github.com/ionide/FsAutoComplete/issues/1407:
+          // A file containing a multiline string literal must not produce any decoded token
+          // whose end column is unreasonably far from its start column (which would indicate
+          // a uint32 underflow from the old tokenLen = uint32(End.Character - Start.Character)
+          // on a multiline range). If the fix is reverted, the decoded range for a multiline
+          // string would have endCol = startCol + ~4294967290, and the editor would freeze.
+          testCaseAsync
+            "no uint32 underflow in decoded token ranges when file contains a multiline string"
+            (async {
+              let! highlights = fullHighlights
+
+              let maxReasonableTokenLen = 1_000u
+
+              for (r, _tokenType, _tokenMods) in highlights do
+                let tokenLen = r.End.Character - r.Start.Character
+
+                Expect.isLessThan
+                  tokenLen
+                  maxReasonableTokenLen
+                  $"Token length {tokenLen} is unreasonably large (possible uint32 underflow from multiline range {r})"
+            }) ] ]

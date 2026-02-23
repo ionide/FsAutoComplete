@@ -14,3 +14,12 @@ module Foo =
 
 let myFoo x y =
   Foo.x x y
+
+// Multiline string: exercises the fix for uint32 underflow in semantic token encoding.
+// Before the fix, FCS would return a multiline SemanticClassificationItem for this token,
+// causing tokenLen = uint32(End.Character - Start.Character) to underflow for multiline ranges.
+let multilineString =
+  """this is a
+multiline string literal"""
+
+let afterMultiline = 42

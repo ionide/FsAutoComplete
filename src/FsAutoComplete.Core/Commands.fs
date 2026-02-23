@@ -1114,6 +1114,10 @@ module Commands =
 
     highlights
     |> Array.sortBy startToken
+    // LSP semantic tokens require single-line ranges; multiline tokens cause integer underflow
+    // when computing token length (End.Character - Start.Character wraps for uint32).
+    // Filter them out here since they cannot be represented correctly.
+    |> Array.filter (fun m -> m.Range.StartLine = m.Range.EndLine)
     |> Array.groupBy (fun m -> m.Range.StartLine)
     |> Array.collect (fun (_, highlights) ->
 
