@@ -44,7 +44,7 @@
       "issue": 1381,
       "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
       "date": "2026-02-24",
-      "status": "pr_created",
+      "status": "ci_passed",
       "pr_number": 1466,
       "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations"
     },
@@ -52,15 +52,15 @@
       "issue": 1415,
       "branch": "repo-assist/fix-inheritdoc-cref-resolution-566b0061d2229b57",
       "date": "2026-02-24",
-      "status": "pr_created",
+      "status": "ci_passed",
       "pr_number": 1468,
       "description": "Resolve <inheritdoc cref=\"...\"> in XML doc tooltips for external assemblies — TipFormatter.fs InheritDocCref resolution"
     },
     {
       "issue": 744,
-      "branch": "repo-assist/fix-issue-744-sighelp-curried-params",
+      "branch": "repo-assist/fix-issue-744-sighelp-curried-params-5e6618c38510d419",
       "date": "2026-02-24",
-      "status": "pr_created",
+      "status": "ci_passed",
       "pr_number": 1469,
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
@@ -68,6 +68,6 @@
   "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": 1100,
-  "notes": "Feb 2026 run (22373982336): Scanned issues 900-1464. No new comments needed. #1307 already commented. Key unvisited older issues: #900 LSIF, #944 syntax highlighting, #1011 sourcelink failures, #1017 configurable codefixes, #1019 smarter record completion, #1032 ClientCapabilities, #1109 Replit. Cursor advanced to 1100. Open PRs still pending CI: #1460, #1465, #1466, #1468, #1469."
+  "issue_backlog_cursor": 1310,
+  "notes": "Feb 2026 run (22374321791): Scanned issues 1100-1309. No new comments needed. CI passed for PRs #1466, #1468, #1469. All open Repo Assist PRs: #1460 (superseded, stale), #1465 (changelog), #1466 (null semantic token, CI pass), #1468 (inheritdoc, CI pass), #1469 (sig help, CI pass). Cursor advanced to 1310. Unvisited issues in 1100-1309: #1224, #1225, #1247, #1254 (maintainers already active on all, no value to add)."
 }
