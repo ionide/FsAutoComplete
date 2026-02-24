@@ -55,10 +55,18 @@
       "status": "pr_created",
       "pr_number": 1468,
       "description": "Resolve <inheritdoc cref=\"...\"> in XML doc tooltips for external assemblies — TipFormatter.fs InheritDocCref resolution"
+    },
+    {
+      "issue": 744,
+      "branch": "repo-assist/fix-issue-744-sighelp-curried-params",
+      "date": "2026-02-24",
+      "status": "pr_created",
+      "pr_number": 1469,
+      "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 865, 1027, 1227, 1280, 1352, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 865, 1027, 1227, 1280, 1322, 1352, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": 333,
-  "notes": "Feb 2026 run batch: PR #1468 created for inheritdoc cref fix. Monthly summary updated. Commented on #1408 linking to Copilot PR #1409."
+  "notes": "Feb 2026 run batch: PR #1469 created to fix #744 (curried params in sighelp). Monthly summary updated. Note: PR #1469 number is estimated — verify next run."
 }
