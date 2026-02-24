@@ -65,8 +65,8 @@
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 865, 1027, 1227, 1280, 1322, 1352, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 865, 1027, 1227, 1280, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": 333,
-  "notes": "Feb 2026 run batch: PR #1469 created to fix #744 (curried params in sighelp). Monthly summary updated. Note: PR #1469 number is estimated — verify next run."
+  "issue_backlog_cursor": 480,
+  "notes": "Feb 2026 run: Labelled #480 (help wanted) and #1354 (help wanted, needs investigation). CI on PRs #1466, #1468, #1469 still pending. All major fix PRs open for review."
 }
