@@ -65,8 +65,8 @@
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": 480,
-  "notes": "Feb 2026 run: Commented on #1271 with 'Introduce missing binding' code fix implementation guidance. CI still pending on PRs #1466, #1468, #1469. All major fix PRs open for review."
+  "issue_backlog_cursor": 745,
+  "notes": "Feb 2026 run: Commented on #745 with tupled-param parens approach (related to #744/#1469). CI still pending on PRs #1466, #1468, #1469. All major fix PRs open for review."
 }
