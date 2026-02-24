@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Script.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="InheritDocLib\InheritDocLib.csproj" />
+  </ItemGroup>
+</Project>

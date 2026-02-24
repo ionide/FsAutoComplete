@@ -138,6 +138,7 @@ let lspTests =
                   EmptyFileTests.tests createServer
                   CallHierarchy.tests createServer
                   diagnosticsTest createServer
+                  InheritDocTooltipTests.tests createServer
 
                   TestExplorer.tests createServer ] ] ]
 
