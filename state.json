@@ -1,23 +1,23 @@
 {
-  "last_run": "2026-02-23",
+  "last_run": "2026-02-24",
   "monthly_activity_issue": {
     "number": 1450,
     "month": "2026-02"
   },
   "tasks_last_run": {
-    "task1": "2026-02-23",
+    "task1": "2026-02-24",
     "task2": "2026-02-23",
     "task3": "2026-02-23",
     "task4": null,
-    "task5": "2026-02-23",
+    "task5": "2026-02-24",
     "task6": "2026-02-22",
-    "task7": "2026-02-23",
+    "task7": "2026-02-24",
     "task8": "2026-02-23",
     "task9": "2026-02-23",
     "task10": "2026-02-23",
-    "task11": "2026-02-23"
+    "task11": "2026-02-24"
   },
-  "issue_backlog_cursor": 900,
+  "issue_backlog_cursor": 925,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true},
     {"number": 1444, "date": "2026-02-22"},
@@ -48,7 +48,8 @@
     {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
     {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback"},
     {"number": 1352, "date": "2026-02-23", "note": "Root cause analysis for nullable tooltip bug; fix PR created"},
-    {"number": 1027, "date": "2026-02-23", "note": "Noted seealso href/langword improvement and follow-up work"}
+    {"number": 1027, "date": "2026-02-23", "note": "Noted seealso href/langword improvement and follow-up work"},
+    {"number": 1464, "date": "2026-02-24", "note": "Noted Bolero HTML Templates are type providers - relevant to high CPU"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -67,7 +68,8 @@
     {"number": 1203, "labels": ["help wanted"], "date": "2026-02-23"},
     {"number": 1225, "labels": ["help wanted"], "date": "2026-02-23"},
     {"number": 1352, "labels": ["help wanted"], "date": "2026-02-23"},
-    {"number": 1362, "labels": ["needs investigation"], "date": "2026-02-23"}
+    {"number": 1362, "labels": ["needs investigation"], "date": "2026-02-23"},
+    {"number": 1330, "labels": ["help wanted"], "date": "2026-02-24"}
   ],
   "fix_attempts": [
     {
@@ -162,8 +164,8 @@
       "issue": 1027,
       "branch": "repo-assist/fix-seealso-href-rendering",
       "date": "2026-02-23",
-      "status": "pr_created",
-      "pr_number": null,
+      "status": "merged",
+      "pr_number": 1463,
       "description": "Handle href and langword in seealso XML doc rendering in TipFormatter.fs"
     }
   ],
@@ -180,6 +182,8 @@
     {"type": "pr", "number": 1457, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
     {"type": "pr", "number": 1458, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
     {"type": "pr", "number": 1461, "date": "2026-02-23", "note": "Checked off [x] in monthly issue; PR closed (merged/rejected)"},
+    {"type": "pr", "number": 1463, "date": "2026-02-24", "note": "Merged: seealso href/langword rendering fix"},
+    {"type": "pr", "number": 1353, "date": "2026-02-24", "note": "Closed (not merged) - checked off in monthly issue"},
     {"type": "issue_close", "number": 706, "date": "2026-02-22"},
     {"type": "issue_close", "number": 715, "date": "2026-02-22"},
     {"type": "issue_close", "number": 822, "date": "2026-02-22"},
@@ -189,8 +193,9 @@
     {"type": "check_comment", "number": 1322, "date": "2026-02-22"},
     {"type": "check_comment", "number": 744, "date": "2026-02-23"},
     {"type": "check_comment", "number": 865, "date": "2026-02-23"},
-    {"type": "check_comment", "number": 1352, "date": "2026-02-23"}
+    {"type": "check_comment", "number": 1352, "date": "2026-02-23"},
+    {"type": "check_comment", "number": 1027, "date": "2026-02-24", "note": "Checked off in monthly issue"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 20 done (2026-02-23). Task 3/10: Created PR for seealso href/langword rendering fix in TipFormatter.fs - Seq.choose replacing Seq.map to handle cref/href/langword/empty properly. Task 7: Labelled #1362 with needs-investigation. Task 1: Commented on #1027. Task 11: Updated monthly summary #1450. Issue #1362 has upstream fix in dotnet/fsharp#18350. No new contributors found. Open Repo Assist PRs: #1460 (changelog), seealso fix (number unknown yet). Cursor moved to #900. Task 4 still never done (needs network for NuGet API)."
+  "notes": "Run 21 done (2026-02-24). Task 1: Commented on #1464 with Bolero HTML Templates = type providers insight (directly relevant to maintainer's Q about type providers). Task 7: Labelled #1330 with help wanted. Task 5: PR #1463 merged (seealso fix), PR #1460 still open (changelog). Task 11: Updated monthly summary #1450 - removed checked-off items, added new run entry. Cursor moved to #925. Task 4 still never done. PR #1353 closed without merge on 2026-02-24."
 }
