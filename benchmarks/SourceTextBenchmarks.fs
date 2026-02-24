@@ -12,10 +12,13 @@ module Helpers =
   open FSharp.UMX
   open System.Collections.Generic
 
+  // Generate synthetic file content for cross-platform benchmarking
   let fileContents =
-    IO.File.ReadAllText(
-      @"C:\Users\jimmy\Repositories\public\TheAngryByrd\span-playground\Romeo and Juliet by William Shakespeare.txt"
-    )
+    let lines =
+      [ 1..1000 ]
+      |> List.map (fun i -> sprintf "let value%d = %d // This is line %d with some text content" i i i)
+
+    String.concat "\n" lines
 
 
 
@@ -55,7 +58,7 @@ open Helpers
 open BenchmarkDotNet.Jobs
 
 [<MemoryDiagnoser>]
-[<SimpleJob(RuntimeMoniker.Net70)>]
+[<SimpleJob(RuntimeMoniker.Net80)>]
 type SourceText_LineChanges_Benchmarks() =
 
   [<Params(1, 15, 50, 100, 1000)>]
