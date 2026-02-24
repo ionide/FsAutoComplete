@@ -1,12 +1,10 @@
 {
-  "last_run": "2026-02-24",
-  "monthly_activity_issue": {
-    "number": 1450,
-    "month": "2026-02"
-  },
+  "last_run": "2026-03-07",
+  "monthly_issue": null,
+  "monthly_month": "2026-03",
   "tasks_last_run": {
     "task1": "2026-02-24",
-    "task2": "2026-02-23",
+    "task2": "2026-03-07",
     "task3": "2026-02-23",
     "task4": "2026-02-24",
     "task5": "2026-02-24",
@@ -15,141 +13,9 @@
     "task8": "2026-02-23",
     "task9": "2026-02-23",
     "task10": "2026-02-23",
-    "task11": "2026-02-24"
+    "task11": "2026-03-07"
   },
-  "issue_backlog_cursor": 1380,
-  "commented_issues": [
-    {"number": 1407, "date": "2026-02-22", "pr_created": true},
-    {"number": 1444, "date": "2026-02-22"},
-    {"number": 716, "date": "2026-02-22"},
-    {"number": 1259, "date": "2026-02-22"},
-    {"number": 1381, "date": "2026-02-22"},
-    {"number": 1437, "date": "2026-02-22"},
-    {"number": 1431, "date": "2026-02-22"},
-    {"number": 1415, "date": "2026-02-22"},
-    {"number": 1414, "date": "2026-02-22"},
-    {"number": 1097, "date": "2026-02-22"},
-    {"number": 1269, "date": "2026-02-22"},
-    {"number": 1322, "date": "2026-02-22"},
-    {"number": 1307, "date": "2026-02-22"},
-    {"number": 962, "date": "2026-02-22"},
-    {"number": 840, "date": "2026-02-22"},
-    {"number": 1194, "date": "2026-02-22"},
-    {"number": 1214, "date": "2026-02-22"},
-    {"number": 1340, "date": "2026-02-22"},
-    {"number": 706, "date": "2026-02-22"},
-    {"number": 715, "date": "2026-02-22"},
-    {"number": 1026, "date": "2026-02-22"},
-    {"number": 733, "date": "2026-02-22"},
-    {"number": 1029, "date": "2026-02-22"},
-    {"number": 822, "date": "2026-02-22"},
-    {"number": 744, "date": "2026-02-22"},
-    {"number": 1252, "date": "2026-02-22", "note": "Stale PR nudge"},
-    {"number": 1333, "date": "2026-02-22", "note": "Stale PR nudge"},
-    {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback"},
-    {"number": 1352, "date": "2026-02-23", "note": "Root cause analysis for nullable tooltip bug; fix PR created"},
-    {"number": 1027, "date": "2026-02-23", "note": "Noted seealso href/langword improvement and follow-up work"},
-    {"number": 1464, "date": "2026-02-24", "note": "Noted Bolero HTML Templates are type providers - relevant to high CPU"},
-    {"number": 1227, "date": "2026-02-24", "note": "Outlined feasibility and approach for Extract Interface code fix"},
-    {"number": 1280, "date": "2026-02-24", "note": "Summarised trade-offs for migrating from Paket to NuGet CPM"},
-    {"number": 1440, "date": "2026-02-24", "note": "Stale PR nudge (29 days inactive)"},
-    {"number": 1341, "date": "2026-02-24", "note": "Stale PR nudge (stale since Dec 2025)"}
-  ],
-  "labelled_issues": [
-    {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
-    {"number": 1437, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
-    {"number": 1340, "labels": ["bug"], "date": "2026-02-22"},
-    {"number": 1414, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1415, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1269, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1322, "labels": ["enhancement", "help wanted"], "date": "2026-02-22"},
-    {"number": 1307, "labels": ["needs investigation"], "date": "2026-02-22"},
-    {"number": 1194, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1214, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1271, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1310, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1408, "labels": ["help wanted"], "date": "2026-02-22"},
-    {"number": 1203, "labels": ["help wanted"], "date": "2026-02-23"},
-    {"number": 1225, "labels": ["help wanted"], "date": "2026-02-23"},
-    {"number": 1352, "labels": ["help wanted"], "date": "2026-02-23"},
-    {"number": 1362, "labels": ["needs investigation"], "date": "2026-02-23"},
-    {"number": 1330, "labels": ["help wanted"], "date": "2026-02-24"},
-    {"number": 1227, "labels": ["enhancement", "help wanted"], "date": "2026-02-24"},
-    {"number": 1359, "labels": ["enhancement"], "date": "2026-02-24"}
-  ],
   "fix_attempts": [
-    {
-      "issue": 1407,
-      "branch": "repo-assist/fix-issue-1407-semantic-token-multiline-underflow",
-      "date": "2026-02-22",
-      "status": "pr_created",
-      "pr_number": 1449,
-      "description": "Fix uint32 underflow in semantic token length for multiline ranges"
-    },
-    {
-      "issue": 1306,
-      "branch": "repo-assist/fix-issue-1306-readme-remove-deprecated-option",
-      "date": "2026-02-22",
-      "status": "merged",
-      "pr_number": 1451,
-      "description": "Remove deprecated --background-service-enabled from README"
-    },
-    {
-      "issue": 1431,
-      "branch": "repo-assist/improve-background-service-progress",
-      "date": "2026-02-22",
-      "status": "merged",
-      "pr_number": 1452,
-      "description": "Add FSharp.notifications.backgroundServiceProgress config option"
-    },
-    {
-      "issue": 1269,
-      "branch": "repo-assist/fix-issue-1269-rename-skip-get-set-accessor-keywords",
-      "date": "2026-02-22",
-      "status": "merged",
-      "pr_number": 1453,
-      "description": "Filter out get/set accessor keywords in TextDocumentRename"
-    },
-    {
-      "issue": 962,
-      "branch": "repo-assist/fix-issue-962-interpolated-string-completion-trigger",
-      "date": "2026-02-22",
-      "status": "merged",
-      "pr_number": 1454,
-      "description": "Add { to TriggerCharacters for completion"
-    },
-    {
-      "issue": 840,
-      "branch": "repo-assist/fix-issue-840-unicode-path-uri-encoding",
-      "date": "2026-02-22",
-      "status": "merged",
-      "pr_number": 1455,
-      "description": "Fix FilePathToUri to encode non-ASCII chars using UTF-8 byte sequences"
-    },
-    {
-      "issue": 1214,
-      "branch": "repo-assist/fix-issue-1214-disable-inline-values-by-default-95c0e76ea5cbcd6c",
-      "date": "2026-02-22",
-      "status": "pr_created",
-      "pr_number": 1456,
-      "description": "Disable InlineValueProvider by default"
-    },
-    {
-      "issue": 1340,
-      "branch": "repo-assist/fix-issue-1340-missing-parens-in-function-type",
-      "date": "2026-02-22",
-      "status": "pr_created",
-      "pr_number": 1457,
-      "description": "Wrap segments containing ' -> ' in parens in AddExplicitTypeAnnotation"
-    },
-    {
-      "issue": 1029,
-      "branch": "repo-assist/fix-issue-1029-parameter-type-display",
-      "date": "2026-02-22",
-      "status": "pr_created",
-      "pr_number": 1458,
-      "description": "Use p.Display instead of p.CanonicalTypeTextForSorting for signature help"
-    },
     {
       "issue": 0,
       "branch": "repo-assist/release-v0.84.0",
@@ -173,39 +39,20 @@
       "status": "merged",
       "pr_number": 1463,
       "description": "Handle href and langword in seealso XML doc rendering in TipFormatter.fs"
+    },
+    {
+      "issue": 1381,
+      "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token",
+      "date": "2026-03-07",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations"
     }
   ],
-  "stale_pr_nudges": [
-    {"pr": 1252, "date": "2026-02-22", "author": "nojaf"},
-    {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"},
-    {"pr": 1440, "date": "2026-02-24", "author": "TheAngryByrd"},
-    {"pr": 1341, "date": "2026-02-24", "author": "TheAngryByrd"}
+  "commented_issues": [
+    1381
   ],
-  "user_checked_off_items": [
-    {"type": "pr", "number": 1453, "date": "2026-02-23", "note": "Merged"},
-    {"type": "pr", "number": 1454, "date": "2026-02-23", "note": "Merged"},
-    {"type": "pr", "number": 1455, "date": "2026-02-23", "note": "Merged"},
-    {"type": "pr", "number": 1449, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
-    {"type": "pr", "number": 1456, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
-    {"type": "pr", "number": 1457, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
-    {"type": "pr", "number": 1458, "date": "2026-02-23", "note": "Checked off by maintainer in monthly issue"},
-    {"type": "pr", "number": 1461, "date": "2026-02-23", "note": "Checked off [x] in monthly issue; PR closed (merged/rejected)"},
-    {"type": "pr", "number": 1463, "date": "2026-02-24", "note": "Merged: seealso href/langword rendering fix"},
-    {"type": "pr", "number": 1353, "date": "2026-02-24", "note": "Closed (not merged) - checked off in monthly issue"},
-    {"type": "issue_close", "number": 706, "date": "2026-02-22"},
-    {"type": "issue_close", "number": 715, "date": "2026-02-22"},
-    {"type": "issue_close", "number": 822, "date": "2026-02-22"},
-    {"type": "issue_close", "number": 1026, "date": "2026-02-22"},
-    {"type": "issue_close", "number": 1194, "date": "2026-02-22"},
-    {"type": "check_comment", "number": 1415, "date": "2026-02-22"},
-    {"type": "check_comment", "number": 1322, "date": "2026-02-22"},
-    {"type": "check_comment", "number": 744, "date": "2026-02-23"},
-    {"type": "check_comment", "number": 865, "date": "2026-02-23"},
-    {"type": "check_comment", "number": 1352, "date": "2026-02-23"},
-    {"type": "check_comment", "number": 1027, "date": "2026-02-24", "note": "Checked off in monthly issue"},
-    {"type": "check_comment", "number": 1280, "date": "2026-02-24", "note": "Checked off [x] in monthly issue"},
-    {"type": "check_comment", "number": 1227, "date": "2026-02-24", "note": "Checked off [x] in monthly issue"}
-  ],
-  "welcomed_contributors": [],
-  "notes": "Run 23 done (2026-02-24). Task 6: Nudged stale PRs #1440 (TheAngryByrd, 29 days inactive) and #1341 (TheAngryByrd, stale since Dec 2025). Task 7: Labelled #1359 with enhancement. Task 11: Updated monthly summary #1450 - removed checked-off items #1280 and #1227 comments, added #1341 and #1440 to suggested actions. Cursor still at #1380."
+  "stale_nudges": [],
+  "issue_backlog_cursor": 1381,
+  "notes": "state.json reconstructed 2026-03-07 after accidental truncation; some historical data (full commented_issues list, prior stale nudges) was lost"
 }
