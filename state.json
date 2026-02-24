@@ -8,7 +8,7 @@
     "task1": "2026-02-24",
     "task2": "2026-02-23",
     "task3": "2026-02-23",
-    "task4": null,
+    "task4": "2026-02-24",
     "task5": "2026-02-24",
     "task6": "2026-02-22",
     "task7": "2026-02-24",
@@ -17,7 +17,7 @@
     "task10": "2026-02-23",
     "task11": "2026-02-24"
   },
-  "issue_backlog_cursor": 925,
+  "issue_backlog_cursor": 1380,
   "commented_issues": [
     {"number": 1407, "date": "2026-02-22", "pr_created": true},
     {"number": 1444, "date": "2026-02-22"},
@@ -49,7 +49,9 @@
     {"number": 865, "date": "2026-02-23", "note": "Analysed missing SourceLink->decompile fallback"},
     {"number": 1352, "date": "2026-02-23", "note": "Root cause analysis for nullable tooltip bug; fix PR created"},
     {"number": 1027, "date": "2026-02-23", "note": "Noted seealso href/langword improvement and follow-up work"},
-    {"number": 1464, "date": "2026-02-24", "note": "Noted Bolero HTML Templates are type providers - relevant to high CPU"}
+    {"number": 1464, "date": "2026-02-24", "note": "Noted Bolero HTML Templates are type providers - relevant to high CPU"},
+    {"number": 1227, "date": "2026-02-24", "note": "Outlined feasibility and approach for Extract Interface code fix"},
+    {"number": 1280, "date": "2026-02-24", "note": "Summarised trade-offs for migrating from Paket to NuGet CPM"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -69,7 +71,8 @@
     {"number": 1225, "labels": ["help wanted"], "date": "2026-02-23"},
     {"number": 1352, "labels": ["help wanted"], "date": "2026-02-23"},
     {"number": 1362, "labels": ["needs investigation"], "date": "2026-02-23"},
-    {"number": 1330, "labels": ["help wanted"], "date": "2026-02-24"}
+    {"number": 1330, "labels": ["help wanted"], "date": "2026-02-24"},
+    {"number": 1227, "labels": ["enhancement", "help wanted"], "date": "2026-02-24"}
   ],
   "fix_attempts": [
     {
@@ -197,5 +200,5 @@
     {"type": "check_comment", "number": 1027, "date": "2026-02-24", "note": "Checked off in monthly issue"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 21 done (2026-02-24). Task 1: Commented on #1464 with Bolero HTML Templates = type providers insight (directly relevant to maintainer's Q about type providers). Task 7: Labelled #1330 with help wanted. Task 5: PR #1463 merged (seealso fix), PR #1460 still open (changelog). Task 11: Updated monthly summary #1450 - removed checked-off items, added new run entry. Cursor moved to #925. Task 4 still never done. PR #1353 closed without merge on 2026-02-24."
+  "notes": "Run 22 done (2026-02-24). Task 1: Commented on #1227 (Extract Interface feasibility) and #1280 (NuGet CPM trade-offs). Task 4: Attempted - no Dependabot PRs (Paket-based); pinned versions noted: FCS 43.10.101, Fantomas.Client 0.9.1, Ionide.ProjInfo 0.74.1, FsToolkit 4.18, IcedTasks 0.11.7. Cannot check newer versions without network. Task 7: Labelled #1227 with enhancement+help wanted. Task 11: Updated monthly summary #1450. Cursor moved to #1380."
 }
