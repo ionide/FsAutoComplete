@@ -10,7 +10,7 @@
     "task3": "2026-02-23",
     "task4": "2026-02-24",
     "task5": "2026-02-24",
-    "task6": "2026-02-22",
+    "task6": "2026-02-24",
     "task7": "2026-02-24",
     "task8": "2026-02-23",
     "task9": "2026-02-23",
@@ -51,7 +51,9 @@
     {"number": 1027, "date": "2026-02-23", "note": "Noted seealso href/langword improvement and follow-up work"},
     {"number": 1464, "date": "2026-02-24", "note": "Noted Bolero HTML Templates are type providers - relevant to high CPU"},
     {"number": 1227, "date": "2026-02-24", "note": "Outlined feasibility and approach for Extract Interface code fix"},
-    {"number": 1280, "date": "2026-02-24", "note": "Summarised trade-offs for migrating from Paket to NuGet CPM"}
+    {"number": 1280, "date": "2026-02-24", "note": "Summarised trade-offs for migrating from Paket to NuGet CPM"},
+    {"number": 1440, "date": "2026-02-24", "note": "Stale PR nudge (29 days inactive)"},
+    {"number": 1341, "date": "2026-02-24", "note": "Stale PR nudge (stale since Dec 2025)"}
   ],
   "labelled_issues": [
     {"number": 700, "labels": ["bug", "help wanted"], "date": "2026-02-22"},
@@ -72,7 +74,8 @@
     {"number": 1352, "labels": ["help wanted"], "date": "2026-02-23"},
     {"number": 1362, "labels": ["needs investigation"], "date": "2026-02-23"},
     {"number": 1330, "labels": ["help wanted"], "date": "2026-02-24"},
-    {"number": 1227, "labels": ["enhancement", "help wanted"], "date": "2026-02-24"}
+    {"number": 1227, "labels": ["enhancement", "help wanted"], "date": "2026-02-24"},
+    {"number": 1359, "labels": ["enhancement"], "date": "2026-02-24"}
   ],
   "fix_attempts": [
     {
@@ -174,7 +177,9 @@
   ],
   "stale_pr_nudges": [
     {"pr": 1252, "date": "2026-02-22", "author": "nojaf"},
-    {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"}
+    {"pr": 1333, "date": "2026-02-22", "author": "edgarfgp"},
+    {"pr": 1440, "date": "2026-02-24", "author": "TheAngryByrd"},
+    {"pr": 1341, "date": "2026-02-24", "author": "TheAngryByrd"}
   ],
   "user_checked_off_items": [
     {"type": "pr", "number": 1453, "date": "2026-02-23", "note": "Merged"},
@@ -197,8 +202,10 @@
     {"type": "check_comment", "number": 744, "date": "2026-02-23"},
     {"type": "check_comment", "number": 865, "date": "2026-02-23"},
     {"type": "check_comment", "number": 1352, "date": "2026-02-23"},
-    {"type": "check_comment", "number": 1027, "date": "2026-02-24", "note": "Checked off in monthly issue"}
+    {"type": "check_comment", "number": 1027, "date": "2026-02-24", "note": "Checked off in monthly issue"},
+    {"type": "check_comment", "number": 1280, "date": "2026-02-24", "note": "Checked off [x] in monthly issue"},
+    {"type": "check_comment", "number": 1227, "date": "2026-02-24", "note": "Checked off [x] in monthly issue"}
   ],
   "welcomed_contributors": [],
-  "notes": "Run 22 done (2026-02-24). Task 1: Commented on #1227 (Extract Interface feasibility) and #1280 (NuGet CPM trade-offs). Task 4: Attempted - no Dependabot PRs (Paket-based); pinned versions noted: FCS 43.10.101, Fantomas.Client 0.9.1, Ionide.ProjInfo 0.74.1, FsToolkit 4.18, IcedTasks 0.11.7. Cannot check newer versions without network. Task 7: Labelled #1227 with enhancement+help wanted. Task 11: Updated monthly summary #1450. Cursor moved to #1380."
+  "notes": "Run 23 done (2026-02-24). Task 6: Nudged stale PRs #1440 (TheAngryByrd, 29 days inactive) and #1341 (TheAngryByrd, stale since Dec 2025). Task 7: Labelled #1359 with enhancement. Task 11: Updated monthly summary #1450 - removed checked-off items #1280 and #1227 comments, added #1341 and #1440 to suggested actions. Cursor still at #1380."
 }
