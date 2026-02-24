@@ -66,7 +66,16 @@ let private functionApplicationEdgeCasesTests server =
       f 1 $0 // preserve last space
       """ Manual (fun resp ->
         match resp with
-        | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal
+            sigInfo.Parameters.Value.Length
+            2
+            "should report both curried parameters so that editors can highlight the correct one"
         | None -> failwithf "There should be sighelp for this position")
       ptestCaseAsync "issue 745 - signature help shows tuples in parens"
       <| testSignatureHelp server """
@@ -198,28 +207,24 @@ let issuesTests server =
       testCaseAsync "issue #1040" // IndexOutOfRangeException
       <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs -> Expect.isSome sigs "Should have sigs")
       testCaseAsync "issue #1029 - parameter documentation should use simplified type names not fully-qualified ones"
-      <| testSignatureHelp
-        server
-        """
+      <| testSignatureHelp server """
 let f (arr: char[]) = arr
 
 let _ = f $0
-        """
-        Manual
-        (fun sigs ->
-          Expect.isSome sigs "Should have sigs for simplified type names check"
-          let sigInfo = sigs.Value.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "Should have parameter info"
-          let param = sigInfo.Parameters.Value.[0]
+        """ Manual (fun sigs ->
+        Expect.isSome sigs "Should have sigs for simplified type names check"
+        let sigInfo = sigs.Value.Signatures.[0]
+        Expect.isSome sigInfo.Parameters "Should have parameter info"
+        let param = sigInfo.Parameters.Value.[0]
 
-          match param.Documentation with
-          | Some(U2.C1 doc) ->
-            Expect.isFalse
-              (doc.Contains("Microsoft.FSharp.Core"))
-              $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
+        match param.Documentation with
+        | Some(U2.C1 doc) ->
+          Expect.isFalse
+            (doc.Contains("Microsoft.FSharp.Core"))
+            $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
 
-            Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
-          | _ -> failwith "Expected string documentation for parameter") ]
+          Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
+        | _ -> failwith "Expected string documentation for parameter") ]
 
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server ->
