@@ -235,7 +235,27 @@ type AdaptiveFSharpLspServer
           let ty, mods = ClassificationUtils.map item.Type
           struct (fcsRangeToLsp item.Range, ty, mods))
 
-      match encodeSemanticHighlightRanges lspTypedRanges with
+      // FCS does not emit semantic tokens for the `null` keyword in nullable type
+      // annotations like `string | null`. Supplement the FCS tokens by scanning the
+      // parse tree for `SynType.WithNull` nodes and emitting a `Keyword` token for
+      // each `null` keyword found. See https://github.com/ionide/FsAutoComplete/issues/1381
+      let nullKeywordTokens =
+        NullableTypes.collectNullKeywordRanges tyRes.GetParseResults.ParseTree
+        |> Seq.choose (fun nullFcsRange ->
+          let inRange =
+            match range with
+            | None -> true
+            | Some r -> Range.rangeContainsRange r nullFcsRange
+
+          if inRange then
+            Some(struct (fcsRangeToLsp nullFcsRange, ClassificationUtils.SemanticTokenTypes.Keyword, []))
+          else
+            None)
+        |> Array.ofSeq
+
+      let allTypedRanges = Array.append lspTypedRanges nullKeywordTokens
+
+      match encodeSemanticHighlightRanges allTypedRanges with
       | None -> return None
       | Some encoded -> return (Some { Data = encoded; ResultId = None }) // TODO: provide a resultId when we support delta ranges
     }

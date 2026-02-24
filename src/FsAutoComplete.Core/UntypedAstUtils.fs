@@ -641,6 +641,33 @@ module FoldingRange =
     walkAst walker input
     walker.Ranges |> Seq.toList
 
+/// Utilities for working with nullable type annotations such as `string | null`.
+module NullableTypes =
+  open FSharp.Compiler.Text
+  open FSharp.Compiler.Syntax
+
+  type private WithNullWalker() =
+    inherit SyntaxCollectorBase()
+    let ranges = ResizeArray<Range>()
+
+    override _.WalkType t =
+      match t with
+      | SynType.WithNull(_, _, fullRange, _) when fullRange.End.Column >= 4 ->
+        // The `null` keyword is always the last 4 characters of a `T | null` expression.
+        let nullStart = Position.mkPos fullRange.End.Line (fullRange.End.Column - 4)
+        ranges.Add(Range.mkRange fullRange.FileName nullStart fullRange.End)
+      | _ -> ()
+
+    member _.Ranges = ranges
+
+  /// Collect the source ranges of the <c>null</c> keyword in nullable type annotations
+  /// such as <c>string | null</c>. The F# compiler service does not emit semantic
+  /// classification tokens for this keyword; this function supplements those tokens.
+  let collectNullKeywordRanges (ast: ParsedInput) : Range seq =
+    let walker = WithNullWalker()
+    walkAst walker ast
+    walker.Ranges :> _
+
 module Completion =
   open FSharp.Compiler.Text
   open FSharp.Compiler.Syntax
