@@ -1,28 +1,28 @@
 {
-  "last_run": "2026-03-07",
-  "monthly_issue": null,
-  "monthly_month": "2026-03",
+  "last_run": "2026-02-24",
+  "monthly_issue": 1450,
+  "monthly_month": "2026-02",
   "tasks_last_run": {
     "task1": "2026-02-24",
-    "task2": "2026-03-07",
+    "task2": "2026-02-24",
     "task3": "2026-02-23",
     "task4": "2026-02-24",
     "task5": "2026-02-24",
     "task6": "2026-02-24",
     "task7": "2026-02-24",
     "task8": "2026-02-23",
-    "task9": "2026-02-23",
+    "task9": "2026-02-24",
     "task10": "2026-02-23",
-    "task11": "2026-03-07"
+    "task11": "2026-02-24"
   },
   "fix_attempts": [
     {
       "issue": 0,
-      "branch": "repo-assist/release-v0.84.0",
-      "date": "2026-02-23",
+      "branch": "repo-assist/release-v0.84.0-updated-1e4b1660231d01ce",
+      "date": "2026-02-24",
       "status": "pr_created",
-      "pr_number": 1460,
-      "description": "Changelog update for v0.84.0 release prep"
+      "pr_number": 1465,
+      "description": "Updated v0.84.0 changelog — includes all 10 fixes merged since v0.83.0"
     },
     {
       "issue": 1352,
@@ -42,17 +42,15 @@
     },
     {
       "issue": 1381,
-      "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token",
-      "date": "2026-03-07",
+      "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
+      "date": "2026-02-24",
       "status": "pr_created",
-      "pr_number": null,
+      "pr_number": 1466,
       "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations"
     }
   ],
-  "commented_issues": [
-    1381
-  ],
-  "stale_nudges": [],
-  "issue_backlog_cursor": 1381,
-  "notes": "state.json reconstructed 2026-03-07 after accidental truncation; some historical data (full commented_issues list, prior stale nudges) was lost"
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 865, 1027, 1227, 1280, 1352, 1381, 1414, 1415, 1437, 1444, 1464],
+  "stale_nudges": [1341, 1440],
+  "issue_backlog_cursor": 333,
+  "notes": "Feb 2026 run: closed incorrect #1467 (March 2026 issue created with wrong date by prior run), updated #1450 (Feb 2026 monthly). Commented on #333 (resolve _ in generic type annotations code fix)."
 }
