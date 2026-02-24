@@ -790,6 +790,17 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
   let examples = rawExamples |> Seq.map readContentForTooltip
   let returns = rawReturns |> Option.map readContentForTooltip
 
+  /// The cref target of an <inheritdoc cref="..."/> element, if present.
+  let inheritDocCref =
+    doc.DocumentElement.GetElementsByTagName("inheritdoc")
+    |> Seq.cast<XmlNode>
+    |> Seq.tryHead
+    |> Option.bind (fun node ->
+      if node.Attributes <> null then
+        node.Attributes.["cref"] |> Option.ofObj |> Option.map (fun a -> a.InnerText)
+      else
+        None)
+
   let seeAlso =
     doc.DocumentElement.GetElementsByTagName "seealso"
     |> Seq.cast<XmlNode>
@@ -845,6 +856,9 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       "**Description**" + nl + nl + summary
 
   member __.HasTruncatedExamples = examples |> Seq.isEmpty |> not
+
+  /// Returns the cref value of an <inheritdoc cref="..."/> element, if present in this doc member.
+  member __.InheritDocCref = inheritDocCref
 
   member __.ToFullEnhancedString() =
     let content =
@@ -1047,7 +1061,15 @@ let private tryGetXmlDocMember (xmlDoc: FSharpXmlDoc) =
       match getXmlDoc dllFile with
       | Some doc ->
         match doc.TryGetValue memberName with
-        | true, docmember -> TryGetXmlDocMemberResult.Some docmember
+        | true, docmember ->
+          // Resolve <inheritdoc cref="..."/> by looking up the referenced member
+          // in the same assembly's XML doc file (one level of indirection).
+          match docmember.InheritDocCref with
+          | Some cref ->
+            match doc.TryGetValue cref with
+            | true, inherited -> TryGetXmlDocMemberResult.Some inherited
+            | false, _ -> TryGetXmlDocMemberResult.Some docmember
+          | None -> TryGetXmlDocMemberResult.Some docmember
         | false, _ -> TryGetXmlDocMemberResult.None
       | _ -> TryGetXmlDocMemberResult.None
 

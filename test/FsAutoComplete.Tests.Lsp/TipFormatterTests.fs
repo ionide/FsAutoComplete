@@ -91,4 +91,30 @@ let seeAlsoTests =
 
         Expect.stringContains content "* `null`" "langword entry should be present" ]
 
-let allTests = testList "TipFormatter" [ seeAlsoTests ]
+/// Tests for <inheritdoc cref="..."/> parsing (property extraction only;
+/// full same-assembly cref resolution requires a real XML doc file and is exercised by integration tests).
+let inheritDocTests =
+  testList
+    "inheritdoc rendering"
+    [ testCase "member with only inheritdoc and no cref does not crash and returns empty-ish content"
+      <| fun _ ->
+        // When inheritdoc has no cref, we can't resolve — should not throw.
+        let xml = makeXmlDoc [| """<inheritdoc/>""" |]
+
+        match TipFormatter.formatDocumentationFromXmlDoc xml with
+        | TipFormatter.TipFormatterResult.Success _
+        | TipFormatter.TipFormatterResult.None -> ()
+        | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on bare inheritdoc, got: {e}"
+
+      testCase "member with inheritdoc cref and no summary falls back gracefully"
+      <| fun _ ->
+        // For FromXmlText (source code) with an inheritdoc cref, we cannot resolve
+        // the cref without assembly context — should fall back without crashing.
+        let xml = makeXmlDoc [| """<inheritdoc cref="P:Ns.Type.Member"/>""" |]
+
+        match TipFormatter.formatDocumentationFromXmlDoc xml with
+        | TipFormatter.TipFormatterResult.Success _
+        | TipFormatter.TipFormatterResult.None -> ()
+        | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on inheritdoc cref, got: {e}" ]
+
+let allTests = testList "TipFormatter" [ seeAlsoTests; inheritDocTests ]
