@@ -149,7 +149,8 @@ let generalTests =
       InlayHintTests.explicitTypeInfoTests sourceTextFactory
       FindReferences.tryFixupRangeTests sourceTextFactory
       UtilsTests.allTests
-      LspHelpersTests.allTests ]
+      LspHelpersTests.allTests
+      TipFormatterTests.allTests ]
 
 [<Tests>]
 let tests =
