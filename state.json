@@ -5,14 +5,14 @@
   "tasks_last_run": {
     "task1": "2026-02-24",
     "task2": "2026-02-24",
-    "task3": "2026-02-23",
+    "task3": "2026-02-24",
     "task4": "2026-02-24",
     "task5": "2026-02-24",
     "task6": "2026-02-24",
     "task7": "2026-02-24",
     "task8": "2026-02-23",
     "task9": "2026-02-24",
-    "task10": "2026-02-23",
+    "task10": "2026-02-24",
     "task11": "2026-02-24"
   },
   "fix_attempts": [
@@ -47,10 +47,18 @@
       "status": "pr_created",
       "pr_number": 1466,
       "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations"
+    },
+    {
+      "issue": 1415,
+      "branch": "repo-assist/fix-inheritdoc-cref-resolution",
+      "date": "2026-02-24",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Resolve <inheritdoc cref=\"...\"> in XML doc tooltips for external assemblies — TipFormatter.fs InheritDocCref resolution"
     }
   ],
   "commented_issues": [333, 455, 559, 627, 700, 716, 739, 865, 1027, 1227, 1280, 1352, 1381, 1414, 1415, 1437, 1444, 1464],
   "stale_nudges": [1341, 1440],
   "issue_backlog_cursor": 333,
-  "notes": "Feb 2026 run: closed incorrect #1467 (March 2026 issue created with wrong date by prior run), updated #1450 (Feb 2026 monthly). Commented on #333 (resolve _ in generic type annotations code fix)."
+  "notes": "Feb 2026 run: fixed inheritdoc cref resolution in TipFormatter.fs for #1415. PR branch: repo-assist/fix-inheritdoc-cref-resolution (PR number TBD). Commented on #1415."
 }
