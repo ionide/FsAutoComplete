@@ -65,9 +65,9 @@
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": 1310,
-  "notes": "Feb 2026 run (22374321791): Scanned issues 1100-1309. No new comments needed. CI passed for PRs #1466, #1468, #1469. All open Repo Assist PRs: #1460 (superseded, stale), #1465 (changelog), #1466 (null semantic token, CI pass), #1468 (inheritdoc, CI pass), #1469 (sig help, CI pass). Cursor advanced to 1310. Unvisited issues in 1100-1309: #1224, #1225, #1247, #1254 (maintainers already active on all, no value to add)."
+  "issue_backlog_cursor": "333",
+  "notes": "Feb 2026 run 3 (22375054933): Scanned all 75 open issues — no new issues or comments required. Issue #1362 (unnecessary parentheses false positive) already has upstream fix in dotnet/fsharp PR #18350 per @brianrourkeboll. All open Repo Assist PRs (#1465, #1466, #1468, #1469, #1460) still open. CI status shows pending (no legacy commit statuses; GitHub Actions checks may be passing). Issue backlog cursor reset to #333 for next run."
 }
