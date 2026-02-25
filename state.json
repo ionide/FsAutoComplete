@@ -65,9 +65,9 @@
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "333",
-  "notes": "Feb 2026 run 4 (22375349294): Commented on #1330 noting PR #1333 by @edgarfgp. Updated monthly summary. All open Repo Assist PRs (#1465, #1466, #1468, #1469, #1460) still open and pending review. CI status pending (no legacy commit statuses). Issue backlog cursor stays at #333 — all open issues have been scanned."
+  "notes": "Feb 2026 run 3 (22375054933): Scanned all 75 open issues — no new issues or comments required. Issue #1362 (unnecessary parentheses false positive) already has upstream fix in dotnet/fsharp PR #18350 per @brianrourkeboll. All open Repo Assist PRs (#1465, #1466, #1468, #1469, #1460) still open. CI status shows pending (no legacy commit statuses; GitHub Actions checks may be passing). Issue backlog cursor reset to #333 for next run."
 }
