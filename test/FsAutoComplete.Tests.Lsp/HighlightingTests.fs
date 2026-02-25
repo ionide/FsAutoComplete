@@ -173,4 +173,10 @@ let tests state =
                   tokenLen
                   maxReasonableTokenLen
                   $"Token length {tokenLen} is unreasonably large (possible uint32 underflow from multiline range {r})"
-            }) ] ]
+            })
+
+          // Regression test for https://github.com/ionide/FsAutoComplete/issues/1381:
+          // The `null` keyword in nullable type annotations like `string | null` should
+          // receive a Keyword semantic token (FCS does not provide one natively).
+          tokenIsOfType (28u, 26u) ClassificationUtils.SemanticTokenTypes.Keyword fullHighlights // `null` in `let withNull (x: string | null) = ()`
+          ] ]

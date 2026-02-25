@@ -150,7 +150,8 @@ let generalTests =
       FindReferences.tryFixupRangeTests sourceTextFactory
       UtilsTests.allTests
       LspHelpersTests.allTests
-      TipFormatterTests.allTests ]
+      TipFormatterTests.allTests
+      FcsInvariantTests.tests ]
 
 [<Tests>]
 let tests =

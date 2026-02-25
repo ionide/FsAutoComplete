@@ -72,6 +72,14 @@ module FoldingRange =
 
   val getRangesAtPosition: input: ParsedInput -> r: Position -> Range list
 
+module NullableTypes =
+  open FSharp.Compiler.Syntax
+  open FSharp.Compiler.Text
+
+  /// Collect the source ranges of the <c>null</c> keyword in nullable type annotations
+  /// such as <c>string | null</c>.
+  val collectNullKeywordRanges: ast: ParsedInput -> Range seq
+
 module Completion =
   open FSharp.Compiler.Syntax
   open FSharp.Compiler.Text
