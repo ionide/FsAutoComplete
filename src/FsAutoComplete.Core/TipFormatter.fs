@@ -984,7 +984,26 @@ let private getXmlDoc dllFile =
         let filePath = Path.ChangeExtension(filePath, Path.GetExtension(filePath).ToUpper())
         exists filePath false
 
-    match exists xmlFile true with
+    // When the DLL is a reference assembly (e.g. in obj/.../ref/), the XML doc may
+    // live in the parent directory (obj/.../). Compute a fallback path to try.
+    let fallbackXmlFile =
+      let dir = Path.GetDirectoryName xmlFile
+      let parent = Path.GetDirectoryName dir
+
+      if parent <> null && not (String.IsNullOrEmpty parent) then
+        Some(Path.Combine(parent, Path.GetFileName xmlFile))
+      else
+        None
+
+    let foundXmlFile =
+      match exists xmlFile true with
+      | Some _ as found -> found
+      | None ->
+        match fallbackXmlFile with
+        | Some fb -> exists fb true
+        | None -> None
+
+    match foundXmlFile with
     | None -> None
     | Some actualXmlFile ->
       // Prevent other threads from tying to add the same doc simultaneously
