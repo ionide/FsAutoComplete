@@ -52,9 +52,9 @@
       "issue": 1415,
       "branch": "repo-assist/fix-inheritdoc-cref-resolution-566b0061d2229b57",
       "date": "2026-02-24",
-      "status": "ci_passed_active_review",
+      "status": "ci_pending_integration_tests_added",
       "pr_number": 1468,
-      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; review thread re: XML doc path discovery (tracked in #1471); responded to thread noting #1471 tracks follow-up"
+      "description": "Resolve inheritdoc cref in XML doc tooltips; full integration/hover tests added per maintainer request; CI pending"
     },
     {
       "issue": 744,
@@ -69,5 +69,5 @@
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "end",
-  "notes": "Feb 2026 run (22415526844): Commented on #1471 (baronfel's new ProjectReferences/XML doc path issue) noting AllItems/AllProperties may already have the data; responded to #1468 review thread confirming PR scope is correct and #1471 tracks follow-up. Updated monthly summary. All Repo Assist PRs: #1465 draft+clean, #1466 ready+clean, #1468 not-draft+clean (review thread acknowledged), #1469 draft+CI pending."
+  "notes": "Feb 2026 run (22415576514): Commented on #1464 with updated analysis — user ruled out type providers, dotnet clean triggers project reload via file watcher. All Repo Assist PRs: #1465 draft+clean, #1466 ready+clean, #1468 not-draft+CI pending (integration tests added), #1469 draft+CI pending."
 }
