@@ -66,7 +66,85 @@ let private functionApplicationEdgeCasesTests server =
       f 1 $0 // preserve last space
       """ Manual (fun resp ->
         match resp with
-        | Some sigHelp -> Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal
+            sigInfo.Parameters.Value.Length
+            2
+            "should report both curried parameters so that editors can highlight the correct one"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - 3 parameters, cursor at 1st arg, all params reported with correct labels"
+      <| testSignatureHelp server """
+      let f a b c = ()
+
+      f $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 0u) "should indicate first parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+          let ps = sigInfo.Parameters.Value
+
+          Expect.equal ps.Length 3 "should report all three curried parameters"
+          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+          Expect.equal ps.[1].Label (U2.C1 "b") "second param label should be 'b'"
+          Expect.equal ps.[2].Label (U2.C1 "c") "third param label should be 'c'"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - 3 parameters, cursor at 3rd arg"
+      <| testSignatureHelp server """
+      let f a b c = ()
+
+      f 1 2 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 2u) "should indicate third parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three curried parameters"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function with typed parameters - all parameter groups reported"
+      <| testSignatureHelp server """
+      let typed (a: int) (b: string) (c: float) = ()
+
+      typed 1 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three typed curried parameters"
+          Expect.equal sigInfo.Parameters.Value.[0].Label (U2.C1 "a") "first param label should be 'a'"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - mixed curried and tupled groups"
+      <| testSignatureHelp server """
+      let mixed a (b, c) d = ()
+
+      mixed 1 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter group is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+          let ps = sigInfo.Parameters.Value
+
+          Expect.equal ps.Length 3 "should report three parameter groups (a, (b,c), d)"
+          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+          Expect.equal ps.[1].Label (U2.C1 "(b, c)") "second param (tuple group) label should be '(b, c)'"
+          Expect.equal ps.[2].Label (U2.C1 "d") "third param label should be 'd'"
         | None -> failwithf "There should be sighelp for this position")
       ptestCaseAsync "issue 745 - signature help shows tuples in parens"
       <| testSignatureHelp server """
@@ -198,28 +276,24 @@ let issuesTests server =
       testCaseAsync "issue #1040" // IndexOutOfRangeException
       <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs -> Expect.isSome sigs "Should have sigs")
       testCaseAsync "issue #1029 - parameter documentation should use simplified type names not fully-qualified ones"
-      <| testSignatureHelp
-        server
-        """
+      <| testSignatureHelp server """
 let f (arr: char[]) = arr
 
 let _ = f $0
-        """
-        Manual
-        (fun sigs ->
-          Expect.isSome sigs "Should have sigs for simplified type names check"
-          let sigInfo = sigs.Value.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "Should have parameter info"
-          let param = sigInfo.Parameters.Value.[0]
+        """ Manual (fun sigs ->
+        Expect.isSome sigs "Should have sigs for simplified type names check"
+        let sigInfo = sigs.Value.Signatures.[0]
+        Expect.isSome sigInfo.Parameters "Should have parameter info"
+        let param = sigInfo.Parameters.Value.[0]
 
-          match param.Documentation with
-          | Some(U2.C1 doc) ->
-            Expect.isFalse
-              (doc.Contains("Microsoft.FSharp.Core"))
-              $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
+        match param.Documentation with
+        | Some(U2.C1 doc) ->
+          Expect.isFalse
+            (doc.Contains("Microsoft.FSharp.Core"))
+            $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
 
-            Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
-          | _ -> failwith "Expected string documentation for parameter") ]
+          Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
+        | _ -> failwith "Expected string documentation for parameter") ]
 
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server ->

@@ -24,6 +24,9 @@ type SignatureHelpInfo =
     /// if present, the index of the parameter on the active method (will never be outside the bounds of the Parameters array on the selected method)
     ActiveParameter: uint option
     SigHelpKind: SignatureHelpKind
+    /// For FunctionApplication calls, provides (paramName, typeDisplay) for every curried parameter group,
+    /// flattened across all groups. When present, use instead of Methods[i].Parameters for ParameterInformation.
+    FunctionApplicationParameters: (string * string)[] option
   }
 
 let private getSignatureHelpForFunctionApplication
@@ -114,11 +117,32 @@ let private getSignatureHelpForFunctionApplication
         let methods =
           tyRes.GetCheckResults.GetMethods(symbolStart.Line, symbolUse.Range.EndColumn, symbolStartLineText, None)
 
+        // Build a (name, typeDisplay) pair per curried group so that editors can highlight
+        // the correct parameter even for curried functions where GetMethods only returns the
+        // first group (fixes #744).
+        let functionAppParams =
+          definedArgs
+          |> Array.map (fun group ->
+            let groupParams = group |> Seq.toArray
+
+            match groupParams with
+            | [| p |] -> p.DisplayName, p.Type.Format(symbolUse.DisplayContext)
+            | _ ->
+              let names = groupParams |> Array.map (fun p -> p.DisplayName) |> String.concat ", "
+
+              let types =
+                groupParams
+                |> Array.map (fun p -> p.Type.Format(symbolUse.DisplayContext))
+                |> String.concat " * "
+
+              sprintf "(%s)" names, sprintf "(%s)" types)
+
         return
           { ActiveParameter = Some(uint argumentIndex)
             Methods = methods.Methods
             ActiveOverload = None
-            SigHelpKind = FunctionApplication }
+            SigHelpKind = FunctionApplication
+            FunctionApplicationParameters = Some functionAppParams }
     | _ -> return! None
   }
 
@@ -205,7 +229,8 @@ let private getSignatureHelpForMethod
         { ActiveParameter = Some(uint argumentIndex)
           Methods = filteredMethods
           ActiveOverload = methodCandidate
-          SigHelpKind = MethodCall }
+          SigHelpKind = MethodCall
+          FunctionApplicationParameters = None }
   }
 
 let getSignatureHelpFor

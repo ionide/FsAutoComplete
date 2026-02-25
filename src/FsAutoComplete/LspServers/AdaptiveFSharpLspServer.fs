@@ -1032,10 +1032,20 @@ type AdaptiveFSharpLspServer
                 let (signature, comment) = TipFormatter.formatPlainTip m.Description
 
                 let parameters =
-                  m.Parameters
-                  |> Array.map (fun p ->
-                    { ParameterInformation.Label = U2.C1 p.ParameterName
-                      Documentation = Some(U2.C1(p.Display |> Array.map (fun t -> t.Text) |> String.concat "")) })
+                  match sigHelp.FunctionApplicationParameters with
+                  | Some extraParams ->
+                    // For curried function application, GetMethods only returns the first curried
+                    // group; use the full curried parameter list so editors can highlight the
+                    // correct parameter for every argument position (fixes #744).
+                    extraParams
+                    |> Array.map (fun (name, typeDisplay) ->
+                      { ParameterInformation.Label = U2.C1 name
+                        Documentation = if typeDisplay = "" then None else Some(U2.C1 typeDisplay) })
+                  | None ->
+                    m.Parameters
+                    |> Array.map (fun p ->
+                      { ParameterInformation.Label = U2.C1 p.ParameterName
+                        Documentation = Some(U2.C1(p.Display |> Array.map (fun t -> t.Text) |> String.concat "")) })
 
                 let d =
                   U2.C2(
