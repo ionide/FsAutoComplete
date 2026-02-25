@@ -46,7 +46,7 @@
       "date": "2026-02-24",
       "status": "ready_for_review",
       "pr_number": 1466,
-      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; baronfel requested invariant test, added; PR is clean, not draft"
+      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; invariant tests added; PR is clean, not draft"
     },
     {
       "issue": 1415,
@@ -54,20 +54,20 @@
       "date": "2026-02-24",
       "status": "ci_passed_active_review",
       "pr_number": 1468,
-      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; unresolved review thread about out-of-scope improvement (tracked in #1471)"
+      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; review thread re: XML doc path discovery (tracked in #1471); responded to thread noting #1471 tracks follow-up"
     },
     {
       "issue": 744,
       "branch": "repo-assist/fix-issue-744-sighelp-curried-params-5e6618c38510d419",
       "date": "2026-02-24",
-      "status": "ci_passed",
+      "status": "ci_pending",
       "pr_number": 1469,
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 116 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": "480",
-  "notes": "Feb 2026 run (22413638908): Checked all open Repo Assist PRs — #1465 clean, #1466 clean+ready+invariant tests added, #1468 has unresolved review thread (out-of-scope; baronfel created #1471 to track), #1469 draft+clean. No new unlabelled issues. Updated monthly activity issue #1450. Note: PR #1466 has AllItems/AllProperties comment from @TheAngryByrd about proj-info possibly already having DocumentationProjectOutputGroup data available."
+  "issue_backlog_cursor": "end",
+  "notes": "Feb 2026 run (22415526844): Commented on #1471 (baronfel's new ProjectReferences/XML doc path issue) noting AllItems/AllProperties may already have the data; responded to #1468 review thread confirming PR scope is correct and #1471 tracks follow-up. Updated monthly summary. All Repo Assist PRs: #1465 draft+clean, #1466 ready+clean, #1468 not-draft+clean (review thread acknowledged), #1469 draft+CI pending."
 }
