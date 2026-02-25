@@ -10,7 +10,7 @@
     "task5": "2026-02-25",
     "task6": "2026-02-24",
     "task7": "2026-02-24",
-    "task8": "2026-02-23",
+    "task8": "2026-02-24",
     "task9": "2026-02-25",
     "task10": "2026-02-24",
     "task11": "2026-02-25"
@@ -44,9 +44,9 @@
       "issue": 1381,
       "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
       "date": "2026-02-24",
-      "status": "ci_passed_reviewed",
+      "status": "ready_for_review",
       "pr_number": 1466,
-      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; baronfel requested invariant test, added"
+      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; baronfel requested invariant test, added; PR is clean, not draft"
     },
     {
       "issue": 1415,
@@ -54,7 +54,7 @@
       "date": "2026-02-24",
       "status": "ci_passed_active_review",
       "pr_number": 1468,
-      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; baronfel/Krzysztof reviewing XML path resolution approach"
+      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; unresolved review thread about out-of-scope improvement (tracked in #1471)"
     },
     {
       "issue": 744,
@@ -62,12 +62,12 @@
       "date": "2026-02-24",
       "status": "ci_passed",
       "pr_number": 1469,
-      "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
+      "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 116 sig-help tests pass"
     }
   ],
   "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "480",
-  "notes": "Feb 2026 run (22400545619): Commented on #480 (code action range — current ParsedInput.tryPick implementation should cover entire record expression range; invited testing). Checked CI for all open Repo Assist PRs — all passing. PR #1468 has active review thread: @baronfel noted maximally-correct approach via DocumentationProjectOutputGroup MSBuild target; @Krzysztof-Cieslak marked it out-of-scope for this PR. No new human contributors or unlabelled issues. Monthly activity issue #1450 updated."
+  "notes": "Feb 2026 run (22413638908): Checked all open Repo Assist PRs — #1465 clean, #1466 clean+ready+invariant tests added, #1468 has unresolved review thread (out-of-scope; baronfel created #1471 to track), #1469 draft+clean. No new unlabelled issues. Updated monthly activity issue #1450. Note: PR #1466 has AllItems/AllProperties comment from @TheAngryByrd about proj-info possibly already having DocumentationProjectOutputGroup data available."
 }
