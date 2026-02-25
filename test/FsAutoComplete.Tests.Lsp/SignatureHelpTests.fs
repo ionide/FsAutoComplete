@@ -77,6 +77,75 @@ let private functionApplicationEdgeCasesTests server =
             2
             "should report both curried parameters so that editors can highlight the correct one"
         | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - 3 parameters, cursor at 1st arg, all params reported with correct labels"
+      <| testSignatureHelp server """
+      let f a b c = ()
+
+      f $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 0u) "should indicate first parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+          let ps = sigInfo.Parameters.Value
+
+          Expect.equal ps.Length 3 "should report all three curried parameters"
+          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+          Expect.equal ps.[1].Label (U2.C1 "b") "second param label should be 'b'"
+          Expect.equal ps.[2].Label (U2.C1 "c") "third param label should be 'c'"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - 3 parameters, cursor at 3rd arg"
+      <| testSignatureHelp server """
+      let f a b c = ()
+
+      f 1 2 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 2u) "should indicate third parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three curried parameters"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function with typed parameters - all parameter groups reported"
+      <| testSignatureHelp server """
+      let typed (a: int) (b: string) (c: float) = ()
+
+      typed 1 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+
+          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three typed curried parameters"
+          Expect.equal sigInfo.Parameters.Value.[0].Label (U2.C1 "a") "first param label should be 'a'"
+        | None -> failwithf "There should be sighelp for this position")
+      testCaseAsync "curried function - mixed curried and tupled groups"
+      <| testSignatureHelp server """
+      let mixed a (b, c) d = ()
+
+      mixed 1 $0 // preserve trailing space
+      """ Manual (fun resp ->
+        match resp with
+        | Some sigHelp ->
+          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter group is active"
+
+          let sigInfo = sigHelp.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "should have parameter info"
+          let ps = sigInfo.Parameters.Value
+
+          Expect.equal ps.Length 3 "should report three parameter groups (a, (b,c), d)"
+          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+          Expect.equal ps.[1].Label (U2.C1 "(b, c)") "second param (tuple group) label should be '(b, c)'"
+          Expect.equal ps.[2].Label (U2.C1 "d") "third param label should be 'd'"
+        | None -> failwithf "There should be sighelp for this position")
       ptestCaseAsync "issue 745 - signature help shows tuples in parens"
       <| testSignatureHelp server """
       let f (a, b) = ()
