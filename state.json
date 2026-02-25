@@ -1,19 +1,19 @@
 {
-  "last_run": "2026-02-24",
+  "last_run": "2026-02-25",
   "monthly_issue": 1450,
   "monthly_month": "2026-02",
   "tasks_last_run": {
-    "task1": "2026-02-24",
+    "task1": "2026-02-25",
     "task2": "2026-02-24",
     "task3": "2026-02-24",
     "task4": "2026-02-24",
-    "task5": "2026-02-24",
+    "task5": "2026-02-25",
     "task6": "2026-02-24",
     "task7": "2026-02-24",
     "task8": "2026-02-23",
-    "task9": "2026-02-24",
+    "task9": "2026-02-25",
     "task10": "2026-02-24",
-    "task11": "2026-02-24"
+    "task11": "2026-02-25"
   },
   "fix_attempts": [
     {
@@ -44,17 +44,17 @@
       "issue": 1381,
       "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
       "date": "2026-02-24",
-      "status": "ci_passed",
+      "status": "ci_passed_reviewed",
       "pr_number": 1466,
-      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations"
+      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; baronfel requested invariant test, added"
     },
     {
       "issue": 1415,
       "branch": "repo-assist/fix-inheritdoc-cref-resolution-566b0061d2229b57",
       "date": "2026-02-24",
-      "status": "ci_passed",
+      "status": "ci_passed_active_review",
       "pr_number": 1468,
-      "description": "Resolve <inheritdoc cref=\"...\"> in XML doc tooltips for external assemblies — TipFormatter.fs InheritDocCref resolution"
+      "description": "Resolve inheritdoc cref in XML doc tooltips; integration tests added; baronfel/Krzysztof reviewing XML path resolution approach"
     },
     {
       "issue": 744,
@@ -65,9 +65,9 @@
       "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 118 sig-help tests pass"
     }
   ],
-  "commented_issues": [333, 455, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
+  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
-  "issue_backlog_cursor": "333",
-  "notes": "Feb 2026 run 3 (22375054933): Scanned all 75 open issues — no new issues or comments required. Issue #1362 (unnecessary parentheses false positive) already has upstream fix in dotnet/fsharp PR #18350 per @brianrourkeboll. All open Repo Assist PRs (#1465, #1466, #1468, #1469, #1460) still open. CI status shows pending (no legacy commit statuses; GitHub Actions checks may be passing). Issue backlog cursor reset to #333 for next run."
+  "issue_backlog_cursor": "480",
+  "notes": "Feb 2026 run (22400545619): Commented on #480 (code action range — current ParsedInput.tryPick implementation should cover entire record expression range; invited testing). Checked CI for all open Repo Assist PRs — all passing. PR #1468 has active review thread: @baronfel noted maximally-correct approach via DocumentationProjectOutputGroup MSBuild target; @Krzysztof-Cieslak marked it out-of-scope for this PR. No new human contributors or unlabelled issues. Monthly activity issue #1450 updated."
 }
