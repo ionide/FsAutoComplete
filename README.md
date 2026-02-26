@@ -35,7 +35,7 @@ It is based on:
 Requirements:
 
 * .NET SDK, see [global.json](global.json) for the exact version.
-   Minimum: >= 6.0, Recommended: >= 7.0 
+   Minimum: >= 8.0, Recommended: >= 10.0 
 
 1. Restore dotnet tools to install local Paket `dotnet tool restore`
 2. Build FSAC with `dotnet build`
@@ -43,12 +43,6 @@ Requirements:
 ### DevContainer
 
 The repository additionally provides DevContainer definition that can be used with VSCode's Remote Containers extension - use it to get stable development environment
-
-### Gitpod.io
-
-This repository is prepared to use Gitpod for a web-based VSCode-style IDE. Click the button below to begin!
-
-[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fsharp/fsautocomplete)
 
 ### Creating a new code fix
 
@@ -225,18 +219,13 @@ Options that should be send as `initializationOptions` as part of `initialize` r
         "FSharp.fsiExtraInteractiveParameters": ["--readline-"]
     ```
 
-## Troubleshooting
-
-### FileWatcher exceptions
-
-You may see a stack trace finishing with `System.IO.IOException: kqueue() error at init, error code = ’0’`. This is due to a limitation in the number of file handles that the Mono file watchers can keep open. Restarting FsAutoComplete or the hosting editor should help. If not, try setting `export MONO_MANAGED_WATCHER=disabled` in your `~/.bash_profile`. Note that on OSX, this setting will only take effect if you launch emacs from the terminal.
-
 ## Maintainers
 
 The maintainers of this repository are:
 
 * [Krzysztof Cieślak](http://github.com/Krzysztof-Cieslak)
 * [Chester Husk](http://github.com/baronfel)
+* [Jimmy Byrd](https://github.com/TheAngryByrd)
 
 Previous maintainers:
 
