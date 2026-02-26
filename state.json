@@ -22,7 +22,7 @@
       "date": "2026-02-26",
       "status": "pr_updated",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — now includes 14 fixes + 2 features merged since v0.83.0 (added #1472 wildcard code fix to existing 13 entries)"
+      "description": "Updated v0.84.0 changelog \u2014 now includes 14 fixes + 2 features merged since v0.83.0 (added #1472 wildcard code fix to existing 13 entries)"
     },
     {
       "issue": 1352,
@@ -71,11 +71,73 @@
       "status": "merged",
       "pr_number": 1472,
       "description": "Rebase #1157 - code fix for FS0043 wildcard | _ -> in pattern match; merged 2026-02-26 by Krzysztof-Cieslak"
+    },
+    {
+      "issue": 1480,
+      "branch": "repo-assist/rebase-pr-1341-with-dotnet-test",
+      "date": "2026-02-26",
+      "status": "pr_created",
+      "description": "Rebased PR #1341 onto main with dotnet test fix, module-level OTel init, removed debug failwith"
     }
   ],
-  "commented_issues": [333, 436, 455, 480, 559, 627, 692, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473, 1475],
-  "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
-  "stale_nudges": [1333, 1341, 1440],
+  "commented_issues": [
+    333,
+    436,
+    455,
+    480,
+    559,
+    627,
+    692,
+    700,
+    716,
+    739,
+    744,
+    745,
+    786,
+    865,
+    1027,
+    1097,
+    1227,
+    1259,
+    1271,
+    1280,
+    1307,
+    1322,
+    1330,
+    1352,
+    1354,
+    1359,
+    1381,
+    1408,
+    1414,
+    1415,
+    1432,
+    1437,
+    1444,
+    1464,
+    1471,
+    1473,
+    1475
+  ],
+  "labelled_issues": [
+    467,
+    480,
+    536,
+    605,
+    653,
+    654,
+    692,
+    705,
+    824,
+    865,
+    1354,
+    1359
+  ],
+  "stale_nudges": [
+    1333,
+    1341,
+    1440
+  ],
   "issue_backlog_cursor": "1475",
-  "notes": "Feb 2026 run (22445795611): Commented on #1475 with implementation guidance for MSBuild design time properties (based on #1065 PoC). Commented on #692 with root cause (DocumentationFormatter.fs mutable lastDisplayContext) and 3 fix approaches. Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #605 (script ref), #653 (alias types), #654 (snap installs), #705 (debugging - has good existing comments from baronfel), #712 (fsl/fsy support), #733 (workspaceFolders), #779 (signature files), #789 (open location inconsistency), #847 (Fantomas update UX), #871 (raspberrypi startup), #900 (LSIF), #1310 (OptionalAttribute completions), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD - upstream proj-info issue), #1362 (unnecessary parens false positive - fixed in dotnet/fsharp#18350, awaiting SDK release)."
+  "notes": "Feb 2026 run (22445795611): Commented on #1475 with implementation guidance for MSBuild design time properties (based on #1065 PoC). Commented on #692 with root cause (DocumentationFormatter.fs mutable lastDisplayContext) and 3 fix approaches. Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #605 (script ref), #653 (alias types), #654 (snap installs), #705 (debugging - has good existing comments from baronfel), #712 (fsl/fsy support), #733 (workspaceFolders), #779 (signature files), #789 (open location inconsistency), #847 (Fantomas update UX), #871 (raspberrypi startup), #900 (LSIF), #1310 (OptionalAttribute completions), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD - upstream proj-info issue), #1362 (unnecessary parens false positive - fixed in dotnet/fsharp#18350, awaiting SDK release). PR created for #1480 (rebase of #1341 with dotnet test fix)."
 }
