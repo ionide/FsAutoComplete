@@ -30,19 +30,11 @@ It is based on:
 * [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
 * [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
 
-## Building, Testing, and Releasing
+## Documentation 
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for build requirements, build commands, testing instructions, and the release process.
-
-
-## OpenTelemetry
-
-See the [OpenTelemetry documentation](./docs/opentelemetry.md) for instructions on enabling and visualizing distributed traces.
-
-
-## Communication Protocol
-
-See the [Communication Protocol documentation](./docs/communication-protocol.md) for details on supported LSP endpoints, custom endpoints, notifications, startup options, initialization options, and settings.
+* Building, Testing, and Releasing- See [CONTRIBUTING.md](./CONTRIBUTING.md) for build requirements, build commands, testing instructions, and the release process.
+* OpenTelemetry -See the [OpenTelemetry documentation](./docs/opentelemetry.md) for instructions on enabling and visualizing distributed traces.
+* LSP endpoints, settings and more - See the [Communication Protocol documentation](./docs/communication-protocol.md) for details on supported LSP endpoints, custom endpoints, notifications, startup options, initialization options, and settings.
 
 ## Maintainers
 
@@ -58,3 +50,25 @@ Previous maintainers:
 * [Steffen Forkmann](http://github.com/forki)
 * [Karl Nilsson](http://github.com/kjnilsson)
 * [Enrico Sada](http://github.com/enricosada)
+* [Tomas Petricek](https://github.com/tpetricek)
+* [Dave Thomas](https://github.com/7sharp9)
+
+## Code of Conduct
+
+Please note that this project is released with a [Contributor Code of Conduct](https://github.com/ionide/.github/blob/master/LCODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+
+## Copyright
+
+The library is available under [MIT license](https://github.com/ionide/FsAutoComplete/blob/master/LICENSE.md), which allows modification and redistribution for both commercial and non-commercial purposes.
+
+### Imposter Syndrome Disclaimer
+
+I want your help. *No really, I do*.
+
+There might be a little voice inside that tells you you're not ready; that you need to do one more tutorial, or learn another framework, or write a few more blog posts before you can help me with this project.
+
+I assure you, that's not the case.
+
+And you don't just have to write code. You can help out by writing documentation, tests, or even by giving feedback about this work. (And yes, that includes giving feedback about the contribution guidelines.)
+
+Thank you for contributing!
