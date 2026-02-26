@@ -7,6 +7,7 @@
 ### Added
 
 - [Add `FSharp.notifications.backgroundServiceProgress` config option to suppress background analyzer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1452)
+- [Add code fix to replace invalid `|->` with wildcard `| _ ->` pattern in match expressions (FS0043)](https://github.com/ionide/FsAutoComplete/pull/1472) (thanks @jkone27!)
 
 ### Fixed
 
