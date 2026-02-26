@@ -610,10 +610,21 @@ let tooltipTests state =
           // Hover must show `string | null`, not just `string`.
           verifySignature 113u 4u "val nullableStringVal: string | null"
 
+          verifySignature 114u 4u (concatLines [ "val returnsNullable:"; "   s: string"; "   -> string | null" ])
+
+          // Delegate tooltip format — regression for issue #627.
+          // Verify that hovering on a delegate type definition shows a clean
+          // "delegate of <args> -> <retType>" signature rather than broken output.
+          verifySignature 117u 5u (concatLines [ "type NoArgDelegate ="; "   delegate of unit -> unit" ])
+
+          verifySignature 118u 5u (concatLines [ "type SingleArgDelegate ="; "   delegate of arg: string -> int" ])
+
           verifySignature
-            114u
-            4u
-            (concatLines [ "val returnsNullable:"; "   s: string"; "   -> string | null" ]) ] ]
+            119u
+            5u
+            (concatLines [ "type MultiArgDelegate ="; "   delegate of a: string * b: int -> bool" ])
+
+          verifySignature 120u 5u (concatLines [ "type UnannotatedDelegate ="; "   delegate of string -> int" ]) ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

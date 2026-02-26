@@ -60,4 +60,24 @@ let docFormattingTest state =
           | Result.Ok(Some(As(model: FsAutoComplete.CommandResponse.DocumentationDescription))) ->
             Expect.stringContains model.Signature "'T1 * 'T2 * 'T3" "Formatted doc contains 3 params separated by ( * )"
           | Result.Ok _ -> failtest "couldn't parse doc as the json type we expected"
+        })
+
+      testCaseAsync
+        "Delegate type shows clean 'delegate of <args> -> <ret>' signature (issue #627)"
+        (async {
+          let! (server, path) = server
+
+          // Line 3 (0-indexed), char 5: hovering on "DelegateWithArgs" type name
+          let! doc =
+            server.FSharpDocumentation
+              { TextDocument = { Uri = path }
+                Position = { Character = 5u; Line = 3u } }
+
+          match doc with
+          | Result.Error err -> failtest $"Doc error: {err.Message}"
+          | Result.Ok(Some(As(model: FsAutoComplete.CommandResponse.DocumentationDescription))) ->
+            Expect.stringContains model.Signature "delegate of" "Delegate signature should contain 'delegate of'"
+            Expect.stringContains model.Signature "name" "Delegate signature should contain parameter name 'name'"
+            Expect.stringContains model.Signature "count" "Delegate signature should contain parameter name 'count'"
+          | Result.Ok _ -> failtest "couldn't parse doc as the json type we expected"
         }) ]
