@@ -641,11 +641,25 @@ module DocumentationFormatter =
           |> String.concat ($"{nl}  | "))
 
     let delegateTip () =
-      let invoker =
-        fse.MembersFunctionsAndValues |> Seq.find (fun f -> f.DisplayName = "Invoke")
+      let delegateSig = fse.FSharpDelegateSignature
 
-      let invokerSig = getFuncSignatureWithIdent displayContext invoker 6
-      $" ={nl}   delegate of{nl}{invokerSig}"
+      let args =
+        if delegateSig.DelegateArguments.Count = 0 then
+          "unit"
+        else
+          delegateSig.DelegateArguments
+          |> Seq.map (fun (name, ty) ->
+            let typeName = ty |> format displayContext |> fst
+
+            match name with
+            | Some n when not (String.IsNullOrWhiteSpace n) ->
+              let n = FSharpKeywords.NormalizeIdentifierBackticks n
+              $"{n}: {typeName}"
+            | _ -> typeName)
+          |> String.concat " * "
+
+      let retType = delegateSig.DelegateReturnType |> format displayContext |> fst
+      $" ={nl}   delegate of {args} -> {retType}"
 
     let typeTip () =
       let constructors =
