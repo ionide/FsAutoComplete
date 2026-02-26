@@ -1,10 +1,13 @@
-Copyright 2011-2015
+Copyright 2011-2026
 
     Tomas Petricek
 	Ben Winkel
     Igor Siguta 
 	Robin Neatherway
-    Dave Thomas
+    Dave Thomas 
+    Krzysztof Cieslak
+    Chester Husk
+    Jimmy Byrd
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
