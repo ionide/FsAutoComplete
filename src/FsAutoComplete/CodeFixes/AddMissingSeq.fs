@@ -11,9 +11,7 @@ open FsAutoComplete.LspHelpers
 
 let title = "Add missing 'seq'"
 
-let fix
-  (getParseResultsForFile: GetParseResultsForFile)
-  : CodeFix =
+let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "3873"; "740" ]) (fun _ codeActionParams ->
     asyncResult {
       // Most code fixes have some general setup.
@@ -23,7 +21,7 @@ let fix
       // The converted LSP start position to an FCS start position.
       let fcsPos = protocolPosToPos codeActionParams.Range.Start
       // The syntax tree and typed tree, current line and sourceText of the current file.
-      let! (parseAndCheckResults:ParseAndCheckResults, _line:string, sourceText:IFSACSourceText) =
+      let! (parseAndCheckResults: ParseAndCheckResults, _line: string, sourceText: IFSACSourceText) =
         getParseResultsForFile fileName fcsPos
 
       // The syntax tree can be an intimidating set of types to work with.
@@ -45,7 +43,7 @@ let fix
             // So we need to be careful and verify that the pattern is indeed matching the position of the cursor.
             Range.rangeContainsPos e.Range fcsPos
             ->
-            Some  e.Range
+            Some e.Range
           | _ -> None)
 
       match maybeCERange with
@@ -75,22 +73,17 @@ let fix
         // if not hasCEExprDefinitionSymbol then
         //   return []
         // else
-          // Return a list of Fix records for when the code fix is applicable.
-        return [
-            {
-                  SourceDiagnostic = None
-                  Title = title
-                  File = codeActionParams.TextDocument
-                  // Based on conditional logic, you typically want to suggest a text edit to the user.
-                  Edits = [|
-                    {
-                      // When dealing with FCS, we typically want to use the FCS flavour of range.
-                      // However, to interact correctly with the LSP protocol, we need to return an LSP range.
-                      Range = fcsRangeToLsp ceExprRange
-                      NewText = $"seq { sourceText }"
-                     }
-                  |]
-                  Kind = FixKind.Fix
-            }
-          ]
+        // Return a list of Fix records for when the code fix is applicable.
+        return
+          [ { SourceDiagnostic = None
+              Title = title
+              File = codeActionParams.TextDocument
+              // Based on conditional logic, you typically want to suggest a text edit to the user.
+              Edits =
+                [| {
+                     // When dealing with FCS, we typically want to use the FCS flavour of range.
+                     // However, to interact correctly with the LSP protocol, we need to return an LSP range.
+                     Range = fcsRangeToLsp ceExprRange
+                     NewText = $"seq {sourceText}" } |]
+              Kind = FixKind.Fix } ]
     })

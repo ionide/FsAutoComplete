@@ -11,12 +11,7 @@ let tests state =
     [ let selectCodeFix = CodeFix.withTitle AddMissingSeq.title
 
       testCaseAsync "FS3873 — Adds missing seq before { start..step..finish } top level"
-      <| CodeFix.check
-        server
-        "$0{ 1..10..20 }"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "seq { 1..10..20 }"
+      <| CodeFix.check server "$0{ 1..10..20 }" Diagnostics.acceptAll selectCodeFix "seq { 1..10..20 }"
 
       testCaseAsync "FS3873 — Adds missing seq before { start..step..finish } binding"
       <| CodeFix.check
@@ -27,34 +22,13 @@ let tests state =
         "let xs = seq { 1..10..20 }"
 
       testCaseAsync "FS3873 — Adds missing seq before { start..finish } top level"
-      <| CodeFix.check
-        server
-        "$0{ 1..10 }"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "seq { 1..10 }"
+      <| CodeFix.check server "$0{ 1..10 }" Diagnostics.acceptAll selectCodeFix "seq { 1..10 }"
 
       testCaseAsync "FS3873 — Adds missing seq before { start..finish } binding"
-      <| CodeFix.check
-        server
-        "let xs = $0{ 1..10 }"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "let xs = seq { 1..10 }"
+      <| CodeFix.check server "let xs = $0{ 1..10 }" Diagnostics.acceptAll selectCodeFix "let xs = seq { 1..10 }"
 
       testCaseAsync "FS0740 — Adds missing seq before { x; y } top level"
-      <| CodeFix.check
-        server
-        "$0{ 1;10 }"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "seq { 1;10 }"
+      <| CodeFix.check server "$0{ 1;10 }" Diagnostics.acceptAll selectCodeFix "seq { 1;10 }"
 
       testCaseAsync "FS0740 — Adds missing seq before { x; y } binding"
-      <| CodeFix.check
-        server
-        "let xs = $0{ 1;10 }"
-        Diagnostics.acceptAll
-        selectCodeFix
-        "let xs = seq { 1;10 }"
-    ])
+      <| CodeFix.check server "let xs = $0{ 1;10 }" Diagnostics.acceptAll selectCodeFix "let xs = seq { 1;10 }" ])
