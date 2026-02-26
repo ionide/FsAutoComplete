@@ -2356,6 +2356,7 @@ type AdaptiveState
          RemoveUnnecessaryReturnOrYield.fix tryGetParseAndCheckResultsForFile getLineText
          ConvertCSharpLambdaToFSharpLambda.fix tryGetParseAndCheckResultsForFile getLineText
          AddMissingFunKeyword.fix forceFindSourceText getLineText
+         AddMissingWildcardOperator.fix tryGetParseAndCheckResultsForFile
          MakeOuterBindingRecursive.fix tryGetParseAndCheckResultsForFile getLineText
          AddMissingRecKeyword.fix forceFindSourceText getLineText
          ConvertBangEqualsToInequality.fix getRangeText
