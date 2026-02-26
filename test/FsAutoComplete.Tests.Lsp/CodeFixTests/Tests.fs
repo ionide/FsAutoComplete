@@ -2407,9 +2407,9 @@ let private removeRedundantQualifierTests state =
         selectCodeFix
 
       // Issue #824: FCS incorrectly reports `row1` as a redundant qualifier in a nullable join
-      // clause using `=?`. This is an upstream FCS bug (getSimplifiableNames returns wrong result
-      // for nullable join operators). When FCS is fixed, change `itestCaseAsync` -> `testCaseAsync`.
-      itestCaseAsync "doesn't remove necessary qualifier in nullable join clause (issue #824)"
+      // clause using `=?`. This was an upstream FCS bug (getSimplifiableNames returns wrong result
+      // for nullable join operators).
+      testCaseAsync "doesn't remove necessary qualifier in nullable join clause (issue #824)"
       <| CodeFix.checkNotApplicable
         server
         """
