@@ -22,7 +22,7 @@
       "date": "2026-02-26",
       "status": "pr_updated",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — now includes 13 fixes merged since v0.83.0 (added #1466, #1468, #1469 to existing 10 entries)"
+      "description": "Updated v0.84.0 changelog — now includes 14 fixes + 2 features merged since v0.83.0 (added #1472 wildcard code fix to existing 13 entries)"
     },
     {
       "issue": 1352,
@@ -68,14 +68,14 @@
       "issue": 1157,
       "branch": "repo-assist/rebase-pr-1157-add-missing-wildcard-operator-7a77e03ff9033bf4",
       "date": "2026-02-25",
-      "status": "open_ci_pending",
+      "status": "merged",
       "pr_number": 1472,
-      "description": "Rebase #1157 - code fix for FS0043 wildcard `| _ ->` in pattern match; CI pending"
+      "description": "Rebase #1157 - code fix for FS0043 wildcard | _ -> in pattern match; merged 2026-02-26 by Krzysztof-Cieslak"
     }
   ],
   "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "end",
-  "notes": "Feb 2026 run (22422114216): Updated PR #1465 changelog to include #1466/#1468/#1469 (all merged by Krzysztof-Cieslak on 2026-02-25). Commented on #1473 (go-to implementation feature). New PR #1472 (rebase of #1157, FS0043 code fix) is open with CI pending — not in memory from previous run (created in prior run at 22420039144)."
+  "notes": "Feb 2026 run (22424502139): PR #1472 was merged by Krzysztof-Cieslak on 2026-02-26. Updated PR #1465 changelog to add #1472 (wildcard code fix). Updated Monthly Activity issue #1450 - removed [x]#1472 from suggested actions (merged). Issue #1362 (unnecessary parens false positive) has upstream fix in dotnet/fsharp PR #18350 - no comment needed. Issue backlog cursor still at 'end' - should reset next run."
 }
