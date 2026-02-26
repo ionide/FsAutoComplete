@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.84.0] - 2026-02-24
+## [0.84.0] - 2026-02-26
 
 ### Added
 
@@ -19,6 +19,9 @@
 - [Fix ambiguous function-type segments missing parentheses in AddExplicitTypeAnnotation](https://github.com/ionide/FsAutoComplete/pull/1457) (closes [#1340](https://github.com/ionide/FsAutoComplete/issues/1340))
 - [Fix signature help parameter types showing fully-qualified names instead of simplified names](https://github.com/ionide/FsAutoComplete/pull/1458) (closes [#1029](https://github.com/ionide/FsAutoComplete/issues/1029))
 - [Fix `<seealso href="...">` and `<seealso langword="...">` XML doc rendering](https://github.com/ionide/FsAutoComplete/pull/1463) (partially addresses [#1027](https://github.com/ionide/FsAutoComplete/issues/1027))
+- [Fix `null` keyword missing semantic token highlight in nullable type annotations (`string | null`)](https://github.com/ionide/FsAutoComplete/pull/1466) (closes [#1381](https://github.com/ionide/FsAutoComplete/issues/1381))
+- [Fix `<inheritdoc cref="..."/>` not resolved in XML doc tooltips for external assemblies](https://github.com/ionide/FsAutoComplete/pull/1468) (closes [#1415](https://github.com/ionide/FsAutoComplete/issues/1415))
+- [Fix signature help reporting only first parameter for curried functions](https://github.com/ionide/FsAutoComplete/pull/1469) (closes [#744](https://github.com/ionide/FsAutoComplete/issues/744))
 
 ## [0.83.0] - 2026-02-04
 
