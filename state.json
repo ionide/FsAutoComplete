@@ -9,7 +9,7 @@
     "task4": "2026-02-24",
     "task5": "2026-02-26",
     "task6": "2026-02-24",
-    "task7": "2026-02-24",
+    "task7": "2026-02-26",
     "task8": "2026-02-26",
     "task9": "2026-02-25",
     "task10": "2026-02-24",
@@ -73,9 +73,9 @@
       "description": "Rebase #1157 - code fix for FS0043 wildcard | _ -> in pattern match; merged 2026-02-26 by Krzysztof-Cieslak"
     }
   ],
-  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473],
+  "commented_issues": [333, 436, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "end",
-  "notes": "Feb 2026 run (22424502139): PR #1472 was merged by Krzysztof-Cieslak on 2026-02-26. Updated PR #1465 changelog to add #1472 (wildcard code fix). Updated Monthly Activity issue #1450 - removed [x]#1472 from suggested actions (merged). Issue #1362 (unnecessary parens false positive) has upstream fix in dotnet/fsharp PR #18350 - no comment needed. Issue backlog cursor still at 'end' - should reset next run."
+  "notes": "Feb 2026 run (22442912203): Commented on #1354 with root cause analysis for C# extension method completions. PR #1333 (seq code fix) was closed on 2026-02-26 (not merged) — removed from suggested actions. New issue #1475 created by Krzysztof-Cieslak for MSBuild properties for design time (ref #1065 proof-of-concept). Issue backlog cursor at 'end' - should reset to scan from oldest next run. PR #1409 (Copilot PR for BSP build server, issue #1408) is still open draft. Issues yet to comment: #436 (fsharp/documentation output), #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #605 (script ref), #653 (alias types), #654 (snap installs), #692 (DisplayContext memory), #705 (debugging instructions), #712 (fsl/fsy support), #733 (workspaceFolders), #779 (signature files), #789 (open location inconsistency), #847 (Fantomas update UX), #871 (raspberrypi startup), #900 (LSIF), #1310 (OptionalAttribute completions), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD), #1362 (unnecessary parens false positive - upstream fix dotnet/fsharp#18350), #1475 (MSBuild design time properties)."
 }
