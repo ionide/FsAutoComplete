@@ -1,28 +1,28 @@
 {
-  "last_run": "2026-02-25",
+  "last_run": "2026-02-26",
   "monthly_issue": 1450,
   "monthly_month": "2026-02",
   "tasks_last_run": {
-    "task1": "2026-02-25",
+    "task1": "2026-02-26",
     "task2": "2026-02-24",
     "task3": "2026-02-24",
     "task4": "2026-02-24",
-    "task5": "2026-02-25",
+    "task5": "2026-02-26",
     "task6": "2026-02-24",
     "task7": "2026-02-24",
-    "task8": "2026-02-24",
+    "task8": "2026-02-26",
     "task9": "2026-02-25",
     "task10": "2026-02-24",
-    "task11": "2026-02-25"
+    "task11": "2026-02-26"
   },
   "fix_attempts": [
     {
       "issue": 0,
       "branch": "repo-assist/release-v0.84.0-updated-1e4b1660231d01ce",
-      "date": "2026-02-24",
-      "status": "pr_created",
+      "date": "2026-02-26",
+      "status": "pr_updated",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — includes all 10 fixes merged since v0.83.0"
+      "description": "Updated v0.84.0 changelog — now includes 13 fixes merged since v0.83.0 (added #1466, #1468, #1469 to existing 10 entries)"
     },
     {
       "issue": 1352,
@@ -44,30 +44,38 @@
       "issue": 1381,
       "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
       "date": "2026-02-24",
-      "status": "ready_for_review",
+      "status": "merged",
       "pr_number": 1466,
-      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; invariant tests added; PR is clean, not draft"
+      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; merged 2026-02-25"
     },
     {
       "issue": 1415,
       "branch": "repo-assist/fix-inheritdoc-cref-resolution-566b0061d2229b57",
       "date": "2026-02-24",
-      "status": "ci_pending_integration_tests_added",
+      "status": "merged",
       "pr_number": 1468,
-      "description": "Resolve inheritdoc cref in XML doc tooltips; full integration/hover tests added per maintainer request; CI pending"
+      "description": "Resolve inheritdoc cref in XML doc tooltips; merged 2026-02-25"
     },
     {
       "issue": 744,
       "branch": "repo-assist/fix-issue-744-sighelp-curried-params-5e6618c38510d419",
       "date": "2026-02-24",
-      "status": "ci_pending",
+      "status": "merged",
       "pr_number": 1469,
-      "description": "Report all curried parameters in FunctionApplication signature help — add FunctionApplicationParameters to SignatureHelpInfo; 116 sig-help tests pass"
+      "description": "Report all curried parameters in FunctionApplication signature help; merged 2026-02-25"
+    },
+    {
+      "issue": 1157,
+      "branch": "repo-assist/rebase-pr-1157-add-missing-wildcard-operator-7a77e03ff9033bf4",
+      "date": "2026-02-25",
+      "status": "open_ci_pending",
+      "pr_number": 1472,
+      "description": "Rebase #1157 - code fix for FS0043 wildcard `| _ ->` in pattern match; CI pending"
     }
   ],
-  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471],
+  "commented_issues": [333, 455, 480, 559, 627, 700, 716, 739, 744, 745, 786, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1322, 1330, 1352, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473],
   "labelled_issues": [467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359],
   "stale_nudges": [1333, 1341, 1440],
   "issue_backlog_cursor": "end",
-  "notes": "Feb 2026 run (22415576514): Commented on #1464 with updated analysis — user ruled out type providers, dotnet clean triggers project reload via file watcher. All Repo Assist PRs: #1465 draft+clean, #1466 ready+clean, #1468 not-draft+CI pending (integration tests added), #1469 draft+CI pending."
+  "notes": "Feb 2026 run (22422114216): Updated PR #1465 changelog to include #1466/#1468/#1469 (all merged by Krzysztof-Cieslak on 2026-02-25). Commented on #1473 (go-to implementation feature). New PR #1472 (rebase of #1157, FS0043 code fix) is open with CI pending — not in memory from previous run (created in prior run at 22420039144)."
 }
