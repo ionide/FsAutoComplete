@@ -111,7 +111,7 @@ jobs:
         BuildNet10: ${{ matrix.build_net10 }}
 
     - name: Run and report tests
-      run: dotnet run -c Release -f ${{ matrix.test_tfm }} --no-build -- --fail-on-focused-tests --parallel
+      run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
         BuildNet9: ${{ matrix.build_net9 }}
@@ -125,7 +125,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: failed-test-traces-${{ matrix.os }}-${{ matrix.label }}-${{ matrix.workspace-loader }}-${{ matrix.use-transparent-compiler }}
-        path: failed_traces/
+        path: ${{ github.workspace }}/failed_traces/
         if-no-files-found: ignore
         retention-days: 7
 
