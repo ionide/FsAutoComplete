@@ -113,3 +113,9 @@ let functionAliasValue: FunctionAlias = fun _ -> 2
 // Nullable reference types (F# 9 | null syntax) — issue #1352
 let nullableStringVal: string | null = null
 let returnsNullable (s: string) : string | null = null
+
+// Delegate types — hover tooltip regression for issue #627
+type NoArgDelegate = delegate of unit -> unit
+type SingleArgDelegate = delegate of arg: string -> int
+type MultiArgDelegate = delegate of a: string * b: int -> bool
+type UnannotatedDelegate = delegate of string -> int
