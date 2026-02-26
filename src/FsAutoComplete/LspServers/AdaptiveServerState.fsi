@@ -130,7 +130,5 @@ type AdaptiveState =
   /// </remarks>
   member CancelServerProgress: progressToken: ProgressToken -> unit
 
-  member GetDiagnostics:
-   file: string<LocalPath>
-      -> Async<Result<Diagnostic array,string>>
+  member GetDiagnostics: file: string<LocalPath> -> Async<Result<Diagnostic array, string>>
   interface IDisposable
