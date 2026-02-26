@@ -3,9 +3,7 @@
 
 [![NuGet version (FsAutoComplete)](https://img.shields.io/nuget/v/FsAutoComplete.svg?style=flat-square)](https://www.nuget.org/packages/FsAutoComplete/)
 
-The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or intellisense features for editors.
-
-It can be hosted using the Language Server Protocol.
+The `FsAutoComplete` project (`FSAC`) provides a backend service for rich editing or intellisense features for editors. It is implementing the Language Server Protocol.
 
 Currently, it is used by the following extensions:
 
