@@ -32,9 +32,9 @@ It is based on:
 
 ## Documentation 
 
-* Building, Testing, and Releasing- See [CONTRIBUTING.md](./CONTRIBUTING.md) for build requirements, build commands, testing instructions, and the release process.
-* OpenTelemetry -See the [OpenTelemetry documentation](./docs/opentelemetry.md) for instructions on enabling and visualizing distributed traces.
-* LSP endpoints, settings and more - See the [Communication Protocol documentation](./docs/communication-protocol.md) for details on supported LSP endpoints, custom endpoints, notifications, startup options, initialization options, and settings.
+* **Building, Testing, and Releasing** - See [CONTRIBUTING.md](./CONTRIBUTING.md) for build requirements, build commands, testing instructions, and the release process.
+* **OpenTelemetry** -See the [OpenTelemetry documentation](./docs/opentelemetry.md) for instructions on enabling and visualizing distributed traces.
+* **LSP endpoints, settings and more** - See the [Communication Protocol documentation](./docs/communication-protocol.md) for details on supported LSP endpoints, custom endpoints, notifications, startup options, initialization options, and settings.
 
 ## Maintainers
 
@@ -61,7 +61,7 @@ Please note that this project is released with a [Contributor Code of Conduct](h
 
 The library is available under [MIT license](https://github.com/ionide/FsAutoComplete/blob/master/LICENSE.md), which allows modification and redistribution for both commercial and non-commercial purposes.
 
-### Imposter Syndrome Disclaimer
+## Imposter Syndrome Disclaimer
 
 I want your help. *No really, I do*.
 
