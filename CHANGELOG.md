@@ -8,6 +8,7 @@
 
 - [Add `FSharp.notifications.backgroundServiceProgress` config option to suppress background analyzer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1452)
 - [Add code fix to replace invalid `|->` with wildcard `| _ ->` pattern in match expressions (FS0043)](https://github.com/ionide/FsAutoComplete/pull/1472) (thanks @jkone27!)
+- [Add code fix to add missing `seq` keyword before sequence expression `{ ... }`](https://github.com/ionide/FsAutoComplete/pull/1474) (closes [#1330](https://github.com/ionide/FsAutoComplete/issues/1330), thanks @edgarfgp!)
 
 ### Fixed
 
@@ -23,6 +24,7 @@
 - [Fix `null` keyword missing semantic token highlight in nullable type annotations (`string | null`)](https://github.com/ionide/FsAutoComplete/pull/1466) (closes [#1381](https://github.com/ionide/FsAutoComplete/issues/1381))
 - [Fix `<inheritdoc cref="..."/>` not resolved in XML doc tooltips for external assemblies](https://github.com/ionide/FsAutoComplete/pull/1468) (closes [#1415](https://github.com/ionide/FsAutoComplete/issues/1415))
 - [Fix signature help reporting only first parameter for curried functions](https://github.com/ionide/FsAutoComplete/pull/1469) (closes [#744](https://github.com/ionide/FsAutoComplete/issues/744))
+- [Fix delegate type tooltips to show correct parameter/return types using `FSharpDelegateSignature` API](https://github.com/ionide/FsAutoComplete/pull/1485) (closes [#627](https://github.com/ionide/FsAutoComplete/issues/627))
 
 ## [0.83.0] - 2026-02-04
 
