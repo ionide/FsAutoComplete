@@ -2404,6 +2404,28 @@ let private removeRedundantQualifierTests state =
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
         Diagnostics.acceptAll
+        selectCodeFix
+
+      // Issue #824: FCS incorrectly reports `row1` as a redundant qualifier in a nullable join
+      // clause using `=?`. This was an upstream FCS bug (getSimplifiableNames returns wrong result
+      // for nullable join operators).
+      testCaseAsync "doesn't remove necessary qualifier in nullable join clause (issue #824)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        open System
+        open Microsoft.FSharp.Linq.NullableOperators
+
+        let table1 = [ for i in 0..10 -> {| Column1 = i |} ]
+        let table2 = [ for i in 0..10 -> {| Column2 = Nullable<int>(i) |} ]
+
+        query {
+          for row1 in table1 do
+          join row2 in table2 on ($0row1.Column1 =? row2.Column2)
+          select (row1, row2)
+        }
+        """
+        Diagnostics.acceptAll
         selectCodeFix ])
 
 let private removeUnnecessaryReturnOrYieldTests state =
