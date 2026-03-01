@@ -1,9 +1,10 @@
 {
-  "last_run": "2026-02-28",
-  "monthly_issue": 1450,
-  "monthly_month": "2026-02",
+  "last_run": "2026-03-01",
+  "monthly_issue": "pending-2026-03",
+  "monthly_month": "2026-03",
+  "prev_monthly_issue": 1450,
   "tasks_last_run": {
-    "task1": "2026-02-28",
+    "task1": "2026-03-01",
     "task2": "2026-02-24",
     "task3": "2026-02-24",
     "task4": "2026-02-24",
@@ -13,7 +14,7 @@
     "task8": "2026-02-27",
     "task9": "2026-02-25",
     "task10": "2026-02-24",
-    "task11": "2026-02-28"
+    "task11": "2026-03-01"
   },
   "fix_attempts": [
     {
@@ -22,7 +23,7 @@
       "date": "2026-02-27",
       "status": "pr_updated",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — now includes 16 entries: 3 features + 13 fixes (added #1474 missing seq code fix + #1485 delegate tooltip fix)"
+      "description": "Updated v0.84.0 changelog — now includes 16 entries: 3 features + 13 fixes"
     },
     {
       "issue": 1352,
@@ -30,61 +31,49 @@
       "date": "2026-02-23",
       "status": "closed",
       "pr_number": 1461,
-      "description": "Use typ.Format context instead of TypeDefinition.DisplayName in formatFSharpType to preserve | null annotations"
+      "description": "Use typ.Format context instead of TypeDefinition.DisplayName in formatFSharpType"
     },
     {
       "issue": 1027,
       "branch": "repo-assist/fix-seealso-href-rendering",
       "date": "2026-02-23",
       "status": "merged",
-      "pr_number": 1463,
-      "description": "Handle href and langword in seealso XML doc rendering in TipFormatter.fs"
+      "pr_number": 1463
     },
     {
       "issue": 1381,
       "branch": "repo-assist/fix-issue-1381-null-keyword-semantic-token-913b37c2a2f415f2",
       "date": "2026-02-24",
       "status": "merged",
-      "pr_number": 1466,
-      "description": "Emit Keyword semantic token for null in SynType.WithNull nullable type annotations; merged 2026-02-25"
+      "pr_number": 1466
     },
     {
       "issue": 1415,
       "branch": "repo-assist/fix-inheritdoc-cref-resolution-566b0061d2229b57",
       "date": "2026-02-24",
       "status": "merged",
-      "pr_number": 1468,
-      "description": "Resolve inheritdoc cref in XML doc tooltips; merged 2026-02-25"
+      "pr_number": 1468
     },
     {
       "issue": 744,
       "branch": "repo-assist/fix-issue-744-sighelp-curried-params-5e6618c38510d419",
       "date": "2026-02-24",
       "status": "merged",
-      "pr_number": 1469,
-      "description": "Report all curried parameters in FunctionApplication signature help; merged 2026-02-25"
+      "pr_number": 1469
     },
     {
       "issue": 1157,
       "branch": "repo-assist/rebase-pr-1157-add-missing-wildcard-operator-7a77e03ff9033bf4",
       "date": "2026-02-25",
       "status": "merged",
-      "pr_number": 1472,
-      "description": "Rebase #1157 - code fix for FS0043 wildcard | _ -> in pattern match; merged 2026-02-26 by Krzysztof-Cieslak"
-    },
-    {
-      "issue": 1480,
-      "branch": "repo-assist/rebase-pr-1341-with-dotnet-test",
-      "date": "2026-02-26",
-      "status": "superseded",
-      "description": "Superseded by maintainer's own PR #1486 (rebase-1431 branch by Krzysztof-Cieslak)"
+      "pr_number": 1472
     }
   ],
   "commented_issues": [
-    333, 436, 455, 480, 559, 627, 692, 700, 716, 739, 744, 745, 786, 865,
-    1027, 1097, 1227, 1259, 1271, 1280, 1307, 1310, 1322, 1330, 1352, 1354,
-    1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473, 1475,
-    779, 653, 789
+    333, 436, 455, 480, 559, 605, 627, 653, 692, 700, 716, 739, 744, 745,
+    779, 786, 789, 847, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1310,
+    1322, 1330, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444,
+    1464, 1471, 1473, 1475
   ],
   "labelled_issues": [
     467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359
@@ -92,6 +81,6 @@
   "stale_nudges": [
     1333, 1341, 1440
   ],
-  "issue_backlog_cursor": "1475",
-  "notes": "Feb 2026 run (22522084576): Commented on #789 (open insertion inconsistency - root cause in ResolveNamespace.adjustInsertionPoint TopModule override; TODO comment in Commands.fs already tracks it). Commented on #653 (type alias display - getAbbreviatedType utils exist in TypedAstPatterns.fs; fix in formatFSharpType with config flag). Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #605 (script ref), #654 (snap installs), #705 (debugging), #712 (fsl/fsy support), #733 (workspaceFolders), #847 (Fantomas update UX), #871 (raspberrypi startup), #900 (LSIF), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD - upstream proj-info issue). PR #1482/#1483/#1484 created in previous runs as regression tests."
+  "issue_backlog_cursor": "1479",
+  "notes": "Mar 2026 run (22544862765): Closed Feb issue #1450, created new March 2026 monthly issue (number pending - search for '[Repo Assist] Monthly Activity 2026-03'). Commented on #605 (script reference resolution - SetDotnetRoot uses SdkDiscovery.versionAt for global.json; FCS GetProjectSnapshotFromScript may still use own SDK discovery for framework refs). Commented on #847 (Fantomas update UX - suggested opt-in fsharp/checkFantomasUpdate command approach). Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #654 (snap installs), #705 (debugging), #712 (fsl/fsy support), #733 (workspaceFolders), #871 (raspberrypi startup), #900 (LSIF), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD). Open Repo Assist PRs: #1465 (v0.84.0 changelog), #1482 (RemoveRedundantQualifier regression test), #1483 (unnecessary parens regression test), #1484 (FSAC0002 false positive test, draft), #1486 (Better OTel by Krzysztof-Cieslak)."
 }
