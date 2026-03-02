@@ -2387,7 +2387,8 @@ type AdaptiveState
          ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
          IgnoreExpression.fix tryGetParseAndCheckResultsForFile
          ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile
-         AddMissingSeq.fix tryGetParseAndCheckResultsForFile |])
+         AddMissingSeq.fix tryGetParseAndCheckResultsForFile
+         IntroduceMissingBinding.fix tryGetParseAndCheckResultsForFile getLineText |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
