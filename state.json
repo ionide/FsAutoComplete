@@ -1,20 +1,20 @@
 {
-  "last_run": "2026-03-01",
-  "monthly_issue": "pending-2026-03",
+  "last_run": "2026-03-02",
+  "monthly_issue": 1487,
   "monthly_month": "2026-03",
   "prev_monthly_issue": 1450,
   "tasks_last_run": {
-    "task1": "2026-03-01",
-    "task2": "2026-02-24",
+    "task1": "2026-03-02",
+    "task2": "2026-03-02",
     "task3": "2026-02-24",
     "task4": "2026-02-24",
-    "task5": "2026-02-27",
+    "task5": "2026-03-02",
     "task6": "2026-02-24",
     "task7": "2026-02-26",
     "task8": "2026-02-27",
     "task9": "2026-02-25",
-    "task10": "2026-02-24",
-    "task11": "2026-03-01"
+    "task10": "2026-03-02",
+    "task11": "2026-03-02"
   },
   "fix_attempts": [
     {
@@ -67,12 +67,28 @@
       "date": "2026-02-25",
       "status": "merged",
       "pr_number": 1472
+    },
+    {
+      "issue": 627,
+      "branch": "(external)",
+      "date": "2026-02-26",
+      "status": "merged",
+      "pr_number": 1485,
+      "description": "Delegate tooltips fix merged by Krzysztof-Cieslak"
+    },
+    {
+      "issue": 1271,
+      "branch": "repo-assist/fix-issue-1271-introduce-missing-binding",
+      "date": "2026-03-02",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "IntroduceMissingBinding code fix - inserts let binding before undefined identifier line"
     }
   ],
   "commented_issues": [
-    333, 436, 455, 480, 559, 605, 627, 653, 692, 700, 716, 739, 744, 745,
+    333, 436, 455, 480, 525, 559, 605, 627, 653, 692, 700, 716, 739, 744, 745,
     779, 786, 789, 847, 865, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1310,
-    1322, 1330, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444,
+    1322, 1330, 1338, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444,
     1464, 1471, 1473, 1475
   ],
   "labelled_issues": [
@@ -81,6 +97,6 @@
   "stale_nudges": [
     1333, 1341, 1440
   ],
-  "issue_backlog_cursor": "1479",
-  "notes": "Mar 2026 run (22544862765): Closed Feb issue #1450, created new March 2026 monthly issue (number pending - search for '[Repo Assist] Monthly Activity 2026-03'). Commented on #605 (script reference resolution - SetDotnetRoot uses SdkDiscovery.versionAt for global.json; FCS GetProjectSnapshotFromScript may still use own SDK discovery for framework refs). Commented on #847 (Fantomas update UX - suggested opt-in fsharp/checkFantomasUpdate command approach). Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #525 (AST model), #654 (snap installs), #705 (debugging), #712 (fsl/fsy support), #733 (workspaceFolders), #871 (raspberrypi startup), #900 (LSIF), #1316 (extract TipFormatters), #1338 (dotnet binary FreeBSD). Open Repo Assist PRs: #1465 (v0.84.0 changelog), #1482 (RemoveRedundantQualifier regression test), #1483 (unnecessary parens regression test), #1484 (FSAC0002 false positive test, draft), #1486 (Better OTel by Krzysztof-Cieslak)."
+  "issue_backlog_cursor": "1487",
+  "notes": "Mar 2026 run (22579552369): Monthly issue #1487 confirmed open. Commented on #1338 (FreeBSD dotnet binary - fix in Ionide.ProjInfo Utils.fs, workaround: set DOTNET_HOST_PATH). Commented on #525 (AST model endpoint - implementation sketch for fsharp/ast custom endpoint). PR #1485 (delegate tooltips) merged by Krzysztof-Cieslak. PR #1465 (v0.84.0 changelog) still open. PRs #1482, #1483, #1484 pending CI. Implemented IntroduceMissingBinding code fix (Task 10) - all 8 tests pass. Issues still to comment: #481 (go-to-def decompiled), #486 (decompiler throw null), #654 (snap installs), #705 (debugging), #712 (fsl/fsy support), #733 (workspaceFolders), #871 (raspberrypi startup), #900 (LSIF). Open Repo Assist PRs: #1465 (v0.84.0 changelog), #1482 (RemoveRedundantQualifier regression test), #1483 (unnecessary parens regression test), #1484 (FSAC0002 false positive test, draft), plus new PR for IntroduceMissingBinding."
 }
