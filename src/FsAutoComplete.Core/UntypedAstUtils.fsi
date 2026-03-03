@@ -80,6 +80,14 @@ module NullableTypes =
   /// such as <c>string | null</c>.
   val collectNullKeywordRanges: ast: ParsedInput -> Range seq
 
+module FsacFunctionParameters =
+  open FSharp.Compiler.Syntax
+  open FSharp.Compiler.Text
+
+  /// Collect the source ranges of all function parameter identifier declarations
+  /// in the given parse tree, covering both function bindings and lambda expressions.
+  val collectParameterRanges: ast: ParsedInput -> Range seq
+
 module Completion =
   open FSharp.Compiler.Syntax
   open FSharp.Compiler.Text

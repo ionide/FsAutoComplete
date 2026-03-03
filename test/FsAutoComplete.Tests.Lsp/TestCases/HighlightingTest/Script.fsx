@@ -27,3 +27,7 @@ let afterMultiline = 42
 // Regression test for https://github.com/ionide/FsAutoComplete/issues/1381:
 // `null` in a nullable type annotation like `string | null` should receive a Keyword token.
 let withNull (x: string | null) = ()
+
+// Regression test for https://github.com/ionide/FsAutoComplete/issues/1359:
+// Function parameters should receive a Parameter semantic token, not a Variable token.
+let withParam (param: int) = param
