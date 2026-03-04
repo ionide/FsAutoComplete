@@ -229,10 +229,24 @@ type AdaptiveFSharpLspServer
       let r = tyRes.GetCheckResults.GetSemanticClassification(range)
       let filteredRanges = Commands.scrubRanges r
 
+      // FCS classifies function parameters as LocalValue (same as ordinary let bindings).
+      // Use the parse tree to identify parameter definition sites and override the token type
+      // to Parameter for those ranges. See https://github.com/ionide/FsAutoComplete/issues/1359
+      let parameterRanges =
+        FsacFunctionParameters.collectParameterRanges tyRes.GetParseResults.ParseTree
+        |> System.Collections.Generic.HashSet<FSharp.Compiler.Text.Range>
+
       let lspTypedRanges =
         filteredRanges
         |> Array.map (fun item ->
           let ty, mods = ClassificationUtils.map item.Type
+
+          let ty, mods =
+            match item.Type with
+            | SemanticClassificationType.LocalValue when parameterRanges.Contains(item.Range) ->
+              ClassificationUtils.SemanticTokenTypes.Parameter, []
+            | _ -> ty, mods
+
           struct (fcsRangeToLsp item.Range, ty, mods))
 
       // FCS does not emit semantic tokens for the `null` keyword in nullable type

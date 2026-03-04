@@ -668,6 +668,50 @@ module NullableTypes =
     walkAst walker ast
     walker.Ranges :> _
 
+/// Utilities for identifying function parameter identifier declaration ranges in the parse tree.
+/// Used to supplement FCS semantic classification, which does not distinguish parameters from
+/// other local values (both are reported as <c>SemanticClassificationType.LocalValue</c>).
+module FsacFunctionParameters =
+  open FSharp.Compiler.Text
+  open FSharp.Compiler.Syntax
+
+  type private ParameterCollector() =
+    inherit SyntaxCollectorBase()
+
+    let ranges = ResizeArray<Range>()
+
+    let rec collectFromPat (pat: SynPat) =
+      match pat with
+      | SynPat.Named(ident = SynIdent(id, _)) -> ranges.Add(id.idRange)
+      | SynPat.Typed(pat = innerPat) -> collectFromPat innerPat
+      | SynPat.Paren(pat = innerPat) -> collectFromPat innerPat
+      | SynPat.Tuple(elementPats = pats) -> List.iter collectFromPat pats
+      | SynPat.OptionalVal(ident = id) -> ranges.Add(id.idRange)
+      | SynPat.Attrib(pat = innerPat) -> collectFromPat innerPat
+      | SynPat.As(rhsPat = rightPat) -> collectFromPat rightPat
+      | _ -> ()
+
+    override _.WalkBinding(SynBinding(headPat = headPat)) =
+      // Collect parameter names from function bindings (let foo (bar: int) = ...)
+      match headPat with
+      | SynPat.LongIdent(argPats = ConstructorPats argPats) -> List.iter collectFromPat argPats
+      | _ -> ()
+
+    override _.WalkSimplePat s =
+      // Collect parameter names from lambda expressions (fun x y -> ...)
+      match s with
+      | SynSimplePat.Id(ident = id; isCompilerGenerated = false; isThisVal = false) -> ranges.Add(id.idRange)
+      | _ -> ()
+
+    member _.Ranges = ranges
+
+  /// Collect the source ranges of all function parameter identifier declarations
+  /// in the given parse tree, covering both function bindings and lambda expressions.
+  let collectParameterRanges (ast: ParsedInput) : Range seq =
+    let walker = ParameterCollector()
+    walkAst walker ast
+    walker.Ranges :> _
+
 module Completion =
   open FSharp.Compiler.Text
   open FSharp.Compiler.Syntax

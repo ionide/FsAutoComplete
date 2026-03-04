@@ -179,4 +179,8 @@ let tests state =
           // The `null` keyword in nullable type annotations like `string | null` should
           // receive a Keyword semantic token (FCS does not provide one natively).
           tokenIsOfType (28u, 26u) ClassificationUtils.SemanticTokenTypes.Keyword fullHighlights // `null` in `let withNull (x: string | null) = ()`
+
+          // Regression test for https://github.com/ionide/FsAutoComplete/issues/1359:
+          // Function parameters should receive a Parameter semantic token, not a Variable token.
+          tokenIsOfType (32u, 15u) ClassificationUtils.SemanticTokenTypes.Parameter fullHighlights // `param` in `let withParam (param: int) = param`
           ] ]
