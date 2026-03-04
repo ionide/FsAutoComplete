@@ -3711,4 +3711,5 @@ let tests textFactory state =
       IgnoreExpressionTests.tests state
       ExprTypeMismatchTests.tests state
       AddMissingWildcardOperatorTests.tests state
-      AddMissingSeqTests.tests state ]
+      AddMissingSeqTests.tests state
+      IntroduceMissingBindingTests.tests state ]
