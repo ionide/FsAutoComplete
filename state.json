@@ -5,7 +5,7 @@
   "prev_monthly_issue": 1450,
   "tasks_last_run": {
     "task1": "2026-03-04",
-    "task2": "2026-03-03",
+    "task2": "2026-03-04",
     "task3": "2026-03-03",
     "task4": "2026-02-24",
     "task5": "2026-03-02",
@@ -23,7 +23,7 @@
       "date": "2026-02-27",
       "status": "pr_updated",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — now includes 16 entries: 3 features + 13 fixes"
+      "description": "Updated v0.84.0 changelog \u2014 now includes 16 entries: 3 features + 13 fixes"
     },
     {
       "issue": 1352,
@@ -91,19 +91,84 @@
       "status": "pr_created",
       "pr_number": 1489,
       "description": "FsacFunctionParameters module walks parse tree to reclassify LocalValue -> Parameter for parameter definition ranges"
+    },
+    {
+      "issue": 486,
+      "branch": "repo-assist/fix-issue-486-ref-assembly-decompile",
+      "date": "2026-03-04",
+      "status": "pr_created",
+      "description": "Resolve implementation assembly (Roslyn-style path lookup) before decompiling to fix throw null in reference assemblies"
     }
   ],
   "commented_issues": [
-    333, 436, 455, 480, 481, 486, 525, 559, 605, 627, 653, 692, 700, 712, 716, 739, 744, 745,
-    779, 786, 789, 847, 865, 900, 1027, 1097, 1227, 1259, 1271, 1280, 1307, 1310,
-    1322, 1330, 1338, 1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444,
-    1464, 1471, 1473, 1475
+    333,
+    436,
+    455,
+    480,
+    481,
+    486,
+    525,
+    559,
+    605,
+    627,
+    653,
+    692,
+    700,
+    712,
+    716,
+    739,
+    744,
+    745,
+    779,
+    786,
+    789,
+    847,
+    865,
+    900,
+    1027,
+    1097,
+    1227,
+    1259,
+    1271,
+    1280,
+    1307,
+    1310,
+    1322,
+    1330,
+    1338,
+    1352,
+    1354,
+    1359,
+    1381,
+    1408,
+    1414,
+    1415,
+    1432,
+    1437,
+    1444,
+    1464,
+    1471,
+    1473,
+    1475
   ],
   "labelled_issues": [
-    467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359
+    467,
+    480,
+    536,
+    605,
+    653,
+    654,
+    692,
+    705,
+    824,
+    865,
+    1354,
+    1359
   ],
   "stale_nudges": [
-    1333, 1341, 1440
+    1333,
+    1341,
+    1440
   ],
   "issue_backlog_cursor": "1487",
   "notes": "Mar 2026 run (22672792657): Commented on #486 (decompiler throw null - PEFile.IsReferenceAssembly detection + impl-assembly lookup approach) and #712 (FsLexYacc support - virtual docs approach). Open Repo Assist PRs: #1465, #1482, #1483, #1484, #1488, #1489. Issues still to comment: #654 (snap installs), #705 (debugging), #733 (workspaceFolders), #871 (raspberrypi startup)."
