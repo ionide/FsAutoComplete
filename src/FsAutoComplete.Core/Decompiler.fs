@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Xml
 open FSharp.Compiler.Text
 open Utils
 open System.Text.RegularExpressions
@@ -55,6 +56,68 @@ type TextWriterWithLocationFinder(tokenWriter: TextWriterTokenWriter, formatting
     ``base``.VisitTypeDeclaration(declaration)
 
   member __.MatchingLocation = matchingLocation
+
+/// For NuGet packages: if the assembly is in a "ref" folder, try the corresponding "lib" folder.
+/// E.g. .../some.package/1.0.0/ref/net8.0/Foo.dll → .../some.package/1.0.0/lib/net8.0/Foo.dll
+let private tryNugetLibFromRef (assemblyPath: string) =
+  let sep = [| Path.DirectorySeparatorChar; Path.AltDirectorySeparatorChar |]
+  let parts = assemblyPath.Split(sep, StringSplitOptions.None)
+  // Find last "ref" segment (to avoid matching "ref" in a package name)
+  match parts |> Array.tryFindIndexBack (fun p -> p = "ref") with
+  | None -> None
+  | Some refIdx ->
+    let candidate =
+      [| yield! parts[.. refIdx - 1]; yield "lib"; yield! parts[refIdx + 1 ..] |]
+      |> String.concat (string Path.DirectorySeparatorChar)
+
+    if File.Exists(candidate) then Some candidate else None
+
+/// For .NET targeting packs: maps packs/[packName]/[version]/ref/[tfm]/[dll]
+/// to shared/[sdkName]/[version]/[dll] by reading FrameworkList.xml.
+/// E.g. .../packs/Microsoft.NETCore.App.Ref/8.0.6/ref/net8.0/System.Runtime.dll
+///   → .../shared/Microsoft.NETCore.App/8.0.6/System.Runtime.dll
+let private trySharedSdkFromTargetingPack (assemblyPath: string) =
+  let dllFileName = Path.GetFileName(assemblyPath)
+  let tfmDir = Path.GetDirectoryName(assemblyPath) // e.g. .../ref/net8.0
+  let refDir = Path.GetDirectoryName(tfmDir) // e.g. .../ref
+  let versionDir = Path.GetDirectoryName(refDir) // e.g. .../8.0.6
+  let packDir = Path.GetDirectoryName(versionDir) // e.g. .../Microsoft.NETCore.App.Ref
+  let packsDir = Path.GetDirectoryName(packDir) // e.g. .../packs
+
+  if Path.GetFileName(refDir) <> "ref" || Path.GetFileName(packsDir) <> "packs" then
+    None
+  else
+    let packVersion = Path.GetFileName(versionDir)
+    let dotnetRoot = Path.GetDirectoryName(packsDir)
+    let frameworkXml = Path.Combine(versionDir, "data", "FrameworkList.xml")
+
+    if not (File.Exists(frameworkXml)) then
+      None
+    else
+      try
+        use reader = XmlReader.Create(frameworkXml)
+        reader.MoveToContent() |> ignore
+        let sdkName = reader.GetAttribute("FrameworkName")
+
+        if String.IsNullOrEmpty(sdkName) then
+          None
+        else
+          let candidate =
+            Path.Combine(dotnetRoot, "shared", sdkName, packVersion, dllFileName)
+
+          if File.Exists(candidate) then Some candidate else None
+      with _ ->
+        None
+
+/// Tries to find the actual implementation assembly for a given assembly path.
+/// Reference assemblies (e.g. from targeting packs or NuGet ref folders) contain
+/// only signatures with stub bodies (`throw null`). When an implementation assembly
+/// is available at a predictable location, returning it allows the decompiler to
+/// show real method bodies.
+let tryFindImplementationAssembly (assemblyPath: string) =
+  match tryNugetLibFromRef assemblyPath with
+  | Some p -> Some p
+  | None -> trySharedSdkFromTargetingPack assemblyPath
 
 let decompilerForFile (file: string) =
   let settings =
@@ -217,6 +280,11 @@ let tryFindExternalDeclaration
   | None -> Result.Error(ReferenceNotFound assembly)
   | Some assembly when assembly.FileName = None -> Result.Error(ReferenceHasNoFileName assembly)
   | Some assembly ->
-    match decompile externalSym assembly.FileName.Value with
+    let assemblyPath =
+      assembly.FileName.Value
+      |> tryFindImplementationAssembly
+      |> Option.defaultValue assembly.FileName.Value
+
+    match decompile externalSym assemblyPath with
     | Error err -> Result.Error(DecompileError err)
     | Ok result -> Ok result
