@@ -1,20 +1,20 @@
 {
-  "last_run": "2026-03-05",
+  "last_run": "2026-03-06",
   "monthly_issue": 1487,
   "monthly_month": "2026-03",
   "prev_monthly_issue": 1450,
   "tasks_last_run": {
-    "task1": "2026-03-05",
+    "task1": "2026-03-06",
     "task2": "2026-03-04",
     "task3": "2026-03-03",
     "task4": "2026-02-24",
     "task5": "2026-03-05",
-    "task6": "2026-02-24",
+    "task6": "2026-03-06",
     "task7": "2026-02-26",
     "task8": "2026-02-27",
     "task9": "2026-02-25",
     "task10": "2026-03-03",
-    "task11": "2026-03-05"
+    "task11": "2026-03-06"
   },
   "fix_attempts": [
     {
@@ -80,7 +80,7 @@
       "date": "2026-03-02",
       "status": "merged",
       "pr_number": 1488,
-      "description": "IntroduceMissingBinding code fix - inserts let binding before undefined identifier line — merged by Krzysztof-Cieslak 2026-03-04"
+      "description": "IntroduceMissingBinding code fix — merged by Krzysztof-Cieslak 2026-03-04"
     },
     {
       "issue": 1359,
@@ -88,7 +88,7 @@
       "date": "2026-03-03",
       "status": "merged",
       "pr_number": 1489,
-      "description": "FsacFunctionParameters module walks parse tree to reclassify LocalValue -> Parameter for parameter definition ranges — merged by Krzysztof-Cieslak 2026-03-04"
+      "description": "FsacFunctionParameters module walks parse tree to reclassify LocalValue -> Parameter — merged by Krzysztof-Cieslak 2026-03-04"
     },
     {
       "issue": 486,
@@ -100,15 +100,16 @@
     }
   ],
   "commented_issues": [
-    333, 436, 455, 480, 481, 486, 525, 559, 605, 627, 653, 654, 692, 700, 705,
-    712, 716, 733, 739, 744, 745, 779, 786, 789, 847, 865, 871, 900, 1027, 1097,
-    1227, 1259, 1271, 1280, 1307, 1310, 1322, 1330, 1338, 1352, 1354, 1359,
-    1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471, 1473, 1475
+    333, 436, 455, 480, 481, 486, 525, 536, 559, 605, 627, 653, 654, 692, 700,
+    705, 712, 716, 733, 739, 744, 745, 779, 786, 789, 824, 847, 865, 871, 900,
+    1027, 1097, 1227, 1259, 1271, 1280, 1307, 1310, 1316, 1322, 1330, 1338,
+    1352, 1354, 1359, 1381, 1408, 1414, 1415, 1432, 1437, 1444, 1464, 1471,
+    1473, 1475
   ],
   "labelled_issues": [
     467, 480, 536, 605, 653, 654, 692, 705, 824, 865, 1354, 1359
   ],
-  "stale_nudges": [1333, 1341, 1440],
+  "stale_nudges": [1302, 1333, 1341, 1440],
   "issue_backlog_cursor": "1487",
-  "notes": "Mar 2026 run (22721606208): Commented on #705 (debugging/testing instructions 2026 update). PR #1488 (IntroduceMissingBinding) merged by Krzysztof-Cieslak. Open Repo Assist PRs: #1465, #1482, #1483, #1484, #1490. Task6 (stale nudges) and task4 (deps) are most overdue for next run."
+  "notes": "Mar 2026 run (22766736191): Commented on #536 (ReadyToRun update) and #1316 (TipFormatter extraction). Nudged stale PR #1302 (fsdocs, last updated Aug 2024). Open Repo Assist PRs: #1465, #1482, #1483, #1484, #1490. Task 4 (deps) and task 7 (labels) are overdue for next run. Task 9 (new contributors) also overdue. Issues still uncovered: ~15-18 in 467-1316 range including #467 (FSI references), and possibly others in 550-900 gap."
 }
