@@ -2,9 +2,29 @@
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-02-26
+
+### Added
+
+- [Add `FSharp.notifications.backgroundServiceProgress` config option to suppress background analyzer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1452)
+- [Add code fix to replace invalid `|->` with wildcard `| _ ->` pattern in match expressions (FS0043)](https://github.com/ionide/FsAutoComplete/pull/1472) (thanks @jkone27!)
+- [Add code fix to add missing `seq` keyword before sequence expression `{ ... }`](https://github.com/ionide/FsAutoComplete/pull/1474) (closes [#1330](https://github.com/ionide/FsAutoComplete/issues/1330), thanks @edgarfgp!)
+
 ### Fixed
 
+- [Fix SourceLink go-to-definition failure when .NET 10 is used on Linux](https://github.com/ionide/FsAutoComplete/pull/1441) (thanks @serefarikan!)
 - [Disable inline values by default to restore pipeline hints](https://github.com/ionide/FsAutoComplete/pull/1456) - `InlineValueProvider` is no longer advertised by default, restoring pipeline hints during normal editing (closes [#1214](https://github.com/ionide/FsAutoComplete/issues/1214))
+- [Fix uint32 underflow in semantic token length for multiline ranges](https://github.com/ionide/FsAutoComplete/pull/1449) — multiline tokens no longer cause editor freeze/crash in Neovim and other LSP clients (closes [#1407](https://github.com/ionide/FsAutoComplete/issues/1407))
+- [Fix missing `{` completion trigger character for interpolated string expressions](https://github.com/ionide/FsAutoComplete/pull/1454) (closes [#962](https://github.com/ionide/FsAutoComplete/issues/962))
+- [Fix non-ASCII path characters encoded incorrectly in file URIs](https://github.com/ionide/FsAutoComplete/pull/1455) (closes [#840](https://github.com/ionide/FsAutoComplete/issues/840))
+- [Fix spurious rename of `get`/`set` accessor keywords when renaming a property](https://github.com/ionide/FsAutoComplete/pull/1453) (closes [#1269](https://github.com/ionide/FsAutoComplete/issues/1269))
+- [Fix ambiguous function-type segments missing parentheses in AddExplicitTypeAnnotation](https://github.com/ionide/FsAutoComplete/pull/1457) (closes [#1340](https://github.com/ionide/FsAutoComplete/issues/1340))
+- [Fix signature help parameter types showing fully-qualified names instead of simplified names](https://github.com/ionide/FsAutoComplete/pull/1458) (closes [#1029](https://github.com/ionide/FsAutoComplete/issues/1029))
+- [Fix `<seealso href="...">` and `<seealso langword="...">` XML doc rendering](https://github.com/ionide/FsAutoComplete/pull/1463) (partially addresses [#1027](https://github.com/ionide/FsAutoComplete/issues/1027))
+- [Fix `null` keyword missing semantic token highlight in nullable type annotations (`string | null`)](https://github.com/ionide/FsAutoComplete/pull/1466) (closes [#1381](https://github.com/ionide/FsAutoComplete/issues/1381))
+- [Fix `<inheritdoc cref="..."/>` not resolved in XML doc tooltips for external assemblies](https://github.com/ionide/FsAutoComplete/pull/1468) (closes [#1415](https://github.com/ionide/FsAutoComplete/issues/1415))
+- [Fix signature help reporting only first parameter for curried functions](https://github.com/ionide/FsAutoComplete/pull/1469) (closes [#744](https://github.com/ionide/FsAutoComplete/issues/744))
+- [Fix delegate type tooltips to show correct parameter/return types using `FSharpDelegateSignature` API](https://github.com/ionide/FsAutoComplete/pull/1485) (closes [#627](https://github.com/ionide/FsAutoComplete/issues/627))
 
 ## [0.83.0] - 2026-02-04
 
