@@ -2404,6 +2404,28 @@ let private removeRedundantQualifierTests state =
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
         Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "doesn't offer fix when qualifier is not redundant due to variable shadowing property (issue #1259)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type User (name) =
+            member val Name = name
+
+        type Envelop () =
+            member val user = User("toto")
+
+        let test =
+            let user = User("user")
+            let envelop = Envelop()
+
+            if $0envelop.user.Name = "maxime" then
+                printfn "It works"
+            else
+                printfn "It doesn't work"
+        """
+        Diagnostics.acceptAll
         selectCodeFix ])
 
 let private removeUnnecessaryReturnOrYieldTests state =
