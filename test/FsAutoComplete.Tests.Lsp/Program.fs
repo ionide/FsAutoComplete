@@ -20,8 +20,114 @@ open System.IO
 open FsAutoComplete
 open Helpers
 open FsToolkit.ErrorHandling
+open System.Diagnostics
+open OpenTelemetry.Resources
+open OpenTelemetry
+open OpenTelemetry.Exporter
+open OpenTelemetry.Exporter.OtlpFile
+open OpenTelemetry.Trace
 
 Expect.defaultDiffPrinter <- Diff.colourisedDiff
+
+let resourceBuilder version =
+  ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
+
+/// Check if we're running in GitHub Actions CI
+let isCI = Environment.GetEnvironmentVariable("CI") = "true"
+
+/// Directory to write failed test traces to
+let failedTracesDirectory =
+  let dir =
+    Environment.GetEnvironmentVariable("FAILED_TRACES_DIR")
+    |> Option.ofObj
+    |> Option.defaultValue "failed_traces"
+
+  Path.GetFullPath(dir)
+
+type SpanFilter(filter: Activity -> bool) =
+  inherit BaseProcessor<Activity>()
+
+  override x.OnEnd(span: Activity) : unit =
+    if filter span then
+      span.ActivityTraceFlags <- span.ActivityTraceFlags &&& (~~~ActivityTraceFlags.Recorded)
+    else
+      base.OnEnd(span: Activity)
+
+type TracerProviderBuilder with
+  member x.AddSpanFilter(filter: Activity -> bool) = x.AddProcessor(new SpanFilter(filter))
+
+// Module-level OTel state – shared between module init and main() for dotnet run/dotnet test compat
+let private currentTraceProvider: TracerProvider option ref = ref None
+
+let private currentFailedTestExporter: FailedTestOtlpFileExportProcessor option ref =
+  ref None
+
+let private tracesAlreadyWritten = ref false
+
+/// Write failed test traces to file and print a GitHub Actions error annotation.
+/// Safe to call multiple times – only the first call writes.
+let private writeFailedTraces () =
+  if not tracesAlreadyWritten.Value then
+    tracesAlreadyWritten.Value <- true
+
+    match currentFailedTestExporter.Value with
+    | Some exporter ->
+      let traceResult = exporter.WriteToFile()
+
+      match traceResult with
+      | Some(file, count) ->
+        if not (Directory.Exists failedTracesDirectory) then
+          Directory.CreateDirectory failedTracesDirectory |> ignore
+
+        let summaryFile = Path.Combine(failedTracesDirectory, "summary.txt")
+        File.WriteAllText(summaryFile, $"Failed test traces: {file}\nFailed test count: {count}")
+        printfn $"::error::Found {count} failed test(s). Traces written to {file}"
+      | None -> printfn "No failed tests – no traces written"
+    | None -> ()
+
+/// Flush the current trace provider (no-op when not configured).
+let private flushTraceProvider () =
+  match currentTraceProvider.Value with
+  | Some provider -> provider.ForceFlush(3000) |> ignore
+  | None -> ()
+
+// Initialize OTel at module level so it works for both `dotnet run` and `dotnet test`.
+// For CI: export only failed-test spans to OTLP JSON files.
+// For local dev: send all spans to an OTLP endpoint when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+do
+  let version = FsAutoComplete.Utils.Version.info().Version
+
+  let baseBuilder =
+    Sdk
+      .CreateTracerProviderBuilder()
+      .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
+      .SetResourceBuilder(resourceBuilder version)
+      .AddSpanFilter((fun span -> span.DisplayName.Contains "DiagnosticsLogger")) // DiagnosticsLogger.StackGuard.Guard is too noisy
+
+  if isCI then
+    printfn $"Running in CI mode – failed test traces will be written to: {failedTracesDirectory}"
+
+    let builder, exporter =
+      baseBuilder.AddFailedTestOtlpFileExporter(fun opts ->
+        opts.OutputDirectory <- failedTracesDirectory
+        opts.ServiceName <- serviceName
+        opts.ServiceVersion <- version)
+
+    currentTraceProvider.Value <- Some(builder.Build())
+    currentFailedTestExporter.Value <- Some exporter
+
+    AppDomain.CurrentDomain.ProcessExit.Add(fun _ ->
+      writeFailedTraces ()
+      flushTraceProvider ())
+  else
+    // Use the standard OTEL_EXPORTER_OTLP_ENDPOINT env var to enable local-dev tracing.
+    // Example: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+    let otlpEndpoint = Environment.GetEnvironmentVariable "OTEL_EXPORTER_OTLP_ENDPOINT"
+
+    if not (String.IsNullOrEmpty otlpEndpoint) then
+      currentTraceProvider.Value <- Some(baseBuilder.AddOtlpExporter().Build())
+
+      AppDomain.CurrentDomain.ProcessExit.Add(fun _ -> flushTraceProvider ())
 
 
 let testTimeout =
@@ -76,7 +182,11 @@ let compilers =
   | Some(EqIC "BackgroundCompiler") -> [ "BackgroundCompiler", false ]
   | _ -> [ "BackgroundCompiler", false; "TransparentCompiler", true ]
 
+let otelTests =
+  OpenTelemetry.addOpenTelemetry_SpanPerTest Expecto.Impl.ExpectoConfig.defaultConfig source
+
 let lspTests =
+
   testSequenced
   <| testList
     "lsp"
@@ -157,30 +267,14 @@ let generalTests =
 [<Tests>]
 let tests =
   testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+  |> otelTests
 
-open OpenTelemetry
-open OpenTelemetry.Resources
-open OpenTelemetry.Trace
-open OpenTelemetry.Logs
-open OpenTelemetry.Metrics
-open System.Diagnostics
 open FsAutoComplete.Telemetry
 
 [<EntryPoint>]
 let main args =
-  let serviceName = "FsAutoComplete.Tests.Lsp"
-
-  use traceProvider =
-    let version = FsAutoComplete.Utils.Version.info().Version
-
-    Sdk
-      .CreateTracerProviderBuilder()
-      .AddSource(FsAutoComplete.Utils.Tracing.serviceName, Tracing.fscServiceName, serviceName)
-      .SetResourceBuilder(
-        ResourceBuilder.CreateDefault().AddService(serviceName = serviceName, serviceVersion = version)
-      )
-      .AddOtlpExporter()
-      .Build()
+  // OTel is already initialized at module level (works for both `dotnet run` and `dotnet test`).
+  // See the module-level `do` block above for the provider setup.
 
   let outputTemplate =
     "[{Timestamp:HH:mm:ss} {Level:u3}] [{SourceContext}] {Message:lj}{NewLine}{Exception}"
@@ -283,7 +377,6 @@ let main args =
   let fixedUpArgs = args |> Array.except argsToRemove
 
   let cts = new CancellationTokenSource(testTimeout)
-  use activitySource = new ActivitySource(serviceName)
 
   let cliArgs =
     [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
@@ -291,5 +384,12 @@ let main args =
       CLIArguments.Parallel ]
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
-  use span = activitySource.StartActivity("runTests")
-  runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+  use span = source.StartActivity("runTests")
+  let result = runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+
+  // Explicitly write traces when running via `dotnet run` so the annotation is printed
+  // before the process exits.  ProcessExit will no-op because tracesAlreadyWritten is set.
+  writeFailedTraces ()
+  flushTraceProvider ()
+
+  result

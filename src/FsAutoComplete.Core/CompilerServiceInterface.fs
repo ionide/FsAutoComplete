@@ -1,5 +1,7 @@
 namespace FsAutoComplete
 
+open FsAutoComplete.Utils.Tracing
+open FsAutoComplete.Telemetry
 open System.IO
 open FSharp.Compiler.CodeAnalysis
 open Utils
@@ -14,6 +16,7 @@ open System
 open FsToolkit.ErrorHandling
 open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 open System.Threading
+open IcedTasks
 
 type Version = int
 
@@ -107,6 +110,8 @@ type FSharpCompilerServiceChecker
       useTransparentCompiler = useTransparentCompiler,
       ?transparentCompilerCacheSizes = cacheSize
     )
+
+  let thisType = typeof<FSharpCompilerServiceChecker>
 
   let entityCache = EntityCache()
 
@@ -337,15 +342,20 @@ type FSharpCompilerServiceChecker
     }
 
   member self.GetProjectSnapshotsFromScript(file: string<LocalPath>, source, tfm: FSIRefs.TFM) =
-    async {
-      try
-        do! scriptLocker.WaitAsync() |> Async.AwaitTask
+    asyncEx {
+      let tags =
+        seq {
+          yield "file", box file
+          yield "tfm", tfm
+        }
 
-        match tfm with
-        | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptSnapshot(file, source)
-        | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptSnapshot(file, source)
-      finally
-        scriptLocker.Release() |> ignore<int>
+      use _trace = Tracing.fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      use! _l = scriptLocker.LockAsync()
+
+      match tfm with
+      | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptSnapshot(file, source)
+      | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptSnapshot(file, source)
+
     }
 
 
@@ -418,15 +428,19 @@ type FSharpCompilerServiceChecker
     }
 
   member self.GetProjectOptionsFromScript(file: string<LocalPath>, source, tfm) =
-    async {
-      try
-        do! scriptLocker.WaitAsync() |> Async.AwaitTask
+    asyncEx {
+      let tags =
+        seq {
+          yield "file", box file
+          yield "tfm", box tfm
+        }
 
-        match tfm with
-        | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptOptions(file, source)
-        | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptOptions(file, source)
-      finally
-        scriptLocker.Release() |> ignore<int>
+      use _trace = Tracing.fsacActivitySource.StartActivityForType(thisType, tags = tags)
+      use! _l = scriptLocker.LockAsync()
+
+      match tfm with
+      | FSIRefs.TFM.NetFx -> return! self.GetNetFxScriptOptions(file, source)
+      | FSIRefs.TFM.NetCore -> return! self.GetNetCoreScriptOptions(file, source)
     }
 
 
