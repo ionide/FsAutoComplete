@@ -36,7 +36,7 @@
 #
 # Source: githubnext/agentics/workflows/repo-assist.md@69dc52f93e6abaaeb199c24e22b401f5bb1bac6f
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d1904d4594075b64f979a5290f7e1f8f95ef4d90cbb89c271351cba9bd122ba4","compiler_version":"v0.53.6"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"3c0f559a603f07cb19ad10815427c6a72fa93f9db0cfa8673e77d90101076f37","compiler_version":"v0.53.6"}
 
 name: "Repo Assist"
 "on":
@@ -67,7 +67,7 @@ name: "Repo Assist"
     - created
     - edited
   schedule:
-  - cron: "46 */6 * * *"
+  - cron: "46 */12 * * *"
   workflow_dispatch: null
 
 permissions: {}
