@@ -150,7 +150,31 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
 
     let typeSystem = decompiler.TypeSystem
 
-    let typeDef = getDeclaringTypeName externalSym |> resolveType typeSystem
+    let initialTypeDef = getDeclaringTypeName externalSym |> resolveType typeSystem
+
+    // Type forwarders: if the resolved type's parent module is not the assembly we opened
+    // (e.g. System.Boolean in netstandard.dll is forwarded to System.Runtime.dll),
+    // ILSpy will throw "Decompiling types that are not part of the main module is not supported".
+    // Detect this by comparing parent module to the main module, and if they differ, redirect to
+    // the assembly that actually defines the type.
+    let (decompiler, typeDef) =
+      if initialTypeDef <> null && initialTypeDef.ParentModule <> typeSystem.MainModule then
+        let peFile = initialTypeDef.ParentModule.PEFile
+
+        if peFile <> null && peFile.FileName <> null then
+          let redirectedDecompiler = decompilerForFile peFile.FileName
+
+          let redirectedTypeDef =
+            getDeclaringTypeName externalSym |> resolveType redirectedDecompiler.TypeSystem
+
+          if redirectedTypeDef <> null then
+            redirectedDecompiler, redirectedTypeDef
+          else
+            decompiler, initialTypeDef
+        else
+          decompiler, initialTypeDef
+      else
+        decompiler, initialTypeDef
 
     let symbol =
       match externalSym with
