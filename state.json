@@ -1,29 +1,45 @@
 {
-  "last_run": "2026-03-07",
+  "last_run": "2026-03-08",
   "monthly_issue": 1487,
   "monthly_month": "2026-03",
   "prev_monthly_issue": 1450,
   "tasks_last_run": {
     "task1": "2026-03-06",
     "task2": "2026-03-07",
-    "task3": "2026-03-07",
+    "task3": "2026-03-08",
     "task4": "2026-02-24",
     "task5": "2026-03-07",
-    "task6": "2026-03-06",
+    "task6": "2026-03-08",
     "task7": "2026-02-26",
     "task8": "2026-02-27",
     "task9": "2026-02-25",
     "task10": "2026-03-03",
-    "task11": "2026-03-07"
+    "task11": "2026-03-08"
   },
   "fix_attempts": [
     {
       "issue": 0,
+      "branch": "repo-assist/update-changelog-v0.84.0",
+      "date": "2026-03-08",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Updated v0.84.0 changelog — 18 entries since v0.83.0 — supersedes #1465"
+    },
+    {
+      "issue": 786,
+      "branch": "repo-assist/fix-issue-786-type-forwarder-decompile",
+      "date": "2026-03-08",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Fix type-forwarded type decompilation: check ParentModule vs MainModule, redirect decompiler to actual defining assembly"
+    },
+    {
+      "issue": 0,
       "branch": "repo-assist/release-v0.84.0-updated-1e4b1660231d01ce",
       "date": "2026-02-27",
-      "status": "pr_updated",
+      "status": "superseded",
       "pr_number": 1465,
-      "description": "Updated v0.84.0 changelog — now includes 16 entries: 3 features + 13 fixes"
+      "description": "Superseded by new changelog PR"
     },
     {
       "issue": 1352,
@@ -100,11 +116,11 @@
     },
     {
       "issue": 1011,
-      "branch": "repo-assist/fix-sourcenlinked-rename-and-impl-improvements",
+      "branch": "repo-assist/fix-sourcenlinked-rename-and-impl-improvements-f86727f444b70c19",
       "date": "2026-03-07",
       "status": "pr_created",
-      "pr_number": null,
-      "description": "Skip unreadable files (SourceLinked paths) in rename handler; remove duplicate log in textDocument/implementation; log warning on getProjectOptions failure"
+      "pr_number": 1491,
+      "description": "Skip unreadable files (SourceLinked paths) in rename handler; remove duplicate log in textDocument/implementation"
     }
   ],
   "commented_issues": [
@@ -119,5 +135,5 @@
   ],
   "stale_nudges": [1302, 1333, 1341, 1440],
   "issue_backlog_cursor": "1487",
-  "notes": "Mar 2026 run (22800322295): Created PR for fix #1011 (SourceLinked files in rename) + textDocument/implementation cleanup. Commented on #1011. Open Repo Assist PRs: #1465, #1482, #1483, #1484, #1486, #1490, + new PR on branch repo-assist/fix-sourcenlinked-rename-and-impl-improvements. Issues still uncovered: #1254 (format tooltips by client), #1225 (FSI directive docs), #1203 (type signature breakdown), #1155 (wildcard patterns project reload)."
+  "notes": "Mar 2026 run (22822501136): Created PR for #786 fix (type forwarder decompilation - redirect to actual assembly via ParentModule.PEFile.FileName). Created updated v0.84.0 changelog PR (supersedes #1465). Open Repo Assist PRs: #1482, #1483, #1484, #1490, #1491 + new #786 fix PR + new changelog PR. Issues still uncovered: #1254 (format tooltips by client), #1225 (FSI directive docs), #1203 (type signature breakdown), #1155 (wildcard patterns project reload), #1185 (M1 Mac), #1247 (#r nuget .fsx)."
 }
