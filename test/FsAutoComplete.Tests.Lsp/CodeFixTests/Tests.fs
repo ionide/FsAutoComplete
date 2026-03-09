@@ -3656,6 +3656,7 @@ let private removeUnnecessaryParenthesesTests state =
       //   bg.lighten(0.2).hexa ()
       // Removing them would produce invalid code:
       //   bg.lighten 0.2.hexa ()
+      // Fixed upstream in dotnet/fsharp#18350 (included in FCS >= 43.10.101).
       testCaseAsync "Keep parens around float literal argument in chained method call (issue #1362)"
       <| CodeFix.checkNotApplicable
         server
