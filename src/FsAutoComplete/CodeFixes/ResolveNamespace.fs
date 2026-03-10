@@ -49,6 +49,16 @@ let fix
           End = { Line = line; Character = 0u } }
       NewText = lineStr }
 
+  /// Returns true if a source line looks like an explicit nested module declaration
+  /// (e.g. `module Foo =` or `  module Bar =`), as opposed to a namespace-level
+  /// module header (`module Foo`) which has no trailing `=`.
+  let isExplicitModuleDeclaration (lineStr: string) =
+    let trimmed = lineStr.TrimStart()
+
+    trimmed.StartsWith("module ", StringComparison.Ordinal)
+    && trimmed.TrimEnd().EndsWith("=", StringComparison.Ordinal)
+
+  /// Compute the 1-based line at which to insert an `open` declaration.
   let adjustInsertionPoint (lines: ISourceText) (ctx: InsertionContext) : uint32 =
     let l = uint32 ctx.Pos.Line
 
@@ -82,7 +92,18 @@ let fix
         // move to the next line below "namespace" and convert it to F# 1-based line number
         | Some line -> line + 2u
         | None -> l
-      | _ -> l
+      | _ ->
+        // FCS sometimes sets Pos.Line to the module declaration line itself.
+        // When this is an explicit `module X =` declaration, the open must go
+        // on the following line (inside the module), not before the declaration.
+        // This ensures code-fix and code-completion behaviour are consistent
+        // for nested explicit modules (issue #789).
+        let insertionLine = lines.GetLineString(int l - 1) // 0-indexed
+
+        if isExplicitModuleDeclaration insertionLine then
+          l + 1u
+        else
+          l
 
     let containsAttribute (x: string) = x.Contains "[<"
     let currentLine = max (int retVal - 2) 0 |> lines.GetLineString

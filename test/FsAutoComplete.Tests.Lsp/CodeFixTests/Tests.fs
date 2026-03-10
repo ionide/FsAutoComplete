@@ -3055,9 +3055,32 @@ module Foo =
 
   let foo = DateTime.Now
           """
+      // Regression test for https://github.com/ionide/FsAutoComplete/issues/789
+      // open should be inserted at the nearest enclosing scope (inside `module Nested =`),
+      // consistent with code-completion behaviour.
+      testCaseAsync "place open in nearest enclosing module when cursor is in nested module (issue #789)"
+      <| CodeFix.check
+        server
+        """
+module Root
+
+module Nested =
+
+  let foo = $0DateTime.Now
+        """
+        (Diagnostics.log >> Diagnostics.acceptAll)
+        (CodeFix.withTitle "open System")
+        """
+module Root
+
+module Nested =
+  open System
+
+  let foo = DateTime.Now
+        """
+
       //TODO: Implement & unify with `Completion.AutoOpen` (`CompletionTests.fs`)
       // Issues:
-      // * Complex because of nesting modules (-> where to open)
       // * Different open locations of CodeFix and AutoOpen
       ])
 
