@@ -1423,40 +1423,60 @@ type AdaptiveFSharpLspServer
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          logger.info (
-            Log.setMessage "TextDocumentImplementation Request: {params}"
-            >> Log.addContextDestructured "params" p
-          )
+          // Check for .fsi <-> .fs navigation first.
+          // FCS exposes `SignatureLocation` (the .fsi location for a symbol in a .fs file) and
+          // `ImplementationLocation` (the .fs location for a symbol declared in a .fsi file).
+          // We use these to provide bi-directional navigation between implementation and signature files.
+          let sigOrImplLocation =
+            match tyRes.TryGetSymbolUse pos lineStr with
+            | Some symbolUse ->
+              let currentFileIsSignature =
+                (UMX.untag filePath).EndsWith(".fsi", System.StringComparison.OrdinalIgnoreCase)
 
-          let getProjectOptions file = state.GetProjectOptionsForFile file |> AsyncResult.bimap id failwith //? Should we fail here?
+              if currentFileIsSignature then
+                // In a .fsi file: navigate to the .fs implementation
+                symbolUse.Symbol.ImplementationLocation
+              else
+                // In a .fs file: navigate to the .fsi signature (if one exists)
+                symbolUse.Symbol.SignatureLocation
+                |> Option.filter (fun loc -> loc.FileName.EndsWith(".fsi", System.StringComparison.OrdinalIgnoreCase))
+            | None -> None
 
-          let getUsesOfSymbol (filePath, opts: _ list, symbol: FSharpSymbol) =
-            state.GetUsesOfSymbol(filePath, opts, symbol)
+          match sigOrImplLocation with
+          | Some range ->
+            let loc = fcsRangeToLspLocation range
+            return Some(U2.C1(U2.C1 loc))
+          | None ->
 
-          let getAllProjects () =
-            state.GetFilesToProject()
-            |> Async.map (
-              Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectCompilerOptions)
-              >> Array.toList
-            )
+            let getProjectOptions file = state.GetProjectOptionsForFile file |> AsyncResult.bimap id failwith //? Should we fail here?
 
-          let! res =
-            Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
-            |> AsyncResult.ofCoreResponse
+            let getUsesOfSymbol (filePath, opts: _ list, symbol: FSharpSymbol) =
+              state.GetUsesOfSymbol(filePath, opts, symbol)
 
-          match res with
-          | None -> return None
-          | Some res ->
-            let ranges: FSharp.Compiler.Text.Range[] =
-              match res with
-              | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+            let getAllProjects () =
+              state.GetFilesToProject()
+              |> Async.map (
+                Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectCompilerOptions)
+                >> Array.toList
+              )
 
-            let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+            let! res =
+              Commands.symbolImplementationProject getProjectOptions getUsesOfSymbol getAllProjects tyRes pos lineStr
+              |> AsyncResult.ofCoreResponse
 
-            match mappedRanges with
-            | [||] -> return None
-            | [| single |] -> return Some(U2.C1(U2.C1 single))
-            | multiple -> return Some(U2.C1(U2.C2 multiple))
+            match res with
+            | None -> return None
+            | Some res ->
+              let ranges: FSharp.Compiler.Text.Range[] =
+                match res with
+                | LocationResponse.Use(_, uses) -> uses |> Array.map (fun u -> u.Range)
+
+              let mappedRanges = ranges |> Array.map fcsRangeToLspLocation
+
+              match mappedRanges with
+              | [||] -> return None
+              | [| single |] -> return Some(U2.C1(U2.C1 single))
+              | multiple -> return Some(U2.C1(U2.C2 multiple))
         with e ->
           trace |> Tracing.recordException e
 
