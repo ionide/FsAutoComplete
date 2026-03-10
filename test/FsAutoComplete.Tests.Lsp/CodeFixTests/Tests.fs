@@ -2406,7 +2406,10 @@ let private removeRedundantQualifierTests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      testCaseAsync "doesn't offer fix when qualifier is not redundant due to variable shadowing property (issue #1259)"
+      // Known FCS bug: getSimplifiableNames incorrectly reports the qualifier as redundant when
+      // a local binding shadows a property. Marked pending until upstream FCS is fixed (issue #1259).
+      itestCaseAsync
+        "doesn't offer fix when qualifier is not redundant due to variable shadowing property (issue #1259)"
       <| CodeFix.checkNotApplicable
         server
         """
@@ -2424,6 +2427,27 @@ let private removeRedundantQualifierTests state =
                 printfn "It works"
             else
                 printfn "It doesn't work"
+        """
+        Diagnostics.acceptAll
+        selectCodeFix
+
+      // Known FCS bug: getSimplifiableNames incorrectly flags the qualifier in a nullable join
+      // clause using `=?`. Marked pending until upstream FCS is fixed (issue #824).
+      itestCaseAsync "doesn't remove necessary qualifier in nullable join clause (issue #824)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        open System
+        open Microsoft.FSharp.Linq.NullableOperators
+
+        let table1 = [ for i in 0..10 -> {| Column1 = i |} ]
+        let table2 = [ for i in 0..10 -> {| Column2 = Nullable<int>(i) |} ]
+
+        query {
+          for row1 in table1 do
+          join row2 in table2 on ($0row1.Column1 =? row2.Column2)
+          select (row1, row2)
+        }
         """
         Diagnostics.acceptAll
         selectCodeFix ])
@@ -3733,4 +3757,5 @@ let tests textFactory state =
       IgnoreExpressionTests.tests state
       ExprTypeMismatchTests.tests state
       AddMissingWildcardOperatorTests.tests state
-      AddMissingSeqTests.tests state ]
+      AddMissingSeqTests.tests state
+      IntroduceMissingBindingTests.tests state ]
