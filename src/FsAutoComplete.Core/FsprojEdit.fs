@@ -46,6 +46,26 @@ module FsProjEditor =
     node.SetAttribute("Include", includePath)
     node
 
+  /// Find the previous sibling that is an Element node, skipping over whitespace-only text nodes
+  /// that are present when PreserveWhitespace is true.
+  let private previousSiblingElement (node: System.Xml.XmlNode) =
+    let mutable prev = node.PreviousSibling
+
+    while not (isNull prev) && prev.NodeType <> System.Xml.XmlNodeType.Element do
+      prev <- prev.PreviousSibling
+
+    prev
+
+  /// Find the next sibling that is an Element node, skipping over whitespace-only text nodes
+  /// that are present when PreserveWhitespace is true.
+  let private nextSiblingElement (node: System.Xml.XmlNode) =
+    let mutable next = node.NextSibling
+
+    while not (isNull next) && next.NodeType <> System.Xml.XmlNodeType.Element do
+      next <- next.NextSibling
+
+    next
+
   let moveFileUp (fsprojPath: string) (file: string) =
     let xDoc = System.Xml.XmlDocument()
     xDoc.PreserveWhitespace <- true // to keep custom formatting if present
@@ -54,13 +74,19 @@ module FsProjEditor =
     let itemGroup = xDoc.SelectSingleNode(xpath)
     let childXPath = sprintf "//Compile[@Include='%s']" file
     let node = itemGroup.SelectSingleNode(childXPath)
-    let upNode = node.PreviousSibling
+    let prevElement = previousSiblingElement node
 
-    if isNull upNode then
+    if isNull prevElement then
       ()
     else
-      itemGroup.RemoveChild node |> ignore
-      itemGroup.InsertBefore(node, upNode) |> ignore
+      // Clone both elements, insert clones in swapped positions, then remove the originals.
+      // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
+      let nodeClone = node.CloneNode(true)
+      let prevClone = prevElement.CloneNode(true)
+      itemGroup.InsertBefore(nodeClone, prevElement) |> ignore
+      itemGroup.InsertBefore(prevClone, node) |> ignore
+      itemGroup.RemoveChild(prevElement) |> ignore
+      itemGroup.RemoveChild(node) |> ignore
       xDoc.Save fsprojPath
 
   let moveFileDown (fsprojPath: string) (file: string) =
@@ -71,13 +97,19 @@ module FsProjEditor =
     let itemGroup = xDoc.SelectSingleNode(xpath)
     let childXPath = sprintf "//Compile[@Include='%s']" file
     let node = itemGroup.SelectSingleNode(childXPath)
-    let downNode = node.NextSibling
+    let nextElement = nextSiblingElement node
 
-    if isNull downNode then
+    if isNull nextElement then
       ()
     else
-      itemGroup.RemoveChild node |> ignore
-      itemGroup.InsertAfter(node, downNode) |> ignore
+      // Clone both elements, insert clones in swapped positions, then remove the originals.
+      // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
+      let nodeClone = node.CloneNode(true)
+      let nextClone = nextElement.CloneNode(true)
+      itemGroup.InsertBefore(nextClone, node) |> ignore
+      itemGroup.InsertBefore(nodeClone, nextElement) |> ignore
+      itemGroup.RemoveChild(node) |> ignore
+      itemGroup.RemoveChild(nextElement) |> ignore
       xDoc.Save fsprojPath
 
   let addFileAbove (fsprojPath: string) (aboveFile: string) (newFileName: string) =
