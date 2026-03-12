@@ -1,20 +1,20 @@
 {
-  "last_run": "2026-03-10",
+  "last_run": "2026-03-12",
   "monthly_issue": 1487,
   "monthly_month": "2026-03",
   "prev_monthly_issue": 1450,
   "tasks_last_run": {
     "task1": "2026-03-06",
     "task2": "2026-03-07",
-    "task3": "2026-03-10",
-    "task4": "2026-02-24",
+    "task3": "2026-03-12",
+    "task4": "2026-03-12",
     "task5": "2026-03-07",
     "task6": "2026-03-10",
     "task7": "2026-02-26",
     "task8": "2026-02-27",
     "task9": "2026-02-25",
     "task10": "2026-03-08",
-    "task11": "2026-03-10"
+    "task11": "2026-03-12"
   },
   "fix_attempts": [
     {
@@ -64,6 +64,22 @@
       "status": "pr_created",
       "pr_number": null,
       "description": "Fix adjustInsertionPoint to skip past module declaration line when ScopeKind.Module; add isExplicitModuleDeclaration helper; regression test for issue #789"
+    },
+    {
+      "issue": 0,
+      "branch": "repo-assist/eng-update-github-actions-20260312",
+      "date": "2026-03-12",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Upgrade actions/checkout v3->v4 and setup-dotnet v2->v4"
+    },
+    {
+      "issue": 1437,
+      "branch": "repo-assist/fix-issue-1437-validate-diagnostic-help-links",
+      "date": "2026-03-12",
+      "status": "pr_created",
+      "pr_number": null,
+      "description": "Lazy HTTP validation cache for compiler diagnostic help links"
     }
   ],
   "commented_issues": [
@@ -118,6 +134,6 @@
     1341,
     1440
   ],
-  "issue_backlog_cursor": "1487",
-  "notes": "Mar 2026 run (22906495111): Task6: audited all open Repo Assist PRs. Fixed PR #1482 (pushed itestCaseAsync for issues #1259 and #824 shadowing/nullable-join). Commented on PR #1484 (superseded by #1482) and PR #1494 (macOS infrastructure failures). Task3: Fixed issue #789 (open insertion inconsistency): adjustInsertionPoint now detects when FCS returns module declaration line for ScopeKind.Module and adjusts +1 to insert inside the module. New PR created (fix-issue-789-open-insertion-nearest). Prev notes: PR #1492 = type forwarder fix, #1493 = changelog, #1494 = .fsi/.fs navigation, #1491 = skip unreadable files, #1490 = ref assembly decompile, #1488 = IntroduceMissingBinding, #1483 = parens in chained call fix, #1482 = RemoveRedundantQualifier false-positive tests."
+  "issue_backlog_cursor": "1500",
+  "notes": "Run 23006037651: Task4=CI actions upgrade. Task3=fix #1437 diagnostic link validation. PR #1495 merged (#789). PR #1499 open (#1498). Open PRs: #1482,#1483,#1484,#1486,#1490,#1491,#1492,#1493,#1494,#1499."
 }
