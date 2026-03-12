@@ -152,7 +152,8 @@ let generalTests =
       UtilsTests.allTests
       LspHelpersTests.allTests
       TipFormatterTests.allTests
-      FcsInvariantTests.tests ]
+      FcsInvariantTests.tests
+      FsProjEditorTests.allTests ]
 
 [<Tests>]
 let tests =
