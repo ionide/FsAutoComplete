@@ -110,6 +110,43 @@ module Conversions =
   let urlForCompilerCode (number: int) =
     $"https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/compiler-messages/fs%04d{number}"
 
+  /// Per-process cache: None = not yet validated, Some true = URL resolves, Some false = URL is dead.
+  /// Validated lazily in the background — first occurrence of a code returns no link; subsequent
+  /// occurrences return a link only once the URL has been confirmed to resolve.
+  module private CompilerCodeLinkCache =
+    open System.Collections.Concurrent
+    open System.Net.Http
+
+    let private cache = ConcurrentDictionary<int, bool>()
+
+    // A single long-lived client shared for all link checks.
+    let private httpClient =
+      let client = new HttpClient()
+      client.Timeout <- TimeSpan.FromSeconds(5.0)
+      client
+
+    let private checkAndCache (code: int) =
+      async {
+        let url = urlForCompilerCode code
+
+        try
+          let! response = httpClient.GetAsync(url) |> Async.AwaitTask
+          cache.[code] <- response.IsSuccessStatusCode
+        with _ ->
+          cache.[code] <- false
+      }
+
+    /// Returns a CodeDescription if the help URL for `code` has been validated as live.
+    /// Fires an async background check on first encounter of an unseen code.
+    let tryGetCodeDescription (code: int) : CodeDescription option =
+      match cache.TryGetValue(code) with
+      | true, true -> Some { Href = urlForCompilerCode code }
+      | true, false -> None
+      | false, _ ->
+        // Not yet checked: kick off background validation and return nothing for now.
+        checkAndCache code |> Async.Start
+        None
+
   [<Literal>]
   let unicodeParagraphCharacter: string = "\u001d"
 
@@ -130,7 +167,7 @@ module Conversions =
       RelatedInformation = Some [||]
       Tags = None
       Data = None
-      CodeDescription = Some { Href = urlForCompilerCode error.ErrorNumber } }
+      CodeDescription = CompilerCodeLinkCache.tryGetCodeDescription error.ErrorNumber }
 
   let getSymbolInformations
     (uri: DocumentUri)
