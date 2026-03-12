@@ -3674,6 +3674,26 @@ let private removeUnnecessaryParenthesesTests state =
         (Diagnostics.expectCode "FSAC0004")
         selector
 
+      // Regression test for https://github.com/ionide/FsAutoComplete/issues/1362
+      // Parens around a float literal in a chained method call are necessary:
+      //   bg.lighten(0.2).hexa ()
+      // Removing them would produce invalid code:
+      //   bg.lighten 0.2.hexa ()
+      // Fixed upstream in dotnet/fsharp#18350 (included in FCS >= 43.10.101).
+      // TODO: re-enable (change ptestCaseAsync -> testCaseAsync) once SDK ships FCS >= 43.10.101
+      ptestCaseAsync "Keep parens around float literal argument in chained method call (issue #1362)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type C(v: float) =
+          member _.lighten(x: float) = C(v + x)
+          member _.hexa() = v.ToString()
+        let bg = C(0.5)
+        bg.lighten((0.2)$0).hexa ()
+        """
+        Diagnostics.acceptAll
+        selector
+
       ])
 
 let tests textFactory state =
