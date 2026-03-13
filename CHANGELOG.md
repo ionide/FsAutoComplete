@@ -27,6 +27,9 @@
 - [Fix signature help reporting only first parameter for curried functions](https://github.com/ionide/FsAutoComplete/pull/1469) (closes [#744](https://github.com/ionide/FsAutoComplete/issues/744))
 - [Fix delegate type tooltips to show correct parameter/return types using `FSharpDelegateSignature` API](https://github.com/ionide/FsAutoComplete/pull/1485) (closes [#627](https://github.com/ionide/FsAutoComplete/issues/627))
 - [Fix function parameters incorrectly classified as `variable` instead of `parameter` semantic token](https://github.com/ionide/FsAutoComplete/pull/1489) (closes [#1359](https://github.com/ionide/FsAutoComplete/issues/1359))
+- [Fix `open` insertion position placing statement before module declaration in nested explicit modules](https://github.com/ionide/FsAutoComplete/pull/1495) (closes [#789](https://github.com/ionide/FsAutoComplete/issues/789))
+- [Fix rename skipping unreadable SourceLinked files; remove duplicate log in textDocument/implementation](https://github.com/ionide/FsAutoComplete/pull/1491) (partially closes [#1011](https://github.com/ionide/FsAutoComplete/issues/1011))
+- [Fix go-to-definition for type-forwarded types (e.g. `System.Boolean` forwarded from netstandard.dll to System.Runtime.dll)](https://github.com/ionide/FsAutoComplete/pull/1492) (closes [#786](https://github.com/ionide/FsAutoComplete/issues/786))
 
 ## [0.83.0] - 2026-02-04
 
