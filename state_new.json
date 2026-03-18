@@ -1,17 +1,8 @@
 {
-  "last_run": "2026-03-17",
+  "last_run": "2026-03-18",
   "monthly_issue": 1487,
   "monthly_month": "2026-03",
-  "tasks_last_run": {"task1":"2026-03-04","task2":"2026-03-16","task3":"2026-03-17","task4":"2026-03-17","task5":"2026-03-04","task6":"2026-03-16","task7":"2026-02-26","task8":"2026-02-27","task9":"2026-02-25","task10":"2026-03-03","task11":"2026-03-17"},
-  "fix_attempts": [
-    {"issue":486,"branch":"repo-assist/fix-issue-486-ref-assembly-decompile","date":"2026-03-04","status":"pr_created","pr_number":1490},
-    {"issue":986,"branch":"repo-assist/fix-issue-986-goto-implementation","date":"2026-03-17","status":"pr_created","pr_number":null,"desc":"Re-enable Go-to-implementation test, fix match pattern bug"},
-    {"issue":0,"branch":"repo-assist/eng-update-github-actions-2026-03-17","date":"2026-03-17","status":"pr_created","pr_number":null,"desc":"CI: checkout@v3->v4, setup-dotnet@v2->v4, fix ::set-output. Supersedes #1501."}
-  ],
-  "open_ra_prs": [1482,1483,1486,1490,1493,1494,1499,1502,1503,1504,1505],
-  "commented_issues": [333,436,455,480,481,486,525,559,605,627,653,654,692,700,712,716,733,739,744,745,779,786,789,847,865,871,900,986,1017,1019,1027,1097,1225,1227,1254,1259,1271,1280,1307,1310,1322,1330,1338,1352,1354,1359,1381,1408,1414,1415,1432,1437,1444,1464,1471,1473,1475],
-  "labelled_issues": [467,480,536,605,653,654,692,705,824,865,1354,1359],
-  "stale_nudges": [1333,1341,1440],
+  "open_ra_prs": [1482,1483,1493,1494,1499,1502],
   "issue_backlog_cursor": "1505",
-  "notes": "2026-03-17 run 23198566450: PRs pending push for #986 fix and CI updates. Close issue #1501 (superseded). Issues still to engage: #705 #824."
+  "notes": "2026-03-18: Created TypeHierarchy PR (branch: repo-assist/feat-type-hierarchy-1097, closes #1097). Updated changelog PR #1493 with #1503,#1504. Merged: #1503,1504,1505,1506. Issues still to engage: none new."
 }
