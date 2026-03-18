@@ -640,11 +640,14 @@ type ParseAndCheckResults
             match kind with
             | CompletionItemKind.SuggestedName
             | CompletionItemKind.CustomOperation -> 0
+            // Named arguments (constructor/function call context) are the most
+            // immediately relevant completions — give them the same priority as
+            // properties so they appear at the top of the list (closes #1500).
+            | CompletionItemKind.Argument -> 1
             | CompletionItemKind.Property -> 1
             | CompletionItemKind.Field -> 2
             | CompletionItemKind.Method(isExtension = false) -> 3
             | CompletionItemKind.Event -> 4
-            | CompletionItemKind.Argument -> 5
             | CompletionItemKind.Other -> 6
             | CompletionItemKind.Method(isExtension = true) -> 7
 
