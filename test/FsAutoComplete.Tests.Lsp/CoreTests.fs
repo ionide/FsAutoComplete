@@ -624,7 +624,18 @@ let tooltipTests state =
             5u
             (concatLines [ "type MultiArgDelegate ="; "   delegate of a: string * b: int -> bool" ])
 
-          verifySignature 120u 5u (concatLines [ "type UnannotatedDelegate ="; "   delegate of string -> int" ]) ] ]
+          verifySignature 120u 5u (concatLines [ "type UnannotatedDelegate ="; "   delegate of string -> int" ])
+
+          // FSI hash directive hover — regression for issue #1225.
+          // Hovering on a hash directive (e.g. #nowarn, #r, #load) should show documentation.
+          verifyDescription
+            123u
+            3u
+            [ "**Description**"
+              ""
+              ""
+              "Disables a compiler warning or warnings"
+              "" ] ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).

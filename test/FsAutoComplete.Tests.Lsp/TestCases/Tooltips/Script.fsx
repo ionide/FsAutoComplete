@@ -119,3 +119,6 @@ type NoArgDelegate = delegate of unit -> unit
 type SingleArgDelegate = delegate of arg: string -> int
 type MultiArgDelegate = delegate of a: string * b: int -> bool
 type UnannotatedDelegate = delegate of string -> int
+
+// FSI hash directives — hover tooltip for issue #1225
+#nowarn "40"

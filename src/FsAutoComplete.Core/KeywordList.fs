@@ -42,6 +42,22 @@ module KeywordList =
       "line", "Indicates the original source code line" ]
     |> dict
 
+  let hashDirectiveTooltips =
+    hashDirectives
+    |> Seq.map (fun kv ->
+      let lines = kv.Value.Replace("\r\n", "\n").Split('\n')
+      let allLines = Array.concat [| [| "<summary>" |]; lines; [| "</summary>" |] |]
+
+      let tip =
+        ToolTipText
+          [ ToolTipElement.Single(
+              [| TaggedText.tagText ("#" + kv.Key) |],
+              FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
+            ) ]
+
+      kv.Key, tip)
+    |> dict
+
   let hashSymbolCompletionItems =
     hashDirectives
     |> Seq.map (fun kv ->
