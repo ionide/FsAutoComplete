@@ -46,22 +46,26 @@ module FsProjEditor =
     node.SetAttribute("Include", includePath)
     node
 
-  /// Find the previous sibling that is an Element node, skipping over whitespace-only text nodes
-  /// that are present when PreserveWhitespace is true.
+  /// Find the previous sibling that is a `<Compile>` Element node, skipping over whitespace-only
+  /// text nodes and non-`Compile` elements that are present when PreserveWhitespace is true.
   let private previousSiblingElement (node: System.Xml.XmlNode) =
     let mutable prev = node.PreviousSibling
 
-    while not (isNull prev) && prev.NodeType <> System.Xml.XmlNodeType.Element do
+    // Skip over non-element nodes (e.g., whitespace) and elements that are not `<Compile>`.
+    while not (isNull prev)
+          && (prev.NodeType <> System.Xml.XmlNodeType.Element || prev.LocalName <> "Compile") do
       prev <- prev.PreviousSibling
 
     prev
 
-  /// Find the next sibling that is an Element node, skipping over whitespace-only text nodes
-  /// that are present when PreserveWhitespace is true.
+  /// Find the next sibling that is a `<Compile>` Element node, skipping over whitespace-only
+  /// text nodes and non-`Compile` elements that are present when PreserveWhitespace is true.
   let private nextSiblingElement (node: System.Xml.XmlNode) =
     let mutable next = node.NextSibling
 
-    while not (isNull next) && next.NodeType <> System.Xml.XmlNodeType.Element do
+    // Skip over non-element nodes (e.g., whitespace) and elements that are not `<Compile>`.
+    while not (isNull next)
+          && (next.NodeType <> System.Xml.XmlNodeType.Element || next.LocalName <> "Compile") do
       next <- next.NextSibling
 
     next
@@ -72,22 +76,30 @@ module FsProjEditor =
     xDoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']/.." file
     let itemGroup = xDoc.SelectSingleNode(xpath)
-    let childXPath = sprintf "//Compile[@Include='%s']" file
-    let node = itemGroup.SelectSingleNode(childXPath)
-    let prevElement = previousSiblingElement node
 
-    if isNull prevElement then
+    if isNull itemGroup then
       ()
     else
-      // Clone both elements, insert clones in swapped positions, then remove the originals.
-      // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
-      let nodeClone = node.CloneNode(true)
-      let prevClone = prevElement.CloneNode(true)
-      itemGroup.InsertBefore(nodeClone, prevElement) |> ignore
-      itemGroup.InsertBefore(prevClone, node) |> ignore
-      itemGroup.RemoveChild(prevElement) |> ignore
-      itemGroup.RemoveChild(node) |> ignore
-      xDoc.Save fsprojPath
+      let childXPath = sprintf "//Compile[@Include='%s']" file
+      let node = itemGroup.SelectSingleNode(childXPath)
+
+      if isNull node then
+        ()
+      else
+        let prevElement = previousSiblingElement node
+
+        if isNull prevElement then
+          ()
+        else
+          // Clone both elements, insert clones in swapped positions, then remove the originals.
+          // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
+          let nodeClone = node.CloneNode(true)
+          let prevClone = prevElement.CloneNode(true)
+          itemGroup.InsertBefore(nodeClone, prevElement) |> ignore
+          itemGroup.InsertBefore(prevClone, node) |> ignore
+          itemGroup.RemoveChild(prevElement) |> ignore
+          itemGroup.RemoveChild(node) |> ignore
+          xDoc.Save fsprojPath
 
   let moveFileDown (fsprojPath: string) (file: string) =
     let xDoc = System.Xml.XmlDocument()
@@ -95,22 +107,30 @@ module FsProjEditor =
     xDoc.Load fsprojPath
     let xpath = sprintf "//Compile[@Include='%s']/.." file
     let itemGroup = xDoc.SelectSingleNode(xpath)
-    let childXPath = sprintf "//Compile[@Include='%s']" file
-    let node = itemGroup.SelectSingleNode(childXPath)
-    let nextElement = nextSiblingElement node
 
-    if isNull nextElement then
+    if isNull itemGroup then
       ()
     else
-      // Clone both elements, insert clones in swapped positions, then remove the originals.
-      // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
-      let nodeClone = node.CloneNode(true)
-      let nextClone = nextElement.CloneNode(true)
-      itemGroup.InsertBefore(nextClone, node) |> ignore
-      itemGroup.InsertBefore(nodeClone, nextElement) |> ignore
-      itemGroup.RemoveChild(node) |> ignore
-      itemGroup.RemoveChild(nextElement) |> ignore
-      xDoc.Save fsprojPath
+      let childXPath = sprintf "//Compile[@Include='%s']" file
+      let node = itemGroup.SelectSingleNode(childXPath)
+
+      if isNull node then
+        ()
+      else
+        let nextElement = nextSiblingElement node
+
+        if isNull nextElement then
+          ()
+        else
+          // Clone both elements, insert clones in swapped positions, then remove the originals.
+          // Whitespace text nodes (indentation) remain in place so vertical formatting is preserved.
+          let nodeClone = node.CloneNode(true)
+          let nextClone = nextElement.CloneNode(true)
+          itemGroup.InsertBefore(nextClone, node) |> ignore
+          itemGroup.InsertBefore(nodeClone, nextElement) |> ignore
+          itemGroup.RemoveChild(node) |> ignore
+          itemGroup.RemoveChild(nextElement) |> ignore
+          xDoc.Save fsprojPath
 
   let addFileAbove (fsprojPath: string) (aboveFile: string) (newFileName: string) =
     let xDoc = System.Xml.XmlDocument()

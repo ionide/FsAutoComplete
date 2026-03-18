@@ -10,7 +10,7 @@ open System.Xml
 /// (one <Compile Include="..." /> per line, LF line endings).
 /// Returns the path; caller must delete.
 let private createTempFsproj (files: string list) =
-  let path = Path.ChangeExtension(Path.GetTempFileName(), ".fsproj")
+  let path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fsproj")
 
   let filesXml =
     files
@@ -25,7 +25,7 @@ let private createTempFsproj (files: string list) =
 
 /// Create a temporary .fsproj file with CRLF line endings.
 let private createTempFsprojCrlf (files: string list) =
-  let path = Path.ChangeExtension(Path.GetTempFileName(), ".fsproj")
+  let path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fsproj")
 
   let filesXml =
     files
