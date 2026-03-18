@@ -198,7 +198,7 @@ let private gotoTest state =
             | U2.C1(_) -> failwith "Not Implemented"
         })
 
-      ptestCaseAsync
+      testCaseAsync
         "Go-to-implementation-on-interface-definition"
         (async {
           let! server, _path, _externalPath, definitionPath = server
@@ -216,12 +216,11 @@ let private gotoTest state =
           | Result.Ok None -> failtest "Request none"
           | Result.Ok(Some res) ->
             match res with
-            | U2.C1 _res -> failtest "Should be multiple GotoResult"
-            | U2.C2 _res ->
-              // TODO???
-              // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 7; Character = 8 }; End = {Line = 7; Character = 30 }}) "First result should be in Library.fs"
-              // Expect.exists res (fun r -> r.Uri.Contains "Library.fs" && r.Range = { Start = {Line = 13; Character = 14 }; End = {Line = 13; Character = 36 }}) "Second result should be in Library.fs"
-              ()
+            | U2.C2 _ -> failtest "Should not be LocationLink result"
+            | U2.C1(U2.C1 _) -> failtest "Should be multiple GotoResult, got single"
+            | U2.C1(U2.C2 res) ->
+              Expect.isGreaterThanOrEqual res.Length 2 "Should have at least 2 implementation results"
+              Expect.all res (fun r -> r.Uri.Contains "Library.fs") "All results should be in Library.fs"
         })
 
       testCaseAsync

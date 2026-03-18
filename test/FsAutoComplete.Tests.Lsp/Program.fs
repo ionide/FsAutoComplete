@@ -12,6 +12,7 @@ open FsAutoComplete.Tests.ScriptTest
 open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
+open FsAutoComplete.Tests.Lsp.DecompilerTests
 open FsAutoComplete.Tests.CallHierarchy
 open Ionide.ProjInfo
 open System.Threading
@@ -153,7 +154,8 @@ let generalTests =
       LspHelpersTests.allTests
       TipFormatterTests.allTests
       FcsInvariantTests.tests
-      FsProjEditorTests.allTests ]
+      FsProjEditorTests.allTests
+      decompilerTests ]
 
 [<Tests>]
 let tests =

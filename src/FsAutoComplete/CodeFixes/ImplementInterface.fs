@@ -299,6 +299,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (config: unit -> Config
                   entity
                   withTypeAnnotation
 
+              // FCS may emit trailing spaces on lines ending with `=` followed by a line break.
+              // Trim each line's trailing whitespace to produce clean output.
+              let stub =
+                stub.Split('\n')
+                |> Array.map (fun line -> line.TrimEnd([| ' '; '\t'; '\r' |]))
+                |> String.concat "\n"
+
               stub.TrimEnd(System.Environment.NewLine.ToCharArray())
 
             { Range = fcsPosToProtocolRange insertionData.InsertAt

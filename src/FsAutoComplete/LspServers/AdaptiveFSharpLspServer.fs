@@ -1230,15 +1230,20 @@ type AdaptiveFSharpLspServer
                 let file: string<LocalPath> = kvp.Key
                 let! fileContent = state.GetOpenFileOrRead file
 
-                // FCS incorrectly returns `get` and `set` accessor keywords as symbol uses
-                // of the property when explicit getter/setter syntax is used, e.g.
-                //   member this.Prop with get () = ... and set v = ...
-                // It may also return duplicate ranges for the property name itself.
-                // Filter and deduplicate to avoid spurious renames and overlapping edits.
-                let filteredRanges =
-                  match fileContent with
-                  | Error _ -> kvp.Value
-                  | Ok volatileFile ->
+                match fileContent with
+                | Error _ ->
+                  // Skip files that cannot be read locally. This can happen for
+                  // SourceLinked virtual paths from external packages (e.g., /_/src/Server.fs),
+                  // which are referenced by FCS but do not exist on the developer's machine.
+                  // Applying edits to unreadable files would cause client errors.
+                  return None
+                | Ok volatileFile ->
+                  // FCS incorrectly returns `get` and `set` accessor keywords as symbol uses
+                  // of the property when explicit getter/setter syntax is used, e.g.
+                  //   member this.Prop with get () = ... and set v = ...
+                  // It may also return duplicate ranges for the property name itself.
+                  // Filter and deduplicate to avoid spurious renames and overlapping edits.
+                  let filteredRanges =
                     kvp.Value
                     |> Array.filter (fun range ->
                       match volatileFile.Source.GetText(range) with
@@ -1246,21 +1251,21 @@ type AdaptiveFSharpLspServer
                       | Error _ -> true)
                     |> Array.distinctBy (fun r -> r.StartLine, r.StartColumn)
 
-                let edits =
-                  filteredRanges
-                  |> Array.map (fun range ->
-                    let range = fcsRangeToLsp range
-                    U2.C1 { Range = range; NewText = newName })
+                  let edits =
+                    filteredRanges
+                    |> Array.map (fun range ->
+                      let range = fcsRangeToLsp range
+                      U2.C1 { Range = range; NewText = newName })
 
-                let version = fileContent |> Option.ofResult |> Option.map (fun f -> f.Version)
-
-                return
-                  { TextDocument =
-                      { Uri = Path.FilePathToUri(UMX.untag file)
-                        Version = version }
-                    Edits = edits }
+                  return
+                    Some
+                      { TextDocument =
+                          { Uri = Path.FilePathToUri(UMX.untag file)
+                            Version = Some volatileFile.Version }
+                        Edits = edits }
               })
             |> Async.parallel75
+            |> Async.map (Array.choose id)
 
 
           return
@@ -1423,12 +1428,16 @@ type AdaptiveFSharpLspServer
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          logger.info (
-            Log.setMessage "TextDocumentImplementation Request: {params}"
-            >> Log.addContextDestructured "params" p
-          )
+          let getProjectOptions file =
+            state.GetProjectOptionsForFile file
+            |> AsyncResult.bimap id (fun e ->
+              logger.warn (
+                Log.setMessage "TextDocumentImplementation: could not get project options for {file}: {error}"
+                >> Log.addContextDestructured "file" file
+                >> Log.addContextDestructured "error" e
+              )
 
-          let getProjectOptions file = state.GetProjectOptionsForFile file |> AsyncResult.bimap id failwith //? Should we fail here?
+              failwith e)
 
           let getUsesOfSymbol (filePath, opts: _ list, symbol: FSharpSymbol) =
             state.GetUsesOfSymbol(filePath, opts, symbol)

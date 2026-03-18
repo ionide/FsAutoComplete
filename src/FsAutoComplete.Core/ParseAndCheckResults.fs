@@ -357,8 +357,38 @@ type ParseAndCheckResults
     | Completion.Context.Unknown ->
       match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
       | None ->
-        logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
-        None
+        // Check if we're hovering over a hash directive (e.g. #r, #load, #nowarn).
+        // Lexer.findLongIdents returns None for multi-character directives like #nowarn because
+        // the F# tokenizer emits them as directive tokens, not plain identifiers.
+        let trimmedLine = lineStr.TrimStart()
+
+        if trimmedLine.StartsWith("#") then
+          let leadingSpaces = lineStr.Length - trimmedLine.Length
+          let rest = trimmedLine.Substring(1)
+          let wordEnd = rest.IndexOfAny([| ' '; '\t'; '"'; '\r'; '\n' |])
+          let directiveWord = if wordEnd > 0 then rest.[.. wordEnd - 1] else rest
+          let directiveEndCol = leadingSpaces + 1 + directiveWord.Length
+
+          if pos.Column < directiveEndCol then
+            match KeywordList.hashDirectiveTooltips.TryGetValue directiveWord with
+            | true, tip ->
+              { ToolTipText = tip
+                Signature = "#" + directiveWord
+                Footer = ""
+                SymbolInfo = TryGetToolTipEnhancedResult.Keyword directiveWord }
+              |> Some
+            | _ ->
+              logger.info (
+                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
+              )
+
+              None
+          else
+            logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+            None
+        else
+          logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
+          None
       | Some(col, identIsland) ->
         let identIsland = Array.toList identIsland
         // TODO: Display other tooltip types, for example for strings or comments where appropriate
@@ -380,11 +410,22 @@ type ParseAndCheckResults
                 SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
               |> Some
             | _ ->
-              logger.info (
-                Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
-              )
+              // Check if we're hovering over a hash directive (e.g., #r, #load, #nowarn)
+              let trimmedLine = lineStr.TrimStart()
 
-              None
+              match KeywordList.hashDirectiveTooltips.TryGetValue ident with
+              | true, tip when trimmedLine.StartsWith("#" + ident) ->
+                { ToolTipText = tip
+                  Signature = "#" + ident
+                  Footer = ""
+                  SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
+                |> Some
+              | _ ->
+                logger.info (
+                  Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}"
+                )
+
+                None
           | _ ->
             logger.info (Log.setMessageI $"Cannot find ident for tooltip: {pos.Column:column} in {lineStr:lineString}")
             None
@@ -640,11 +681,14 @@ type ParseAndCheckResults
             match kind with
             | CompletionItemKind.SuggestedName
             | CompletionItemKind.CustomOperation -> 0
+            // Named arguments (constructor/function call context) are the most
+            // immediately relevant completions — give them the same priority as
+            // properties so they appear at the top of the list (closes #1500).
+            | CompletionItemKind.Argument -> 1
             | CompletionItemKind.Property -> 1
             | CompletionItemKind.Field -> 2
             | CompletionItemKind.Method(isExtension = false) -> 3
             | CompletionItemKind.Event -> 4
-            | CompletionItemKind.Argument -> 5
             | CompletionItemKind.Other -> 6
             | CompletionItemKind.Method(isExtension = true) -> 7
 

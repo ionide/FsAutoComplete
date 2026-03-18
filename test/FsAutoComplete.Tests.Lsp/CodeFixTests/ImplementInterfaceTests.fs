@@ -8,75 +8,84 @@ open FsAutoComplete.CodeFix
 
 
 let tests state =
-  let selectCodeFixWithTypeAnnotation = CodeFix.withTitle ImplementInterface.titleWithTypeAnnotation
-  let selectCodeFixWithoutTypeAnnotation = CodeFix.withTitle ImplementInterface.titleWithoutTypeAnnotation
+  let selectCodeFixWithTypeAnnotation =
+    CodeFix.withTitle ImplementInterface.titleWithTypeAnnotation
+
+  let selectCodeFixWithoutTypeAnnotation =
+    CodeFix.withTitle ImplementInterface.titleWithoutTypeAnnotation
+
   let validateDiags = Diagnostics.expectCode "366"
+
   let testBoth server name beforeWithCursor expectedWithTypeAnnotation expectedWithoutTypeAnnotation =
-      testList name [
-        testCaseAsync "with type annotation" <|
-          CodeFix.check server
-            beforeWithCursor
-            validateDiags
-            selectCodeFixWithTypeAnnotation
-            expectedWithTypeAnnotation
+    testList
+      name
+      [ testCaseAsync "with type annotation"
+        <| CodeFix.check
+          server
+          beforeWithCursor
+          validateDiags
+          selectCodeFixWithTypeAnnotation
+          expectedWithTypeAnnotation
         // ignore all without type annotation tests because of FCS bug: https://github.com/dotnet/fsharp/issues/14698
-        ptestCaseAsync "without type annotation" <|
-          CodeFix.check server
-            beforeWithCursor
-            validateDiags
-            selectCodeFixWithoutTypeAnnotation
-            expectedWithoutTypeAnnotation
-      ]
+        ptestCaseAsync "without type annotation"
+        <| CodeFix.check
+          server
+          beforeWithCursor
+          validateDiags
+          selectCodeFixWithoutTypeAnnotation
+          expectedWithoutTypeAnnotation ]
 
-  // Note: there's a space after each generated `=` when linebreak! (-> from FCS)\
-  // ignoring these tests due to whitespace real quick.
-  // broken as of FC 43.7.200
-  ptestList (nameof ImplementInterface) [
-    let config = {
-      defaultConfigDto with
-        IndentationSize = Some 2
-        InterfaceStubGeneration = Some true
-        InterfaceStubGenerationObjectIdentifier = Some "_"
-        InterfaceStubGenerationMethodBody = Some "failwith \"-\""
-    }
+  testList
+    (nameof ImplementInterface)
+    [ let config =
+        { defaultConfigDto with
+            IndentationSize = Some 2
+            InterfaceStubGeneration = Some true
+            InterfaceStubGenerationObjectIdentifier = Some "_"
+            InterfaceStubGenerationMethodBody = Some "failwith \"-\"" }
 
-    serverTestList "with 2 indentation" state config None (fun server -> [
-      let testBoth = testBoth server
-      testList "in type" [
-        testBoth "can implement single interface with single method with existing with"
-          """
+      serverTestList "with 2 indentation" state config None (fun server ->
+        [ let testBoth = testBoth server
+
+          testList
+            "in type"
+            [ testBoth
+                "can implement single interface with single method with existing with"
+                """
           type X() =
             interface System.$0IDisposable with
           """
-          """
+                """
           type X() =
             interface System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-"
           """
-          """
+                """
           type X() =
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
           """
-        testBoth "can implement single interface with single method without existing with"
-          """
+              testBoth
+                "can implement single interface with single method without existing with"
+                """
           type X() =
             interface System.$0IDisposable
           """
-          """
+                """
           type X() =
             interface System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-"
           """
-          """
+                """
           type X() =
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
           """
-        testBoth "can implement single interface with multiple methods (none already specified)"
-          """
+              testBoth
+                "can implement single interface with multiple methods (none already specified)"
+                """
           type IPrinter =
             abstract member Print: format: string -> unit
             abstract member Indentation: int with get,set
@@ -85,7 +94,7 @@ let tests state =
           type Printer() =
             interface $0IPrinter with
           """
-          """
+                """
           type IPrinter =
             abstract member Print: format: string -> unit
             abstract member Indentation: int with get,set
@@ -103,7 +112,7 @@ let tests state =
               member _.Print(format: string): unit =
                 failwith "-"
           """
-          """
+                """
           type IPrinter =
             abstract member Print: format: string -> unit
             abstract member Indentation: int with get,set
@@ -119,46 +128,69 @@ let tests state =
                   failwith "-"
               member _.Print(format) = failwith "-"
           """
-        testBoth "can implement setter when existing getter"
-          """
-          type IPrinter =
-            abstract member Indentation: int with get, set
+              // TODO: FCS 43.10.x doesn't detect inline getter `member _.X with get () = val` as already implemented
+              // via GetImplementedMemberSignatures, causing both getter AND setter to be regenerated (duplicate getter).
+              // Re-enable these tests once the underlying FCS detection is fixed.
+              testList
+                "can implement setter when existing getter"
+                [ ptestCaseAsync "with type annotation"
+                  <| CodeFix.check
+                    server
+                    """
+              type IPrinter =
+                abstract member Indentation: int with get, set
 
-          type Printer() =
-            interface $0IPrinter with
-              member _.Indentation with get () = 42
-          """
-          """
-          type IPrinter =
-            abstract member Indentation: int with get, set
+              type Printer() =
+                interface $0IPrinter with
+                  member _.Indentation with get () = 42
+              """
+                    validateDiags
+                    selectCodeFixWithTypeAnnotation
+                    """
+              type IPrinter =
+                abstract member Indentation: int with get, set
 
-          type Printer() =
-            interface IPrinter with
-              member _.Indentation with get () = 42
-              member _.Indentation
-                with set (v: int): unit =
-                  failwith "-"
-          """
-          """
-          type IPrinter =
-            abstract member Indentation: int with get, set
+              type Printer() =
+                interface IPrinter with
+                  member _.Indentation with get () = 42
+                  member _.Indentation
+                    with set (v: int): unit =
+                      failwith "-"
+              """
+                  ptestCaseAsync "without type annotation"
+                  <| CodeFix.check
+                    server
+                    """
+              type IPrinter =
+                abstract member Indentation: int with get, set
 
-          type Printer() =
-            interface IPrinter with
-              member _.Indentation with get () = 42
-              member _.Indentation
-                with set v =
-                  failwith "-"
-          """
-        testBoth "can implement interface member without parameter name"
-          """
+              type Printer() =
+                interface $0IPrinter with
+                  member _.Indentation with get () = 42
+              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
+              type IPrinter =
+                abstract member Indentation: int with get, set
+
+              type Printer() =
+                interface IPrinter with
+                  member _.Indentation with get () = 42
+                  member _.Indentation
+                    with set v =
+                      failwith "-"
+              """ ]
+              testBoth
+                "can implement interface member without parameter name"
+                """
           type I =
             abstract member DoStuff: int -> unit
 
           type T() =
             interface $0I with
           """
-          """
+                """
           type I =
             abstract member DoStuff: int -> unit
 
@@ -167,7 +199,7 @@ let tests state =
               member _.DoStuff(arg1: int): unit =
                 failwith "-"
           """
-          """
+                """
           type I =
             abstract member DoStuff: int -> unit
 
@@ -175,8 +207,9 @@ let tests state =
             interface I with
               member _.DoStuff(arg1) = failwith "-"
           """
-        testBoth "can implement when one member already implemented"
-          """
+              testBoth
+                "can implement when one member already implemented"
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -186,7 +219,7 @@ let tests state =
             interface $0I with
               member _.DoOtherStuff value name = name
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -200,7 +233,7 @@ let tests state =
               member _.Value: int =
                 failwith "-"
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -212,8 +245,9 @@ let tests state =
               member _.DoStuff(value) = failwith "-"
               member _.Value = failwith "-"
           """
-        testBoth "can implement when two members already implemented"
-          """
+              testBoth
+                "can implement when two members already implemented"
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -224,7 +258,7 @@ let tests state =
               member _.DoOtherStuff value name = name
               member _.Value: int = failwith "-"
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -237,7 +271,7 @@ let tests state =
               member _.DoStuff(value: int): unit =
                 failwith "-"
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -249,14 +283,15 @@ let tests state =
               member _.Value: int = failwith "-"
               member _.DoStuff(value) = failwith "-"
           """
-        testBoth "can implement interface with existing class members"
-          """
+              testBoth
+                "can implement interface with existing class members"
+                """
           type T() =
             let v = 4
             member _.DoStuff value = v + value
             interface System.$0IDisposable with
           """
-          """
+                """
           type T() =
             let v = 4
             member _.DoStuff value = v + value
@@ -264,22 +299,23 @@ let tests state =
               member _.Dispose(): unit =
                 failwith "-"
           """
-          """
+                """
           type T() =
             let v = 4
             member _.DoStuff value = v + value
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
           """
-        testBoth "can implement in record"
-          """
+              testBoth
+                "can implement in record"
+                """
           type A =
             {
               Value: int
             }
             interface System.$0IDisposable with
           """
-          """
+                """
           type A =
             {
               Value: int
@@ -288,7 +324,7 @@ let tests state =
               member _.Dispose(): unit =
                 failwith "-"
           """
-          """
+                """
           type A =
             {
               Value: int
@@ -296,15 +332,16 @@ let tests state =
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
           """
-        testBoth "can implement in union"
-          """
+              testBoth
+                "can implement in union"
+                """
           type U =
             | A of int
             | B of int * string
             | C
             interface System.$0IDisposable with
           """
-          """
+                """
           type U =
             | A of int
             | B of int * string
@@ -313,59 +350,64 @@ let tests state =
               member _.Dispose(): unit =
                 failwith "-"
           """
-          """
+                """
           type U =
             | A of int
             | B of int * string
             | C
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
-          """
-      ]
-      testList "in object expression" [
-        testBoth "can implement single interface with single method with existing with and } in same line"
-          """
+          """ ]
+
+          testList
+            "in object expression"
+            [ testBoth
+                "can implement single interface with single method with existing with and } in same line"
+                """
           { new System.$0IDisposable with }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-" }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = failwith "-" }
           """
-        testBoth "can implement single interface with single method without existing with and with } in same line"
-          """
+              testBoth
+                "can implement single interface with single method without existing with and with } in same line"
+                """
           { new System.$0IDisposable }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-" }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = failwith "-" }
           """
-        testBoth "can implement single interface with single method without existing with and without } in same line"
-          """
+              testBoth
+                "can implement single interface with single method without existing with and without } in same line"
+                """
           { new System.$0IDisposable
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-" }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = failwith "-" }
           """
-        // Note: `{ new System.IDisposable with` doesn't raise `FS0366` -> no CodeFix
+              // Note: `{ new System.IDisposable with` doesn't raise `FS0366` -> no CodeFix
 
-        testBoth "can implement single interface with multiple methods"
-          """
+              testBoth
+                "can implement single interface with multiple methods"
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -373,7 +415,7 @@ let tests state =
 
           { new $0I with }
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -387,7 +429,7 @@ let tests state =
               member _.Value: int =
                 failwith "-" }
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -398,8 +440,9 @@ let tests state =
               member _.DoStuff(value) = failwith "-"
               member _.Value = failwith "-" }
           """
-        testBoth "can implement interface with multiple methods with one method already implemented"
-          """
+              testBoth
+                "can implement interface with multiple methods with one method already implemented"
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -411,7 +454,7 @@ let tests state =
                 printfn "Res=%i" v
           }
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -427,7 +470,7 @@ let tests state =
                 failwith "-"
           }
           """
-          """
+                """
           type I =
             abstract member DoStuff: value:int -> unit
             abstract member DoOtherStuff: value:int -> name:string -> string
@@ -441,33 +484,35 @@ let tests state =
               member _.Value = failwith "-"
           }
           """
-        testBoth "can trigger with { and } on different lines"
-          """
+              testBoth
+                "can trigger with { and } on different lines"
+                """
           {
             new System.$0IDisposable with
           }
           """
-          """
+                """
           {
             new System.IDisposable with
               member _.Dispose(): unit =
                 failwith "-"
           }
           """
-          """
+                """
           {
             new System.IDisposable with
               member _.Dispose() = failwith "-"
           }
           """
-        testBoth "can implement sub interface"
-          """
+              testBoth
+                "can implement sub interface"
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.$0ICloneable with
           }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
@@ -475,21 +520,22 @@ let tests state =
                 failwith "-"
           }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
               member _.Clone() = failwith "-"
           }
           """
-        testBoth "can trigger with cursor on {"
-          """
+              testBoth
+                "can trigger with cursor on {"
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
           }$0
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
@@ -497,192 +543,209 @@ let tests state =
                 failwith "-"
           }
           """
-          """
+                """
           { new System.IDisposable with
               member _.Dispose() = ()
             interface System.ICloneable with
               member _.Clone() = failwith "-"
           }
-          """
-      ]
-      // TECHDEBT(1054): temporarily ignored due to https://github.com/dotnet/fsharp/issues/14698
-      ptestList "cursor position" [
-        testList "type" [
-          // diagnostic range is just interface name
-          // -> triggers only with cursor on interface name
-          testCaseAsync "start of name" <|
-            CodeFix.check server
-              """
+          """ ]
+          // TECHDEBT(1054): temporarily ignored due to https://github.com/dotnet/fsharp/issues/14698
+          ptestList
+            "cursor position"
+            [ testList
+                "type"
+                [
+                  // diagnostic range is just interface name
+                  // -> triggers only with cursor on interface name
+                  testCaseAsync "start of name"
+                  <| CodeFix.check
+                    server
+                    """
               type T() =
                 interface $0System.IDisposable with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               type T() =
                 interface System.IDisposable with
                   member _.Dispose() = failwith "-"
               """
-          testCaseAsync "end of name" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "end of name"
+                  <| CodeFix.check
+                    server
+                    """
               type T() =
                 interface System.IDisposable$0 with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               type T() =
                 interface System.IDisposable with
                   member _.Dispose() = failwith "-"
               """
-          testCaseAsync "middle of name" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "middle of name"
+                  <| CodeFix.check
+                    server
+                    """
               type T() =
                 interface System.IDisp$0osable with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               type T() =
                 interface System.IDisposable with
                   member _.Dispose() = failwith "-"
-              """
-        ]
-        testList "object expression" [
-          // diagnostic range:
-          // * main interface: over complete obj expr (start of `{` to end of `}`)
-          // * sub interface: start of `interface` to end of `}`
-          testList "main" [
-            testList "all on same line" [
-              testCaseAsync "{" <|
-                CodeFix.check server
-                  """
+              """ ]
+              testList
+                "object expression"
+                [
+                  // diagnostic range:
+                  // * main interface: over complete obj expr (start of `{` to end of `}`)
+                  // * sub interface: start of `interface` to end of `}`
+                  testList
+                    "main"
+                    [ testList
+                        "all on same line"
+                        [ testCaseAsync "{"
+                          <| CodeFix.check
+                            server
+                            """
                   $0{ new System.IDisposable with }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   { new System.IDisposable with
                       member _.Dispose() = failwith "-" }
                   """
-              testCaseAsync "new" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "new"
+                          <| CodeFix.check
+                            server
+                            """
                   { $0new System.IDisposable with }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   { new System.IDisposable with
                       member _.Dispose() = failwith "-" }
                   """
-              testCaseAsync "with" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "with"
+                          <| CodeFix.check
+                            server
+                            """
                   { new System.IDisposable w$0ith }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   { new System.IDisposable with
                       member _.Dispose() = failwith "-" }
                   """
-              testCaseAsync "}" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "}"
+                          <| CodeFix.check
+                            server
+                            """
                   { new System.IDisposable with $0}
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   { new System.IDisposable with
                       member _.Dispose() = failwith "-" }
-                  """
-            ]
-            testList "on different lines" [
-              testCaseAsync "{" <|
-                CodeFix.check server
-                  """
+                  """ ]
+                      testList
+                        "on different lines"
+                        [ testCaseAsync "{"
+                          <| CodeFix.check
+                            server
+                            """
                   $0{
                     new System.IDisposable with
                   }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
                   """
-              testCaseAsync "new" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "new"
+                          <| CodeFix.check
+                            server
+                            """
                   {
                     n$0ew System.IDisposable with
                   }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
                   """
-              testCaseAsync "interface name" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "interface name"
+                          <| CodeFix.check
+                            server
+                            """
                   {
                     new System.IDis$0posable with
                   }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
                   """
-              testCaseAsync "with" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "with"
+                          <| CodeFix.check
+                            server
+                            """
                   {
                     new System.IDisposable wi$0th
                   }
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
                   """
-              testCaseAsync "}" <|
-                CodeFix.check server
-                  """
+                          testCaseAsync "}"
+                          <| CodeFix.check
+                            server
+                            """
                   {
                     new System.IDisposable with
                   }$0
                   """
-                  validateDiags
-                  selectCodeFixWithoutTypeAnnotation
-                  """
+                            validateDiags
+                            selectCodeFixWithoutTypeAnnotation
+                            """
                   {
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
-                  """
-            ]
-          ]
-          testList "sub" [
-            testCaseAsync "interface" <|
-              CodeFix.check server
-                """
+                  """ ] ]
+                  testList
+                    "sub"
+                    [ testCaseAsync "interface"
+                      <| CodeFix.check
+                        server
+                        """
                 open System
                 {
                   new IDisposable with
@@ -690,9 +753,9 @@ let tests state =
                   in$0terface ICloneable with
                 }
                 """
-                validateDiags
-                selectCodeFixWithoutTypeAnnotation
-                """
+                        validateDiags
+                        selectCodeFixWithoutTypeAnnotation
+                        """
                 open System
                 {
                   new IDisposable with
@@ -701,9 +764,10 @@ let tests state =
                     member _.Clone() = failwith "-"
                 }
                 """
-            testCaseAsync "interface name" <|
-              CodeFix.check server
-                """
+                      testCaseAsync "interface name"
+                      <| CodeFix.check
+                        server
+                        """
                 open System
                 {
                   new IDisposable with
@@ -711,9 +775,9 @@ let tests state =
                   interface IClo$0neable with
                 }
                 """
-                validateDiags
-                selectCodeFixWithoutTypeAnnotation
-                """
+                        validateDiags
+                        selectCodeFixWithoutTypeAnnotation
+                        """
                 open System
                 {
                   new IDisposable with
@@ -722,9 +786,10 @@ let tests state =
                     member _.Clone() = failwith "-"
                 }
                 """
-            testCaseAsync "with" <|
-              CodeFix.check server
-                """
+                      testCaseAsync "with"
+                      <| CodeFix.check
+                        server
+                        """
                 open System
                 {
                   new IDisposable with
@@ -732,9 +797,9 @@ let tests state =
                   interface ICloneable wi$0th
                 }
                 """
-                validateDiags
-                selectCodeFixWithoutTypeAnnotation
-                """
+                        validateDiags
+                        selectCodeFixWithoutTypeAnnotation
+                        """
                 open System
                 {
                   new IDisposable with
@@ -743,9 +808,10 @@ let tests state =
                     member _.Clone() = failwith "-"
                 }
                 """
-            testCaseAsync "}" <|
-              CodeFix.check server
-                """
+                      testCaseAsync "}"
+                      <| CodeFix.check
+                        server
+                        """
                 open System
                 {
                   new IDisposable with
@@ -753,9 +819,9 @@ let tests state =
                   interface ICloneable with
                 }$0
                 """
-                validateDiags
-                selectCodeFixWithoutTypeAnnotation
-                """
+                        validateDiags
+                        selectCodeFixWithoutTypeAnnotation
+                        """
                 open System
                 {
                   new IDisposable with
@@ -763,58 +829,61 @@ let tests state =
                   interface ICloneable with
                     member _.Clone() = failwith "-"
                 }
-                """
-          ]
-        ]
-      ]
-      ptestList "strange existing formatting" [
-        testList "type" [
-          testCaseAsync "interface on prev line" <|
-            CodeFix.check server
-              """
+                """ ] ] ]
+
+          ptestList
+            "strange existing formatting"
+            [ testList
+                "type"
+                [ testCaseAsync "interface on prev line"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               type A () =
                 interface
                   $0IDisposable with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               type A () =
                 interface
                   IDisposable with
                   member _.Dispose() = failwith "-"
               """
-          testCaseAsync "with on next line" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "with on next line"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               type A () =
                 interface $0IDisposable
                     with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               type A () =
                 interface IDisposable
                     with
                   member _.Dispose() = failwith "-"
               """
-          testCaseAsync "interface and with on extra lines" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "interface and with on extra lines"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               type A () =
                 interface
                   $0IDisposable
                     with
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               type A () =
                 interface
@@ -822,9 +891,10 @@ let tests state =
                     with
                   member _.Dispose() = failwith "-"
               """
-          testCaseAsync "attribute" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "attribute"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               type I =
                 abstract member DoStuff: value:int -> unit
@@ -835,9 +905,9 @@ let tests state =
                   [<Obsolete>]
                     member _.DoStuff value = ()
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               type I =
                 abstract member DoStuff: value:int -> unit
@@ -849,9 +919,10 @@ let tests state =
                     member _.DoStuff value = ()
                   member _.DoOtherStuff(value) = failwith "-"
               """
-          testCaseAsync "inline comment" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "inline comment"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               type I =
                 abstract member DoStuff: value:int -> unit
@@ -862,10 +933,10 @@ let tests state =
                   (*foo bar*)[<Obsolete>]
                 (*baaaaaaaaaaaz*)member _.DoStuff value = ()
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              // new member must be at least aligned to Attribute
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    // new member must be at least aligned to Attribute
+                    """
               open System
               type I =
                 abstract member DoStuff: value:int -> unit
@@ -876,21 +947,22 @@ let tests state =
                   (*foo bar*)[<Obsolete>]
                 (*baaaaaaaaaaaz*)member _.DoStuff value = ()
                              member _.DoOtherStuff(value) = failwith "-"
-              """
-        ]
-        testList "obj expr" [
-          testCaseAsync "with on next line" <|
-            CodeFix.check server
-              """
+              """ ]
+              testList
+                "obj expr"
+                [ testCaseAsync "with on next line"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               {
                 new IDis$0posable
                 with
               }
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               {
                 new IDisposable
@@ -898,9 +970,10 @@ let tests state =
                   member _.Dispose() = failwith "-"
               }
               """
-          testCaseAsync "with 3 lines below with comments" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "with 3 lines below with comments"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               {
                 new IDis$0posable
@@ -909,9 +982,9 @@ let tests state =
                 with
               }
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               {
                 new IDisposable
@@ -921,18 +994,19 @@ let tests state =
                   member _.Dispose() = failwith "-"
               }
               """
-          testCaseAsync "new on prev line" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "new on prev line"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               {
                 new
                       IDis$0posable with
               }
               """
-              validateDiags
-              selectCodeFixWithoutTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithoutTypeAnnotation
+                    """
               open System
               {
                 new
@@ -940,9 +1014,10 @@ let tests state =
                   member _.Dispose() = failwith "-"
               }
               """
-          testCaseAsync "new and with on extra lines" <|
-            CodeFix.check server
-              """
+                  testCaseAsync "new and with on extra lines"
+                  <| CodeFix.check
+                    server
+                    """
               open System
               {
                 new
@@ -950,9 +1025,9 @@ let tests state =
                 with
               }
               """
-              validateDiags
-              selectCodeFixWithTypeAnnotation
-              """
+                    validateDiags
+                    selectCodeFixWithTypeAnnotation
+                    """
               open System
               {
                 new
@@ -960,35 +1035,34 @@ let tests state =
                 with
                   member _.Dispose() = failwith "-"
               }
-              """
-        ]
-      ]
-    ])
-    let config = {
-      defaultConfigDto with
-        IndentationSize = Some 6
-        InterfaceStubGeneration = Some true
-        InterfaceStubGenerationObjectIdentifier = Some "this"
-        InterfaceStubGenerationMethodBody = Some "raise (System.NotImplementedException())"
-    }
-    serverTestList "with 6 indentation" state config None (fun server -> [
-      let testBoth = testBoth server
-      testBoth "uses indentation, object identifier & method body from config"
-          """
+              """ ] ] ])
+
+      let config =
+        { defaultConfigDto with
+            IndentationSize = Some 6
+            InterfaceStubGeneration = Some true
+            InterfaceStubGenerationObjectIdentifier = Some "this"
+            InterfaceStubGenerationMethodBody = Some "raise (System.NotImplementedException())" }
+
+      serverTestList "with 6 indentation" state config None (fun server ->
+        [ let testBoth = testBoth server
+
+          testBoth
+            "uses indentation, object identifier & method body from config"
+            """
           type X() =
                 interface System.$0IDisposable with
           """
-          """
+            """
           type X() =
                 interface System.IDisposable with
                       member this.Dispose(): unit =
                             raise (System.NotImplementedException())
           """
-          """
+            """
           type X() =
                 interface System.IDisposable with
                       member this.Dispose() = raise (System.NotImplementedException())
           """
-      ()
-    ])
-  ]
+
+          () ]) ]
