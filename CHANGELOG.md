@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.84.0] - 2026-03-08
+## [0.84.0] - 2026-03-18
 
 ### Added
 
@@ -30,6 +30,8 @@
 - [Fix `open` insertion position placing statement before module declaration in nested explicit modules](https://github.com/ionide/FsAutoComplete/pull/1495) (closes [#789](https://github.com/ionide/FsAutoComplete/issues/789))
 - [Fix rename skipping unreadable SourceLinked files; remove duplicate log in textDocument/implementation](https://github.com/ionide/FsAutoComplete/pull/1491) (partially closes [#1011](https://github.com/ionide/FsAutoComplete/issues/1011))
 - [Fix go-to-definition for type-forwarded types (e.g. `System.Boolean` forwarded from netstandard.dll to System.Runtime.dll)](https://github.com/ionide/FsAutoComplete/pull/1492) (closes [#786](https://github.com/ionide/FsAutoComplete/issues/786))
+- [Fix named-argument completion priority to match Property priority (closes [#1500](https://github.com/ionide/FsAutoComplete/issues/1500))](https://github.com/ionide/FsAutoComplete/pull/1503)
+- [Fix hover documentation for FSI hash directives (`#r`, `#load`, `#nowarn`, `#I`, `#time`)](https://github.com/ionide/FsAutoComplete/pull/1504) (closes [#1225](https://github.com/ionide/FsAutoComplete/issues/1225))
 
 ## [0.83.0] - 2026-02-04
 
