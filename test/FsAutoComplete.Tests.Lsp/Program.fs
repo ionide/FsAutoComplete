@@ -154,6 +154,7 @@ let generalTests =
       LspHelpersTests.allTests
       TipFormatterTests.allTests
       FcsInvariantTests.tests
+      FsProjEditorTests.allTests
       decompilerTests ]
 
 [<Tests>]
