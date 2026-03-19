@@ -2388,7 +2388,8 @@ type AdaptiveState
          IgnoreExpression.fix tryGetParseAndCheckResultsForFile
          ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile
          AddMissingSeq.fix tryGetParseAndCheckResultsForFile
-         IntroduceMissingBinding.fix tryGetParseAndCheckResultsForFile getLineText |])
+         IntroduceMissingBinding.fix tryGetParseAndCheckResultsForFile getLineText
+         GenerateAnonRecordStub.fix tryGetParseAndCheckResultsForFile |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
