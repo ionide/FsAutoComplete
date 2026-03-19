@@ -11,37 +11,84 @@ open FsAutoComplete.LspHelpers
 
 let title = "Add missing anonymous record fields"
 
-/// Parse field names out of a bracket list section of the FS3578 message,
-/// e.g. the content `"A"; "B"` from inside `["A"; "B"]`.
-let private parseFieldNames (bracketContent: string) =
-  Regex.Matches(bracketContent, "\"([^\"]+)\"")
-  |> Seq.cast<Match>
-  |> Seq.map (fun m -> m.Groups.[1].Value)
-  |> Set.ofSeq
+// FS0001 message patterns for anonymous record field mismatches (current F# compiler formats):
+//   "This anonymous record is missing field 'B'."
+//   "This anonymous record is missing fields 'B', 'C'."
+//   "This anonymous record does not exactly match the expected shape. Add the missing fields [B; C] and remove the extra fields [D; E]."
 
-// FS3578 diagnostic message format:
-//   Two anonymous record types have mismatched sets of field names '["A"; "B"]' and '["A"]'
-let private msgPattern =
-  Regex(@"'\[([^\]]*)\]' and '\[([^\]]*)\]'", RegexOptions.Compiled)
+/// Extract missing field names from an FS0001 anonymous-record diagnostic message.
+/// Returns `Some fields` when the message describes fields that should be added; `None` otherwise.
+let private tryParseMissingFields (message: string) : string list option =
+  // Case 1: single missing field – "This anonymous record is missing field 'X'."
+  let m1 = Regex.Match(message, @"missing field '([^']+)'")
 
-/// A code fix for FS3578: when an anonymous record literal is missing fields required by its
-/// expected type, inserts stub bindings `fieldName = failwith "Not Implemented"` for each
-/// missing field before the closing `|}`.
+  if m1.Success then
+    Some [ m1.Groups.[1].Value ]
+  else
+    // Case 2: multiple missing fields in quotes – "This anonymous record is missing fields 'X', 'Y'."
+    // Use a more specific pattern that requires quoted field names.
+    let m2 = Regex.Match(message, @"missing fields '([^']+)'")
+
+    if m2.Success then
+      // The full field list group includes all quoted names; extract each individually.
+      let fullMatch = Regex.Match(message, @"missing fields (.+?)\.")
+
+      let fieldList =
+        if fullMatch.Success then
+          fullMatch.Groups.[1].Value
+        else
+          m2.Value
+
+      let fields =
+        Regex.Matches(fieldList, "'([^']+)'")
+        |> Seq.cast<Match>
+        |> Seq.map (fun m -> m.Groups.[1].Value)
+        |> Seq.toList
+
+      if fields.IsEmpty then None else Some fields
+    else
+      // Case 3: "does not exactly match" – extract from "Add the missing fields [X; Y]"
+      let m3 = Regex.Match(message, @"Add the missing fields \[([^\]]+)\]")
+
+      if m3.Success then
+        let fieldsStr = m3.Groups.[1].Value
+
+        let fields =
+          fieldsStr.Split(';')
+          |> Array.map (fun s -> s.Trim())
+          |> Array.filter (fun s -> s.Length > 0)
+          |> Array.toList
+
+        if fields.IsEmpty then None else Some fields
+      else
+        None
+
+/// A code fix for FS0001 anonymous-record type mismatches: when an anonymous record literal is
+/// missing fields required by its expected type, inserts stub bindings
+/// `fieldName = failwith "Not Implemented"` for each missing field before the closing `|}`.
 let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
-  Run.ifDiagnosticByCode (Set.ofList [ "3578" ]) (fun diagnostic codeActionParams ->
+  Run.ifDiagnosticByCode (Set.ofList [ "1" ]) (fun diagnostic codeActionParams ->
     asyncResult {
-      let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
-      let fcsPos = protocolPosToPos diagnostic.Range.Start
-      let! (parseAndCheck, _, _sourceText) = getParseResultsForFile fileName fcsPos
+      // Only act on anonymous-record field-mismatch errors
+      do!
+        Result.guard
+          (fun _ ->
+            diagnostic.Message.Contains("anonymous record")
+            && diagnostic.Message.Contains("missing"))
+          "Diagnostic is not an anonymous record missing-field error"
 
-      let m = msgPattern.Match(diagnostic.Message)
+      let missingFields =
+        match tryParseMissingFields diagnostic.Message with
+        | Some fields -> fields
+        | None -> []
 
-      if not m.Success then
+      if missingFields.IsEmpty then
         return []
       else
 
-        let set1 = parseFieldNames m.Groups.[1].Value
-        let set2 = parseFieldNames m.Groups.[2].Value
+        let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
+        let fcsPos = protocolPosToPos diagnostic.Range.Start
+        let! (parseAndCheck, _, _sourceText) = getParseResultsForFile fileName fcsPos
 
         // Find the innermost anonymous record expression that contains the diagnostic start position.
         let anonRecdOpt =
@@ -63,24 +110,17 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         | None -> return []
         | Some(r, currentFields) ->
 
-          // Determine which fields are missing: present in one of the two error sets but absent
-          // from the current anonymous record literal.
-          let missingFromSet1 = set1 - currentFields
-          let missingFromSet2 = set2 - currentFields
+          // Exclude any fields that are already present (defensive: should already be absent).
+          let fieldsToAdd =
+            missingFields |> List.filter (fun f -> not (Set.contains f currentFields))
 
-          let missingFields =
-            if missingFromSet1.IsEmpty then missingFromSet2
-            elif missingFromSet2.IsEmpty then missingFromSet1
-            else Set.union missingFromSet1 missingFromSet2
-
-          if missingFields.IsEmpty then
+          if fieldsToAdd.IsEmpty then
             return []
           else
 
-            // Build "; fieldName = failwith "Not Implemented"" stubs for each missing field.
+            // Build "fieldName = failwith "Not Implemented"" stubs for each missing field.
             let fieldStubs =
-              missingFields
-              |> Set.toList // Set.toList is sorted, giving a deterministic field order
+              fieldsToAdd
               |> List.map (fun f -> $"{f} = failwith \"Not Implemented\"")
               |> String.concat "; "
 
