@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.84.0] - 2026-03-18
+## [0.84.0] - 2026-03-19
 
 ### Added
 
@@ -32,6 +32,8 @@
 - [Fix go-to-definition for type-forwarded types (e.g. `System.Boolean` forwarded from netstandard.dll to System.Runtime.dll)](https://github.com/ionide/FsAutoComplete/pull/1492) (closes [#786](https://github.com/ionide/FsAutoComplete/issues/786))
 - [Fix named-argument completion priority to match Property priority (closes [#1500](https://github.com/ionide/FsAutoComplete/issues/1500))](https://github.com/ionide/FsAutoComplete/pull/1503)
 - [Fix hover documentation for FSI hash directives (`#r`, `#load`, `#nowarn`, `#I`, `#time`)](https://github.com/ionide/FsAutoComplete/pull/1504) (closes [#1225](https://github.com/ionide/FsAutoComplete/issues/1225))
+- [Fix go-to-definition showing `throw null` stub bodies for .NET reference assemblies by resolving to implementation assemblies](https://github.com/ionide/FsAutoComplete/pull/1490) (closes [#486](https://github.com/ionide/FsAutoComplete/issues/486))
+- [Fix `moveFileUp`/`moveFileDown` in `.fsproj`: preserve vertical formatting and fix first-press no-op](https://github.com/ionide/FsAutoComplete/pull/1499) (closes [#1498](https://github.com/ionide/FsAutoComplete/issues/1498))
 
 ## [0.83.0] - 2026-02-04
 
