@@ -88,7 +88,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
         let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
         let fcsPos = protocolPosToPos diagnostic.Range.Start
-        let! (parseAndCheck, _, _sourceText) = getParseResultsForFile fileName fcsPos
+        let! (parseAndCheck, _, sourceText) = getParseResultsForFile fileName fcsPos
 
         // Find the innermost anonymous record expression that contains the diagnostic start position.
         let anonRecdOpt =
@@ -124,21 +124,34 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               |> List.map (fun f -> $"{f} = failwith \"Not Implemented\"")
               |> String.concat "; "
 
-            // Prefix with "; " if there are already fields in the expression; with a space if the
-            // record body is empty.
-            let insertText =
-              if currentFields.IsEmpty then
-                $" {fieldStubs} "
-              else
-                $"; {fieldStubs} "
-
             // The anonymous record range ends just after '}' in '|}', so '|' is at EndColumn − 2.
-            let insertPos = Position.mkPos r.EndLine (r.EndColumn - 2)
-            let insertLspPos = fcsPosToLsp insertPos
+            let endBarCol = r.EndColumn - 2
 
-            let insertRange =
-              { Start = insertLspPos
-                End = insertLspPos }
+            // Build the insert text and range depending on whether the record already has fields.
+            // For non-empty records, trailing whitespace before `|}` must be consumed by the edit
+            // to avoid producing `{| A = 1 ; B = ... |}` (space before the semicolon).
+            let insertText, insertRange =
+              if currentFields.IsEmpty then
+                // Empty record: simple zero-width insert before `|}`.
+                let lspPos = fcsPosToLsp (Position.mkPos r.EndLine endBarCol)
+                $" {fieldStubs} ", { Start = lspPos; End = lspPos }
+              else
+                // Non-empty record: replace any trailing whitespace before `|}` so the result
+                // is e.g. `{| A = 1; B = failwith "Not Implemented" |}` (no stray space).
+                let insertStartCol =
+                  match sourceText.GetLine(Position.mkPos r.EndLine 0) with
+                  | None -> endBarCol
+                  | Some line ->
+                    let mutable col = endBarCol - 1
+
+                    while col >= 0 && col < line.Length && System.Char.IsWhiteSpace(line.[col]) do
+                      col <- col - 1
+
+                    col + 1
+
+                let lspStart = fcsPosToLsp (Position.mkPos r.EndLine insertStartCol)
+                let lspEnd = fcsPosToLsp (Position.mkPos r.EndLine endBarCol)
+                $"; {fieldStubs} ", { Start = lspStart; End = lspEnd }
 
             return
               [ { Title = title
