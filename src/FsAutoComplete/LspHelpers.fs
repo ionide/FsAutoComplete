@@ -130,7 +130,8 @@ module Conversions =
         let url = urlForCompilerCode code
 
         try
-          let! response = httpClient.GetAsync(url) |> Async.AwaitTask
+          use req = new HttpRequestMessage(HttpMethod.Head, url)
+          let! response = httpClient.SendAsync(req) |> Async.AwaitTask
           cache.[code] <- response.IsSuccessStatusCode
         with _ ->
           cache.[code] <- false
