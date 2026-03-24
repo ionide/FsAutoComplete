@@ -117,4 +117,64 @@ let inheritDocTests =
         | TipFormatter.TipFormatterResult.None -> ()
         | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on inheritdoc cref, got: {e}" ]
 
-let allTests = testList "TipFormatter" [ seeAlsoTests; inheritDocTests ]
+/// Helper: wrap a single string as a one-element TaggedText array (the type used by the compiler service).
+let private makeTaggedTexts (parts: string list) : FSharp.Compiler.Text.TaggedText[] =
+  parts |> List.map FSharp.Compiler.Text.TaggedText.tagText |> List.toArray
+
+let cleanParameterDisplayTests =
+  testList
+    "cleanParameterDisplay"
+    [ testCase "strips verbose C# interop attributes and shows string default"
+      <| fun _ ->
+        let input =
+          makeTaggedTexts
+            [ "[<System.Runtime.InteropServices.Optional; System.Runtime.InteropServices.DefaultParameterValue(\"\")>] args: string" ]
+
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "args: string = \"\"" "should strip attribute block and append = \"\""
+
+      testCase "strips short Optional+DefaultParameterValue with string default"
+      <| fun _ ->
+        let input =
+          makeTaggedTexts [ "[<Optional; DefaultParameterValue(\"\")>] args: string" ]
+
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "args: string = \"\"" "should strip attribute block and append = \"\""
+
+      testCase "strips Optional+DefaultParameterValue with numeric default"
+      <| fun _ ->
+        let input = makeTaggedTexts [ "[<Optional; DefaultParameterValue(42)>] count: int" ]
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "count: int = 42" "should strip attribute block and append = 42"
+
+      testCase "strips Optional-only attribute with no default value"
+      <| fun _ ->
+        let input = makeTaggedTexts [ "[<Optional>] args: string" ]
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "args: string" "should strip attribute block and add no suffix"
+
+      testCase "returns plain parameter text unchanged when no attribute block present"
+      <| fun _ ->
+        let input = makeTaggedTexts [ "args: string" ]
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "args: string" "should return the original text unchanged"
+
+      testCase "concatenates multiple tagged-text segments before processing"
+      <| fun _ ->
+        // The compiler service may split a parameter display across several TaggedText tokens.
+        let input =
+          makeTaggedTexts [ "[<Optional; DefaultParameterValue("; "true"; ")>] flag: bool" ]
+
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "flag: bool = true" "should concatenate all segments and strip attribute block"
+
+      testCase "strips DefaultParameterValue with boolean default"
+      <| fun _ ->
+        let input =
+          makeTaggedTexts [ "[<Optional; DefaultParameterValue(false)>] flag: bool" ]
+
+        let result = TipFormatter.cleanParameterDisplay input
+        Expect.equal result "flag: bool = false" "should strip attribute block and append = false" ]
+
+let allTests =
+  testList "TipFormatter" [ seeAlsoTests; inheritDocTests; cleanParameterDisplayTests ]
