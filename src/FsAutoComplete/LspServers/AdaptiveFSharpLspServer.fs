@@ -1059,7 +1059,7 @@ type AdaptiveFSharpLspServer
                     m.Parameters
                     |> Array.map (fun p ->
                       { ParameterInformation.Label = U2.C1 p.ParameterName
-                        Documentation = Some(U2.C1(p.Display |> Array.map (fun t -> t.Text) |> String.concat "")) })
+                        Documentation = Some(U2.C1(TipFormatter.cleanParameterDisplay p.Display)) })
 
                 let d =
                   U2.C2(
