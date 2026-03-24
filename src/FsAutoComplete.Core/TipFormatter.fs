@@ -1195,6 +1195,32 @@ let formatPlainTip (ToolTipText tips) : (string * string) =
     | ToolTipElement.CompositionError(error) -> Some("<Note>", error)
     | _ -> Some("<Note>", "No signature data"))
 
+/// Transforms the display text for a method parameter to remove verbose C#-style attribute syntax
+/// and show default values concisely.
+/// For example:
+///   "[<Optional; DefaultParameterValue("")>] args: string"
+///   → "args: string = \"\""
+let cleanParameterDisplay (display: TaggedText[]) : string =
+  let text = display |> Array.map (fun t -> t.Text) |> String.concat ""
+  let attrPattern = Regex @"\[<[^\]]*>\]"
+  let attrMatch = attrPattern.Match(text)
+
+  if attrMatch.Success then
+    let attrBlock = attrMatch.Value
+    let defaultValuePattern = Regex @"DefaultParameterValue\(([^)]*)\)"
+    let dvMatch = defaultValuePattern.Match(attrBlock)
+
+    let suffix =
+      if dvMatch.Success then
+        $" = {dvMatch.Groups[1].Value}"
+      else
+        ""
+
+    let rest = text.Substring(attrMatch.Index + attrMatch.Length).TrimStart()
+    rest + suffix
+  else
+    text
+
 let prepareSignature (signatureText: string) =
   signatureText.Split Environment.NewLine
   // Remove empty lines

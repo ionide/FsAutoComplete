@@ -92,6 +92,10 @@ val formatCompletionItemTip: ToolTipText -> string * string
 val formatPlainTip: ToolTipText -> string * string
 val prepareSignature: signatureText: string -> string
 val prepareFooterLines: footerText: string -> string array
+/// Transforms the display text for a method parameter to remove verbose C#-style attribute
+/// syntax and show default values concisely.
+/// E.g. "[<Optional; DefaultParameterValue("")>] args: string" → "args: string = \"\""
+val cleanParameterDisplay: display: TaggedText[] -> string
 
 /// <summary>
 /// Try format the given tooltip with the requested style.
