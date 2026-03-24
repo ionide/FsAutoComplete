@@ -14,6 +14,7 @@ open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
 open FsAutoComplete.Tests.Lsp.DecompilerTests
 open FsAutoComplete.Tests.CallHierarchy
+open FsAutoComplete.Tests.TypeHierarchy
 open Ionide.ProjInfo
 open System.Threading
 open Serilog.Filters
@@ -138,6 +139,7 @@ let lspTests =
                   UnusedDeclarationsTests.tests createServer
                   EmptyFileTests.tests createServer
                   CallHierarchy.tests createServer
+                  TypeHierarchy.tests createServer
                   diagnosticsTest createServer
                   InheritDocTooltipTests.tests createServer
 
