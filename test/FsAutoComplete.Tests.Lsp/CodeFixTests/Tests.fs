@@ -3735,4 +3735,5 @@ let tests textFactory state =
       ExprTypeMismatchTests.tests state
       AddMissingWildcardOperatorTests.tests state
       AddMissingSeqTests.tests state
-      IntroduceMissingBindingTests.tests state ]
+      IntroduceMissingBindingTests.tests state
+      GenerateAnonRecordStubTests.tests state ]
