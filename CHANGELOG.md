@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.84.0] - 2026-03-19
+## [0.84.0] - 2026-03-25
 
 ### Added
 
@@ -10,6 +10,7 @@
 - [Add code fix to replace invalid `|->` with wildcard `| _ ->` pattern in match expressions (FS0043)](https://github.com/ionide/FsAutoComplete/pull/1472) (thanks @jkone27!)
 - [Add code fix to add missing `seq` keyword before sequence expression `{ ... }`](https://github.com/ionide/FsAutoComplete/pull/1474) (closes [#1330](https://github.com/ionide/FsAutoComplete/issues/1330), thanks @edgarfgp!)
 - [Add `IntroduceMissingBinding` code fix to insert a `let` binding for undefined identifiers](https://github.com/ionide/FsAutoComplete/pull/1488) (closes [#1271](https://github.com/ionide/FsAutoComplete/issues/1271))
+- [Add `GenerateAnonRecordStub` code fix for FS3578 — generates `{| field1 = expr1; ... |}` stubs from anonymous record type annotations](https://github.com/ionide/FsAutoComplete/pull/1510) (closes [#455](https://github.com/ionide/FsAutoComplete/issues/455))
 
 ### Fixed
 
@@ -34,6 +35,7 @@
 - [Fix hover documentation for FSI hash directives (`#r`, `#load`, `#nowarn`, `#I`, `#time`)](https://github.com/ionide/FsAutoComplete/pull/1504) (closes [#1225](https://github.com/ionide/FsAutoComplete/issues/1225))
 - [Fix go-to-definition showing `throw null` stub bodies for .NET reference assemblies by resolving to implementation assemblies](https://github.com/ionide/FsAutoComplete/pull/1490) (closes [#486](https://github.com/ionide/FsAutoComplete/issues/486))
 - [Fix `moveFileUp`/`moveFileDown` in `.fsproj`: preserve vertical formatting and fix first-press no-op](https://github.com/ionide/FsAutoComplete/pull/1499) (closes [#1498](https://github.com/ionide/FsAutoComplete/issues/1498))
+- [Fix signature help showing verbose `[<Optional; DefaultParameterValue(...)>]` attribute display for C#-style optional parameters; now shown concisely as `name: type = defaultValue`](https://github.com/ionide/FsAutoComplete/pull/1512) (closes [#1310](https://github.com/ionide/FsAutoComplete/issues/1310))
 
 ## [0.83.0] - 2026-02-04
 
