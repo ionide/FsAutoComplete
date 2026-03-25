@@ -223,9 +223,11 @@ module TypeHierarchyHelpers =
 
        for iface in entity.DeclaredInterfaces do
          try
-           match entityToTypeHierarchyItem iface.TypeDefinition with
-           | Some item -> yield item
-           | None -> ()
+           // Filter out System.Object which some FCS/CLR versions include for all interfaces
+           if iface.TypeDefinition.TryFullName <> Some "System.Object" then
+             match entityToTypeHierarchyItem iface.TypeDefinition with
+             | Some item -> yield item
+             | None -> ()
          with _ ->
            () |]
 
@@ -2751,45 +2753,65 @@ type AdaptiveFSharpLspServer
             let! projs = getAllProjects ()
             let! allUses = state.GetUsesOfSymbol(filePath, projs, targetEntity)
 
-            // Find symbol uses that are type annotations (base class / interface references)
-            // that are not the definition itself
-            let inheritanceUses =
-              allUses |> Array.filter (fun su -> su.IsFromType && not su.IsFromDefinition)
+            // For each unique file that references targetEntity, find entities that
+            // directly inherit from targetEntity via BaseType or DeclaredInterfaces.
+            // This is more reliable than range-containment on symbol use ranges,
+            // because u.Range in GetAllUsesOfAllSymbolsInFile is the identifier range
+            // (e.g. just "Dog"), not the full class body range.
+            let fileNames = allUses |> Array.map (fun su -> su.FileName) |> Array.distinct
 
-            let! subtypeItems =
-              inheritanceUses
-              |> Array.map (fun su ->
+            let! subtypeItemArrays =
+              fileNames
+              |> Array.map (fun fileName ->
                 async {
                   try
-                    let useFilePath = Utils.normalizePath su.FileName
+                    let useFilePath = Utils.normalizePath fileName
                     let! tyResResult = state.GetTypeCheckResultsForFile useFilePath
 
                     match tyResResult with
-                    | Error _ -> return None
+                    | Error _ -> return [||]
                     | Ok useTyRes ->
-                      // Find entity definitions in this file whose declaration range contains the
-                      // inheritance use range — those entities are direct subtypes
                       let allFileUses = useTyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
 
-                      let subtypeEntity =
+                      return
                         allFileUses
-                        |> Seq.tryPick (fun u ->
-                          if u.IsFromDefinition && Range.rangeContainsRange u.Range su.Range then
+                        |> Seq.choose (fun u ->
+                          if u.IsFromDefinition then
                             match u.Symbol with
-                            | :? FSharpEntity as e when not (e.IsEffectivelySameAs targetEntity) -> Some e
+                            | :? FSharpEntity as e when not (e.IsEffectivelySameAs targetEntity) ->
+                              let isDirectSubtype =
+                                try
+                                  (e.BaseType
+                                   |> Option.exists (fun bt ->
+                                     try
+                                       bt.TypeDefinition.IsEffectivelySameAs targetEntity
+                                     with _ ->
+                                       false))
+                                  || (e.DeclaredInterfaces
+                                      |> Seq.exists (fun iface ->
+                                        try
+                                          iface.TypeDefinition.IsEffectivelySameAs targetEntity
+                                        with _ ->
+                                          false))
+                                with _ ->
+                                  false
+
+                              if isDirectSubtype then
+                                entityToTypeHierarchyItem e
+                              else
+                                None
                             | _ -> None
                           else
                             None)
-
-                      return subtypeEntity |> Option.bind entityToTypeHierarchyItem
+                        |> Seq.toArray
                   with _ ->
-                    return None
+                    return [||]
                 })
               |> Async.parallel75
 
             let subtypeItems =
-              subtypeItems
-              |> Array.choose id
+              subtypeItemArrays
+              |> Array.concat
               |> Array.distinctBy (fun i -> i.Uri + string i.Range.Start.Line)
 
             return if subtypeItems.Length = 0 then None else Some subtypeItems
