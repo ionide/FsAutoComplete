@@ -179,32 +179,30 @@ module TypeHierarchyHelpers =
     elif entity.IsFSharpModule then SymbolKind.Module
     else SymbolKind.Class
 
-  /// Convert an FSharpEntity to a TypeHierarchyItem (returns None if no declaration location)
+  /// Convert an FSharpEntity to a TypeHierarchyItem.
+  /// Returns None if the entity has no declaration location or is from an external assembly
+  /// (i.e., the source file does not exist on disk). This intentionally limits the type
+  /// hierarchy to user-defined source types, avoiding BCL/framework types that FCS may
+  /// implicitly add to DeclaredInterfaces.
   let entityToTypeHierarchyItem (entity: FSharpEntity) : TypeHierarchyItem option =
     try
       let declLoc = entity.DeclarationLocation
 
-      let uri =
-        if System.IO.File.Exists declLoc.FileName then
-          Path.LocalPathToUri(Utils.normalizePath declLoc.FileName)
-        else
-          // External symbol (referenced assembly) — use a synthetic URI
-          sprintf
-            "fsharp://%s/%s"
-            entity.Assembly.SimpleName
-            (entity.TryFullName |> Option.defaultValue entity.DisplayName)
+      if not (System.IO.File.Exists declLoc.FileName) then
+        None
+      else
+        let uri = Path.LocalPathToUri(Utils.normalizePath declLoc.FileName)
+        let lspRange = fcsRangeToLsp declLoc
 
-      let lspRange = fcsRangeToLsp declLoc
-
-      Some
-        { TypeHierarchyItem.Name = entity.DisplayName
-          Kind = getEntitySymbolKind entity
-          Tags = None
-          Detail = entity.TryFullName
-          Uri = uri
-          Range = lspRange
-          SelectionRange = lspRange
-          Data = None }
+        Some
+          { TypeHierarchyItem.Name = entity.DisplayName
+            Kind = getEntitySymbolKind entity
+            Tags = None
+            Detail = entity.TryFullName
+            Uri = uri
+            Range = lspRange
+            SelectionRange = lspRange
+            Data = None }
     with _ ->
       None
 
