@@ -167,6 +167,70 @@ module CallHierarchyHelpers =
 
 open CallHierarchyHelpers
 
+module TypeHierarchyHelpers =
+
+  /// Get the SymbolKind for a type entity
+  let getEntitySymbolKind (entity: FSharpEntity) =
+    if entity.IsInterface then SymbolKind.Interface
+    elif entity.IsFSharpUnion then SymbolKind.Enum
+    elif entity.IsFSharpRecord then SymbolKind.Struct
+    elif entity.IsEnum then SymbolKind.Enum
+    elif entity.IsValueType then SymbolKind.Struct
+    elif entity.IsFSharpModule then SymbolKind.Module
+    else SymbolKind.Class
+
+  /// Convert an FSharpEntity to a TypeHierarchyItem.
+  /// Returns None if the entity has no declaration location or is from an external assembly
+  /// (i.e., the source file does not exist on disk). This intentionally limits the type
+  /// hierarchy to user-defined source types, avoiding BCL/framework types that FCS may
+  /// implicitly add to DeclaredInterfaces.
+  let entityToTypeHierarchyItem (entity: FSharpEntity) : TypeHierarchyItem option =
+    try
+      let declLoc = entity.DeclarationLocation
+
+      if not (System.IO.File.Exists declLoc.FileName) then
+        None
+      else
+        let uri = Path.LocalPathToUri(Utils.normalizePath declLoc.FileName)
+        let lspRange = fcsRangeToLsp declLoc
+
+        Some
+          { TypeHierarchyItem.Name = entity.DisplayName
+            Kind = getEntitySymbolKind entity
+            Tags = None
+            Detail = entity.TryFullName
+            Uri = uri
+            Range = lspRange
+            SelectionRange = lspRange
+            Data = None }
+    with _ ->
+      None
+
+  /// Get the direct supertypes (base class + declared interfaces) of an entity as TypeHierarchyItems
+  let getDirectSupertypes (entity: FSharpEntity) : TypeHierarchyItem[] =
+    [| match entity.BaseType with
+       | Some bt ->
+         try
+           if bt.TypeDefinition.TryFullName <> Some "System.Object" then
+             match entityToTypeHierarchyItem bt.TypeDefinition with
+             | Some item -> yield item
+             | None -> ()
+         with _ ->
+           ()
+       | None -> ()
+
+       for iface in entity.DeclaredInterfaces do
+         try
+           // Filter out System.Object which some FCS/CLR versions include for all interfaces
+           if iface.TypeDefinition.TryFullName <> Some "System.Object" then
+             match entityToTypeHierarchyItem iface.TypeDefinition with
+             | Some item -> yield item
+             | None -> ()
+         with _ ->
+           () |]
+
+open TypeHierarchyHelpers
+
 type AdaptiveFSharpLspServer
   (
     workspaceLoader: IWorkspaceLoader,
@@ -2561,11 +2625,203 @@ type AdaptiveFSharpLspServer
           return! returnException e logCfg
       }
 
-    override x.TextDocumentPrepareTypeHierarchy p = x.logUnimplementedRequest p
+    override x.TextDocumentPrepareTypeHierarchy(p: TypeHierarchyPrepareParams) =
+      asyncResult {
+        let tags = [ "TypeHierarchyPrepareParams", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
 
-    override x.TypeHierarchySubtypes p = x.logUnimplementedRequest p
+        try
+          logger.info (
+            Log.setMessage "TextDocumentPrepareTypeHierarchy Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
 
-    override x.TypeHierarchySupertypes p = x.logUnimplementedRequest p
+          let (filePath, pos) =
+            { new ITextDocumentPositionParams with
+                member __.TextDocument = p.TextDocument
+                member __.Position = p.Position }
+            |> getFilePathAndPosition
+
+          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
+          and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
+
+          let entity =
+            match tyRes.TryGetSymbolUse pos lineStr with
+            | None -> None
+            | Some su ->
+              match su.Symbol with
+              | :? FSharpEntity as e -> Some e
+              | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsConstructor -> mfv.DeclaringEntity
+              | _ -> None
+
+          match entity with
+          | None -> return None
+          | Some entity ->
+            match entityToTypeHierarchyItem entity with
+            | None -> return None
+            | Some item -> return Some [| item |]
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "TextDocumentPrepareTypeHierarchy Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
+
+    override x.TypeHierarchySupertypes(p: TypeHierarchySupertypesParams) =
+      asyncResult {
+        let tags = [ "TypeHierarchySupertypesParams", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "TypeHierarchySupertypes Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
+          and! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
+
+          let entity =
+            match tyRes.TryGetSymbolUse pos lineStr with
+            | None -> None
+            | Some su ->
+              match su.Symbol with
+              | :? FSharpEntity as e -> Some e
+              | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsConstructor -> mfv.DeclaringEntity
+              | _ -> None
+
+          match entity with
+          | None -> return None
+          | Some entity ->
+            let supertypes = getDirectSupertypes entity
+            return if supertypes.Length = 0 then None else Some supertypes
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "TypeHierarchySupertypes Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
+
+    override x.TypeHierarchySubtypes(p: TypeHierarchySubtypesParams) =
+      asyncResult {
+        let tags = [ "TypeHierarchySubtypesParams", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "TypeHierarchySubtypes Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let filePath = Path.FileUriToLocalPath p.Item.Uri |> Utils.normalizePath
+          let pos = protocolPosToPos p.Item.SelectionRange.Start
+          let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
+          let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
+          and! tyRes = state.GetTypeCheckResultsForFile filePath |> AsyncResult.ofStringErr
+
+          let targetEntity =
+            match tyRes.TryGetSymbolUse pos lineStr with
+            | None -> None
+            | Some su ->
+              match su.Symbol with
+              | :? FSharpEntity as e -> Some e
+              | :? FSharpMemberOrFunctionOrValue as mfv when mfv.IsConstructor -> mfv.DeclaringEntity
+              | _ -> None
+
+          match targetEntity with
+          | None -> return None
+          | Some targetEntity ->
+            let getAllProjects () =
+              state.GetFilesToProject()
+              |> Async.map (
+                Array.map (fun (file, proj) -> UMX.untag file, AVal.force proj.FSharpProjectCompilerOptions)
+                >> Array.toList
+              )
+
+            let! projs = getAllProjects ()
+            let! allUses = state.GetUsesOfSymbol(filePath, projs, targetEntity)
+
+            // For each unique file that references targetEntity, find entities that
+            // directly inherit from targetEntity via BaseType or DeclaredInterfaces.
+            // This is more reliable than range-containment on symbol use ranges,
+            // because u.Range in GetAllUsesOfAllSymbolsInFile is the identifier range
+            // (e.g. just "Dog"), not the full class body range.
+            let fileNames = allUses |> Array.map (fun su -> su.FileName) |> Array.distinct
+
+            let! subtypeItemArrays =
+              fileNames
+              |> Array.map (fun fileName ->
+                async {
+                  try
+                    let useFilePath = Utils.normalizePath fileName
+                    let! tyResResult = state.GetTypeCheckResultsForFile useFilePath
+
+                    match tyResResult with
+                    | Error _ -> return [||]
+                    | Ok useTyRes ->
+                      let allFileUses = useTyRes.GetCheckResults.GetAllUsesOfAllSymbolsInFile()
+
+                      return
+                        allFileUses
+                        |> Seq.choose (fun u ->
+                          if u.IsFromDefinition then
+                            match u.Symbol with
+                            | :? FSharpEntity as e when not (e.IsEffectivelySameAs targetEntity) ->
+                              let isDirectSubtype =
+                                try
+                                  (e.BaseType
+                                   |> Option.exists (fun bt ->
+                                     try
+                                       bt.TypeDefinition.IsEffectivelySameAs targetEntity
+                                     with _ ->
+                                       false))
+                                  || (e.DeclaredInterfaces
+                                      |> Seq.exists (fun iface ->
+                                        try
+                                          iface.TypeDefinition.IsEffectivelySameAs targetEntity
+                                        with _ ->
+                                          false))
+                                with _ ->
+                                  false
+
+                              if isDirectSubtype then
+                                entityToTypeHierarchyItem e
+                              else
+                                None
+                            | _ -> None
+                          else
+                            None)
+                        |> Seq.toArray
+                  with _ ->
+                    return [||]
+                })
+              |> Async.parallel75
+
+            let subtypeItems =
+              subtypeItemArrays
+              |> Array.concat
+              |> Array.distinctBy (fun i -> i.Uri + string i.Range.Start.Line)
+
+            return if subtypeItems.Length = 0 then None else Some subtypeItems
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "TypeHierarchySubtypes Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
 
     override x.TextDocumentDeclaration p = x.logUnimplementedRequest p
 
