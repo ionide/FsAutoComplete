@@ -32,12 +32,20 @@ type AdaptiveWorkspaceChosen =
 type LoadedProject =
   { ProjectOptions: Types.ProjectOptions
     FSharpProjectCompilerOptions: aval<CompilerProjectOption>
-    LanguageVersion: LanguageVersionShim }
+    LanguageVersion: LanguageVersionShim
+    _sourceFilesTagged: Lazy<string<LocalPath> array> }
 
   interface IEquatable<LoadedProject>
   override GetHashCode: unit -> int
   override Equals: other: obj -> bool
+  member SourceFilesTagged: string<LocalPath> array
   member ProjectFileName: string
+
+  static member Create:
+    projectOptions: Types.ProjectOptions *
+    fsharpProjectCompilerOptions: aval<CompilerProjectOption> *
+    languageVersion: LanguageVersionShim ->
+      LoadedProject
 
 type AdaptiveState =
   new:
