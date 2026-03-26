@@ -763,10 +763,14 @@ type AdaptiveFSharpLspServer
                   | Error e -> return Error e
                 }
 
-              let getCompletions forceGetTypeCheckResultsStale =
+              let getCompletions forceGetTypeCheckResultsStale rereadFile =
                 asyncResult {
 
-                  let! volatileFile = state.GetOpenFileOrRead filePath
+                  let! volatileFile =
+                    if rereadFile then
+                      state.GetOpenFileOrRead filePath
+                    else
+                      async { return Ok volatileFile }
 
                   let! lineStr =
                     volatileFile.Source
@@ -815,8 +819,12 @@ type AdaptiveFSharpLspServer
                 match e with
                 | "Should not have empty completions" ->
                   // If we don't get any completions, assume we need to wait for a full typecheck
-                  getCompletions state.GetOpenFileTypeCheckResults
-                | _ -> getCompletions state.GetOpenFileTypeCheckResultsCached
+                  // No need to re-read the file — only the typecheck results matter
+                  getCompletions state.GetOpenFileTypeCheckResults false
+                | "TextDocumentCompletion was sent before TextDocumentDidChange" ->
+                  // File content is stale, re-read on next attempt
+                  getCompletions state.GetOpenFileTypeCheckResultsCached true
+                | _ -> getCompletions state.GetOpenFileTypeCheckResultsCached true
 
               let getCodeToInsert (d: DeclarationListItem) =
                 match d.NamespaceToOpen with
@@ -850,7 +858,7 @@ type AdaptiveFSharpLspServer
                   (TimeSpan.FromMilliseconds(15.))
                   100
                   handleError
-                  (getCompletions state.GetOpenFileTypeCheckResultsCached)
+                  (getCompletions state.GetOpenFileTypeCheckResultsCached false)
                 |> AsyncResult.ofStringErr
               with
               | None -> return! LspResult.success (None)

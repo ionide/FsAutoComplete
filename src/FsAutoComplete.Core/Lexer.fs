@@ -59,17 +59,22 @@ module Lexer =
   /// Return all tokens of current line
   let tokenizeLine (args: string[]) lineStr =
     let defines, langVersion =
-      ((ResizeArray(), None), args)
-      ||> Array.fold (fun (defines, langVersion) arg ->
-        match arg with
-        | Define d ->
-          defines.Add(d)
-          defines, langVersion
-        | LangVersion v -> defines, Some(v)
-        | _ -> defines, langVersion)
+      if args.Length = 0 then
+        [], None
+      else
+        let defs = ResizeArray()
+        let mutable lang = None
+
+        for arg in args do
+          match arg with
+          | Define d -> defs.Add(d)
+          | LangVersion v -> lang <- Some(v)
+          | _ -> ()
+
+        Seq.toList defs, lang
 
     let sourceTokenizer =
-      FSharpSourceTokenizer(Seq.toList defines, Some "/tmp.fsx", langVersion, None)
+      FSharpSourceTokenizer(defines, Some "/tmp.fsx", langVersion, None)
 
     let lineTokenizer = sourceTokenizer.CreateLineTokenizer lineStr
 

@@ -56,9 +56,8 @@ type CompilerProjectOption =
 
   member x.SourceFilesTagged =
     match x with
-    | BackgroundCompiler(options) -> options.SourceFiles |> Array.toList
-    | TransparentCompiler(snapshot) -> snapshot.SourceFiles |> List.map (fun f -> f.FileName)
-    |> List.map Utils.normalizePath
+    | BackgroundCompiler(options) -> options.SourceFiles |> Array.map Utils.normalizePath |> Array.toList
+    | TransparentCompiler(snapshot) -> snapshot.SourceFiles |> List.map (fun f -> Utils.normalizePath f.FileName)
 
   member x.ReferencedProjectsPath =
     match x with
@@ -189,12 +188,16 @@ type FSharpCompilerServiceChecker
       None
 
   let processFSIArgs args =
-    (([||], [||]), args)
-    ||> Array.fold (fun (args, files) arg ->
+    let argsOut = ResizeArray()
+    let filesOut = ResizeArray()
+
+    for arg in args do
       match arg with
       | StartsWith "--use:" file
-      | StartsWith "--load:" file -> args, Array.append files [| file |]
-      | arg -> Array.append args [| arg |], files)
+      | StartsWith "--load:" file -> filesOut.Add(file)
+      | arg -> argsOut.Add(arg)
+
+    argsOut.ToArray(), filesOut.ToArray()
 
   let (|Reference|_|) (opt: string) =
     if opt.StartsWith("-r:", StringComparison.Ordinal) then

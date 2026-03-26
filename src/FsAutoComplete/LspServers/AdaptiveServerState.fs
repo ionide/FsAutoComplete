@@ -121,7 +121,8 @@ type AdaptiveWorkspaceChosen =
 type LoadedProject =
   { ProjectOptions: Types.ProjectOptions
     FSharpProjectCompilerOptions: aval<CompilerProjectOption>
-    LanguageVersion: LanguageVersionShim }
+    LanguageVersion: LanguageVersionShim
+    _sourceFilesTagged: Lazy<string<LocalPath> array> }
 
   interface IEquatable<LoadedProject> with
     member x.Equals(other) = x.ProjectOptions = other.ProjectOptions
@@ -133,10 +134,16 @@ type LoadedProject =
     | :? LoadedProject as other -> (x :> IEquatable<_>).Equals other
     | _ -> false
 
-  member x.SourceFilesTagged =
-    x.ProjectOptions.SourceFiles |> List.map Utils.normalizePath |> List.toArray
+  member x.SourceFilesTagged = x._sourceFilesTagged.Value
 
   member x.ProjectFileName = x.ProjectOptions.ProjectFileName
+
+  static member Create(projectOptions, fsharpProjectCompilerOptions, languageVersion) =
+    { ProjectOptions = projectOptions
+      FSharpProjectCompilerOptions = fsharpProjectCompilerOptions
+      LanguageVersion = languageVersion
+      _sourceFilesTagged =
+        lazy (projectOptions.SourceFiles |> List.map Utils.normalizePath |> List.toArray) }
 
 /// The reality is a file can be in multiple projects
 /// This is extracted to make it easier to do some type of customized select in the future
@@ -1211,9 +1218,10 @@ type AdaptiveState
   let createSnapshots projectOptions =
     Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projectOptions)
     |> AMap.map (fun _ (proj, snap) ->
-      { ProjectOptions = proj
-        FSharpProjectCompilerOptions = snap |> AVal.map CompilerProjectOption.TransparentCompiler
-        LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
+      LoadedProject.Create(
+        proj,
+        snap |> AVal.map CompilerProjectOption.TransparentCompiler,
+        LanguageVersionShim.fromOtherOptions proj.OtherOptions))
 
   let createOptions projectOptions =
     let projectOptions = HashMap.toValueList projectOptions
@@ -1233,9 +1241,7 @@ type AdaptiveState
         |> CompilerProjectOption.BackgroundCompiler
 
       Utils.normalizePath projectOption.ProjectFileName,
-      { FSharpProjectCompilerOptions = AVal.constant fso
-        LanguageVersion = langversion
-        ProjectOptions = projectOption })
+      LoadedProject.Create(projectOption, AVal.constant fso, langversion))
     |> AMap.ofList
 
   let loadedProjects =
@@ -1589,9 +1595,7 @@ type AdaptiveState
                   }
 
                 return
-                  { FSharpProjectCompilerOptions = opts |> AVal.constant
-                    LanguageVersion = LanguageVersionShim.fromOtherOptions opts.OtherOptions
-                    ProjectOptions = projectOptions }
+                  LoadedProject.Create(projectOptions, opts |> AVal.constant, LanguageVersionShim.fromOtherOptions opts.OtherOptions)
                   |> List.singleton
 
               with e ->
@@ -1774,7 +1778,7 @@ type AdaptiveState
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
           SemanticConventions.projectFilePath, box (options.ProjectFileName)
-          "source.text", box (file.Source.String)
+          "source.length", box (file.Source.Length)
           "source.version", box (file.Version)
 
           ]

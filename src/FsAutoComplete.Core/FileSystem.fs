@@ -169,6 +169,9 @@ module RoslynSourceText =
 
   type RoslynSourceTextFile(fileName: string<LocalPath>, sourceText: SourceText) =
 
+    let cachedLines =
+      lazy (sourceText.Lines |> Seq.toArray |> Array.map (fun l -> l.ToString()))
+
     let walk
       (
         x: IFSACSourceText,
@@ -250,8 +253,7 @@ module RoslynSourceText =
       member x.TotalRange: Range =
         (Range.mkRange (UMX.untag fileName) Position.pos0 ((x :> IFSACSourceText).LastFilePosition))
 
-      member x.Lines: string array =
-        sourceText.Lines |> Seq.toArray |> Array.map (fun l -> l.ToString())
+      member x.Lines: string array = cachedLines.Value
 
       member this.GetText(range: Range) : Result<string, string> =
         range.ToRoslynTextSpan(sourceText) |> sourceText.GetSubText |> string |> Ok
@@ -488,7 +490,24 @@ type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> Volatil
         >> Log.addContext "hash" (file.Source.GetHashCode())
       )
 
-      file.Source.ToString() |> System.Text.Encoding.UTF8.GetBytes)
+      // Write source text to bytes in chunks via CopyTo, avoiding a full intermediate string allocation
+      let source = file.Source :> FSharp.Compiler.Text.ISourceText
+      let length = source.Length
+      let ms = new MemoryStream()
+      let utf8NoBom = System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier = false)
+      use sw = new StreamWriter(ms, utf8NoBom, bufferSize = 4096, leaveOpen = true)
+      let chunkSize = 8192
+      let charBuffer = Array.zeroCreate (min length chunkSize)
+      let mutable offset = 0
+
+      while offset < length do
+        let count = min (length - offset) charBuffer.Length
+        source.CopyTo(offset, charBuffer, 0, count)
+        sw.Write(charBuffer, 0, count)
+        offset <- offset + count
+
+      sw.Flush()
+      ms.ToArray())
 
   /// translation of the BCL's Windows logic for Path.IsPathRooted.
   ///
