@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof ReplaceLambdaWithDotLambda) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ReplaceLambdaWithDotLambda.titleReplaceToDotLambda
+    [ let selectCodeFix =
+        CodeFix.withTitle ReplaceLambdaWithDotLambda.titleReplaceToDotLambda
 
       testCaseAsync "Simple property"
       <| CodeFix.check
@@ -44,7 +45,8 @@ let tests state =
 
       // -------------------- from dot lambda to lambda test ----------------------
 
-      let selectCodeFix = CodeFix.withTitle ReplaceLambdaWithDotLambda.titleReplaceToLambda
+      let selectCodeFix =
+        CodeFix.withTitle ReplaceLambdaWithDotLambda.titleReplaceToLambda
 
       testCaseAsync "Simple property (from dot lambda to lambda)"
       <| CodeFix.check
@@ -76,5 +78,4 @@ let tests state =
         "let a6 = _.ToStri$0ng()"
         Diagnostics.acceptAll
         selectCodeFix
-        "let a6 = (fun _i -> _i.ToString())"
-      ])
+        "let a6 = (fun _i -> _i.ToString())" ])

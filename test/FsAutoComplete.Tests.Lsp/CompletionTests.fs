@@ -512,8 +512,12 @@ let tests state =
 
           match response with
           | Ok(Some(CompletionItems completions)) ->
-            Expect.isGreaterThan completions.Length 0 "should have completions when triggered by { inside interpolated string"
-          | Ok None -> failtest "Should have gotten some completion items when { triggers completion inside interpolated string"
+            Expect.isGreaterThan
+              completions.Length
+              0
+              "should have completions when triggered by { inside interpolated string"
+          | Ok None ->
+            failtest "Should have gotten some completion items when { triggers completion inside interpolated string"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
 

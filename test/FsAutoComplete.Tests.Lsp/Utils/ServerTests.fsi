@@ -16,13 +16,13 @@ open Ionide.LanguageServerProtocol.Types
 ///       Use `false` when `initialize` returns an already cached value, otherwise `false`.
 ///       Then in here `Async.Cache` is used to cache value.
 val cleanableTestList:
-    runner: (string -> Test list -> Test) ->
-    name: string ->
-    initialize: Async<'a> ->
-    cacheValue: bool ->
-    cleanup: (Async<'a> -> Async<unit>) ->
-    tests: (Async<'a> -> Test list) ->
-        Test
+  runner: (string -> Test list -> Test) ->
+  name: string ->
+  initialize: Async<'a> ->
+  cacheValue: bool ->
+  cleanup: (Async<'a> -> Async<unit>) ->
+  tests: (Async<'a> -> Test list) ->
+    Test
 
 /// ## Example
 /// ```fsharp
@@ -35,9 +35,29 @@ val cleanableTestList:
 ///   }
 /// ])
 /// ```
-val serverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
-val fserverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
-val pserverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
+val serverTestList:
+  (string
+    -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>)
+    -> FsAutoComplete.LspHelpers.FSharpConfigDto
+    -> option<string>
+    -> (Async<Server> -> list<Test>)
+    -> Test)
+
+val fserverTestList:
+  (string
+    -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>)
+    -> FsAutoComplete.LspHelpers.FSharpConfigDto
+    -> option<string>
+    -> (Async<Server> -> list<Test>)
+    -> Test)
+
+val pserverTestList:
+  (string
+    -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>)
+    -> FsAutoComplete.LspHelpers.FSharpConfigDto
+    -> option<string>
+    -> (Async<Server> -> list<Test>)
+    -> Test)
 
 
 /// Note: Not intended for changing document: always same (initial) diags
@@ -57,6 +77,23 @@ val pserverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * S
 ///   ])
 /// ])
 /// ```
-val documentTestList: (string -> CachedServer -> (CachedServer -> Async<Document * Diagnostic []>) -> (Async<Document * Diagnostic []> -> list<Test>) -> Test)
-val fdocumentTestList: (string -> CachedServer -> (CachedServer -> Async<Document * Diagnostic []>) -> (Async<Document * Diagnostic []> -> list<Test>) -> Test)
-val pdocumentTestList: (string -> CachedServer -> (CachedServer -> Async<Document * Diagnostic []>) -> (Async<Document * Diagnostic []> -> list<Test>) -> Test)
+val documentTestList:
+  (string
+    -> CachedServer
+    -> (CachedServer -> Async<Document * Diagnostic[]>)
+    -> (Async<Document * Diagnostic[]> -> list<Test>)
+    -> Test)
+
+val fdocumentTestList:
+  (string
+    -> CachedServer
+    -> (CachedServer -> Async<Document * Diagnostic[]>)
+    -> (Async<Document * Diagnostic[]> -> list<Test>)
+    -> Test)
+
+val pdocumentTestList:
+  (string
+    -> CachedServer
+    -> (CachedServer -> Async<Document * Diagnostic[]>)
+    -> (Async<Document * Diagnostic[]> -> list<Test>)
+    -> Test)

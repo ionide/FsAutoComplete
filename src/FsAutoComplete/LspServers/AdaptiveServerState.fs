@@ -142,8 +142,7 @@ type LoadedProject =
     { ProjectOptions = projectOptions
       FSharpProjectCompilerOptions = fsharpProjectCompilerOptions
       LanguageVersion = languageVersion
-      _sourceFilesTagged =
-        lazy (projectOptions.SourceFiles |> List.map Utils.normalizePath |> List.toArray) }
+      _sourceFilesTagged = lazy (projectOptions.SourceFiles |> List.map Utils.normalizePath |> List.toArray) }
 
 /// The reality is a file can be in multiple projects
 /// This is extracted to make it easier to do some type of customized select in the future
@@ -1221,7 +1220,8 @@ type AdaptiveState
       LoadedProject.Create(
         proj,
         snap |> AVal.map CompilerProjectOption.TransparentCompiler,
-        LanguageVersionShim.fromOtherOptions proj.OtherOptions))
+        LanguageVersionShim.fromOtherOptions proj.OtherOptions
+      ))
 
   let createOptions projectOptions =
     let projectOptions = HashMap.toValueList projectOptions
@@ -1595,7 +1595,11 @@ type AdaptiveState
                   }
 
                 return
-                  LoadedProject.Create(projectOptions, opts |> AVal.constant, LanguageVersionShim.fromOtherOptions opts.OtherOptions)
+                  LoadedProject.Create(
+                    projectOptions,
+                    opts |> AVal.constant,
+                    LanguageVersionShim.fromOtherOptions opts.OtherOptions
+                  )
                   |> List.singleton
 
               with e ->

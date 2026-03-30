@@ -11,7 +11,9 @@ module private TempFs =
 
   /// Creates a temp directory, calls `f` with its path, then deletes it.
   let withTempDir (f: string -> unit) =
-    let dir = Path.Combine(Path.GetTempPath(), "FSAC_DecompilerTests", Guid.NewGuid().ToString("N"))
+    let dir =
+      Path.Combine(Path.GetTempPath(), "FSAC_DecompilerTests", Guid.NewGuid().ToString("N"))
+
     Directory.CreateDirectory(dir) |> ignore
 
     try
@@ -30,6 +32,7 @@ module private TempFs =
   /// Writes a minimal FrameworkList.xml with the given `frameworkName` attribute.
   let writeFrameworkList (path: string) (frameworkName: string) =
     Directory.CreateDirectory(Path.GetDirectoryName(path)) |> ignore
+
     let xml =
       sprintf
         """<?xml version="1.0" encoding="utf-8"?>
@@ -96,7 +99,7 @@ let decompilerTests =
 
               Expect.equal result (Some libDll) "Expected lib path even when package name contains 'ref'")
 
-        ]
+          ]
 
       testList
         "targeting-pack → shared-SDK heuristic"
@@ -122,7 +125,15 @@ let decompilerTests =
             TempFs.withTempDir (fun root ->
               // Build the packs layout but omit FrameworkList.xml.
               let refDll =
-                Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6", "ref", "net8.0", "System.Runtime.dll")
+                Path.Combine(
+                  root,
+                  "packs",
+                  "Microsoft.NETCore.App.Ref",
+                  "8.0.6",
+                  "ref",
+                  "net8.0",
+                  "System.Runtime.dll"
+                )
 
               TempFs.touchFile refDll
               // Do NOT create the FrameworkList.xml.
@@ -131,25 +142,27 @@ let decompilerTests =
           testCase "returns None when FrameworkList.xml has no FrameworkName attribute"
           <| fun _ ->
             TempFs.withTempDir (fun root ->
-              let packVersionDir = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
+              let packVersionDir =
+                Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
 
-              let refDll =
-                Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
+              let refDll = Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
 
               TempFs.touchFile refDll
 
               let xmlPath = Path.Combine(packVersionDir, "data", "FrameworkList.xml")
               TempFs.writeFrameworkList xmlPath "" // empty FrameworkName
 
-              Expect.isNone (tryFindImplementationAssembly refDll) "Expected None when FrameworkName attribute is empty")
+              Expect.isNone
+                (tryFindImplementationAssembly refDll)
+                "Expected None when FrameworkName attribute is empty")
 
           testCase "returns None when shared implementation DLL does not exist"
           <| fun _ ->
             TempFs.withTempDir (fun root ->
-              let packVersionDir = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
+              let packVersionDir =
+                Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
 
-              let refDll =
-                Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
+              let refDll = Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
 
               TempFs.touchFile refDll
 
@@ -157,29 +170,33 @@ let decompilerTests =
               TempFs.writeFrameworkList xmlPath "Microsoft.NETCore.App"
 
               // Do NOT create the shared implementation DLL.
-              Expect.isNone (tryFindImplementationAssembly refDll) "Expected None when shared implementation DLL is absent")
+              Expect.isNone
+                (tryFindImplementationAssembly refDll)
+                "Expected None when shared implementation DLL is absent")
 
           testCase "returns shared implementation path when everything is in place"
           <| fun _ ->
             TempFs.withTempDir (fun root ->
-              let packVersionDir = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
+              let packVersionDir =
+                Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref", "8.0.6")
 
-              let refDll =
-                Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
+              let refDll = Path.Combine(packVersionDir, "ref", "net8.0", "System.Runtime.dll")
 
               TempFs.touchFile refDll
 
               let xmlPath = Path.Combine(packVersionDir, "data", "FrameworkList.xml")
               TempFs.writeFrameworkList xmlPath "Microsoft.NETCore.App"
 
-              let implDll = Path.Combine(root, "shared", "Microsoft.NETCore.App", "8.0.6", "System.Runtime.dll")
+              let implDll =
+                Path.Combine(root, "shared", "Microsoft.NETCore.App", "8.0.6", "System.Runtime.dll")
+
               TempFs.touchFile implDll
 
               let result = tryFindImplementationAssembly refDll
 
               Expect.equal result (Some implDll) "Expected the shared implementation DLL path to be returned")
 
-        ]
+          ]
 
       testList
         "priority: NuGet ref→lib is checked before targeting-pack heuristic"
@@ -210,6 +227,6 @@ let decompilerTests =
 
               Expect.equal result (Some libDll) "Expected NuGet lib path to be preferred over shared-SDK path")
 
-        ]
+          ]
 
-    ]
+      ]

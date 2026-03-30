@@ -3,20 +3,16 @@ module NUnitTests
 open NUnit.Framework
 
 [<SetUp>]
-let Setup () =
-    ()
+let Setup () = ()
 
 [<Test>]
-let Test1 () =
-    Assert.Pass()
+let Test1 () = Assert.Pass()
 
 module Outer =
-    module Inner =
-        [<TestCase (0)>]
-        let Test2 (i: int) =
-            Assert.Pass()
+  module Inner =
+    [<TestCase(0)>]
+    let Test2 (i: int) = Assert.Pass()
 
-    type InnerClass() =
-        [<Test>]
-        member this.Test1 () =
-            Assert.Pass()
+  type InnerClass() =
+    [<Test>]
+    member this.Test1() = Assert.Pass()

@@ -1,12 +1,12 @@
 module Example1 =
 
-    let bar () =
-        printfn "lol"
+  let bar () = printfn "lol"
 
-    let bazz () =
-        let foo () =
-            printfn "lol"
-            bar ()
-        foo ()
+  let bazz () =
+    let foo () =
+      printfn "lol"
+      bar ()
 
-    ignore bazz
+    foo ()
+
+  ignore bazz

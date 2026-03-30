@@ -5,8 +5,10 @@
 open System
 
 let add x y =
-    if x < 0 then raise (ArgumentOutOfRangeException(nameof(x)))
-    x + y
+  if x < 0 then
+    raise (ArgumentOutOfRangeException(nameof (x)))
+
+  x + y
 
 open type System.Math
 

@@ -11,7 +11,9 @@ type Counter() =
 
   member _.GetDouble() = count * 2
 
-type Person = { mutable Name: string; mutable Age: int }
+type Person =
+  { mutable Name: string
+    mutable Age: int }
 
 let createPerson name age = { Name = name; Age = age }
 

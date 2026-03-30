@@ -67,4 +67,3 @@ module RecursiveExample3 =
       let result = fibWithContinuation x (fun result -> result)
       return result
     }
-

@@ -5,7 +5,7 @@ open Test
 
 [<EntryPoint>]
 let main argv =
-    let z = x
+  let z = x
 
-    printfn "Hello World from F#!"
-    0 // return an integer exit code
+  printfn "Hello World from F#!"
+  0 // return an integer exit code

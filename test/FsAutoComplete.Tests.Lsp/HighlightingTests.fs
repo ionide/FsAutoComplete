@@ -182,5 +182,4 @@ let tests state =
 
           // Regression test for https://github.com/ionide/FsAutoComplete/issues/1359:
           // Function parameters should receive a Parameter semantic token, not a Variable token.
-          tokenIsOfType (32u, 15u) ClassificationUtils.SemanticTokenTypes.Parameter fullHighlights // `param` in `let withParam (param: int) = param`
-          ] ]
+          tokenIsOfType (32u, 15u) ClassificationUtils.SemanticTokenTypes.Parameter fullHighlights ] ] // `param` in `let withParam (param: int) = param`

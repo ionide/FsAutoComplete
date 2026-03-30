@@ -6,7 +6,7 @@ module X =
 
   module X =
 
-    let doSideEffect() = ()
+    let doSideEffect () = ()
 
   module Y =
 

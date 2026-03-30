@@ -26,9 +26,7 @@ let tests state =
       | Ok() -> return server, scriptPath, serverRequests
       | Error errors ->
         let errorStrings =
-          errors
-          |> Array.map (fun e -> e.DebuggerDisplay)
-          |> String.concat "\n\t* "
+          errors |> Array.map (fun e -> e.DebuggerDisplay) |> String.concat "\n\t* "
 
         return failtestf "Errors while parsing xml doc generation script:\n\t* %s" errorStrings
     }

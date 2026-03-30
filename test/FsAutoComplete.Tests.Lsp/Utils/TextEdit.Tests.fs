@@ -75,7 +75,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, no indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
 module Foo
 
 let a = 42
@@ -89,7 +89,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
   module Foo
 
   let a = 42
@@ -209,7 +209,7 @@ printfn "Result=%i" b
           """
                   // expected isn't trimmed in assertXXX -> do manually
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -232,7 +232,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -255,7 +255,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -332,7 +332,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, no indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
 module Foo
 
 let a = 42
@@ -346,7 +346,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
   module Foo
 
   let a = 42
@@ -467,7 +467,7 @@ printfn "Result=%i" b
           """
                   // expected isn't trimmed in assertXXX -> do manually
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -490,7 +490,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -513,7 +513,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -544,7 +544,7 @@ printfn "Result=%i" b
         testCase "no cursor results in no range"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -613,7 +613,7 @@ printfn "$0Result=%i" b
       """
 
           let expected =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -639,7 +639,7 @@ printfn "$0Result$0=%i$0" b$0
           let expectedRange = { Start = pos 0u 7u; End = pos 2u 8u }
 
           let expectedText =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -1615,7 +1615,7 @@ module private Cursors =
         testCase "cursors in triple quoted string"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
 module $0Foo
 
 let a = 42
@@ -1625,7 +1625,7 @@ printfn "Result=%i$0" b$0
       """
 
           let expected =
-            [ !- """
+            [ !-"""
 module $0Foo
 
 let a = 42
@@ -1633,7 +1633,7 @@ let b =
   a + 5
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1641,7 +1641,7 @@ $0let b =
   a + 5
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1649,7 +1649,7 @@ let b =
   a + 5$0
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1657,7 +1657,7 @@ let b =
   a + 5
 printfn "Result=%i$0" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1676,7 +1676,7 @@ printfn "Result=%i" b$0
       [ testCase "can extract all cursors"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
         let $Ff a b = a + b
         let $Vvalue = 42
         let $0res = $Ff $Vvalue 3
@@ -1686,7 +1686,7 @@ printfn "Result=%i" b$0
           let actual = text |> Cursors.extractWith [| "$F"; "$V"; "$0" |]
 
           let expectedText =
-            !- """
+            !-"""
         let f a b = a + b
         let value = 42
         let res = f value 3
@@ -1877,7 +1877,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 let a = 42
 let b =
@@ -1899,7 +1899,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -1922,7 +1922,7 @@ printfn "$0Result=%i" b$0
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -1945,7 +1945,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 Foo
 
 let a = 42
@@ -2000,7 +2000,7 @@ $0printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 printfn "Result=%i" b
@@ -2020,7 +2020,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 5
@@ -2041,7 +2041,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 =
   a + 5
 printfn "Result=%i" b
@@ -2060,7 +2060,7 @@ let b $0=
 printfn "Result=%i" b$0"""
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2174,7 +2174,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2199,7 +2199,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2224,7 +2224,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2280,7 +2280,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 lorem
 ipsummodule Foo
 
@@ -2305,7 +2305,7 @@ printfn "Result=%i" b$0"""
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2330,7 +2330,7 @@ printfn "Result=%i" b$0
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2356,7 +2356,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2382,7 +2382,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2408,7 +2408,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2490,7 +2490,7 @@ let b =
 printfn "Result=%i" b$0"""
 
                   let replacement =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2554,7 +2554,7 @@ a + 5
 printfn "Result=%i" b$0"""
 
               let replacement =
-                !- """
+                !-"""
 module Blub
 
 42
@@ -2578,13 +2578,13 @@ printfn "Result=%i" b
         """
 
               let replacement =
-                !- """
+                !-"""
 let pi = 3.14
 let pi2 = pi * pi
         """
 
               let expected =
-                !- """
+                !-"""
 module Foo
 
 let pi = 3.14
@@ -2987,7 +2987,7 @@ module private TextEdits =
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = 42$0
           let bar = 2
           """
@@ -2997,7 +2997,7 @@ module private TextEdits =
                   Range = range }
 
               let expected =
-                !- """
+                !-"""
           let foo = 42
           let baz = 4
           let bar = 2
@@ -3011,7 +3011,7 @@ module private TextEdits =
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = $042
           let bar = $02
           """
@@ -3019,7 +3019,7 @@ module private TextEdits =
               let edit: TextEdit = { NewText = ""; Range = range }
 
               let expected =
-                !- """
+                !-"""
           let foo = 2
           """
 
@@ -3031,7 +3031,7 @@ module private TextEdits =
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = $042
           let bar$0 = 2
           """
@@ -3041,7 +3041,7 @@ module private TextEdits =
                   Range = range }
 
               let expected =
-                !- """
+                !-"""
           let foo = 1
           let baz = 2
           """

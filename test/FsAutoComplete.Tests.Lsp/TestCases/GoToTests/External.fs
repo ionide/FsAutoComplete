@@ -10,9 +10,9 @@ open Giraffe.GiraffeViewEngine
 let myButton props children = button props children
 
 //this is used to test sourcelink from dll-embedded data, ie from FSharp.Core
-let myConcat listA listB = List.concat [listA; listB]
+let myConcat listA listB = List.concat [ listA; listB ]
 
-let myStringConcat (separator: string) (strings: string []) = System.String.Join(separator, strings)
+let myStringConcat (separator: string) (strings: string[]) = System.String.Join(separator, strings)
 
 let myList = System.Collections.Generic.List<string>()
 
@@ -20,7 +20,8 @@ let o v = Some v
 
 
 type B() =
-    member val Value = Some "" with get,set
+  member val Value = Some "" with get, set
+
 let b = B()
 b.Value |> ignore
 

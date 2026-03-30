@@ -888,9 +888,7 @@ module private ConvertCharToOtherForm =
       && title.EndsWith(fin, StringComparison.Ordinal)
     then
       let c =
-        title
-          .Substring(start.Length, title.Length - start.Length - fin.Length)
-          .ToString()
+        title.Substring(start.Length, title.Length - start.Length - fin.Length).ToString()
 
       let c =
         if

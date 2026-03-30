@@ -27,7 +27,7 @@ let _ = Seq.map
 //>         ^^^ Seq.map
 let _ = Seq.map id
 //>         ^^^ Seq.map
-let _ = [1;2] |> Seq.map id |> Seq.sum
+let _ = [ 1; 2 ] |> Seq.map id |> Seq.sum
 //>                  ^^^ Seq.map
 
 // external used all over solution (and script files)
@@ -36,7 +36,7 @@ let _ = List.map
 //>          ^^^ List.map
 let _ = List.map id
 //>          ^^^ List.map
-let _ = [1;2] |> List.map id |> List.sum
+let _ = [ 1; 2 ] |> List.map id |> List.sum
 //>                   ^^^ List.map
 
 // function defined here and used in following files
