@@ -1,0 +1,3 @@
+# Test data files use F# block comments (*...*) as position markers.
+# Fantomas reformatting changes the line structure, breaking the markers.
+test/FsAutoComplete.Tests.Lsp/TestCases/CompletionAutoOpenTests/
