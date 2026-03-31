@@ -726,10 +726,95 @@ let private untitledGotoTests state =
         | Ok(_resultValue) -> failwith "Not Implemented"
       } ])
 
+let private signatureNavigationTests state =
+  let server =
+    async {
+      let path =
+        Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests", "SignatureNavigation")
+
+      let! (server, event) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing event
+
+      let fsiPath = Path.Combine(path, "SignatureNavigation.fsi")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument fsiPath }
+      do! server.TextDocumentDidOpen tdop
+
+      let fsPath = Path.Combine(path, "SignatureNavigation.fs")
+      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument fsPath }
+      do! server.TextDocumentDidOpen tdop
+
+      do!
+        waitForParseResultsForFile "SignatureNavigation.fsi" event
+        |> AsyncResult.foldResult id (failtestf "%A")
+
+      do!
+        waitForParseResultsForFile "SignatureNavigation.fs" event
+        |> AsyncResult.foldResult id (failtestf "%A")
+
+      return server, fsiPath, fsPath
+    }
+    |> Async.Cache
+
+  testList
+    "Signature File Navigation Tests"
+    [ testCaseAsync
+        "Go-to-implementation from .fsi navigates to .fs file"
+        (async {
+          let! server, fsiPath, _fsPath = server
+
+          // `myFunction` is on line 3 at char 4 in SignatureNavigation.fsi: `val myFunction: ...`
+          let p: ImplementationParams =
+            { TextDocument = { Uri = Path.FilePathToUri fsiPath }
+              Position = { Line = 3u; Character = 4u }
+              WorkDoneToken = None
+              PartialResultToken = None }
+
+          let! res = server.TextDocumentImplementation p
+
+          match res with
+          | Error e -> failtestf "Request failed: %A" e
+          | Ok None -> failtest "Request returned None"
+          | Ok(Some(U2.C1(U2.C1 r))) ->
+            Expect.stringEnds r.Uri "SignatureNavigation.fs" "Should navigate to the .fs implementation file"
+          | Ok(Some(U2.C1(U2.C2 rs))) ->
+            let fsResult =
+              rs |> Array.tryFind (fun r -> r.Uri.EndsWith("SignatureNavigation.fs"))
+
+            Expect.isSome fsResult "At least one result should point to the .fs file"
+          | Ok(_) -> failwith "Unexpected result format"
+        })
+      testCaseAsync
+        "Go-to-implementation from .fs navigates to .fsi signature file"
+        (async {
+          let! server, _fsiPath, fsPath = server
+
+          // `myFunction` is on line 2 at char 4 in SignatureNavigation.fs: `let myFunction ...`
+          let p: ImplementationParams =
+            { TextDocument = { Uri = Path.FilePathToUri fsPath }
+              Position = { Line = 2u; Character = 4u }
+              WorkDoneToken = None
+              PartialResultToken = None }
+
+          let! res = server.TextDocumentImplementation p
+
+          match res with
+          | Error e -> failtestf "Request failed: %A" e
+          | Ok None -> failtest "Request returned None"
+          | Ok(Some(U2.C1(U2.C1 r))) ->
+            Expect.stringEnds r.Uri "SignatureNavigation.fsi" "Should navigate to the .fsi signature file"
+          | Ok(Some(U2.C1(U2.C2 rs))) ->
+            let fsiResult =
+              rs |> Array.tryFind (fun r -> r.Uri.EndsWith("SignatureNavigation.fsi"))
+
+            Expect.isSome fsiResult "At least one result should point to the .fsi file"
+          | Ok(_) -> failwith "Unexpected result format"
+        }) ]
+
 let tests createServer =
   testSequenced
   <| testList
     "Go to definition tests"
     [ gotoTest createServer
       scriptGotoTests createServer
-      untitledGotoTests createServer ]
+      untitledGotoTests createServer
+      signatureNavigationTests createServer ]
