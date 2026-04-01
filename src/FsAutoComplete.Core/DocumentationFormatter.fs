@@ -883,6 +883,15 @@ module DocumentationFormatter =
 
     match symbol with
     | SymbolUse.TypeAbbreviation(fse) ->
+      let fallbackToAbbreviationSignature () =
+        // When GetAbbreviatedParent() fails, fall back to showing the abbreviation's own signature:
+        // e.g. `type StringPair = string * string`
+        try
+          let signature = getEntitySignature symbol.DisplayContext fse
+          Some(signature, footerForType symbol, cn)
+        with _ ->
+          None
+
       try
         let parent = fse.GetAbbreviatedParent()
 
@@ -890,9 +899,9 @@ module DocumentationFormatter =
         | FSharpEntity(ent, _, _) ->
           let signature = getEntitySignature symbol.DisplayContext ent
           Some(signature, footerForType' parent, cn)
-        | _ -> None
+        | _ -> fallbackToAbbreviationSignature ()
       with _ ->
-        None
+        fallbackToAbbreviationSignature ()
 
     | SymbolUse.Entity(fse, _) ->
       try
