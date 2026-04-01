@@ -547,6 +547,13 @@ type AdaptiveFSharpLspServer
             state.ClientCapabilities <- Some p.Capabilities
             lspClient.ClientCapabilities <- Some p.Capabilities
 
+            // Enable Ionide-specific fsharp/ notifications only when the client sends
+            // Ionide configuration in InitializationOptions (a reliable Ionide client signal).
+            // Other LSP clients (Emacs, Helix, etc.) should not receive these notifications
+            // as they may crash or behave unexpectedly in response.
+            lspClient.SupportsCustomFSharpNotifications <-
+              p.InitializationOptions |> Option.exists (fun options -> options.HasValues)
+
             state.DiagnosticCollections.ClientSupportsDiagnostics <-
               match p.Capabilities with
               | { TextDocument = Some { PublishDiagnostics = Some _ } } -> true

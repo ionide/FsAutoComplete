@@ -19,6 +19,10 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   member val ClientCapabilities: ClientCapabilities option = None with get, set
 
+  /// When true, the client supports Ionide-specific fsharp/ custom notifications.
+  /// Set to true during Initialize if the client sends Ionide configuration in InitializationOptions.
+  member val SupportsCustomFSharpNotifications: bool = false with get, set
+
   override __.WindowShowMessage(p) = sendServerNotification "window/showMessage" (box p) |> Async.Ignore
 
   override __.WindowShowMessageRequest(p) = sendServerRequest.Send "window/showMessageRequest" (box p)
@@ -44,23 +48,42 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
     sendServerNotification "textDocument/publishDiagnostics" (box p) |> Async.Ignore
 
   ///Custom notification for workspace/solution/project loading events
-  member __.NotifyWorkspace(p: PlainNotification) =
-    sendServerNotification "fsharp/notifyWorkspace" (box p) |> Async.Ignore
+  member x.NotifyWorkspace(p: PlainNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/notifyWorkspace" (box p) |> Async.Ignore
+    else
+      async { return () }
 
   ///Custom notification for initial workspace peek
-  member __.NotifyWorkspacePeek(p: PlainNotification) =
-    sendServerNotification "fsharp/notifyWorkspacePeek" (box p) |> Async.Ignore
+  member x.NotifyWorkspacePeek(p: PlainNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/notifyWorkspacePeek" (box p) |> Async.Ignore
+    else
+      async { return () }
 
-  member __.NotifyCancelledRequest(p: PlainNotification) =
-    sendServerNotification "fsharp/notifyCancel" (box p) |> Async.Ignore
+  member x.NotifyCancelledRequest(p: PlainNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/notifyCancel" (box p) |> Async.Ignore
+    else
+      async { return () }
 
-  member __.NotifyFileParsed(p: PlainNotification) = sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
+  member x.NotifyFileParsed(p: PlainNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/fileParsed" (box p) |> Async.Ignore
+    else
+      async { return () }
 
-  member __.NotifyDocumentAnalyzed(p: DocumentAnalyzedNotification) =
-    sendServerNotification "fsharp/documentAnalyzed" (box p) |> Async.Ignore
+  member x.NotifyDocumentAnalyzed(p: DocumentAnalyzedNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/documentAnalyzed" (box p) |> Async.Ignore
+    else
+      async { return () }
 
-  member __.NotifyTestDetected(p: TestDetectedNotification) =
-    sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
+  member x.NotifyTestDetected(p: TestDetectedNotification) =
+    if x.SupportsCustomFSharpNotifications then
+      sendServerNotification "fsharp/testDetected" (box p) |> Async.Ignore
+    else
+      async { return () }
 
   member __.NotifyTestDiscoveryUpdate(p: TestDiscoveryUpdateNotification) =
     sendServerNotification "test/testDiscoveryUpdate" (box { Content = JsonSerializer.writeJson p })
