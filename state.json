@@ -1,1 +1,8 @@
-{"last_run":"2026-04-02","monthly_issue":"aw_apr2026","monthly_month":"2026-04","open_ra_prs":[1516,1515,1508,1502,1494,1493],"issue_backlog_cursor":"1514","notes":"2026-04-02: Task4: Created CI improvements PR (checkout@v3->v4, setup-dotnet@v2->v4 in build/nightly/bump-fcs/release workflows). Task6: Resolved merge conflict in PR #1494 (AdaptiveFSharpLspServer.fs) - combined .fsi<->.fs navigation with improved getProjectOptions from main. Monthly rollover: closed #1487 (March), created April issue. #1493 changelog PR is 19 commits behind main but no conflicts."}
+{
+  "last_run": "2026-04-04",
+  "monthly_issue": "aw_apr2026",
+  "monthly_month": "2026-04",
+  "open_ra_prs": [1516, 1515, 1508, 1502, 1494, 1493],
+  "issue_backlog_cursor": "1514",
+  "notes": "2026-04-04: Task2: Commented on #1203 (type alias expansion implementation analysis) and #1227 (Extract Interface sketch). Task10: Created PR for type alias expansion in hover tooltips (getValSignature + getFuncSignatureWithIdent, partially addresses #1203/#653). Task11: Closed March issue #1487, created April issue. New PR pending creation (type alias expansion). Pre-existing test failures: 4 tests about 'active pattern' objnull vs obj change in FCS - unrelated to our changes. CI issues #1501 #1507 #1517 are duplicate blocked-PR attempts (workflow file permissions). Comments made: added 1203 and 1227 to commented set."
+}
