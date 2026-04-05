@@ -550,7 +550,20 @@ let dotnetCleanup baseDir =
   [ "obj"; "bin" ]
   |> List.map (fun f -> Path.Combine(baseDir, f))
   |> List.filter Directory.Exists
-  |> List.iter (fun path -> Directory.Delete(path, true))
+  |> List.iter (fun path ->
+    try
+      Directory.Delete(path, true)
+    with _ ->
+      // On some platforms (e.g., macOS with .NET 10), the recursive delete can
+      // transiently fail with "Directory not empty" due to background .NET SDK processes
+      // still holding locks. Retry once after a short pause.
+      try
+        System.Threading.Thread.Sleep(200)
+        Directory.Delete(path, true)
+      with ex ->
+        // If cleanup still fails, log and continue. Stale build artifacts are not critical
+        // and the test should still run correctly against pre-existing output.
+        eprintfn $"Warning: dotnetCleanup could not delete {path}: {ex.Message}")
 
 let runProcess (workingDir: string) (exePath: string) (args: string) =
   async {
