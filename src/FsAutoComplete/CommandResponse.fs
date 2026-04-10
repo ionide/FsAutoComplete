@@ -1,6 +1,9 @@
 namespace FsAutoComplete
 
 open System
+open System.Text.RegularExpressions
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
 
 open FSharp.Compiler
 open Ionide.ProjInfo.ProjectSystem
@@ -97,6 +100,39 @@ module CommandResponse =
   open FSharp.Compiler.Text
 
   type ResponseMsg<'T> = { Kind: string; Data: 'T }
+
+  type DocumentationLinkContext =
+    { FileName: string
+      Line: int
+      Character: int }
+
+  let private documentationCommandPattern =
+    Regex(@"command:fsharp\.showDocumentation\?(?<payload>[^'""\)\s]+)", RegexOptions.Compiled)
+
+  let addDocumentationLinkContext (context: DocumentationLinkContext option) (content: string) =
+    match context with
+    | None -> content
+    | Some _ when String.IsNullOrWhiteSpace content -> content
+    | Some context ->
+      documentationCommandPattern.Replace(
+        content,
+        MatchEvaluator(fun m ->
+          try
+            let payload = m.Groups.["payload"].Value |> Uri.UnescapeDataString
+
+            let links = JArray.Parse payload
+
+            for link in links.Children<JObject>() do
+              link["FileName"] <- JValue(context.FileName)
+              link["Line"] <- JValue(context.Line)
+              link["Character"] <- JValue(context.Character)
+
+            let encodedPayload = links.ToString(Formatting.None) |> Uri.EscapeDataString
+
+            $"command:fsharp.showDocumentation?{encodedPayload}"
+          with _ ->
+            m.Value)
+      )
 
   type ResponseError<'T> =
     { Code: int
@@ -575,22 +611,24 @@ module CommandResponse =
          XmlSig: (string * string) option
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |})
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |})
     =
 
     let (signature, entity) = param.Signature
+    let addContext = addDocumentationLinkContext param.LinkContext
 
     let createDocumentationDescription formattedDocComment =
       { XmlKey = param.XmlKey
-        Constructors = entity.Constructors
-        Fields = entity.Fields
-        Functions = entity.Functions
-        Interfaces = entity.Interfaces
-        Attributes = entity.Attributes
-        DeclaredTypes = entity.DeclaredTypes
-        FooterLines = TipFormatter.prepareFooterLines param.Footer
-        Signature = TipFormatter.prepareSignature signature
-        Comment = formattedDocComment }
+        Constructors = entity.Constructors |> Array.map addContext
+        Fields = entity.Fields |> Array.map addContext
+        Functions = entity.Functions |> Array.map addContext
+        Interfaces = entity.Interfaces |> Array.map addContext
+        Attributes = entity.Attributes |> Array.map addContext
+        DeclaredTypes = entity.DeclaredTypes |> Array.map addContext
+        FooterLines = TipFormatter.prepareFooterLines param.Footer |> Array.map addContext
+        Signature = TipFormatter.prepareSignature signature |> addContext
+        Comment = formattedDocComment |> addContext }
 
     let data: DocumentationDescription =
       match param.Tip, param.XmlSig with
@@ -634,21 +672,23 @@ module CommandResponse =
          XmlDoc: FSharpXmlDoc
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |})
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |})
     =
     let (signature, entity) = param.Signature
+    let addContext = addDocumentationLinkContext param.LinkContext
 
     let createDocumentationDescription formattedDocComment =
       { XmlKey = param.XmlKey
-        Constructors = entity.Constructors
-        Fields = entity.Fields
-        Functions = entity.Functions
-        Interfaces = entity.Interfaces
-        Attributes = entity.Attributes
-        DeclaredTypes = entity.DeclaredTypes
-        FooterLines = TipFormatter.prepareFooterLines param.Footer
-        Signature = TipFormatter.prepareSignature signature
-        Comment = formattedDocComment }
+        Constructors = entity.Constructors |> Array.map addContext
+        Fields = entity.Fields |> Array.map addContext
+        Functions = entity.Functions |> Array.map addContext
+        Interfaces = entity.Interfaces |> Array.map addContext
+        Attributes = entity.Attributes |> Array.map addContext
+        DeclaredTypes = entity.DeclaredTypes |> Array.map addContext
+        FooterLines = TipFormatter.prepareFooterLines param.Footer |> Array.map addContext
+        Signature = TipFormatter.prepareSignature signature |> addContext
+        Comment = formattedDocComment |> addContext }
 
     let data: DocumentationDescription =
       match

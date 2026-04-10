@@ -52,7 +52,11 @@ let seeAlsoTests =
           "command:fsharp.showDocumentation?"
           "resolved seealso cref should become a documentation command link"
 
-        Expect.stringContains content ">Async</code></a>" "resolved seealso cref should use the resolved display name"
+        Expect.stringContains content ">Async</a>" "resolved seealso cref should use the resolved display name"
+
+        Expect.isFalse
+          (content.Contains "<code>")
+          "resolved seealso cref should not emit nested code tags that VS Code displays literally"
 
       testCase "href void element renders as auto-link"
       <| fun _ ->
@@ -158,7 +162,14 @@ let seeTests =
           "command:fsharp.showDocumentation?"
           "resolved inline see cref should become a documentation command link"
 
-        Expect.stringContains content "Async</code>" "resolved inline see cref should use the resolved display name"
+        Expect.stringContains
+          content
+          "[`Async`](command:fsharp.showDocumentation?"
+          "resolved inline see cref should use the resolved display name as an inline-code markdown link"
+
+        Expect.isFalse
+          (content.Contains "<code>")
+          "resolved inline see cref should not emit nested code tags that VS Code displays literally"
 
       testCase "inline see cref falls back to code formatting when resolver fails"
       <| fun _ ->
