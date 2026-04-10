@@ -1122,8 +1122,15 @@ type AdaptiveFSharpLspServer
                 TipFormatter.FormatCommentStyle.Legacy
 
             let showExternalDocumentation = state.Config.TooltipShowDocumentationLink
+            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
 
-            match TipFormatter.tryFormatTipEnhanced tooltipResult.ToolTipText formatCommentStyle with
+            match
+              TipFormatter.tryFormatTipEnhanced
+                tooltipResult.ToolTipText
+                formatCommentStyle
+                showExternalDocumentation
+                tryResolveCref
+            with
             | TipFormatter.TipFormatterResult.Success tooltipInfo ->
 
               let response =
@@ -3040,11 +3047,15 @@ type AdaptiveFSharpLspServer
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
+            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
+
             return
               Some
                 { Content =
                     CommandResponse.formattedDocumentation
                       JsonSerializer.writeJson
+                      state.Config.TooltipShowDocumentationLink
+                      tryResolveCref
                       {| Tip = tip
                          XmlSig = xml
                          Signature = signature
@@ -3083,11 +3094,14 @@ type AdaptiveFSharpLspServer
           with
           | None -> return None
           | Some(xml, assembly, xmlDoc, signature, footer, xmlKey) ->
+            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
 
             return
               { Content =
                   CommandResponse.formattedDocumentationForSymbol
                     JsonSerializer.writeJson
+                    state.Config.TooltipShowDocumentationLink
+                    tryResolveCref
                     {| Xml = xml
                        Assembly = assembly
                        XmlDoc = xmlDoc

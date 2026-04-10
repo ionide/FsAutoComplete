@@ -18,6 +18,247 @@ let inline nl<'T> = Environment.NewLine
 
 let logger = LogProvider.getLoggerByName "TipFormatter"
 
+type private CrefCandidateKind =
+  | Type
+  | Method
+  | Property
+  | Field
+  | UnionCase
+
+type private CrefCandidate =
+  { XmlDocSig: string
+    AssemblyName: string
+    DisplayName: string
+    FullName: string option
+    GenericArity: int option
+    Kind: CrefCandidateKind }
+
+let private stripGenericArity (name: string) =
+  let idx = name.LastIndexOf('`')
+
+  if idx > 0 then
+    name.Substring(0, idx)
+  else
+    name
+
+let private tryGetGenericArity (name: string) =
+  let idx = name.LastIndexOf('`')
+
+  if idx > 0 && idx < name.Length - 1 then
+    match Int32.TryParse(name.Substring(idx + 1)) with
+    | true, value -> Some value
+    | _ -> None
+  else
+    None
+
+let private getCrefKindAndTarget (cref: string) =
+  let separatorIndex = cref.IndexOf(':')
+
+  if separatorIndex > 0 && separatorIndex < cref.Length - 1 then
+    Some(cref.Substring(0, separatorIndex)), cref.Substring(separatorIndex + 1)
+  else
+    None, cref
+
+let private lastQualifiedSegment (name: string) =
+  let separatorIndex = name.LastIndexOfAny([| '.'; '+' |])
+
+  if separatorIndex >= 0 && separatorIndex < name.Length - 1 then
+    name.Substring(separatorIndex + 1)
+  else
+    name
+
+let private renderDocumentationCommandLink (text: string) (xmlDocSig: string) (assemblyName: string) =
+  let content =
+    Uri.EscapeDataString(sprintf """[{ "XmlDocSig": "%s", "AssemblyName": "%s" }]""" xmlDocSig assemblyName)
+
+  let encodedText = System.Security.SecurityElement.Escape text
+  $"<a href='command:fsharp.showDocumentation?%s{content}'><code>%s{encodedText}</code></a>"
+
+let createCrefResolver (symbols: AssemblySymbol list) =
+  let addCandidate kind xmlDocSig assemblyName displayName fullName genericArity acc =
+    if
+      String.IsNullOrWhiteSpace xmlDocSig
+      || String.IsNullOrWhiteSpace assemblyName
+      || String.IsNullOrWhiteSpace displayName
+    then
+      acc
+    else
+      { XmlDocSig = xmlDocSig
+        AssemblyName = assemblyName
+        DisplayName = displayName
+        FullName = fullName
+        GenericArity = genericArity
+        Kind = kind }
+      :: acc
+
+  let tryAddCandidate kind getCandidate acc =
+    try
+      let xmlDocSig, assemblyName, displayName, fullName, genericArity = getCandidate ()
+      addCandidate kind xmlDocSig assemblyName displayName fullName genericArity acc
+    with _ ->
+      acc
+
+  let candidates =
+    (([], symbols)
+     ||> List.fold (fun acc assemblySymbol ->
+       match assemblySymbol.Symbol with
+       | FSharpEntity(entity, abbreviatedEntity, _) ->
+         let acc =
+           addCandidate
+             Type
+             entity.XmlDocSig
+             entity.Assembly.SimpleName
+             entity.DisplayName
+             entity.TryFullName
+             (Some entity.GenericParameters.Count)
+             acc
+
+         let acc =
+           if abbreviatedEntity.XmlDocSig <> entity.XmlDocSig then
+             addCandidate
+               Type
+               abbreviatedEntity.XmlDocSig
+               abbreviatedEntity.Assembly.SimpleName
+               abbreviatedEntity.DisplayName
+               abbreviatedEntity.TryFullName
+               (Some abbreviatedEntity.GenericParameters.Count)
+               acc
+           else
+             acc
+
+         let acc =
+          ((acc, entity.MembersFunctionsAndValues)
+           ||> Seq.fold (fun acc memberOrFunction ->
+             let kind =
+               if
+                 memberOrFunction.IsProperty
+                 || memberOrFunction.IsPropertyGetterMethod
+                 || memberOrFunction.IsPropertySetterMethod
+               then
+                 Property
+               else
+                 Method
+
+             tryAddCandidate
+               kind
+               (fun () ->
+                 memberOrFunction.XmlDocSig,
+                 memberOrFunction.Assembly.SimpleName,
+                 memberOrFunction.DisplayName,
+                 Some memberOrFunction.FullName,
+                 None)
+               acc))
+
+         let acc =
+          ((acc, entity.FSharpFields)
+           ||> Seq.fold (fun acc field ->
+             tryAddCandidate
+               Field
+               (fun () ->
+                 field.XmlDocSig,
+                 field.Assembly.SimpleName,
+                 field.DisplayName,
+                 Some field.FullName,
+                 None)
+               acc))
+
+         ((acc, entity.UnionCases)
+          ||> Seq.fold (fun acc unionCase ->
+            tryAddCandidate
+              UnionCase
+              (fun () ->
+                unionCase.XmlDocSig,
+                unionCase.Assembly.SimpleName,
+                unionCase.DisplayName,
+                Some unionCase.FullName,
+                None)
+              acc))
+       | _ -> acc))
+    |> List.rev
+
+  let distinctCandidates =
+    candidates
+    |> List.distinctBy (fun candidate -> candidate.XmlDocSig, candidate.AssemblyName)
+
+  let expectedKinds kind =
+    match kind with
+    | Some "T" -> Set.singleton Type
+    | Some "M" -> Set.singleton Method
+    | Some "P" -> Set.singleton Property
+    | Some "F" -> Set.singleton Field
+    | Some "U" -> Set.singleton UnionCase
+    | _ -> Set.empty
+
+  let tryResolveExactXmlDocSig cref =
+    distinctCandidates
+    |> List.filter (fun candidate -> candidate.XmlDocSig = cref)
+    |> function
+      | [ candidate ] -> Some(candidate.XmlDocSig, candidate.AssemblyName, candidate.DisplayName)
+      | _ -> None
+
+  let tryResolveHeuristically cref =
+    let kind, target = getCrefKindAndTarget cref
+    let targetSimpleName = target |> lastQualifiedSegment
+    let targetDisplayName = targetSimpleName |> stripGenericArity
+    let targetGenericArity = targetSimpleName |> tryGetGenericArity
+    let allowedKinds = expectedKinds kind
+
+    let scoreCandidate (candidate: CrefCandidate) =
+      let kindScore =
+        if allowedKinds.IsEmpty || allowedKinds.Contains candidate.Kind then
+          0
+        else
+          -100
+
+      let fullNameScore =
+        candidate.FullName
+        |> Option.map (fun fullName ->
+          if String.Equals(fullName, target, StringComparison.Ordinal) then
+            50
+          elif
+            fullName.EndsWith("." + target, StringComparison.Ordinal)
+            || fullName.EndsWith("+" + target, StringComparison.Ordinal)
+          then
+            40
+          else
+            0)
+        |> Option.defaultValue 0
+
+      let displayNameScore =
+        let arityScore =
+          match targetGenericArity, candidate.GenericArity with
+          | Some expected, Some actual when expected = actual -> 5
+          | Some _, Some _ -> -50
+          | _ -> 0
+
+        if String.Equals(candidate.DisplayName, targetDisplayName, StringComparison.Ordinal) then
+          30 + arityScore
+        elif String.Equals(stripGenericArity candidate.DisplayName, targetDisplayName, StringComparison.Ordinal) then
+          20 + arityScore
+        else
+          0
+
+      kindScore + fullNameScore + displayNameScore
+
+    let bestScore =
+      distinctCandidates
+      |> List.map scoreCandidate
+      |> List.filter (fun score -> score > 0)
+      |> List.sortDescending
+      |> List.tryHead
+
+    bestScore
+    |> Option.bind (fun score ->
+      distinctCandidates
+      |> List.filter (fun candidate -> scoreCandidate candidate = score)
+      |> function
+        | [ candidate ] -> Some(candidate.XmlDocSig, candidate.AssemblyName, candidate.DisplayName)
+        | _ -> None)
+
+  fun cref ->
+    tryResolveExactXmlDocSig cref
+    |> Option.orElseWith (fun () -> tryResolveHeuristically cref)
+
 module private Section =
 
   let inline addSection (name: string) (content: string) =
@@ -102,6 +343,26 @@ module private Format =
   let private href: AttrLookup = Map.tryFind "href"
   let private lang: AttrLookup = Map.tryFind "lang"
   let private name: AttrLookup = Map.tryFind "name"
+
+  let tryResolveCrefLink
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    (crefValue: string)
+    (linkText: string option)
+    =
+    if showDocumentationLinks then
+      match tryResolveCref crefValue with
+      | Some(xmlDocSig, assemblyName, displayName) ->
+        let text =
+          match linkText with
+          | Some text when not (String.IsNullOrWhiteSpace text) -> text
+          | _ when not (String.IsNullOrWhiteSpace displayName) -> displayName
+          | _ -> extractMemberText crefValue
+
+        renderDocumentationCommandLink text xmlDocSig assemblyName |> Some
+      | None -> None
+    else
+      None
 
   let rec private applyFormatter (info: FormatterInfo) text =
     let pattern = tagPattern info.TagName
@@ -256,12 +517,15 @@ module private Format =
         | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some }
     |> applyFormatter
 
-  let private see =
+  let private see (showDocumentationLinks: bool) (tryResolveCref: string -> (string * string * string) option) =
     let formatFromAttributes (attrs: Map<string, string>) =
       match cref attrs with
-      // crefs can have backticks in them, which mess with formatting.
-      // for safety we can just double-backtick and markdown is ok with that.
-      | Some cref -> Some $"``{extractMemberText cref}``"
+      | Some cref ->
+        match tryResolveCrefLink showDocumentationLinks tryResolveCref cref None with
+        | Some link -> Some link
+        // crefs can have backticks in them, which mess with formatting.
+        // for safety we can just double-backtick and markdown is ok with that.
+        | None -> Some $"``{extractMemberText cref}``"
       | None ->
         match langword attrs with
         | Some langword -> Some(code langword)
@@ -275,9 +539,15 @@ module private Format =
           if String.IsNullOrWhiteSpace innerText then
             formatFromAttributes attributes
           else
-            match href attributes with
-            | Some externalUrl -> Some(link innerText externalUrl)
-            | None -> Some $"`{innerText}`" }
+            match cref attributes with
+            | Some cref ->
+              match tryResolveCrefLink showDocumentationLinks tryResolveCref cref (Some innerText) with
+              | Some link -> Some link
+              | None -> Some $"`{innerText}`"
+            | None ->
+              match href attributes with
+              | Some externalUrl -> Some(link innerText externalUrl)
+              | None -> Some $"`{innerText}`" }
     |> applyFormatter
 
   let private xref =
@@ -693,7 +963,11 @@ module private Format =
   let private unescapeSpecialCharacters (text: string) =
     text.Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"").Replace("&apos;", "'").Replace("&amp;", "&")
 
-  let applyAll (text: string) =
+  let applyAll
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    (text: string)
+    =
     text
     // Remove invalid syntax first
     // It's easier to identify invalid patterns when no transformation has been done yet
@@ -704,7 +978,7 @@ module private Format =
     |> block
     |> codeInline
     |> codeBlock
-    |> see
+    |> see showDocumentationLinks tryResolveCref
     |> xref
     |> paramRef
     |> typeParamRef
@@ -727,14 +1001,19 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
   /// References used to detect if we should remove meaningless spaces
   let tabsOffset = String.replicate (columnOffset + indentationSize) " "
 
-  let readContentForTooltip (node: XmlNode) =
+  let readContentForTooltip
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    (node: XmlNode)
+    =
     match node with
     | null -> null
     | _ ->
       let content =
         // Normale the EOL
         // This make it easier to work with line splitting
-        node.InnerXml.Replace("\r\n", "\n") |> Format.applyAll
+        node.InnerXml.Replace("\r\n", "\n")
+        |> Format.applyAll showDocumentationLinks tryResolveCref
 
       content.Split('\n')
       |> Array.map (fun line ->
@@ -779,16 +1058,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       |> List.contains node.ParentNode.Name
       |> not)
 
-  let readNamedContentAsKvPair (key, content) = KeyValuePair(key, readContentForTooltip content)
-
-  let summary = readContentForTooltip rawSummary
-
-  let parameters = rawParameters |> List.map readNamedContentAsKvPair
-  let remarks = rawRemarks |> Seq.map readContentForTooltip
-  let exceptions = rawExceptions |> List.map readNamedContentAsKvPair
-  let typeParams = rawTypeParams |> List.map readNamedContentAsKvPair
-  let examples = rawExamples |> Seq.map readContentForTooltip
-  let returns = rawReturns |> Option.map readContentForTooltip
+  let readNamedContentAsKvPair showDocumentationLinks tryResolveCref (key, content) =
+    KeyValuePair(key, readContentForTooltip showDocumentationLinks tryResolveCref content)
 
   /// The cref target of an <inheritdoc cref="..."/> element, if present.
   let inheritDocCref =
@@ -801,7 +1072,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
       else
         None)
 
-  let seeAlso =
+  let getSeeAlso showDocumentationLinks tryResolveCref =
     doc.DocumentElement.GetElementsByTagName "seealso"
     |> Seq.cast<XmlNode>
     |> Seq.choose (fun node ->
@@ -814,7 +1085,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
           Map.empty
 
       match Map.tryFind "cref" attrs with
-      | Some cref -> Some("* `" + Format.extractMemberText cref + "`")
+      | Some cref ->
+        match Format.tryResolveCrefLink showDocumentationLinks tryResolveCref cref None with
+        | Some link -> Some("* " + link)
+        | None -> Some("* `" + Format.extractMemberText cref + "`")
       | None ->
         match Map.tryFind "href" attrs with
         | Some href ->
@@ -830,6 +1104,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
           | None -> None)
 
   override x.ToString() =
+    let summary = readContentForTooltip false (fun _ -> None) rawSummary
+    let parameters = rawParameters |> List.map (readNamedContentAsKvPair false (fun _ -> None))
+    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair false (fun _ -> None))
+
     summary
     + nl
     + nl
@@ -848,6 +1126,8 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
             |> String.concat nl))
 
   member __.ToSummaryOnlyString() =
+    let summary = readContentForTooltip false (fun _ -> None) rawSummary
+
     // If we where unable to process the doc comment, then just output it as it is
     // For example, this cover the keywords' tooltips
     if String.IsNullOrEmpty summary then
@@ -855,12 +1135,23 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     else
       "**Description**" + nl + nl + summary
 
-  member __.HasTruncatedExamples = examples |> Seq.isEmpty |> not
+  member __.HasTruncatedExamples = rawExamples |> Seq.isEmpty |> not
 
   /// Returns the cref value of an <inheritdoc cref="..."/> element, if present in this doc member.
   member __.InheritDocCref = inheritDocCref
 
-  member __.ToFullEnhancedString() =
+  member __.ToFullEnhancedString
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    =
+    let summary = readContentForTooltip showDocumentationLinks tryResolveCref rawSummary
+    let parameters = rawParameters |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let remarks = rawRemarks |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let typeParams = rawTypeParams |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let returns = rawReturns |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+    let seeAlso = getSeeAlso showDocumentationLinks tryResolveCref
+
     let content =
       summary
       + Section.fromList "Remarks" remarks
@@ -877,7 +1168,19 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     else
       "**Description**" + nl + nl + content
 
-  member __.ToDocumentationString() =
+  member __.ToDocumentationString
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    =
+    let summary = readContentForTooltip showDocumentationLinks tryResolveCref rawSummary
+    let remarks = rawRemarks |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+    let typeParams = rawTypeParams |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let parameters = rawParameters |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let returns = rawReturns |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+    let examples = rawExamples |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+    let seeAlso = getSeeAlso showDocumentationLinks tryResolveCref
+
     "**Description**"
     + nl
     + nl
@@ -890,12 +1193,16 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     + Section.fromList "Examples" examples
     + Section.fromList "See also" seeAlso
 
-  member this.FormatComment(formatStyle: FormatCommentStyle) =
+  member this.FormatComment
+    (formatStyle: FormatCommentStyle)
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
+    =
     match formatStyle with
     | FormatCommentStyle.Legacy -> this.ToString()
     | FormatCommentStyle.SummaryOnly -> this.ToSummaryOnlyString()
-    | FormatCommentStyle.FullEnhanced -> this.ToFullEnhancedString()
-    | FormatCommentStyle.Documentation -> this.ToDocumentationString()
+    | FormatCommentStyle.FullEnhanced -> this.ToFullEnhancedString showDocumentationLinks tryResolveCref
+    | FormatCommentStyle.Documentation -> this.ToDocumentationString showDocumentationLinks tryResolveCref
 
 
 let rec private readXmlDoc (reader: XmlReader) (indentationSize: int) (acc: Map<string, XmlDocMember>) =
@@ -1165,7 +1472,7 @@ let formatCompletionItemTip (ToolTipText tips) : (string * string) =
 
         let body =
           match tryGetXmlDocMember tipElement.XmlDoc with
-          | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment(FormatCommentStyle.Legacy)
+          | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment FormatCommentStyle.Legacy false (fun _ -> None)
           | TryGetXmlDocMemberResult.None -> ""
           | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT
 
@@ -1187,7 +1494,7 @@ let formatPlainTip (ToolTipText tips) : (string * string) =
 
       let description =
         match tryGetXmlDocMember t.XmlDoc with
-        | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment(FormatCommentStyle.Legacy)
+        | TryGetXmlDocMemberResult.Some xmlDoc -> xmlDoc.FormatComment FormatCommentStyle.Legacy false (fun _ -> None)
         | TryGetXmlDocMemberResult.None -> ""
         | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT
 
@@ -1235,7 +1542,12 @@ let prepareFooterLines (footerText: string) =
   |> Array.map (fun n -> "*" + n + "*")
 
 
-let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: FormatCommentStyle) =
+let private tryComputeTooltipInfo
+  (ToolTipText tips)
+  (formatCommentStyle: FormatCommentStyle)
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  =
 
   // Note: In the previous code, we were returning a `(string * string * string) list list`
   // but always discarding the tooltip later if the list had more than one element
@@ -1270,7 +1582,7 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
         match tryGetXmlDocMember tooltipData.XmlDoc with
         | TryGetXmlDocMemberResult.Some xmlDoc ->
           // Format the doc comment
-          let docCommentText = xmlDoc.FormatComment formatCommentStyle
+          let docCommentText = xmlDoc.FormatComment formatCommentStyle showDocumentationLinks tryResolveCref
 
           // Concatenate the doc comment and the generic parameters section
           let consolidatedDocCommentText =
@@ -1305,6 +1617,8 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
 /// </summary>
 /// <param name="toolTipText">Tooltip documentation to render in the middle</param>
 /// <param name="formatCommentStyle">Style of tooltip</param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success {| DocComment; HasTruncatedExamples |}</c> if the doc comment has been formatted
 ///
@@ -1313,9 +1627,14 @@ let private tryComputeTooltipInfo (ToolTipText tips) (formatCommentStyle: Format
 /// - <c>TipFormatterResult.None</c> if the doc comment has not been found
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
-let tryFormatTipEnhanced toolTipText (formatCommentStyle: FormatCommentStyle) =
+let tryFormatTipEnhanced
+  toolTipText
+  (formatCommentStyle: FormatCommentStyle)
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  =
 
-  match tryComputeTooltipInfo toolTipText formatCommentStyle with
+  match tryComputeTooltipInfo toolTipText formatCommentStyle showDocumentationLinks tryResolveCref with
   | Some(Ok tooltipResult) -> TipFormatterResult.Success tooltipResult
 
   | Some(Error error) -> TipFormatterResult.Error error
@@ -1350,14 +1669,20 @@ let renderShowDocumentationLink (hasTruncatedExamples: bool) (xmlDocSig: string)
 /// Try format the given tooltip as documentation.
 /// </summary>
 /// <param name="toolTipText">Tooltip to format</param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
 /// - <c>TipFormatterResult.None</c> if the doc comment has not been found
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
-let tryFormatDocumentationFromTooltip toolTipText =
+let tryFormatDocumentationFromTooltip
+  toolTipText
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  =
 
-  match tryComputeTooltipInfo toolTipText FormatCommentStyle.Documentation with
+  match tryComputeTooltipInfo toolTipText FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref with
   | Some(Ok tooltipResult) -> TipFormatterResult.Success tooltipResult.DocComment
 
   | Some(Error error) -> TipFormatterResult.Error error
@@ -1377,27 +1702,38 @@ let tryFormatDocumentationFromTooltip toolTipText =
 ///
 /// Example: <c>FSharp.Core</c>
 /// </param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
 /// - <c>TipFormatterResult.None</c> if the doc comment has not been found
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
-let tryFormatDocumentationFromXmlSig (xmlSig: string) (assembly: string) =
+let tryFormatDocumentationFromXmlSig
+  (xmlSig: string)
+  (assembly: string)
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  =
   let xmlDoc = FSharpXmlDoc.FromXmlFile(assembly, xmlSig)
 
   match tryGetXmlDocMember xmlDoc with
   | TryGetXmlDocMemberResult.Some xmlDoc ->
-    let formattedComment = xmlDoc.FormatComment(FormatCommentStyle.Documentation)
+    let formattedComment = xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
 
     TipFormatterResult.Success formattedComment
 
   | TryGetXmlDocMemberResult.None -> TipFormatterResult.None
   | TryGetXmlDocMemberResult.Error -> TipFormatterResult.Error ERROR_WHILE_PARSING_DOC_COMMENT
 
-let formatDocumentationFromXmlDoc xmlDoc =
+let formatDocumentationFromXmlDoc
+  xmlDoc
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  =
   match tryGetXmlDocMember xmlDoc with
   | TryGetXmlDocMemberResult.Some xmlDoc ->
-    let formattedComment = xmlDoc.FormatComment(FormatCommentStyle.Documentation)
+    let formattedComment = xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
 
     TipFormatterResult.Success formattedComment
 

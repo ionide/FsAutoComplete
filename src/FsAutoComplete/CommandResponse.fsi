@@ -229,6 +229,8 @@ module CommandResponse =
 
   val formattedDocumentation:
     serialize: Serializer ->
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
     param:
       {| Tip: ToolTipText option
          XmlSig: (string * string) option
@@ -239,6 +241,8 @@ module CommandResponse =
 
   val formattedDocumentationForSymbol:
     serialize: Serializer ->
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
     param:
       {| Xml: string
          Assembly: string

@@ -11,11 +11,23 @@ open FsAutoComplete
 let private makeXmlDoc (lines: string[]) = FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(lines, Range.Zero))
 
 /// Call formatDocumentationFromXmlDoc and return the Success string, failing the test otherwise.
-let private getDoc (xmlDoc: FSharpXmlDoc) =
-  match TipFormatter.formatDocumentationFromXmlDoc xmlDoc with
+let private getDocWith
+  (showDocumentationLinks: bool)
+  (tryResolveCref: string -> (string * string * string) option)
+  (xmlDoc: FSharpXmlDoc)
+  =
+  match TipFormatter.formatDocumentationFromXmlDoc xmlDoc showDocumentationLinks tryResolveCref with
   | TipFormatter.TipFormatterResult.Success s -> s
   | TipFormatter.TipFormatterResult.None -> failtest "Expected doc content but got None"
   | TipFormatter.TipFormatterResult.Error e -> failtest $"Expected doc content but got Error: {e}"
+
+let private getDoc (xmlDoc: FSharpXmlDoc) = getDocWith false (fun _ -> None) xmlDoc
+
+let private tryResolveAsyncCref cref =
+  if cref = "T:Async`1" then
+    Some("T:Microsoft.FSharp.Control.FSharpAsync`1", "FSharp.Core", "Async")
+  else
+    None
 
 let seeAlsoTests =
   testList
@@ -27,6 +39,20 @@ let seeAlsoTests =
 
         let content = getDoc xml
         Expect.stringContains content "* `Foo.Bar`" "cref should render as backtick-quoted member name"
+
+      testCase "cref attribute renders documentation command link when resolver succeeds"
+      <| fun _ ->
+        let xml =
+          makeXmlDoc [| "<summary>Description</summary>"; """<seealso cref="T:Async`1"/>""" |]
+
+        let content = getDocWith true tryResolveAsyncCref xml
+
+        Expect.stringContains
+          content
+          "command:fsharp.showDocumentation?"
+          "resolved seealso cref should become a documentation command link"
+
+        Expect.stringContains content ">Async</code></a>" "resolved seealso cref should use the resolved display name"
 
       testCase "href void element renders as auto-link"
       <| fun _ ->
@@ -101,7 +127,7 @@ let inheritDocTests =
         // When inheritdoc has no cref, we can't resolve — should not throw.
         let xml = makeXmlDoc [| """<inheritdoc/>""" |]
 
-        match TipFormatter.formatDocumentationFromXmlDoc xml with
+        match TipFormatter.formatDocumentationFromXmlDoc xml false (fun _ -> None) with
         | TipFormatter.TipFormatterResult.Success _
         | TipFormatter.TipFormatterResult.None -> ()
         | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on bare inheritdoc, got: {e}"
@@ -112,10 +138,35 @@ let inheritDocTests =
         // the cref without assembly context — should fall back without crashing.
         let xml = makeXmlDoc [| """<inheritdoc cref="P:Ns.Type.Member"/>""" |]
 
-        match TipFormatter.formatDocumentationFromXmlDoc xml with
+        match TipFormatter.formatDocumentationFromXmlDoc xml false (fun _ -> None) with
         | TipFormatter.TipFormatterResult.Success _
         | TipFormatter.TipFormatterResult.None -> ()
         | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on inheritdoc cref, got: {e}" ]
+
+let seeTests =
+  testList
+    "see rendering"
+    [ testCase "inline see cref renders documentation command link when resolver succeeds"
+      <| fun _ ->
+        let xml =
+          makeXmlDoc [| """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>""" |]
+
+        let content = getDocWith true tryResolveAsyncCref xml
+
+        Expect.stringContains
+          content
+          "command:fsharp.showDocumentation?"
+          "resolved inline see cref should become a documentation command link"
+
+        Expect.stringContains content "Async</code>" "resolved inline see cref should use the resolved display name"
+
+      testCase "inline see cref falls back to code formatting when resolver fails"
+      <| fun _ ->
+        let xml =
+          makeXmlDoc [| """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>""" |]
+
+        let content = getDoc xml
+        Expect.stringContains content "``Async`1``" "unresolved inline see cref should stay as inline code" ]
 
 /// Helper: wrap a single string as a one-element TaggedText array (the type used by the compiler service).
 let private makeTaggedTexts (parts: string list) : FSharp.Compiler.Text.TaggedText[] =
@@ -177,4 +228,4 @@ let cleanParameterDisplayTests =
         Expect.equal result "flag: bool = false" "should strip attribute block and append = false" ]
 
 let allTests =
-  testList "TipFormatter" [ seeAlsoTests; inheritDocTests; cleanParameterDisplayTests ]
+  testList "TipFormatter" [ seeTests; seeAlsoTests; inheritDocTests; cleanParameterDisplayTests ]

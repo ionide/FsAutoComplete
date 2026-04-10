@@ -568,6 +568,8 @@ module CommandResponse =
 
   let formattedDocumentation
     (serialize: Serializer)
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
     (param:
       {| Tip: ToolTipText option
          XmlSig: (string * string) option
@@ -593,7 +595,7 @@ module CommandResponse =
     let data: DocumentationDescription =
       match param.Tip, param.XmlSig with
       | Some tip, _ ->
-        match TipFormatter.tryFormatDocumentationFromTooltip tip with
+        match TipFormatter.tryFormatDocumentationFromTooltip tip showDocumentationLinks tryResolveCref with
         | TipFormatter.TipFormatterResult.Success formattedDocComment ->
           createDocumentationDescription formattedDocComment
 
@@ -605,7 +607,9 @@ module CommandResponse =
         | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
 
       | _, Some(xml, assembly) ->
-        match TipFormatter.tryFormatDocumentationFromXmlSig xml assembly with
+        match
+          TipFormatter.tryFormatDocumentationFromXmlSig xml assembly showDocumentationLinks tryResolveCref
+        with
         | TipFormatter.TipFormatterResult.Success formattedDocComment ->
           createDocumentationDescription formattedDocComment
 
@@ -624,6 +628,8 @@ module CommandResponse =
 
   let formattedDocumentationForSymbol
     (serialize: Serializer)
+    (showDocumentationLinks: bool)
+    (tryResolveCref: string -> (string * string * string) option)
     (param:
       {| Xml: string
          Assembly: string
@@ -647,12 +653,18 @@ module CommandResponse =
         Comment = formattedDocComment }
 
     let data: DocumentationDescription =
-      match TipFormatter.tryFormatDocumentationFromXmlSig param.Xml param.Assembly with
+      match
+        TipFormatter.tryFormatDocumentationFromXmlSig
+          param.Xml
+          param.Assembly
+          showDocumentationLinks
+          tryResolveCref
+      with
       | TipFormatter.TipFormatterResult.Success formattedDocComment ->
         createDocumentationDescription formattedDocComment
 
       | TipFormatter.TipFormatterResult.None ->
-        match TipFormatter.formatDocumentationFromXmlDoc param.XmlDoc with
+        match TipFormatter.formatDocumentationFromXmlDoc param.XmlDoc showDocumentationLinks tryResolveCref with
         | TipFormatter.TipFormatterResult.Success formattedDocComment ->
           createDocumentationDescription formattedDocComment
 
