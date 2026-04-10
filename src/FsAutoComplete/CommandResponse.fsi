@@ -20,6 +20,13 @@ module CommandResponse =
   open FSharp.Compiler.Text
   type ResponseMsg<'T> = { Kind: string; Data: 'T }
 
+  type DocumentationLinkContext =
+    { FileName: string
+      Line: int
+      Character: int }
+
+  val addDocumentationLinkContext: context: DocumentationLinkContext option -> content: string -> string
+
   type ResponseError<'T> =
     { Code: int
       Message: string
@@ -236,7 +243,8 @@ module CommandResponse =
          XmlSig: (string * string) option
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |} ->
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |} ->
       string
 
   val formattedDocumentationForSymbol:
@@ -249,7 +257,8 @@ module CommandResponse =
          XmlDoc: FSharpXmlDoc
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |} ->
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |} ->
       string
 
   val typeSig: serialize: Serializer -> tip: ToolTipText -> string

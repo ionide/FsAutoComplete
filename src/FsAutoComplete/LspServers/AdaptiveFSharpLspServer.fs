@@ -1124,6 +1124,12 @@ type AdaptiveFSharpLspServer
             let showExternalDocumentation = state.Config.TooltipShowDocumentationLink
             let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
 
+            let linkContext: CommandResponse.DocumentationLinkContext option =
+              Some
+                { FileName = filePath |> UMX.untag
+                  Line = int p.Position.Line
+                  Character = int p.Position.Character }
+
             match
               TipFormatter.tryFormatTipEnhanced
                 tooltipResult.ToolTipText
@@ -1132,6 +1138,9 @@ type AdaptiveFSharpLspServer
                 tryResolveCref
             with
             | TipFormatter.TipFormatterResult.Success tooltipInfo ->
+              let formattedDocComment =
+                tooltipInfo.DocComment
+                |> CommandResponse.addDocumentationLinkContext linkContext
 
               let response =
                 { Contents =
@@ -1141,7 +1150,7 @@ type AdaptiveFSharpLspServer
                          tooltipResult.Signature
                          |> TipFormatter.prepareSignature
                          |> (fun content -> U2.C2 { Language = "fsharp"; Value = content })
-                         U2.C1 tooltipInfo.DocComment
+                         U2.C1 formattedDocComment
                          match tooltipResult.SymbolInfo with
                          | TryGetToolTipEnhancedResult.Keyword _ -> ()
                          | TryGetToolTipEnhancedResult.Symbol symbolInfo when showExternalDocumentation ->
@@ -1149,6 +1158,7 @@ type AdaptiveFSharpLspServer
                              tooltipInfo.HasTruncatedExamples
                              symbolInfo.XmlDocSig
                              symbolInfo.Assembly
+                           |> CommandResponse.addDocumentationLinkContext linkContext
                            |> U2.C1
                          | TryGetToolTipEnhancedResult.Symbol _ -> ()
                          // Display each footer line as a separate line
@@ -3045,6 +3055,12 @@ type AdaptiveFSharpLspServer
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
           lastFSharpDocumentationTypeCheck <- Some tyRes
 
+          let linkContext: CommandResponse.DocumentationLinkContext option =
+            Some
+              { FileName = filePath |> UMX.untag
+                Line = int p.Position.Line
+                Character = int p.Position.Character }
+
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
             let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
@@ -3060,7 +3076,8 @@ type AdaptiveFSharpLspServer
                          XmlSig = xml
                          Signature = signature
                          Footer = footer
-                         XmlKey = xmlKey |} }
+                         XmlKey = xmlKey
+                         LinkContext = linkContext |} }
           | None -> return None
         with e ->
           trace |> Tracing.recordException e
@@ -3084,9 +3101,27 @@ type AdaptiveFSharpLspServer
           )
 
           let! tyRes =
-            lastFSharpDocumentationTypeCheck
-            |> Result.ofOption (fun () -> $"No typecheck results from FSharpDocumentation")
-            |> Result.ofStringErr
+            asyncResult {
+              match p.FileName with
+              | Some fileName ->
+                return!
+                  state.GetOpenFileTypeCheckResults(Utils.normalizePath fileName)
+                  |> AsyncResult.ofStringErr
+              | None ->
+                return!
+                  lastFSharpDocumentationTypeCheck
+                  |> Result.ofOption (fun () -> $"No typecheck results from FSharpDocumentation")
+                  |> Result.ofStringErr
+            }
+
+          let linkContext: CommandResponse.DocumentationLinkContext option =
+            match p.FileName, p.Line, p.Character with
+            | Some fileName, Some line, Some character ->
+              Some
+                { FileName = fileName |> Utils.normalizePath |> UMX.untag
+                  Line = line
+                  Character = character }
+            | _ -> None
 
           match!
             Commands.FormattedDocumentationForSymbol tyRes p.XmlSig p.Assembly
@@ -3107,7 +3142,8 @@ type AdaptiveFSharpLspServer
                        XmlDoc = xmlDoc
                        Signature = signature
                        Footer = footer
-                       XmlKey = xmlKey |} }
+                       XmlKey = xmlKey
+                       LinkContext = linkContext |} }
               |> Some
         with e ->
           trace |> Tracing.recordException e

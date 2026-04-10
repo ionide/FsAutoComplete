@@ -69,7 +69,7 @@ let private renderDocumentationCommandLink (text: string) (xmlDocSig: string) (a
     Uri.EscapeDataString(sprintf """[{ "XmlDocSig": "%s", "AssemblyName": "%s" }]""" xmlDocSig assemblyName)
 
   let encodedText = System.Security.SecurityElement.Escape text
-  $"<a href='command:fsharp.showDocumentation?%s{content}'><code>%s{encodedText}</code></a>"
+  $"<a href='command:fsharp.showDocumentation?%s{content}'>%s{encodedText}</a>"
 
 let createCrefResolver (symbols: AssemblySymbol list) =
   let addCandidate kind xmlDocSig assemblyName displayName fullName genericArity acc =
