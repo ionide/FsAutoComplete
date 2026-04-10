@@ -153,6 +153,7 @@ let lspTests =
                   3, CallHierarchy.tests createServer
                   4, diagnosticsTest createServer
                   4, InheritDocTooltipTests.tests createServer
+                  4, CrefLinkDocumentationTests.tests createServer
 
                   3, TestExplorer.tests createServer ]
 
