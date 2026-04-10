@@ -55,9 +55,17 @@ type DiagnosticMessage =
   | Clear of source: string
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
-type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<unit>) =
+type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnostic[] -> Async<unit>) =
   let send uri (diags: Map<string, Version * Diagnostic[]>) =
-    Map.toArray diags |> Array.collect (snd >> snd) |> sendDiagnostics uri
+    let allDiags = Map.toArray diags |> Array.collect (snd >> snd)
+
+    let maxVersion =
+      if Map.isEmpty diags then
+        None
+      else
+        Map.toArray diags |> Array.map (snd >> fst) |> Array.max |> Some
+
+    sendDiagnostics uri maxVersion allDiags
 
   let agents =
     System.Collections.Concurrent.ConcurrentDictionary<
@@ -134,7 +142,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> Diagnostic[] -> Async<
   member x.ClearFor(fileUri: DocumentUri) =
     if x.ClientSupportsDiagnostics then
       removeAgent fileUri
-      sendDiagnostics fileUri [||] |> Async.Start
+      sendDiagnostics fileUri None [||] |> Async.Start
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
     if x.ClientSupportsDiagnostics then
