@@ -36,10 +36,7 @@ type private CrefCandidate =
 let private stripGenericArity (name: string) =
   let idx = name.LastIndexOf('`')
 
-  if idx > 0 then
-    name.Substring(0, idx)
-  else
-    name
+  if idx > 0 then name.Substring(0, idx) else name
 
 let private tryGetGenericArity (name: string) =
   let idx = name.LastIndexOf('`')
@@ -127,40 +124,35 @@ let createCrefResolver (symbols: AssemblySymbol list) =
              acc
 
          let acc =
-          ((acc, entity.MembersFunctionsAndValues)
-           ||> Seq.fold (fun acc memberOrFunction ->
-             let kind =
-               if
-                 memberOrFunction.IsProperty
-                 || memberOrFunction.IsPropertyGetterMethod
-                 || memberOrFunction.IsPropertySetterMethod
-               then
-                 Property
-               else
-                 Method
+           ((acc, entity.MembersFunctionsAndValues)
+            ||> Seq.fold (fun acc memberOrFunction ->
+              let kind =
+                if
+                  memberOrFunction.IsProperty
+                  || memberOrFunction.IsPropertyGetterMethod
+                  || memberOrFunction.IsPropertySetterMethod
+                then
+                  Property
+                else
+                  Method
 
-             tryAddCandidate
-               kind
-               (fun () ->
-                 memberOrFunction.XmlDocSig,
-                 memberOrFunction.Assembly.SimpleName,
-                 memberOrFunction.DisplayName,
-                 Some memberOrFunction.FullName,
-                 None)
-               acc))
+              tryAddCandidate
+                kind
+                (fun () ->
+                  memberOrFunction.XmlDocSig,
+                  memberOrFunction.Assembly.SimpleName,
+                  memberOrFunction.DisplayName,
+                  Some memberOrFunction.FullName,
+                  None)
+                acc))
 
          let acc =
-          ((acc, entity.FSharpFields)
-           ||> Seq.fold (fun acc field ->
-             tryAddCandidate
-               Field
-               (fun () ->
-                 field.XmlDocSig,
-                 field.Assembly.SimpleName,
-                 field.DisplayName,
-                 Some field.FullName,
-                 None)
-               acc))
+           ((acc, entity.FSharpFields)
+            ||> Seq.fold (fun acc field ->
+              tryAddCandidate
+                Field
+                (fun () -> field.XmlDocSig, field.Assembly.SimpleName, field.DisplayName, Some field.FullName, None)
+                acc))
 
          ((acc, entity.UnionCases)
           ||> Seq.fold (fun acc unionCase ->
@@ -1105,8 +1097,12 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
 
   override x.ToString() =
     let summary = readContentForTooltip false (fun _ -> None) rawSummary
-    let parameters = rawParameters |> List.map (readNamedContentAsKvPair false (fun _ -> None))
-    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair false (fun _ -> None))
+
+    let parameters =
+      rawParameters |> List.map (readNamedContentAsKvPair false (fun _ -> None))
+
+    let exceptions =
+      rawExceptions |> List.map (readNamedContentAsKvPair false (fun _ -> None))
 
     summary
     + nl
@@ -1145,11 +1141,27 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     (tryResolveCref: string -> (string * string * string) option)
     =
     let summary = readContentForTooltip showDocumentationLinks tryResolveCref rawSummary
-    let parameters = rawParameters |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let remarks = rawRemarks |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
-    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let typeParams = rawTypeParams |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let returns = rawReturns |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
+    let parameters =
+      rawParameters
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let remarks =
+      rawRemarks
+      |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
+    let exceptions =
+      rawExceptions
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let typeParams =
+      rawTypeParams
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let returns =
+      rawReturns
+      |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
     let seeAlso = getSeeAlso showDocumentationLinks tryResolveCref
 
     let content =
@@ -1173,12 +1185,31 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     (tryResolveCref: string -> (string * string * string) option)
     =
     let summary = readContentForTooltip showDocumentationLinks tryResolveCref rawSummary
-    let remarks = rawRemarks |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
-    let typeParams = rawTypeParams |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let parameters = rawParameters |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let returns = rawReturns |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
-    let exceptions = rawExceptions |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
-    let examples = rawExamples |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
+    let remarks =
+      rawRemarks
+      |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
+    let typeParams =
+      rawTypeParams
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let parameters =
+      rawParameters
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let returns =
+      rawReturns
+      |> Option.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
+    let exceptions =
+      rawExceptions
+      |> List.map (readNamedContentAsKvPair showDocumentationLinks tryResolveCref)
+
+    let examples =
+      rawExamples
+      |> Seq.map (readContentForTooltip showDocumentationLinks tryResolveCref)
+
     let seeAlso = getSeeAlso showDocumentationLinks tryResolveCref
 
     "**Description**"
@@ -1582,7 +1613,8 @@ let private tryComputeTooltipInfo
         match tryGetXmlDocMember tooltipData.XmlDoc with
         | TryGetXmlDocMemberResult.Some xmlDoc ->
           // Format the doc comment
-          let docCommentText = xmlDoc.FormatComment formatCommentStyle showDocumentationLinks tryResolveCref
+          let docCommentText =
+            xmlDoc.FormatComment formatCommentStyle showDocumentationLinks tryResolveCref
 
           // Concatenate the doc comment and the generic parameters section
           let consolidatedDocCommentText =
@@ -1719,7 +1751,8 @@ let tryFormatDocumentationFromXmlSig
 
   match tryGetXmlDocMember xmlDoc with
   | TryGetXmlDocMemberResult.Some xmlDoc ->
-    let formattedComment = xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
+    let formattedComment =
+      xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
 
     TipFormatterResult.Success formattedComment
 
@@ -1733,7 +1766,8 @@ let formatDocumentationFromXmlDoc
   =
   match tryGetXmlDocMember xmlDoc with
   | TryGetXmlDocMemberResult.Some xmlDoc ->
-    let formattedComment = xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
+    let formattedComment =
+      xmlDoc.FormatComment FormatCommentStyle.Documentation showDocumentationLinks tryResolveCref
 
     TipFormatterResult.Success formattedComment
 

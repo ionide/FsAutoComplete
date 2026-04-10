@@ -74,14 +74,13 @@ type private XmlDocMember =
   override ToString: unit -> string
   member ToSummaryOnlyString: unit -> string
   member HasTruncatedExamples: bool
+
   member ToFullEnhancedString:
-    showDocumentationLinks: bool ->
-    tryResolveCref: (string -> (string * string * string) option) ->
-      string
+    showDocumentationLinks: bool -> tryResolveCref: (string -> (string * string * string) option) -> string
+
   member ToDocumentationString:
-    showDocumentationLinks: bool ->
-    tryResolveCref: (string -> (string * string * string) option) ->
-      string
+    showDocumentationLinks: bool -> tryResolveCref: (string -> (string * string * string) option) -> string
+
   member FormatComment:
     formatStyle: FormatCommentStyle ->
     showDocumentationLinks: bool ->
@@ -149,6 +148,7 @@ val tryFormatTipEnhanced:
 /// <param name="assemblyName">Assembly name, example <c>FSharp.Core</c></param>
 /// <returns>Returns a string which represent the show documentation link</returns>
 val renderShowDocumentationLink: hasTruncatedExamples: bool -> xmlDocSig: string -> assemblyName: string -> string
+
 /// <summary>
 /// Try format the given tooltip as documentation.
 /// </summary>
@@ -165,6 +165,7 @@ val tryFormatDocumentationFromTooltip:
   showDocumentationLinks: bool ->
   tryResolveCref: (string -> (string * string * string) option) ->
     TipFormatterResult<string>
+
 /// <summary>
 /// Try format the doc comment based on the XmlSignature and the assembly name.
 /// </summary>
@@ -197,6 +198,7 @@ val formatDocumentationFromXmlDoc:
   showDocumentationLinks: bool ->
   tryResolveCref: (string -> (string * string * string) option) ->
     TipFormatterResult<string>
+
 val extractSignature: ToolTipText -> string
 /// extracts any generic parameters present in this tooltip, rendering them as plain text
 val extractGenericParameters: ToolTipText -> string list
