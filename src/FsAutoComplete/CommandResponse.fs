@@ -607,9 +607,7 @@ module CommandResponse =
         | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
 
       | _, Some(xml, assembly) ->
-        match
-          TipFormatter.tryFormatDocumentationFromXmlSig xml assembly showDocumentationLinks tryResolveCref
-        with
+        match TipFormatter.tryFormatDocumentationFromXmlSig xml assembly showDocumentationLinks tryResolveCref with
         | TipFormatter.TipFormatterResult.Success formattedDocComment ->
           createDocumentationDescription formattedDocComment
 
@@ -654,11 +652,7 @@ module CommandResponse =
 
     let data: DocumentationDescription =
       match
-        TipFormatter.tryFormatDocumentationFromXmlSig
-          param.Xml
-          param.Assembly
-          showDocumentationLinks
-          tryResolveCref
+        TipFormatter.tryFormatDocumentationFromXmlSig param.Xml param.Assembly showDocumentationLinks tryResolveCref
       with
       | TipFormatter.TipFormatterResult.Success formattedDocComment ->
         createDocumentationDescription formattedDocComment
