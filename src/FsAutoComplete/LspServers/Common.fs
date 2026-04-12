@@ -280,6 +280,7 @@ module Helpers =
         FoldingRangeProvider = Some(U3.C1 true)
         SelectionRangeProvider = Some(U3.C1 true)
         CallHierarchyProvider = Some(U3.C1 true)
+        TypeHierarchyProvider = Some(U3.C1 true)
         SemanticTokensProvider =
           Some
           <| U2.C1
