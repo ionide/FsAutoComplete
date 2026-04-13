@@ -1237,7 +1237,7 @@ type AdaptiveFSharpLspServer
                 TipFormatter.FormatCommentStyle.Legacy
 
             let showExternalDocumentation = state.Config.TooltipShowDocumentationLink
-            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
+            let tryResolveCref = tyRes.GetCrefResolver()
 
             let linkContext: CommandResponse.DocumentationLinkContext option =
               Some
@@ -3189,7 +3189,7 @@ type AdaptiveFSharpLspServer
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
-            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
+            let tryResolveCref = tyRes.GetCrefResolver()
 
             return
               Some
@@ -3255,7 +3255,7 @@ type AdaptiveFSharpLspServer
           with
           | None -> return None
           | Some(xml, assembly, xmlDoc, signature, footer, xmlKey) ->
-            let tryResolveCref = tyRes.GetAllEntities false |> TipFormatter.createCrefResolver
+            let tryResolveCref = tyRes.GetCrefResolver()
 
             return
               { Content =
