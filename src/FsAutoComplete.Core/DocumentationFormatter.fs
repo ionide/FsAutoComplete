@@ -14,8 +14,6 @@ module DocumentationFormatter =
   let nl = Environment.NewLine
   let maxPadding = 200
 
-  let mutable lastDisplayContext: FSharpDisplayContext = FSharpDisplayContext.Empty
-
   type EntityInfo =
     { Constructors: string array
       Fields: string array
@@ -879,7 +877,6 @@ module DocumentationFormatter =
   /// Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
   let getTooltipDetailsFromSymbolUse (symbol: FSharpSymbolUse) =
     let cn = compiledNameType symbol
-    lastDisplayContext <- symbol.DisplayContext
 
     match symbol with
     | SymbolUse.TypeAbbreviation(fse) ->
@@ -965,13 +962,13 @@ module DocumentationFormatter =
 
 
   /// Returns formatted symbol signature and footer that can be used to enhance standard FCS' text tooltips
-  let getTooltipDetailsFromSymbol (symbol: FSharpSymbol) =
+  let getTooltipDetailsFromSymbol (displayContext: FSharpDisplayContext) (symbol: FSharpSymbol) =
     let cn = compiledNameType' symbol
 
     match symbol with
     | EntityFromSymbol(fse, _) ->
       try
-        let signature = getEntitySignature lastDisplayContext fse
+        let signature = getEntitySignature displayContext fse
         Some(signature, footerForType' symbol, cn)
       with _ ->
         None
@@ -980,51 +977,51 @@ module DocumentationFormatter =
       match func.EnclosingEntitySafe with
       | Some ent when ent.IsValueType || ent.IsEnum ->
         //ValueTypes
-        let signature = getFuncSignature lastDisplayContext func
+        let signature = getFuncSignature displayContext func
         Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
       | _ ->
         //ReferenceType constructor
-        let signature = getFuncSignature lastDisplayContext func
+        let signature = getFuncSignature displayContext func
         Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | SymbolPatterns.Operator func ->
-      let signature = getFuncSignature lastDisplayContext func
+      let signature = getFuncSignature displayContext func
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | Property prop ->
-      let signature = getFuncSignature lastDisplayContext prop
+      let signature = getFuncSignature displayContext prop
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | ClosureOrNestedFunction func ->
       //represents a closure or nested function
-      let signature = getFuncSignature lastDisplayContext func
+      let signature = getFuncSignature displayContext func
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | Function func ->
-      let signature = getFuncSignature lastDisplayContext func
+      let signature = getFuncSignature displayContext func
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | Val func ->
       //val name : Type
-      let signature = getValSignature lastDisplayContext func
+      let signature = getValSignature displayContext func
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | Field(fsf, _) ->
-      let signature = getFieldSignature lastDisplayContext fsf
+      let signature = getFieldSignature displayContext fsf
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | UnionCase uc ->
-      let signature = getUnionCaseSignature lastDisplayContext uc
+      let signature = getUnionCaseSignature displayContext uc
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
     | ActivePatternCase apc ->
-      let signature = getAPCaseSignature lastDisplayContext apc
+      let signature = getAPCaseSignature displayContext apc
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 
 
     | GenericParameter gp ->
       let signature =
-        $"'%s{gp.Name} (requires %s{formatGenericParameter false lastDisplayContext gp})"
+        $"'%s{gp.Name} (requires %s{formatGenericParameter false displayContext gp})"
 
       Some((signature, EntityInfo.Empty), footerForType' symbol, cn)
 

@@ -549,7 +549,7 @@ type ParseAndCheckResults
     match symbol with
     | None -> Error "No matching symbol information"
     | Some symbol ->
-      match DocumentationFormatter.getTooltipDetailsFromSymbol symbol with
+      match DocumentationFormatter.getTooltipDetailsFromSymbol FSharpDisplayContext.Empty symbol with
       | None -> Error "No tooltip information"
       | Some(signature, footer, cn) ->
         Ok(symbol.XmlDocSig, symbol.Assembly.FileName |> Option.defaultValue "", symbol.XmlDoc, signature, footer, cn)
