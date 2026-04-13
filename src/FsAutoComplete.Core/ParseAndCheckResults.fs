@@ -42,6 +42,38 @@ type ParseAndCheckResults
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
+  let getAllEntitiesUncached (publicOnly: bool) : AssemblySymbol list =
+    try
+      [ yield!
+          AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
+        let ctx = checkResults.ProjectContext
+
+        let assembliesByFileName =
+          ctx.GetReferencedAssemblies()
+          |> List.groupBy (fun asm -> asm.FileName)
+          |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+        // get Content.Entities from it.
+
+        for fileName, signatures in assembliesByFileName do
+          let contentType =
+            if publicOnly then
+              AssemblyContentType.Public
+            else
+              AssemblyContentType.Full
+
+          let content =
+            AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
+
+          yield! content ]
+    with _ ->
+      []
+
+  let cachedPublicEntities = lazy (getAllEntitiesUncached true)
+  let cachedFullEntities = lazy (getAllEntitiesUncached false)
+
+  let cachedCrefResolver =
+    lazy (cachedFullEntities.Force() |> TipFormatter.createCrefResolver)
+
   let getFileName (loc: range) =
     // Keep the full FCS path, just normalize backslashes to forward slashes.
     // FCS may prepend a workspace prefix if the PDB path isn't absolute on this platform.
@@ -765,33 +797,12 @@ type ParseAndCheckResults
     }
 
   member __.GetAllEntities(publicOnly: bool) : AssemblySymbol list =
-    try
-      let res =
-        [ yield!
-            AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
-          let ctx = checkResults.ProjectContext
+    if publicOnly then
+      cachedPublicEntities.Force()
+    else
+      cachedFullEntities.Force()
 
-          let assembliesByFileName =
-            ctx.GetReferencedAssemblies()
-            |> List.groupBy (fun asm -> asm.FileName)
-            |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
-          // get Content.Entities from it.
-
-          for fileName, signatures in assembliesByFileName do
-            let contentType =
-              if publicOnly then
-                AssemblyContentType.Public
-              else
-                AssemblyContentType.Full
-
-            let content =
-              AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
-
-            yield! content ]
-
-      res
-    with _ ->
-      []
+  member __.GetCrefResolver() = cachedCrefResolver.Force()
 
   member __.GetAllSymbolUsesInFile() = checkResults.GetAllUsesOfAllSymbolsInFile()
 
