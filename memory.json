@@ -1,8 +1,9 @@
 {
-  "lr": "2026-04-13",
+  "lr": "2026-04-14",
   "mi": "#1519",
   "m": "2026-04",
   "prs": [
+    1529,
     1528,
     1526,
     1525,
@@ -87,6 +88,7 @@
     1159,
     1203,
     1227,
+    1247,
     1259,
     1271,
     1322,
@@ -97,12 +99,14 @@
     1473,
     1475
   ],
-  "n": "PR created this run: fix-issue-692-remove-global-display-context (perf: remove global mutable FSharpDisplayContext). Monthly issue #1519 rewritten clean. cmts list unreliable - many issues actually have comments not in list. Most open issues already have Repo Assist engagement.",
+  "n": "2026-04-14: Commented on #1247 (nuget script issue - recommended Microsoft.Data.SqlClient). PR #1529 all CI green (19/19). All open RA PRs pass CI. Monthly issue #1519 updated. PR #1493 (changelog v0.84.0) ready to merge. cmts list: added 1247. Checked CIs for #1526, #1518, #1515, #1529 - all passing.",
   "fix_attempts": {
     "692": {
       "pr": "repo-assist/fix-issue-692-remove-global-display-context",
+      "pr_number": 1529,
       "status": "open",
-      "date": "2026-04-13"
+      "date": "2026-04-13",
+      "ci": "all_green"
     }
   }
 }
