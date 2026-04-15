@@ -760,7 +760,8 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option }
+    Notifications: NotificationsDto option
+    DisabledCodeFixes: string array option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
@@ -843,7 +844,8 @@ let tryCreateRegex (pattern: string) =
     None
 
 type FSharpConfig =
-  { AutomaticWorkspaceInit: bool
+  {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
     ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
@@ -896,7 +898,10 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig }
+    Fsac: FSACConfig
+    /// Code fix titles (or substrings thereof) to suppress. Case-insensitive.
+    DisabledCodeFixes: string array
+  }
 
   static member Default: FSharpConfig =
     { AutomaticWorkspaceInit = false
@@ -948,7 +953,8 @@ type FSharpConfig =
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
       Notifications = NotificationsConfig.Default
-      Fsac = FSACConfig.Default }
+      Fsac = FSACConfig.Default
+      DisabledCodeFixes = [||] }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
     { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
@@ -1038,7 +1044,8 @@ type FSharpConfig =
       Fsac =
         dto.Fsac
         |> Option.map FSACConfig.FromDto
-        |> Option.defaultValue FSACConfig.Default }
+        |> Option.defaultValue FSACConfig.Default
+      DisabledCodeFixes = defaultArg dto.DisabledCodeFixes [||] }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
@@ -1142,7 +1149,8 @@ type FSharpConfig =
         dto.Notifications
         |> Option.map x.Notifications.AddDto
         |> Option.defaultValue NotificationsConfig.Default
-      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default }
+      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default
+      DisabledCodeFixes = defaultArg dto.DisabledCodeFixes x.DisabledCodeFixes }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
