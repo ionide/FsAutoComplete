@@ -42,6 +42,38 @@ type ParseAndCheckResults
 
   let logger = LogProvider.getLoggerByName "ParseAndCheckResults"
 
+  let getAllEntitiesUncached (publicOnly: bool) : AssemblySymbol list =
+    try
+      [ yield!
+          AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
+        let ctx = checkResults.ProjectContext
+
+        let assembliesByFileName =
+          ctx.GetReferencedAssemblies()
+          |> List.groupBy (fun asm -> asm.FileName)
+          |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
+        // get Content.Entities from it.
+
+        for fileName, signatures in assembliesByFileName do
+          let contentType =
+            if publicOnly then
+              AssemblyContentType.Public
+            else
+              AssemblyContentType.Full
+
+          let content =
+            AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
+
+          yield! content ]
+    with _ ->
+      []
+
+  let cachedPublicEntities = lazy (getAllEntitiesUncached true)
+  let cachedFullEntities = lazy (getAllEntitiesUncached false)
+
+  let cachedCrefResolver =
+    lazy (cachedFullEntities.Force() |> TipFormatter.createCrefResolver)
+
   let getFileName (loc: range) =
     // Keep the full FCS path, just normalize backslashes to forward slashes.
     // FCS may prepend a workspace prefix if the PDB path isn't absolute on this platform.
@@ -503,32 +535,33 @@ type ParseAndCheckResults
   member x.TryGetFormattedDocumentationForSymbol (xmlSig: string) (assembly: string) =
     let entities = x.GetAllEntities false
 
+    let matchesSymbol includeAssembly (symbol: FSharpSymbol) =
+      try
+        symbol.XmlDocSig = xmlSig
+        && (not includeAssembly || symbol.Assembly.SimpleName = assembly)
+      with _ ->
+        false
+
+    let matchesAbbreviatedEntity includeAssembly (symbol: FSharpSymbol) =
+      match symbol with
+      | FSharpEntity(_, abrvEnt, _) ->
+        try
+          abrvEnt.XmlDocSig = xmlSig
+          && (not includeAssembly || abrvEnt.Assembly.SimpleName = assembly)
+        with _ ->
+          false
+      | _ -> false
+
     let ent =
       entities
-      |> List.tryFind (fun e ->
-        let check = (e.Symbol.XmlDocSig = xmlSig && e.Symbol.Assembly.SimpleName = assembly)
-
-        if not check then
-          match e.Symbol with
-          | FSharpEntity(_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig && abrvEnt.Assembly.SimpleName = assembly
-          | _ -> false
-        else
-          true)
+      |> List.tryFind (fun e -> matchesSymbol true e.Symbol || matchesAbbreviatedEntity true e.Symbol)
 
     let ent =
       match ent with
       | Some ent -> Some ent
       | None ->
         entities
-        |> List.tryFind (fun e ->
-          let check = (e.Symbol.XmlDocSig = xmlSig)
-
-          if not check then
-            match e.Symbol with
-            | FSharpEntity(_, abrvEnt, _) -> abrvEnt.XmlDocSig = xmlSig
-            | _ -> false
-          else
-            true)
+        |> List.tryFind (fun e -> matchesSymbol false e.Symbol || matchesAbbreviatedEntity false e.Symbol)
 
     let symbol =
       match ent with
@@ -538,13 +571,47 @@ type ParseAndCheckResults
         |> List.tryPick (fun e ->
           match e.Symbol with
           | FSharpEntity(ent, _, _) ->
-            match ent.MembersFunctionsAndValues |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
-            | Some e -> Some(e :> FSharpSymbol)
+            match
+              ent.MembersFunctionsAndValues
+              |> Seq.tryPick (fun f ->
+                try
+                  if f.XmlDocSig = xmlSig then
+                    Some(f :> FSharpSymbol)
+                  else
+                    None
+                with _ ->
+                  None)
+            with
+            | Some e -> Some e
             | None ->
-              match ent.FSharpFields |> Seq.tryFind (fun f -> f.XmlDocSig = xmlSig) with
-              | Some e -> Some(e :> FSharpSymbol)
-              | None -> None
+              match
+                ent.FSharpFields
+                |> Seq.tryPick (fun f ->
+                  try
+                    if f.XmlDocSig = xmlSig then
+                      Some(f :> FSharpSymbol)
+                    else
+                      None
+                  with _ ->
+                    None)
+              with
+              | Some e -> Some e
+              | None ->
+                ent.UnionCases
+                |> Seq.tryPick (fun f ->
+                  try
+                    if f.XmlDocSig = xmlSig then
+                      Some(f :> FSharpSymbol)
+                    else
+                      None
+                  with _ ->
+                    None)
           | _ -> None)
+
+    let symbol =
+      match symbol with
+      | Some symbol when matchesSymbol false symbol -> Some symbol
+      | _ -> None
 
     match symbol with
     | None -> Error "No matching symbol information"
@@ -730,33 +797,12 @@ type ParseAndCheckResults
     }
 
   member __.GetAllEntities(publicOnly: bool) : AssemblySymbol list =
-    try
-      let res =
-        [ yield!
-            AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
-          let ctx = checkResults.ProjectContext
+    if publicOnly then
+      cachedPublicEntities.Force()
+    else
+      cachedFullEntities.Force()
 
-          let assembliesByFileName =
-            ctx.GetReferencedAssemblies()
-            |> List.groupBy (fun asm -> asm.FileName)
-            |> List.rev // if mscorlib.dll is the first then FSC raises exception when we try to
-          // get Content.Entities from it.
-
-          for fileName, signatures in assembliesByFileName do
-            let contentType =
-              if publicOnly then
-                AssemblyContentType.Public
-              else
-                AssemblyContentType.Full
-
-            let content =
-              AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
-
-            yield! content ]
-
-      res
-    with _ ->
-      []
+  member __.GetCrefResolver() = cachedCrefResolver.Force()
 
   member __.GetAllSymbolUsesInFile() = checkResults.GetAllUsesOfAllSymbolsInFile()
 

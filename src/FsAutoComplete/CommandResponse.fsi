@@ -20,6 +20,13 @@ module CommandResponse =
   open FSharp.Compiler.Text
   type ResponseMsg<'T> = { Kind: string; Data: 'T }
 
+  type DocumentationLinkContext =
+    { FileName: string
+      Line: int
+      Character: int }
+
+  val addDocumentationLinkContext: context: DocumentationLinkContext option -> content: string -> string
+
   type ResponseError<'T> =
     { Code: int
       Message: string
@@ -229,23 +236,29 @@ module CommandResponse =
 
   val formattedDocumentation:
     serialize: Serializer ->
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
     param:
       {| Tip: ToolTipText option
          XmlSig: (string * string) option
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |} ->
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |} ->
       string
 
   val formattedDocumentationForSymbol:
     serialize: Serializer ->
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
     param:
       {| Xml: string
          Assembly: string
          XmlDoc: FSharpXmlDoc
          Signature: (string * DocumentationFormatter.EntityInfo)
          Footer: string
-         XmlKey: string |} ->
+         XmlKey: string
+         LinkContext: DocumentationLinkContext option |} ->
       string
 
   val typeSig: serialize: Serializer -> tip: ToolTipText -> string

@@ -85,6 +85,7 @@ type ParseAndCheckResults =
       Async<(DeclarationListItem array * string * bool) option>
 
   member GetAllEntities: publicOnly: bool -> AssemblySymbol list
+  member GetCrefResolver: unit -> (string -> (string * string * string) option)
   member GetAllSymbolUsesInFile: unit -> seq<FSharpSymbolUse>
   member GetSemanticClassification: SemanticClassificationItem array
   member GetAST: ParsedInput
