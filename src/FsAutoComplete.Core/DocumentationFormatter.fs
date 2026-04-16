@@ -128,6 +128,31 @@ module DocumentationFormatter =
 
   let format displayContext (typ: FSharpType) : (string * int) = formatType displayContext typ
 
+  /// Recursively unwraps type abbreviations to reach the underlying concrete type.
+  let rec private expandTypeAbbreviations (t: FSharpType) =
+    if t.IsAbbreviation then
+      expandTypeAbbreviations t.AbbreviatedType
+    else
+      t
+
+  /// Returns the expanded (concrete) display string for a type if it is a type abbreviation,
+  /// and the expanded form differs from the alias name. Returns None otherwise.
+  let private tryGetExpandedAliasDisplay (displayContext: FSharpDisplayContext) (typ: FSharpType) =
+    try
+      if typ.IsAbbreviation then
+        let aliasDisplay = formatType displayContext typ |> fst
+        let expanded = expandTypeAbbreviations typ
+        let expandedDisplay = expanded.Format displayContext
+
+        if expandedDisplay <> aliasDisplay then
+          Some expandedDisplay
+        else
+          None
+      else
+        None
+    with _ ->
+      None
+
   let formatGenericParameter includeMemberConstraintTypes displayContext (param: FSharpGenericParameter) =
 
     let asGenericParamName (param: FSharpGenericParameter) = "'" + param.Name
@@ -338,13 +363,23 @@ module DocumentationFormatter =
       | Some ent -> ent.IsDelegate
       | _ -> false
 
+    let retTypeExpandedAlias =
+      try
+        tryGetExpandedAliasDisplay displayContext func.ReturnParameter.Type
+      with _ ->
+        None
+
     match argInfos with
     | [] ->
       //When does this occur, val type within  module?
       if isDelegate then
         retType
       else
-        modifiers ++ functionName + ":" ++ retType
+        let baseSig = modifiers ++ functionName + ":" ++ retType
+
+        match retTypeExpandedAlias with
+        | Some expanded -> baseSig + nl + indent + "    // = " + expanded
+        | None -> baseSig
 
     | [ [] ] ->
       if isDelegate then
@@ -559,9 +594,16 @@ module DocumentationFormatter =
           Some formattedParam
       | _ -> None
 
-    match constraints with
-    | Some constraints -> prefix ++ name ++ ":" ++ constraints
-    | None -> prefix ++ name ++ ":" ++ retType
+    let expandedAlias = tryGetExpandedAliasDisplay displayContext v.FullType
+
+    let baseSig =
+      match constraints with
+      | Some constraints -> prefix ++ name ++ ":" ++ constraints
+      | None -> prefix ++ name ++ ":" ++ retType
+
+    match expandedAlias with
+    | Some expanded -> baseSig + nl + "    // = " + expanded
+    | None -> baseSig
 
   let getFieldSignature displayContext (field: FSharpField) =
     let retType = field.FieldType |> format displayContext |> fst

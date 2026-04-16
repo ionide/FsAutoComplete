@@ -298,7 +298,7 @@ module Document =
 
       let! result = tcs.Task |> Async.AwaitTask
 
-      return result |> Seq.last
+      return result |> Seq.tryLast |> Option.defaultValue [||]
     }
 
 
