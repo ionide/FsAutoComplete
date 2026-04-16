@@ -1672,6 +1672,18 @@ type AdaptiveFSharpLspServer
           let (actions: Fix list[], errors: string[]) = Array.partitionResults fixes
           let actions = actions |> List.concat
 
+          let disabledCodeFixes = state.Config.DisabledCodeFixes
+
+          let actions =
+            if disabledCodeFixes.Length = 0 then
+              actions
+            else
+              actions
+              |> List.filter (fun (fix: Fix) ->
+                disabledCodeFixes
+                |> Array.forall (fun (disabled: string) ->
+                  fix.Title.IndexOf(disabled, System.StringComparison.OrdinalIgnoreCase) < 0))
+
           if errors.Length <> 0 then
             logger.trace (
               Log.setMessage
