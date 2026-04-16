@@ -2404,6 +2404,27 @@ let private removeRedundantQualifierTests state =
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
         Diagnostics.acceptAll
+        selectCodeFix
+
+      testCaseAsync "doesn't report false positive when local variable shadows member property (issue #1259)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type User(name: string) =
+          member val Name = name with get
+
+        type Envelop() =
+          member val user = User("toto") with get
+
+        let test () =
+          let user = User("user")
+          let envelop = Envelop()
+          if $0envelop.user.Name = "maxime" then
+            printfn "It works"
+          else
+            printfn "It doesn't work"
+        """
+        Diagnostics.acceptAll
         selectCodeFix ])
 
 let private removeUnnecessaryReturnOrYieldTests state =
@@ -3672,6 +3693,20 @@ let private removeUnnecessaryParenthesesTests state =
         ""+(Unchecked.defaultof<string>)$0+""
         """
         (Diagnostics.expectCode "FSAC0004")
+        selector
+
+      testCaseAsync "Keep parens in fluent method chain when argument is a decimal literal (issue #1362)"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type Color(value: float) =
+          member _.lighten(amount: float) = Color(value + amount)
+          member _.hexa() = value.ToString()
+
+        let bg = Color(0.5)
+        let result = bg.lighten($0(0.2)).hexa ()
+        """
+        Diagnostics.acceptAll
         selector
 
       ])
