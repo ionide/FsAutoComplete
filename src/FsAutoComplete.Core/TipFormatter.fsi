@@ -54,7 +54,11 @@ module private Format =
     /// A list where the items are a term followed by a definition (ie in markdown: * <TERM> - <DEFINITION>)
     | Definitions of Term * Definition
 
-  val applyAll: text: string -> string
+  val applyAll:
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
+    text: string ->
+      string
 
 [<RequireQualifiedAccess; Struct>]
 type FormatCommentStyle =
@@ -63,14 +67,25 @@ type FormatCommentStyle =
   | SummaryOnly
   | Documentation
 
+val createCrefResolver: symbols: AssemblySymbol list -> (string -> (string * string * string) option)
+
 type private XmlDocMember =
   new: doc: XmlDocument * indentationSize: int * columnOffset: int -> XmlDocMember
   override ToString: unit -> string
   member ToSummaryOnlyString: unit -> string
   member HasTruncatedExamples: bool
-  member ToFullEnhancedString: unit -> string
-  member ToDocumentationString: unit -> string
-  member FormatComment: formatStyle: FormatCommentStyle -> string
+
+  member ToFullEnhancedString:
+    showDocumentationLinks: bool -> tryResolveCref: (string -> (string * string * string) option) -> string
+
+  member ToDocumentationString:
+    showDocumentationLinks: bool -> tryResolveCref: (string -> (string * string * string) option) -> string
+
+  member FormatComment:
+    formatStyle: FormatCommentStyle ->
+    showDocumentationLinks: bool ->
+    tryResolveCref: (string -> (string * string * string) option) ->
+      string
 
 [<RequireQualifiedAccess>]
 type private TryGetXmlDocMemberResult =
@@ -102,6 +117,8 @@ val cleanParameterDisplay: display: TaggedText[] -> string
 /// </summary>
 /// <param name="toolTipText">Tooltip documentation to render in the middle</param>
 /// <param name="formatCommentStyle">Style of tooltip</param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success {| DocComment; HasTruncatedExamples |}</c> if the doc comment has been formatted
 ///
@@ -113,6 +130,8 @@ val cleanParameterDisplay: display: TaggedText[] -> string
 val tryFormatTipEnhanced:
   toolTipText: ToolTipText ->
   formatCommentStyle: FormatCommentStyle ->
+  showDocumentationLinks: bool ->
+  tryResolveCref: (string -> (string * string * string) option) ->
     TipFormatterResult<
       {| DocComment: string
          HasTruncatedExamples: bool |}
@@ -129,16 +148,24 @@ val tryFormatTipEnhanced:
 /// <param name="assemblyName">Assembly name, example <c>FSharp.Core</c></param>
 /// <returns>Returns a string which represent the show documentation link</returns>
 val renderShowDocumentationLink: hasTruncatedExamples: bool -> xmlDocSig: string -> assemblyName: string -> string
+
 /// <summary>
 /// Try format the given tooltip as documentation.
 /// </summary>
 /// <param name="toolTipText">Tooltip to format</param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
 /// - <c>TipFormatterResult.None</c> if the doc comment has not been found
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
-val tryFormatDocumentationFromTooltip: toolTipText: ToolTipText -> TipFormatterResult<string>
+val tryFormatDocumentationFromTooltip:
+  toolTipText: ToolTipText ->
+  showDocumentationLinks: bool ->
+  tryResolveCref: (string -> (string * string * string) option) ->
+    TipFormatterResult<string>
+
 /// <summary>
 /// Try format the doc comment based on the XmlSignature and the assembly name.
 /// </summary>
@@ -152,13 +179,26 @@ val tryFormatDocumentationFromTooltip: toolTipText: ToolTipText -> TipFormatterR
 ///
 /// Example: <c>FSharp.Core</c>
 /// </param>
+/// <param name="showDocumentationLinks">Whether resolved cref targets should be rendered as documentation command links.</param>
+/// <param name="tryResolveCref">Resolves a cref string to XmlDocSig, assembly name, and display name.</param>
 /// <returns>
 /// - <c>TipFormatterResult.Success string</c> if the doc comment has been formatted
 /// - <c>TipFormatterResult.None</c> if the doc comment has not been found
 /// - <c>TipFormatterResult.Error string</c> if an error occurred while parsing the doc comment
 /// </returns>
-val tryFormatDocumentationFromXmlSig: xmlSig: string -> assembly: string -> TipFormatterResult<string>
-val formatDocumentationFromXmlDoc: xmlDoc: FSharpXmlDoc -> TipFormatterResult<string>
+val tryFormatDocumentationFromXmlSig:
+  xmlSig: string ->
+  assembly: string ->
+  showDocumentationLinks: bool ->
+  tryResolveCref: (string -> (string * string * string) option) ->
+    TipFormatterResult<string>
+
+val formatDocumentationFromXmlDoc:
+  xmlDoc: FSharpXmlDoc ->
+  showDocumentationLinks: bool ->
+  tryResolveCref: (string -> (string * string * string) option) ->
+    TipFormatterResult<string>
+
 val extractSignature: ToolTipText -> string
 /// extracts any generic parameters present in this tooltip, rendering them as plain text
 val extractGenericParameters: ToolTipText -> string list
