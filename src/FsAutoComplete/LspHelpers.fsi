@@ -342,7 +342,8 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option }
+    Notifications: NotificationsDto option
+    DisabledCodeFixes: string array option }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
@@ -387,7 +388,8 @@ type FSACConfig =
   member AddDto: dto: FSACDto -> FSACConfig
 
 type FSharpConfig =
-  { AutomaticWorkspaceInit: bool
+  {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
     ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
@@ -436,7 +438,10 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig }
+    Fsac: FSACConfig
+    /// Code fix titles (or substrings thereof) to suppress. Case-insensitive.
+    DisabledCodeFixes: string array
+  }
 
   static member Default: FSharpConfig
   static member FromDto: dto: FSharpConfigDto -> FSharpConfig
