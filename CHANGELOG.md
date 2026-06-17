@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Update FSharp.Analyzers.SDK to `0.37.2`, which bumps FSharp.Core to `10.1.201` and FSharp.Compiler.Service to `43.12.201`, and adapt to the corresponding FCS syntax-tree API changes.
+
 ### Fixed
 
 - [Disable inline values by default to restore pipeline hints](https://github.com/ionide/FsAutoComplete/pull/1456) - `InlineValueProvider` is no longer advertised by default, restoring pipeline hints during normal editing (closes [#1214](https://github.com/ionide/FsAutoComplete/issues/1214))

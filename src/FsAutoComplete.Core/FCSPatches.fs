@@ -135,7 +135,7 @@ module SyntaxTreeOps =
 
       | SynExpr.Match(expr = e; clauses = cl) -> walkExpr e || walkMatchClauses cl
 
-      | SynExpr.LetOrUse(bindings = bs; body = e) -> walkBinds bs || walkExpr e
+      | SynExpr.LetOrUse letOrUse -> walkBinds letOrUse.Bindings || walkExpr letOrUse.Body
 
       | SynExpr.TryWith(tryExpr = e; withCases = cl) -> walkExpr e || walkMatchClauses cl
 
@@ -243,7 +243,15 @@ type LanguageVersionShim(versionText: string) =
   static let LanguageVersionTy =
     lazy (Type.GetType("FSharp.Compiler.Features+LanguageVersion, FSharp.Compiler.Service"))
 
-  static let ctor = lazy (LanguageVersionTy.Value.GetConstructor([| typeof<string> |]))
+  // FCS 43.12 changed the LanguageVersion constructor from `(string)` to
+  // `(string, disabledFeaturesArray: _ option)`, so we can't look it up by an exact
+  // signature. Find the constructor whose first parameter is the version string instead.
+  static let ctor =
+    lazy
+      (LanguageVersionTy.Value.GetConstructors()
+       |> Array.find (fun c ->
+         let ps = c.GetParameters()
+         ps.Length >= 1 && ps.[0].ParameterType = typeof<string>))
 
   static let isPreviewEnabled =
     lazy (ReflectionDelegates.createGetter<bool> LanguageVersionTy.Value "IsPreviewEnabled")
@@ -251,7 +259,12 @@ type LanguageVersionShim(versionText: string) =
   static let supportsFeature =
     lazy (ReflectionDelegates.createFuncArity1<bool> LanguageVersionTy.Value LanguageFeatureShim.Type "SupportsFeature")
 
-  let realLanguageVersion = ctor.Value.Invoke([| versionText |])
+  // Pass the version text as the first argument and null (= None / default) for any
+  // additional optional parameters the constructor may have gained.
+  let realLanguageVersion =
+    let c = ctor.Value
+    let args = c.GetParameters() |> Array.mapi (fun i _ -> if i = 0 then box versionText else null)
+    c.Invoke(args)
 
   member x.IsPreviewEnabled = isPreviewEnabled.Value realLanguageVersion
 

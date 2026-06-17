@@ -261,7 +261,7 @@ type AdaptiveState
     if enableAnalyzers then
       let mutable assemblyLoadStats =
         { AnalyzerAssemblies = 0
-          Analyzers = 0
+          AnalyzerNames = []
           FailedAssemblies = 0 }
 
       let excludeInclude =
@@ -287,7 +287,7 @@ type AdaptiveState
 
           assemblyLoadStats <-
             { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
-              Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
+              AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
               FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
 
 
@@ -298,7 +298,7 @@ type AdaptiveState
 
         assemblyLoadStats <-
           { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
-            Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
+            AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
             FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
 
       )

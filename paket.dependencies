@@ -24,7 +24,7 @@ nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis
-nuget FSharp.Analyzers.SDK 0.35.0
+nuget FSharp.Analyzers.SDK 0.37.2
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core

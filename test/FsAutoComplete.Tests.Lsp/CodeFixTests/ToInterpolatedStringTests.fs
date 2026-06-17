@@ -7,12 +7,14 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 open FsAutoComplete.FCSPatches
 
-let langVersion60Config =
+// NOTE: language versions <= 7.0 are "out of support" in FCS 43.12+ and cause the
+// project to fail to load, so we pin to 8.0 (LTS), which still supports string interpolation.
+let langVersion80Config =
   { defaultConfigDto with
-      FSIExtraSharedParameters = Some [| "--langversion:6.0" |] }
+      FSIExtraSharedParameters = Some [| "--langversion:8.0" |] }
 
 let tests state =
-  serverTestList (nameof ToInterpolatedString) state langVersion60Config None (fun server ->
+  serverTestList (nameof ToInterpolatedString) state langVersion80Config None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
 
       testCaseAsync "simple integer string format"
@@ -341,6 +343,17 @@ let tests state =
         Expect.equal true (languageVersion.SupportsFeature LanguageFeatureShim) ""
       }
 
+      // String interpolation was introduced in F# 5.0, so an older language version must report
+      // it as unsupported. This replaces the former `unavailableTests` server test: every language
+      // version still supported by FCS now includes the feature, so the negative case can only be
+      // exercised at the unit level (constructing the shim does not require the version to compile).
+      testCaseAsync "Reflecting into LanguageVersion - feature unsupported in older version"
+      <| async {
+        let feature = LanguageFeatureShim("StringInterpolation")
+        let languageVersion = LanguageVersionShim("4.7")
+        Expect.equal false (languageVersion.SupportsFeature feature) ""
+      }
+
       testCaseAsync "Multiline applications are not supported"
       <| CodeFix.checkNotApplicable
         server
@@ -348,25 +361,6 @@ let tests state =
         sprintf$0
             "%A"
             { new System.IDisposable with member _.Dispose() = () }
-        """
-        Diagnostics.acceptAll
-        selectCodeFix
-
-      ])
-
-let langVersion47Config =
-  { defaultConfigDto with
-      FSIExtraSharedParameters = Some [| "--langversion:4.7" |] }
-
-let unavailableTests state =
-  serverTestList $"unavailable {(nameof ToInterpolatedString)}" state langVersion47Config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
-
-      testCaseAsync "codefix not available for langversion"
-      <| CodeFix.checkNotApplicable
-        server
-        """
-        let a = sprintf$0 "Hey %i" 3
         """
         Diagnostics.acceptAll
         selectCodeFix
