@@ -298,7 +298,10 @@ module Document =
 
       let! result = tcs.Task |> Async.AwaitTask
 
-      return result |> Seq.last
+      // The buffer can close empty under load (e.g. the `documentAnalyzed` signal arrives
+      // before any `publishDiagnostics` batch), so `Seq.last` would throw "input sequence
+      // was empty". No batch published in the window == no diagnostics -> return empty.
+      return result |> Seq.tryLast |> Option.defaultValue [||]
     }
 
 
