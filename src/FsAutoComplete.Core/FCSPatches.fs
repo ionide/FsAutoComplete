@@ -263,7 +263,11 @@ type LanguageVersionShim(versionText: string) =
   // additional optional parameters the constructor may have gained.
   let realLanguageVersion =
     let c = ctor.Value
-    let args = c.GetParameters() |> Array.mapi (fun i _ -> if i = 0 then box versionText else null)
+
+    let args =
+      c.GetParameters()
+      |> Array.mapi (fun i _ -> if i = 0 then box versionText else null)
+
     c.Invoke(args)
 
   member x.IsPreviewEnabled = isPreviewEnabled.Value realLanguageVersion
