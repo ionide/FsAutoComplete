@@ -445,10 +445,14 @@ let lspTestsPath = (__SOURCE_DIRECTORY__ </> "test" </> "FsAutoComplete.Tests.Ls
 let createGlobalJson sdkVersion =
   $"dotnet new globaljson --force --sdk-version %s{sdkVersion} --roll-forward LatestMinor"
 
+// Every stage builds with the .NET 10 SDK (Paket 10 is a net9.0-only tool the older
+// SDKs can't restore) and narrows the build to its own TFM via TargetTfm. The matching
+// runtime must be installed locally to execute the tests.
 let net80Tests =
   stage "test:net8.0" {
     workingDir lspTestsPath
-    run (createGlobalJson "8.0.300")
+    envVars [ "TargetTfm", "net8.0" ]
+    run (createGlobalJson "10.0.100")
     toolRestore
     run "dotnet test -c Release -f net8.0"
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
@@ -457,8 +461,8 @@ let net80Tests =
 let net90Tests =
   stage "test:net9.0" {
     workingDir lspTestsPath
-    envVars [ "BuildNet9", "true" ]
-    run (createGlobalJson "9.0.100")
+    envVars [ "TargetTfm", "net9.0" ]
+    run (createGlobalJson "10.0.100")
     toolRestore
     run "dotnet test -c Release -f net9.0"
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
@@ -467,7 +471,7 @@ let net90Tests =
 let net100Tests =
   stage "test:net10.0" {
     workingDir lspTestsPath
-    envVars [ "BuildNet10", "true" ]
+    envVars [ "TargetTfm", "net10.0" ]
     run (createGlobalJson "10.0.100")
     toolRestore
     run "dotnet test -c Release -f net10.0"

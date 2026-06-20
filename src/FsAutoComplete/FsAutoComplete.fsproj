@@ -2,9 +2,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net8.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildNet9)' == 'true'">net8.0;net9.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(BuildNet10)' == 'true'">net8.0;net9.0;net10.0</TargetFrameworks>
+    <!-- Build all supported runtimes by default (release/pack, local dev). CI and
+         build.fsx narrow this to one TFM per leg via $(TargetTfm); everything builds
+         with the .NET 10 SDK (Paket 10 is a net9.0-only tool the .NET 8 SDK can't restore). -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(TargetTfm)' != ''">$(TargetTfm)</TargetFrameworks>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
