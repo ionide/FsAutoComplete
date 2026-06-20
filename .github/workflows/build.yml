@@ -35,9 +35,9 @@ jobs:
           - "WorkspaceLoader"
           # - "ProjectGraph" # this is disable because it just adds too much time to the build
         # these entries will mesh with the above combinations
-        # Every leg builds with the .NET 10 SDK (installed below) and narrows the build
-        # to its own TFM via $(TargetTfm); matrix.dotnet-version only provides the
-        # runtime the tests execute on.
+        # Every leg builds all TFMs with the .NET 10 SDK (installed below);
+        # matrix.dotnet-version only provides the runtime the tests execute on,
+        # and matrix.test_tfm selects which TFM's tests run on that leg.
         include:
           # net8.0 runtime
           - global-json-file: "global.json"
@@ -109,16 +109,14 @@ jobs:
 #    - name: EnsureCanScaffoldCodeFix
 #      run: dotnet fsi build.fsx -- -p EnsureCanScaffoldCodeFix
 
+    # Builds every supported TFM (projects are multi-targeted) with the .NET 10 SDK.
     - name: Run Build
       run: dotnet build -c Release
-      env:
-        TargetTfm: ${{ matrix.test_tfm }}
 
     - name: Run and report tests
       run: dotnet test -c Release -f ${{ matrix.test_tfm }} --no-restore --no-build  --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m
       working-directory: test/FsAutoComplete.Tests.Lsp
       env:
-        TargetTfm: ${{ matrix.test_tfm }}
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}
 

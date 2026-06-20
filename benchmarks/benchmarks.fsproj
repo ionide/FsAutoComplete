@@ -2,9 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- All supported runtimes by default; CI/build.fsx narrow to one via $(TargetTfm). -->
+    <!-- All supported runtimes; everything builds with the .NET 10 SDK. -->
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(TargetTfm)' != ''">$(TargetTfm)</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="SourceTextBenchmarks.fs" />

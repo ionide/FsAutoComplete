@@ -30,7 +30,7 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      # No TargetTfm override here, so this packs all supported TFMs
+      # Projects are multi-targeted, so this packs all supported TFMs
       # (net8.0;net9.0;net10.0) using the .NET 10 SDK installed above.
       - name: Run Build
         run: dotnet pack -c Release -o ./bin
