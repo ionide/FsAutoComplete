@@ -298,7 +298,9 @@ module Document =
 
       let! result = tcs.Task |> Async.AwaitTask
 
-      return result |> Seq.last
+      // When no publishDiagnostics notifications arrive (e.g. error-free code), the buffer
+      // can be empty. Use tryLast to return an empty array instead of throwing.
+      return result |> Seq.tryLast |> Option.defaultValue [||]
     }
 
 
