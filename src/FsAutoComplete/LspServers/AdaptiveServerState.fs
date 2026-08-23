@@ -2734,60 +2734,66 @@ type AdaptiveState
 
       let! projects = projectOptions |> AsyncAVal.forceAsync
 
-      let testProjects =
-        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+      // Exit early if there are no projects present at all
+      // ref https://github.com/ionide/ionide-vscode-fsharp/issues/2111
+      if projects.IsEmpty then
+        return []
+      else
 
-      let testProjectBinaries = testProjects |> List.map _.TargetPath
+        let testProjects =
+          projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
 
-      if testProjects |> List.isEmpty then
-        let message = "No test projects found. Make sure you've restored your projects."
+        let testProjectBinaries = testProjects |> List.map _.TargetPath
 
-        do!
-          lspClient.WindowShowMessage(
-            { Type = MessageType.Error
-              Message = message }
-          )
+        if testProjects |> List.isEmpty then
+          let message = "No test projects found. Make sure you've restored your projects."
 
-        return! (Error message)
-      elif not (testProjectBinaries |> List.exists File.Exists) then
-        let message =
-          "No binaries found for test projects. Make sure you've built your projects."
+          do!
+            lspClient.WindowShowMessage(
+              { Type = MessageType.Error
+                Message = message }
+            )
 
-        do!
-          lspClient.WindowShowMessage(
-            { Type = MessageType.Error
-              Message = message }
-          )
+          return! (Error message)
+        elif not (testProjectBinaries |> List.exists File.Exists) then
+          let message =
+            "No binaries found for test projects. Make sure you've built your projects."
 
-        return! (Error message)
+          do!
+            lspClient.WindowShowMessage(
+              { Type = MessageType.Error
+                Message = message }
+            )
 
-      let tryTestCasesToDTOs testCases =
-        let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+          return! (Error message)
 
-        testCases
-        |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+        let tryTestCasesToDTOs testCases =
+          let projectLookup = testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
 
-      let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
-        let dto =
-          match update with
-          | TestServer.VSTestWrapper.TestDiscoveryUpdate.Progress tests ->
-            { Tests = tests |> tryTestCasesToDTOs |> Array.ofList
-              TestLogs = [||] }
-          | TestServer.VSTestWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
-            { Tests = [||]
-              TestLogs =
-                [| { Message = message
-                     Level = string level } |] }
+          testCases
+          |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+
+        let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
+          let dto =
+            match update with
+            | TestServer.VSTestWrapper.TestDiscoveryUpdate.Progress tests ->
+              { Tests = tests |> tryTestCasesToDTOs |> Array.ofList
+                TestLogs = [||] }
+            | TestServer.VSTestWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
+              { Tests = [||]
+                TestLogs =
+                  [| { Message = message
+                       Level = string level } |] }
 
 
-        lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
+          lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
 
-      let! testCases =
-        TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
+        let! testCases =
+          TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
 
-      let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
+        let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
 
-      return testDTOs
+        return testDTOs
     }
 
   member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
