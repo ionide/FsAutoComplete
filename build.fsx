@@ -455,7 +455,7 @@ let net80Tests =
     run "dotnet build -c Release -f net8.0"
     run (createGlobalJson "8.0.100")
     run "dotnet test -c Release -f net8.0 --no-restore --no-build"
-    run (createGlobalJson "10.0.100")
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
 let net90Tests =
@@ -466,7 +466,7 @@ let net90Tests =
     run "dotnet build -c Release -f net9.0"
     run (createGlobalJson "9.0.100")
     run "dotnet test -c Release -f net9.0 --no-restore --no-build"
-    run (createGlobalJson "10.0.100")
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
 let net100Tests =
@@ -476,6 +476,7 @@ let net100Tests =
     toolRestore
     run "dotnet build -c Release -f net10.0"
     run "dotnet test -c Release -f net10.0 --no-restore --no-build"
+    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
 
