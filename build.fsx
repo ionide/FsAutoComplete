@@ -448,15 +448,16 @@ let createGlobalJson sdkVersion =
 let testCommand targetFramework =
   $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m"""
 
-// Every stage restores and builds with the .NET 10 SDK because older SDKs cannot restore Paket 10.
-// It then selects the SDK that matches the test target framework.
+// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
+// It then builds and tests with the SDK that matches the test target framework.
 let net80Tests =
   stage "test:net8.0" {
     workingDir lspTestsPath
     run (createGlobalJson "10.0.100")
     toolRestore
-    run "dotnet build -c Release -f net8.0"
+    run "dotnet restore"
     run (createGlobalJson "8.0.100")
+    run "dotnet build -c Release -f net8.0 --no-restore"
     run (testCommand "net8.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
@@ -466,8 +467,9 @@ let net90Tests =
     workingDir lspTestsPath
     run (createGlobalJson "10.0.100")
     toolRestore
-    run "dotnet build -c Release -f net9.0"
+    run "dotnet restore"
     run (createGlobalJson "9.0.100")
+    run "dotnet build -c Release -f net9.0 --no-restore"
     run (testCommand "net9.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
@@ -477,7 +479,8 @@ let net100Tests =
     workingDir lspTestsPath
     run (createGlobalJson "10.0.100")
     toolRestore
-    run "dotnet build -c Release -f net10.0"
+    run "dotnet restore"
+    run "dotnet build -c Release -f net10.0 --no-restore"
     run (testCommand "net10.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
