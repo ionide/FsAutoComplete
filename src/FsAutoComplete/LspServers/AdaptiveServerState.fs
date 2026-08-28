@@ -2740,7 +2740,7 @@ type AdaptiveState
       let testProjectBinaries = testProjects |> List.map _.TargetPath
 
       if testProjects |> List.isEmpty then
-        let message = "No test projects found. Make sure you've restored your projects"
+        let message = "No test projects found. Make sure you've restored your projects."
 
         do!
           lspClient.WindowShowMessage(
@@ -2751,7 +2751,7 @@ type AdaptiveState
         return! (Error message)
       elif not (testProjectBinaries |> List.exists File.Exists) then
         let message =
-          "No binaries found for test projects. Make sure you've built your projects"
+          "No binaries found for test projects. Make sure you've built your projects."
 
         do!
           lspClient.WindowShowMessage(

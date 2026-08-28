@@ -107,7 +107,7 @@ module Commands =
   let private formattingFailure (response: FantomasResponse) =
     match response.Content with
     | Some message when not (String.IsNullOrWhiteSpace message) -> sprintf "Formatting failed: %s" message
-    | _ -> sprintf "Formatting failed with %A" (enum<FantomasResponseCode> response.Code)
+    | _ -> sprintf "Formatting failed with %A." (enum<FantomasResponseCode> response.Code)
 
   /// Every answer other than formatted code. `formatDocument` and `formatSelection` read these the
   /// same way; they differ only in what "formatted" means to each of them.

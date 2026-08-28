@@ -232,7 +232,7 @@ type AdaptiveFSharpLspServer
 
             let message =
               sprintf
-                "%s ignored part of the configuration for \"%s\": %s"
+                "%s ignored part of the configuration for \"%s\": %s."
                 fantomas
                 (Path.GetFileName warning.FilePath)
                 summary
@@ -485,7 +485,7 @@ type AdaptiveFSharpLspServer
                     do!
                       lspClient.WindowShowMessage
                         { Type = MessageType.Info
-                          Message = "fantomas was installed locally" }
+                          Message = "fantomas was installed locally." }
 
                     fantomasService.ClearCache()
                   else
@@ -505,7 +505,7 @@ type AdaptiveFSharpLspServer
               do!
                 lspClient.WindowShowMessage
                   { Type = MessageType.Info
-                    Message = "fantomas was installed globally" }
+                    Message = "fantomas was installed globally." }
 
               fantomasService.ClearCache()
             else
