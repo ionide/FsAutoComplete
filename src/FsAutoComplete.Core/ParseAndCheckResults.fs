@@ -22,6 +22,18 @@ type FindDeclarationResult =
   /// The declaration refers to a file.
   | File of string
 
+/// Which side to favour when a symbol is declared in both a signature and an implementation file.
+/// Has no effect on symbols that are declared in only one of the two.
+[<RequireQualifiedAccess>]
+type FindDeclarationPreference =
+  | Implementation
+  | Signature
+
+  member x.PreferSignature =
+    match x with
+    | Implementation -> false
+    | Signature -> true
+
 [<RequireQualifiedAccess>]
 module TryGetToolTipEnhancedResult =
 
@@ -49,10 +61,10 @@ type ParseAndCheckResults
     let normalized = loc.FileName.Replace('\\', '/')
     UMX.tag<NormalizedRepoPathSegment> normalized
 
-  member __.TryFindDeclaration (pos: Position) (lineStr: LineStr) =
+  member __.TryFindDeclaration (pos: Position) (lineStr: LineStr) (preference: FindDeclarationPreference) =
     async {
       // try find identifier first
-      let! identResult = __.TryFindIdentifierDeclaration pos lineStr
+      let! identResult = __.TryFindIdentifierDeclaration pos lineStr preference
 
       match identResult with
       | Ok r -> return Ok r
@@ -86,14 +98,20 @@ type ParseAndCheckResults
       | None -> return Error "load directive not recognized"
     }
 
-  member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) =
+  member x.TryFindIdentifierDeclaration (pos: Position) (lineStr: LineStr) (preference: FindDeclarationPreference) =
     match Lexer.findLongIdents (uint32 pos.Column, lineStr) with
     | None -> async.Return(ResultOrString.Error "Could not find ident at this location")
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
 
       let declarations =
-        checkResults.GetDeclarationLocation(pos.Line, int col, lineStr, identIsland, preferFlag = false)
+        checkResults.GetDeclarationLocation(
+          pos.Line,
+          int col,
+          lineStr,
+          identIsland,
+          preferFlag = preference.PreferSignature
+        )
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with

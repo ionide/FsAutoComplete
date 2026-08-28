@@ -1298,7 +1298,16 @@ type AdaptiveFSharpLspServer
 
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
-          let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
+
+          let! decl =
+            Commands.findDeclaration
+              (fun file -> state.GetProjectOptionsForFile file)
+              (fun file -> state.GetTypeCheckResultsForFile file)
+              tyRes
+              pos
+              lineStr
+            |> AsyncResult.ofStringErr
+
           return decl |> findDeclToLspLocation |> U2.C1 |> U2.C1 |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -2531,7 +2540,9 @@ type AdaptiveFSharpLspServer
           let! lineStr = tryGetLineStr pos volatileFile.Source |> Result.lineLookupErr
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
-          let! decl = tyRes.TryFindDeclaration pos lineStr |> AsyncResult.ofStringErr
+          let! decl =
+            tyRes.TryFindDeclaration pos lineStr FindDeclarationPreference.Implementation
+            |> AsyncResult.ofStringErr
 
           let! lexedResult =
             Lexer.getSymbol (uint32 pos.Line) (uint32 pos.Column) lineStr SymbolLookupKind.Fuzzy [||]

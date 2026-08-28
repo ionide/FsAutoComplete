@@ -22,6 +22,15 @@ type FindDeclarationResult =
   /// The declaration refers to a file.
   | File of string
 
+/// Which side to favour when a symbol is declared in both a signature and an implementation file.
+/// Has no effect on symbols that are declared in only one of the two.
+[<RequireQualifiedAccess>]
+type FindDeclarationPreference =
+  | Implementation
+  | Signature
+
+  member PreferSignature: bool
+
 [<RequireQualifiedAccess>]
 module TryGetToolTipEnhancedResult =
   type SymbolInfo =
@@ -41,10 +50,19 @@ type ParseAndCheckResults =
     parseResults: FSharpParseFileResults * checkResults: FSharpCheckFileResults * entityCache: EntityCache ->
       ParseAndCheckResults
 
-  member TryFindDeclaration: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
+  member TryFindDeclaration:
+    pos: Position ->
+    lineStr: LineStr ->
+    preference: FindDeclarationPreference ->
+      Async<Result<FindDeclarationResult, string>>
+
   member TryFindLoadDirectiveSource: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
 
-  member TryFindIdentifierDeclaration: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
+  member TryFindIdentifierDeclaration:
+    pos: Position ->
+    lineStr: LineStr ->
+    preference: FindDeclarationPreference ->
+      Async<Result<FindDeclarationResult, string>>
 
   member TryFindTypeDeclaration: pos: Position -> lineStr: LineStr -> Async<Result<FindDeclarationResult, string>>
   member TryGetToolTip: pos: Position -> lineStr: LineStr -> ToolTipText option

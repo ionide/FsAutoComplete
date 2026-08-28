@@ -6,6 +6,9 @@
     <Compile Include="Definition.fs" />
     <Compile Include="Library.fs" />
     <Compile Include="External.fs" />
+    <Compile Include="Signature.fsi" />
+    <Compile Include="Signature.fs" />
+    <Compile Include="SignatureUsage.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Giraffe" Version="4.0.1" />

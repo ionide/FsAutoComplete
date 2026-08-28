@@ -538,6 +538,94 @@ module Commands =
       | Error e -> return CoreResponse.ErrorRes e
     }
 
+  /// The implementation file paired with `signatureFile`, when the project contains both.
+  let private tryFindPairedImplementationFile
+    (getProjectOptions: string<LocalPath> -> Async<Result<CompilerProjectOption, string>>)
+    (signatureFile: string<LocalPath>)
+    =
+    async {
+      match! getProjectOptions signatureFile with
+      | Error _ -> return None
+      | Ok opts ->
+        // `Foo.fsi` is implemented by `Foo.fs`, but only trust it when the project actually compiles that file.
+        let untagged = UMX.untag signatureFile
+
+        if not (isSignatureFile untagged) then
+          return None
+        else
+          let implementationFile = normalizePath (untagged.Substring(0, untagged.Length - 1))
+          return opts.SourceFilesTagged |> List.tryFind (fun f -> f = implementationFile)
+    }
+
+  /// Is `signatureLocation` the declaration found at `declRange` in `signatureFile`?
+  let private matchesSignatureDeclaration
+    (signatureFile: string<LocalPath>)
+    (declRange: Range)
+    (signatureLocation: Range)
+    =
+    normalizePath signatureLocation.FileName = signatureFile
+    && (Position.posEq signatureLocation.Start declRange.Start
+        || rangeContainsPos signatureLocation declRange.Start)
+
+  /// Find the definition in the implementation file that implements the signature declaration at `declRange`.
+  ///
+  /// FCS cannot answer this from the signature file's own check results: the signature is checked before the
+  /// implementation, so at that point the implementation does not exist yet as far as the compiler is concerned.
+  /// The implementation file's symbols do carry a `SignatureLocation` pointing back into the signature file
+  /// though, so we check the paired file and match on that. Matching on the range rather than on the name means
+  /// overloads and shadowed names resolve to exactly the definition the compiler paired them with.
+  let private tryFindImplementationOfSignatureDeclaration
+    getProjectOptions
+    (getTypeCheckResults: string<LocalPath> -> Async<Result<ParseAndCheckResults, string>>)
+    (declRange: Range)
+    =
+    async {
+      let signatureFile = normalizePath declRange.FileName
+
+      match! tryFindPairedImplementationFile getProjectOptions signatureFile with
+      | None -> return None
+      | Some implementationFile ->
+        match! getTypeCheckResults implementationFile with
+        | Error _ -> return None
+        | Ok implementationTyRes ->
+          return
+            implementationTyRes.GetAllSymbolUsesInFile()
+            |> Seq.tryFind (fun su ->
+              su.IsFromDefinition
+              && (match su.Symbol.SignatureLocation with
+                  | Some signatureLocation -> matchesSignatureDeclaration signatureFile declRange signatureLocation
+                  | None -> false))
+            |> Option.map (fun su -> su.Range)
+    }
+
+  /// Go-to-definition across signature/implementation pairs.
+  ///
+  /// Resolves to the declaration in the signature file when the symbol has one, because that is the public
+  /// access point. When the cursor is already on that signature declaration, resolves to the matching
+  /// definition in the implementation file instead, so that repeated invocations move between the two.
+  let findDeclaration
+    getProjectOptions
+    getTypeCheckResults
+    (tyRes: ParseAndCheckResults)
+    (pos: Position)
+    (lineStr: LineStr)
+    =
+    async {
+      match! tyRes.TryFindDeclaration pos lineStr FindDeclarationPreference.Signature with
+      | Error e -> return Error e
+      | Ok decl ->
+        match decl with
+        | FindDeclarationResult.Range declRange when
+          isSignatureFile declRange.FileName
+          && normalizePath declRange.FileName = tyRes.FileName
+          && rangeContainsPos declRange pos
+          ->
+          match! tryFindImplementationOfSignatureDeclaration getProjectOptions getTypeCheckResults declRange with
+          | Some implementationRange -> return Ok(FindDeclarationResult.Range implementationRange)
+          | None -> return Ok decl
+        | _ -> return Ok decl
+    }
+
   let typesig (tyRes: ParseAndCheckResults) (pos: Position) lineStr = tyRes.TryGetToolTip pos lineStr
 
   // Calculates pipeline hints for now as in fSharp/pipelineHint with a bit of formatting on the hints

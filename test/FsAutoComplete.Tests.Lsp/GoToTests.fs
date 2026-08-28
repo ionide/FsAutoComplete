@@ -725,10 +725,145 @@ let private untitledGotoTests state =
         | Ok(_resultValue) -> failwith "Not Implemented"
       } ])
 
+/// GoTo tests between a signature file and its implementation file
+let private signatureGotoTests state =
+  let server =
+    async {
+      let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
+
+      let csharpPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToCSharp")
+      let _buildInfo = DotnetCli.build csharpPath
+
+      let! (server, event) = serverInitialize path defaultConfigDto state
+      do! waitForWorkspaceFinishedParsing event
+
+      let signaturePath = Path.Combine(path, "Signature.fsi")
+      let implementationPath = Path.Combine(path, "Signature.fs")
+      let usagePath = Path.Combine(path, "SignatureUsage.fs")
+
+      for file in [ signaturePath; implementationPath; usagePath ] do
+        let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument file }
+        do! server.TextDocumentDidOpen tdop
+
+      do!
+        waitForParseResultsForFile "Signature.fs" event
+        |> AsyncResult.foldResult id (failtestf "%A")
+
+      do!
+        waitForParseResultsForFile "SignatureUsage.fs" event
+        |> AsyncResult.foldResult id (failtestf "%A")
+
+      return (server, signaturePath, implementationPath, usagePath)
+    }
+    |> Async.Cache
+
+  let expectGotoDefinition
+    (server: FsAutoComplete.Lsp.IFSharpLspServer)
+    fromFile
+    (line, character)
+    expectedFile
+    expectedRange
+    =
+    async {
+      let p: DefinitionParams =
+        { TextDocument = { Uri = Path.FilePathToUri fromFile }
+          Position = { Line = line; Character = character }
+          WorkDoneToken = None
+          PartialResultToken = None }
+
+      let! res = server.TextDocumentDefinition p
+
+      match res with
+      | Result.Error e -> failtestf "Request failed: %A" e
+      | Result.Ok None -> failtest "Request none"
+      | Result.Ok(Some(U2.C1(U2.C1 r))) ->
+        Expect.stringEnds r.Uri expectedFile $"Should navigate to {expectedFile}"
+        Expect.equal r.Range expectedRange $"Should point at the declaration in {expectedFile}"
+      | Result.Ok other -> failtestf "Should get a single location, instead got %A" other
+    }
+
+  // `val add` in Signature.fsi
+  let addInSignature =
+    { Start = { Line = 6u; Character = 4u }
+      End = { Line = 6u; Character = 7u } }
+
+  testSequenced
+  <| testList
+    "Signature File GoTo Tests"
+    [ testCaseAsync
+        "Go-to-definition from a usage in the implementation file goes to the signature"
+        (async {
+          let! server, _signaturePath, implementationPath, _usagePath = server
+          // `add` in `let addTwice x = add x x`
+          do! expectGotoDefinition server implementationPath (10u, 18u) "Signature.fsi" addInSignature
+        })
+
+      testCaseAsync
+        "Go-to-definition on the implementation itself goes to the signature"
+        (async {
+          let! server, _signaturePath, implementationPath, _usagePath = server
+          // `add` in `let add x y = helper x + y`
+          do! expectGotoDefinition server implementationPath (8u, 5u) "Signature.fsi" addInSignature
+        })
+
+      testCaseAsync
+        "Go-to-definition from a usage in another file goes to the signature"
+        (async {
+          let! server, _signaturePath, _implementationPath, usagePath = server
+          // `add` in `let usage = add 1 2`
+          do! expectGotoDefinition server usagePath (4u, 13u) "Signature.fsi" addInSignature
+        })
+
+      testCaseAsync
+        "Go-to-definition on a signature declaration goes to the implementation"
+        (async {
+          let! server, signaturePath, _implementationPath, _usagePath = server
+          // `add` in `val add: x: int -> y: int -> int`
+          do!
+            expectGotoDefinition
+              server
+              signaturePath
+              (6u, 5u)
+              "Signature.fs"
+              { Start = { Line = 8u; Character = 4u }
+                End = { Line = 8u; Character = 7u } }
+        })
+
+      testCaseAsync
+        "Go-to-definition on a type in a signature file goes to the implementation"
+        (async {
+          let! server, signaturePath, _implementationPath, _usagePath = server
+          // `Color` in `type Color =`
+          do!
+            expectGotoDefinition
+              server
+              signaturePath
+              (2u, 7u)
+              "Signature.fs"
+              { Start = { Line = 2u; Character = 5u }
+                End = { Line = 2u; Character = 10u } }
+        })
+
+      testCaseAsync
+        "Go-to-definition on a symbol that is not in the signature stays in the implementation"
+        (async {
+          let! server, _signaturePath, implementationPath, _usagePath = server
+          // `helper` in `let add x y = helper x + y`, declared `let private helper x = x + 1`
+          do!
+            expectGotoDefinition
+              server
+              implementationPath
+              (8u, 16u)
+              "Signature.fs"
+              { Start = { Line = 6u; Character = 12u }
+                End = { Line = 6u; Character = 18u } }
+        }) ]
+
 let tests createServer =
   testSequenced
   <| testList
     "Go to definition tests"
     [ gotoTest createServer
+      signatureGotoTests createServer
       scriptGotoTests createServer
       untitledGotoTests createServer ]
