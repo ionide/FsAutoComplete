@@ -226,13 +226,6 @@ type FSharpCompilerServiceChecker
 
     snapshot.Replace(files)
 
-  let (|Reference|_|) (opt: string) =
-    if opt.StartsWith("-r:", StringComparison.Ordinal) then
-      Some(opt.[3..])
-    else
-      None
-
-
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFilesToProject (projectOptions: FSharpProjectOptions) =
     let additionalSourceFiles =
