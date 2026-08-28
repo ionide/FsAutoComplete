@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- [Go to definition navigates between signature and implementation files](https://github.com/ionide/FsAutoComplete/pull/1544) - Go to definition resolves to the declaration in the signature file when a symbol has one, and to the matching definition in the implementation file when the cursor is already on that signature declaration
+
 ### Fixed
 
 - [Disable inline values by default to restore pipeline hints](https://github.com/ionide/FsAutoComplete/pull/1456) - `InlineValueProvider` is no longer advertised by default, restoring pipeline hints during normal editing (closes [#1214](https://github.com/ionide/FsAutoComplete/issues/1214))
