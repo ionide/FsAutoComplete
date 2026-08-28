@@ -31,7 +31,7 @@ let fix
           (Array.ofList opts.OtherOptions)
       with
       | Some _symbol ->
-        match! tyRes.TryFindDeclaration fcsPos line with
+        match! tyRes.TryFindDeclaration fcsPos line FindDeclarationPreference.Implementation with
         | FindDeclarationResult.Range declRange when declRange.FileName = (UMX.untag fileName) ->
           let lspRange = fcsRangeToLsp declRange
 
