@@ -104,14 +104,22 @@ type ParseAndCheckResults
     | Some(col, identIsland) ->
       let identIsland = Array.toList identIsland
 
+      let getDeclarations preferSignature =
+        checkResults.GetDeclarationLocation(pos.Line, int col, lineStr, identIsland, preferFlag = preferSignature)
+
       let declarations =
-        checkResults.GetDeclarationLocation(
-          pos.Line,
-          int col,
-          lineStr,
-          identIsland,
-          preferFlag = preference.PreferSignature
-        )
+        let preferred = getDeclarations preference.PreferSignature
+
+        match preferred with
+        // A signature file of another assembly is of no use to us: signature files carry no IL, so they never end
+        // up as a document in the pdb and sourcelink cannot fetch them. Take the implementation for those.
+        | FindDeclResult.DeclFound range when
+          preference.PreferSignature
+          && range.FileName <> UMX.untag x.FileName
+          && not (System.IO.File.Exists range.FileName)
+          ->
+          getDeclarations false
+        | _ -> preferred
 
       let decompile assembly externalSym =
         match Decompiler.tryFindExternalDeclaration checkResults (assembly, externalSym) with
