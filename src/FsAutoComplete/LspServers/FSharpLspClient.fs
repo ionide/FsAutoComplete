@@ -193,8 +193,6 @@ type ProgressListener(lspClient: FSharpLspClient, traceNamespace: string array) 
 
   let isOneOf list string = list |> Array.exists (fun f -> f string)
 
-  let strEquals (other: string) (this: string) = this.Equals(other, StringComparison.InvariantCultureIgnoreCase)
-
   let strContains (substring: Regex) (str: string) = substring.IsMatch str
 
   let interestingActivities = traceNamespace |> Array.map strContains
