@@ -445,6 +445,9 @@ let lspTestsPath = (__SOURCE_DIRECTORY__ </> "test" </> "FsAutoComplete.Tests.Ls
 let createGlobalJson sdkVersion =
   $"dotnet new globaljson --force --sdk-version %s{sdkVersion} --roll-forward LatestMinor"
 
+let testCommand targetFramework =
+  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m"""
+
 // Every stage restores and builds with the .NET 10 SDK because older SDKs cannot restore Paket 10.
 // It then selects the SDK that matches the test target framework.
 let net80Tests =
@@ -454,7 +457,7 @@ let net80Tests =
     toolRestore
     run "dotnet build -c Release -f net8.0"
     run (createGlobalJson "8.0.100")
-    run "dotnet test -c Release -f net8.0 --no-restore --no-build"
+    run (testCommand "net8.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
@@ -465,7 +468,7 @@ let net90Tests =
     toolRestore
     run "dotnet build -c Release -f net9.0"
     run (createGlobalJson "9.0.100")
-    run "dotnet test -c Release -f net9.0 --no-restore --no-build"
+    run (testCommand "net9.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
@@ -475,9 +478,27 @@ let net100Tests =
     run (createGlobalJson "10.0.100")
     toolRestore
     run "dotnet build -c Release -f net10.0"
-    run "dotnet test -c Release -f net10.0 --no-restore --no-build"
+    run (testCommand "net10.0")
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
+
+pipeline "test:net8.0" {
+  description "Run net8.0 tests"
+  net80Tests
+  runIfOnlySpecified true
+}
+
+pipeline "test:net9.0" {
+  description "Run net9.0 tests"
+  net90Tests
+  runIfOnlySpecified true
+}
+
+pipeline "test:net10.0" {
+  description "Run net10.0 tests"
+  net100Tests
+  runIfOnlySpecified true
+}
 
 
 pipeline "Tests" {
