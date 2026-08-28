@@ -25,6 +25,8 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   override __.WindowLogMessage(p) = sendServerNotification "window/logMessage" (box p) |> Async.Ignore
 
+  override __.WindowShowDocument(p) = sendServerRequest.Send "window/showDocument" (box p)
+
   override __.TelemetryEvent(p) = sendServerNotification "telemetry/event" (box p) |> Async.Ignore
 
   override __.ClientRegisterCapability(p) = sendServerRequest.Send "client/registerCapability" (box p)

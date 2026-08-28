@@ -44,6 +44,8 @@ type FormatDocumentResponse =
   | UnChanged
   | Ignored
   | ToolNotPresent
+  /// The request was cancelled before Fantomas answered. Nothing to apply, and nothing went wrong.
+  | Cancelled
   | Error of string
 
 /// Represents a desired change to a given file
@@ -91,6 +93,47 @@ module Commands =
 
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
   let commandsLogger = LogProvider.getLoggerByName "Commands"
+
+  /// Reads `FantomasResponse.Code`, which is an int so that it survives the wire, as the enum
+  /// Fantomas.Client publishes for it. Abbreviated rather than opened, because
+  /// `Fantomas.Client.LSPFantomasServiceTypes` carries a `FormatDocumentResponse` of its own that
+  /// would shadow ours.
+  type private FantomasResponseCode = Fantomas.Client.LSPFantomasServiceTypes.FantomasResponseCode
+
+  /// What to tell the user when Fantomas answered with something other than formatted code. The
+  /// daemon writes a message for the failures it knows about - `DaemonCreationFailed` carries the
+  /// whole standard error of the daemon that would not start - so say that rather than describing
+  /// the response ourselves.
+  let private formattingFailure (response: FantomasResponse) =
+    match response.Content with
+    | Some message when not (String.IsNullOrWhiteSpace message) -> sprintf "Formatting failed: %s" message
+    | _ -> sprintf "Formatting failed with %A" (enum<FantomasResponseCode> response.Code)
+
+  /// Every answer other than formatted code. `formatDocument` and `formatSelection` read these the
+  /// same way; they differ only in what "formatted" means to each of them.
+  let private unformattedResponse (file: string<LocalPath>) (response: FantomasResponse) =
+    match enum<FantomasResponseCode> response.Code with
+    | FantomasResponseCode.UnChanged ->
+      fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
+      FormatDocumentResponse.UnChanged
+    | FantomasResponseCode.Ignored ->
+      fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
+      FormatDocumentResponse.Ignored
+    | FantomasResponseCode.ToolNotFound -> FormatDocumentResponse.ToolNotPresent
+    | FantomasResponseCode.CancellationWasRequested ->
+      fantomasLogger.debug (Log.setMessage (sprintf "Formatting of \"%A\" was cancelled" file))
+      FormatDocumentResponse.Cancelled
+    | code ->
+      let failure = formattingFailure response
+
+      fantomasLogger.error (
+        Log.setMessage "Fantomas daemon was unable to format {file}, answering {code}: {failure}"
+        >> Log.addContextDestructured "file" file
+        >> Log.addContextDestructured "code" code
+        >> Log.addContext "failure" failure
+      )
+
+      FormatDocumentResponse.Error failure
 
   let addFile (fsprojPath: string) fileVirtPath =
     async {
@@ -411,34 +454,19 @@ module Commands =
               Config = None
               Range = rangeToFormat }
 
-        match fantomasResponse with
-        | { Code = 1
-            Content = Some code
-            SelectedRange = Some range } ->
+        match
+          enum<FantomasResponseCode> fantomasResponse.Code, fantomasResponse.Content, fantomasResponse.SelectedRange
+        with
+        | FantomasResponseCode.Formatted, Some code, Some range ->
           fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format selection in \"%A\"" file))
           return FormatDocumentResponse.FormattedRange(text, code, range)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | FantomasResponseCode.Formatted, _, _ ->
+          // Formatted, but without the code or the range saying what it replaces, so there is
+          // nothing to apply and nowhere to apply it.
+          return
+            FormatDocumentResponse.Error
+              "Formatting failed: Fantomas reported a formatted selection without returning it."
+        | _ -> return unformattedResponse file fantomasResponse
       with ex ->
         fantomasLogger.warn (
           Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"
@@ -467,32 +495,16 @@ module Commands =
               Config = None
               Cursor = None }
 
-        match fantomasResponse with
-        | { Code = 1; Content = Some code } ->
+        match enum<FantomasResponseCode> fantomasResponse.Code, fantomasResponse.Content with
+        | FantomasResponseCode.Formatted, Some code ->
           fantomasLogger.debug (Log.setMessage (sprintf "Fantomas daemon was able to format \"%A\"" file))
           return FormatDocumentResponse.Formatted(text, code)
-        | { Code = 2 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" did not change after formatting" file))
-          return FormatDocumentResponse.UnChanged
-        | { Code = 3; Content = Some error } ->
-          fantomasLogger.error (Log.setMessage (sprintf "Error while formatting \"%A\"\n%s" file error))
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
-        | { Code = 4 } ->
-          fantomasLogger.debug (Log.setMessage (sprintf "\"%A\" was listed in a .fantomasignore file" file))
-          return FormatDocumentResponse.Ignored
-        | { Code = 6 } -> return FormatDocumentResponse.ToolNotPresent
-        | _ ->
-          fantomasLogger.warn (
-            Log.setMessage (
-              sprintf
-                "Fantomas daemon was unable to format \"%A\", due to unexpected result code %i\n%A"
-                file
-                fantomasResponse.Code
-                fantomasResponse
-            )
-          )
-
-          return FormatDocumentResponse.Error(sprintf "Formatting failed!\n%A" fantomasResponse)
+        | FantomasResponseCode.Formatted, None ->
+          // Formatted, but nothing came back to apply.
+          return
+            FormatDocumentResponse.Error
+              "Formatting failed: Fantomas reported a formatted document without returning it."
+        | _ -> return unformattedResponse file fantomasResponse
       with ex ->
         fantomasLogger.warn (
           Log.setMessage "Errors while formatting file, defaulting to previous content. Error message was {message}"

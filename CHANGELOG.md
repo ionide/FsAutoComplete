@@ -5,13 +5,19 @@
 ### Added
 
 - [Go to definition navigates between signature and implementation files](https://github.com/ionide/FsAutoComplete/pull/1544) - Go to definition resolves to the declaration in the signature file when a symbol has one, and to the matching definition in the implementation file when the cursor is already on that signature declaration
+- Fantomas now reports which Fantomas a folder resolved to and where it was found, and whether its daemon could be started, to the `Fantomas` log. Previously nothing told a tool resolved from the `PATH` apart from the version a repository pins.
+- Settings in the resolved Fantomas configuration that Fantomas could not act on - a `fsharp_` setting it does not have, or one carrying a value it cannot parse - are logged and shown once per file, naming the Fantomas version that could not act on them and offering to open the `.editorconfig` files involved and the file being formatted. Formatting still succeeds using defaults, so until now such a setting quietly did not apply. Only Fantomas 8 daemons report these.
 
 ### Changed
 
 - ENHANCEMENT [Update analyzer package versions](https://github.com/ionide/FsAutoComplete/pull/1542) - Update the analyzer and project-system packages for FSharp.Core 10.1 and FCS 43.12 compatibility.
+- Update `Fantomas.Client` to `0.12.0-beta-002`. Checkout the [changelog](https://github.com/fsprojects/fantomas/blob/main/src/Fantomas.Client/CHANGELOG.md) for more details.
 
 ### Fixed
 
+- The Fantomas daemons FSAC starts are now shut down with the language server. The service owning them was never disposed, so every `fantomas daemon` process FSAC launched outlived the session that launched it.
+- Fantomas failures other than a formatting error now report the message Fantomas wrote instead of a dump of the response record. `DaemonCreationFailed` in particular carries the standard error of the daemon that would not start, which was previously discarded.
+- A cancelled format request is no longer reported to the user as a formatting failure.
 - [Disable inline values by default to restore pipeline hints](https://github.com/ionide/FsAutoComplete/pull/1456) - `InlineValueProvider` is no longer advertised by default, restoring pipeline hints during normal editing (closes [#1214](https://github.com/ionide/FsAutoComplete/issues/1214))
 
 ## [0.83.0] - 2026-02-04

@@ -1,6 +1,7 @@
 namespace FsAutoComplete.Lsp
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open FsAutoComplete
 open FsAutoComplete.Core
@@ -166,6 +167,7 @@ module CallHierarchyHelpers =
     }
 
 open CallHierarchyHelpers
+open FantomasReporting
 
 type AdaptiveFSharpLspServer
   (
@@ -181,11 +183,114 @@ type AdaptiveFSharpLspServer
 
 
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
-  let fantomasService: FantomasService = new LSPFantomasService() :> FantomasService
+
+  let fantomasService: FantomasService =
+    new LSPFantomasService(fun level message -> logMessage fantomasLogger level message) :> FantomasService
+
+  /// What was last reported for a file, keyed by its path. The daemon raises a configuration
+  /// warning for every format request rather than only when something changed, so without this the
+  /// same message would be shown again on every format.
+  let reportedConfigurationProblems = ConcurrentDictionary<string, string>()
+
+  /// Whether the client can be asked to open a file, so the warning can offer to. A client that
+  /// cannot gets the same message without the actions rather than actions that do nothing.
+  let clientSupportsShowDocument () =
+    match lspClient.ClientCapabilities with
+    | Some { Window = Some { ShowDocument = Some showDocument } } -> showDocument.Support
+    | _ -> false
+
+  let handleConfigurationWarning (warning: ConfigurationWarning) =
+    let summary =
+      warning.Problems |> Array.map describeConfigurationProblem |> String.concat "; "
+
+    if String.IsNullOrEmpty summary then
+      // An empty warning means nothing is wrong any more, which clears what was reported earlier.
+      reportedConfigurationProblems.TryRemove(warning.FilePath) |> ignore
+    else
+      let isNew =
+        match reportedConfigurationProblems.TryGetValue warning.FilePath with
+        | true, previous -> previous <> summary
+        | _ -> true
+
+      if isNew then
+        reportedConfigurationProblems[warning.FilePath] <- summary
+
+        async {
+          try
+            // Which Fantomas is running is the other half of "that is not a setting Fantomas has":
+            // an older Fantomas than the setting is more often the cause than a typo.
+            let fantomas = describeFantomas warning
+
+            fantomasLogger.warn (
+              Log.setMessage
+                "{fantomas} could not act on the configuration for {file} from {editorConfigFiles}: {problems}"
+              >> Log.addContext "fantomas" fantomas
+              >> Log.addContext "file" warning.FilePath
+              >> Log.addContextDestructured "editorConfigFiles" warning.EditorConfigFiles
+              >> Log.addContext "problems" summary
+            )
+
+            let message =
+              sprintf
+                "%s ignored part of the configuration for \"%s\": %s"
+                fantomas
+                (Path.GetFileName warning.FilePath)
+                summary
+
+            let documents = documentsToOpen warning
+
+            if not (clientSupportsShowDocument ()) then
+              do!
+                lspClient.WindowShowMessage
+                  { Type = MessageType.Warning
+                    Message = message }
+            else
+              let! response =
+                lspClient.WindowShowMessageRequest
+                  { Type = MessageType.Warning
+                    Message = message
+                    Actions =
+                      documents
+                      |> List.map (fun (title, _) -> { Title = title })
+                      |> Array.ofList
+                      |> Some }
+
+              match response with
+              | Ok(Some action) ->
+                match documents |> List.tryFind (fun (title, _) -> title = action.Title) with
+                | Some(_, path) ->
+                  let! _ =
+                    lspClient.WindowShowDocument
+                      { Uri = Path.FilePathToUri path
+                        External = None
+                        TakeFocus = Some true
+                        Selection = None }
+
+                  ()
+                | None -> ()
+              | _ -> ()
+          with e ->
+            fantomasLogger.warn (
+              Log.setMessage "Could not report the Fantomas configuration warning for {file}"
+              >> Log.addContext "file" warning.FilePath
+              >> Log.addExn e
+            )
+        }
+        |> Async.Start
 
   let thisType = typeof<AdaptiveFSharpLspServer>
 
   let disposables = new Disposables.CompositeDisposable()
+
+  do
+    disposables.Add(
+      fantomasService.ConfigurationWarnings
+      |> Observable.subscribe handleConfigurationWarning
+    )
+
+    // Disposing the service kills the daemons it started. Without this every `fantomas daemon`
+    // process FSAC launched outlives the session that launched it.
+    disposables.Add(fantomasService)
 
   let state =
     new AdaptiveState(lspClient, sourceTextFactory, workspaceLoader, useTransparentCompiler)
@@ -311,6 +416,8 @@ type AdaptiveFSharpLspServer
 
           return None
         | FormatDocumentResponse.UnChanged -> return None
+        // Nothing to apply, and nothing to report: the client asked for this to stop.
+        | FormatDocumentResponse.Cancelled -> return None
         | FormatDocumentResponse.ToolNotPresent ->
           let actions =
             [| if Option.isSome rootPath then

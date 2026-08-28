@@ -11,7 +11,7 @@ lowest_matching:true
 strategy: min
 
 nuget BenchmarkDotNet
-nuget Fantomas.Client >= 0.9
+nuget Fantomas.Client >= 0.12.0-beta-002 prerelease
 nuget FSharp.Compiler.Service >= 43.10.100
 nuget Ionide.Analyzers
 nuget FSharp.Analyzers.Build
