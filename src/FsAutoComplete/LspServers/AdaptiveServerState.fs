@@ -261,7 +261,7 @@ type AdaptiveState
     if enableAnalyzers then
       let mutable assemblyLoadStats =
         { AnalyzerAssemblies = 0
-          Analyzers = 0
+          AnalyzerNames = []
           FailedAssemblies = 0 }
 
       let excludeInclude =
@@ -287,7 +287,7 @@ type AdaptiveState
 
           assemblyLoadStats <-
             { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
-              Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
+              AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
               FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
 
 
@@ -298,7 +298,7 @@ type AdaptiveState
 
         assemblyLoadStats <-
           { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
-            Analyzers = assemblyLoadStats.Analyzers + stats.Analyzers
+            AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
             FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
 
       )
@@ -1196,10 +1196,9 @@ type AdaptiveState
           binlogConfig
           |> addAValLogging (fun () -> logger.info (Log.setMessage "Loading projects because binlogConfig change"))
 
-        let! projects =
-          // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
-          // and when other adaptive values await on this, the scheduler won't block those other tasks
-          loadProjects loader binlogConfig projects |> AMap.toAVal
+        // need to bind to a single value to keep the threadpool from being exhausted as LoadingProjects can be a long running operation
+        // and when other adaptive values await on this, the scheduler won't block those other tasks
+        let! projects = loadProjects loader binlogConfig projects |> AMap.toAVal
 
         and! checker = checker
         checker.ClearCaches()

@@ -7,12 +7,13 @@ open Utils.CursorbasedTests
 open FsAutoComplete.CodeFix
 open FsAutoComplete.FCSPatches
 
-let langVersion60Config =
+// FCS 43.12 does not load projects that target unsupported language versions.
+let langVersion80Config =
   { defaultConfigDto with
-      FSIExtraSharedParameters = Some [| "--langversion:6.0" |] }
+      FSIExtraSharedParameters = Some [| "--langversion:8.0" |] }
 
 let tests state =
-  serverTestList (nameof ToInterpolatedString) state langVersion60Config None (fun server ->
+  serverTestList (nameof ToInterpolatedString) state langVersion80Config None (fun server ->
     [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
 
       testCaseAsync "simple integer string format"
@@ -341,6 +342,13 @@ let tests state =
         Expect.equal true (languageVersion.SupportsFeature LanguageFeatureShim) ""
       }
 
+      testCaseAsync "Reflecting into LanguageVersion - feature unsupported in older version"
+      <| async {
+        let languageFeature = LanguageFeatureShim("StringInterpolation")
+        let languageVersion = LanguageVersionShim("4.7")
+        Expect.equal false (languageVersion.SupportsFeature languageFeature) ""
+      }
+
       testCaseAsync "Multiline applications are not supported"
       <| CodeFix.checkNotApplicable
         server
@@ -348,25 +356,6 @@ let tests state =
         sprintf$0
             "%A"
             { new System.IDisposable with member _.Dispose() = () }
-        """
-        Diagnostics.acceptAll
-        selectCodeFix
-
-      ])
-
-let langVersion47Config =
-  { defaultConfigDto with
-      FSIExtraSharedParameters = Some [| "--langversion:4.7" |] }
-
-let unavailableTests state =
-  serverTestList $"unavailable {(nameof ToInterpolatedString)}" state langVersion47Config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
-
-      testCaseAsync "codefix not available for langversion"
-      <| CodeFix.checkNotApplicable
-        server
-        """
-        let a = sprintf$0 "Hey %i" 3
         """
         Diagnostics.acceptAll
         selectCodeFix
