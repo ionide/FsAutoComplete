@@ -143,11 +143,22 @@ let lspTests =
 
                   TestExplorer.tests createServer ] ] ]
 
+let expectedRuntimeMajor =
+  System.Reflection.CustomAttributeExtensions
+    .GetCustomAttribute<System.Runtime.Versioning.TargetFrameworkAttribute>(
+      System.Reflection.Assembly.GetExecutingAssembly()
+    )
+    .FrameworkName
+  |> System.Runtime.Versioning.FrameworkName
+  |> _.Version.Major
+
 /// Tests that do not require a LSP server
 let generalTests =
   testList
     "general"
-    [ testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+    [ testCase "test host uses target runtime" (fun _ ->
+        Expect.equal Environment.Version.Major expectedRuntimeMajor "Test host runtime must match the target framework")
+      testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
       InlayHintTests.explicitTypeInfoTests sourceTextFactory
       FindReferences.tryFixupRangeTests sourceTextFactory
       UtilsTests.allTests
