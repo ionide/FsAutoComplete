@@ -57,6 +57,8 @@ module Server =
     | "4" -> 4_000_000
     | shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
 
+  let private processUntitledCounter = [| initialUntitledCounter () |]
+
   let private initialize path (config: FSharpConfigDto) createServer =
     async {
       logger.trace (
@@ -141,7 +143,8 @@ module Server =
 
   /// Note: mutates passed `server`: increments `server.UntitledCounter`
   let private nextUntitledDocUri (server: Server) =
-    let next = System.Threading.Interlocked.Increment(&server.UntitledCounter)
+    let next = System.Threading.Interlocked.Increment(&processUntitledCounter[0])
+    System.Threading.Interlocked.Exchange(&server.UntitledCounter, next) |> ignore
     untitledDocUrif (next - 1)
 
   let createUntitledDocument initialText (server: CachedServer) =

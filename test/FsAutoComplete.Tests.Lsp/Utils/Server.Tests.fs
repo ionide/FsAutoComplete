@@ -244,6 +244,23 @@ let tests state =
                         Expect.isGreaterThan postCounter preCounter "Untitled Counter should increase"
                       })
                     testCaseAsync
+                      "separate servers allocate separate untitled document URIs"
+                      (async {
+                        let firstServer = Server.create None defaultConfigDto state
+                        let secondServer = Server.create None defaultConfigDto state
+                        let! (firstDocument, _) = firstServer |> Server.createUntitledDocument ""
+                        let! (secondDocument, _) = secondServer |> Server.createUntitledDocument ""
+                        let firstUri = firstDocument.Uri
+                        let secondUri = secondDocument.Uri
+
+                        do! firstDocument |> Document.close
+                        do! secondDocument |> Document.close
+                        do! firstServer |> Server.shutdown
+                        do! secondServer |> Server.shutdown
+
+                        Expect.notEqual firstUri secondUri "Separate servers must not reuse an untitled document URI"
+                      })
+                    testCaseAsync
                       "creating multiple documents increases untitled counter"
                       (async {
                         let getCounter server = server |> Async.map (fun s -> s.UntitledCounter)
