@@ -222,6 +222,17 @@ let tests state =
                 None
                 (fun server ->
                   [ testCaseAsync
+                      "shard one starts in a separate untitled document range"
+                      (async {
+                        let! actualServer = server
+
+                        match System.Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
+                        | null -> Expect.equal actualServer.UntitledCounter 0 "Unsharded tests should start at zero"
+                        | "1" ->
+                          Expect.equal actualServer.UntitledCounter 1_000_000 "Shard one should use its own range"
+                        | shard -> failtestf "Unexpected shard for Server tests: %s" shard
+                      })
+                    testCaseAsync
                       "creating document increases untitled counter"
                       (async {
                         let! actualServer = server
@@ -606,11 +617,13 @@ let tests state =
                       |> Array.countBy id
                       |> Map.ofArray
 
+                    let count message = groups |> Map.tryFind message |> Option.defaultValue 0
+
                     let actual =
-                      {| UnusedOpens = groups.["Unused open statement"]
-                         UnusedDecls = groups.["This value is unused"]
-                         SimplifyNames = groups.["This qualifier is redundant"]
-                         CompilerErrors = groups.["The value or constructor is not defined"] |}
+                      {| UnusedOpens = count "Unused open statement"
+                         UnusedDecls = count "This value is unused"
+                         SimplifyNames = count "This qualifier is redundant"
+                         CompilerErrors = count "The value or constructor is not defined" |}
 
                     // exact count isn't actually that important because each analyzers sends all its diags together.
                     // important part is just: has arrived -> `waitForLatestDiagnostics` waited long enough for all diags
@@ -793,6 +806,22 @@ f2 "bar" |> ignore
                 let! (doc, _) = server |> Server.openDocument absolutePath
                 use _doc = doc
                 ()
+              }
+
+              testCaseAsync "reopened document uses a new version"
+              <| async {
+                let relativePath = "../TestCases/ServerTests/JustScript/Script.fsx"
+
+                let absolutePath =
+                  System.IO.Path.GetFullPath(System.IO.Path.Combine(__SOURCE_DIRECTORY__, relativePath))
+
+                let! (firstDocument, _) = server |> Server.openDocument absolutePath
+                let firstVersion = firstDocument.Version
+                do! firstDocument |> Document.close
+
+                let! (secondDocument, _) = server |> Server.openDocument absolutePath
+                use _secondDocument = secondDocument
+                Expect.isGreaterThan secondDocument.Version firstVersion "A reopened document must use a new version"
               }
 
               let mutable docState =

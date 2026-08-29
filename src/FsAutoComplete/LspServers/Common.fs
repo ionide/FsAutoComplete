@@ -53,6 +53,7 @@ module AsyncResult =
 type DiagnosticMessage =
   | Add of source: string * Version * diags: Diagnostic[]
   | Clear of source: string
+  | Flush of AsyncReplyChannel<unit>
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnostic[] -> Async<unit>) =
@@ -102,6 +103,9 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
                 let newState = state |> Map.remove source
                 do! send uri newState
                 return! loop newState
+              | Flush reply ->
+                reply.Reply()
+                return! loop state
             }
 
           loop Map.empty),
@@ -138,6 +142,14 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
       match values with
       | [||] -> mailbox.Post(Clear kind)
       | values -> mailbox.Post(Add(kind, version, values))
+
+  member x.SetForAndWait(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
+    async {
+      if x.ClientSupportsDiagnostics then
+        x.SetFor(fileUri, kind, version, values)
+        let mailbox = getOrAddAgent fileUri
+        do! mailbox.PostAndAsyncReply Flush
+    }
 
   member x.ClearFor(fileUri: DocumentUri) =
     if x.ClientSupportsDiagnostics then

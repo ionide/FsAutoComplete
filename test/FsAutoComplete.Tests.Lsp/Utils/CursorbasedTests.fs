@@ -8,16 +8,11 @@ open Utils.Server
 open Utils.TextEdit
 open Ionide.ProjInfo.Logging
 
-/// Checks for CodeFixes, CodeActions
-open System.Runtime.ExceptionServices
-
 ///
 /// Prefixes:
 /// * `check`: Check to use inside a `testCaseAsync`. Not a Test itself!
 /// * `test`: Returns Expecto Test. Usually combines multiple tests (like: test all positions).
 module CodeFix =
-  let private _logger = LogProvider.getLoggerByName "CursorbasedTests.CodeFix"
-
   let private diagnosticsIn (range: Range) (diags: Diagnostic[]) =
     diags |> Array.filter (fun diag -> range |> Range.overlapsStrictly diag.Range)
 
@@ -118,39 +113,20 @@ module CodeFix =
     (expected: unit -> ExpectedResult)
     =
     async {
-      let mutable attempts = 5
+      let (range, text) =
+        beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
 
-      while attempts > 0 do
-        try
-          let (range, text) =
-            beforeWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractRange
-          // load text file
-          let! (doc, diags) = server |> Server.createUntitledDocument text
-          use doc = doc // ensure doc gets closed (disposed) after test
+      let! (doc, diags) = server |> Server.createUntitledDocument text
+      use doc = doc
 
-          do!
-            checkFixAt
-              (doc, diags)
-              doc.VersionedTextDocumentIdentifier
-              (text, range)
-              validateDiagnostics
-              chooseFix
-              (expected ())
-
-          attempts <- 0
-        with ex ->
-          attempts <- attempts - 1
-
-          if attempts = 0 then
-            ExceptionDispatchInfo.Capture(ex).Throw()
-            return failwith "Unreachable"
-          else
-            _logger.warn (
-              Log.setMessage "Retrying test after failure"
-              >> Log.addContext "attempts" (5 - attempts)
-            )
-
-            do! Async.Sleep 15
+      do!
+        checkFixAt
+          (doc, diags)
+          doc.VersionedTextDocumentIdentifier
+          (text, range)
+          validateDiagnostics
+          chooseFix
+          (expected ())
 
     }
 

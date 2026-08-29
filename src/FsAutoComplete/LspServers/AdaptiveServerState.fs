@@ -376,11 +376,23 @@ type AdaptiveState
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
 
-  let notifications = Event<NotificationEvent * CancellationToken>()
+  let notifications =
+    Event<NotificationEvent * CancellationToken * TaskCompletionSource<unit> option>()
+
+  let triggerNotification notification ct = notifications.Trigger(notification, ct, None)
+
+  let triggerNotificationAndWait notification ct =
+    async {
+      let completion =
+        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+      notifications.Trigger(notification, ct, Some completion)
+      do! completion.Task |> Async.AwaitTask
+    }
 
   do
     workspaceLoader.Notifications.Subscribe(fun n ->
-      let inline trigger n = notifications.Trigger(n, CancellationToken.None)
+      let inline trigger n = triggerNotification n CancellationToken.None
 
       match n with
       | Ionide.ProjInfo.Types.WorkspaceProjectState.Loading(p) -> ProjectResponse.ProjectLoading(p)
@@ -441,7 +453,7 @@ type AdaptiveState
 
       logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} - {res:res}")
 
-      notifications.Trigger(NotificationEvent.TestDetected(fn, res |> List.toArray), ct)
+      triggerNotification (NotificationEvent.TestDetected(fn, res |> List.toArray)) ct
     with e ->
       logger.info (
         Log.setMessageI $"Test Detection of {parseResults.FileName:file} failed"
@@ -464,7 +476,6 @@ type AdaptiveState
     let filePath = file.FileName
     let filePathUntag = UMX.untag filePath
     let source = file.Source
-    let version = file.Version
     let fileName = Path.GetFileName filePathUntag
 
 
@@ -484,7 +495,10 @@ type AdaptiveState
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
             |> Async.withCancellation progress.CancellationToken
 
-          notifications.Trigger(NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version), ct)
+          do!
+            triggerNotificationAndWait
+              (NotificationEvent.UnusedOpens(filePath, (unused |> List.toArray), file.Version))
+              ct
         with e ->
           logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
       }
@@ -507,7 +521,7 @@ type AdaptiveState
 
           let unused = unused |> Seq.toArray
 
-          notifications.Trigger(NotificationEvent.UnusedDeclarations(filePath, unused, file.Version), ct)
+          do! triggerNotificationAndWait (NotificationEvent.UnusedDeclarations(filePath, unused, file.Version)) ct
         with e ->
           logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
       }
@@ -527,7 +541,7 @@ type AdaptiveState
             |> Async.withCancellation progress.CancellationToken
 
           let simplified = Array.ofSeq simplified
-          notifications.Trigger(NotificationEvent.SimplifyNames(filePath, simplified, file.Version), ct)
+          do! triggerNotificationAndWait (NotificationEvent.SimplifyNames(filePath, simplified, file.Version)) ct
         with e ->
           logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
       }
@@ -560,10 +574,10 @@ type AdaptiveState
 
               | _ -> ranges)
 
-          notifications.Trigger(
-            NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version),
-            ct
-          )
+          do!
+            triggerNotificationAndWait
+              (NotificationEvent.UnnecessaryParentheses(filePath, Array.ofSeq unnecessaryParentheses, file.Version))
+              ct
         with e ->
           logger.error (Log.setMessage "checkUnnecessaryParentheses failed" >> Log.addExn e)
       }
@@ -593,15 +607,7 @@ type AdaptiveState
         then
           checkUnnecessaryParentheses ]
 
-    async {
-      do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]>
-
-      do!
-        lspClient.NotifyDocumentAnalyzed
-          { TextDocument =
-              { Uri = filePath |> Path.LocalPathToUri
-                Version = version } }
-    }
+    async { do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]> }
 
   let tryUriCreate (s: string) =
     match Uri.TryCreate(s, UriKind.Absolute) with
@@ -676,7 +682,7 @@ type AdaptiveState
               )
 
             let! ct = Async.CancellationToken
-            notifications.Trigger(NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version), ct)
+            do! triggerNotificationAndWait (NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version)) ct
 
             Loggers.analyzers.info (Log.setMessageI $"end analysis of {file:file}")
 
@@ -690,7 +696,7 @@ type AdaptiveState
 
 
 
-  let handleCommandEvents (n: NotificationEvent, ct: CancellationToken) =
+  let handleCommandEvents (n: NotificationEvent, ct: CancellationToken, completion: TaskCompletionSource<unit> option) =
     try
       async {
 
@@ -719,7 +725,7 @@ type AdaptiveState
           | NotificationEvent.ParseError(errors, file, version) ->
             let uri = Path.LocalPathToUri file
             let diags = errors |> Array.map fcsErrorToDiagnostic
-            diagnosticCollections.SetFor(uri, "F# Compiler", version, diags)
+            do! diagnosticCollections.SetForAndWait(uri, "F# Compiler", version, diags)
 
           | NotificationEvent.UnusedOpens(file, opens, version) ->
             let uri = Path.LocalPathToUri file
@@ -737,7 +743,7 @@ type AdaptiveState
                   Data = None
                   CodeDescription = None })
 
-            diagnosticCollections.SetFor(uri, "F# Unused opens", version, diags)
+            do! diagnosticCollections.SetForAndWait(uri, "F# Unused opens", version, diags)
 
           | NotificationEvent.UnusedDeclarations(file, decls, version) ->
             let uri = Path.LocalPathToUri file
@@ -755,7 +761,7 @@ type AdaptiveState
                   Data = None
                   CodeDescription = None })
 
-            diagnosticCollections.SetFor(uri, "F# Unused declarations", version, diags)
+            do! diagnosticCollections.SetForAndWait(uri, "F# Unused declarations", version, diags)
 
           | NotificationEvent.SimplifyNames(file, decls, version) ->
             let uri = Path.LocalPathToUri file
@@ -777,7 +783,7 @@ type AdaptiveState
                     Data = None
                     CodeDescription = None })
 
-            diagnosticCollections.SetFor(uri, "F# simplify names", version, diags)
+            do! diagnosticCollections.SetForAndWait(uri, "F# simplify names", version, diags)
 
           | NotificationEvent.UnnecessaryParentheses(file, ranges, version) ->
             let uri = Path.LocalPathToUri file
@@ -795,7 +801,7 @@ type AdaptiveState
                   Data = None
                   CodeDescription = None })
 
-            diagnosticCollections.SetFor(uri, "F# unnecessary parentheses", version, diags)
+            do! diagnosticCollections.SetForAndWait(uri, "F# unnecessary parentheses", version, diags)
 
           // | NotificationEvent.Lint (file, warnings) ->
           //     let uri = Path.LocalPathToUri file
@@ -844,7 +850,7 @@ type AdaptiveState
             let uri = Path.LocalPathToUri file
 
             match messages with
-            | [||] -> diagnosticCollections.SetFor(uri, "F# Analyzers", version, [||])
+            | [||] -> do! diagnosticCollections.SetForAndWait(uri, "F# Analyzers", version, [||])
             | messages ->
               let diags =
                 messages
@@ -879,7 +885,7 @@ type AdaptiveState
                     CodeDescription = None
                     Data = fixes })
 
-              diagnosticCollections.SetFor(uri, "F# Analyzers", version, diags)
+              do! diagnosticCollections.SetForAndWait(uri, "F# Analyzers", version, diags)
           | NotificationEvent.TestDetected(file, tests) ->
             let rec map
               (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>)
@@ -904,7 +910,7 @@ type AdaptiveState
             >> Log.addContext "ex" ex.Message
           )
 
-        ()
+        completion |> Option.iter (fun value -> value.TrySetResult() |> ignore)
       }
       |> fun work -> Async.StartImmediate(work, ct)
     with :? OperationCanceledException ->
@@ -1030,7 +1036,7 @@ type AdaptiveState
         let not =
           UMX.untag proj |> ProjectResponse.ProjectLoading |> NotificationEvent.Workspace
 
-        notifications.Trigger(not, CancellationToken.None))
+        triggerNotification not CancellationToken.None)
 
       use progressReport = new ServerProgressReport(lspClient)
 
@@ -1056,7 +1062,7 @@ type AdaptiveState
 
       let not = ProjectResponse.WorkspaceLoad true |> NotificationEvent.Workspace
 
-      notifications.Trigger(not, CancellationToken.None)
+      triggerNotification not CancellationToken.None
 
       // Collect other files that should trigger a reload of a project
       let additionalDependencies (p: Types.ProjectOptions) =
@@ -1304,10 +1310,8 @@ type AdaptiveState
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (checkedFile) ->
-      if checkedFile.VolatileFile.Source.Length = 0 then
-        () // Don't analyze and error on an empty file
-      else
-        async {
+      async {
+        if checkedFile.VolatileFile.Source.Length > 0 then
           let config = config |> AVal.force
           let analyzerPaths = analyzerPaths |> AVal.force
           do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
@@ -1321,8 +1325,13 @@ type AdaptiveState
               checkedFile.Options
               checkedFile.CompilerOptions
 
-        }
-        |> Async.StartWithCT checkedFile.CancellationToken)
+        do!
+          lspClient.NotifyDocumentAnalyzed
+            { TextDocument =
+                { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
+                  Version = checkedFile.VolatileFile.Version } }
+      }
+      |> Async.StartWithCT checkedFile.CancellationToken)
 
 
 
@@ -1812,7 +1821,7 @@ type AdaptiveState
 
       let! ct = Async.CancellationToken
 
-      notifications.Trigger(NotificationEvent.FileParsed(file.Source.FileName), ct)
+      triggerNotification (NotificationEvent.FileParsed(file.Source.FileName)) ct
 
       match result with
       | Error e ->
@@ -1832,14 +1841,6 @@ type AdaptiveState
 
         fileParsed.Trigger(parseAndCheck.GetParseResults, compilerOptions, ct)
 
-        fileChecked.Trigger(
-          { Options = options
-            CompilerOptions = compilerOptions
-            ParseAndCheckResults = parseAndCheck
-            VolatileFile = file
-            CancellationToken = ct }
-        )
-
         let checkErrors = parseAndCheck.GetParseResults.Diagnostics
         let parseErrors = parseAndCheck.GetCheckResults.Diagnostics
 
@@ -1848,7 +1849,15 @@ type AdaptiveState
           |> Array.distinctBy (fun e ->
             e.Severity, e.ErrorNumber, e.StartLine, e.StartColumn, e.EndLine, e.EndColumn, e.Message)
 
-        notifications.Trigger(NotificationEvent.ParseError(errors, file.Source.FileName, file.Version), ct)
+        do! triggerNotificationAndWait (NotificationEvent.ParseError(errors, file.Source.FileName, file.Version)) ct
+
+        fileChecked.Trigger(
+          { Options = options
+            CompilerOptions = compilerOptions
+            ParseAndCheckResults = parseAndCheck
+            VolatileFile = file
+            CancellationToken = ct }
+        )
 
 
         return Ok parseAndCheck
