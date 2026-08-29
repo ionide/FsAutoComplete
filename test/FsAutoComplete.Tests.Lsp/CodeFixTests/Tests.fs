@@ -3684,7 +3684,6 @@ let tests textFactory state =
       AddExplicitTypeAnnotationTests.tests state
       AdjustConstantTests.tests state
       ToInterpolatedStringTests.tests state
-      ToInterpolatedStringTests.unavailableTests state
       addMissingEqualsToTypeDefinitionTests state
       addMissingFunKeywordTests state
       addMissingInstanceMemberTests state
