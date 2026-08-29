@@ -723,6 +723,56 @@ let private untitledGotoTests state =
           Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
           Expect.equal r.Range declRange "should point to the range of function declaration"
         | Ok(_resultValue) -> failwith "Not Implemented"
+      }
+      testCaseAsync "can go to an untitled declaration after the current directory changes"
+      <| async {
+        let (usagePos, declRange, text) =
+          """
+        let $0myFun$0 a b = a + b
+        let _ = ()
+        let a = my$0Fun 1 1
+        """
+          |> Text.trimTripleQuotation
+          |> Cursor.assertExtractRange
+          |> fun (decl, text) ->
+              let (pos, text) = text |> Cursor.assertExtractPosition
+              (pos, decl, text)
+
+        let previousCurrentDirectory = Environment.CurrentDirectory
+        let didOpenDirectory = __SOURCE_DIRECTORY__
+        let requestDirectory = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToCSharp")
+
+        try
+          Environment.CurrentDirectory <- didOpenDirectory
+          let! (doc, _diags) = server |> Server.createUntitledDocument text
+
+          let p: DefinitionParams =
+            { TextDocument = doc.TextDocumentIdentifier
+              Position = usagePos
+              WorkDoneToken = None
+              PartialResultToken = None }
+
+          let! res =
+            async {
+              use doc = doc
+
+              try
+                Environment.CurrentDirectory <- requestDirectory
+                return! doc.Server.Server.TextDocumentDefinition p
+              finally
+                Environment.CurrentDirectory <- didOpenDirectory
+            }
+
+          match res with
+          | Error e -> failtestf "Request failed: %A" e
+          | Ok None -> failtest "Request none"
+          | Ok(Some(U2.C2 _)) -> failtest "Should only get one location"
+          | Ok(Some(U2.C1(U2.C1 r))) ->
+            Expect.stringEnds r.Uri doc.Uri "should navigate to source file"
+            Expect.equal r.Range declRange "should point to the range of function declaration"
+          | Ok(_resultValue) -> failwith "Not Implemented"
+        finally
+          Environment.CurrentDirectory <- previousCurrentDirectory
       } ])
 
 /// GoTo tests between a signature file and its implementation file

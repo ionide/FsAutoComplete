@@ -124,7 +124,16 @@ module UtilsTests =
             <| fun _ ->
               let result = "/usr/local" </> "/bin/tool"
               let expected = Path.Combine("/usr/local", "bin/tool")
-              Expect.equal result expected "Should handle complex paths" ] ]
+              Expect.equal result expected "Should handle complex paths" ]
+
+        testList
+          "normalizePath"
+          [ testCase "resolves ordinary Untitled-prefixed files from the current directory"
+            <| fun _ ->
+              for relativePath in [ "Untitled-notes.fsx"; "Untitled-7.fs"; "Untitled-7.fsx" ] do
+                let expected = relativePath |> Path.GetFullPath |> normalizePath
+                let actual = normalizePath relativePath
+                Expect.equal actual expected $"Should resolve {relativePath} from the current directory" ] ]
 
   /// Tests for string manipulation functions
   let stringTests =
