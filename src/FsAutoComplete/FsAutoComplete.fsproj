@@ -39,6 +39,7 @@
     <Compile Include="LspServers/Common.fs" />
     <Compile Include="LspServers/AdaptiveServerState.fsi" />
     <Compile Include="LspServers/AdaptiveServerState.fs" />
+    <Compile Include="LspServers/FantomasReporting.fs" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fsi" />
     <Compile Include="LspServers/AdaptiveFSharpLspServer.fs" />
     <Compile Include="Parser.fsi" />

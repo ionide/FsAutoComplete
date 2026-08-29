@@ -16,6 +16,7 @@ type FSharpLspClient =
   override WindowShowMessage: ShowMessageParams -> Async<unit>
   override WindowShowMessageRequest: ShowMessageRequestParams -> AsyncLspResult<MessageActionItem option>
   override WindowLogMessage: LogMessageParams -> Async<unit>
+  override WindowShowDocument: ShowDocumentParams -> AsyncLspResult<ShowDocumentResult>
   override TelemetryEvent: Newtonsoft.Json.Linq.JToken -> Async<unit>
   override ClientRegisterCapability: RegistrationParams -> AsyncLspResult<unit>
   override ClientUnregisterCapability: UnregistrationParams -> AsyncLspResult<unit>
