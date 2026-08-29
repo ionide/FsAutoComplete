@@ -114,7 +114,7 @@ jobs:
       run: dotnet build -c Release
 
     - name: Run and report tests
-      run: dotnet fsi build.fsx -- -p 'test:${{ matrix.test_tfm }}'
+      run: dotnet fsi build.fsx -- -p 'test-ci:${{ matrix.test_tfm }}'
       env:
         USE_TRANSPARENT_COMPILER: ${{ matrix.use-transparent-compiler }}
         USE_WORKSPACE_LOADER: ${{ matrix.workspace-loader }}

@@ -448,6 +448,63 @@ let createGlobalJson sdkVersion =
 let testCommand targetFramework =
   $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="System.Reactive|FSharp.Compiler.Service|Ionide.ProjInfo|FSharp.Analyzers|Analyzer|Humanizer|FSharp.Core|FSharp.DependencyManager" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m"""
 
+let startTestShard targetFramework shard =
+  let startInfo = System.Diagnostics.ProcessStartInfo("dotnet")
+  startInfo.WorkingDirectory <- lspTestsPath
+  startInfo.UseShellExecute <- false
+  startInfo.Environment["FSAC_TEST_SHARD"] <- string shard
+  startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] <- "0"
+  startInfo.Environment["MSBUILDDISABLENODEREUSE"] <- "1"
+  startInfo.Environment["UseSharedCompilation"] <- "false"
+
+  [ "test"
+    "-c"
+    "Release"
+    "-f"
+    targetFramework
+    "--no-restore"
+    "--no-build"
+    "--logger"
+    "console;verbosity=normal"
+    "--logger"
+    "GitHubActions"
+    "--"
+    "Expecto.fail-on-focused-tests=true"
+    "--blame-hang"
+    "--blame-hang-timeout"
+    "1m" ]
+  |> List.iter (fun argument -> startInfo.ArgumentList.Add argument)
+
+  task {
+    use childProcess = System.Diagnostics.Process.Start startInfo
+    do! childProcess.WaitForExitAsync()
+    return shard, childProcess.ExitCode
+  }
+
+let runTestShards targetFramework =
+  let tasks = [| for shard in 1..4 -> startTestShard targetFramework shard |]
+  let results = System.Threading.Tasks.Task.WhenAll(tasks).GetAwaiter().GetResult()
+
+  let failures = results |> Array.filter (fun (_, exitCode) -> exitCode <> 0)
+
+  if failures.Length > 0 then
+    failures
+    |> Array.map (fun (shard, exitCode) -> $"shard %i{shard}: exit code %i{exitCode}")
+    |> String.concat ", "
+    |> failwithf "CI test shards failed: %s"
+
+let ciTests targetFramework sdkVersion =
+  stage $"test-ci:%s{targetFramework}" {
+    workingDir lspTestsPath
+    run (createGlobalJson sdkVersion)
+
+    run (fun _ ->
+      try
+        runTestShards targetFramework
+      finally
+        System.IO.File.Delete(lspTestsPath </> "global.json"))
+  }
+
 // Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
 // It then builds and tests with the SDK that matches the test target framework.
 let net80Tests =
@@ -485,6 +542,10 @@ let net100Tests =
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
+let ciNet80Tests = ciTests "net8.0" "8.0.100"
+let ciNet90Tests = ciTests "net9.0" "9.0.100"
+let ciNet100Tests = ciTests "net10.0" "10.0.100"
+
 pipeline "test:net8.0" {
   description "Run net8.0 tests"
   net80Tests
@@ -500,6 +561,24 @@ pipeline "test:net9.0" {
 pipeline "test:net10.0" {
   description "Run net10.0 tests"
   net100Tests
+  runIfOnlySpecified true
+}
+
+pipeline "test-ci:net8.0" {
+  description "Run net8.0 CI test shards"
+  ciNet80Tests
+  runIfOnlySpecified true
+}
+
+pipeline "test-ci:net9.0" {
+  description "Run net9.0 CI test shards"
+  ciNet90Tests
+  runIfOnlySpecified true
+}
+
+pipeline "test-ci:net10.0" {
+  description "Run net10.0 CI test shards"
+  ciNet100Tests
   runIfOnlySpecified true
 }
 
