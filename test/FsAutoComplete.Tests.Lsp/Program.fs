@@ -102,6 +102,7 @@ let lspTests =
               let createServer () =
                 adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
+              // Shard 1 carries general tests and shard 4 carries snapshots; keep shared fixtures together and add isolated groups to the fastest measured shard.
               let compilerTests =
                 [ 4, Templates.tests ()
                   4, initTests createServer
