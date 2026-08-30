@@ -25,6 +25,7 @@
     </ProjectReference>
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
+    <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />

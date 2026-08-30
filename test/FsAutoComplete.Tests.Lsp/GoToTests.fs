@@ -20,9 +20,6 @@ let private gotoTest state =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToTests")
 
-      let csharpPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "GoToCSharp")
-      let _buildInfo = DotnetCli.build csharpPath
-
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
 
