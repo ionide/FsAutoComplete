@@ -45,6 +45,12 @@ module Server =
     createServer: (unit -> IFSharpLspServer * IObservable<string * obj>) ->
       CachedServer
 
+  val createForPreparedProjects:
+    path: string option ->
+    config: FSharpConfigDto ->
+    createServer: (unit -> IFSharpLspServer * IObservable<string * obj>) ->
+      CachedServer
+
   val shutdown: server: CachedServer -> Async<unit>
   val createUntitledDocument: initialText: string -> server: CachedServer -> Async<Document * Diagnostic array>
   /// `path` can be absolute or relative.

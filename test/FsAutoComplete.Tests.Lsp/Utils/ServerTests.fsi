@@ -38,6 +38,7 @@ val cleanableTestList:
 val serverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
 val fserverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
 val pserverTestList: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
+val serverTestListForPreparedProjects: (string -> (unit -> FsAutoComplete.Lsp.IFSharpLspServer * System.IObservable<string * obj>) -> FsAutoComplete.LspHelpers.FSharpConfigDto -> option<string> -> (Async<Server> -> list<Test>) -> Test)
 
 
 /// Note: Not intended for changing document: always same (initial) diags

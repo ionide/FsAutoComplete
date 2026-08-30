@@ -26,6 +26,9 @@
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
     <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" />
+    <DependentFileCheckingProject Include="TestCases\DependentFileChecking\SameProject\SameProject.fsproj" />
+    <DependentFileCheckingProject Include="TestCases\DependentFileChecking\CrossProject-net8.0\App\App.fsproj" />
+    <DependentFileCheckingProject Include="TestCases\DependentFileChecking\CrossProject-net9.0\App\App.fsproj" Condition="'$(TargetFramework)' != 'net8.0'" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />
@@ -55,6 +58,9 @@
     <Compile Include="CodeFixTests/Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <Target Name="RestoreDependentFileCheckingProjects" BeforeTargets="Build">
+    <MSBuild Projects="@(DependentFileCheckingProject)" Targets="Restore" BuildInParallel="true" />
+  </Target>
   <!-- This is a workaround for the test framework using Microsoft.Build dependencies and our
   project uses it's own set of Microsoft.Build dependencies which causes loading conflicts -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

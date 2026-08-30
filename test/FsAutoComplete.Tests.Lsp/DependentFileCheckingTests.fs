@@ -29,7 +29,7 @@ let tests state =
     testList "SameProject" [
       // Separate server for each test
       // Otherwise share diag stream -> second test must skip diags of first tests. But only when first test runs (-> running all tests vs. running test alone)
-      serverTestList "single" state defaultConfigDto (Some sameProjectRoot) (fun server -> [
+      serverTestListForPreparedProjects "single" state defaultConfigDto (Some sameProjectRoot) (fun server -> [
         testCaseAsync "When A is modified B is re-checked" (async {
           // open the files as they are on-disk and verify things are good
           let! (aDoc, aDiags) = Server.openDocument aFile server
@@ -54,7 +54,7 @@ let tests state =
           Expect.isNonEmpty bDiags $"Should have some compilation errors for {bFile} after erroneous change to {aFile}"
         })
       ])
-      serverTestList "multi" state defaultConfigDto (Some sameProjectRoot) (fun server -> [
+      serverTestListForPreparedProjects "multi" state defaultConfigDto (Some sameProjectRoot) (fun server -> [
         testCaseAsync "When A is modified repeatedly, B is re-checked after each modification" (async {
           // open the files as they are on-disk and verify things are good
           let! (aDoc, aDiags) = Server.openDocument aFile server
@@ -86,7 +86,7 @@ let tests state =
       let crossProject = crossProjectRoot tfm
       let aFile, bFile = Path.Join("Library1" </> "A.fs"), ("App" </> "B.fs")
       testList $"CrossProject-{tfm}" [
-        serverTestList "single" state defaultConfigDto (Some crossProject) (fun server -> [
+        serverTestListForPreparedProjects "single" state defaultConfigDto (Some crossProject) (fun server -> [
           testCaseAsync "When A is modified B is re-checked" (async {
             // open the files as they are on-disk and verify things are good
             let! (aDoc, aDiags) = Server.openDocument aFile server

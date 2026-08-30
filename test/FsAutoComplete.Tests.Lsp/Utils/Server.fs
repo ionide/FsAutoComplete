@@ -59,20 +59,20 @@ module Server =
 
   let private processUntitledCounter = [| initialUntitledCounter () |]
 
-  let private initialize path (config: FSharpConfigDto) createServer =
+  let private initialize prepareProjects path (config: FSharpConfigDto) createServer =
     async {
       logger.trace (
         Log.setMessage "Initialize Server in {path}"
         >> Log.addContextDestructured "path" path
       )
 
-      match path with
-      | None -> ()
-      | Some path ->
+      match path, prepareProjects with
+      | Some path, true ->
         dotnetCleanup path
 
         for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
           do! file |> Path.GetDirectoryName |> dotnetRestore
+      | _ -> ()
 
       let (server: IFSharpLspServer, events: IObservable<_>) = createServer ()
       events |> Observable.add logEvent
@@ -110,9 +110,9 @@ module Server =
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
-  let create path config createServer : CachedServer =
+  let private create' prepareProjects path config createServer : CachedServer =
     async {
-      let! server = initialize path config createServer
+      let! server = initialize prepareProjects path config createServer
 
       if path |> Option.isSome then
         do! waitForWorkspaceFinishedParsing server.Events
@@ -120,6 +120,10 @@ module Server =
       return server
     }
     |> Async.Cache
+
+  let create path config createServer = create' true path config createServer
+
+  let createForPreparedProjects path config createServer = create' false path config createServer
 
   let shutdown (server: CachedServer) =
     async {
