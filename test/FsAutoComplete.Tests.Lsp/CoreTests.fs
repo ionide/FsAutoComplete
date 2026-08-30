@@ -33,23 +33,29 @@ let initTests createServer =
       let tempDir =
         Path.Combine(Path.GetTempPath(), "FsAutoComplete.Tests", Guid.NewGuid().ToString())
 
+      Directory.CreateDirectory(tempDir) |> ignore
+
+      use _tempDir =
+        { new IDisposable with
+            member _.Dispose() = Directory.Delete(tempDir, true) }
+
       let (server: IFSharpLspServer, _event) = createServer ()
+      use _server = server :> IDisposable
+
+      let tempUri = Path.FilePathToUri tempDir
 
       let p: InitializeParams =
         { ProcessId = Some 1
-          RootPath = Some __SOURCE_DIRECTORY__
+          RootPath = Some tempDir
           Locale = None
-          RootUri = None
+          RootUri = Some tempUri
           InitializationOptions = Some(Server.serialize defaultConfigDto)
           Capabilities = clientCaps
           ClientInfo =
             Some
               { Name = "FSAC Tests"
                 Version = Some "0.0.0" }
-          WorkspaceFolders =
-            Some
-              [| { Uri = Path.FilePathToUri tempDir
-                   Name = "Test Folder" } |]
+          WorkspaceFolders = Some [| { Uri = tempUri; Name = "Test Folder" } |]
           Trace = None
           WorkDoneToken = None }
 
