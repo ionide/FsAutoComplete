@@ -381,14 +381,8 @@ type AdaptiveState
 
   let triggerNotification notification ct = notifications.Trigger(notification, ct, None)
 
-  let triggerNotificationAndWait notification ct =
-    async {
-      let completion =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
-
-      notifications.Trigger(notification, ct, Some completion)
-      do! completion.Task |> Async.AwaitTask
-    }
+  let triggerNotificationAndWait =
+    AcknowledgedNotification.triggerAndWait notifications
 
   do
     workspaceLoader.Notifications.Subscribe(fun n ->

@@ -1,6 +1,8 @@
 module Utils.Tests.Server
 
 open System
+open System.Threading
+open System.Threading.Tasks
 open Expecto
 open Helpers
 open FsAutoComplete
@@ -14,11 +16,128 @@ open Utils.Utils
 open FsToolkit.ErrorHandling
 open FSharpx.Control
 open FsAutoComplete.LspHelpers
+open FSharp.UMX
+
+let private startWithOutcome (work: Async<'result>) =
+  let completion =
+    TaskCompletionSource<Choice<'result, exn, OperationCanceledException>>(
+      TaskCreationOptions.RunContinuationsAsynchronously
+    )
+
+  Async.StartWithContinuations(
+    work,
+    (fun result -> completion.TrySetResult(Choice1Of3 result) |> ignore),
+    (fun ex -> completion.TrySetResult(Choice2Of3 ex) |> ignore),
+    (fun ex -> completion.TrySetResult(Choice3Of3 ex) |> ignore)
+  )
+
+  completion.Task
+
+let private completesWithin (timeout: TimeSpan) (work: Task) =
+  async {
+    let! completed = Task.WhenAny([| work; Task.Delay timeout |]) |> Async.AwaitTask
+    return Object.ReferenceEquals(completed, work)
+  }
+
+let private acknowledgedWaitTimeout = TimeSpan.FromSeconds 1.
 
 let tests state =
   testList
     (nameof (Server))
-    [ testList
+    [ testCaseAsync
+        "pre-canceled acknowledged notification completes as canceled"
+        (async {
+          let notifications =
+            Event<int * CancellationToken * TaskCompletionSource<unit> option>()
+
+          let mutable handlerInvoked = false
+          use _subscription = notifications.Publish.Subscribe(fun _ -> handlerInvoked <- true)
+          use cts = new CancellationTokenSource()
+          cts.Cancel()
+
+          let completion =
+            AcknowledgedNotification.triggerAndWait notifications 1 cts.Token
+            |> startWithOutcome
+
+          let! completed = completion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue completed "The acknowledged notification wait must observe cancellation"
+
+          match completion.Result with
+          | Choice3Of3 _ -> ()
+          | Choice2Of3 ex -> failtestf "Expected cancellation, but got %s" ex.Message
+          | Choice1Of3() -> failtest "Expected cancellation"
+
+          Expect.isFalse handlerInvoked "A pre-canceled notification must not invoke its handler"
+        })
+      testCaseAsync
+        "in-flight acknowledged notification completes as canceled"
+        (async {
+          let notifications =
+            Event<int * CancellationToken * TaskCompletionSource<unit> option>()
+
+          let handlerStarted =
+            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+          use _subscription =
+            notifications.Publish.Subscribe(fun _ -> handlerStarted.TrySetResult() |> ignore)
+
+          use cts = new CancellationTokenSource()
+
+          let completion =
+            AcknowledgedNotification.triggerAndWait notifications 1 cts.Token
+            |> startWithOutcome
+
+          let! started = handlerStarted.Task |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue started "The notification handler must start before cancellation"
+          cts.Cancel()
+
+          let! completed = completion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue completed "The in-flight notification wait must observe cancellation"
+
+          match completion.Result with
+          | Choice3Of3 _ -> ()
+          | Choice2Of3 ex -> failtestf "Expected cancellation, but got %s" ex.Message
+          | Choice1Of3() -> failtest "Expected cancellation"
+        })
+      testCaseAsync
+        "acknowledged diagnostic update returns the send failure"
+        (async {
+          let failure = InvalidOperationException "diagnostic send failed"
+          let mutable sendCount = 0
+
+          let send _ _ _ =
+            async {
+              if Interlocked.Increment(&sendCount) = 1 then
+                return raise failure
+            }
+
+          use diagnostics = new DiagnosticCollection(send)
+          let uri: DocumentUri = UMX.tag "file:///diagnostic-failure.fs"
+
+          let firstCompletion =
+            diagnostics.SetForAndWait(uri, "test", 1, [||]) |> startWithOutcome
+
+          let! firstCompleted = firstCompletion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue firstCompleted "The acknowledged update must return the send failure"
+
+          match firstCompletion.Result with
+          | Choice2Of3 ex -> Expect.isTrue (Object.ReferenceEquals(ex, failure)) "The original send failure must return"
+          | Choice3Of3 ex -> failtestf "Expected the send failure, but got cancellation: %s" ex.Message
+          | Choice1Of3() -> failtest "Expected the send failure"
+
+          let secondCompletion =
+            diagnostics.SetForAndWait(uri, "test", 2, [||]) |> startWithOutcome
+
+          let! secondCompleted = secondCompletion |> completesWithin acknowledgedWaitTimeout
+
+          Expect.isTrue secondCompleted "The replacement diagnostics agent must process the next update"
+
+          match secondCompletion.Result with
+          | Choice1Of3() -> ()
+          | Choice2Of3 ex -> failtestf "Expected the next update to succeed, but got %s" ex.Message
+          | Choice3Of3 ex -> failtestf "Expected the next update to succeed, but got cancellation: %s" ex.Message
+        })
+      testList
         "no root path"
         [ testList
             "can get diagnostics"
