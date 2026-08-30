@@ -320,7 +320,7 @@ module Document =
       do! doc.Server.Server.TextDocumentDidOpen p
 
       try
-        return! doc |> waitForLatestDiagnostics (TimeSpan.FromSeconds(2.))
+        return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
       with :? TimeoutException ->
         return failwith $"Timeout waiting for latest diagnostics for {doc.Uri}"
     }
