@@ -13,10 +13,10 @@ open Utils.Server
 open FsAutoComplete.LspHelpers
 
 
-let documentChanges path range text : DidChangeTextDocumentParams =
+let documentChanges path version range text : DidChangeTextDocumentParams =
   { TextDocument =
       { Uri = Path.FilePathToUri path
-        Version = 1 }
+        Version = version }
 
     ContentChanges =
       [| U2.C1
@@ -115,7 +115,7 @@ let tests state =
           let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            documentChanges path (posRange line character) "."
+            documentChanges path 1 (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
@@ -183,7 +183,7 @@ let tests state =
           let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            documentChanges path (posRange line character) "."
+            documentChanges path 2 (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
@@ -251,7 +251,7 @@ let tests state =
           let character = uint32 lineUnderTest.Length
 
           let textChange: DidChangeTextDocumentParams =
-            documentChanges path (posRange line character) "."
+            documentChanges path 3 (posRange line character) "."
 
           let! c = server.TextDocumentDidChange textChange |> Async.StartChild
 
