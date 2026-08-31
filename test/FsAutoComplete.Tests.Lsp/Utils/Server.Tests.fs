@@ -137,6 +137,35 @@ let tests state =
           | Choice2Of3 ex -> failtestf "Expected the next update to succeed, but got %s" ex.Message
           | Choice3Of3 ex -> failtestf "Expected the next update to succeed, but got cancellation: %s" ex.Message
         })
+      testCaseAsync
+        "versioned empty updates preserve diagnostic version ordering"
+        (async {
+          let verify submitEmpty uri =
+            async {
+              let sent = ResizeArray<int option * Diagnostic[]>()
+              let send _ version diagnostics = async { sent.Add(version, diagnostics) }
+              use collection = new DiagnosticCollection(send)
+              let diagnostic = Unchecked.defaultof<Diagnostic>
+
+              do! collection.SetForAndWait(uri, "test", 3, [| diagnostic |])
+              do! submitEmpty collection uri
+              do! collection.SetForAndWait(uri, "test", 1, [| diagnostic |])
+
+              Expect.hasLength sent 1 "Stale updates must not publish diagnostics"
+              Expect.equal (fst sent[0]) (Some 3) "The newest diagnostic version must remain"
+              Expect.hasLength (snd sent[0]) 1 "The newest diagnostics must remain"
+            }
+
+          do!
+            verify
+              (fun collection uri -> async { collection.SetFor(uri, "test", 2, [||]) })
+              (UMX.tag "file:///diagnostic-post-version.fs")
+
+          do!
+            verify
+              (fun collection uri -> collection.SetForAndWait(uri, "test", 2, [||]))
+              (UMX.tag "file:///diagnostic-wait-version.fs")
+        })
       testList
         "no root path"
         [ testList

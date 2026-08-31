@@ -194,10 +194,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
   member x.SetFor(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
     if x.ClientSupportsDiagnostics then
       let mailbox, _ = getOrAddAgent fileUri
-
-      match values with
-      | [||] -> mailbox.Post(Clear(kind, None))
-      | values -> mailbox.Post(Add(kind, version, values, None))
+      mailbox.Post(Add(kind, version, values, None))
 
   member x.SetForAndWait(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
     async {
@@ -210,9 +207,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
         use _registration =
           cts.Token.Register(fun () -> completion.TrySetCanceled(cts.Token) |> ignore)
 
-        match values with
-        | [||] -> mailbox.Post(Clear(kind, Some completion))
-        | values -> mailbox.Post(Add(kind, version, values, Some completion))
+        mailbox.Post(Add(kind, version, values, Some completion))
 
         try
           do! completion.Task |> Async.AwaitTask
