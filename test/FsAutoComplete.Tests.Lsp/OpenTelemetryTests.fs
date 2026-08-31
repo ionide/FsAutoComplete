@@ -29,6 +29,15 @@ let private withTempDirectory f =
   finally
     Directory.Delete(directory, true)
 
+let private withoutCurrentActivity f =
+  let previousActivity = Activity.Current
+  Activity.Current <- null
+
+  try
+    f ()
+  finally
+    Activity.Current <- previousActivity
+
 let private spanNames (path: string) =
   use json = JsonDocument.Parse(File.ReadAllText path)
 
@@ -88,63 +97,64 @@ let tests =
 
       testCase "failed test export includes its child spans only" (fun () ->
         withTempDirectory (fun directory ->
-          use source = new ActivitySource($"FsAutoComplete.Tests.%O{Guid.NewGuid()}")
+          withoutCurrentActivity (fun () ->
+            use source = new ActivitySource($"FsAutoComplete.Tests.%O{Guid.NewGuid()}")
 
-          let builder, exporter =
-            Sdk
-              .CreateTracerProviderBuilder()
-              .AddSource(source.Name)
-              .AddFailedTestOtlpFileExporter(fun options ->
-                options.OutputDirectory <- directory
-                options.ServiceName <- "tests"
-                options.ServiceVersion <- "1.0.0")
+            let builder, exporter =
+              Sdk
+                .CreateTracerProviderBuilder()
+                .AddSource(source.Name)
+                .AddFailedTestOtlpFileExporter(fun options ->
+                  options.OutputDirectory <- directory
+                  options.ServiceName <- "tests"
+                  options.ServiceVersion <- "1.0.0")
 
-          use provider = builder.Build()
+            use provider = builder.Build()
 
-          use failedTest =
-            source.StartActivity("failed test", ActivityKind.Internal, ActivityContext())
+            use failedTest =
+              source.StartActivity("failed test", ActivityKind.Internal, ActivityContext())
 
-          do
-            use child = source.StartActivity("failed child")
-            ()
+            do
+              use child = source.StartActivity("failed child")
+              ()
 
-          failedTest.SetTag("test.result.status", "Failed") |> ignore
-          failedTest.SetStatus(ActivityStatusCode.Error) |> ignore
-          failedTest.Stop()
+            failedTest.SetTag("test.result.status", "Failed") |> ignore
+            failedTest.SetStatus(ActivityStatusCode.Error) |> ignore
+            failedTest.Stop()
 
-          use passedTest =
-            source.StartActivity("passed test", ActivityKind.Internal, ActivityContext())
+            use passedTest =
+              source.StartActivity("passed test", ActivityKind.Internal, ActivityContext())
 
-          do
-            use child = source.StartActivity("passed child")
-            ()
+            do
+              use child = source.StartActivity("passed child")
+              ()
 
-          passedTest.SetTag("test.result.status", "Passed") |> ignore
-          passedTest.SetStatus(ActivityStatusCode.Ok) |> ignore
-          passedTest.Stop()
+            passedTest.SetTag("test.result.status", "Passed") |> ignore
+            passedTest.SetStatus(ActivityStatusCode.Ok) |> ignore
+            passedTest.Stop()
 
-          provider.ForceFlush() |> ignore
+            provider.ForceFlush() |> ignore
 
-          let path, failedTestCount =
-            exporter.WriteToFile()
-            |> Option.defaultWith (fun () -> failtest "Expected a failed test trace file")
+            let path, failedTestCount =
+              exporter.WriteToFile()
+              |> Option.defaultWith (fun () -> failtest "Expected a failed test trace file")
 
-          let names = spanNames path
-          let kinds = spanKinds path
+            let names = spanNames path
+            let kinds = spanKinds path
 
-          Expect.equal failedTestCount 1 "The exporter must report the failed test count"
+            Expect.equal failedTestCount 1 "The exporter must report the failed test count"
 
-          Expect.stringContains
-            (Path.GetFileName path)
-            $"_{Environment.ProcessId}.otlp.json"
-            "The trace filename must identify its test process"
+            Expect.stringContains
+              (Path.GetFileName path)
+              $"_{Environment.ProcessId}.otlp.json"
+              "The trace filename must identify its test process"
 
-          Expect.contains names "failed test" "The export must contain the failed test span"
-          Expect.contains names "failed child" "The export must contain child spans from the failed test"
-          Expect.isFalse (names |> Array.contains "passed test") "The export must exclude passed test spans"
+            Expect.contains names "failed test" "The export must contain the failed test span"
+            Expect.contains names "failed child" "The export must contain child spans from the failed test"
+            Expect.isFalse (names |> Array.contains "passed test") "The export must exclude passed test spans"
 
-          Expect.isFalse
-            (names |> Array.contains "passed child")
-            "The export must exclude child spans from passed tests"
+            Expect.isFalse
+              (names |> Array.contains "passed child")
+              "The export must exclude child spans from passed tests"
 
-          Expect.all kinds ((=) 1) "Internal activities must use the OTLP internal span kind")) ]
+            Expect.all kinds ((=) 1) "Internal activities must use the OTLP internal span kind"))) ]
