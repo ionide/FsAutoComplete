@@ -231,7 +231,12 @@ type WorkspacePeekRequest =
     Deep: int
     ExcludedDirs: string array }
 
-type DocumentationForSymbolRequest = { XmlSig: string; Assembly: string }
+type DocumentationForSymbolRequest =
+  { XmlSig: string
+    Assembly: string
+    FileName: string option
+    Line: int option
+    Character: int option }
 
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }
