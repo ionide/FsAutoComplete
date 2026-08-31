@@ -206,7 +206,11 @@ type AdaptiveState
   do disposables.Add analyzerProgressReporter
 
   let projectLoadingProgressReporter =
-    new SharedTypecheckProgressReporter("Loading Projects", fun () -> progressLookup.CreateProgressReport(lspClient))
+    new SharedTypecheckProgressReporter(
+      "Loading Projects",
+      (fun () -> progressLookup.CreateProgressReport(lspClient)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
+    )
 
   do disposables.Add projectLoadingProgressReporter
 
@@ -563,10 +567,13 @@ type AdaptiveState
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
           use! _progress = analyzerProgressReporter.Begin($"Unnecessary parens - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let unnecessaryParentheses =
             (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
             ||> ParsedInput.fold (fun ranges path node ->
+              progressCt.ThrowIfCancellationRequested()
+
               match node with
               | SyntaxNode.SynExpr(SynExpr.Paren(expr = inner; rightParenRange = Some _; range = range)) when
                 not (SynExpr.shouldBeParenthesizedInContext getSourceLine path inner)
@@ -581,6 +588,8 @@ type AdaptiveState
                 ranges
 
               | _ -> ranges)
+
+          progressCt.ThrowIfCancellationRequested()
 
           do!
             triggerNotificationAndWait
@@ -1811,18 +1820,18 @@ type AdaptiveState
       let! progressCt = typecheckProgressReporter.GetCancellationToken()
 
       let! result =
-        match compilerOptions with
-        | CompilerProjectOption.TransparentCompiler snap ->
-          checker.ParseAndCheckFileInProject(file.Source.FileName, snap, shouldCache = shouldCache)
-        | CompilerProjectOption.BackgroundCompiler opts ->
-          checker.ParseAndCheckFileInProject(
-            file.Source.FileName,
-            file.Version,
-            file.Source,
-            opts,
-            shouldCache = shouldCache
-          )
-          |> Async.withCancellation progressCt
+        (match compilerOptions with
+         | CompilerProjectOption.TransparentCompiler snap ->
+           checker.ParseAndCheckFileInProject(file.Source.FileName, snap, shouldCache = shouldCache)
+         | CompilerProjectOption.BackgroundCompiler opts ->
+           checker.ParseAndCheckFileInProject(
+             file.Source.FileName,
+             file.Version,
+             file.Source,
+             opts,
+             shouldCache = shouldCache
+           ))
+        |> Async.withCancellation progressCt
 
 
       let! ct = Async.CancellationToken
@@ -2541,7 +2550,6 @@ type AdaptiveState
 
       let batchFileList = innerChecks |> Array.map (fun (_, file) -> UMX.untag file)
 
-      // Start batch first so the report (and its CancellationToken) exists before per-file work begins
       use! _batchProgress = typecheckProgressReporter.BeginBatch(batchFileList)
       let! progressCt = typecheckProgressReporter.GetCancellationToken()
 
@@ -2551,19 +2559,15 @@ type AdaptiveState
         innerChecks
         |> Array.map (fun (proj, file) ->
           asyncEx {
+            let fileToken =
+              if file = sourceFilePath then
+                CancellationToken.None
+              else
+                resetCancellationToken file None
 
             use joinedToken =
-              if file = sourceFilePath then
-                // dont reset the token for the incoming file as it would cancel the whole operation
-                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressCt)
-              else
-                // only cancel other files
-                // If we have multiple saves from separate root files we want only one to be running
-                let fileToken = resetCancellationToken file None
-                // and join with the root token as well since we want to cancel the whole operation if the root files changes
-                CancellationTokenSource.CreateLinkedTokenSource(rootToken, fileToken, progressCt)
+              CancellationTokenSource.CreateLinkedTokenSource(rootToken, fileToken, progressCt)
 
-            // Track per-file progress so the shared reporter updates message and batch counter
             use! _fileProgress = typecheckProgressReporter.Begin(UMX.untag file)
 
             try
@@ -2572,8 +2576,10 @@ type AdaptiveState
                 |> Async.withCancellation joinedToken.Token
 
               ()
-            with :? OperationCanceledException ->
-              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+            with :? OperationCanceledException when
+                fileToken.IsCancellationRequested
+                && not rootToken.IsCancellationRequested
+                && not progressCt.IsCancellationRequested ->
               ()
           })
 

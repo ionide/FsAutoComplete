@@ -190,25 +190,39 @@ type SharedTypecheckProgressReporter
 
   let locker = new SemaphoreSlim(1, 1)
   let isEnabled = defaultArg isEnabled (fun () -> true)
-  /// Display-only set of short file names currently being checked
-  let mutable activeFiles = Set.empty<string>
+  let mutable activeFiles = Map.empty<string, int>
   let mutable progressReport: ServerProgressReport option = None
   let mutable batchTotal = 0
   let mutable batchCompleted = 0
-  /// Tracks which files belong to active batches (by full normalized path) for accurate counting
-  let mutable batchFiles = Set.empty<string>
-  /// Number of currently active batch scopes (supports overlapping batches)
+  let mutable batchFiles = Map.empty<string, int>
   let mutable activeBatchScopes = 0
 
   let normalizePath (path: string) = IO.Path.GetFullPath(path)
 
+  let incrementCount key counts =
+    counts
+    |> Map.change key (function
+      | Some count -> Some(count + 1)
+      | None -> Some 1)
+
+  let decrementCount key counts =
+    counts
+    |> Map.change key (function
+      | Some count when count > 1 -> Some(count - 1)
+      | Some _ -> None
+      | None -> None)
+
   let buildMessage () =
+    let activeFileNames =
+      activeFiles |> Map.toList |> List.map (fst >> IO.Path.GetFileName)
+
     let filesPart =
-      match Set.count activeFiles with
-      | 0 -> None
-      | 1 -> activeFiles |> Set.toList |> List.head |> Some
-      | n ->
-        let fileList = activeFiles |> Set.toList |> List.truncate 3 |> String.concat ", "
+      match activeFileNames with
+      | [] -> None
+      | [ file ] -> Some file
+      | files ->
+        let n = List.length files
+        let fileList = files |> List.truncate 3 |> String.concat ", "
 
         (if n > 3 then $"{fileList} (+{n - 3} more)" else fileList) |> Some
 
@@ -233,8 +247,8 @@ type SharedTypecheckProgressReporter
   member private x.StartFile(fileName: string) =
     cancellableTask {
       use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      let simpleName = IO.Path.GetFileName fileName
-      activeFiles <- Set.add simpleName activeFiles
+      let normalizedName = normalizePath fileName
+      activeFiles <- incrementCount normalizedName activeFiles
 
       match progressReport with
       | None ->
@@ -250,17 +264,15 @@ type SharedTypecheckProgressReporter
   member private x.EndFile(fileName: string) =
     cancellableTask {
       use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      let simpleName = IO.Path.GetFileName fileName
-      activeFiles <- Set.remove simpleName activeFiles
-
       let normalizedName = normalizePath fileName
+      activeFiles <- decrementCount normalizedName activeFiles
 
-      if batchTotal > 0 && Set.contains normalizedName batchFiles then
+      if batchTotal > 0 && Map.containsKey normalizedName batchFiles then
         batchCompleted <- min (batchCompleted + 1) batchTotal
-        batchFiles <- Set.remove normalizedName batchFiles
+        batchFiles <- decrementCount normalizedName batchFiles
 
       match progressReport with
-      | Some report when Set.isEmpty activeFiles && activeBatchScopes <= 0 ->
+      | Some report when Map.isEmpty activeFiles && activeBatchScopes <= 0 ->
         do! report.End()
         progressReport <- None
       | Some report ->
@@ -290,9 +302,12 @@ type SharedTypecheckProgressReporter
     cancellableTask {
       use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
       activeBatchScopes <- activeBatchScopes + 1
-      let normalizedFiles = files |> Array.map normalizePath |> Array.distinct
+      let normalizedFiles = files |> Array.map normalizePath
       batchTotal <- batchTotal + normalizedFiles.Length
-      batchFiles <- Set.union batchFiles (normalizedFiles |> Set.ofArray)
+
+      batchFiles <-
+        (batchFiles, normalizedFiles)
+        ||> Array.fold (fun counts file -> incrementCount file counts)
 
       // Eagerly create the report so the CancellationToken is available for linking
       match progressReport with
@@ -312,10 +327,10 @@ type SharedTypecheckProgressReporter
         activeBatchScopes <- 0
         batchTotal <- 0
         batchCompleted <- 0
-        batchFiles <- Set.empty
+        batchFiles <- Map.empty
 
       // End the report if nothing else is active
-      if Set.isEmpty activeFiles && activeBatchScopes <= 0 then
+      if Map.isEmpty activeFiles && activeBatchScopes <= 0 then
         match progressReport with
         | Some report ->
           do! report.End()

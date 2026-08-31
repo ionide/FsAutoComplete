@@ -151,6 +151,13 @@ let private createReporter (title: string) =
 /// Wait briefly for fire-and-forget tasks to settle
 let private settle () = Task.Delay(50) |> Async.AwaitTask
 
+let private lastPercentage (calls: ConcurrentQueue<ProgressCall>) =
+  calls.ToArray()
+  |> Array.rev
+  |> Array.tryPick (function
+    | Report(_, Some percentage) -> Some percentage
+    | _ -> None)
+
 
 let singleFileTests =
   testList
@@ -178,7 +185,7 @@ let singleFileTests =
         Expect.isTrue (ct = CancellationToken.None) "CancellationToken should be None after all files end"
       }
 
-      testCaseAsync "Multiple sequential files reuse the same report cycle"
+      testCaseAsync "Sequential files create separate report cycles"
       <| async {
         let reporter, _calls, reportCount = createReporter "Typechecking"
 
@@ -226,6 +233,48 @@ let singleFileTests =
 
         let! ct = reporter.GetCancellationToken() |> Async.AwaitTask
         Expect.isTrue (ct = CancellationToken.None) "Report should end after all files complete"
+      }
+
+      testCaseAsync "Concurrent scopes for the same path keep the report active"
+      <| async {
+        let reporter, _calls, _reportCount = createReporter "Typechecking"
+        use reporter = reporter
+
+        let! disp1 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+        let! disp2 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+
+        do! disp1.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let! ct = reporter.GetCancellationToken() |> Async.AwaitTask
+        Expect.notEqual ct CancellationToken.None "The second scope must keep the report active"
+
+        do! disp2.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let! ct = reporter.GetCancellationToken() |> Async.AwaitTask
+        Expect.equal ct CancellationToken.None "The report must end after both scopes end"
+      }
+
+      testCaseAsync "Files with the same basename keep independent scopes"
+      <| async {
+        let reporter, _calls, _reportCount = createReporter "Typechecking"
+        use reporter = reporter
+
+        let! disp1 = reporter.Begin ("C:/src/A/Foo.fs") CancellationToken.None |> Async.AwaitTask
+        let! disp2 = reporter.Begin ("C:/src/B/Foo.fs") CancellationToken.None |> Async.AwaitTask
+
+        do! disp1.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let! ct = reporter.GetCancellationToken() |> Async.AwaitTask
+        Expect.notEqual ct CancellationToken.None "The second path must keep the report active"
+
+        do! disp2.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let! ct = reporter.GetCancellationToken() |> Async.AwaitTask
+        Expect.equal ct CancellationToken.None "The report must end after both paths complete"
       } ]
 
 
@@ -311,6 +360,69 @@ let batchTests =
         do! settle ()
       }
 
+      testCaseAsync "Batch counts duplicate paths independently"
+      <| async {
+        let reporter, calls, _reportCount = createReporter "Typechecking"
+        use reporter = reporter
+
+        let! batchDisp =
+          reporter.BeginBatch ([| "C:/src/A.fs"; "C:/src/A.fs" |]) CancellationToken.None
+          |> Async.AwaitTask
+
+        let! disp1 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+        let! disp2 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+
+        do! disp1.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let firstPercentage = lastPercentage calls
+
+        Expect.equal firstPercentage (Some 50u) "The first duplicate completion must report 50 percent"
+
+        do! disp2.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let secondPercentage = lastPercentage calls
+
+        Expect.equal secondPercentage (Some 100u) "The second duplicate completion must report 100 percent"
+
+        do! batchDisp.DisposeAsync().AsTask() |> Async.AwaitTask
+      }
+
+      testCaseAsync "Overlapping batches count the same path independently"
+      <| async {
+        let reporter, calls, _reportCount = createReporter "Typechecking"
+        use reporter = reporter
+
+        let! batchDisp1 =
+          reporter.BeginBatch ([| "C:/src/A.fs" |]) CancellationToken.None
+          |> Async.AwaitTask
+
+        let! batchDisp2 =
+          reporter.BeginBatch ([| "C:/src/A.fs" |]) CancellationToken.None
+          |> Async.AwaitTask
+
+        let! disp1 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+        let! disp2 = reporter.Begin ("C:/src/A.fs") CancellationToken.None |> Async.AwaitTask
+
+        do! disp1.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let firstPercentage = lastPercentage calls
+
+        Expect.equal firstPercentage (Some 50u) "The first overlapping completion must report 50 percent"
+
+        do! disp2.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! settle ()
+
+        let secondPercentage = lastPercentage calls
+
+        Expect.equal secondPercentage (Some 100u) "The second overlapping completion must report 100 percent"
+
+        do! batchDisp2.DisposeAsync().AsTask() |> Async.AwaitTask
+        do! batchDisp1.DisposeAsync().AsTask() |> Async.AwaitTask
+      }
+
       testCaseAsync "Batch with active file scopes keeps report alive"
       <| async {
         let reporter, _calls, _reportCount = createReporter "Typechecking"
@@ -359,6 +471,8 @@ let batchTests =
         do! settle ()
 
         // Second batch — counters should have been reset
+        let callCountBeforeSecondBatch = calls.Count
+
         let! batchDisp2 =
           reporter.BeginBatch ([| "C:/src/C.fs"; "C:/src/D.fs" |]) CancellationToken.None
           |> Async.AwaitTask
@@ -366,7 +480,7 @@ let batchTests =
         do! settle ()
 
         // The Begin for second batch should show 0% (0/2)
-        let callsArr = calls.ToArray()
+        let callsArr = calls.ToArray() |> Array.skip callCountBeforeSecondBatch
 
         let hasZeroPercentage =
           callsArr
