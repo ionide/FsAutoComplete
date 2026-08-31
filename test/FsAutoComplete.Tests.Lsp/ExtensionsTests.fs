@@ -85,6 +85,18 @@ let uriTests =
         Expect.equal uri "file:///home/user/c%C3%B3digo/Program.fs" "ó (U+00F3) must encode as %C3%B3 (UTF-8), not %F3"
       } ]
 
+  let untitledTests =
+    [ test "FileUriToLocalPath gives untitled URIs a stable absolute path" {
+        let localPath = Path.FileUriToLocalPath "untitled:Untitled-7"
+        let expected = Path.Combine(AppContext.BaseDirectory, "Untitled-7.fsx")
+        Expect.equal localPath expected "Untitled paths should not depend on the current directory"
+
+        Expect.equal
+          (Path.FilePathToUri localPath)
+          "untitled:Untitled-7"
+          "The stable path should preserve the untitled URI"
+      } ]
+
   testList
     "Uri tests"
     [ testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
@@ -92,7 +104,8 @@ let uriTests =
         "fileName to uri tests"
         (samples
          |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
-      testList "unicode encoding tests" unicodeEncodingTests ]
+      testList "unicode encoding tests" unicodeEncodingTests
+      testList "untitled tests" untitledTests ]
 
 /// Tests for linter
 let linterTests state =
@@ -314,6 +327,7 @@ let formattingTests state =
           | Result.Error e -> failwithf "Error while formatting %s: %A" sourceFile e
         | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" sourceFile errors
       })
+
   testList
     "fantomas integration"
     [ testList

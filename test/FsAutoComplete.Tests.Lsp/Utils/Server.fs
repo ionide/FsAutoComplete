@@ -21,7 +21,9 @@ type Server =
   { RootPath: string option
     Server: IFSharpLspServer
     Events: ClientEvents
-    mutable UntitledCounter: int }
+    mutable UntitledCounter: int
+    mutable DocumentVersionCounter: int
+    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int> }
 
 /// `Server` cached with `Async.Cache`
 type CachedServer = Async<Server>
@@ -46,20 +48,31 @@ type Document =
     override doc.Dispose() : unit = doc |> Document.close |> Async.RunSynchronously
 
 module Server =
-  let private initialize path (config: FSharpConfigDto) createServer =
+  let private initialUntitledCounter () =
+    match Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
+    | null -> 0
+    | "1" -> 1_000_000
+    | "2" -> 2_000_000
+    | "3" -> 3_000_000
+    | "4" -> 4_000_000
+    | shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
+
+  let private processUntitledCounter = [| initialUntitledCounter () |]
+
+  let private initialize prepareProjects path (config: FSharpConfigDto) createServer =
     async {
       logger.trace (
         Log.setMessage "Initialize Server in {path}"
         >> Log.addContextDestructured "path" path
       )
 
-      match path with
-      | None -> ()
-      | Some path ->
+      match path, prepareProjects with
+      | Some path, true ->
         dotnetCleanup path
 
         for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
           do! file |> Path.GetDirectoryName |> dotnetRestore
+      | _ -> ()
 
       let (server: IFSharpLspServer, events: IObservable<_>) = createServer ()
       events |> Observable.add logEvent
@@ -91,13 +104,15 @@ module Server =
           { RootPath = path
             Server = server
             Events = events
-            UntitledCounter = 0 }
+            UntitledCounter = initialUntitledCounter ()
+            DocumentVersionCounter = 0
+            OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary() }
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
-  let create path config createServer : CachedServer =
+  let private create' prepareProjects path config createServer : CachedServer =
     async {
-      let! server = initialize path config createServer
+      let! server = initialize prepareProjects path config createServer
 
       if path |> Option.isSome then
         do! waitForWorkspaceFinishedParsing server.Events
@@ -106,6 +121,10 @@ module Server =
     }
     |> Async.Cache
 
+  let create path config createServer = create' true path config createServer
+
+  let createForPreparedProjects path config createServer = create' false path config createServer
+
   let shutdown (server: CachedServer) =
     async {
       let! server = server
@@ -113,16 +132,23 @@ module Server =
     }
 
   let private createDocument fullPath uri server =
+    let version =
+      server.OpenDocumentVersions.GetOrAdd(
+        uri,
+        fun _ -> System.Threading.Interlocked.Increment(&server.DocumentVersionCounter)
+      )
+
     { Server = server
       Uri = uri
       FilePath = fullPath
-      Version = 0 }
+      Version = version }
 
   let private untitledDocUrif = sprintf "untitled:Untitled-%i"
 
   /// Note: mutates passed `server`: increments `server.UntitledCounter`
   let private nextUntitledDocUri (server: Server) =
-    let next = System.Threading.Interlocked.Increment(&server.UntitledCounter)
+    let next = System.Threading.Interlocked.Increment(&processUntitledCounter[0])
+    System.Threading.Interlocked.Exchange(&server.UntitledCounter, next) |> ignore
     untitledDocUrif (next - 1)
 
   let createUntitledDocument initialText (server: CachedServer) =
@@ -198,7 +224,6 @@ module Server =
 
 module Document =
   open System.Reactive.Linq
-  open System.Threading.Tasks
 
   let private typedEvents<'t> typ : _ -> System.IObservable<'t> =
     Observable.choose (fun (typ', _o) -> if typ' = typ then Some(unbox _o) else None)
@@ -220,28 +245,10 @@ module Document =
     |> Observable.filter (fun n -> n.TextDocument.Uri = doc.Uri)
 
 
-  /// in ms
-  let private waitForLateDiagnosticsDelay =
-    let envVar = "FSAC_WaitForLateDiagnosticsDelay"
-
-    System.Environment.GetEnvironmentVariable envVar
-    |> Option.ofObj
-    |> Option.map (fun d ->
-      match System.Int32.TryParse d with
-      | (true, d) -> d
-      | (false, _) -> failwith $"Environment Variable '%s{envVar}' exists, but is not a correct int number ('%s{d}')")
-    |> Option.orElseWith (fun _ ->
-      // set in Github Actions: https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
-      match System.Environment.GetEnvironmentVariable "CI" with
-      | null -> None
-      | _ -> Some 25)
-    |> Option.defaultValue 7 // testing locally
-
   /// Waits (if necessary) and gets latest diagnostics.
   ///
   /// To detect newest diags:
   /// * Waits for `fsharp/documentAnalyzed` for passed `doc` and its `doc.Version`.
-  /// * Then waits a but more for potential late diags.
   /// * Then returns latest diagnostics.
   ///
   ///
@@ -259,13 +266,6 @@ module Document =
   /// -> `fsharp/documentAnalyzed` was introduced. Notification when a doc was completely analyzed
   /// -> wait for `documentAnalyzed`
   ///
-  /// But issue: last `publishDiagnostics` might be received AFTER `documentAnalyzed` (because of async notifications & sending)
-  /// -> after receiving `documentAnalyzed` wait a bit for late `publishDiagnostics`
-  ///
-  /// But issue: Wait for how long? Too long: extends test execution time. Too short: Might miss diags.
-  /// -> unresolved. Current wait based on testing on modern_ish PC. Seems to work on CI too.
-  ///
-  ///
   /// *Inconvenience*: Only newest diags can be retrieved this way. Diags for older file versions cannot be extracted reliably:
   /// `doc.Server.Events` is a `ReplaySubject` -> returns ALL previous events on new subscription
   /// -> All past `documentAnalyzed` events and their diags are all received at once
@@ -279,34 +279,33 @@ module Document =
         >> Log.addContext "version" doc.Version
       )
 
-      let tcs = TaskCompletionSource<_>()
+      let mutable latest = [||]
 
       use _ =
         doc
         |> diagnosticsStream
-        |> Observable.takeUntilOther (
-          doc
-          // `fsharp/documentAnalyzed` signals all checks & analyzers done
-          |> analyzedStream
-          |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
-          // wait for late diagnostics
-          |> Observable.delay waitForLateDiagnosticsDelay
-        )
-        |> Observable.bufferSpan (timeout)
-        // |> Observable.timeoutSpan timeout
-        |> Observable.subscribe (fun x -> tcs.SetResult x)
+        |> Observable.subscribe (fun diagnostics -> latest <- diagnostics)
 
-      let! result = tcs.Task |> Async.AwaitTask
+      do!
+        doc
+        |> analyzedStream
+        |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+        |> Observable.timeoutSpan timeout
+        |> Async.AwaitObservable
+        |> Async.Ignore
 
-      // The buffer can close empty under load (e.g. the `documentAnalyzed` signal arrives
-      // before any `publishDiagnostics` batch), so `Seq.last` would throw "input sequence
-      // was empty". No batch published in the window == no diagnostics -> return empty.
-      return result |> Seq.tryLast |> Option.defaultValue [||]
+      return latest
     }
 
 
   /// Note: Mutates passed `doc`
-  let private incrVersion (doc: Document) = System.Threading.Interlocked.Increment(&doc.Version)
+  let private incrVersion (doc: Document) =
+    let version =
+      System.Threading.Interlocked.Increment(&doc.Server.DocumentVersionCounter)
+
+    doc.Server.OpenDocumentVersions.[doc.Uri] <- version
+    System.Threading.Interlocked.Exchange(&doc.Version, version) |> ignore
+    version
 
   /// Note: Mutates passed `doc`
   let private incrVersionedTextDocumentIdentifier (doc: Document) : VersionedTextDocumentIdentifier =
@@ -325,7 +324,7 @@ module Document =
       do! doc.Server.Server.TextDocumentDidOpen p
 
       try
-        return! doc |> waitForLatestDiagnostics (TimeSpan.FromSeconds(2.))
+        return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
       with :? TimeoutException ->
         return failwith $"Timeout waiting for latest diagnostics for {doc.Uri}"
     }
@@ -334,6 +333,7 @@ module Document =
     async {
       let p: DidCloseTextDocumentParams = { TextDocument = doc.TextDocumentIdentifier }
       do! doc.Server.Server.TextDocumentDidClose p
+      doc.Server.OpenDocumentVersions.TryRemove(doc.Uri) |> ignore
     }
 
   ///<summary>

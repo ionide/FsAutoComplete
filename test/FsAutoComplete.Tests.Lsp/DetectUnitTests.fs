@@ -8,16 +8,17 @@ open FsAutoComplete.LspHelpers
 open Helpers
 open FsToolkit.ErrorHandling
 open Helpers.Expecto.ShadowedTimeouts
+open Utils.Server
 
 let tests state =
   let getTestNotification projectFolder fileName =
     async {
       let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", projectFolder)
-      let! server, events = serverInitialize path defaultConfigDto state
-      do! waitForWorkspaceFinishedParsing events
+      let! server = Server.createForPreparedProjects (Some path) defaultConfigDto state
+      let events = server.Events
       let path = Path.Combine(path, fileName)
       let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
-      let! child = Async.StartChild(server.TextDocumentDidOpen tdop)
+      let! child = Async.StartChild(server.Server.TextDocumentDidOpen tdop)
       let! _diagnostics = waitForParseResultsForFile fileName events
       do! child
       return! waitForTestDetected fileName events

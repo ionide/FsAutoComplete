@@ -668,6 +668,7 @@ type Path with
   static member FileUriToLocalPath(uriString: string) =
 
     let uriStringSpan = uriString.AsSpan()
+    let isUntitled = uriStringSpan.StartsWith("untitled:")
     let mutable initialLocalPath = Uri(uriString).LocalPath.AsSpan()
     let mutable builder = ValueStringBuilder()
 
@@ -681,10 +682,15 @@ type Path with
       else
         builder.Append initialLocalPath
 
-      if uriStringSpan.StartsWith("untitled:") then
+      if isUntitled then
         builder.Append(".fsx")
 
-      StringPool.Shared.GetOrAdd(builder.AsSpan())
+      let localPath = StringPool.Shared.GetOrAdd(builder.AsSpan())
+
+      if isUntitled then
+        Path.Combine(AppContext.BaseDirectory, localPath)
+      else
+        localPath
     finally
       builder.Dispose()
 

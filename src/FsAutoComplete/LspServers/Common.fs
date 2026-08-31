@@ -4,6 +4,7 @@ namespace FsAutoComplete.Lsp
 open System
 open System.IO
 open System.Threading
+open System.Threading.Tasks
 open FsAutoComplete
 open FsAutoComplete.LspHelpers
 open FsAutoComplete.Logging
@@ -49,10 +50,50 @@ module AsyncResult =
   let ofStringErr (ar: Async<Result<'a, string>>) = ar |> AsyncResult.mapError (fun s -> JsonRpc.Error.InternalError s)
 
 
+module AcknowledgedNotification =
+  let private canceled (ct: CancellationToken) =
+    Async.FromContinuations(fun (_, _, cancellation) -> cancellation (OperationCanceledException ct))
+
+  let triggerAndWait
+    (notifications: Event<'notification * CancellationToken * TaskCompletionSource<unit> option>)
+    (notification: 'notification)
+    (ct: CancellationToken)
+    =
+    async {
+      let completion =
+        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+      let gate = obj ()
+      let mutable cancellationRequested = false
+
+      use _registration =
+        ct.Register(fun () ->
+          lock gate (fun () ->
+            cancellationRequested <- true
+            completion.TrySetCanceled(ct) |> ignore))
+
+      let triggered =
+        lock gate (fun () ->
+          if cancellationRequested then
+            false
+          else
+            notifications.Trigger(notification, ct, Some completion)
+            true)
+
+      if not triggered then
+        return! canceled ct
+      else
+        try
+          do! completion.Task |> Async.AwaitTask
+        with :? OperationCanceledException ->
+          return! canceled ct
+    }
+
+
 
 type DiagnosticMessage =
-  | Add of source: string * Version * diags: Diagnostic[]
-  | Clear of source: string
+  | Add of source: string * Version * diags: Diagnostic[] * completion: TaskCompletionSource<unit> option
+  | Clear of source: string * completion: TaskCompletionSource<unit> option
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnostic[] -> Async<unit>) =
@@ -73,16 +114,7 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
       MailboxProcessor<DiagnosticMessage> * CancellationTokenSource
      >()
 
-  let rec restartAgent (fileUri: DocumentUri) =
-    removeAgent fileUri
-    getOrAddAgent fileUri |> ignore
-
-  and removeAgent (fileUri: DocumentUri) =
-    match agents.TryRemove(fileUri) with
-    | false, _ -> ()
-    | true, (_, ctok) -> ctok.Cancel()
-
-  and agentFor (uri: DocumentUri) cTok =
+  let rec agentFor (uri: DocumentUri) (cts: CancellationTokenSource) =
     let logger = LogProvider.getLoggerByName $"Diagnostics/{uri}"
 
     let mailbox =
@@ -90,54 +122,98 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
         (fun inbox ->
           let rec loop (state: Map<string, Version * Diagnostic[]>) =
             async {
-              match! inbox.Receive() with
-              | Add(source, version, diags) ->
-                match Map.tryFind source state with
-                | Some(oldVersion, _) when oldVersion > version -> return! loop state
-                | _ ->
-                  let newState = state |> Map.add source (version, diags)
-                  do! send uri newState
-                  return! loop newState
-              | Clear source ->
-                let newState = state |> Map.remove source
-                do! send uri newState
+              let! message = inbox.Receive()
+
+              let completion =
+                match message with
+                | Add(_, _, _, completion)
+                | Clear(_, completion) -> completion
+
+              try
+                let! newState =
+                  async {
+                    match message with
+                    | Add(source, version, diags, _) ->
+                      match Map.tryFind source state with
+                      | Some(oldVersion, _) when oldVersion > version -> return state
+                      | _ ->
+                        let newState = state |> Map.add source (version, diags)
+                        do! send uri newState
+                        return newState
+                    | Clear(source, _) ->
+                      let newState = state |> Map.remove source
+                      do! send uri newState
+                      return newState
+                  }
+
+                completion |> Option.iter (fun value -> value.TrySetResult() |> ignore)
                 return! loop newState
+              with ex ->
+                replaceAgent uri (inbox, cts)
+                completion |> Option.iter (fun value -> value.TrySetException ex |> ignore)
+
+                logger.error (
+                  Log.setMessage "Error while sending diagnostics: {message}"
+                  >> Log.addExn ex
+                  >> Log.addContext "message" ex.Message
+                )
+
+                cts.Cancel()
             }
 
           loop Map.empty),
-        cTok
+        cts.Token
       )
 
-    mailbox.Error.Add(fun exn ->
-      logger.error (
-        Log.setMessage "Error while sending diagnostics: {message}"
-        >> Log.addExn exn
-        >> Log.addContext "message" exn.Message
-      ))
-
-    mailbox.Error.Add(fun _exn -> restartAgent uri)
     mailbox
 
-  and getOrAddAgent fileUri =
+  and replaceAgent fileUri failedAgent =
+    let replacementCts = new CancellationTokenSource()
+    let replacementAgent = agentFor fileUri replacementCts, replacementCts
+
+    if not (agents.TryUpdate(fileUri, replacementAgent, failedAgent)) then
+      replacementCts.Cancel()
+
+  let getOrAddAgent fileUri =
     agents.GetOrAdd(
       fileUri,
       fun fileUri ->
         let cts = new CancellationTokenSource()
-        let mailbox = agentFor fileUri cts.Token
+        let mailbox = agentFor fileUri cts
         (mailbox, cts)
     )
-    |> fst
+
+  let removeAgent (fileUri: DocumentUri) =
+    match agents.TryRemove(fileUri) with
+    | false, _ -> ()
+    | true, (_, ctok) -> ctok.Cancel()
 
   /// If false, no diagnostics will be collected or sent to the client
   member val ClientSupportsDiagnostics = true with get, set
 
   member x.SetFor(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
     if x.ClientSupportsDiagnostics then
-      let mailbox = getOrAddAgent fileUri
+      let mailbox, _ = getOrAddAgent fileUri
+      mailbox.Post(Add(kind, version, values, None))
 
-      match values with
-      | [||] -> mailbox.Post(Clear kind)
-      | values -> mailbox.Post(Add(kind, version, values))
+  member x.SetForAndWait(fileUri: DocumentUri, kind: string, version: Version, values: Diagnostic[]) =
+    async {
+      if x.ClientSupportsDiagnostics then
+        let completion =
+          TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+        let mailbox, cts = getOrAddAgent fileUri
+
+        use _registration =
+          cts.Token.Register(fun () -> completion.TrySetCanceled(cts.Token) |> ignore)
+
+        mailbox.Post(Add(kind, version, values, Some completion))
+
+        try
+          do! completion.Task |> Async.AwaitTask
+        with :? AggregateException as aggregate when aggregate.InnerExceptions.Count = 1 ->
+          return raise aggregate.InnerException
+    }
 
   member x.ClearFor(fileUri: DocumentUri) =
     if x.ClientSupportsDiagnostics then
@@ -146,8 +222,8 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
 
   member x.ClearFor(fileUri: DocumentUri, kind: string) =
     if x.ClientSupportsDiagnostics then
-      let mailbox = getOrAddAgent fileUri
-      mailbox.Post(Clear kind)
+      let mailbox, _ = getOrAddAgent fileUri
+      mailbox.Post(Clear(kind, None))
 
   interface IDisposable with
     member x.Dispose() =

@@ -77,6 +77,19 @@ let compilers =
   | Some(EqIC "BackgroundCompiler") -> [ "BackgroundCompiler", false ]
   | _ -> [ "BackgroundCompiler", false; "TransparentCompiler", true ]
 
+let testShard =
+  match getEnvVarAsStr "FSAC_TEST_SHARD" with
+  | None -> None
+  | Some("1" | "2" | "3" | "4" as shard) -> Some(int shard)
+  | Some shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
+
+let selectTestGroups groups =
+  match testShard with
+  | None -> groups |> List.map snd
+  | Some selectedShard ->
+    groups
+    |> List.choose (fun (shard, test) -> if shard = selectedShard then Some test else None)
+
 let lspTests =
   testSequenced
   <| testList
@@ -86,62 +99,64 @@ let lspTests =
         testList
           $"{loaderName}"
           [ for (compilerName, useTransparentCompiler) in compilers do
-              testList
-                $"{compilerName}"
-                [ Templates.tests ()
-                  let createServer () =
-                    adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
+              let createServer () =
+                adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
-                  initTests createServer
-                  closeTests createServer
+              // Shard 1 carries general tests and shard 4 carries snapshots; keep shared fixtures together and add isolated groups to the fastest measured shard.
+              let compilerTests =
+                [ 4, Templates.tests ()
+                  4, initTests createServer
+                  4, closeTests createServer
 
-                  Utils.Tests.Server.tests createServer
-                  Utils.Tests.CursorbasedTests.tests createServer
+                  1, Utils.Tests.Server.tests createServer
+                  4, Utils.Tests.CursorbasedTests.tests createServer
 
-                  CodeLens.tests createServer
-                  documentSymbolTest createServer
-                  workspaceSymbolTest createServer
-                  Completion.autocompleteTest createServer
-                  Completion.autoOpenTests createServer
-                  Completion.fullNameExternalAutocompleteTest createServer
-                  foldingTests createServer
-                  tooltipTests createServer
-                  Highlighting.tests createServer
-                  scriptPreviewTests createServer
-                  scriptEvictionTests createServer
-                  scriptProjectOptionsCacheTests createServer
-                  dependencyManagerTests createServer
-                  interactiveDirectivesUnitTests
+                  4, CodeLens.tests createServer
+                  4, documentSymbolTest createServer
+                  4, workspaceSymbolTest createServer
+                  4, Completion.autocompleteTest createServer
+                  2, Completion.autoOpenTests createServer
+                  3, Completion.fullNameExternalAutocompleteTest createServer
+                  4, foldingTests createServer
+                  4, tooltipTests createServer
+                  4, Highlighting.tests createServer
+                  4, scriptPreviewTests createServer
+                  4, scriptEvictionTests createServer
+                  4, scriptProjectOptionsCacheTests createServer
+                  4, dependencyManagerTests createServer
+                  4, interactiveDirectivesUnitTests
 
                   // commented out because FSDN is down
                   //fsdnTest createServer
 
                   //linterTests createServer
-                  uriTests
-                  formattingTests createServer
-                  analyzerTests createServer
-                  signatureTests createServer
-                  SignatureHelp.tests createServer
-                  InlineHints.tests createServer
-                  CodeFixTests.Tests.tests sourceTextFactory createServer
-                  Completion.tests createServer
-                  GoTo.tests createServer
+                  4, uriTests
+                  4, formattingTests createServer
+                  4, analyzerTests createServer
+                  4, signatureTests createServer
+                  4, SignatureHelp.tests createServer
+                  4, InlineHints.tests createServer
+                  2, CodeFixTests.Tests.tests sourceTextFactory createServer
+                  4, Completion.tests createServer
+                  3, GoTo.tests createServer
 
-                  FindReferences.tests createServer
-                  Rename.tests createServer
+                  4, FindReferences.tests createServer
+                  3, Rename.tests createServer
 
-                  InfoPanelTests.docFormattingTest createServer
-                  DetectUnitTests.tests createServer
-                  XmlDocumentationGeneration.tests createServer
-                  InlayHintTests.tests createServer
-                  DependentFileChecking.tests createServer
-                  UnusedDeclarationsTests.tests createServer
-                  EmptyFileTests.tests createServer
-                  CallHierarchy.tests createServer
-                  diagnosticsTest createServer
-                  InheritDocTooltipTests.tests createServer
+                  4, InfoPanelTests.docFormattingTest createServer
+                  4, DetectUnitTests.tests createServer
+                  4, XmlDocumentationGeneration.tests createServer
+                  4, InlayHintTests.tests createServer
+                  3, DependentFileChecking.tests createServer
+                  2, UnusedDeclarationsTests.tests createServer
+                  4, EmptyFileTests.tests createServer
+                  3, CallHierarchy.tests createServer
+                  4, diagnosticsTest createServer
+                  4, InheritDocTooltipTests.tests createServer
 
-                  TestExplorer.tests createServer ] ] ]
+                  3, TestExplorer.tests createServer ]
+
+              testList $"{compilerName}" (selectTestGroups compilerTests) ] ]
 
 let expectedRuntimeMajor =
   System.Reflection.CustomAttributeExtensions
@@ -170,7 +185,11 @@ let generalTests =
 
 [<Tests>]
 let tests =
-  testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+  match testShard with
+  | None -> testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+  | Some 1 -> testList "FSAC" [ generalTests; lspTests ]
+  | Some 4 -> testList "FSAC" [ lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
+  | Some _ -> testList "FSAC" [ lspTests ]
 
 open OpenTelemetry
 open OpenTelemetry.Resources

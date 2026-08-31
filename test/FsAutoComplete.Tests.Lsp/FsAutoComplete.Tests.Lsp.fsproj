@@ -25,6 +25,13 @@
     </ProjectReference>
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
+    <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" />
+    <PreparedTestProject Include="TestCases\DependentFileChecking\SameProject\SameProject.fsproj" />
+    <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net8.0\App\App.fsproj" />
+    <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net9.0\App\App.fsproj" Condition="'$(TargetFramework)' != 'net8.0'" />
+    <PreparedTestProject Include="TestCases\NUnitTests\NUnitTests.fsproj" />
+    <PreparedTestProject Include="TestCases\XUnitTests\XUnitTests.fsproj" />
+    <PreparedTestProject Include="TestCases\ExpectoTests\ExpectoTests.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />
@@ -54,6 +61,9 @@
     <Compile Include="CodeFixTests/Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <Target Name="RestorePreparedTestProjects" BeforeTargets="Build">
+    <MSBuild Projects="@(PreparedTestProject)" Targets="Restore" RemoveProperties="TargetFramework" BuildInParallel="true" />
+  </Target>
   <!-- This is a workaround for the test framework using Microsoft.Build dependencies and our
   project uses it's own set of Microsoft.Build dependencies which causes loading conflicts -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

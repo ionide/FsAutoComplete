@@ -1,6 +1,8 @@
 module Utils.Tests.Server
 
 open System
+open System.Threading
+open System.Threading.Tasks
 open Expecto
 open Helpers
 open FsAutoComplete
@@ -14,11 +16,157 @@ open Utils.Utils
 open FsToolkit.ErrorHandling
 open FSharpx.Control
 open FsAutoComplete.LspHelpers
+open FSharp.UMX
+
+let private startWithOutcome (work: Async<'result>) =
+  let completion =
+    TaskCompletionSource<Choice<'result, exn, OperationCanceledException>>(
+      TaskCreationOptions.RunContinuationsAsynchronously
+    )
+
+  Async.StartWithContinuations(
+    work,
+    (fun result -> completion.TrySetResult(Choice1Of3 result) |> ignore),
+    (fun ex -> completion.TrySetResult(Choice2Of3 ex) |> ignore),
+    (fun ex -> completion.TrySetResult(Choice3Of3 ex) |> ignore)
+  )
+
+  completion.Task
+
+let private completesWithin (timeout: TimeSpan) (work: Task) =
+  async {
+    let! completed = Task.WhenAny([| work; Task.Delay timeout |]) |> Async.AwaitTask
+    return Object.ReferenceEquals(completed, work)
+  }
+
+let private acknowledgedWaitTimeout = TimeSpan.FromSeconds 1.
 
 let tests state =
   testList
     (nameof (Server))
-    [ testList
+    [ testCaseAsync
+        "pre-canceled acknowledged notification completes as canceled"
+        (async {
+          let notifications =
+            Event<int * CancellationToken * TaskCompletionSource<unit> option>()
+
+          let mutable handlerInvoked = false
+          use _subscription = notifications.Publish.Subscribe(fun _ -> handlerInvoked <- true)
+          use cts = new CancellationTokenSource()
+          cts.Cancel()
+
+          let completion =
+            AcknowledgedNotification.triggerAndWait notifications 1 cts.Token
+            |> startWithOutcome
+
+          let! completed = completion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue completed "The acknowledged notification wait must observe cancellation"
+
+          match completion.Result with
+          | Choice3Of3 _ -> ()
+          | Choice2Of3 ex -> failtestf "Expected cancellation, but got %s" ex.Message
+          | Choice1Of3() -> failtest "Expected cancellation"
+
+          Expect.isFalse handlerInvoked "A pre-canceled notification must not invoke its handler"
+        })
+      testCaseAsync
+        "in-flight acknowledged notification completes as canceled"
+        (async {
+          let notifications =
+            Event<int * CancellationToken * TaskCompletionSource<unit> option>()
+
+          let handlerStarted =
+            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+          use _subscription =
+            notifications.Publish.Subscribe(fun _ -> handlerStarted.TrySetResult() |> ignore)
+
+          use cts = new CancellationTokenSource()
+
+          let completion =
+            AcknowledgedNotification.triggerAndWait notifications 1 cts.Token
+            |> startWithOutcome
+
+          let! started = handlerStarted.Task |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue started "The notification handler must start before cancellation"
+          cts.Cancel()
+
+          let! completed = completion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue completed "The in-flight notification wait must observe cancellation"
+
+          match completion.Result with
+          | Choice3Of3 _ -> ()
+          | Choice2Of3 ex -> failtestf "Expected cancellation, but got %s" ex.Message
+          | Choice1Of3() -> failtest "Expected cancellation"
+        })
+      testCaseAsync
+        "acknowledged diagnostic update returns the send failure"
+        (async {
+          let failure = InvalidOperationException "diagnostic send failed"
+          let mutable sendCount = 0
+
+          let send _ _ _ =
+            async {
+              if Interlocked.Increment(&sendCount) = 1 then
+                return raise failure
+            }
+
+          use diagnostics = new DiagnosticCollection(send)
+          let uri: DocumentUri = UMX.tag "file:///diagnostic-failure.fs"
+
+          let firstCompletion =
+            diagnostics.SetForAndWait(uri, "test", 1, [||]) |> startWithOutcome
+
+          let! firstCompleted = firstCompletion |> completesWithin acknowledgedWaitTimeout
+          Expect.isTrue firstCompleted "The acknowledged update must return the send failure"
+
+          match firstCompletion.Result with
+          | Choice2Of3 ex -> Expect.isTrue (Object.ReferenceEquals(ex, failure)) "The original send failure must return"
+          | Choice3Of3 ex -> failtestf "Expected the send failure, but got cancellation: %s" ex.Message
+          | Choice1Of3() -> failtest "Expected the send failure"
+
+          let secondCompletion =
+            diagnostics.SetForAndWait(uri, "test", 2, [||]) |> startWithOutcome
+
+          let! secondCompleted = secondCompletion |> completesWithin acknowledgedWaitTimeout
+
+          Expect.isTrue secondCompleted "The replacement diagnostics agent must process the next update"
+
+          match secondCompletion.Result with
+          | Choice1Of3() -> ()
+          | Choice2Of3 ex -> failtestf "Expected the next update to succeed, but got %s" ex.Message
+          | Choice3Of3 ex -> failtestf "Expected the next update to succeed, but got cancellation: %s" ex.Message
+        })
+      testCaseAsync
+        "versioned empty updates preserve diagnostic version ordering"
+        (async {
+          let verify submitEmpty uri =
+            async {
+              let sent = ResizeArray<int option * Diagnostic[]>()
+              let send _ version diagnostics = async { sent.Add(version, diagnostics) }
+              use collection = new DiagnosticCollection(send)
+              let diagnostic = Unchecked.defaultof<Diagnostic>
+
+              do! collection.SetForAndWait(uri, "test", 3, [| diagnostic |])
+              do! submitEmpty collection uri
+              do! collection.SetForAndWait(uri, "test", 1, [| diagnostic |])
+
+              Expect.hasLength sent 1 "Stale updates must not publish diagnostics"
+              Expect.equal (fst sent[0]) (Some 3) "The newest diagnostic version must remain"
+              Expect.hasLength (snd sent[0]) 1 "The newest diagnostics must remain"
+            }
+
+          do!
+            verify
+              (fun collection uri -> async { collection.SetFor(uri, "test", 2, [||]) })
+              (UMX.tag "file:///diagnostic-post-version.fs")
+
+          do!
+            verify
+              (fun collection uri -> collection.SetForAndWait(uri, "test", 2, [||]))
+              (UMX.tag "file:///diagnostic-wait-version.fs")
+        })
+      testList
         "no root path"
         [ testList
             "can get diagnostics"
@@ -222,6 +370,17 @@ let tests state =
                 None
                 (fun server ->
                   [ testCaseAsync
+                      "shard one starts in a separate untitled document range"
+                      (async {
+                        let! actualServer = server
+
+                        match System.Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
+                        | null -> Expect.equal actualServer.UntitledCounter 0 "Unsharded tests should start at zero"
+                        | "1" ->
+                          Expect.equal actualServer.UntitledCounter 1_000_000 "Shard one should use its own range"
+                        | shard -> failtestf "Unexpected shard for Server tests: %s" shard
+                      })
+                    testCaseAsync
                       "creating document increases untitled counter"
                       (async {
                         let! actualServer = server
@@ -231,6 +390,23 @@ let tests state =
                         let postCounter = actualServer.UntitledCounter
 
                         Expect.isGreaterThan postCounter preCounter "Untitled Counter should increase"
+                      })
+                    testCaseAsync
+                      "separate servers allocate separate untitled document URIs"
+                      (async {
+                        let firstServer = Server.create None defaultConfigDto state
+                        let secondServer = Server.create None defaultConfigDto state
+                        let! (firstDocument, _) = firstServer |> Server.createUntitledDocument ""
+                        let! (secondDocument, _) = secondServer |> Server.createUntitledDocument ""
+                        let firstUri = firstDocument.Uri
+                        let secondUri = secondDocument.Uri
+
+                        do! firstDocument |> Document.close
+                        do! secondDocument |> Document.close
+                        do! firstServer |> Server.shutdown
+                        do! secondServer |> Server.shutdown
+
+                        Expect.notEqual firstUri secondUri "Separate servers must not reuse an untitled document URI"
                       })
                     testCaseAsync
                       "creating multiple documents increases untitled counter"
@@ -606,11 +782,13 @@ let tests state =
                       |> Array.countBy id
                       |> Map.ofArray
 
+                    let count message = groups |> Map.tryFind message |> Option.defaultValue 0
+
                     let actual =
-                      {| UnusedOpens = groups.["Unused open statement"]
-                         UnusedDecls = groups.["This value is unused"]
-                         SimplifyNames = groups.["This qualifier is redundant"]
-                         CompilerErrors = groups.["The value or constructor is not defined"] |}
+                      {| UnusedOpens = count "Unused open statement"
+                         UnusedDecls = count "This value is unused"
+                         SimplifyNames = count "This qualifier is redundant"
+                         CompilerErrors = count "The value or constructor is not defined" |}
 
                     // exact count isn't actually that important because each analyzers sends all its diags together.
                     // important part is just: has arrived -> `waitForLatestDiagnostics` waited long enough for all diags
@@ -793,6 +971,22 @@ f2 "bar" |> ignore
                 let! (doc, _) = server |> Server.openDocument absolutePath
                 use _doc = doc
                 ()
+              }
+
+              testCaseAsync "reopened document uses a new version"
+              <| async {
+                let relativePath = "../TestCases/ServerTests/JustScript/Script.fsx"
+
+                let absolutePath =
+                  System.IO.Path.GetFullPath(System.IO.Path.Combine(__SOURCE_DIRECTORY__, relativePath))
+
+                let! (firstDocument, _) = server |> Server.openDocument absolutePath
+                let firstVersion = firstDocument.Version
+                do! firstDocument |> Document.close
+
+                let! (secondDocument, _) = server |> Server.openDocument absolutePath
+                use _secondDocument = secondDocument
+                Expect.isGreaterThan secondDocument.Version firstVersion "A reopened document must use a new version"
               }
 
               let mutable docState =
