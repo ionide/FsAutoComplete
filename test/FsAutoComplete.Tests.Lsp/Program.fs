@@ -13,6 +13,7 @@ open FsAutoComplete.Tests.ExtensionsTests
 open FsAutoComplete.Tests.InteractiveDirectivesTests
 open FsAutoComplete.Tests.Lsp.CoreUtilsTests
 open FsAutoComplete.Tests.Lsp.DecompilerTests
+open FsAutoComplete.Tests.SharedTypecheckProgressReporterTests
 open FsAutoComplete.Tests.CallHierarchy
 open Ionide.ProjInfo
 open System.Threading
@@ -174,6 +175,7 @@ let generalTests =
     [ testCase "test host uses target runtime" (fun _ ->
         Expect.equal Environment.Version.Major expectedRuntimeMajor "Test host runtime must match the target framework")
       testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
+      SharedTypecheckProgressReporterTests.tests
       InlayHintTests.explicitTypeInfoTests sourceTextFactory
       FindReferences.tryFixupRangeTests sourceTextFactory
       UtilsTests.allTests
