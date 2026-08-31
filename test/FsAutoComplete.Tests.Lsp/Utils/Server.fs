@@ -14,6 +14,7 @@ open FSharpx.Control
 open Expecto
 open Utils
 open Ionide.ProjInfo.Logging
+open FsAutoComplete.Telemetry
 
 let private logger = LogProvider.getLoggerByName "Utils.Server"
 
@@ -245,40 +246,44 @@ module Document =
     |> Observable.filter (fun n -> n.TextDocument.Uri = doc.Uri)
 
 
-  /// Waits (if necessary) and gets latest diagnostics.
-  ///
-  /// To detect newest diags:
-  /// * Waits for `fsharp/documentAnalyzed` for passed `doc` and its `doc.Version`.
-  /// * Then returns latest diagnostics.
-  ///
-  ///
-  /// ### Explanation: Get latest & correct diagnostics
-  /// Diagnostics aren't collected and then sent once, but instead sent after each parsing/analyzing step.
-  /// -> There are multiple `textDocument/publishDiagnostics` sent for each parsing/analyzing round:
-  /// * one when file parsed by F# compiler
-  /// * one for each built-in (enabled) Analyzers (in `src\FsAutoComplete\FsAutoComplete.Lsp.fs` > `FsAutoComplete.Lsp.FSharpLspServer.analyzeFile`),
-  /// * for linter (currently disabled)
-  /// * for custom analyzers
-  ///
-  /// -> To receive ALL diagnostics: use Diagnostics of last `textDocument/publishDiagnostics` event.
-  ///
-  /// Issue: What is the last `publishDiagnostics`? Might already be here or arrive in future.
-  /// -> `fsharp/documentAnalyzed` was introduced. Notification when a doc was completely analyzed
-  /// -> wait for `documentAnalyzed`
-  ///
-  /// *Inconvenience*: Only newest diags can be retrieved this way. Diags for older file versions cannot be extracted reliably:
-  /// `doc.Server.Events` is a `ReplaySubject` -> returns ALL previous events on new subscription
-  /// -> All past `documentAnalyzed` events and their diags are all received at once
-  /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
-  //ENHANCEMENT: Send `publishDiagnostics` with Doc Version (LSP `3.15.0`) -> can correlate `documentAnalyzed` and `publishDiagnostics`
-  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+  let waitForLatestDiagnostics (timeout: TimeSpan) (doc: Document) : Async<Diagnostic[]> =
     async {
+      let tags =
+        seq {
+          "document.filepath", box doc.FilePath
+          "document.uri", doc.Uri
+          "document.version", doc.Version
+        }
+
+      use _trace = OpenTelemetry.source.StartActivityForFunc(tags = tags)
+
       logger.trace (
         Log.setMessage "Waiting for diags for {uri} at version {version}"
         >> Log.addContext "uri" doc.Uri
         >> Log.addContext "version" doc.Version
       )
 
+      let p: DocumentDiagnosticParams =
+        { WorkDoneToken = None
+          PartialResultToken = None
+          TextDocument = { Uri = doc.Uri }
+          Identifier = None
+          PreviousResultId = None }
+
+      let! response =
+        Async.StartChild(
+          doc.Server.Server.TextDocumentDiagnostic p,
+          millisecondsTimeout = int timeout.TotalMilliseconds
+        )
+
+      match! response with
+      | Ok(DocumentDiagnosticReport.C1 d) -> return d.Items
+      | Ok(DocumentDiagnosticReport.C2 _) -> return Array.empty
+      | Result.Error e -> return failwithf "Failed to get diagnostics for %s: %A" doc.Uri e
+    }
+
+  let waitForLatestPublishedDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+    async {
       let mutable latest = [||]
 
       use _ =
@@ -347,7 +352,6 @@ module Document =
           ContentChanges = [| U2.C2 { Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
@@ -359,7 +363,6 @@ module Document =
       // Simulate the file being written to disk so we don't hit the typechecker cache
       IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
       do! doc.Server.Server.TextDocumentDidSave p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 

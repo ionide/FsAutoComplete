@@ -106,6 +106,7 @@ module Document =
   /// `doc.Server.Events` is a `ReplaySubject` -> returns ALL previous events on new subscription
   /// -> All past `documentAnalyzed` events and their diags are all received at once
   /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
+  val waitForLatestPublishedDiagnostics: timeout: TimeSpan -> doc: Document -> Async<Diagnostic array>
   val waitForLatestDiagnostics: timeout: TimeSpan -> doc: Document -> Async<Diagnostic array>
   val openWith: initialText: string -> doc: Document -> Async<Diagnostic array>
   val close: doc: Document -> Async<unit>
