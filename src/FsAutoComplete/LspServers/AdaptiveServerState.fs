@@ -1772,7 +1772,7 @@ type AdaptiveState
       let tags =
         [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
           SemanticConventions.projectFilePath, box (options.ProjectFileName)
-          "source.text", box (file.Source.String)
+          "source.length", box (file.Source.Length)
           "source.version", box (file.Version)
 
           ]
