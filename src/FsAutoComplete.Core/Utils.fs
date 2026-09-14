@@ -238,13 +238,16 @@ module Async =
       // Start the workflow using a provided cancellation token
       Async.StartWithContinuations(work, cont, econt, ccont, cancellationToken = cancellationToken))
 
-  /// <summary>Creates an asynchronous computation that executes all the given asynchronous computations, using 75% of the Environment.ProcessorCount</summary>
-  /// <param name="computations">A sequence of distinct computations to be parallelized.</param>
-  let parallel75 computations =
+
+  let private parallelOfPercentage percentage computations =
     let maxConcurrency =
-      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * 0.75))
+      Math.Max(1.0, Math.Floor((float System.Environment.ProcessorCount) * percentage))
 
     Async.Parallel(computations, int maxConcurrency)
+
+  let parallel75 computations = parallelOfPercentage 0.75 computations
+  let parallel50 computations = parallelOfPercentage 0.50 computations
+  let parallel25 computations = parallelOfPercentage 0.25 computations
 
   [<RequireQualifiedAccess>]
   module Array =

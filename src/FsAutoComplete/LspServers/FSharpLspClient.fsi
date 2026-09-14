@@ -7,6 +7,7 @@ open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete.LspHelpers
 open System
 open System.Threading
+open System.Threading.Tasks
 open IcedTasks
 
 type FSharpLspClient =
@@ -77,6 +78,31 @@ type ServerProgressReport =
   /// <returns></returns>
   member End: ?message: string -> CancellableTask<unit>
   interface IAsyncDisposable
+  interface IDisposable
+
+/// <summary>
+/// A shared progress reporter that consolidates multiple concurrent typecheck operations
+/// into a single LSP progress notification. Instead of creating a new Begin/End cycle per file,
+/// this maintains one notification that updates its message with the current file being checked.
+/// </summary>
+type SharedTypecheckProgressReporter =
+  new:
+    title: string * createReport: (unit -> ServerProgressReport) * ?isEnabled: (unit -> bool) ->
+      SharedTypecheckProgressReporter
+
+  /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
+  member Begin: fileName: string -> CancellableTask<IAsyncDisposable>
+
+  /// <summary>Set up a batch of files to be typechecked. Returns an IAsyncDisposable that clears the batch on dispose.</summary>
+  member BeginBatch: files: string array -> CancellableTask<IAsyncDisposable>
+
+  /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
+  member GetCancellationToken: unit -> Task<CancellationToken>
+
+  /// <summary>Set up a batch of files synchronously (for contexts where CancellableTask is not available).
+  /// Sets up batch tracking and adds all files to activeFiles so their names appear in the message.
+  /// Returns an IDisposable that ends all file tracking and the batch on dispose.</summary>
+  member BeginBatchSync: files: string array -> IDisposable
   interface IDisposable
 
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>

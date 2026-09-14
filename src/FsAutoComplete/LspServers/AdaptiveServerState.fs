@@ -185,14 +185,41 @@ type AdaptiveState
   let progressLookup = new ServerProgressLookup()
   do disposables.Add progressLookup
 
+  let config = cval<FSharpConfig> FSharpConfig.Default
+
+  let typecheckProgressReporter =
+    new SharedTypecheckProgressReporter(
+      "Typechecking",
+      (fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
+    )
+
+  do disposables.Add typecheckProgressReporter
+
+  let analyzerProgressReporter =
+    new SharedTypecheckProgressReporter(
+      "Analyzing",
+      (fun () -> progressLookup.CreateProgressReport(lspClient, cancellable = true)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
+    )
+
+  do disposables.Add analyzerProgressReporter
+
+  let projectLoadingProgressReporter =
+    new SharedTypecheckProgressReporter(
+      "Loading Projects",
+      (fun () -> progressLookup.CreateProgressReport(lspClient)),
+      isEnabled = (fun () -> (AVal.force config).Notifications.BackgroundServiceProgress)
+    )
+
+  do disposables.Add projectLoadingProgressReporter
+
   let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
   do disposables.Add serilogLoggerFactory
 
   let projectSelector = cval<IFindProject> (FindFirstProject())
 
   let rootPath = cval<string option> None
-
-  let config = cval<FSharpConfig> FSharpConfig.Default
 
   let checker =
     config
@@ -480,14 +507,12 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking unused opens {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unused opens - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           do!
             triggerNotificationAndWait
@@ -502,16 +527,14 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking unused declarations {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unused declarations - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let isScript = Utils.isAScript (filePathUntag)
 
           let! unused =
             UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           let unused = unused |> Seq.toArray
 
@@ -525,14 +548,12 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking simplifying of names {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Simplify names - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let! simplified =
             SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation progressCt
 
           let simplified = Array.ofSeq simplified
           do! triggerNotificationAndWait (NotificationEvent.SimplifyNames(filePath, simplified, file.Version)) ct
@@ -545,14 +566,14 @@ type AdaptiveState
         try
           let! ct = Async.CancellationToken
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = progressLookup.CreateProgressReport(lspClient)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin($"Checking for unnecessary parentheses {fileName}...", message = filePathUntag)
+          use! _progress = analyzerProgressReporter.Begin($"Unnecessary parens - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           let unnecessaryParentheses =
             (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
             ||> ParsedInput.fold (fun ranges path node ->
+              progressCt.ThrowIfCancellationRequested()
+
               match node with
               | SyntaxNode.SynExpr(SynExpr.Paren(expr = inner; rightParenRange = Some _; range = range)) when
                 not (SynExpr.shouldBeParenthesizedInContext getSourceLine path inner)
@@ -567,6 +588,8 @@ type AdaptiveState
                 ranges
 
               | _ -> ranges)
+
+          progressCt.ThrowIfCancellationRequested()
 
           do!
             triggerNotificationAndWait
@@ -621,10 +644,9 @@ type AdaptiveState
         let file = volatileFile.FileName
 
         try
-          use progress = new ServerProgressReport(lspClient)
-
-          if config.Notifications.BackgroundServiceProgress then
-            do! progress.Begin("Running analyzers...", message = UMX.untag file)
+          let fileName = Path.GetFileName(UMX.untag file)
+          use! _progress = analyzerProgressReporter.Begin($"External analyzers - {fileName}")
+          let! progressCt = analyzerProgressReporter.GetCancellationToken()
 
           Loggers.analyzers.info (
             Log.setMessage "begin analysis of {file}"
@@ -674,6 +696,7 @@ type AdaptiveState
                 analyzerOptions,
                 analyzerPredicate
               )
+              |> Async.withCancellation progressCt
 
             let! ct = Async.CancellationToken
             do! triggerNotificationAndWait (NotificationEvent.AnalyzerMessage(res, file, volatileFile.Version)) ct
@@ -1032,13 +1055,12 @@ type AdaptiveState
 
         triggerNotification not CancellationToken.None)
 
-      use progressReport = new ServerProgressReport(lspClient)
+      let projectFiles = projects |> Seq.map (fst >> UMX.untag) |> Seq.toArray
 
-      progressReport.Begin ($"Loading {projects.Count} Projects") (CancellationToken.None)
-      |> ignore<Task<unit>>
+      use _progressReport = projectLoadingProgressReporter.BeginBatchSync(projectFiles)
 
       let projectOptions =
-        loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
+        loader.LoadProjects(projectFiles |> Array.toList, [], binlogConfig)
         |> Seq.toList
 
       for p in projectOptions do
@@ -1793,24 +1815,23 @@ type AdaptiveState
       )
 
 
-      use progressReport =
-        progressLookup.CreateProgressReport(lspClient, cancellable = true)
-
-      let simpleName = Path.GetFileName(UMX.untag file.Source.FileName)
-      do! progressReport.Begin($"Typechecking {simpleName}", message = $"{file.Source.FileName}")
+      let fileNameStr = UMX.untag file.Source.FileName
+      use! _fileProgress = typecheckProgressReporter.Begin(fileNameStr)
+      let! progressCt = typecheckProgressReporter.GetCancellationToken()
 
       let! result =
-        match compilerOptions with
-        | CompilerProjectOption.TransparentCompiler snap ->
-          checker.ParseAndCheckFileInProject(file.Source.FileName, snap, shouldCache = shouldCache)
-        | CompilerProjectOption.BackgroundCompiler opts ->
-          checker.ParseAndCheckFileInProject(
-            file.Source.FileName,
-            file.Version,
-            file.Source,
-            opts,
-            shouldCache = shouldCache
-          )
+        (match compilerOptions with
+         | CompilerProjectOption.TransparentCompiler snap ->
+           checker.ParseAndCheckFileInProject(file.Source.FileName, snap, shouldCache = shouldCache)
+         | CompilerProjectOption.BackgroundCompiler opts ->
+           checker.ParseAndCheckFileInProject(
+             file.Source.FileName,
+             file.Version,
+             file.Source,
+             opts,
+             shouldCache = shouldCache
+           ))
+        |> Async.withCancellation progressCt
 
 
       let! ct = Async.CancellationToken
@@ -2519,47 +2540,35 @@ type AdaptiveState
         |> List.collect (fun (proj, snap) -> snap.SourceFilesTagged |> List.map (fun sourceFile -> proj, sourceFile))
         |> List.toArray
 
-      let mutable checksCompleted = 0
+      let innerChecks =
+        Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
+        |> Array.filter (fun (_, file) ->
+          let file = UMX.untag file
 
-      use progressReporter =
-        progressLookup.CreateProgressReport(lspClient, cancellable = true)
+          file.Contains "AssemblyInfo.fs" |> not
+          && file.Contains "AssemblyAttributes.fs" |> not)
 
-      let percentage numerator denominator =
-        if denominator = 0 then
-          0u
-        else
-          ((float numerator) / (float denominator)) * 100.0 |> uint32
+      let batchFileList = innerChecks |> Array.map (fun (_, file) -> UMX.untag file)
+
+      use! _batchProgress = typecheckProgressReporter.BeginBatch(batchFileList)
+      let! progressCt = typecheckProgressReporter.GetCancellationToken()
+
+      let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
 
       let checksToPerform =
-        let innerChecks =
-          Array.concat [| dependentFiles; dependentProjectsAndSourceFiles |]
-          |> Array.filter (fun (_, file) ->
-            let file = UMX.untag file
-
-            file.Contains "AssemblyInfo.fs" |> not
-            && file.Contains "AssemblyAttributes.fs" |> not)
-
-        let checksToPerformLength = innerChecks.Length
-        let rootToken = sourceFilePath |> getOpenFileTokenOrDefault
-
         innerChecks
         |> Array.map (fun (proj, file) ->
-          async {
+          asyncEx {
+            let fileToken =
+              if file = sourceFilePath then
+                CancellationToken.None
+              else
+                resetCancellationToken file None
 
             use joinedToken =
-              if file = sourceFilePath then
-                // dont reset the token for the incoming file as it would cancel the whole operation
-                CancellationTokenSource.CreateLinkedTokenSource(rootToken, progressReporter.CancellationToken)
-              else
-                // only cancel other files
-                // If we have multiple saves from separate root files we want only one to be running
-                let fileToken = resetCancellationToken file None
-                // and join with the root token as well since we want to cancel the whole operation if the root files changes
-                CancellationTokenSource.CreateLinkedTokenSource(
-                  rootToken,
-                  fileToken,
-                  progressReporter.CancellationToken
-                )
+              CancellationTokenSource.CreateLinkedTokenSource(rootToken, fileToken, progressCt)
+
+            use! _fileProgress = typecheckProgressReporter.Begin(UMX.untag file)
 
             try
               let! _ =
@@ -2567,29 +2576,14 @@ type AdaptiveState
                 |> Async.withCancellation joinedToken.Token
 
               ()
-            with :? OperationCanceledException ->
-              // if a file shows up multiple times in the list such as Microsoft.NET.Test.Sdk.Program.fs we may cancel it but we don't want to stop the whole operation for it
+            with :? OperationCanceledException when
+                fileToken.IsCancellationRequested
+                && not rootToken.IsCancellationRequested
+                && not progressCt.IsCancellationRequested ->
               ()
-
-            let checksCompleted = Interlocked.Increment(&checksCompleted)
-
-            do!
-              progressReporter.Report(
-                message = $"{checksCompleted}/{checksToPerformLength} remaining",
-                percentage = percentage checksCompleted checksToPerformLength
-              )
           })
 
-
-
-      do!
-        progressReporter.Begin(
-          "Typechecking Dependent F# files",
-          message = $"0/{checksToPerform.Length} remaining",
-          percentage = percentage 0 checksToPerform.Length
-        )
-
-      do! checksToPerform |> Async.parallel75 |> Async.Ignore<unit array>
+      do! checksToPerform |> Async.parallel25 |> Async.Ignore<unit array>
 
     }
 
