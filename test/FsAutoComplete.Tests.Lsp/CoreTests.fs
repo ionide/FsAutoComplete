@@ -89,6 +89,17 @@ let initTests createServer =
         Expect.equal res.Capabilities.DocumentOnTypeFormattingProvider None "Document OnType Formatting Provider"
 
         Expect.equal
+          res.Capabilities.DiagnosticProvider
+          (Some(
+            U2.C1
+              { WorkDoneProgress = Some false
+                Identifier = None
+                InterFileDependencies = true
+                WorkspaceDiagnostics = false }
+          ))
+          "Diagnostic Provider"
+
+        Expect.equal
           res.Capabilities.DocumentRangeFormattingProvider
           (Some(U2.C1 true))
           "Document Range Formatting Provider"
@@ -634,14 +645,7 @@ let tooltipTests state =
 
           // FSI hash directive hover — regression for issue #1225.
           // Hovering on a hash directive (e.g. #nowarn, #r, #load) should show documentation.
-          verifyDescription
-            123u
-            3u
-            [ "**Description**"
-              ""
-              ""
-              "Disables a compiler warning or warnings"
-              "" ] ] ]
+          verifyDescription 123u 3u [ "**Description**"; ""; ""; "Disables a compiler warning or warnings"; "" ] ] ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
@@ -662,7 +666,7 @@ let closeTests state =
           Expect.isNonEmpty diags "There should be an error"
           do! doc |> Document.close
 
-          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          let! diags = doc |> Document.waitForLatestPublishedDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.equal diags Array.empty "There should be a final publishDiagnostics without any diags"
         })
       testCaseAsync
@@ -672,7 +676,7 @@ let closeTests state =
           Expect.isNonEmpty diags "There should be an error"
           do! doc |> Document.close
 
-          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          let! diags = doc |> Document.waitForLatestPublishedDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
         })
       testCaseAsync
@@ -683,7 +687,7 @@ let closeTests state =
           Expect.isNonEmpty diags "There should be an error"
           do! doc |> Document.close
 
-          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          let! diags = doc |> Document.waitForLatestPublishedDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isEmpty diags "There should be a final publishDiagnostics without any diags"
         })
 
@@ -694,7 +698,7 @@ let closeTests state =
           Expect.isNonEmpty diags "There should be an error"
           do! doc |> Document.close
 
-          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          let! diags = doc |> Document.waitForLatestPublishedDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
         })
       testCaseAsync
@@ -705,7 +709,7 @@ let closeTests state =
           Expect.isNonEmpty diags "There should be an error"
           do! doc |> Document.close
 
-          let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
+          let! diags = doc |> Document.waitForLatestPublishedDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
         }) ])
 
