@@ -31,3 +31,22 @@ let withNull (x: string | null) = ()
 // Regression test for https://github.com/ionide/FsAutoComplete/issues/1359:
 // Function parameters should receive a Parameter semantic token, not a Variable token.
 let withParam (param: int) = param
+
+// Function and member definition sites should be distinguishable from their call sites.
+let semanticDefinitionTarget input = input
+let semanticDefinitionUse = semanticDefinitionTarget 42
+
+type SemanticDefinitionType() =
+  member _.SemanticMethodTarget input = input
+
+let semanticMethodUse = SemanticDefinitionType().SemanticMethodTarget 42
+
+// Abstract members should be marked as declarations.
+type SemanticDeclarationType =
+  abstract SemanticMethodDeclaration: int -> int
+
+// Type definition sites should be distinguishable from references and augmentations.
+let semanticTypeReference (value: SomeJson) = value
+
+type SemanticDefinitionType with
+  member _.SemanticExtensionMember = ()

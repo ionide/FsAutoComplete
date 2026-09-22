@@ -11,20 +11,25 @@ open Helpers.Expecto.ShadowedTimeouts
 let tests state =
   let testPath = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "HighlightingTest")
   let scriptPath = Path.Combine(testPath, "Script.fsx")
+  let signaturePath = Path.Combine(testPath, "Signature.fsi")
 
   let server =
     async {
       let! (server, event) = serverInitialize testPath defaultConfigDto state
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
 
-      do! server.TextDocumentDidOpen tdop
+      for documentPath, fileName in [ scriptPath, "Script.fsx"; signaturePath, "Signature.fsi" ] do
+        let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument documentPath }
 
-      match! waitForParseResultsForFile "Script.fsx" event with
-      | Ok() -> return server
-      | Error errors ->
-        let errorStrings = errors |> Array.map (fun e -> string e) |> String.concat "\n\t* "
+        do! server.TextDocumentDidOpen tdop
 
-        return failtestf "Errors while parsing highlighting script:\n\t* %s" errorStrings
+        match! waitForParseResultsForFile fileName event with
+        | Ok() -> ()
+        | Error errors ->
+          let errorStrings = errors |> Array.map (fun e -> string e) |> String.concat "\n\t* "
+
+          return failtestf "Errors while parsing highlighting fixture %s:\n\t* %s" fileName errorStrings
+
+      return server
     }
     |> Async.Cache
 
@@ -66,10 +71,10 @@ let tests state =
 
     structures
 
-  let fullHighlights =
+  let getFullHighlights documentPath =
     async {
       let p: SemanticTokensParams =
-        { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+        { TextDocument = { Uri = Path.FilePathToUri documentPath }
           WorkDoneToken = None
           PartialResultToken = None }
 
@@ -84,7 +89,10 @@ let tests state =
       | Ok None -> return failtestf "Expected to get some highlighting"
       | Error e -> return failtestf "error of %A" e
     }
-    |> Async.Cache
+
+  let fullHighlights = getFullHighlights scriptPath |> Async.Cache
+
+  let signatureHighlights = getFullHighlights signaturePath |> Async.Cache
 
   let rangeContainsRange (parent: Range) (child: Position) =
     parent.Start.Line <= child.Line
@@ -107,6 +115,36 @@ let tests state =
           highlights
           ((fun (r, token, _modifiers) -> rangeContainsRange r pos && token = testTokenType))
           $"Could not find a highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType} in the token set %A{highlights}"
+      })
+
+  let tokenHasModifier
+    ((line, char) as pos)
+    testTokenType
+    testModifier
+    shouldHaveModifier
+    (highlights: (Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier)[] Async)
+    =
+    testCaseAsync
+      $"token at %A{pos} has modifier %A{testModifier}: %b{shouldHaveModifier}"
+      (async {
+        let! highlights = highlights
+        let pos = { Line = line; Character = char }
+
+        let token =
+          highlights
+          |> Array.tryFind (fun (r, tokenType, _) -> rangeContainsRange r pos && tokenType = testTokenType)
+
+        let _, _, modifiers =
+          Expect.wantSome
+            token
+            $"Could not find a highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType}"
+
+        let hasModifier = (int modifiers &&& int testModifier) <> 0
+
+        Expect.equal
+          hasModifier
+          shouldHaveModifier
+          $"Expected modifier %A{testModifier} at (%d{line},%d{char}) to be %b{shouldHaveModifier}, but modifiers were %A{modifiers}"
       })
 
   /// this tests the range endpoint by getting highlighting for a range then doing the normal highlighting test
@@ -150,7 +188,12 @@ let tests state =
           tokenIsOfType (0u, 44u) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
           tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights // the `string` type annotation in the PooPoo srtp member
           tokenIsOfType (6u, 21u) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
-          tokenIsOfType (9u, 10u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights //the `SomeJson` type alias should be a type
+          tokenHasModifier
+            (9u, 10u)
+            ClassificationUtils.SemanticTokenTypes.Class
+            ClassificationUtils.SemanticTokenModifier.Definition
+            true
+            fullHighlights // the `SomeJson` type alias definition should be marked as a definition
           tokenIsOfType (15u, 2u) ClassificationUtils.SemanticTokenTypes.Module fullHighlights // tests that module coloration isn't overwritten by function coloration when a module function is used, so Foo in Foo.x should be module-colored
 
           // Regression test for https://github.com/ionide/FsAutoComplete/issues/1407:
@@ -183,4 +226,79 @@ let tests state =
           // Regression test for https://github.com/ionide/FsAutoComplete/issues/1359:
           // Function parameters should receive a Parameter semantic token, not a Variable token.
           tokenIsOfType (32u, 15u) ClassificationUtils.SemanticTokenTypes.Parameter fullHighlights // `param` in `let withParam (param: int) = param`
-          ] ]
+
+          // Function and member definitions should have the Definition modifier, while calls should not.
+          tokenHasModifier
+            (35u, 5u)
+            ClassificationUtils.SemanticTokenTypes.Function
+            ClassificationUtils.SemanticTokenModifier.Definition
+            true
+            fullHighlights // definition of `semanticDefinitionTarget`
+          tokenHasModifier
+            (36u, 28u)
+            ClassificationUtils.SemanticTokenTypes.Function
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            fullHighlights // call to `semanticDefinitionTarget`
+          tokenHasModifier
+            (39u, 13u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Definition
+            true
+            fullHighlights // definition of `SemanticMethodTarget`
+          tokenHasModifier
+            (41u, 55u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            fullHighlights // call to `SemanticMethodTarget`
+          tokenHasModifier
+            (45u, 13u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            true
+            fullHighlights // declaration of `SemanticMethodDeclaration`
+          tokenHasModifier
+            (48u, 36u)
+            ClassificationUtils.SemanticTokenTypes.Class
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            fullHighlights // reference to `SomeJson`
+          tokenHasModifier
+            (50u, 8u)
+            ClassificationUtils.SemanticTokenTypes.Class
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            fullHighlights // type augmentation reference to `SemanticDefinitionType`
+
+          // Signature-file values, members, and types should be declarations rather than definitions.
+          tokenHasModifier
+            (2u, 4u)
+            ClassificationUtils.SemanticTokenTypes.Function
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            true
+            signatureHighlights // declaration of `semanticFunctionDeclaration`
+          tokenHasModifier
+            (5u, 5u)
+            ClassificationUtils.SemanticTokenTypes.Class
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            true
+            signatureHighlights // declaration of `SemanticTypeDeclaration`
+          tokenHasModifier
+            (6u, 11u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            true
+            signatureHighlights // declaration of `SemanticMethodDeclaration`
+          tokenHasModifier
+            (2u, 4u)
+            ClassificationUtils.SemanticTokenTypes.Function
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            signatureHighlights // a signature value declaration is not a definition
+          tokenHasModifier
+            (5u, 5u)
+            ClassificationUtils.SemanticTokenTypes.Class
+            ClassificationUtils.SemanticTokenModifier.Definition
+            false
+            signatureHighlights ] ] // a signature type declaration is not a definition

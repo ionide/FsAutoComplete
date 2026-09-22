@@ -334,11 +334,23 @@ type AdaptiveFSharpLspServer
       let r = tyRes.GetCheckResults.GetSemanticClassification(range)
       let filteredRanges = Commands.scrubRanges r
 
-      // FCS classifies function parameters as LocalValue (same as ordinary let bindings).
-      // Use the parse tree to identify parameter definition sites and override the token type
-      // to Parameter for those ranges. See https://github.com/ionide/FsAutoComplete/issues/1359
+      // FCS reports symbol kinds but does not distinguish declarations and definitions from references.
+      // It also classifies function parameters as LocalValue, the same as ordinary let bindings.
+      // Collect the syntax-derived sites in one parse-tree walk to supplement the FCS classifications.
+      // See https://github.com/ionide/FsAutoComplete/issues/1359 for the parameter case.
+      let semanticTokenSites =
+        FsacSemanticTokenSites.collectRanges tyRes.GetParseResults.ParseTree
+
       let parameterRanges =
-        FsacFunctionParameters.collectParameterRanges tyRes.GetParseResults.ParseTree
+        semanticTokenSites.Parameters
+        |> System.Collections.Generic.HashSet<FSharp.Compiler.Text.Range>
+
+      let definitionRanges =
+        semanticTokenSites.Definitions
+        |> System.Collections.Generic.HashSet<FSharp.Compiler.Text.Range>
+
+      let declarationRanges =
+        semanticTokenSites.Declarations
         |> System.Collections.Generic.HashSet<FSharp.Compiler.Text.Range>
 
       let lspTypedRanges =
@@ -351,6 +363,26 @@ type AdaptiveFSharpLspServer
             | SemanticClassificationType.LocalValue when parameterRanges.Contains(item.Range) ->
               ClassificationUtils.SemanticTokenTypes.Parameter, []
             | _ -> ty, mods
+
+          let mods =
+            match ty with
+            | ClassificationUtils.SemanticTokenTypes.Function
+            | ClassificationUtils.SemanticTokenTypes.Method
+            | ClassificationUtils.SemanticTokenTypes.Type
+            | ClassificationUtils.SemanticTokenTypes.Class
+            | ClassificationUtils.SemanticTokenTypes.Struct
+            | ClassificationUtils.SemanticTokenTypes.Interface
+            | ClassificationUtils.SemanticTokenTypes.Enum when definitionRanges.Contains(item.Range) ->
+              ClassificationUtils.SemanticTokenModifier.Definition :: mods
+            | ClassificationUtils.SemanticTokenTypes.Function
+            | ClassificationUtils.SemanticTokenTypes.Method
+            | ClassificationUtils.SemanticTokenTypes.Type
+            | ClassificationUtils.SemanticTokenTypes.Class
+            | ClassificationUtils.SemanticTokenTypes.Struct
+            | ClassificationUtils.SemanticTokenTypes.Interface
+            | ClassificationUtils.SemanticTokenTypes.Enum when declarationRanges.Contains(item.Range) ->
+              ClassificationUtils.SemanticTokenModifier.Declaration :: mods
+            | _ -> mods
 
           struct (fcsRangeToLsp item.Range, ty, mods))
 
