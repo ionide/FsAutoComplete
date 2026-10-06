@@ -428,6 +428,14 @@ type AdaptiveState
 
   let fileChecked = Event<FileHasBeenChecked>()
 
+  /// Test detection only finds tests in projects that reference one of these test frameworks.
+  let hasTestFramework (proj: CompilerProjectOption) =
+    proj.OtherOptions
+    |> Seq.exists (fun o ->
+      o.Contains "Expecto.dll"
+      || o.Contains "nunit.framework.dll"
+      || o.Contains "xunit.assert.dll")
+
   let detectTests (parseResults: FSharpParseFileResults) (proj: CompilerProjectOption) ct =
     try
       logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} started")
@@ -1483,7 +1491,7 @@ type AdaptiveState
     }
 
 
-  /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
+  /// <summary>Parses the files of the test projects in the workspace, to find their tests.</summary>
   let parseAllFiles () =
     asyncAVal {
       let! projects = getAllLoadedProjects
@@ -1497,15 +1505,20 @@ type AdaptiveState
         |> ASet.mapA id
         |> ASet.toAVal
 
+      // Only the files of test projects can have tests. They are not added to the cache of the checker:
+      // test detection is done with them, and the cache would keep the whole workspace alive.
       return!
         projects
         |> HashSet.toArray
+        |> Array.filter hasTestFramework
         |> Array.collect (fun (snap) -> snap.SourceFilesTagged |> List.toArray |> Array.map (fun s -> snap, s))
         |> Array.map (fun (snap, filePath) ->
           taskResult {
             let! vFile = forceFindOpenFileOrRead filePath
-            return! parseFile checker vFile snap
-
+            let! ct = Async.CancellationToken
+            let! result = checker.ParseFileWithoutCache(vFile.FileName, vFile.Source, snap)
+            fileParsed.Trigger(result, snap, ct)
+            return result
           })
 
         |> Task.WhenAll

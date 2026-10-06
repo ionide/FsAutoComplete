@@ -71,6 +71,11 @@ type FSharpCompilerServiceChecker =
     filePath: string<LocalPath> * sourceText: ISourceText * project: FSharpProjectOptions ->
       Async<FSharpParseFileResults>
 
+  /// <summary>Parses a source code file without storing the results in the cache of the checker.</summary>
+  member ParseFileWithoutCache:
+    filePath: string<LocalPath> * sourceText: ISourceText * options: CompilerProjectOption ->
+      Async<FSharpParseFileResults>
+
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
   /// <param name="snapshot">The options for the project or script.</param>

@@ -469,6 +469,25 @@ type FSharpCompilerServiceChecker
       return! checker.ParseFile(path, sourceText, parseOpts)
     }
 
+  /// <summary>Parses a source code file without storing the results in the cache of the checker.</summary>
+  /// <param name="filePath">The path for the file.</param>
+  /// <param name="sourceText">The source of the file.</param>
+  /// <param name="options">The project of the file, for its source files and compiler options.</param>
+  member _.ParseFileWithoutCache(filePath: string<LocalPath>, sourceText: ISourceText, options: CompilerProjectOption) =
+    async {
+      checkerLogger.info (
+        Log.setMessage "ParseFileWithoutCache - {file}"
+        >> Log.addContextDestructured "file" filePath
+      )
+
+      let sourceFiles = options.SourceFilesTagged |> List.map UMX.untag
+
+      let parsingOptions, _ =
+        checker.GetParsingOptionsFromCommandLineArgs(sourceFiles, options.OtherOptions, isEditing = true)
+
+      return! checker.ParseFile(UMX.untag filePath, sourceText, parsingOptions, cache = false)
+    }
+
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
   /// <param name="snapshot">The snapshot for the project or script.</param>

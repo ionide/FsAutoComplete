@@ -57,4 +57,26 @@ let tests state =
           let! testNotification = getTestNotification "ExpectoTests" "Sample.fs"
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 expecto test list"
           Expect.hasLength testNotification.Tests.[0].Childs 15 "Expected to have found 13 expecto tests"
+        })
+      testCaseAsync
+        "Only parse the files of test projects on startup"
+        (async {
+          let path =
+            Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DetectUnitTestsOnStartup")
+
+          let! server = Server.createForPreparedProjects (Some path) defaultConfigDto state
+          let! testNotification = waitForTestDetected "UnitTest1.fs" server.Events
+          Expect.hasLength testNotification.Tests 1 "Expected to have found 1 nunit test"
+
+          // The events are replayed, so this sees every notification sent so far.
+          let detectedFiles = ResizeArray()
+
+          use _ =
+            server.Events
+            |> Observable.subscribe (fun (name, payload) ->
+              if name = "fsharp/testDetected" then
+                detectedFiles.Add(Path.GetFileName (unbox<TestDetectedNotification> payload).File))
+
+          Expect.contains detectedFiles "UnitTest1.fs" "Expected the test project to be parsed"
+          Expect.isFalse (detectedFiles.Contains "Library.fs") "Expected the library project not to be parsed"
         }) ]
