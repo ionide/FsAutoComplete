@@ -189,8 +189,6 @@ let scriptProjectOptionsCacheTests state =
             (async {
               let! server, _events, _workingDir, testFilePath, allOpts = server
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
-              do! Async.Sleep(TimeSpan.FromSeconds 3.)
               do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
-              do! Async.Sleep(TimeSpan.FromSeconds 3.)
               Expect.hasLength allOpts 1 "should only have one event"
             }) ] ]

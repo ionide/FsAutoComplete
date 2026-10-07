@@ -673,6 +673,14 @@ type AdaptiveFSharpLspServer
                         { x with
                             Change = Some TextDocumentSyncKind.Incremental }
                     | x -> x)
+                DiagnosticProvider =
+                  Some(
+                    U2.C1
+                      { WorkDoneProgress = Some false
+                        Identifier = None
+                        InterFileDependencies = true
+                        WorkspaceDiagnostics = false }
+                  )
                 InlineValueProvider = inlineValueToggle |> Option.map U3.C2 }
 
           let response: Ionide.LanguageServerProtocol.Types.InitializeResult =
@@ -2712,7 +2720,38 @@ type AdaptiveFSharpLspServer
 
     override x.TextDocumentDeclaration p = x.logUnimplementedRequest p
 
-    override x.TextDocumentDiagnostic p = x.logUnimplementedRequest p
+    override x.TextDocumentDiagnostic p =
+      asyncResult {
+        let tags = [ "DocumentDiagnosticParams", box p ]
+        use trace = fsacActivitySource.StartActivityForType(thisType, tags = tags)
+
+        try
+          logger.info (
+            Log.setMessage "TextDocumentDiagnostic Request: {params}"
+            >> Log.addContextDestructured "params" p
+          )
+
+          let filePath = p.TextDocument.GetFilePath() |> Utils.normalizePath
+
+          let! diags = state.GetDiagnostics filePath |> AsyncResult.ofStringErr
+
+          return
+            DocumentDiagnosticReport.C1(
+              { Kind = "full"
+                ResultId = None
+                Items = diags
+                RelatedDocuments = None }
+            )
+
+        with e ->
+          trace |> Tracing.recordException e
+
+          let logCfg =
+            Log.setMessage "TextDocumentDiagnostic Request Errored {p}"
+            >> Log.addContextDestructured "p" p
+
+          return! returnException e logCfg
+      }
 
     override x.TextDocumentLinkedEditingRange p = x.logUnimplementedRequest p
 
