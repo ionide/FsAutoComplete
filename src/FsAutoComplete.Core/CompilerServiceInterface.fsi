@@ -75,6 +75,12 @@ type FSharpCompilerServiceChecker =
     filePath: string<LocalPath> * sourceText: ISourceText * options: CompilerProjectOption * ?cache: bool ->
       Async<FSharpParseFileResults>
 
+  /// <summary>Parses a source code file with the snapshot of its project. The type check of the file uses the same parse.</summary>
+  /// <remarks>This imports the references and checks the referenced projects, if that was not done before.</remarks>
+  /// <param name="filePath">The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="snapshot">The snapshot of the project or script, with the source of the file.</param>
+  member ParseFile: filePath: string<LocalPath> * snapshot: FSharpProjectSnapshot -> Async<FSharpParseFileResults>
+
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
   /// <param name="filePath">The name of the file in the project whose source is being checked.</param>
   /// <param name="snapshot">The options for the project or script.</param>

@@ -1467,10 +1467,22 @@ type AdaptiveState
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
   /// <param name="file">The source to be parsed.</param>
   /// <param name="compilerOptions">The project of the file, for its parsing options.</param>
+  /// <param name="isOpen">Whether the file is open, so it is type checked too.</param>
   /// <returns></returns>
-  let parseFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) (compilerOptions: CompilerProjectOption) =
+  let parseFile
+    (checker: FSharpCompilerServiceChecker)
+    (file: VolatileFile)
+    (compilerOptions: CompilerProjectOption)
+    (isOpen: bool)
+    =
     async {
-      let! result = checker.ParseFile(file.FileName, file.Source, compilerOptions)
+      let! result =
+        match compilerOptions with
+        // The transparent compiler keeps a parse with the snapshot for the type check.
+        // An open file is type checked, so it is parsed with the snapshot to not parse it twice.
+        | CompilerProjectOption.TransparentCompiler snap when isOpen -> checker.ParseFile(file.FileName, snap)
+        | _ -> checker.ParseFile(file.FileName, file.Source, compilerOptions)
+
       let! ct = Async.CancellationToken
       fileParsed.Trigger(result, compilerOptions, ct)
       return result
@@ -1675,6 +1687,7 @@ type AdaptiveState
           asyncAVal {
             let! (checker: FSharpCompilerServiceChecker) = checker
             and! selectProject = projectSelector
+            and! isOpen = isFileOpen filePath
 
             let loadedProject =
               options |> Result.bind (fun p -> selectProject.FindProject(filePath, p))
@@ -1682,7 +1695,7 @@ type AdaptiveState
             match loadedProject with
             | Ok x ->
               let! snap = x.FSharpProjectCompilerOptions
-              let! r = parseFile checker file snap
+              let! r = parseFile checker file snap isOpen
               return Ok r
             | Error e -> return Error e
           })
