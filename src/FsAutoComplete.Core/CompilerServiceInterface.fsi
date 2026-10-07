@@ -61,19 +61,18 @@ type FSharpCompilerServiceChecker =
   member ClearCaches: unit -> unit
 
 
-  /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
-  /// <param name="filePath"> The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
-  /// <param name="snapshot">Parsing options for the project or script.</param>
-  /// <returns></returns>
-  member ParseFile: filePath: string<LocalPath> * snapshot: FSharpProjectSnapshot -> Async<FSharpParseFileResults>
+  /// <summary>Gets the parsing options of a project, with its defines and language version.</summary>
+  /// <param name="options">The project or script, for its source files and compiler options.</param>
+  member GetParsingOptions: options: CompilerProjectOption -> FSharpParsingOptions
 
+  /// <summary>Parses a source code file with the parsing options of its project. Returns an AST that can be traversed for various features.</summary>
+  /// <remarks>Unlike a parse with a project snapshot, this does not import the references or check the referenced projects.</remarks>
+  /// <param name="filePath">The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="sourceText">The source of the file.</param>
+  /// <param name="options">The project or script of the file.</param>
+  /// <param name="cache">Whether the checker keeps the results in its cache. True by default.</param>
   member ParseFile:
-    filePath: string<LocalPath> * sourceText: ISourceText * project: FSharpProjectOptions ->
-      Async<FSharpParseFileResults>
-
-  /// <summary>Parses a source code file without storing the results in the cache of the checker.</summary>
-  member ParseFileWithoutCache:
-    filePath: string<LocalPath> * sourceText: ISourceText * options: CompilerProjectOption ->
+    filePath: string<LocalPath> * sourceText: ISourceText * options: CompilerProjectOption * ?cache: bool ->
       Async<FSharpParseFileResults>
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>

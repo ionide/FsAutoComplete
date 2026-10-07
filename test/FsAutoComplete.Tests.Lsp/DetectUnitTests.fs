@@ -68,15 +68,8 @@ let tests state =
           let! testNotification = waitForTestDetected "UnitTest1.fs" server.Events
           Expect.hasLength testNotification.Tests 1 "Expected to have found 1 nunit test"
 
-          // The events are replayed, so this sees every notification sent so far.
-          let detectedFiles = ResizeArray()
-
-          use _ =
-            server.Events
-            |> Observable.subscribe (fun (name, payload) ->
-              if name = "fsharp/testDetected" then
-                detectedFiles.Add(Path.GetFileName (unbox<TestDetectedNotification> payload).File))
-
-          Expect.contains detectedFiles "UnitTest1.fs" "Expected the test project to be parsed"
-          Expect.isFalse (detectedFiles.Contains "Library.fs") "Expected the library project not to be parsed"
+          // The library project is loaded but not parsed. Its files get an empty notification,
+          // so the client drops tests it found before.
+          let! libraryNotification = waitForTestDetected "Library.fs" server.Events
+          Expect.isEmpty libraryNotification.Tests "Expected no tests in the library project"
         }) ]
