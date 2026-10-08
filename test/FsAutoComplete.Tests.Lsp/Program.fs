@@ -380,6 +380,28 @@ open OpenTelemetry.Metrics
 open System.Diagnostics
 open FsAutoComplete.Telemetry
 
+/// Expecto's default printer, plus the names of the tests that did not pass at the end of the run. Expecto's
+/// summary printers list every test, including the thousands that passed, which buries the failures.
+let private failuresAtTheEnd (inner: Expecto.Impl.TestPrinters) =
+  { inner with
+      summary =
+        fun config summary ->
+          async {
+            do! inner.summary config summary
+
+            let names label (tests: (FlatTest * Expecto.Impl.TestSummary) list) =
+              tests |> List.map (fun (test, _) -> $"{label}: {config.joinWith.format test.name}")
+
+            match names "Failed" summary.failed @ names "Errored" summary.errored with
+            | [] -> ()
+            | notPassed ->
+              do!
+                Expecto.Logging.Log.create("Expecto").logWithAck
+                  Expecto.Logging.Info
+                  (Expecto.Logging.Message.eventX "Tests that did not pass:\n{tests}"
+                   >> Expecto.Logging.Message.setField "tests" (String.concat "\n" notPassed))
+          } }
+
 let runTests (args: string[]) =
   let serviceName = "FsAutoComplete.Tests.Lsp"
 
@@ -506,7 +528,7 @@ let runTests (args: string[]) =
   use activitySource = new ActivitySource(serviceName)
 
   let cliArgs =
-    [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
+    [ CLIArguments.Printer(failuresAtTheEnd defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
       CLIArguments.Parallel
       // Every LSP test group starts its own servers, so more workers mostly add memory. `--parallel-workers` overrides it.

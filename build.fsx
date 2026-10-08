@@ -449,7 +449,7 @@ let coverageAssemblyExcludeFilter =
   @"^(?!FsAutoComplete\.Core$)(?!FsAutoComplete\.Logging$)(?!fsautocomplete$).*"
 
 let testCommand targetFramework =
-  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true Expecto.parallel-workers=4 --blame-hang --blame-hang-timeout 1m"""
+  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=minimal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true Expecto.parallel-workers=4 --blame-hang --blame-hang-timeout 1m"""
 
 /// The test project runs its test groups in parallel inside one process, so one `dotnet test` covers the framework.
 let ciTests targetFramework sdkVersion =
