@@ -91,6 +91,9 @@ val inline expectExitCodeZero: r: BufferedCommandResult -> unit
 val dotnetRestore: dir: string -> Async<unit>
 val dotnetToolRestore: dir: string -> Async<unit>
 
+/// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
+val prepareTestProjects: path: string -> Async<unit>
+
 val serverInitialize:
   path: string ->
   config: FSharpConfigDto ->

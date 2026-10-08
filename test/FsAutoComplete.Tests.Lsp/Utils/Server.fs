@@ -67,11 +67,7 @@ module Server =
       )
 
       match path, prepareProjects with
-      | Some path, true ->
-        dotnetCleanup path
-
-        for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-          do! file |> Path.GetDirectoryName |> dotnetRestore
+      | Some path, true -> do! prepareTestProjects path
       | _ -> ()
 
       let (server: IFSharpLspServer, events: IObservable<_>) = createServer ()

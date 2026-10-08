@@ -587,12 +587,49 @@ let dotnetToolRestore dir =
     return expectExitCodeZero r
   }
 
+let private cleanedDirectories = System.Collections.Generic.HashSet<string>()
+let private restoredDirectories = System.Collections.Generic.HashSet<string>()
+let private prepareLock = new SemaphoreSlim(1)
+
+let private isWithin (parent: string) (path: string) =
+  path = parent || path.StartsWith(parent + string Path.DirectorySeparatorChar, StringComparison.Ordinal)
+
+/// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
+/// Test groups that share a TestCases directory, and the same group for each compiler, reuse that work, and
+/// do not delete `obj` under the servers of earlier groups. After a test builds with `DotnetCli.build`, directories
+/// overlapping the built path are cleaned and restored again, so build output does not leak into later groups.
+/// Loading a project still leaves a few generated files (such as AssemblyInfo.fs) in `obj` for later groups;
+/// they are the same on every load.
+let prepareTestProjects (path: string) =
+  async {
+    let path = Path.GetFullPath path
+    do! prepareLock.WaitAsync() |> Async.AwaitTask
+
+    try
+      for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
+        let overlaps directory =
+          isWithin built directory || isWithin directory built
+
+        cleanedDirectories.RemoveWhere overlaps |> ignore
+        restoredDirectories.RemoveWhere overlaps |> ignore
+
+      if cleanedDirectories.Add path then
+        dotnetCleanup path
+        restoredDirectories.Remove path |> ignore
+
+      for file in Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+        let directory = Path.GetDirectoryName file
+
+        if not (restoredDirectories.Contains directory) then
+          do! dotnetRestore directory
+          restoredDirectories.Add directory |> ignore
+    finally
+      prepareLock.Release() |> ignore
+  }
+
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
-    dotnetCleanup path
-
-    for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-      do! file |> Path.GetDirectoryName |> dotnetRestore
+    do! prepareTestProjects path
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
     clientNotifications |> Observable.add logEvent
