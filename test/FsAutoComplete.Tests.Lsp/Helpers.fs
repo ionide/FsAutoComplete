@@ -646,7 +646,13 @@ let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification)
   |> JsonSerializer.readJson<ResponseMsg<'t>>
   |> fun r -> if r.Kind = eventType then Some r.Data else None
 
-let internal defaultTimeout = TimeSpan.FromSeconds 10.0
+/// How long a test waits for a notification from the server, such as diagnostics or a finished workspace load.
+/// The wait ends as soon as the notification arrives. CI raises FSAC_TEST_DEFAULT_TIMEOUT for its loaded runners,
+/// and these waits follow it; without it they fail fast.
+let internal defaultTimeout =
+  match Environment.GetEnvironmentVariable "FSAC_TEST_DEFAULT_TIMEOUT" with
+  | null -> TimeSpan.FromSeconds 10.0
+  | _ -> Expecto.DEFAULT_TIMEOUT
 
 let waitForWorkspaceFinishedParsing (events: ClientEvents) =
   let chooser (name, payload) =

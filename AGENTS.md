@@ -169,6 +169,7 @@ test/FsAutoComplete.Tests.Lsp/bin/Debug/net10.0/FsAutoComplete.Tests.Lsp --filte
 - `--filter-test-list` and `--filter-test-case` match a substring of the test list or case name, `--filter` takes a slash-separated path, and `--list-tests` prints names without running anything.
 - Each test runs once per compiler (BackgroundCompiler and TransparentCompiler). While prototyping, run one with `USE_TRANSPARENT_COMPILER=BackgroundCompiler` (or `TransparentCompiler`). Run both before the work is done.
 - The whole run is cancelled after `TEST_TIMEOUT_MINUTES` (default 10). The full suite takes longer, so raise it for a full run.
+- A failure like "Timeout waiting for latest diagnostics" can mean a busy machine rather than a bug. Rerun with `FSAC_TEST_DEFAULT_TIMEOUT=120000`, as CI does, before debugging. That variable is the per-test limit in milliseconds (default 60000), and the waits for server notifications use it when set (10 seconds otherwise).
 - Pass `-f` to `dotnet test` as well. The pin serves one target framework, so a run over all of them fails the others.
 
 ### Test Data
