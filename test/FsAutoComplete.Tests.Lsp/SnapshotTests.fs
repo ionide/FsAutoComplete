@@ -119,6 +119,18 @@ let awaitOutOfDate (o : amap<_,_>) =
         failwith "No file system watcher marked the adaptive map out of date within 30 seconds"
 
       do! Task.Delay 20
+
+    // Some watchers report one change as several events (FSEvents on macOS). Wait until a forced value stays up to
+    // date, so the test sees one state of the change, not one that a later event of the same change marks again.
+    let settled = ref false
+
+    while not settled.Value do
+      if DateTime.UtcNow > deadline then
+        failwith "The file system watcher kept marking the adaptive map out of date for 30 seconds"
+
+      content |> AVal.force |> ignore
+      do! Task.Delay 500
+      settled.Value <- not content.OutOfDate
   }
 
 let snapshotTests loaders toolsPath =
