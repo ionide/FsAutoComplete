@@ -111,11 +111,12 @@ let awaitOutOfDate (o : amap<_,_>) =
 
   task {
     let content = o.Content
-    let deadline = DateTime.UtcNow.AddSeconds 5.
+    // The time includes the change itself, such as a `dotnet add package`, which takes several seconds on CI.
+    let deadline = DateTime.UtcNow.AddSeconds 30.
 
     while not content.OutOfDate do
       if DateTime.UtcNow > deadline then
-        failwith "No file system watcher marked the adaptive map out of date within 5 seconds"
+        failwith "No file system watcher marked the adaptive map out of date within 30 seconds"
 
       do! Task.Delay 20
   }

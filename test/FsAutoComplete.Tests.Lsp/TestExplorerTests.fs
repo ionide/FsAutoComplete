@@ -23,6 +23,23 @@ module TestRunResult =
       |> _.Data
     | Error err -> failwith $"TestRunTests returned error: {err.Message}"
 
+  /// Compares the outcome of each test. On a mismatch, the message shows what each test reported, so that a CI log
+  /// says why a test did not pass.
+  let expectOutcomes (expected: (string * FsAutoComplete.TestServer.TestOutcome) list) results =
+    let actual =
+      results
+      |> List.map (fun (tr: FsAutoComplete.TestServer.TestResult) -> tr.TestItem.FullName, tr.Outcome)
+
+    let reported =
+      results
+      |> List.map (fun (tr: FsAutoComplete.TestServer.TestResult) ->
+        let show = Option.defaultValue "-"
+
+        $"{tr.TestItem.FullName}: {tr.Outcome}\n  error: {show tr.ErrorMessage}\n  stack trace: {show tr.ErrorStackTrace}\n  output: {show tr.AdditionalOutput}")
+      |> String.concat "\n"
+
+    Expect.equal (set actual) (set expected) $"What the tests reported:\n{reported}"
+
 module TestDiscoveryResult =
   open Ionide.LanguageServerProtocol.JsonRpc
 
@@ -137,13 +154,8 @@ let tests createServer =
 
             let! res = server.TestRunTests(runRequest)
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult res
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            let expected = ExpectedTests.VSTestXUnitRunResults
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult res
+            |> TestRunResult.expectOutcomes ExpectedTests.VSTestXUnitRunResults
           }
 
           testCaseAsync "it should report a processId when debugging a test project"
@@ -220,11 +232,8 @@ let tests createServer =
             let expected =
               [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
 
             System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "")
           }
@@ -251,11 +260,8 @@ let tests createServer =
 
             let expected = []
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
           }
 
           testCaseAsync "it should run only test projects in the project filter when specified"
@@ -284,11 +290,8 @@ let tests createServer =
 
             let expected = ExpectedTests.VSTestXUnitRunResults
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
           }
           // Skipped on net8: this test requests a debug run and cancels WITHOUT attaching,
           // leaving the spawned debugger-waiting process parked. On the net8 runtime that
