@@ -66,15 +66,14 @@ jobs:
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    # setup .NET per the repo global.json
-    - name: Setup .NET
-      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-
-    # install the runtime the tests will execute on (net8.0 / net9.0 / net10.0)
+    # install the runtime the tests will execute on (net8.0 / net9.0 / net10.0),
+    # and .NET 8 on every leg: the Test Explorer sample projects target net8.0.
     - name: Setup .NET test runtime
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: ${{ matrix.dotnet-version }}
+        dotnet-version: |
+          8.x
+          ${{ matrix.dotnet-version }}
 
     # Build everything with the .NET 10 SDK: it can target every supported TFM, and
     # Paket 10 is a net9.0-only tool that the .NET 8 SDK cannot restore. This is what
