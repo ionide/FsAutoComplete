@@ -15,13 +15,13 @@ jobs:
 
     steps:
       - name: checkout nightly branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: nightly
           # using a custom token instead of GITHUB_TOKEN allows other workflows to trigger as a result of the push
           token: ${{ secrets.FCS_NIGHTLY_UPDATE_TOKEN }}
       - name: configure .NET
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       - name: restore tools
         run: dotnet tool restore
       - name: bump FCS
