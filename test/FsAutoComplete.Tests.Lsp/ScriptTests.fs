@@ -188,9 +188,22 @@ let scriptProjectOptionsCacheTests state =
             "reopening an unchanged script file should return same project options for file"
             (async {
               let! server, _events, _workingDir, testFilePath, allOpts = server
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
-              do! Async.Sleep(TimeSpan.FromSeconds 3.)
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
-              do! Async.Sleep(TimeSpan.FromSeconds 3.)
+
+              // Hover type checks the script, so it returns after the project options for the open script are resolved.
+              let openAndResolveOptions () =
+                async {
+                  do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+
+                  let! _ =
+                    server.TextDocumentHover
+                      { TextDocument = { Uri = Path.FilePathToUri testFilePath }
+                        Position = { Line = 0u; Character = 0u }
+                        WorkDoneToken = None }
+
+                  ()
+                }
+
+              do! openAndResolveOptions ()
+              do! openAndResolveOptions ()
               Expect.hasLength allOpts 1 "should only have one event"
             }) ] ]

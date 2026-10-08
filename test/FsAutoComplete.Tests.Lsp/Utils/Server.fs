@@ -271,7 +271,20 @@ module Document =
   /// -> All past `documentAnalyzed` events and their diags are all received at once
   /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
   //ENHANCEMENT: Send `publishDiagnostics` with Doc Version (LSP `3.15.0`) -> can correlate `documentAnalyzed` and `publishDiagnostics`
-  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+  let private analyzedForCurrentVersion (doc: Document) =
+    doc
+    |> analyzedStream
+    |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+
+  /// Number of `fsharp/documentAnalyzed` received so far for the current `doc.Version`.
+  let private analyzedCount (doc: Document) =
+    let count = ref 0
+    // The ReplaySubject replays past events during Subscribe, so the count is complete when it returns.
+    use _ = doc |> analyzedForCurrentVersion |> Observable.subscribe (fun _ -> count.Value <- count.Value + 1)
+    count.Value
+
+  /// Waits for the `fsharp/documentAnalyzed` of the current `doc.Version` that follows the first `skip` of them.
+  let private waitForDiagnosticsAfter skip timeout (doc: Document) : Async<Diagnostic[]> =
     async {
       logger.trace (
         Log.setMessage "Waiting for diags for {uri} at version {version}"
@@ -288,14 +301,17 @@ module Document =
 
       do!
         doc
-        |> analyzedStream
-        |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+        |> analyzedForCurrentVersion
+        |> Observable.skip skip
         |> Observable.timeoutSpan timeout
         |> Async.AwaitObservable
         |> Async.Ignore
 
       return latest
     }
+
+  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+    waitForDiagnosticsAfter 0 timeout doc
 
 
   /// Note: Mutates passed `doc`
@@ -347,7 +363,6 @@ module Document =
           ContentChanges = [| U2.C2 { Text = text } |] }
 
       do! doc.Server.Server.TextDocumentDidChange p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
@@ -356,11 +371,13 @@ module Document =
       let p: DidSaveTextDocumentParams =
         { Text = Some text
           TextDocument = doc.TextDocumentIdentifier }
+      // A save keeps the document version, so the `fsharp/documentAnalyzed` of the previous check matches it too.
+      // Wait for the one after those, from the check the save starts.
+      let analyzedBefore = analyzedCount doc
       // Simulate the file being written to disk so we don't hit the typechecker cache
       IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
       do! doc.Server.Server.TextDocumentDidSave p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
-      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
+      return! doc |> waitForDiagnosticsAfter analyzedBefore Helpers.defaultTimeout
     }
 
   let private assertOk result =
