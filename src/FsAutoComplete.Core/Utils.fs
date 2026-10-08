@@ -164,17 +164,6 @@ let inline combinePaths path1 (path2: string) = Path.Combine(path1, path2.TrimSt
 
 let inline (</>) path1 path2 = combinePaths path1 path2
 
-let projectOptionsToParseOptions (checkOptions: FSharpProjectOptions) =
-  //TODO: Investigate why sometimes SourceFiles are not filled
-  let files =
-    match checkOptions.SourceFiles with
-    | [||] -> checkOptions.OtherOptions |> Array.where (isFileWithFSharp)
-    | x -> x
-
-  { FSharpParsingOptions.Default with
-      SourceFiles = files }
-
-
 [<RequireQualifiedAccess>]
 module Option =
 

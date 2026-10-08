@@ -81,7 +81,6 @@ val inline isFileWithFSharp: fileName: string -> bool
 val inline normalizePath: file: string -> string<LocalPath>
 val inline combinePaths: path1: string -> path2: string -> string
 val inline (</>): path1: string -> path2: string -> string
-val projectOptionsToParseOptions: checkOptions: FSharpProjectOptions -> FSharpParsingOptions
 
 [<RequireQualifiedAccess>]
 module Option =

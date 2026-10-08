@@ -32,6 +32,7 @@
     <PreparedTestProject Include="TestCases\NUnitTests\NUnitTests.fsproj" />
     <PreparedTestProject Include="TestCases\XUnitTests\XUnitTests.fsproj" />
     <PreparedTestProject Include="TestCases\ExpectoTests\ExpectoTests.fsproj" />
+    <PreparedTestProject Include="TestCases\DetectUnitTestsOnStartup\Tests\Tests.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DotnetCli.fs" />

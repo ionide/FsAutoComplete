@@ -428,6 +428,20 @@ type AdaptiveState
 
   let fileChecked = Event<FileHasBeenChecked>()
 
+  /// Gets the function that finds the tests of the test framework that the project references.
+  /// Returns None when the project references none of the supported test frameworks, so it has no tests.
+  let tryGetTestDetector (proj: CompilerProjectOption) =
+    let references (assembly: string) = proj.OtherOptions |> List.exists (fun o -> o.Contains assembly)
+
+    if references "Expecto.dll" then
+      Some TestAdapter.getExpectoTests
+    elif references "nunit.framework.dll" then
+      Some TestAdapter.getNUnitTest
+    elif references "xunit.assert.dll" then
+      Some TestAdapter.getXUnitTest
+    else
+      None
+
   let detectTests (parseResults: FSharpParseFileResults) (proj: CompilerProjectOption) ct =
     try
       logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} started")
@@ -436,14 +450,9 @@ type AdaptiveState
 
 
       let res =
-        if proj.OtherOptions |> Seq.exists (fun o -> o.Contains "Expecto.dll") then
-          TestAdapter.getExpectoTests parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
-          TestAdapter.getNUnitTest parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
-          TestAdapter.getXUnitTest parseResults.ParseTree
-        else
-          []
+        match tryGetTestDetector proj with
+        | Some getTests -> getTests parseResults.ParseTree
+        | None -> []
 
       logger.info (Log.setMessageI $"Test Detection of {parseResults.FileName:file} - {res:res}")
 
@@ -1457,33 +1466,30 @@ type AdaptiveState
   /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
   /// <param name="file">The source to be parsed.</param>
-  /// <param name="compilerOptions"></param>
+  /// <param name="compilerOptions">The project of the file, for its parsing options.</param>
+  /// <param name="isOpen">Whether the file is open, so it is type checked too.</param>
   /// <returns></returns>
-
-
-  let parseFile (checker: FSharpCompilerServiceChecker) (file: VolatileFile) (compilerOptions: CompilerProjectOption) =
-    task {
+  let parseFile
+    (checker: FSharpCompilerServiceChecker)
+    (file: VolatileFile)
+    (compilerOptions: CompilerProjectOption)
+    (isOpen: bool)
+    =
+    async {
       let! result =
         match compilerOptions with
-        | CompilerProjectOption.TransparentCompiler snap ->
-          taskResult { return! checker.ParseFile(file.FileName, snap) }
-        | CompilerProjectOption.BackgroundCompiler opts ->
-          taskResult {
-
-
-            return! checker.ParseFile(file.FileName, file.Source, opts)
-          }
+        // The transparent compiler keeps a parse with the snapshot for the type check.
+        // An open file is type checked, so it is parsed with the snapshot to not parse it twice.
+        | CompilerProjectOption.TransparentCompiler snap when isOpen -> checker.ParseFile(file.FileName, snap)
+        | _ -> checker.ParseFile(file.FileName, file.Source, compilerOptions)
 
       let! ct = Async.CancellationToken
-
-      result
-      |> Result.iter (fun result -> fileParsed.Trigger(result, compilerOptions, ct))
-
+      fileParsed.Trigger(result, compilerOptions, ct)
       return result
     }
 
 
-  /// <summary>Parses all files in the workspace. This is mostly used to trigger finding tests.</summary>
+  /// <summary>Parses the files of the test projects in the workspace, to find their tests.</summary>
   let parseAllFiles () =
     asyncAVal {
       let! projects = getAllLoadedProjects
@@ -1497,18 +1503,41 @@ type AdaptiveState
         |> ASet.mapA id
         |> ASet.toAVal
 
-      return!
+      let testProjects, otherProjects =
         projects
         |> HashSet.toArray
-        |> Array.collect (fun (snap) -> snap.SourceFilesTagged |> List.toArray |> Array.map (fun s -> snap, s))
-        |> Array.map (fun (snap, filePath) ->
-          taskResult {
-            let! vFile = forceFindOpenFileOrRead filePath
-            return! parseFile checker vFile snap
+        |> Array.partition (fun proj -> (tryGetTestDetector proj).IsSome)
 
-          })
+      return!
+        async {
+          let! ct = Async.CancellationToken
 
-        |> Task.WhenAll
+          // Files outside test projects have no tests, so they are not parsed. They get an empty notification,
+          // so the client drops tests it got before, e.g. when the project referenced a test framework.
+          let testFiles =
+            testProjects
+            |> Array.collect (fun proj -> List.toArray proj.SourceFilesTagged)
+            |> HashSet.ofArray
+
+          for proj in otherProjects do
+            for filePath in proj.SourceFilesTagged do
+              if not (testFiles.Contains filePath) then
+                triggerNotification (NotificationEvent.TestDetected(filePath, [||])) ct
+
+          // The parse results are not added to the cache of the checker:
+          // test detection is done with them, and the cache would keep the whole workspace alive.
+          return!
+            testProjects
+            |> Array.collect (fun proj -> proj.SourceFilesTagged |> List.toArray |> Array.map (fun s -> proj, s))
+            |> Array.map (fun (proj, filePath) ->
+              asyncResult {
+                let! vFile = forceFindOpenFileOrRead filePath
+                let! result = checker.ParseFile(vFile.FileName, vFile.Source, proj, cache = false)
+                fileParsed.Trigger(result, proj, ct)
+                return result
+              })
+            |> Async.Parallel
+        }
     }
 
   let forceFindSourceText filePath = forceFindOpenFileOrRead filePath |> AsyncResult.map (fun f -> f.Source)
@@ -1658,6 +1687,7 @@ type AdaptiveState
           asyncAVal {
             let! (checker: FSharpCompilerServiceChecker) = checker
             and! selectProject = projectSelector
+            and! isOpen = isFileOpen filePath
 
             let loadedProject =
               options |> Result.bind (fun p -> selectProject.FindProject(filePath, p))
@@ -1665,8 +1695,8 @@ type AdaptiveState
             match loadedProject with
             | Ok x ->
               let! snap = x.FSharpProjectCompilerOptions
-              let! r = parseFile checker file snap
-              return r
+              let! r = parseFile checker file snap isOpen
+              return Ok r
             | Error e -> return Error e
           })
     }
