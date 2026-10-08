@@ -132,6 +132,46 @@ let selectTestGroups groups =
     groups
     |> List.choose (fun (shard, test) -> if shard = selectedShard then Some test else None)
 
+let rec private groupName test =
+  match test with
+  | Test.TestLabel(name, _, _) -> Some name
+  | Test.Sequenced(_, test) -> groupName test
+  | Test.TestList([ test ], _) -> groupName test
+  | _ -> None
+
+let mutable private unnamedGroups = 0
+
+/// Gives a test group its own server factory, and shuts down every server the group started once its tests are done.
+/// The groups in `lspTests` run one after another, so nothing uses those servers afterwards.
+let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharpLspServer * ClientEvents) group =
+  let started = System.Collections.Concurrent.ConcurrentQueue<unit -> unit>()
+
+  let tests =
+    group (fun () ->
+      let server, events = createServer ()
+
+      let handle, shutdown = handleFor server
+      started.Enqueue shutdown
+      handle, events)
+
+  let name =
+    groupName tests
+    |> Option.defaultWith (fun () ->
+      unnamedGroups <- unnamedGroups + 1
+      $"group {unnamedGroups}")
+
+  testSequenced (
+    TestList(
+      [ tests
+        testCase $"shut down the servers of {name}" (fun () ->
+          let mutable shutdown = ignore
+
+          while started.TryDequeue(&shutdown) do
+            shutdown ()) ],
+      Normal
+    )
+  )
+
 let lspTests toolsPath =
   testSequenced
   <| testList
@@ -144,28 +184,30 @@ let lspTests toolsPath =
               let createServer () =
                 adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
+              let servers group = withServerShutdown createServer group
+
               // Shard 1 carries general tests and shard 4 carries snapshots; keep shared fixtures together and add isolated groups to the fastest measured shard.
               let compilerTests =
                 [ 4, Templates.tests ()
-                  4, initTests createServer
-                  4, closeTests createServer
+                  4, servers initTests
+                  4, servers closeTests
 
-                  1, Utils.Tests.Server.tests createServer
-                  4, Utils.Tests.CursorbasedTests.tests createServer
+                  1, servers Utils.Tests.Server.tests
+                  4, servers Utils.Tests.CursorbasedTests.tests
 
-                  4, CodeLens.tests createServer
-                  4, documentSymbolTest createServer
-                  4, workspaceSymbolTest createServer
-                  4, Completion.autocompleteTest createServer
-                  2, Completion.autoOpenTests createServer
-                  3, Completion.fullNameExternalAutocompleteTest createServer
-                  4, foldingTests createServer
-                  4, tooltipTests createServer
-                  4, Highlighting.tests createServer
-                  4, scriptPreviewTests createServer
-                  4, scriptEvictionTests createServer
-                  4, scriptProjectOptionsCacheTests createServer
-                  4, dependencyManagerTests createServer
+                  4, servers CodeLens.tests
+                  4, servers documentSymbolTest
+                  4, servers workspaceSymbolTest
+                  4, servers Completion.autocompleteTest
+                  2, servers Completion.autoOpenTests
+                  3, servers Completion.fullNameExternalAutocompleteTest
+                  4, servers foldingTests
+                  4, servers tooltipTests
+                  4, servers Highlighting.tests
+                  4, servers scriptPreviewTests
+                  4, servers scriptEvictionTests
+                  4, servers scriptProjectOptionsCacheTests
+                  4, servers dependencyManagerTests
                   4, interactiveDirectivesUnitTests
 
                   // commented out because FSDN is down
@@ -173,31 +215,31 @@ let lspTests toolsPath =
 
                   //linterTests createServer
                   4, uriTests
-                  4, formattingTests createServer
-                  4, analyzerTests createServer
-                  4, signatureTests createServer
-                  4, SignatureHelp.tests createServer
-                  4, InlineHints.tests createServer
-                  2, CodeFixTests.Tests.tests sourceTextFactory createServer
-                  4, Completion.tests createServer
-                  3, GoTo.tests createServer
+                  4, servers formattingTests
+                  4, servers analyzerTests
+                  4, servers signatureTests
+                  4, servers SignatureHelp.tests
+                  4, servers InlineHints.tests
+                  2, servers (CodeFixTests.Tests.tests sourceTextFactory)
+                  4, servers Completion.tests
+                  3, servers GoTo.tests
 
-                  4, FindReferences.tests createServer
-                  3, Rename.tests createServer
+                  4, servers FindReferences.tests
+                  3, servers Rename.tests
 
-                  4, InfoPanelTests.docFormattingTest createServer
-                  4, DetectUnitTests.tests createServer
-                  4, XmlDocumentationGeneration.tests createServer
-                  4, InlayHintTests.tests createServer
-                  3, DependentFileChecking.tests createServer
-                  2, UnusedDeclarationsTests.tests createServer
-                  4, EmptyFileTests.tests createServer
-                  3, CallHierarchy.tests createServer
-                  4, diagnosticsTest createServer
-                  4, InheritDocTooltipTests.tests createServer
-                  4, CrefLinkDocumentationTests.tests createServer
+                  4, servers InfoPanelTests.docFormattingTest
+                  4, servers DetectUnitTests.tests
+                  4, servers XmlDocumentationGeneration.tests
+                  4, servers InlayHintTests.tests
+                  3, servers DependentFileChecking.tests
+                  2, servers UnusedDeclarationsTests.tests
+                  4, servers EmptyFileTests.tests
+                  3, servers CallHierarchy.tests
+                  4, servers diagnosticsTest
+                  4, servers InheritDocTooltipTests.tests
+                  4, servers CrefLinkDocumentationTests.tests
 
-                  3, TestExplorer.tests createServer ]
+                  3, servers TestExplorer.tests ]
 
               testList $"{compilerName}" (selectTestGroups compilerTests) ] ]
 

@@ -170,7 +170,7 @@ let scriptProjectOptionsCacheTests state =
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()
 
-      match server with
+      match realServer server with
       | :? FsAutoComplete.Lsp.AdaptiveFSharpLspServer as server -> server.ScriptFileProjectOptions.Add(options.Add)
       | _ -> failwith "Unknown server type"
 

@@ -235,6 +235,40 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
+/// Stands in for a server and forwards every call to `Target`. Tests cache their server for the whole run, so a
+/// test group that is done can let go of the real server by clearing `Target`.
+type ServerHandle() =
+  inherit System.Reflection.DispatchProxy()
+
+  member val Target: IFSharpLspServer = Unchecked.defaultof<_> with get, set
+
+  override this.Invoke(method, args) =
+    match box this.Target with
+    | null -> raise (ObjectDisposedException("IFSharpLspServer", "The test group of this server is done."))
+    | target ->
+      try
+        method.Invoke(target, args)
+      with :? System.Reflection.TargetInvocationException as ex when not (isNull ex.InnerException) ->
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw ex.InnerException
+        null
+
+/// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
+let handleFor (server: IFSharpLspServer) =
+  let handle = System.Reflection.DispatchProxy.Create<IFSharpLspServer, ServerHandle>()
+  (handle :?> ServerHandle).Target <- server
+
+  let shutdown () =
+    server.Dispose()
+    (handle :?> ServerHandle).Target <- Unchecked.defaultof<_>
+
+  handle, shutdown
+
+/// The server behind a `ServerHandle`, for tests that need the concrete server type.
+let realServer (server: IFSharpLspServer) =
+  match box server with
+  | :? ServerHandle as handle -> handle.Target
+  | _ -> server
+
 let defaultConfigDto: FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
     ExcludeProjectDirectories = None

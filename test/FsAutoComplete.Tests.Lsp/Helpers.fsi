@@ -73,6 +73,21 @@ val createAdaptiveServer:
   useTransparentCompiler: bool ->
     IFSharpLspServer * ClientEvents
 
+/// Stands in for a server and forwards every call to `Target`. Tests cache their server for the whole run, so a
+/// test group that is done can let go of the real server by clearing `Target`.
+[<Class>]
+type ServerHandle =
+  inherit System.Reflection.DispatchProxy
+  new: unit -> ServerHandle
+  member Target: IFSharpLspServer with get, set
+  override Invoke: method: System.Reflection.MethodInfo * args: obj array -> obj
+
+/// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
+val handleFor: server: IFSharpLspServer -> IFSharpLspServer * (unit -> unit)
+
+/// The server behind a `ServerHandle`, for tests that need the concrete server type.
+val realServer: server: IFSharpLspServer -> IFSharpLspServer
+
 val defaultConfigDto: FSharpConfigDto
 val clientCaps: ClientCapabilities
 

@@ -164,6 +164,35 @@ module TestProjectHelpers =
     project.PackageReferences
     |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
 
+/// The FCS file system is process-wide. Every AdaptiveState adds the files it has open to it, newest state first,
+/// and removes them again when it is disposed, so a disposed state is neither kept alive nor read from.
+module SharedFileSystem =
+  let private gate = obj ()
+
+  let mutable private openFileLookups: (string<LocalPath> -> VolatileFile option) list =
+    []
+
+  let mutable private installed = false
+
+  let private tryFindOpenFile file = openFileLookups |> List.tryPick (fun tryFind -> tryFind file)
+
+  let register (lookup: string<LocalPath> -> VolatileFile option) : IDisposable =
+    lock gate (fun () ->
+      if not installed then
+        FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
+          FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, tryFindOpenFile)
+
+        installed <- true
+
+      openFileLookups <- lookup :: openFileLookups)
+
+    { new IDisposable with
+        member _.Dispose() =
+          lock gate (fun () ->
+            openFileLookups <-
+              openFileLookups
+              |> List.filter (fun tryFind -> not (obj.ReferenceEquals(tryFind, lookup)))) }
+
 type FileHasBeenChecked =
   { Options: LoadedProject
     CompilerOptions: CompilerProjectOption
@@ -375,6 +404,7 @@ type AdaptiveState
 
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
+  do disposables.Add diagnosticCollections
 
   let notifications =
     Event<NotificationEvent * CancellationToken * TaskCompletionSource<unit> option>()
@@ -1469,8 +1499,7 @@ type AdaptiveState
 
       fileShimChanges |> AMap.force |> HashMap.tryFind file
 
-    FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
-      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
+    SharedFileSystem.register filesystemShim |> disposables.Add
 
   /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
