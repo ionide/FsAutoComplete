@@ -16,8 +16,45 @@ open FSharp.UMX
 module Expecto =
   open System.Threading.Tasks
 
+  /// Like Expecto's Test.timeout, but when the time is up it also cancels the test, so the test stops at its next
+  /// asynchronous step instead of running on next to the tests after it. Synchronous test code cannot be cancelled
+  /// and keeps Expecto's behaviour.
+  let cancelOnTimeout (timeout: TimeSpan) (code: TestCode) =
+    match code with
+    | TestCode.Async test ->
+      TestCode.Async(
+        async {
+          let! runToken = Async.CancellationToken
+          // Not disposed: a test that ignores cancellation may still use the token after the timeout.
+          let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
+          let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
+
+          let! finished =
+            Task.WhenAny(work :> Task, Task.Delay(timeout, runToken))
+            |> Async.AwaitTask
+
+          if obj.ReferenceEquals(finished, work) then
+            // Async.AwaitTask would wrap the test's own exception in an AggregateException.
+            match work.Exception with
+            | null -> return! Async.AwaitTask work
+            | aggregate when aggregate.InnerExceptions.Count = 1 ->
+              Runtime.ExceptionServices.ExceptionDispatchInfo.Throw aggregate.InnerException
+            | aggregate -> return raise aggregate
+          else
+            cancellation.Cancel()
+
+            // Give the test time to reach its next asynchronous step and stop, before the next test starts.
+            let! _ =
+              Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
+              |> Async.AwaitTask
+
+            return raise (AssertException $"Timeout ({timeout}), the test was cancelled")
+        }
+      )
+    | code -> Test.timeout (int timeout.TotalMilliseconds) code
+
   let inline testBuilderWithTimeout (ts: TimeSpan) name testCase focus =
-    TestLabel(name, TestCase(Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
+    TestLabel(name, TestCase(cancelOnTimeout ts testCase, focus), focus)
 
   let inline testCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Normal
   let inline ftestCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Focused

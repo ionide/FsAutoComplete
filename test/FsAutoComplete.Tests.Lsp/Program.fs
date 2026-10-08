@@ -160,6 +160,13 @@ let rec private groupName test =
   | Test.TestList([ test ], _) -> groupName test
   | _ -> None
 
+let rec private mapTestCode (map: TestCode -> TestCode) test =
+  match test with
+  | Test.TestCase(code, state) -> Test.TestCase(map code, state)
+  | Test.TestList(tests, state) -> Test.TestList(List.map (mapTestCode map) tests, state)
+  | Test.TestLabel(label, test, state) -> Test.TestLabel(label, mapTestCode map test, state)
+  | Test.Sequenced(sequenced, test) -> Test.Sequenced(sequenced, mapTestCode map test)
+
 /// Wraps every test of `group` so that the last one to finish calls `allDone`, whatever order the tests run in.
 /// Pending tests never run, so they are not counted. When a filter leaves out tests of the group, `allDone` is not
 /// called, and the servers live until the process ends.
@@ -213,14 +220,7 @@ let private afterLastTest (allDone: unit -> unit) (group: Test) =
           }
       )
 
-  let rec map test =
-    match test with
-    | Test.TestCase(code, state) -> Test.TestCase(wrap code, state)
-    | Test.TestList(tests, state) -> Test.TestList(List.map map tests, state)
-    | Test.TestLabel(label, test, state) -> Test.TestLabel(label, map test, state)
-    | Test.Sequenced(sequenced, test) -> Test.Sequenced(sequenced, map test)
-
-  map group
+  mapTestCode wrap group
 
 /// Gives a test group its own server factory, and shuts down every server the group started once its last test is done.
 let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharpLspServer * ClientEvents) group =
@@ -234,6 +234,8 @@ let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharp
       handle, events)
 
   tests
+  // Also the tests that were written without a timeout. Tests that have one get a second, equal one.
+  |> mapTestCode (Helpers.Expecto.cancelOnTimeout Helpers.Expecto.DEFAULT_TIMEOUT)
   |> afterLastTest (fun () ->
       let mutable shutdown = ignore
 
@@ -359,6 +361,7 @@ let generalTests =
       FcsInvariantTests.tests
       FsProjEditorTests.allTests
       FsAutoComplete.Tests.Lsp.AdaptiveExtensionsTests.tests
+      FsAutoComplete.Tests.Lsp.TimeoutTests.tests
       FsAutoComplete.Tests.Lsp.WorkspaceLoadFailureTests.tests sourceTextFactory
       decompilerTests ]
 

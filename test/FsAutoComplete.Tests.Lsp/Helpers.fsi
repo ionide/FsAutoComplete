@@ -15,6 +15,11 @@ open FSharp.UMX
 
 module Expecto =
   open System.Threading.Tasks
+
+  /// Like Expecto's Test.timeout, but when the time is up it also cancels the test, so the test stops at its next
+  /// asynchronous step instead of running on next to the tests after it. Synchronous test code cannot be cancelled
+  /// and keeps Expecto's behaviour.
+  val cancelOnTimeout: timeout: TimeSpan -> code: TestCode -> TestCode
   val inline testBuilderWithTimeout: ts: TimeSpan -> name: string -> testCase: TestCode -> focus: FocusState -> Test
   val inline testCaseWithTimeout: ts: TimeSpan -> name: string -> test: (unit -> unit) -> Test
   val inline ftestCaseWithTimeout: ts: TimeSpan -> name: string -> test: (unit -> unit) -> Test
