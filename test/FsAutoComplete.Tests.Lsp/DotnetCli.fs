@@ -23,4 +23,12 @@ module DotnetCli =
        StdOut = output.ToString()
        StdErr = error.ToString() |}
 
-  let build path = executeProcess None "dotnet" $"build {path}"
+  /// Builds in the directory of `path`, so `dotnet` resolves the SDK that global.json selects for the tests.
+  let build (path: string) =
+    let directory =
+      if IO.Directory.Exists path then
+        path
+      else
+        IO.Path.GetDirectoryName path
+
+    executeProcess (Some directory) "dotnet" $"build {path}"

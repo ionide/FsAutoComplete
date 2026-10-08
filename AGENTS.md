@@ -61,11 +61,7 @@ dotnet tool restore
 # Build the entire solution
 dotnet build
 
-# Run tests
-dotnet test
-
-# Run specific test project
-dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+# Run tests: see "Running Tests" below
 
 # Format code
 dotnet fantomas src/ test/
@@ -157,9 +153,23 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 2. Follow existing patterns for test setup and assertions
 3. Use the helpers in `Helpers.fs` for common operations
 4. Include edge cases and error conditions
-5. For code fixes: Run focused tests with `dotnet run -f net8.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj`
+5. Run the tests you touched as described in "Running Tests"
 6. Remove focused test markers before submitting PRs (they cause CI failures)
 7. Do not delete tests without permission.
+
+### Running Tests
+Build one target framework, then run the test executable directly with a filter:
+
+```bash
+dotnet build test/FsAutoComplete.Tests.Lsp -f net10.0
+test/FsAutoComplete.Tests.Lsp/bin/Debug/net10.0/FsAutoComplete.Tests.Lsp --filter-test-list "Document Highlighting"
+```
+
+- The tests need a .NET SDK with the same major version as the framework they run on, like CI. When `global.json` resolves another SDK, the run stops with one failing test whose message is the `dotnet new globaljson` command that pins a matching SDK in `test/FsAutoComplete.Tests.Lsp` (that file is gitignored).
+- `--filter-test-list` and `--filter-test-case` match a substring of the test list or case name, `--filter` takes a slash-separated path, and `--list-tests` prints names without running anything.
+- Each test runs once per compiler (BackgroundCompiler and TransparentCompiler). While prototyping, run one with `USE_TRANSPARENT_COMPILER=BackgroundCompiler` (or `TransparentCompiler`). Run both before the work is done.
+- The whole run is cancelled after `TEST_TIMEOUT_MINUTES` (default 10). The full suite takes longer, so raise it for a full run.
+- Pass `-f` to `dotnet test` as well. The pin serves one target framework, so a run over all of them fails the others.
 
 ### Test Data
 - Sample F# projects in `TestCases/` directories

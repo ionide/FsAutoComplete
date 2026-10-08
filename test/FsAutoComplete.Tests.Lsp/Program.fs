@@ -37,6 +37,14 @@ let testTimeout =
 // delay in ms between workspace start + stop notifications because the system goes too fast :-/
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
+// Child `dotnet` processes started by tests must not leave MSBuild nodes, the MSBuild server or the compiler server
+// running, and parallel test hosts must not race to start a shared MSBuild server. The CI shards set the same values.
+for name, value in
+  [ "DOTNET_CLI_USE_MSBUILD_SERVER", "0"
+    "MSBUILDDISABLENODEREUSE", "1"
+    "UseSharedCompilation", "false" ] do
+  Environment.SetEnvironmentVariable(name, value)
+
 let getEnvVarAsStr name = Environment.GetEnvironmentVariable(name) |> Option.ofObj
 
 let (|EqIC|_|) (a: string) (b: string) =
@@ -66,10 +74,44 @@ let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory 
 
 let sourceTextFactory: ISourceTextFactory = RoslynSourceTextFactory()
 
-let mutable toolsPath =
-  Ionide.ProjInfo.Init.init (System.IO.DirectoryInfo Environment.CurrentDirectory) None
+/// Ionide.ProjInfo loads MSBuild into the test host from the .NET SDK that `dotnet` resolves for the test project
+/// directory. The tests need that SDK to have the major version of the test host runtime, as in CI, where build.fsx
+/// pins it with a global.json in this directory. The same global.json then also applies to the child `dotnet` processes
+/// and the script checks in TestCases.
+let msbuild: Result<Types.ToolsPath, string> =
+  let runtimeMajor = Environment.Version.Major
+  let testProjectDirectory = DirectoryInfo __SOURCE_DIRECTORY__
 
+  match Ionide.ProjInfo.Paths.dotnetRoot.Value with
+  | None -> Error "No dotnet binary found. Set DOTNET_ROOT or add dotnet to PATH."
+  | Some dotnet ->
+    let resolvedSdk =
+      try
+        SdkDiscovery.versionAt testProjectDirectory dotnet
+        |> Result.mapError (fun (_, _, _, output) -> output)
+      with ex ->
+        Error ex.Message
 
+    match resolvedSdk with
+    | Ok version when version.Major = runtimeMajor -> Ok(Init.init testProjectDirectory (Some dotnet))
+    | _ ->
+      let resolved =
+        match resolvedSdk with
+        | Ok version -> $"resolves SDK %O{version}"
+        | Error output -> $"fails (%s{output})"
+
+      let fix =
+        SdkDiscovery.sdks dotnet
+        |> Array.filter (fun sdk -> sdk.Version.Major = runtimeMajor)
+        |> Array.sortBy _.Version
+        |> Array.tryLast
+        |> function
+          | Some sdk ->
+            $"Pin one with:\n  dotnet new globaljson --force --sdk-version %O{sdk.Version} --roll-forward latestFeature --output %s{testProjectDirectory.FullName}"
+          | None -> $"Install a .NET %i{runtimeMajor} SDK, or run the target framework of an installed SDK."
+
+      Error
+        $"The test host runs on .NET %i{runtimeMajor}, but `dotnet --version` in %s{testProjectDirectory.FullName} %s{resolved}. The tests need a .NET %i{runtimeMajor} SDK. %s{fix}"
 
 let compilers =
   match getEnvVarAsStr "USE_TRANSPARENT_COMPILER" with
@@ -90,7 +132,7 @@ let selectTestGroups groups =
     groups
     |> List.choose (fun (shard, test) -> if shard = selectedShard then Some test else None)
 
-let lspTests =
+let lspTests toolsPath =
   testSequenced
   <| testList
     "lsp"
@@ -186,11 +228,14 @@ let generalTests =
 
 [<Tests>]
 let tests =
-  match testShard with
-  | None -> testList "FSAC" [ generalTests; lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
-  | Some 1 -> testList "FSAC" [ generalTests; lspTests ]
-  | Some 4 -> testList "FSAC" [ lspTests; SnapshotTests.snapshotTests loaders toolsPath ]
-  | Some _ -> testList "FSAC" [ lspTests ]
+  match msbuild with
+  | Error message -> testList "FSAC" [ testCase "test host and .NET SDK major versions match" (fun _ -> failtest message) ]
+  | Ok toolsPath ->
+    match testShard with
+    | None -> testList "FSAC" [ generalTests; lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
+    | Some 1 -> testList "FSAC" [ generalTests; lspTests toolsPath ]
+    | Some 4 -> testList "FSAC" [ lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
+    | Some _ -> testList "FSAC" [ lspTests toolsPath ]
 
 open OpenTelemetry
 open OpenTelemetry.Resources
@@ -200,8 +245,7 @@ open OpenTelemetry.Metrics
 open System.Diagnostics
 open FsAutoComplete.Telemetry
 
-[<EntryPoint>]
-let main args =
+let runTests (args: string[]) =
   let serviceName = "FsAutoComplete.Tests.Lsp"
 
   use traceProvider =
@@ -285,6 +329,17 @@ let main args =
       | _ -> None)
     |> Option.defaultValue ([||], loaders)
 
+  // Logs go to stderr through a writer of their own. Writing them through System.Console deadlocks on Linux and macOS:
+  // Expecto redirects Console.Out and Console.Error, and a log line and a test's printfn then take the console locks
+  // in opposite order.
+  let logWriter = new StreamWriter(Console.OpenStandardError(), AutoFlush = true)
+  let logFormatter = Serilog.Formatting.Display.MessageTemplateTextFormatter(outputTemplate)
+
+  // Serilog's async wrapper calls the sink from a single thread.
+  let logSink =
+    { new ILogEventSink with
+        member _.Emit(logEvent) = logFormatter.Format(logEvent, logWriter) }
+
   let serilogLogger =
     LoggerConfiguration()
       .Enrich.FromLogContext()
@@ -302,11 +357,7 @@ let main args =
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
       .WriteTo.Async(fun c ->
-        c.Console(
-          outputTemplate = outputTemplate,
-          standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
-          theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
-        )
+        c.Sink(logSink)
         |> ignore)
       .CreateLogger() // make it so that every console log is logged to stderr
 
@@ -327,3 +378,11 @@ let main args =
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
   use span = activitySource.StartActivity("runTests")
   runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+
+[<EntryPoint>]
+let main args =
+  let exitCode = runTests args
+  Serilog.Log.CloseAndFlush()
+  // Tests do not dispose every server they start, and a live server can keep foreground threads running.
+  // Returning from main would then wait for those threads forever, so end the process explicitly.
+  exit exitCode

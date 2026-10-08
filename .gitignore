@@ -47,3 +47,6 @@ test/FsAutoComplete.Tests.Lsp/TestResults/
 BenchmarkDotNet.Artifacts/
 
 *.sarif
+
+# Local SDK pin for the tests, also written and removed by build.fsx
+test/FsAutoComplete.Tests.Lsp/global.json
