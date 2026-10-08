@@ -13,8 +13,8 @@ module DotnetCli =
     use proc = Diagnostics.Process.Start(psi)
     let output = new Text.StringBuilder()
     let error = new Text.StringBuilder()
-    proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
-    proc.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
+    proc.OutputDataReceived.Add(fun args -> output.AppendLine(args.Data) |> ignore)
+    proc.ErrorDataReceived.Add(fun args -> error.AppendLine(args.Data) |> ignore)
     proc.BeginErrorReadLine()
     proc.BeginOutputReadLine()
 

@@ -82,9 +82,9 @@ module Workspace =
       let buildResult = DotnetCli.build project.FullName
 
       Expect.equal
-        0
         buildResult.ExitCode
-        $"Workspace build failed with: {buildResult.StdErr} \nProject: {project.FullName}"
+        0
+        $"Workspace build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}\nProject: {project.FullName}"
 
 let tests createServer =
   let initializeServer workspaceRoot =
@@ -145,7 +145,7 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             let runRequest: TestRunRequest =
               { LimitToProjects = None
@@ -168,7 +168,7 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             use tokenSource = new CancellationTokenSource()
             let mutable processIdSpy: int option = None
@@ -218,7 +218,7 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "Set me")
 
@@ -248,7 +248,7 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             let! response =
               server.TestRunTests(

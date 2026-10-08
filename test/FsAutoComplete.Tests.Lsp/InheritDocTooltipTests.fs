@@ -44,7 +44,7 @@ let private inheritDocServer state =
     let buildResult = DotnetCli.build csharpLibPath
 
     if buildResult.ExitCode <> 0 then
-      failtest $"C# library build failed:\n{buildResult.StdErr}"
+      failtest $"C# library build failed:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
     let! (server, events) = serverInitialize projectPath defaultConfigDto state
     do! waitForWorkspaceFinishedParsing events
