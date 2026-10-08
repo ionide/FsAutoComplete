@@ -78,7 +78,8 @@ module ProcessHelper =
 
       let! token = Async.CancellationToken
 
-      let _registered = token.Register(fun _ -> tcs.SetCanceled())
+      // The process may have exited before the token is cancelled, and SetCanceled would then throw inside Cancel().
+      use _registered = token.Register(fun _ -> tcs.TrySetCanceled() |> ignore)
 
       let! _ = tcs.Task
       ()

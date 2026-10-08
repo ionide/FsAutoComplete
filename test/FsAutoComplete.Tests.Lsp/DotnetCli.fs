@@ -10,13 +10,20 @@ module DotnetCli =
     psi.RedirectStandardError <- true
     psi.CreateNoWindow <- true
     wd |> Option.iter (fun wd -> psi.WorkingDirectory <- wd)
-    let proc = Diagnostics.Process.Start(psi)
+    use proc = Diagnostics.Process.Start(psi)
     let output = new Text.StringBuilder()
     let error = new Text.StringBuilder()
     proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
     proc.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
     proc.BeginErrorReadLine()
     proc.BeginOutputReadLine()
+
+    // A hanging build would otherwise block the test, and the thread it runs on, until the whole run times out.
+    if not (proc.WaitForExit(TimeSpan.FromMinutes 5.)) then
+      proc.Kill(entireProcessTree = true)
+      failwith $"`{processName} {processArgs}` did not finish within 5 minutes and was stopped."
+
+    // Waits until the redirected output is read to the end.
     proc.WaitForExit()
 
     {| ExitCode = proc.ExitCode

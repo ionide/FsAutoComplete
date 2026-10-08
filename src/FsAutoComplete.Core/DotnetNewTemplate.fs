@@ -49,13 +49,14 @@ module DotnetNewTemplate =
       si.RedirectStandardOutput <- true
       si.WorkingDirectory <- Environment.CurrentDirectory
       si.EnvironmentVariables.["DOTNET_CLI_UI_LANGUAGE"] <- "en-us"
-      let proc = System.Diagnostics.Process.Start(si)
+      use proc = System.Diagnostics.Process.Start(si)
       let mutable output = ""
 
       while not proc.StandardOutput.EndOfStream do
         let line = proc.StandardOutput.ReadLine()
         output <- output + Environment.NewLine + line
 
+      proc.WaitForExit()
       output
 
     let parseTemplateOutput (x: string) =
