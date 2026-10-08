@@ -621,6 +621,7 @@ module FoldingRange =
         ranges.Add m
 
     override _.WalkSynModuleOrNamespace m = addIfInside m.Range
+    override _.WalkSynModuleOrNamespaceSig m = addIfInside m.Range
     override _.WalkAttribute a = addIfInside a.Range
     override _.WalkTypeConstraint c = addIfInside c.Range
     override _.WalkPat p = addIfInside p.Range
@@ -665,7 +666,9 @@ module FoldingRange =
     override _.WalkTypeDefnRepr t = addIfInside t.Range
     override _.WalkTypeDefnSigRepr t = addIfInside t.Range
     override _.WalkTypeDefn t = addIfInside t.Range
+    override _.WalkTypeDefnSig t = addIfInside t.Range
     override _.WalkSynModuleDecl s = addIfInside s.Range
+    override _.WalkSynModuleSigDecl s = addIfInside s.Range
 
     member _.Ranges = ranges
 
@@ -719,6 +722,7 @@ module FsacSemanticTokenSites =
     let parameters = ResizeArray<Range>()
     let definitions = ResizeArray<Range>()
     let declarations = ResizeArray<Range>()
+    let delegateDeclarationRanges = System.Collections.Generic.HashSet<Range>()
 
     let tryLastIdentRange (idents: Ident list) = idents |> List.tryLast |> Option.map _.idRange
 
@@ -742,6 +746,9 @@ module FsacSemanticTokenSites =
       | SynPat.Attrib(pat = innerPat) -> tryBindingNameRange innerPat
       | _ -> None
 
+    let excludeDelegateDeclaration (SynValSig(ident = SynIdent(id, _))) =
+      delegateDeclarationRanges.Add(id.idRange) |> ignore
+
     override _.WalkBinding(SynBinding(headPat = headPat)) =
       tryBindingNameRange headPat |> Option.iter definitions.Add
 
@@ -756,16 +763,32 @@ module FsacSemanticTokenSites =
       | SynSimplePat.Id(ident = id; isCompilerGenerated = false; isThisVal = false) -> parameters.Add(id.idRange)
       | _ -> ()
 
-    override _.WalkValSig(SynValSig(ident = SynIdent(id, _))) = declarations.Add(id.idRange)
+    override _.WalkValSig(SynValSig(ident = SynIdent(id, _))) =
+      if not (delegateDeclarationRanges.Contains(id.idRange)) then
+        declarations.Add(id.idRange)
 
     override _.WalkTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
       match typeRepr with
       | SynTypeDefnRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
+      | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
+        tryLastIdentRange idents |> Option.iter definitions.Add
+
+        members
+        |> List.iter (function
+          | SynMemberDefn.AbstractSlot(valSig, _, _, _) -> excludeDelegateDeclaration valSig
+          | _ -> ())
       | _ -> tryLastIdentRange idents |> Option.iter definitions.Add
 
     override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
       match typeRepr with
       | SynTypeDefnSigRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
+      | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
+        tryLastIdentRange idents |> Option.iter declarations.Add
+
+        members
+        |> List.iter (function
+          | SynMemberSig.Member(valSig, _, _, _) -> excludeDelegateDeclaration valSig
+          | _ -> ())
       | _ -> tryLastIdentRange idents |> Option.iter declarations.Add
 
     member _.Ranges =

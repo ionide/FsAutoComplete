@@ -50,3 +50,5 @@ let semanticTypeReference (value: SomeJson) = value
 
 type SemanticDefinitionType with
   member _.SemanticExtensionMember = ()
+
+type SemanticDelegate = delegate of int -> int

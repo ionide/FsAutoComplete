@@ -353,6 +353,17 @@ type AdaptiveFSharpLspServer
         semanticTokenSites.Declarations
         |> System.Collections.Generic.HashSet<FSharp.Compiler.Text.Range>
 
+      let isDeclarableTokenType =
+        function
+        | ClassificationUtils.SemanticTokenTypes.Function
+        | ClassificationUtils.SemanticTokenTypes.Method
+        | ClassificationUtils.SemanticTokenTypes.Type
+        | ClassificationUtils.SemanticTokenTypes.Class
+        | ClassificationUtils.SemanticTokenTypes.Struct
+        | ClassificationUtils.SemanticTokenTypes.Interface
+        | ClassificationUtils.SemanticTokenTypes.Enum -> true
+        | _ -> false
+
       let lspTypedRanges =
         filteredRanges
         |> Array.map (fun item ->
@@ -365,24 +376,12 @@ type AdaptiveFSharpLspServer
             | _ -> ty, mods
 
           let mods =
-            match ty with
-            | ClassificationUtils.SemanticTokenTypes.Function
-            | ClassificationUtils.SemanticTokenTypes.Method
-            | ClassificationUtils.SemanticTokenTypes.Type
-            | ClassificationUtils.SemanticTokenTypes.Class
-            | ClassificationUtils.SemanticTokenTypes.Struct
-            | ClassificationUtils.SemanticTokenTypes.Interface
-            | ClassificationUtils.SemanticTokenTypes.Enum when definitionRanges.Contains(item.Range) ->
+            if isDeclarableTokenType ty && definitionRanges.Contains(item.Range) then
               ClassificationUtils.SemanticTokenModifier.Definition :: mods
-            | ClassificationUtils.SemanticTokenTypes.Function
-            | ClassificationUtils.SemanticTokenTypes.Method
-            | ClassificationUtils.SemanticTokenTypes.Type
-            | ClassificationUtils.SemanticTokenTypes.Class
-            | ClassificationUtils.SemanticTokenTypes.Struct
-            | ClassificationUtils.SemanticTokenTypes.Interface
-            | ClassificationUtils.SemanticTokenTypes.Enum when declarationRanges.Contains(item.Range) ->
+            elif isDeclarableTokenType ty && declarationRanges.Contains(item.Range) then
               ClassificationUtils.SemanticTokenModifier.Declaration :: mods
-            | _ -> mods
+            else
+              mods
 
           struct (fcsRangeToLsp item.Range, ty, mods))
 

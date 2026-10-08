@@ -270,6 +270,12 @@ let tests state =
             ClassificationUtils.SemanticTokenModifier.Definition
             false
             fullHighlights // type augmentation reference to `SemanticDefinitionType`
+          tokenHasModifier
+            (53u, 24u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            false
+            fullHighlights // the synthetic delegate Invoke member is not a source declaration
 
           // Signature-file values, members, and types should be declarations rather than definitions.
           tokenHasModifier
@@ -301,4 +307,10 @@ let tests state =
             ClassificationUtils.SemanticTokenTypes.Class
             ClassificationUtils.SemanticTokenModifier.Definition
             false
-            signatureHighlights ] ] // a signature type declaration is not a definition
+            signatureHighlights // a signature type declaration is not a definition
+          tokenHasModifier
+            (8u, 26u)
+            ClassificationUtils.SemanticTokenTypes.Method
+            ClassificationUtils.SemanticTokenModifier.Declaration
+            false
+            signatureHighlights ] ] // the synthetic delegate Invoke member is not a source declaration
