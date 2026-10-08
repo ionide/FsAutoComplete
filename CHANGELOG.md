@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- *Breaking*: the server targets .NET 10 only. `FSharp.Analyzers.SDK` 0.38 and later target .NET 10 alone, and an analyzer is loaded only when it was built against the SDK version the server hosts, so the net8.0 and net9.0 targets could not follow. Update `FSharp.Analyzers.SDK` to 0.39.2 and `Ionide.Analyzers` to 0.19.0 (the first built on SDK 0.39), and with them `FSharp.Compiler.Service` to 43.12.400 and `FSharp.Core` to 10.1.400. Two FCS calls followed the new API: `GetUsesOfSymbolInFile` takes its cancellation token by name (a `RelatedSymbolUseKind` sits before it now), and `FSharpType.BasicQualifiedName` is an option.
+
 ## [0.84.0] - 2026-08-29
 
 ### Added

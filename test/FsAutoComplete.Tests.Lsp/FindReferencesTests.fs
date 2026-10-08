@@ -672,7 +672,7 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
             |> Flip.Expect.wantSome "Should find symbol"
 
           let! ct = Async.CancellationToken
-          let usages = checkResults.GetUsesOfSymbolInFile(symbolUse.Symbol, ct)
+          let usages = checkResults.GetUsesOfSymbolInFile(symbolUse.Symbol, cancellationToken = ct)
 
           return (source, symbolUse.Symbol, usages)
         }

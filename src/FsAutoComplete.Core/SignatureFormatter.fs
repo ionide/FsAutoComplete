@@ -91,8 +91,10 @@ module SignatureFormatter =
         $"struct ({args})"
 
     static member getParameterType(x: FSharpType) : ParameterType =
+      // FCS 43.12.400 reports IsFunctionType through an abbreviation, whose
+      // own GenericArguments are empty: read the arrow off the abbreviated type
       if x.IsFunctionType then
-        Function(ParameterType.getGenericArgumentTypes x)
+        Function(ParameterType.getGenericArgumentTypes (if x.IsAbbreviation then x.AbbreviatedType else x))
       else if x.IsGenericParameter then
         Generic x.GenericParameter
       else if x.IsStructTupleType then

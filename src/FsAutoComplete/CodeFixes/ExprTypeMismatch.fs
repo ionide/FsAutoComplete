@@ -79,13 +79,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           if diagnostic.Range.StartLine <> diagnostic.Range.EndLine then
             []
           elif
-            extendedData.ExpectedType.BasicQualifiedName = "Microsoft.FSharp.Core.option`1"
-            || extendedData.ExpectedType.BasicQualifiedName = "Microsoft.FSharp.Core.voption`1"
+            extendedData.ExpectedType.BasicQualifiedName = Some "Microsoft.FSharp.Core.option`1"
+            || extendedData.ExpectedType.BasicQualifiedName = Some "Microsoft.FSharp.Core.voption`1"
           then
             let currentExpr = sourceText.GetSubTextFromRange diagnostic.Range
 
             let isValueOption =
-              extendedData.ExpectedType.BasicQualifiedName = "Microsoft.FSharp.Core.voption`1"
+              extendedData.ExpectedType.BasicQualifiedName = Some "Microsoft.FSharp.Core.voption`1"
 
             let wrapIn = if isValueOption then "ValueSome" else "Some"
             let replaceWithNone = if isValueOption then "ValueNone" else "None"

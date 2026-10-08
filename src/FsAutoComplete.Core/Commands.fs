@@ -877,7 +877,9 @@ module Commands =
       // Note: declarations in script files are currently always local!
       | Some SymbolDeclarationLocation.CurrentDocument ->
         let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+        let symbolUses =
+          tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, cancellationToken = ct)
 
         let symbolUses: _ seq =
           if includeDeclarations then

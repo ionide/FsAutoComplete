@@ -27,30 +27,16 @@ jobs:
           - windows-latest
           - macos-15
           - ubuntu-latest
-        dotnet-version: ["8.x", "9.x", "10.x"]
+        dotnet-version: ["10.x"]
         use-transparent-compiler:
           - "TransparentCompiler"
           - "BackgroundCompiler"
         workspace-loader:
           - "WorkspaceLoader"
           # - "ProjectGraph" # this is disable because it just adds too much time to the build
-        # these entries will mesh with the above combinations
-        # Every leg builds all TFMs with the .NET 10 SDK (installed below);
-        # matrix.dotnet-version only provides the runtime the tests execute on,
-        # and matrix.test_tfm selects which TFM's tests run on that leg.
+        # these entries will mesh with the above combinations. FSharp.Analyzers.SDK
+        # 0.38+ targets .NET 10 only, so the server does too: one runtime leg.
         include:
-          # net8.0 runtime
-          - global-json-file: "global.json"
-            dotnet-version: "8.x"
-            include-prerelease: false
-            label: "8.0"
-            test_tfm: net8.0
-          # net9.0 runtime
-          - global-json-file: "global.json"
-            dotnet-version: "9.x"
-            include-prerelease: true
-            label: "9.0"
-            test_tfm: net9.0
           # net10.0 runtime
           - global-json-file: "global.json"
             dotnet-version: "10.x"
@@ -70,15 +56,13 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
 
-    # install the runtime the tests will execute on (net8.0 / net9.0 / net10.0)
+    # install the runtime the tests will execute on (net10.0)
     - name: Setup .NET test runtime
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ matrix.dotnet-version }}
 
-    # Build everything with the .NET 10 SDK: it can target every supported TFM, and
-    # Paket 10 is a net9.0-only tool that the .NET 8 SDK cannot restore. This is what
-    # keeps `dotnet tool restore` working on the net8 leg.
+    # Build everything with the .NET 10 SDK.
     - name: Setup .NET 10 build SDK
       id: build-sdk
       uses: actions/setup-dotnet@v4
@@ -132,7 +116,7 @@ jobs:
       run: dotnet tool restore
 
     - name: Run analyzers
-      run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net8.0
+      run: dotnet build -t:AnalyzeSolution -p:TargetFramework=net10.0
 
 
     # SARIF v3 requires categories to be used per file and since

@@ -455,12 +455,10 @@ let coverageDirectory targetFramework = lspTestsPath </> "coverage" </> targetFr
 
 let shardCoverageBaseReport targetFramework shard = coverageDirectory targetFramework </> $"shard-%i{shard}.xml"
 
-let shardCoverageReport targetFramework shard =
-  let baseReport = shardCoverageBaseReport targetFramework shard
-  let fileName = System.IO.Path.GetFileNameWithoutExtension baseReport
-
-  System.IO.Path.GetDirectoryName baseReport
-  </> $"%s{fileName}.%s{targetFramework}.xml"
+// AltCover appends the framework to the report name only for a multi-targeted
+// project; the test project targets net10.0 alone now, so the report is the
+// base name
+let shardCoverageReport targetFramework shard = shardCoverageBaseReport targetFramework shard
 
 let mergedCoverageReport targetFramework = lspTestsPath </> $"coverage.%s{targetFramework}.xml"
 

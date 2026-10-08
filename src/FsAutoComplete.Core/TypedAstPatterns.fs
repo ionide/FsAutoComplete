@@ -154,7 +154,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -168,7 +168,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -181,7 +181,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -195,7 +195,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -557,7 +557,7 @@ module SymbolPatterns =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -580,7 +580,7 @@ module SymbolPatterns =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
