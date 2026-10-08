@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Interop.fs" />
+    <Compile Include="MtpClient.fs" />
+    <ProjectReference Include="../FsAutoComplete.TestingPlatform.Client.Protocol/FsAutoComplete.TestingPlatform.Client.Protocol.csproj" />
+    <InternalsVisibleTo Include="FsAutoComplete.Tests.TestExplorer" />
+  </ItemGroup>
+  <Import Project="../../.paket/Paket.Restore.targets" />
+</Project>

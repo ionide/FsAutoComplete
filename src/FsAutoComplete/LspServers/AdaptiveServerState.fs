@@ -157,12 +157,9 @@ type FindFirstProject() =
         $"Couldn't find a corresponding project for {sourceFile}. \n Projects include {allProjects}. \nHave the projects loaded yet or have you tried restoring your project/solution?")
 
 module TestProjectHelpers =
-  let isTestProject (project: Types.ProjectOptions) =
-    let testProjectIndicators =
-      set [ "Microsoft.TestPlatform.TestHost"; "Microsoft.NET.Test.Sdk" ]
-
-    project.PackageReferences
-    |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
+  /// A project whose tests one of the configured platforms can discover and run.
+  let isRunnableTestProject (mtpEnabled: bool) (project: Types.ProjectOptions) =
+    TestServer.TestProject.platformFor mtpEnabled project |> Option.isSome
 
 type FileHasBeenChecked =
   { Options: LoadedProject
@@ -171,6 +168,15 @@ type FileHasBeenChecked =
     VolatileFile: VolatileFile
     CancellationToken: CancellationToken }
 
+
+/// What a test run hands VSTest, settled before anything is launched.
+[<RequireQualifiedAccess>]
+type VsTestRun =
+  /// Every test in the sources, or those the VSTest filter expression selects.
+  | Sources of sources: string list * testCaseFilter: string option
+  /// The cases the ids name, as (source, test case id, id). VSTest runs a case only from the
+  /// object its discovery returned, so these are discovered again before they are run.
+  | Cases of (string * Guid * TestServer.ParsedTestId) list
 
 type AdaptiveState
   (
@@ -1047,7 +1053,11 @@ type AdaptiveState
       |> ignore<Task<unit>>
 
       let projectOptions =
-        loader.LoadProjects(projects |> Seq.map (fst >> UMX.untag) |> Seq.toList, [], binlogConfig)
+        loader.LoadProjects(
+          projects |> Seq.map (fst >> UMX.untag) |> Seq.toList,
+          TestServer.TestProject.requiredCustomProperties,
+          binlogConfig
+        )
         |> Seq.toList
 
       for p in projectOptions do
@@ -2763,8 +2773,6 @@ type AdaptiveState
   member state.DiscoverTests() =
 
     asyncResult {
-      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
-
       let! projects = projectOptions |> AsyncAVal.forceAsync
 
       // Exit early if there are no projects present at all
@@ -2774,7 +2782,16 @@ type AdaptiveState
       else
 
         let testProjects =
-          projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+          projects.ToValueList()
+          |> List.filter (TestProjectHelpers.isRunnableTestProject state.Config.EnableTestingPlatform)
+
+        let projectsRunOn kind =
+          testProjects
+          |> List.filter (fun project ->
+            TestServer.TestProject.platformFor state.Config.EnableTestingPlatform project = Some kind)
+
+        let vsTestProjects = projectsRunOn TestServer.TestPlatformKind.VSTest
+        let mtpProjects = projectsRunOn TestServer.TestPlatformKind.Mtp
 
         let testProjectBinaries = testProjects |> List.map _.TargetPath
 
@@ -2805,6 +2822,19 @@ type AdaptiveState
 
           testCases
           |> List.choose (TestServer.TestItem.tryTestCaseToDTO projectLookup.TryFind)
+          |> TestServer.TestHierarchy.withInferredGroupings
+
+        let mtpNodesToDTOs (nodes: TestServer.MtpWrapper.DiscoveredNode list) =
+          let projectLookup = mtpProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
+
+          nodes
+          |> List.groupBy fst
+          |> List.collect (fun (application, nodes) ->
+            match projectLookup.TryFind application with
+            | Some project ->
+              TestServer.TestItem.ofMtpNodes project.ProjectFileName project.TargetFramework (List.map snd nodes)
+            | None -> [])
+          |> TestServer.TestHierarchy.withHierarchy
 
         let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
           let dto =
@@ -2821,22 +2851,58 @@ type AdaptiveState
 
           lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
 
-        let! testCases =
-          TestServer.VSTestWrapper.discoverTestsAsync vstestBinary.FullName onDiscoveryProgress testProjectBinaries
+        let onMtpDiscoveryProgress (update: TestServer.MtpWrapper.TestDiscoveryUpdate) =
+          let dto =
+            match update with
+            | TestServer.MtpWrapper.TestDiscoveryUpdate.Progress nodes ->
+              { Tests = nodes |> mtpNodesToDTOs |> Array.ofList
+                TestLogs = [||] }
+            | TestServer.MtpWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
+              { Tests = [||]
+                TestLogs =
+                  [| { Message = message
+                       Level = string level } |] }
 
-        let testDTOs: TestServer.TestItem list = testCases |> tryTestCasesToDTOs
+          lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
+
+        let! testCases =
+          if List.isEmpty vsTestProjects then
+            asyncResult { return [] }
+          else
+            asyncResult {
+              let! vstestBinary =
+                TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+
+              return!
+                TestServer.VSTestWrapper.discoverTestsAsync
+                  vstestBinary.FullName
+                  onDiscoveryProgress
+                  (vsTestProjects |> List.map _.TargetPath)
+            }
+
+        let! mtpNodes =
+          TestServer.MtpWrapper.discoverTestsAsync onMtpDiscoveryProgress (mtpProjects |> List.map _.TargetPath)
+
+        let testDTOs: TestServer.TestItem list =
+          (testCases |> tryTestCasesToDTOs) @ (mtpNodes |> mtpNodesToDTOs)
 
         return testDTOs
     }
 
-  member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
+  member state.RunTests
+    (limitToProjects: FilePath list option)
+    (selection: TestServer.TestRunSelection)
+    (shouldDebug: bool)
+    : Async<Result<TestServer.TestResult list, TestServer.TestRunError>> =
     asyncResult {
-      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
-
       let! projects = projectOptions |> AsyncAVal.forceAsync
 
+      let platformOf =
+        TestServer.TestProject.platformFor state.Config.EnableTestingPlatform
+
       let testProjects =
-        projects.ToValueList() |> List.filter TestProjectHelpers.isTestProject
+        projects.ToValueList()
+        |> List.filter (TestProjectHelpers.isRunnableTestProject state.Config.EnableTestingPlatform)
 
       let filteredTestProjects =
         match limitToProjects with
@@ -2845,7 +2911,85 @@ type AdaptiveState
           let specifiedProjectsSet = specifiedProjects |> List.map Path.GetFullPath |> set
           testProjects |> List.filter (_.ProjectFileName >> specifiedProjectsSet.Contains)
 
-      let testProjectBinaries = filteredTestProjects |> List.map _.TargetPath
+      let projectsRunOn kind =
+        filteredTestProjects
+        |> List.filter (fun project -> platformOf project = Some kind)
+
+      let vsTestProjects = projectsRunOn TestServer.TestPlatformKind.VSTest
+      let mtpProjects = projectsRunOn TestServer.TestPlatformKind.Mtp
+
+      /// Finds the project an id was issued for, and checks the id can be run there.
+      let resolveId (id: TestServer.ParsedTestId) =
+        let invalid reason =
+          Error(TestServer.TestRunError.InvalidRequest $"The test id '{TestServer.TestId.format id}' {reason}")
+
+        let issuedFor (project: Types.ProjectOptions) =
+          project.ProjectFileName = id.ProjectFilePath
+          && project.TargetFramework = id.TargetFramework
+
+        match testProjects |> List.tryFind issuedFor with
+        | None -> invalid "is unknown: no test project in the workspace matches it"
+        | Some _ when not (filteredTestProjects |> List.exists issuedFor) ->
+          invalid "names a project outside LimitToProjects"
+        | Some project ->
+          match id.Target, platformOf project with
+          | TestServer.TestIdTarget.VsTestCase caseId, Some TestServer.TestPlatformKind.VSTest ->
+            Ok(Choice1Of2(project.TargetPath, caseId, id))
+          | TestServer.TestIdTarget.MtpNode uid, Some TestServer.TestPlatformKind.Mtp ->
+            Ok(Choice2Of2(project, uid, id))
+          | TestServer.TestIdTarget.Group _, _ -> invalid "names a grouping; run the tests under it by their own ids"
+          | _ -> invalid "names a platform its project does not run on"
+
+      // What each platform runs is settled before anything is launched, so a request that cannot
+      // be run as asked runs nothing.
+      let! vsTestRun, mtpRuns, requestedMtpNodes =
+        match selection with
+        | TestServer.TestRunSelection.All ->
+          Ok(
+            VsTestRun.Sources(vsTestProjects |> List.map _.TargetPath, None),
+            mtpProjects
+            |> List.map (fun project -> project, TestServer.MtpWrapper.TestSelection.All),
+            []
+          )
+        | TestServer.TestRunSelection.Filter _ when not (List.isEmpty mtpProjects) ->
+          Error(
+            TestServer.TestRunError.InvalidRequest
+              "TestCaseFilter uses VSTest syntax and cannot select Microsoft.Testing.Platform tests. Run them by their TestIds instead."
+          )
+        | TestServer.TestRunSelection.Filter testCaseFilter ->
+          Ok(VsTestRun.Sources(vsTestProjects |> List.map _.TargetPath, Some testCaseFilter), [], [])
+        | TestServer.TestRunSelection.Ids ids ->
+          ids
+          |> List.traverseResultM resolveId
+          |> Result.map (fun resolved ->
+            let vsTestCases =
+              resolved
+              |> List.choose (function
+                | Choice1Of2 testCase -> Some testCase
+                | Choice2Of2 _ -> None)
+
+            let mtpNodes =
+              resolved
+              |> List.choose (function
+                | Choice2Of2 node -> Some node
+                | Choice1Of2 _ -> None)
+
+            // Each application is sent its own uids, and one with none is never launched.
+            let mtpRuns =
+              mtpNodes
+              |> List.groupBy (fun (project, _, _) -> project.TargetPath)
+              |> List.map (fun (_, nodes) ->
+                let project, _, _ = List.head nodes
+
+                project,
+                nodes
+                |> List.map (fun (_, uid, _) -> uid)
+                |> List.distinct
+                |> TestServer.MtpWrapper.TestSelection.Uids)
+
+            VsTestRun.Cases vsTestCases,
+            mtpRuns,
+            mtpNodes |> List.map (fun (project, uid, id) -> project.TargetPath, uid, id))
 
       let projectsByBinaryPath =
         testProjects |> Seq.map (fun p -> p.TargetPath, p) |> Map.ofSeq
@@ -2867,6 +3011,9 @@ type AdaptiveState
 
       use! _onCancel = Async.OnCancel(fun _ -> tokenSource.Cancel())
 
+      let notify (dto: TestRunProgress) =
+        Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
+
       let onTestRunProgress (runUpdate: TestServer.VSTestWrapper.TestRunUpdate) =
         let dto =
           match runUpdate with
@@ -2884,7 +3031,7 @@ type AdaptiveState
               TestResults = [||]
               ActiveTests = [||] }
 
-        Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
+        notify dto
 
       let onAttachDebugger (processId: int) : bool =
         let result =
@@ -2900,16 +3047,161 @@ type AdaptiveState
 
           false
 
-      let! testResults =
-        TestServer.VSTestWrapper.runTestsAsync
-          vstestBinary.FullName
-          onTestRunProgress
-          onAttachDebugger
-          testProjectBinaries
-          testCaseFilter
-          shouldDebug
+      let mtpProjectsByBinaryPath =
+        mtpRuns |> Seq.map (fun (p, _) -> p.TargetPath, p) |> Map.ofSeq
 
-      let resultDtos = testResults |> tryTestResultsToDTOs
+      let isRunning (node: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate) =
+        node.ExecutionState = Some FsAutoComplete.TestingPlatform.Client.ExecutionState.InProgress
+
+      /// A test is reported as it starts and again with its outcome. The first report is the test
+      /// becoming active, the second its result.
+      let mtpNodesToDTOs (nodes: TestServer.MtpWrapper.RunNode list) =
+        let ofNode select =
+          nodes
+          |> List.choose (fun (application, node) ->
+            mtpProjectsByBinaryPath.TryFind application
+            |> Option.bind (fun project -> select project node))
+
+        let active =
+          ofNode (fun project node ->
+            if isRunning node then
+              Some(TestServer.TestItem.ofMtpNode project.ProjectFileName project.TargetFramework node)
+            else
+              None)
+
+        let results =
+          ofNode (fun project node ->
+            if isRunning node then
+              None
+            else
+              Some(TestServer.TestResult.ofMtpNode project.ProjectFileName project.TargetFramework node))
+
+        active, results
+
+      let onMtpRunProgress (runUpdate: TestServer.MtpWrapper.TestRunUpdate) =
+        let dto =
+          match runUpdate with
+          | TestServer.MtpWrapper.TestRunUpdate.Progress nodes ->
+            let active, results = mtpNodesToDTOs nodes
+
+            { TestLogs = [||]
+              TestResults = results |> Array.ofList
+              ActiveTests = active |> Array.ofList }
+          | TestServer.MtpWrapper.TestRunUpdate.LogMessage(level, message) ->
+            { TestLogs =
+                [| { Message = message
+                     Level = string level } |]
+              TestResults = [||]
+              ActiveTests = [||] }
+
+        notify dto
+
+      let findVsTest () =
+        TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+        |> Result.mapError TestServer.TestRunError.RunFailed
+
+      // VsTest fails the run outright when it is handed no sources or no test cases, so a run
+      // with nothing for it must not reach it.
+      let! testResults, unresolvedVsTestIds =
+        match vsTestRun with
+        | VsTestRun.Sources([], _)
+        | VsTestRun.Cases [] -> asyncResult { return [], [] }
+        | VsTestRun.Sources(sources, testCaseFilter) ->
+          asyncResult {
+            let! vstestBinary = findVsTest ()
+
+            let! results =
+              TestServer.VSTestWrapper.runTestsAsync
+                vstestBinary.FullName
+                onTestRunProgress
+                onAttachDebugger
+                sources
+                testCaseFilter
+                shouldDebug
+
+            return results, []
+          }
+        | VsTestRun.Cases testCases ->
+          asyncResult {
+            let! vstestBinary = findVsTest ()
+
+            // VSTest runs a case only from the object its discovery returned, so the sources the
+            // ids name are discovered again. That discovery is not reported to the client.
+            let! discovered =
+              TestServer.VSTestWrapper.discoverTestsAsync
+                vstestBinary.FullName
+                ignore
+                (testCases |> List.map (fun (source, _, _) -> source) |> List.distinct)
+
+            let requested =
+              testCases |> List.map (fun (source, caseId, _) -> source, caseId) |> set
+
+            let selected =
+              discovered
+              |> List.filter (fun testCase -> requested.Contains(testCase.Source, testCase.Id))
+
+            let found =
+              selected |> List.map (fun testCase -> testCase.Source, testCase.Id) |> set
+
+            let! results =
+              TestServer.VSTestWrapper.runTestCasesAsync
+                vstestBinary.FullName
+                onTestRunProgress
+                onAttachDebugger
+                selected
+                shouldDebug
+
+            let unresolved =
+              testCases
+              |> List.filter (fun (source, caseId, _) -> not (found.Contains(source, caseId)))
+              |> List.map (fun (_, _, id) -> id)
+
+            return results, unresolved
+          }
+
+      // An application that could not run has been reported, and its ids are warned about below.
+      // The run fails only when nothing in it could run.
+      let! mtpNodes =
+        TestServer.MtpWrapper.runTestsWithDebuggerAsync
+          onMtpRunProgress
+          (if shouldDebug then Some onAttachDebugger else None)
+          (mtpRuns
+           |> List.map (fun (project, mtpSelection) -> project.TargetPath, mtpSelection))
+        |> Async.Catch
+        |> Async.map (function
+          | Choice1Of2 nodes -> Ok nodes
+          | Choice2Of2 _ when not (List.isEmpty testResults) -> Ok []
+          | Choice2Of2 error -> Error(TestServer.TestRunError.RunFailed error.Message))
+
+      let unresolvedMtpIds =
+        let reported =
+          mtpNodes
+          |> List.filter (snd >> isRunning >> not)
+          |> List.map (fun (application, node) -> application, node.Uid)
+          |> set
+
+        requestedMtpNodes
+        |> List.filter (fun (application, uid, _) -> not (reported.Contains(application, uid)))
+        |> List.map (fun (_, _, id) -> id)
+
+      // A test removed or renamed since discovery has no result. Say so rather than let the id
+      // go unanswered.
+      match unresolvedVsTestIds @ unresolvedMtpIds with
+      | [] -> ()
+      | unresolved ->
+        let ids = unresolved |> List.map TestServer.TestId.format |> String.concat ", "
+
+        notify
+          { TestLogs =
+              [| { Level = "Warning"
+                   Message =
+                     $"No result was reported for these test ids; the tests may have changed since discovery: {ids}" } |]
+            TestResults = [||]
+            ActiveTests = [||] }
+
+      let resultDtos =
+        (testResults |> tryTestResultsToDTOs) @ (mtpNodes |> mtpNodesToDTOs |> snd)
+
       return resultDtos
     }
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The package supplies internal C# types compiled into this assembly. -->
+    <PackageReference Include="Microsoft.Testing.Platform.ServerMode.Client.Sources" Version="[2.4.0]" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

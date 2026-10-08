@@ -120,7 +120,15 @@ type AdaptiveState =
   member GetAllDeclarations: unit -> Async<(string<LocalPath> * NavigationTopLevelDeclaration array) array>
   member GlyphToSymbolKind: (FSharpGlyph -> SymbolKind option)
   member DiscoverTests: unit -> Async<Result<TestServer.TestItem list, string>>
-  member RunTests: FilePath list option -> string option -> bool -> Async<Result<TestServer.TestResult list, string>>
+
+  /// Runs the selected tests of the test projects, or of those in the given list. A request that
+  /// cannot be run as asked is rejected before any test process is launched.
+  member RunTests:
+    FilePath list option ->
+    TestServer.TestRunSelection ->
+    bool ->
+      Async<Result<TestServer.TestResult list, TestServer.TestRunError>>
+
   /// <summary>
   /// Signals the server to cancel an operation that is associated with the given progress token.
   /// </summary>

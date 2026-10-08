@@ -3589,9 +3589,15 @@ type AdaptiveFSharpLspServer
             >> Log.addContextDestructured "params" p
           )
 
+          let! selection =
+            TestServer.TestRunSelection.ofRequest p.TestCaseFilter p.TestIds
+            |> Result.mapError (fun msg -> JsonRpc.Error.InvalidParams msg)
+
           let! testDTOs =
-            state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
-            |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
+            state.RunTests p.LimitToProjects selection p.AttachDebugger
+            |> AsyncResult.mapError (function
+              | TestServer.TestRunError.InvalidRequest msg -> JsonRpc.Error.InvalidParams msg
+              | TestServer.TestRunError.RunFailed msg -> JsonRpc.Error.InternalError msg)
 
           return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
         with e ->

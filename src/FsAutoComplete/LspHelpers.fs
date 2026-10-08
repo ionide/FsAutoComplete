@@ -615,9 +615,17 @@ type TestDetectedNotification =
     Tests: TestAdapter.TestAdapterEntry<Range> array }
 
 type TestRunRequest =
-  { LimitToProjects: FilePath list option
+  {
+    LimitToProjects: FilePath list option
+    /// A VSTest filter expression. It cannot select Microsoft.Testing.Platform tests, so a run
+    /// with a filter is rejected when a testing platform project is in scope.
     TestCaseFilter: string option
-    AttachDebugger: bool }
+    /// Names the tests to run by the `Id` discovery issued each of them. Only a leaf's id can be
+    /// run; a client expands a grouping node to its leaves. Cannot be combined with
+    /// `TestCaseFilter`. An empty array runs none.
+    TestIds: string array option
+    AttachDebugger: bool
+  }
 
 type TestLogMessage = { Level: string; Message: string }
 
@@ -758,6 +766,7 @@ type FSharpConfigDto =
     TooltipMode: string option
     TooltipShowDocumentationLink: bool option
     GenerateBinlog: bool option
+    EnableTestingPlatform: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
@@ -897,6 +906,7 @@ type FSharpConfig =
     TooltipMode: string
     TooltipShowDocumentationLink: bool
     GenerateBinlog: bool
+    EnableTestingPlatform: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
@@ -949,6 +959,7 @@ type FSharpConfig =
       TooltipMode = "full"
       TooltipShowDocumentationLink = true
       GenerateBinlog = false
+      EnableTestingPlatform = false
       CodeLenses = CodeLensConfig.Default
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
@@ -1011,6 +1022,7 @@ type FSharpConfig =
       TooltipMode = defaultArg dto.TooltipMode "full"
       TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink true
       GenerateBinlog = defaultArg dto.GenerateBinlog false
+      EnableTestingPlatform = defaultArg dto.EnableTestingPlatform false
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration false
       AbstractClassStubGenerationObjectIdentifier = defaultArg dto.AbstractClassStubGenerationObjectIdentifier "this"
       AbstractClassStubGenerationMethodBody =
@@ -1119,6 +1131,7 @@ type FSharpConfig =
       TooltipMode = defaultArg dto.TooltipMode x.TooltipMode
       TooltipShowDocumentationLink = defaultArg dto.TooltipShowDocumentationLink x.TooltipShowDocumentationLink
       GenerateBinlog = defaultArg dto.GenerateBinlog x.GenerateBinlog
+      EnableTestingPlatform = defaultArg dto.EnableTestingPlatform x.EnableTestingPlatform
       CodeLenses =
         match dto.CodeLenses with
         | None -> x.CodeLenses

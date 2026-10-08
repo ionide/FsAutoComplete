@@ -278,6 +278,7 @@ let defaultConfigDto: FSharpConfigDto =
     TooltipMode = None
     TooltipShowDocumentationLink = None
     GenerateBinlog = Some true
+    EnableTestingPlatform = None
     AbstractClassStubGeneration = None
     AbstractClassStubGenerationMethodBody = None
     AbstractClassStubGenerationObjectIdentifier = None
