@@ -29,10 +29,14 @@ module Syntax =
   type SyntaxCollectorBase() =
     abstract WalkSynModuleOrNamespace: SynModuleOrNamespace -> unit
     default _.WalkSynModuleOrNamespace _ = ()
+    abstract WalkSynModuleOrNamespaceSig: SynModuleOrNamespaceSig -> unit
+    default _.WalkSynModuleOrNamespaceSig _ = ()
     abstract WalkAttribute: SynAttribute -> unit
     default _.WalkAttribute _ = ()
     abstract WalkSynModuleDecl: SynModuleDecl -> unit
     default _.WalkSynModuleDecl _ = ()
+    abstract WalkSynModuleSigDecl: SynModuleSigDecl -> unit
+    default _.WalkSynModuleSigDecl _ = ()
     abstract WalkExpr: SynExpr -> unit
     default _.WalkExpr _ = ()
     abstract WalkTypar: SynTypar -> unit
@@ -83,12 +87,23 @@ module Syntax =
     default _.WalkTypeDefnRepr _ = ()
     abstract WalkTypeDefn: SynTypeDefn -> unit
     default _.WalkTypeDefn _ = ()
+    abstract WalkTypeDefnSig: SynTypeDefnSig -> unit
+    default _.WalkTypeDefnSig _ = ()
 
   let walkAst (walker: SyntaxCollectorBase) (input: ParsedInput) : unit =
 
     let rec walkImplFileInput (ParsedImplFileInput(contents = moduleOrNamespaceList)) =
       List.iter walkSynModuleOrNamespace moduleOrNamespaceList
       ()
+
+    and walkSigFileInput (ParsedSigFileInput(contents = moduleOrNamespaceList)) =
+      List.iter walkSynModuleOrNamespaceSig moduleOrNamespaceList
+      ()
+
+    and walkSynModuleOrNamespaceSig (SynModuleOrNamespaceSig(decls = decls; attribs = AllAttrs attrs; range = _) as s) =
+      walker.WalkSynModuleOrNamespaceSig s
+      List.iter walkAttribute attrs
+      List.iter walkSynModuleSigDecl decls
 
     and walkSynModuleOrNamespace (SynModuleOrNamespace(decls = decls; attribs = AllAttrs attrs; range = _) as s) =
       walker.WalkSynModuleOrNamespace s
@@ -427,11 +442,7 @@ module Syntax =
       | SynMemberSig.Interface(t, _) -> walkType t
       | SynMemberSig.Member(vs, _, _, _) -> walkValSig vs
       | SynMemberSig.ValField(f, _) -> walkField f
-      | SynMemberSig.NestedType(SynTypeDefnSig(typeInfo = info; typeRepr = repr; members = memberSigs), _) ->
-
-        walkComponentInfo info
-        walkTypeDefnSigRepr repr
-        List.iter walkMemberSig memberSigs
+      | SynMemberSig.NestedType(typeDefnSig, _) -> walkTypeDefnSig typeDefnSig
 
     and walkMember s =
       walker.WalkMember s
@@ -523,6 +534,13 @@ module Syntax =
       Option.iter walkMember implicitCtor
       List.iter walkMember members
 
+    and walkTypeDefnSig (SynTypeDefnSig(info, repr, members, _, _) as s) =
+      walker.WalkTypeDefnSig s
+
+      walkComponentInfo info
+      walkTypeDefnSigRepr repr
+      List.iter walkMemberSig members
+
     and walkSynModuleDecl (decl: SynModuleDecl) =
       walker.WalkSynModuleDecl decl
 
@@ -540,10 +558,25 @@ module Syntax =
       | SynModuleDecl.Open _ -> ()
       | SynModuleDecl.HashDirective _ -> ()
 
+    and walkSynModuleSigDecl (decl: SynModuleSigDecl) =
+      walker.WalkSynModuleSigDecl decl
+
+      match decl with
+      | SynModuleSigDecl.NamespaceFragment fragment -> walkSynModuleOrNamespaceSig fragment
+      | SynModuleSigDecl.NestedModule(moduleInfo = info; moduleDecls = decls) ->
+        walkComponentInfo info
+        List.iter walkSynModuleSigDecl decls
+      | SynModuleSigDecl.Val(valSig = valSig) -> walkValSig valSig
+      | SynModuleSigDecl.Types(types = types) -> List.iter walkTypeDefnSig types
+      | SynModuleSigDecl.ModuleAbbrev _ -> ()
+      | SynModuleSigDecl.Exception _ -> ()
+      | SynModuleSigDecl.Open _ -> ()
+      | SynModuleSigDecl.HashDirective _ -> ()
+
 
     match input with
     | ParsedInput.ImplFile input -> walkImplFileInput input
-    | _ -> ()
+    | ParsedInput.SigFile input -> walkSigFileInput input
 
 namespace FsAutoComplete
 
@@ -588,6 +621,7 @@ module FoldingRange =
         ranges.Add m
 
     override _.WalkSynModuleOrNamespace m = addIfInside m.Range
+    override _.WalkSynModuleOrNamespaceSig m = addIfInside m.Range
     override _.WalkAttribute a = addIfInside a.Range
     override _.WalkTypeConstraint c = addIfInside c.Range
     override _.WalkPat p = addIfInside p.Range
@@ -632,7 +666,9 @@ module FoldingRange =
     override _.WalkTypeDefnRepr t = addIfInside t.Range
     override _.WalkTypeDefnSigRepr t = addIfInside t.Range
     override _.WalkTypeDefn t = addIfInside t.Range
+    override _.WalkTypeDefnSig t = addIfInside t.Range
     override _.WalkSynModuleDecl s = addIfInside s.Range
+    override _.WalkSynModuleSigDecl s = addIfInside s.Range
 
     member _.Ranges = ranges
 
@@ -668,30 +704,54 @@ module NullableTypes =
     walkAst walker ast
     walker.Ranges :> _
 
-/// Utilities for identifying function parameter identifier declaration ranges in the parse tree.
-/// Used to supplement FCS semantic classification, which does not distinguish parameters from
-/// other local values (both are reported as <c>SemanticClassificationType.LocalValue</c>).
-module FsacFunctionParameters =
+/// Utilities for identifying syntax-derived semantic token sites in the parse tree.
+/// Used to supplement FCS semantic classification with parameter token types and with
+/// declaration and definition modifiers.
+module FsacSemanticTokenSites =
   open FSharp.Compiler.Text
   open FSharp.Compiler.Syntax
 
-  type private ParameterCollector() =
+  type Ranges =
+    { Parameters: Range array
+      Definitions: Range array
+      Declarations: Range array }
+
+  type private SemanticTokenSiteCollector() =
     inherit SyntaxCollectorBase()
 
-    let ranges = ResizeArray<Range>()
+    let parameters = ResizeArray<Range>()
+    let definitions = ResizeArray<Range>()
+    let declarations = ResizeArray<Range>()
+    let delegateDeclarationRanges = System.Collections.Generic.HashSet<Range>()
+
+    let tryLastIdentRange (idents: Ident list) = idents |> List.tryLast |> Option.map _.idRange
 
     let rec collectFromPat (pat: SynPat) =
       match pat with
-      | SynPat.Named(ident = SynIdent(id, _)) -> ranges.Add(id.idRange)
+      | SynPat.Named(ident = SynIdent(id, _)) -> parameters.Add(id.idRange)
       | SynPat.Typed(pat = innerPat) -> collectFromPat innerPat
       | SynPat.Paren(pat = innerPat) -> collectFromPat innerPat
       | SynPat.Tuple(elementPats = pats) -> List.iter collectFromPat pats
-      | SynPat.OptionalVal(ident = id) -> ranges.Add(id.idRange)
+      | SynPat.OptionalVal(ident = id) -> parameters.Add(id.idRange)
       | SynPat.Attrib(pat = innerPat) -> collectFromPat innerPat
       | SynPat.As(rhsPat = rightPat) -> collectFromPat rightPat
       | _ -> ()
 
+    let rec tryBindingNameRange (pat: SynPat) =
+      match pat with
+      | SynPat.LongIdent(longDotId = SynLongIdent(id = idents)) -> tryLastIdentRange idents
+      | SynPat.Named(ident = SynIdent(id, _)) -> Some id.idRange
+      | SynPat.Typed(pat = innerPat)
+      | SynPat.Paren(pat = innerPat)
+      | SynPat.Attrib(pat = innerPat) -> tryBindingNameRange innerPat
+      | _ -> None
+
+    let excludeDelegateDeclaration (SynValSig(ident = SynIdent(id, _))) =
+      delegateDeclarationRanges.Add(id.idRange) |> ignore
+
     override _.WalkBinding(SynBinding(headPat = headPat)) =
+      tryBindingNameRange headPat |> Option.iter definitions.Add
+
       // Collect parameter names from function bindings (let foo (bar: int) = ...)
       match headPat with
       | SynPat.LongIdent(argPats = ConstructorPats argPats) -> List.iter collectFromPat argPats
@@ -700,17 +760,48 @@ module FsacFunctionParameters =
     override _.WalkSimplePat s =
       // Collect parameter names from lambda expressions (fun x y -> ...)
       match s with
-      | SynSimplePat.Id(ident = id; isCompilerGenerated = false; isThisVal = false) -> ranges.Add(id.idRange)
+      | SynSimplePat.Id(ident = id; isCompilerGenerated = false; isThisVal = false) -> parameters.Add(id.idRange)
       | _ -> ()
 
-    member _.Ranges = ranges
+    override _.WalkValSig(SynValSig(ident = SynIdent(id, _))) =
+      if not (delegateDeclarationRanges.Contains(id.idRange)) then
+        declarations.Add(id.idRange)
 
-  /// Collect the source ranges of all function parameter identifier declarations
-  /// in the given parse tree, covering both function bindings and lambda expressions.
-  let collectParameterRanges (ast: ParsedInput) : Range seq =
-    let walker = ParameterCollector()
+    override _.WalkTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+      match typeRepr with
+      | SynTypeDefnRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
+      | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
+        tryLastIdentRange idents |> Option.iter definitions.Add
+
+        members
+        |> List.iter (function
+          | SynMemberDefn.AbstractSlot(valSig, _, _, _) -> excludeDelegateDeclaration valSig
+          | _ -> ())
+      | _ -> tryLastIdentRange idents |> Option.iter definitions.Add
+
+    override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+      match typeRepr with
+      | SynTypeDefnSigRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
+      | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
+        tryLastIdentRange idents |> Option.iter declarations.Add
+
+        members
+        |> List.iter (function
+          | SynMemberSig.Member(valSig, _, _, _) -> excludeDelegateDeclaration valSig
+          | _ -> ())
+      | _ -> tryLastIdentRange idents |> Option.iter declarations.Add
+
+    member _.Ranges =
+      { Parameters = parameters.ToArray()
+        Definitions = definitions.ToArray()
+        Declarations = declarations.ToArray() }
+
+  /// Collect exact identifier ranges for parameter sites, function/member/type definitions,
+  /// and function/member/type declarations in implementation and signature files.
+  let collectRanges (ast: ParsedInput) : Ranges =
+    let walker = SemanticTokenSiteCollector()
     walkAst walker ast
-    walker.Ranges :> _
+    walker.Ranges
 
 module Completion =
   open FSharp.Compiler.Text
