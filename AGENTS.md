@@ -168,7 +168,8 @@ test/FsAutoComplete.Tests.Lsp/bin/Debug/net10.0/FsAutoComplete.Tests.Lsp --filte
 - The tests need a .NET SDK with the same major version as the framework they run on, like CI. When `global.json` resolves another SDK, the run stops with one failing test whose message is the `dotnet new globaljson` command that pins a matching SDK in `test/FsAutoComplete.Tests.Lsp` (that file is gitignored).
 - `--filter-test-list` and `--filter-test-case` match a substring of the test list or case name, `--filter` takes a slash-separated path, and `--list-tests` prints names without running anything.
 - Each test runs once per compiler (BackgroundCompiler and TransparentCompiler). While prototyping, run one with `USE_TRANSPARENT_COMPILER=BackgroundCompiler` (or `TransparentCompiler`). Run both before the work is done.
-- The whole run is cancelled after `TEST_TIMEOUT_MINUTES` (default 10). The full suite takes longer, so raise it for a full run.
+- Without a filter, the executable runs the full suite: the LSP test groups run four at a time, then the groups that change process-wide state (the current directory, environment variables) one after another. `--parallel-workers` changes the four. CI runs the same way, one process per framework (`dotnet fsi build.fsx -- -p test-ci:net10.0` does it locally, from a Release build).
+- The whole run is cancelled after `TEST_TIMEOUT_MINUTES` (default 10).
 - A failure like "Timeout waiting for latest diagnostics" can mean a busy machine rather than a bug. Rerun with `FSAC_TEST_DEFAULT_TIMEOUT=120000`, as CI does, before debugging. That variable is the per-test limit in milliseconds (default 60000), and the waits for server notifications use it when set (10 seconds otherwise).
 - Pass `-f` to `dotnet test` as well. The pin serves one target framework, so a run over all of them fails the others.
 

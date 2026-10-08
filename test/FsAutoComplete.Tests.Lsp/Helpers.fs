@@ -108,7 +108,14 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      let mutable attempts = 25
+      // Inside the test project, the test host removes its temporary directory when the run ends. Deleting earlier
+      // breaks servers starting meanwhile: MSBuild moves the current directory of the process into the projects it
+      // builds, and a server that read it then starts `dotnet` in a directory that no longer exists.
+      let mutable attempts =
+        if dirToDelete.FullName.StartsWith(__SOURCE_DIRECTORY__, StringComparison.Ordinal) then
+          0
+        else
+          25
 
       // Handle odd cases with windows file locking
       while attempts > 0 do

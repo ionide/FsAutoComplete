@@ -107,17 +107,17 @@ let awaitOutOfDate (o : amap<_,_>) =
   // The problem is on different operating systems the file system watcher behaves differently.
   // Our tests may run quicker than the file system watcher can pick up the changes
   // So we need to wait for a change to happen before we continue.
+  // Call this after forcing `o` and before changing the file: it waits until the watcher marks `o` out of date.
 
   task {
-    let tcs = new TaskCompletionSource<unit>()
-    use cts = new System.Threading.CancellationTokenSource()
-    cts.CancelAfter(5000)
-    use _ = cts.Token.Register(fun () -> tcs.TrySetCanceled(cts.Token) |> ignore<bool>)
-    use _ = o.AddCallback(fun s _ ->
-        if not <| s.IsEmpty then
-          tcs.TrySetResult() |> ignore<bool>
-        )
-    return! tcs.Task
+    let content = o.Content
+    let deadline = DateTime.UtcNow.AddSeconds 5.
+
+    while not content.OutOfDate do
+      if DateTime.UtcNow > deadline then
+        failwith "No file system watcher marked the adaptive map out of date within 5 seconds"
+
+      do! Task.Delay 20
   }
 
 let snapshotTests loaders toolsPath =
@@ -158,7 +158,9 @@ let snapshotTests loaders toolsPath =
         let _loadedProjects = loadedProjectsA |> AMap.force
         Expect.equal 1 loadedCalls "Loaded Projects should only get called 1 time"
 
+        let awaitOutOfDate = awaitOutOfDate loadedProjectsA
         do! Dotnet.addPackage (projects |> List.head) "Newtonsoft.Json" "12.0.3"
+        do! awaitOutOfDate |> Async.AwaitTask
 
         let _loadedProjects = loadedProjectsA |> AMap.force
         Expect.equal 2 loadedCalls "Load Projects should have gotten called again after adding a nuget package"

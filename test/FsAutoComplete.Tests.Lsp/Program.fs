@@ -38,12 +38,46 @@ let testTimeout =
 Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 
 // Child `dotnet` processes started by tests must not leave MSBuild nodes, the MSBuild server or the compiler server
-// running, and parallel test hosts must not race to start a shared MSBuild server. The CI shards set the same values.
+// running, and parallel test hosts must not race to start a shared MSBuild server.
 for name, value in
   [ "DOTNET_CLI_USE_MSBUILD_SERVER", "0"
     "MSBUILDDISABLENODEREUSE", "1"
     "UseSharedCompilation", "false" ] do
   Environment.SetEnvironmentVariable(name, value)
+
+// Every directory a test runs `dotnet` in must resolve the SDK pinned in the test project directory. Servers without a
+// workspace folder ask `dotnet` for its SDK in the current directory, which in-process MSBuild builds move to the
+// project they build, so start in the test project directory, as CI does, and keep temporary workspaces inside it.
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
+
+/// Path.GetTempPath reads TMPDIR on Linux and macOS, and TMP or TEMP on Windows. One directory per process, so that
+/// test processes running side by side do not delete each other's files.
+let testTempDirectory =
+  Path.Combine(__SOURCE_DIRECTORY__, "TestResults", "tmp", string Environment.ProcessId)
+
+Directory.CreateDirectory testTempDirectory |> ignore
+
+// Remove the directories of test processes that ended without cleaning up, such as runs through `dotnet test`,
+// which does not call `main`.
+for leftover in Directory.EnumerateDirectories(Path.GetDirectoryName testTempDirectory) do
+  match Int32.TryParse(Path.GetFileName leftover) with
+  | true, pid when pid <> Environment.ProcessId ->
+    let running =
+      try
+        Diagnostics.Process.GetProcessById pid |> ignore
+        true
+      with :? ArgumentException ->
+        false
+
+    if not running then
+      try
+        Directory.Delete(leftover, true)
+      with _ ->
+        ()
+  | _ -> ()
+
+for name in [ "TMPDIR"; "TMP"; "TEMP" ] do
+  Environment.SetEnvironmentVariable(name, testTempDirectory)
 
 let getEnvVarAsStr name = Environment.GetEnvironmentVariable(name) |> Option.ofObj
 
@@ -119,19 +153,6 @@ let compilers =
   | Some(EqIC "BackgroundCompiler") -> [ "BackgroundCompiler", false ]
   | _ -> [ "BackgroundCompiler", false; "TransparentCompiler", true ]
 
-let testShard =
-  match getEnvVarAsStr "FSAC_TEST_SHARD" with
-  | None -> None
-  | Some("1" | "2" | "3" | "4" as shard) -> Some(int shard)
-  | Some shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
-
-let selectTestGroups groups =
-  match testShard with
-  | None -> groups |> List.map snd
-  | Some selectedShard ->
-    groups
-    |> List.choose (fun (shard, test) -> if shard = selectedShard then Some test else None)
-
 let rec private groupName test =
   match test with
   | Test.TestLabel(name, _, _) -> Some name
@@ -139,42 +160,109 @@ let rec private groupName test =
   | Test.TestList([ test ], _) -> groupName test
   | _ -> None
 
-let mutable private unnamedGroups = 0
+/// Wraps every test of `group` so that the last one to finish calls `allDone`, whatever order the tests run in.
+/// Pending tests never run, so they are not counted. When a filter leaves out tests of the group, `allDone` is not
+/// called, and the servers live until the process ends.
+let private afterLastTest (allDone: unit -> unit) (group: Test) =
+  let rec runnable pending test =
+    match test with
+    | Test.TestCase(_, state) -> if pending || state = Pending then 0 else 1
+    | Test.TestList(tests, state) -> tests |> List.sumBy (runnable (pending || state = Pending))
+    | Test.TestLabel(_, test, state) -> runnable (pending || state = Pending) test
+    | Test.Sequenced(_, test) -> runnable pending test
 
-/// Gives a test group its own server factory, and shuts down every server the group started once its tests are done.
-/// The groups in `lspTests` run one after another, so nothing uses those servers afterwards.
+  let remaining = ref (runnable false group)
+
+  let finished () =
+    if Interlocked.Decrement(&remaining.contents) = 0 then
+      allDone ()
+
+  let wrap code =
+    match code with
+    | TestCode.Sync test ->
+      TestCode.Sync(fun () ->
+        try
+          test ()
+        finally
+          finished ())
+    | TestCode.SyncWithCancel test ->
+      TestCode.SyncWithCancel(fun ct ->
+        try
+          test ct
+        finally
+          finished ())
+    | TestCode.Async test ->
+      TestCode.Async(
+        async {
+          try
+            do! test
+          finally
+            finished ()
+        }
+      )
+    | TestCode.AsyncFsCheck(config, stressConfig, test) ->
+      TestCode.AsyncFsCheck(
+        config,
+        stressConfig,
+        fun fsCheckConfig ->
+          async {
+            try
+              do! test fsCheckConfig
+            finally
+              finished ()
+          }
+      )
+
+  let rec map test =
+    match test with
+    | Test.TestCase(code, state) -> Test.TestCase(wrap code, state)
+    | Test.TestList(tests, state) -> Test.TestList(List.map map tests, state)
+    | Test.TestLabel(label, test, state) -> Test.TestLabel(label, map test, state)
+    | Test.Sequenced(sequenced, test) -> Test.Sequenced(sequenced, map test)
+
+  map group
+
+/// Gives a test group its own server factory, and shuts down every server the group started once its last test is done.
 let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharpLspServer * ClientEvents) group =
   let started = System.Collections.Concurrent.ConcurrentQueue<unit -> unit>()
 
   let tests =
     group (fun () ->
       let server, events = createServer ()
-
       let handle, shutdown = handleFor server
       started.Enqueue shutdown
       handle, events)
 
-  let name =
-    groupName tests
-    |> Option.defaultWith (fun () ->
-      unnamedGroups <- unnamedGroups + 1
-      $"group {unnamedGroups}")
+  tests
+  |> afterLastTest (fun () ->
+      let mutable shutdown = ignore
 
-  testSequenced (
-    TestList(
-      [ tests
-        testCase $"shut down the servers of {name}" (fun () ->
-          let mutable shutdown = ignore
+      while started.TryDequeue(&shutdown) do
+        shutdown ())
 
-          while started.TryDequeue(&shutdown) do
-            shutdown ()) ],
-      Normal
-    )
-  )
+let rec private withoutSequencing test =
+  match test with
+  | Test.Sequenced(_, test) -> withoutSequencing test
+  | Test.TestList(tests, state) -> Test.TestList(List.map withoutSequencing tests, state)
+  | Test.TestLabel(label, test, state) -> Test.TestLabel(label, withoutSequencing test, state)
+  | Test.TestCase _ -> test
+
+/// Runs `group` in Expecto's sequential phase, after every parallel test. For groups that change process-wide state,
+/// such as the current directory or environment variables.
+let private inSequentialPhase group =
+  Test.Sequenced(SequenceMethod.Synchronous, withoutSequencing group)
+
+/// Runs `group` in Expecto's parallel phase, next to other groups. Its own tests still run one after another, and
+/// one after another with the group of the same name for the other compiler, which uses the same TestCases folders.
+let private inParallelPhase group =
+  let key =
+    groupName group
+    |> Option.defaultWith (fun () -> failwith "A test group in the parallel phase needs a name")
+
+  Test.Sequenced(SequenceMethod.SynchronousGroup key, withoutSequencing group)
 
 let lspTests toolsPath =
-  testSequenced
-  <| testList
+  testList
     "lsp"
     [ for (loaderName, workspaceLoaderFactory) in loaders do
 
@@ -184,64 +272,67 @@ let lspTests toolsPath =
               let createServer () =
                 adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
-              let servers group = withServerShutdown createServer group
+              let servers group =
+                withServerShutdown createServer group |> inParallelPhase
 
-              // Shard 1 carries general tests and shard 4 carries snapshots; keep shared fixtures together and add isolated groups to the fastest measured shard.
+              let serversInSequentialPhase group =
+                withServerShutdown createServer group |> inSequentialPhase
+
               let compilerTests =
-                [ 4, Templates.tests ()
-                  4, servers initTests
-                  4, servers closeTests
+                [ inSequentialPhase (Templates.tests ())
+                  servers initTests
+                  servers closeTests
 
-                  1, servers Utils.Tests.Server.tests
-                  4, servers Utils.Tests.CursorbasedTests.tests
+                  servers Utils.Tests.Server.tests
+                  servers Utils.Tests.CursorbasedTests.tests
 
-                  4, servers CodeLens.tests
-                  4, servers documentSymbolTest
-                  4, servers workspaceSymbolTest
-                  4, servers Completion.autocompleteTest
-                  2, servers Completion.autoOpenTests
-                  3, servers Completion.fullNameExternalAutocompleteTest
-                  4, servers foldingTests
-                  4, servers tooltipTests
-                  4, servers Highlighting.tests
-                  4, servers scriptPreviewTests
-                  4, servers scriptEvictionTests
-                  4, servers scriptProjectOptionsCacheTests
-                  4, servers dependencyManagerTests
-                  4, interactiveDirectivesUnitTests
+                  servers CodeLens.tests
+                  servers documentSymbolTest
+                  servers workspaceSymbolTest
+                  servers Completion.autocompleteTest
+                  servers Completion.autoOpenTests
+                  servers Completion.fullNameExternalAutocompleteTest
+                  servers foldingTests
+                  servers tooltipTests
+                  servers Highlighting.tests
+                  servers scriptPreviewTests
+                  servers scriptEvictionTests
+                  servers scriptProjectOptionsCacheTests
+                  servers dependencyManagerTests
+                  inParallelPhase interactiveDirectivesUnitTests
 
                   // commented out because FSDN is down
                   //fsdnTest createServer
 
                   //linterTests createServer
-                  4, uriTests
-                  4, servers formattingTests
-                  4, servers analyzerTests
-                  4, servers signatureTests
-                  4, servers SignatureHelp.tests
-                  4, servers InlineHints.tests
-                  2, servers (CodeFixTests.Tests.tests sourceTextFactory)
-                  4, servers Completion.tests
-                  3, servers GoTo.tests
+                  inParallelPhase uriTests
+                  servers formattingTests
+                  servers analyzerTests
+                  servers signatureTests
+                  servers SignatureHelp.tests
+                  servers InlineHints.tests
+                  servers (CodeFixTests.Tests.tests sourceTextFactory)
+                  servers Completion.tests
+                  serversInSequentialPhase GoTo.tests
 
-                  4, servers FindReferences.tests
-                  3, servers Rename.tests
+                  servers FindReferences.tests
+                  servers Rename.tests
 
-                  4, servers InfoPanelTests.docFormattingTest
-                  4, servers DetectUnitTests.tests
-                  4, servers XmlDocumentationGeneration.tests
-                  4, servers InlayHintTests.tests
-                  3, servers DependentFileChecking.tests
-                  2, servers UnusedDeclarationsTests.tests
-                  4, servers EmptyFileTests.tests
-                  3, servers CallHierarchy.tests
-                  4, servers diagnosticsTest
-                  4, servers InheritDocTooltipTests.tests
-                  4, servers CrefLinkDocumentationTests.tests
+                  servers InfoPanelTests.docFormattingTest
+                  servers DetectUnitTests.tests
+                  servers XmlDocumentationGeneration.tests
+                  servers InlayHintTests.tests
+                  servers DependentFileChecking.tests
+                  servers UnusedDeclarationsTests.tests
+                  servers EmptyFileTests.tests
+                  servers CallHierarchy.tests
+                  servers diagnosticsTest
+                  servers InheritDocTooltipTests.tests
+                  servers CrefLinkDocumentationTests.tests
 
-                  3, servers TestExplorer.tests ]
+                  servers TestExplorer.tests ]
 
-              testList $"{compilerName}" (selectTestGroups compilerTests) ] ]
+              testList $"{compilerName}" compilerTests ] ]
 
 let expectedRuntimeMajor =
   System.Reflection.CustomAttributeExtensions
@@ -275,11 +366,7 @@ let tests =
   match msbuild with
   | Error message -> testList "FSAC" [ testCase "test host and .NET SDK major versions match" (fun _ -> failtest message) ]
   | Ok toolsPath ->
-    match testShard with
-    | None -> testList "FSAC" [ generalTests; lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
-    | Some 1 -> testList "FSAC" [ generalTests; lspTests toolsPath ]
-    | Some 4 -> testList "FSAC" [ lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
-    | Some _ -> testList "FSAC" [ lspTests toolsPath ]
+    testList "FSAC" [ generalTests; lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
 
 open OpenTelemetry
 open OpenTelemetry.Resources
@@ -417,7 +504,9 @@ let runTests (args: string[]) =
   let cliArgs =
     [ CLIArguments.Printer(Expecto.Impl.TestPrinters.summaryWithLocationPrinter defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
-      CLIArguments.Parallel ]
+      CLIArguments.Parallel
+      // Every LSP test group starts its own servers, so more workers mostly add memory. `--parallel-workers` overrides it.
+      CLIArguments.Parallel_Workers 4 ]
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
   use span = activitySource.StartActivity("runTests")
@@ -427,6 +516,12 @@ let runTests (args: string[]) =
 let main args =
   let exitCode = runTests args
   Serilog.Log.CloseAndFlush()
+
+  try
+    Directory.Delete(testTempDirectory, true)
+  with _ ->
+    ()
+
   // Tests do not dispose every server they start, and a live server can keep foreground threads running.
   // Returning from main would then wait for those threads forever, so end the process explicitly.
   exit exitCode
