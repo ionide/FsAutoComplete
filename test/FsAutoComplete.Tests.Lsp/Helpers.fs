@@ -40,6 +40,10 @@ module Expecto =
             | aggregate when aggregate.InnerExceptions.Count = 1 ->
               Runtime.ExceptionServices.ExceptionDispatchInfo.Throw aggregate.InnerException
             | aggregate -> return raise aggregate
+          elif runToken.IsCancellationRequested then
+            // The whole run was cancelled, not just this test: report that rather than a timeout.
+            return!
+              Async.FromContinuations(fun (_, _, cancelled) -> cancelled (OperationCanceledException runToken))
           else
             cancellation.Cancel()
 

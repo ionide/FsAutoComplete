@@ -168,8 +168,8 @@ let rec private mapTestCode (map: TestCode -> TestCode) test =
   | Test.Sequenced(sequenced, test) -> Test.Sequenced(sequenced, mapTestCode map test)
 
 /// Wraps every test of `group` so that the last one to finish calls `allDone`, whatever order the tests run in.
-/// Pending tests never run, so they are not counted. When a filter leaves out tests of the group, `allDone` is not
-/// called, and the servers live until the process ends.
+/// Pending tests never run, so they are not counted. When a filter or a focused test leaves out tests of the group,
+/// `allDone` is not called, and the servers live until the process ends.
 let private afterLastTest (allDone: unit -> unit) (group: Test) =
   let rec runnable pending test =
     match test with
@@ -239,8 +239,13 @@ let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharp
   |> afterLastTest (fun () ->
       let mutable shutdown = ignore
 
+      // A server that fails to shut down must not fail the test that happened to finish last, nor keep the
+      // remaining servers alive.
       while started.TryDequeue(&shutdown) do
-        shutdown ())
+        try
+          shutdown ()
+        with e ->
+          Helpers.logger.Value.Warning(e, "A server of the test group failed to shut down"))
 
 let rec private withoutSequencing test =
   match test with

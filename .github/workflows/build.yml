@@ -108,6 +108,11 @@ jobs:
 #    - name: EnsureCanScaffoldCodeFix
 #      run: dotnet fsi build.fsx -- -p EnsureCanScaffoldCodeFix
 
+    # Restore once before the build. Otherwise every project starts its own `paket restore` at the same time,
+    # and on macOS runners one of them is sometimes killed (exit code 137), which fails the build.
+    - name: Restore packages
+      run: dotnet paket restore
+
     # Builds every supported TFM (projects are multi-targeted) with the .NET 10 SDK.
     - name: Run Build
       run: dotnet build -c Release

@@ -48,16 +48,7 @@ type Document =
     override doc.Dispose() : unit = doc |> Document.close |> Async.RunSynchronously
 
 module Server =
-  let private initialUntitledCounter () =
-    match Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
-    | null -> 0
-    | "1" -> 1_000_000
-    | "2" -> 2_000_000
-    | "3" -> 3_000_000
-    | "4" -> 4_000_000
-    | shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
-
-  let private processUntitledCounter = [| initialUntitledCounter () |]
+  let private processUntitledCounter = [| 0 |]
 
   let private initialize prepareProjects path (config: FSharpConfigDto) createServer =
     async {
@@ -100,7 +91,7 @@ module Server =
           { RootPath = path
             Server = server
             Events = events
-            UntitledCounter = initialUntitledCounter ()
+            UntitledCounter = 0
             DocumentVersionCounter = 0
             OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary() }
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"

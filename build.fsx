@@ -456,8 +456,15 @@ let ciTests targetFramework sdkVersion =
   stage $"test-ci:%s{targetFramework}" {
     workingDir lspTestsPath
     run (createGlobalJson sdkVersion)
-    run (testCommand targetFramework)
-    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
+
+    // The pin would otherwise outlive a failed run and select the wrong SDK for the next one.
+    run (fun ctx ->
+      async {
+        try
+          return! ctx.RunCommand(testCommand targetFramework)
+        finally
+          System.IO.File.Delete(lspTestsPath </> "global.json")
+      })
   }
 
 // Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
