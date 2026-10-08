@@ -176,7 +176,9 @@ let snapshotTests loaders toolsPath =
         do! awaitOutOfDate |> Async.AwaitTask
 
         let _loadedProjects = loadedProjectsA |> AMap.force
-        Expect.equal 2 loadedCalls "Load Projects should have gotten called again after adding a nuget package"
+        // At least once: `dotnet add package` changes the project file and, through the restore, the assets file, and
+        // a file watcher may report those separately (FSEvents on macOS does), each change loading the project again.
+        Expect.isGreaterThanOrEqual loadedCalls 2 "Load Projects should have gotten called again after adding a nuget package"
       }
 
       testCaseAsync "Create snapshot" <| async {
