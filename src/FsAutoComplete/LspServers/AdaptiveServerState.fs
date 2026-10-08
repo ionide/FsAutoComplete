@@ -1350,7 +1350,16 @@ type AdaptiveState
     AVal.Observable.onOutOfDateWeak projectOptions
     |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
     |> Observable.observeOn Concurrency.NewThreadScheduler.Default
-    |> Observable.subscribe (fun _ -> forceLoadProjects () |> Async.Ignore |> Async.Start)
+    |> Observable.subscribe (fun _ ->
+      async {
+        // An exception that escapes Async.Start ends the process.
+        try
+          do! forceLoadProjects () |> Async.Ignore
+        with
+        | :? OperationCanceledException -> ()
+        | ex -> logger.error (Log.setMessage "Reloading projects failed" >> Log.addExn ex)
+      }
+      |> Async.Start)
     |> disposables.Add
 
   let AMapReKeyMany f map = map |> AMap.toASet |> ASet.collect f |> AMap.ofASet

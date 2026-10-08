@@ -224,6 +224,8 @@ let generalTests =
       TipFormatterTests.allTests
       FcsInvariantTests.tests
       FsProjEditorTests.allTests
+      FsAutoComplete.Tests.Lsp.AdaptiveExtensionsTests.tests
+      FsAutoComplete.Tests.Lsp.WorkspaceLoadFailureTests.tests sourceTextFactory
       decompilerTests ]
 
 [<Tests>]

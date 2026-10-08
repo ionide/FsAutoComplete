@@ -941,6 +941,19 @@ module AdaptiveFile =
 
 [<AutoOpen>]
 module AsyncAValExtensions =
+  let rec private logger = LogProvider.getLoggerByQuotation <@ logger @>
+
+  /// An exception that escapes Async.StartImmediate is rethrown on the thread pool and ends the process.
+  let private startImmediateLogged (work: Async<unit>) =
+    async {
+      try
+        do! work
+      with
+      | :? OperationCanceledException -> ()
+      | ex -> logger.error (Log.setMessage "asyncaval callback failed" >> Log.addExn ex)
+    }
+    |> Async.StartImmediate
+
   type asyncaval<'T> with
     /// Adds a disposable callback to the aval that will be executed whenever the
     /// avals value changed.
@@ -968,7 +981,7 @@ module AsyncAValExtensions =
                 last.Value <- ValueSome v
                 do! action v
             }
-            |> Async.StartImmediate))
+            |> startImmediateLogged))
 
       match Transaction.Running with
       | ValueSome t ->
@@ -977,12 +990,12 @@ module AsyncAValExtensions =
             let! v = value |> AsyncAVal.forceAsync
             do! action v
           }
-          |> Async.StartImmediate)
+          |> startImmediateLogged)
       | ValueNone ->
         async {
           let! v = value |> AsyncAVal.forceAsync
           do! action v
         }
-        |> Async.StartImmediate
+        |> startImmediateLogged
 
       sub
