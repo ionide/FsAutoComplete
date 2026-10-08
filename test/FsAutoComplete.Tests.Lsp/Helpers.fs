@@ -149,9 +149,10 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      // Inside the test project, the test host removes its temporary directory when the run ends. Deleting earlier
-      // breaks servers starting meanwhile: MSBuild moves the current directory of the process into the projects it
-      // builds, and a server that read it then starts `dotnet` in a directory that no longer exists.
+      // Inside the test project, every run removes the temporary directories of runs that ended, and the test
+      // executable also removes its own when the run ends (`dotnet test` does not). Deleting earlier breaks servers
+      // starting meanwhile: MSBuild moves the current directory of the process into the projects it builds, and a
+      // server that read it then starts `dotnet` in a directory that no longer exists.
       let mutable attempts =
         if dirToDelete.FullName.StartsWith(__SOURCE_DIRECTORY__, StringComparison.Ordinal) then
           0
@@ -683,30 +684,41 @@ let private isWithin (parent: string) (path: string) =
 /// Loading a project still leaves a few generated files (such as AssemblyInfo.fs) in `obj` for later groups;
 /// they are the same on every load.
 let prepareTestProjects (path: string) =
+  let prepare =
+    async {
+      let path = Path.GetFullPath path
+      do! prepareLock.WaitAsync() |> Async.AwaitTask
+
+      try
+        for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
+          let overlaps directory =
+            isWithin built directory || isWithin directory built
+
+          cleanedDirectories.RemoveWhere overlaps |> ignore
+          restoredDirectories.RemoveWhere overlaps |> ignore
+
+        if cleanedDirectories.Add path then
+          dotnetCleanup path
+          restoredDirectories.Remove path |> ignore
+
+        for file in Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+          let directory = Path.GetDirectoryName file
+
+          if not (restoredDirectories.Contains directory) then
+            do! dotnetRestore directory
+            restoredDirectories.Add directory |> ignore
+      finally
+        prepareLock.Release() |> ignore
+    }
+
+  // Without a cancellation token: a test cancelled while it waits for the lock must not keep the lock, and must
+  // not stop a restore halfway. The test stops waiting; the work finishes and releases the lock.
   async {
-    let path = Path.GetFullPath path
-    do! prepareLock.WaitAsync() |> Async.AwaitTask
+    let! cancellation = Async.CancellationToken
 
-    try
-      for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
-        let overlaps directory =
-          isWithin built directory || isWithin directory built
-
-        cleanedDirectories.RemoveWhere overlaps |> ignore
-        restoredDirectories.RemoveWhere overlaps |> ignore
-
-      if cleanedDirectories.Add path then
-        dotnetCleanup path
-        restoredDirectories.Remove path |> ignore
-
-      for file in Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-        let directory = Path.GetDirectoryName file
-
-        if not (restoredDirectories.Contains directory) then
-          do! dotnetRestore directory
-          restoredDirectories.Add directory |> ignore
-    finally
-      prepareLock.Release() |> ignore
+    return!
+      Async.StartAsTask(prepare, cancellationToken = CancellationToken.None).WaitAsync(cancellation)
+      |> Async.AwaitTask
   }
 
 let serverInitialize path (config: FSharpConfigDto) createServer =
