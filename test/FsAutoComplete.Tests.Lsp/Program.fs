@@ -248,7 +248,8 @@ let rec private withoutSequencing test =
   | Test.TestCase _ -> test
 
 /// Runs `group` in Expecto's sequential phase, after every parallel test. For groups that change process-wide state,
-/// such as the current directory or environment variables.
+/// such as the current directory or environment variables: an in-process MSBuild build of another group saves both
+/// when it starts and restores them when it ends, which would undo or bring back such a change.
 let private inSequentialPhase group =
   Test.Sequenced(SequenceMethod.Synchronous, withoutSequencing group)
 
@@ -330,7 +331,7 @@ let lspTests toolsPath =
                   servers InheritDocTooltipTests.tests
                   servers CrefLinkDocumentationTests.tests
 
-                  servers TestExplorer.tests ]
+                  serversInSequentialPhase TestExplorer.tests ]
 
               testList $"{compilerName}" compilerTests ] ]
 
