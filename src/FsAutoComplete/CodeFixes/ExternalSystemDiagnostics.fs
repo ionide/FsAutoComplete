@@ -23,12 +23,11 @@ let private mapExternalDiagnostic diagnosticType =
       | Payload(fixes: list<TextEdit>) ->
         let title =
           let code =
-            diagnostic.Code
-            |> Option.map (function
-              | U2.C1 n -> n.ToString()
-              | U2.C2 s -> s)
-            |> Option.map (sprintf "Fix %s")
-            |> Option.defaultValue "Fix Issue"
+            match diagnostic.Code with
+            | None -> "Fix Issue"
+            | Some(U2.C1 n) -> $"Fix {n}"
+            | Some(U2.C2 s) -> $"Fix {s}"
+
 
           // an analyzer can offer SEVERAL actions for one span (a primary
           // fix and alternatives); the code alone renders them as
@@ -46,19 +45,21 @@ let private mapExternalDiagnostic diagnosticType =
           let editPreview =
             fixes
             |> List.tryPick (fun edit ->
-              match edit.NewText.Trim() with
-              | "" -> None
-              | text -> Some(firstLineOf text))
+              if System.String.IsNullOrWhiteSpace edit.NewText then
+                None
+              else
+                Some(firstLineOf (edit.NewText.Trim())))
 
           match editPreview with
           | Some preview -> $"{code} → {preview}"
           | None ->
-            // a pure deletion has nothing to preview; fall back to the
-            // diagnostic message so distinct actions still read distinct
-            match diagnostic.Message with
-            | null
-            | "" -> code
-            | message -> $"{code}: {firstLineOf message}"
+
+          // a pure deletion has nothing to preview; fall back to the
+          // diagnostic message so distinct actions still read distinct
+          match diagnostic.Message with
+          | null
+          | "" -> code
+          | message -> $"{code}: {firstLineOf message}"
 
         AsyncResult.retn
           [ { SourceDiagnostic = Some diagnostic
