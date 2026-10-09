@@ -2,7 +2,6 @@ module FsAutoComplete.Tests.Lsp.TimeoutTests
 
 open System
 open System.Threading
-open System.Threading.Tasks
 open Expecto
 
 let private run (code: TestCode) =
@@ -57,29 +56,6 @@ let tests =
         match result with
         | Choice2Of2 e -> Expect.equal e.Message "the test's own failure" "The test's exception is not replaced"
         | Choice1Of2 () -> failtest "The test should have failed"
-      }
-
-      testCaseAsync "a test stopped by the end of the whole run is cancelled, not timed out"
-      <| async {
-        let slow =
-          TestCode.Async(
-            async {
-              while true do
-                do! Async.Sleep 20
-            }
-          )
-
-        use runCancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds 200.)
-
-        let stopped =
-          Async.StartAsTask(
-            slow |> Helpers.Expecto.cancelOnTimeout (TimeSpan.FromSeconds 30.) |> run,
-            cancellationToken = runCancellation.Token
-          )
-
-        let! _ = Task.WhenAny(stopped, Task.Delay(TimeSpan.FromSeconds 20.)) |> Async.AwaitTask
-
-        Expect.isTrue stopped.IsCanceled $"The test is reported as cancelled, got {stopped.Status}: {stopped.Exception}"
       }
 
       testCaseAsync "a test with two timeouts still gets the time to stop"

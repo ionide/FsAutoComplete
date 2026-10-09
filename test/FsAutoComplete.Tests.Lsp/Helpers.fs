@@ -34,10 +34,11 @@ module Expecto =
         async {
           let! runToken = Async.CancellationToken
 
-          // No async binds from here on: a bind returns at once when runToken is cancelled (the end of the whole run,
-          // or the timeout of an outer cancelOnTimeout), and this must still wait for the test to stop.
+          // Expecto never cancels runToken, an outer cancelOnTimeout does. No async binds from here on: a bind returns
+          // at once when runToken is cancelled, and this must still wait for the test to stop. Not the cancellation
+          // continuation either: Expecto fails the whole run when a test ends as cancelled.
           return!
-            Async.FromContinuations(fun (completed, failed, cancelled) ->
+            Async.FromContinuations(fun (completed, failed, _) ->
               // Not disposed: a test that ignores cancellation may still use the token after the timeout.
               let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
               let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
@@ -48,7 +49,7 @@ module Expecto =
                 if obj.ReferenceEquals(finished, work) then
                   // Pass on the test's own exception, not the AggregateException of the task.
                   match work.Exception with
-                  | null when work.IsCanceled -> cancelled (OperationCanceledException cancellation.Token)
+                  | null when work.IsCanceled -> failed (raised (OperationCanceledException cancellation.Token))
                   | null -> completed ()
                   | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
                   | aggregate -> failed (raised aggregate)
@@ -57,12 +58,7 @@ module Expecto =
 
                   // Give the test time to reach its next asynchronous step and stop, before the next test starts.
                   let! _ = Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
-
-                  if runToken.IsCancellationRequested then
-                    // Cancelled from outside: report that rather than a timeout of this one.
-                    cancelled (OperationCanceledException runToken)
-                  else
-                    failed (raised (AssertException $"Timeout ({timeout}), the test was cancelled"))
+                  failed (raised (AssertException $"Timeout ({timeout}), the test was cancelled"))
               }
               |> ignore)
         }
