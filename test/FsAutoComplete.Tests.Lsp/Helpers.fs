@@ -40,10 +40,6 @@ module Expecto =
             | aggregate when aggregate.InnerExceptions.Count = 1 ->
               Runtime.ExceptionServices.ExceptionDispatchInfo.Throw aggregate.InnerException
             | aggregate -> return raise aggregate
-          elif runToken.IsCancellationRequested then
-            // The whole run was cancelled, not just this test: report that rather than a timeout.
-            return!
-              Async.FromContinuations(fun (_, _, cancelled) -> cancelled (OperationCanceledException runToken))
           else
             cancellation.Cancel()
 
@@ -52,7 +48,13 @@ module Expecto =
               Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
               |> Async.AwaitTask
 
-            return raise (AssertException $"Timeout ({timeout}), the test was cancelled")
+            if runToken.IsCancellationRequested then
+              // Cancelled from outside: the end of the whole run, or the timeout of an outer cancelOnTimeout. Report
+              // that rather than a timeout of this one.
+              return!
+                Async.FromContinuations(fun (_, _, cancelled) -> cancelled (OperationCanceledException runToken))
+            else
+              return raise (AssertException $"Timeout ({timeout}), the test was cancelled")
         }
       )
     | code -> Test.timeout (int timeout.TotalMilliseconds) code
