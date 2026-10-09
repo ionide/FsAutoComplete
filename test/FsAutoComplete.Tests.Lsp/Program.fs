@@ -499,19 +499,6 @@ let runTests (args: string[]) =
       | _ -> None)
     |> Option.defaultValue ([||], loaders)
 
-  // Logs go to stderr through a writer of their own. Writing them through System.Console deadlocks on Linux and macOS:
-  // Expecto redirects Console.Out and Console.Error, and a log line and a test's printfn then take the console locks
-  // in opposite order.
-  let logWriter = new StreamWriter(Console.OpenStandardError(), AutoFlush = true)
-
-  let logFormatter =
-    Serilog.Formatting.Display.MessageTemplateTextFormatter(outputTemplate)
-
-  // Serilog's async wrapper calls the sink from a single thread.
-  let logSink =
-    { new ILogEventSink with
-        member _.Emit(logEvent) = logFormatter.Format(logEvent, logWriter) }
-
   let serilogLogger =
     LoggerConfiguration()
       .Enrich.FromLogContext()
@@ -528,7 +515,13 @@ let runTests (args: string[]) =
       .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-      .WriteTo.Async(fun c -> c.Sink(logSink) |> ignore)
+      .WriteTo.Async(fun c ->
+        c.Console(
+          outputTemplate = outputTemplate,
+          standardErrorFromLevel = Nullable<_>(LogEventLevel.Verbose),
+          theme = Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code
+        )
+        |> ignore)
       .CreateLogger() // make it so that every console log is logged to stderr
 
   // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests

@@ -47,9 +47,9 @@ nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true
 
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
-nuget Expecto ~> 10
-nuget Expecto.Diff
-nuget YoloDev.Expecto.TestSdk
+nuget Expecto >= 11.1.1 < 12
+nuget Expecto.Diff >= 11.1.1 < 12
+nuget YoloDev.Expecto.TestSdk >= 0.16.1
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol
