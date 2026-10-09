@@ -57,6 +57,11 @@ let testTempDirectory =
 
 Directory.CreateDirectory testTempDirectory |> ignore
 
+// Unlike the system temporary directory, this one is inside the repository: without these, projects copied here would
+// pick up the repository's Directory.Build.props and .targets (no implicit FSharp.Core, warnings as errors).
+for name in [ "Directory.Build.props"; "Directory.Build.targets" ] do
+  File.WriteAllText(Path.Combine(testTempDirectory, name), "<Project />")
+
 // Remove the directories of test processes that ended without cleaning up, such as runs through `dotnet test`,
 // which does not call `main`.
 for leftover in Directory.EnumerateDirectories(Path.GetDirectoryName testTempDirectory) do
@@ -541,7 +546,16 @@ let runTests (args: string[]) =
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
   use span = activitySource.StartActivity("runTests")
-  runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+  let exitCode = runTestsWithCLIArgsAndCancel cts.Token cliArgs fixedUpArgs tests
+  // Stop the timer, so a run that just finished is not taken for a cancelled one.
+  cts.CancelAfter System.Threading.Timeout.Infinite
+
+  // Expecto returns 0 for a cancelled run: the tests that did not start are not failures.
+  if cts.IsCancellationRequested then
+    eprintfn $"The run was cancelled after {testTimeout} (TEST_TIMEOUT_MINUTES), not every test ran."
+    max exitCode 1
+  else
+    exitCode
 
 [<EntryPoint>]
 let main args =
