@@ -25,36 +25,38 @@ module Expecto =
       TestCode.Async(
         async {
           let! runToken = Async.CancellationToken
-          // Not disposed: a test that ignores cancellation may still use the token after the timeout.
-          let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
-          let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
 
-          let! finished =
-            Task.WhenAny(work :> Task, Task.Delay(timeout, runToken))
-            |> Async.AwaitTask
+          // No async binds from here on: a bind returns at once when runToken is cancelled (the end of the whole run,
+          // or the timeout of an outer cancelOnTimeout), and this must still wait for the test to stop.
+          return!
+            Async.FromContinuations(fun (completed, failed, cancelled) ->
+              // Not disposed: a test that ignores cancellation may still use the token after the timeout.
+              let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
+              let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
 
-          if obj.ReferenceEquals(finished, work) then
-            // Async.AwaitTask would wrap the test's own exception in an AggregateException.
-            match work.Exception with
-            | null -> return! Async.AwaitTask work
-            | aggregate when aggregate.InnerExceptions.Count = 1 ->
-              Runtime.ExceptionServices.ExceptionDispatchInfo.Throw aggregate.InnerException
-            | aggregate -> return raise aggregate
-          else
-            cancellation.Cancel()
+              task {
+                let! finished = Task.WhenAny(work :> Task, Task.Delay(timeout, runToken))
 
-            // Give the test time to reach its next asynchronous step and stop, before the next test starts.
-            let! _ =
-              Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
-              |> Async.AwaitTask
+                if obj.ReferenceEquals(finished, work) then
+                  // Pass on the test's own exception, not the AggregateException of the task.
+                  match work.Exception with
+                  | null when work.IsCanceled -> cancelled (OperationCanceledException cancellation.Token)
+                  | null -> completed ()
+                  | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
+                  | aggregate -> failed aggregate
+                else
+                  cancellation.Cancel()
 
-            if runToken.IsCancellationRequested then
-              // Cancelled from outside: the end of the whole run, or the timeout of an outer cancelOnTimeout. Report
-              // that rather than a timeout of this one.
-              return!
-                Async.FromContinuations(fun (_, _, cancelled) -> cancelled (OperationCanceledException runToken))
-            else
-              return raise (AssertException $"Timeout ({timeout}), the test was cancelled")
+                  // Give the test time to reach its next asynchronous step and stop, before the next test starts.
+                  let! _ = Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
+
+                  if runToken.IsCancellationRequested then
+                    // Cancelled from outside: report that rather than a timeout of this one.
+                    cancelled (OperationCanceledException runToken)
+                  else
+                    failed (AssertException $"Timeout ({timeout}), the test was cancelled")
+              }
+              |> ignore)
         }
       )
     | code -> Test.timeout (int timeout.TotalMilliseconds) code
