@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.85.0] - 2026-10-09
+
+### Added
+
+- [Emit declaration and definition semantic token modifiers](https://github.com/ionide/FsAutoComplete/pull/1551) - Function, method and type definitions get the `definition` modifier, abstract members and signature file declarations get the `declaration` modifier (thanks @huaixv!)
+- [Resolve cref links in hover and documentation](https://github.com/ionide/FsAutoComplete/pull/1527) - `<see cref>` and `<seealso cref>` targets show clean display text, and documentation links carry their source location (thanks @NatElkins!)
+
+### Changed
+
+- [Analyzer code actions show the replacement, not just the code](https://github.com/ionide/FsAutoComplete/pull/1549) - An analyzer fix is titled like "Fix FR0136 -> Guid.NewGuid()", so several fixes for one span no longer look the same (thanks @Thorium!)
+- [Only parse the files of test projects for test detection](https://github.com/ionide/FsAutoComplete/pull/1553) - Test detection skips projects that do not reference Expecto, NUnit or xUnit, and parses files with the parsing options of their project. With the transparent compiler this keeps much less of the workspace in memory.
+- [Cache source lines, stream file bytes, and trim hot-path allocations](https://github.com/ionide/FsAutoComplete/pull/1535) (thanks @Thorium!)
+- [Make DiscoverTests() exit early if there are no projects present at all](https://github.com/ionide/FsAutoComplete/pull/1539) (thanks @Numpsy!)
+- Update `Fantomas.Client` to `0.12.0-beta-004` and `Ionide.ProjInfo` to `0.75.1`. Checkout the [Fantomas.Client changelog](https://github.com/fsprojects/fantomas/blob/main/src/Fantomas.Client/CHANGELOG.md) and the [Ionide.ProjInfo release notes](https://github.com/ionide/proj-info/releases/tag/v0.75.1) for more details.
+- Releases are published when a new version is added to `CHANGELOG.md` on `main`, instead of from a tag. The GitHub release links to the published package on NuGet.
+
+### Fixed
+
+- [A project load that throws no longer ends the language server](https://github.com/ionide/FsAutoComplete/pull/1554) - The exception is logged and requests return errors, instead of the process ending.
+- [`vstest.console` stops after each test discovery and run](https://github.com/ionide/FsAutoComplete/pull/1554) - Before, each one left a process running until FSAC exited.
+
 ## [0.84.0] - 2026-08-29
 
 ### Added

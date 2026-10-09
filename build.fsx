@@ -2,6 +2,7 @@
 #r "nuget: Fake.Tools.Git, 6.0.0"
 #r "nuget: Fake.IO.FileSystem, 6.0.0"
 #r "nuget: Fantomas.Core, 6.3.1"
+#r "nuget: Ionide.KeepAChangelog, 0.2.0"
 
 open Fun.Build
 open Fake.Tools
@@ -550,6 +551,150 @@ pipeline "Tests" {
   net80Tests
   net90Tests
   net100Tests
+  runIfOnlySpecified true
+}
+
+module Release =
+  open System
+  open System.IO
+  open Ionide.KeepAChangelog
+
+  let packageDir = __SOURCE_DIRECTORY__ </> "bin"
+
+  /// Whether this run was asked not to publish anything.
+  let isDryRun = fsi.CommandLineArgs |> Array.contains "--dry-run"
+
+  let packages () =
+    if Directory.Exists packageDir then
+      Directory.EnumerateFiles(packageDir, "*.nupkg") |> Seq.toList
+    else
+      []
+
+  /// Version and GitHub release notes of the newest release in CHANGELOG.md.
+  let latestChangelogRelease () =
+    match Parser.parseChangeLog (FileInfo(__SOURCE_DIRECTORY__ </> "CHANGELOG.md")) with
+    | Error error -> failwithf "Could not parse CHANGELOG.md: %A" error
+    | Ok changelogs ->
+      // The topmost entry, the same one the Release workflow's detect job reads.
+      let version, _, data =
+        match changelogs.Releases with
+        | [] -> failwith "CHANGELOG.md has no release entry."
+        | release :: _ -> release
+
+      let notes =
+        match data with
+        | None -> ""
+        | Some data ->
+          [ "Added", data.Added
+            "Changed", data.Changed
+            "Fixed", data.Fixed
+            "Deprecated", data.Deprecated
+            "Removed", data.Removed
+            "Security", data.Security
+            yield! Map.toList data.Custom ]
+          |> List.filter (fun (_, body) -> not (String.IsNullOrWhiteSpace body))
+          |> List.map (fun (header, body) -> $"### %s{header}\n\n%s{body.Trim()}")
+          |> String.concat "\n\n"
+
+      string version, notes
+
+  let release (ctx: Internal.StageContext) =
+    async {
+      let version, notes = latestChangelogRelease ()
+      let tag = $"v%s{version}"
+
+      // The workflow reads the version with sed, guard against it disagreeing with the parser.
+      match Environment.GetEnvironmentVariable "RELEASE_VERSION" with
+      | expected when not (String.IsNullOrWhiteSpace expected) && expected <> version ->
+        failwithf "The workflow detected version %s, but CHANGELOG.md parses as %s." expected version
+      | _ -> ()
+
+      let pkgs = packages ()
+
+      match
+        pkgs
+        |> List.filter (fun pkg -> not (pkg.EndsWith($".%s{version}.nupkg", StringComparison.Ordinal)))
+      with
+      | [] when not pkgs.IsEmpty -> ()
+      | [] -> failwith "No packages found."
+      | unexpected -> failwithf "Packages do not match changelog version %s: %A" version unexpected
+
+      // A package file is named <id>.<version>.nupkg, nuget.org has a page for each id and version.
+      let nugetLinks =
+        pkgs
+        |> List.map (fun pkg ->
+          let fileName = Path.GetFileName pkg
+          let id = fileName.Substring(0, fileName.Length - $".%s{version}.nupkg".Length)
+          $"[%s{id} %s{version} on NuGet](https://www.nuget.org/packages/%s{id}/%s{version})")
+        |> String.concat "\n\n"
+
+      let notes = $"%s{notes}\n\n%s{nugetLinks}".TrimStart()
+
+      let notesFile = Path.GetTempFileName()
+      File.WriteAllText(notesFile, notes)
+
+      let assets = pkgs |> List.map (sprintf "\"%s\"") |> String.concat " "
+
+      let target =
+        match Environment.GetEnvironmentVariable "GITHUB_SHA" with
+        | sha when not (String.IsNullOrWhiteSpace sha) -> $" --target %s{sha}"
+        | _ -> ""
+
+      let ghArgs =
+        $"release create %s{tag} %s{assets} --title %s{tag} --notes-file \"%s{notesFile}\"%s{target}"
+
+      try
+        if isDryRun then
+          printfn $"[dry-run] Release notes for %s{tag}:\n%s{notes}"
+
+          for pkg in pkgs do
+            printfn $"[dry-run] dotnet nuget push %s{pkg} --skip-duplicate"
+
+          printfn $"[dry-run] gh %s{ghArgs}"
+          return 0
+        else
+          let key = Environment.GetEnvironmentVariable "NUGET_KEY"
+
+          if String.IsNullOrWhiteSpace key then
+            failwith "NUGET_KEY is not set."
+
+          let rec push pkgs =
+            async {
+              match pkgs with
+              | [] -> return Ok()
+              | pkg :: rest ->
+                match!
+                  ctx.RunSensitiveCommand
+                    $"dotnet nuget push \"{pkg}\" --api-key {key} --source https://api.nuget.org/v3/index.json --skip-duplicate"
+                with
+                | Error e -> return Error e
+                | Ok() -> return! push rest
+            }
+
+          match! push pkgs with
+          | Error _ -> return 1
+          | Ok() ->
+            match! ctx.RunCommand $"gh %s{ghArgs}" with
+            | Error _ -> return 1
+            | Ok() -> return 0
+      finally
+        File.Delete notesFile
+    }
+
+// Publishes the latest version in CHANGELOG.md to NuGet and as a GitHub release.
+// The Release workflow only runs this when that GitHub release does not exist yet.
+// `dotnet fsi build.fsx -- -p Release --dry-run` only prints what would happen.
+pipeline "Release" {
+  description "Publish the newest CHANGELOG.md version to NuGet and as a GitHub release"
+  workingDir __SOURCE_DIRECTORY__
+
+  stage "Pack" {
+    run (fun _ -> Release.packages () |> List.iter System.IO.File.Delete)
+    toolRestore
+    run $"dotnet pack -c Release -o \"%s{Release.packageDir}\""
+  }
+
+  stage "Release" { run Release.release }
   runIfOnlySpecified true
 }
 

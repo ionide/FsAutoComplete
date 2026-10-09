@@ -33,8 +33,12 @@ See [docs/Creating a new code fix.md](./docs/Creating%20a%20new%20code%20fix.md)
 
 ## Releasing
 
-* Update `CHANGELOG.md` with the release notes for the current release in the `Unreleased` section. Use section headings (`Added`, `Fixed`, etc.) from [keepachangelog.com](https://keepachangelog.com/).
+The newest version in `CHANGELOG.md` drives the release. Do not create tags by hand.
+
+* Add a new version section to `CHANGELOG.md` (for example, `## [0.85.0] - 2026-10-09`) with the release notes. Use section headings (`Added`, `Fixed`, etc.) from [keepachangelog.com](https://keepachangelog.com/).
 * For individual items in the changelog, use headings like `BUGFIX`, `FEATURE`, and `ENHANCEMENT` followed by a link to the PR and the PR title.
-* Run the `Promote` FAKE target to create the appropriate release version from the current `Unreleased` section, stamp the date, and create a commit and tag for the promotion.
-* Push the commit and tag to `main`.
-* The CI pipeline will publish a release from the tag.
+* Merge the change into `main`.
+
+When `main` gets a `CHANGELOG.md` whose newest version has no GitHub release yet (for example, `v0.85.0`), the [Release workflow](.github/workflows/release.yml) starts a release job. That job pushes the package to NuGet (with trusted publishing) and creates the GitHub release and its tag, with the changelog section as notes and the package attached. If a release fails part way, rerun it with "Run workflow" on `main`.
+
+To see what a release would do without publishing, run `dotnet fsi build.fsx -- -p Release --dry-run`.
