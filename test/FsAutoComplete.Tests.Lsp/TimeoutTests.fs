@@ -2,6 +2,7 @@ module FsAutoComplete.Tests.Lsp.TimeoutTests
 
 open System
 open System.Threading
+open System.Threading.Tasks
 open Expecto
 
 let private run (code: TestCode) =
@@ -87,4 +88,61 @@ let tests =
         | other -> failtestf "Expected a timeout, got %A" other
 
         Expect.isTrue stopped.Value "The timeout is reported once the test has stopped"
+      }
+
+      testCaseAsync "a test stuck in a synchronous step is reported after the grace, not when it stops"
+      <| async {
+        let stopped = ref false
+
+        let stuck =
+          TestCode.Async(
+            async {
+              try
+                do! Async.Sleep 20
+                // Longer than the 10 s grace. Expecto's Test.timeout would wait for all of it.
+                Thread.Sleep(TimeSpan.FromSeconds 20.)
+              finally
+                stopped.Value <- true
+            }
+          )
+
+        let! result =
+          stuck
+          |> Helpers.Expecto.cancelOnTimeout (TimeSpan.FromMilliseconds 200.)
+          |> run
+          |> Async.Catch
+
+        match result with
+        | Choice2Of2(:? AssertException as e) -> Expect.stringContains e.Message "Timeout" "The test fails as a timeout"
+        | other -> failtestf "Expected a timeout, got %A" other
+
+        Expect.isFalse stopped.Value "The timeout is reported while the test is still stuck"
+      }
+
+      testCaseAsync "a test whose cancellation callback throws still fails as a timeout"
+      <| async {
+        let throwing =
+          TestCode.Async(
+            async {
+              let! token = Async.CancellationToken
+              token.Register(fun () -> failwith "the test's cancellation callback") |> ignore
+
+              while true do
+                do! Async.Sleep 20
+            }
+          )
+
+        let reported =
+          throwing
+          |> Helpers.Expecto.cancelOnTimeout (TimeSpan.FromMilliseconds 200.)
+          |> run
+          |> Async.Catch
+          |> Async.StartAsTask
+
+        let! _ = Task.WhenAny(reported, Task.Delay(TimeSpan.FromSeconds 15.)) |> Async.AwaitTask
+        Expect.isTrue reported.IsCompleted "The test is reported, not left waiting"
+
+        match reported.Result with
+        | Choice2Of2(:? AssertException as e) -> Expect.stringContains e.Message "Timeout" "The test fails as a timeout"
+        | other -> failtestf "Expected a timeout, got %A" other
       } ]

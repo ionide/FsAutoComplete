@@ -24,9 +24,10 @@ module Expecto =
     with e ->
       e
 
-  /// Like Expecto's Test.timeout, but when the time is up it also cancels the test, so the test stops at its next
-  /// asynchronous step instead of running on next to the tests after it. Synchronous test code cannot be cancelled
-  /// and keeps Expecto's behaviour.
+  /// Like Expecto's Test.timeout, which cancels the test when the time is up and then waits until it stops, however
+  /// long that takes. This one waits at most 10 seconds: a test stuck in a synchronous step (a blocking call, a
+  /// deadlock) is reported as a timeout instead of holding up the tests after it. Synchronous test code cannot be
+  /// cancelled and keeps Expecto's behaviour.
   let cancelOnTimeout (timeout: TimeSpan) (code: TestCode) =
     match code with
     | TestCode.Async test ->
@@ -54,7 +55,12 @@ module Expecto =
                   | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
                   | aggregate -> failed (raised aggregate)
                 else
-                  cancellation.Cancel()
+                  // Cancel also runs the callbacks the test registered on the token, and throws what they throw. The
+                  // test must still be reported.
+                  try
+                    cancellation.Cancel()
+                  with _ ->
+                    ()
 
                   // Give the test time to reach its next asynchronous step and stop, before the next test starts.
                   let! _ = Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
