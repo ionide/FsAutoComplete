@@ -108,14 +108,15 @@ jobs:
 #    - name: EnsureCanScaffoldCodeFix
 #      run: dotnet fsi build.fsx -- -p EnsureCanScaffoldCodeFix
 
-    # Restore once before the build. Otherwise every project starts its own `paket restore` at the same time,
-    # and on macOS runners one of them is sometimes killed (exit code 137), which fails the build.
+    # Restore once before the build, and stop the build from doing it again. Paket.Restore.targets starts a
+    # `paket restore` for every project, even when nothing changed, and on macOS runners one of these parallel
+    # processes is sometimes killed (exit code 137), which fails the build.
     - name: Restore packages
       run: dotnet paket restore
 
     # Builds every supported TFM (projects are multi-targeted) with the .NET 10 SDK.
     - name: Run Build
-      run: dotnet build -c Release
+      run: dotnet build -c Release -p:PaketDisableGlobalRestore=true
 
     - name: Run and report tests
       run: dotnet fsi build.fsx -- -p 'test-ci:${{ matrix.test_tfm }}'
