@@ -6,8 +6,10 @@ module Syntax =
   type SyntaxCollectorBase =
     new: unit -> SyntaxCollectorBase
     abstract WalkSynModuleOrNamespace: SynModuleOrNamespace -> unit
+    abstract WalkSynModuleOrNamespaceSig: SynModuleOrNamespaceSig -> unit
     abstract WalkAttribute: SynAttribute -> unit
     abstract WalkSynModuleDecl: SynModuleDecl -> unit
+    abstract WalkSynModuleSigDecl: SynModuleSigDecl -> unit
     abstract WalkExpr: SynExpr -> unit
     abstract WalkTypar: SynTypar -> unit
     abstract WalkTyparDecl: SynTyparDecl -> unit
@@ -33,6 +35,7 @@ module Syntax =
     abstract WalkUnionCase: SynUnionCase -> unit
     abstract WalkTypeDefnRepr: SynTypeDefnRepr -> unit
     abstract WalkTypeDefn: SynTypeDefn -> unit
+    abstract WalkTypeDefnSig: SynTypeDefnSig -> unit
 
   val walkAst: walker: SyntaxCollectorBase -> input: ParsedInput -> unit
 
@@ -80,13 +83,18 @@ module NullableTypes =
   /// such as <c>string | null</c>.
   val collectNullKeywordRanges: ast: ParsedInput -> Range seq
 
-module FsacFunctionParameters =
+module FsacSemanticTokenSites =
   open FSharp.Compiler.Syntax
   open FSharp.Compiler.Text
 
-  /// Collect the source ranges of all function parameter identifier declarations
-  /// in the given parse tree, covering both function bindings and lambda expressions.
-  val collectParameterRanges: ast: ParsedInput -> Range seq
+  type Ranges =
+    { Parameters: Range array
+      Definitions: Range array
+      Declarations: Range array }
+
+  /// Collect exact identifier ranges for parameter sites, function/member/type definitions,
+  /// and function/member/type declarations in implementation and signature files.
+  val collectRanges: ast: ParsedInput -> Ranges
 
 module Completion =
   open FSharp.Compiler.Syntax
