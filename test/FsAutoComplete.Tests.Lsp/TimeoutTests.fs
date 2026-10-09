@@ -33,7 +33,10 @@ let tests =
           |> Async.Catch
 
         match result with
-        | Choice2Of2(:? AssertException as e) -> Expect.stringContains e.Message "Timeout" "The test fails as a timeout"
+        | Choice2Of2(:? AssertException as e) ->
+          Expect.stringContains e.Message "Timeout" "The test fails as a timeout"
+          // Expecto fails the whole run on an AssertException without a stack trace.
+          Expect.isNotNull e.StackTrace "The timeout is raised, not only created"
         | other -> failtestf "Expected a timeout, got %A" other
 
         let stepsAtTimeout = steps.Value

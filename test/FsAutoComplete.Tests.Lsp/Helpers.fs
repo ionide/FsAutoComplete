@@ -16,6 +16,14 @@ open FSharp.UMX
 module Expecto =
   open System.Threading.Tasks
 
+  /// Expecto reads the stack trace of a test's exception, and the whole run fails when it is null. An exception that
+  /// was only created, never raised, has none.
+  let private raised (e: exn) =
+    try
+      raise e
+    with e ->
+      e
+
   /// Like Expecto's Test.timeout, but when the time is up it also cancels the test, so the test stops at its next
   /// asynchronous step instead of running on next to the tests after it. Synchronous test code cannot be cancelled
   /// and keeps Expecto's behaviour.
@@ -43,7 +51,7 @@ module Expecto =
                   | null when work.IsCanceled -> cancelled (OperationCanceledException cancellation.Token)
                   | null -> completed ()
                   | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
-                  | aggregate -> failed aggregate
+                  | aggregate -> failed (raised aggregate)
                 else
                   cancellation.Cancel()
 
@@ -54,7 +62,7 @@ module Expecto =
                     // Cancelled from outside: report that rather than a timeout of this one.
                     cancelled (OperationCanceledException runToken)
                   else
-                    failed (AssertException $"Timeout ({timeout}), the test was cancelled")
+                    failed (raised (AssertException $"Timeout ({timeout}), the test was cancelled"))
               }
               |> ignore)
         }
