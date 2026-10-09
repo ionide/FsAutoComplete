@@ -370,17 +370,6 @@ let tests state =
                 None
                 (fun server ->
                   [ testCaseAsync
-                      "shard one starts in a separate untitled document range"
-                      (async {
-                        let! actualServer = server
-
-                        match System.Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
-                        | null -> Expect.equal actualServer.UntitledCounter 0 "Unsharded tests should start at zero"
-                        | "1" ->
-                          Expect.equal actualServer.UntitledCounter 1_000_000 "Shard one should use its own range"
-                        | shard -> failtestf "Unexpected shard for Server tests: %s" shard
-                      })
-                    testCaseAsync
                       "creating document increases untitled counter"
                       (async {
                         let! actualServer = server

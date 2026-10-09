@@ -83,8 +83,9 @@ let tests state =
                                  End = { Line = 0u; Character = 0u } }
                              RangeLength = Some 0u
                              Text = "c" } |] }
-              // wait for typechecking to propogate?
-              do! Async.Sleep 1000
+
+              // The empty file has no compiler diagnostics, so the first ones come from checking the 'c'.
+              let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events
 
               let! completions =
                 server.TextDocumentCompletion
@@ -98,9 +99,7 @@ let tests state =
                     PartialResultToken = None }
                 |> Async.StartChild
 
-              let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events |> Async.StartChild
-
-              match! compilerResults with
+              match compilerResults with
               | Ok() -> failtest "should get an F# compiler checking error from a 'c' by itself"
               | Core.Result.Error errors ->
                 Expect.hasLength errors 1 "should have only an error FS0039: identifier not defined"

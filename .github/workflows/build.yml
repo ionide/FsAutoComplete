@@ -64,24 +64,23 @@ jobs:
     name: Build on ${{matrix.os}} for ${{ matrix.label }} ${{ matrix.workspace-loader }} ${{ matrix.use-transparent-compiler }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    # setup .NET per the repo global.json
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-
-    # install the runtime the tests will execute on (net8.0 / net9.0 / net10.0)
+    # install the runtime the tests will execute on (net8.0 / net9.0 / net10.0),
+    # and .NET 8 on every leg: the Test Explorer sample projects target net8.0.
     - name: Setup .NET test runtime
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
-        dotnet-version: ${{ matrix.dotnet-version }}
+        dotnet-version: |
+          8.x
+          ${{ matrix.dotnet-version }}
 
     # Build everything with the .NET 10 SDK: it can target every supported TFM, and
     # Paket 10 is a net9.0-only tool that the .NET 8 SDK cannot restore. This is what
     # keeps `dotnet tool restore` working on the net8 leg.
     - name: Setup .NET 10 build SDK
       id: build-sdk
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         dotnet-version: "10.x"
 
@@ -109,9 +108,15 @@ jobs:
 #    - name: EnsureCanScaffoldCodeFix
 #      run: dotnet fsi build.fsx -- -p EnsureCanScaffoldCodeFix
 
+    # Restore once before the build, and stop the build from doing it again. Paket.Restore.targets starts a
+    # `paket restore` for every project, even when nothing changed, and on macOS runners one of these parallel
+    # processes is sometimes killed (exit code 137), which fails the build.
+    - name: Restore packages
+      run: dotnet paket restore
+
     # Builds every supported TFM (projects are multi-targeted) with the .NET 10 SDK.
     - name: Run Build
-      run: dotnet build -c Release
+      run: dotnet build -c Release -p:PaketDisableGlobalRestore=true
 
     - name: Run and report tests
       run: dotnet fsi build.fsx -- -p 'test-ci:${{ matrix.test_tfm }}'
@@ -123,10 +128,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
 
     - name: Restore tools
       run: dotnet tool restore

@@ -16,8 +16,63 @@ open FSharp.UMX
 module Expecto =
   open System.Threading.Tasks
 
+  /// Expecto reads the stack trace of a test's exception, and the whole run fails when it is null. An exception that
+  /// was only created, never raised, has none.
+  let private raised (e: exn) =
+    try
+      raise e
+    with e ->
+      e
+
+  /// Like Expecto's Test.timeout, which cancels the test when the time is up and then waits until it stops, however
+  /// long that takes. This one waits at most 10 seconds: a test stuck in a synchronous step (a blocking call, a
+  /// deadlock) is reported as a timeout instead of holding up the tests after it. Synchronous test code cannot be
+  /// cancelled and keeps Expecto's behaviour.
+  let cancelOnTimeout (timeout: TimeSpan) (code: TestCode) =
+    match code with
+    | TestCode.Async test ->
+      TestCode.Async(
+        async {
+          let! runToken = Async.CancellationToken
+
+          // Expecto never cancels runToken, an outer cancelOnTimeout does. No async binds from here on: a bind returns
+          // at once when runToken is cancelled, and this must still wait for the test to stop. Not the cancellation
+          // continuation either: Expecto fails the whole run when a test ends as cancelled.
+          return!
+            Async.FromContinuations(fun (completed, failed, _) ->
+              // Not disposed: a test that ignores cancellation may still use the token after the timeout.
+              let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
+              let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
+
+              task {
+                let! finished = Task.WhenAny(work :> Task, Task.Delay(timeout, runToken))
+
+                if obj.ReferenceEquals(finished, work) then
+                  // Pass on the test's own exception, not the AggregateException of the task.
+                  match work.Exception with
+                  | null when work.IsCanceled -> failed (raised (OperationCanceledException cancellation.Token))
+                  | null -> completed ()
+                  | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
+                  | aggregate -> failed (raised aggregate)
+                else
+                  // Cancel also runs the callbacks the test registered on the token, and throws what they throw. The
+                  // test must still be reported.
+                  try
+                    cancellation.Cancel()
+                  with _ ->
+                    ()
+
+                  // Give the test time to reach its next asynchronous step and stop, before the next test starts.
+                  let! _ = Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
+                  failed (raised (AssertException $"Timeout ({timeout}), the test was cancelled"))
+              }
+              |> ignore)
+        }
+      )
+    | code -> Test.timeout (int timeout.TotalMilliseconds) code
+
   let inline testBuilderWithTimeout (ts: TimeSpan) name testCase focus =
-    TestLabel(name, TestCase(Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
+    TestLabel(name, TestCase(cancelOnTimeout ts testCase, focus), focus)
 
   let inline testCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Normal
   let inline ftestCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Focused
@@ -108,7 +163,15 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      let mutable attempts = 25
+      // Inside the test project, every run removes the temporary directories of runs that ended, and the test
+      // executable also removes its own when the run ends (`dotnet test` does not). Deleting earlier breaks servers
+      // starting meanwhile: MSBuild moves the current directory of the process into the projects it builds, and a
+      // server that read it then starts `dotnet` in a directory that no longer exists.
+      let mutable attempts =
+        if dirToDelete.FullName.StartsWith(__SOURCE_DIRECTORY__, StringComparison.Ordinal) then
+          0
+        else
+          25
 
       // Handle odd cases with windows file locking
       while attempts > 0 do
@@ -234,6 +297,42 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
     new AdaptiveFSharpLspServer(loader, client, sourceTextFactory, useTransparentCompiler)
 
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
+
+/// Stands in for a server and forwards every call to `Target`. Tests cache their server for the whole run, so a
+/// test group that is done can let go of the real server by clearing `Target`.
+type ServerHandle() =
+  inherit System.Reflection.DispatchProxy()
+
+  member val Target: IFSharpLspServer = Unchecked.defaultof<_> with get, set
+
+  override this.Invoke(method, args) =
+    match box this.Target with
+    | null -> raise (ObjectDisposedException("IFSharpLspServer", "The test group of this server is done."))
+    | target ->
+      try
+        method.Invoke(target, args)
+      with :? System.Reflection.TargetInvocationException as ex when not (isNull ex.InnerException) ->
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw ex.InnerException
+        null
+
+/// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
+let handleFor (server: IFSharpLspServer) =
+  let handle =
+    System.Reflection.DispatchProxy.Create<IFSharpLspServer, ServerHandle>()
+
+  (handle :?> ServerHandle).Target <- server
+
+  let shutdown () =
+    server.Dispose()
+    (handle :?> ServerHandle).Target <- Unchecked.defaultof<_>
+
+  handle, shutdown
+
+/// The server behind a `ServerHandle`, for tests that need the concrete server type.
+let realServer (server: IFSharpLspServer) =
+  match box server with
+  | :? ServerHandle as handle -> handle.Target
+  | _ -> server
 
 let defaultConfigDto: FSharpConfigDto =
   { WorkspaceModePeekDeepLevel = None
@@ -587,12 +686,60 @@ let dotnetToolRestore dir =
     return expectExitCodeZero r
   }
 
+let private cleanedDirectories = System.Collections.Generic.HashSet<string>()
+let private restoredDirectories = System.Collections.Generic.HashSet<string>()
+let private prepareLock = new SemaphoreSlim(1)
+
+let private isWithin (parent: string) (path: string) =
+  path = parent
+  || path.StartsWith(parent + string Path.DirectorySeparatorChar, StringComparison.Ordinal)
+
+/// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
+/// Test groups that share a TestCases directory, and the same group for each compiler, reuse that work, and
+/// do not delete `obj` under the servers of earlier groups. After a test builds with `DotnetCli.build`, directories
+/// overlapping the built path are cleaned and restored again, so build output does not leak into later groups.
+/// Loading a project still leaves a few generated files (such as AssemblyInfo.fs) in `obj` for later groups;
+/// they are the same on every load.
+let prepareTestProjects (path: string) =
+  let prepare =
+    async {
+      let path = Path.GetFullPath path
+      do! prepareLock.WaitAsync() |> Async.AwaitTask
+
+      try
+        for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
+          let overlaps directory = isWithin built directory || isWithin directory built
+
+          cleanedDirectories.RemoveWhere overlaps |> ignore
+          restoredDirectories.RemoveWhere overlaps |> ignore
+
+        if cleanedDirectories.Add path then
+          dotnetCleanup path
+          restoredDirectories.Remove path |> ignore
+
+        for file in Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+          let directory = Path.GetDirectoryName file
+
+          if not (restoredDirectories.Contains directory) then
+            do! dotnetRestore directory
+            restoredDirectories.Add directory |> ignore
+      finally
+        prepareLock.Release() |> ignore
+    }
+
+  // Without a cancellation token: a test cancelled while it waits for the lock must not keep the lock, and must
+  // not stop a restore halfway. The test stops waiting; the work finishes and releases the lock.
+  async {
+    let! cancellation = Async.CancellationToken
+
+    return!
+      Async.StartAsTask(prepare, cancellationToken = CancellationToken.None).WaitAsync(cancellation)
+      |> Async.AwaitTask
+  }
+
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
-    dotnetCleanup path
-
-    for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-      do! file |> Path.GetDirectoryName |> dotnetRestore
+    do! prepareTestProjects path
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
     clientNotifications |> Observable.add logEvent
@@ -637,7 +784,6 @@ let parseProject projectFilePath (server: IFSharpLspServer) =
 
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams
-    do! Async.Sleep(TimeSpan.FromSeconds 3.)
     logger.Value.Debug("{project} parse result: {result}", projectName, result)
   }
 
@@ -646,7 +792,13 @@ let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification)
   |> JsonSerializer.readJson<ResponseMsg<'t>>
   |> fun r -> if r.Kind = eventType then Some r.Data else None
 
-let internal defaultTimeout = TimeSpan.FromSeconds 10.0
+/// How long a test waits for a notification from the server, such as diagnostics or a finished workspace load.
+/// The wait ends as soon as the notification arrives. CI raises FSAC_TEST_DEFAULT_TIMEOUT for its loaded runners,
+/// and these waits follow it; without it they fail fast.
+let internal defaultTimeout =
+  match Environment.GetEnvironmentVariable "FSAC_TEST_DEFAULT_TIMEOUT" with
+  | null -> TimeSpan.FromSeconds 10.0
+  | _ -> Expecto.DEFAULT_TIMEOUT
 
 let waitForWorkspaceFinishedParsing (events: ClientEvents) =
   let chooser (name, payload) =

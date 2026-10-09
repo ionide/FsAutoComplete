@@ -449,149 +449,22 @@ let coverageAssemblyExcludeFilter =
   @"^(?!FsAutoComplete\.Core$)(?!FsAutoComplete\.Logging$)(?!fsautocomplete$).*"
 
 let testCommand targetFramework =
-  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m"""
+  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=minimal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true Expecto.parallel-workers=4 --blame-hang --blame-hang-timeout 1m"""
 
-let coverageDirectory targetFramework = lspTestsPath </> "coverage" </> targetFramework
-
-let shardCoverageBaseReport targetFramework shard = coverageDirectory targetFramework </> $"shard-%i{shard}.xml"
-
-let shardCoverageReport targetFramework shard =
-  let baseReport = shardCoverageBaseReport targetFramework shard
-  let fileName = System.IO.Path.GetFileNameWithoutExtension baseReport
-
-  System.IO.Path.GetDirectoryName baseReport
-  </> $"%s{fileName}.%s{targetFramework}.xml"
-
-let mergedCoverageReport targetFramework = lspTestsPath </> $"coverage.%s{targetFramework}.xml"
-
-let altCoverToolkitPath () =
-  let versionPattern =
-    System.Text.RegularExpressions.Regex(@"^\s+AltCover \(([^)]+)\)$")
-
-  let version =
-    System.IO.File.ReadLines(__SOURCE_DIRECTORY__ </> "paket.lock")
-    |> Seq.tryPick (fun line ->
-      let matchResult = versionPattern.Match line
-
-      if matchResult.Success then
-        Some matchResult.Groups[1].Value
-      else
-        None)
-    |> Option.defaultWith (fun () -> failwith "paket.lock does not contain an AltCover version")
-
-  let packagesRoot =
-    match System.Environment.GetEnvironmentVariable "NUGET_PACKAGES" with
-    | value when not (System.String.IsNullOrWhiteSpace value) -> value
-    | _ ->
-      System.Environment.GetFolderPath System.Environment.SpecialFolder.UserProfile
-      </> ".nuget"
-      </> "packages"
-
-  packagesRoot
-  </> "altcover"
-  </> version
-  </> "tools"
-  </> "net8.0"
-  </> "AltCover.Toolkit.dll"
-
-let startTestShard targetFramework shard =
-  let startInfo = System.Diagnostics.ProcessStartInfo("dotnet")
-  let coverageOutputRoot = coverageDirectory targetFramework </> $"shard-%i{shard}"
-  let coverageReport = shardCoverageBaseReport targetFramework shard
-
-  System.IO.Directory.CreateDirectory coverageOutputRoot |> ignore
-  System.IO.File.Delete(shardCoverageReport targetFramework shard)
-
-  startInfo.WorkingDirectory <- lspTestsPath
-  startInfo.UseShellExecute <- false
-  startInfo.Environment["FSAC_TEST_SHARD"] <- string shard
-  startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] <- "0"
-  startInfo.Environment["MSBUILDDISABLENODEREUSE"] <- "1"
-  startInfo.Environment["UseSharedCompilation"] <- "false"
-
-  [ "test"
-    "-c"
-    "Release"
-    "-f"
-    targetFramework
-    "--no-restore"
-    "--no-build"
-    "--logger"
-    "console;verbosity=normal"
-    "--logger"
-    "GitHubActions"
-    "/p:AltCover=true"
-    $"/p:AltCoverAssemblyExcludeFilter=%s{coverageAssemblyExcludeFilter}"
-    $"/p:AltCoverOutputRoot=%s{coverageOutputRoot}"
-    $"/p:AltCoverReport=%s{coverageReport}"
-    "/p:AltCoverForce=true"
-    "--"
-    "Expecto.fail-on-focused-tests=true"
-    "--blame-hang"
-    "--blame-hang-timeout"
-    "1m" ]
-  |> List.iter (fun argument -> startInfo.ArgumentList.Add argument)
-
-  task {
-    use childProcess = System.Diagnostics.Process.Start startInfo
-    do! childProcess.WaitForExitAsync()
-    return shard, childProcess.ExitCode
-  }
-
-let mergeCoverageReports targetFramework =
-  let reports = [| for shard in 1..4 -> shardCoverageReport targetFramework shard |]
-  let missingReports = reports |> Array.filter (System.IO.File.Exists >> not)
-
-  if missingReports.Length > 0 then
-    missingReports
-    |> String.concat ", "
-    |> failwithf "CI test shards did not produce coverage reports: %s"
-
-  let finalReport = mergedCoverageReport targetFramework
-  System.IO.File.Delete finalReport
-
-  let toolkitPath = altCoverToolkitPath ()
-
-  if not (System.IO.File.Exists toolkitPath) then
-    failwithf "AltCover toolkit was not restored at %s" toolkitPath
-
-  let toolkit = System.Reflection.Assembly.LoadFrom toolkitPath
-  let openCover = toolkit.GetType("AltCover.OpenCover", true)
-
-  let merge =
-    openCover.GetMethod("Merge", [| typeof<System.Collections.Generic.IEnumerable<System.Xml.Linq.XDocument>> |])
-
-  let documents = reports |> Array.map System.Xml.Linq.XDocument.Load
-  let merged = merge.Invoke(null, [| box documents |]) :?> System.Xml.Linq.XDocument
-  merged.Save finalReport
-
-let runTestShards targetFramework =
-  System.IO.Directory.CreateDirectory(coverageDirectory targetFramework) |> ignore
-  System.IO.File.Delete(mergedCoverageReport targetFramework)
-
-  let tasks = [| for shard in 1..4 -> startTestShard targetFramework shard |]
-  let results = System.Threading.Tasks.Task.WhenAll(tasks).GetAwaiter().GetResult()
-
-  let failures = results |> Array.filter (fun (_, exitCode) -> exitCode <> 0)
-
-  if failures.Length > 0 then
-    failures
-    |> Array.map (fun (shard, exitCode) -> $"shard %i{shard}: exit code %i{exitCode}")
-    |> String.concat ", "
-    |> failwithf "CI test shards failed: %s"
-
-  mergeCoverageReports targetFramework
-
+/// The test project runs its test groups in parallel inside one process, so one `dotnet test` covers the framework.
 let ciTests targetFramework sdkVersion =
   stage $"test-ci:%s{targetFramework}" {
     workingDir lspTestsPath
     run (createGlobalJson sdkVersion)
 
-    run (fun _ ->
-      try
-        runTestShards targetFramework
-      finally
-        System.IO.File.Delete(lspTestsPath </> "global.json"))
+    // The pin would otherwise outlive a failed run and select the wrong SDK for the next one.
+    run (fun ctx ->
+      async {
+        try
+          return! ctx.RunCommand(testCommand targetFramework)
+        finally
+          System.IO.File.Delete(lspTestsPath </> "global.json")
+      })
   }
 
 // Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
@@ -654,19 +527,19 @@ pipeline "test:net10.0" {
 }
 
 pipeline "test-ci:net8.0" {
-  description "Run net8.0 CI test shards"
+  description "Run net8.0 tests of a Release build, as CI does"
   ciNet80Tests
   runIfOnlySpecified true
 }
 
 pipeline "test-ci:net9.0" {
-  description "Run net9.0 CI test shards"
+  description "Run net9.0 tests of a Release build, as CI does"
   ciNet90Tests
   runIfOnlySpecified true
 }
 
 pipeline "test-ci:net10.0" {
-  description "Run net10.0 CI test shards"
+  description "Run net10.0 tests of a Release build, as CI does"
   ciNet100Tests
   runIfOnlySpecified true
 }

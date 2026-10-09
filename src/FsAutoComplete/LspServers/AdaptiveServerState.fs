@@ -164,6 +164,35 @@ module TestProjectHelpers =
     project.PackageReferences
     |> List.exists (fun pr -> Set.contains pr.Name testProjectIndicators)
 
+/// The FCS file system is process-wide. Every AdaptiveState adds the files it has open to it, newest state first,
+/// and removes them again when it is disposed, so a disposed state is neither kept alive nor read from.
+module SharedFileSystem =
+  let private gate = obj ()
+
+  let mutable private openFileLookups: (string<LocalPath> -> VolatileFile option) list =
+    []
+
+  let mutable private installed = false
+
+  let private tryFindOpenFile file = openFileLookups |> List.tryPick (fun tryFind -> tryFind file)
+
+  let register (lookup: string<LocalPath> -> VolatileFile option) : IDisposable =
+    lock gate (fun () ->
+      if not installed then
+        FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
+          FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, tryFindOpenFile)
+
+        installed <- true
+
+      openFileLookups <- lookup :: openFileLookups)
+
+    { new IDisposable with
+        member _.Dispose() =
+          lock gate (fun () ->
+            openFileLookups <-
+              openFileLookups
+              |> List.filter (fun tryFind -> not (obj.ReferenceEquals(tryFind, lookup)))) }
+
 type FileHasBeenChecked =
   { Options: LoadedProject
     CompilerOptions: CompilerProjectOption
@@ -375,6 +404,7 @@ type AdaptiveState
 
 
   let diagnosticCollections = new DiagnosticCollection(sendDiagnostics)
+  do disposables.Add diagnosticCollections
 
   let notifications =
     Event<NotificationEvent * CancellationToken * TaskCompletionSource<unit> option>()
@@ -1310,31 +1340,45 @@ type AdaptiveState
     |> disposables.Add
 
 
+  // Cancelled on Dispose, so analysis started before it does not reach the client after it. Not disposed: a file
+  // checked while Dispose runs still links to it.
+  let disposed = new CancellationTokenSource()
+
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (checkedFile) ->
+      let cancellation =
+        CancellationTokenSource.CreateLinkedTokenSource(checkedFile.CancellationToken, disposed.Token)
+
       async {
-        if checkedFile.VolatileFile.Source.Length > 0 then
-          let config = config |> AVal.force
-          let analyzerPaths = analyzerPaths |> AVal.force
-          do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
+        // An exception that escapes Async.Start ends the process.
+        try
+          if checkedFile.VolatileFile.Source.Length > 0 then
+            let config = config |> AVal.force
+            let analyzerPaths = analyzerPaths |> AVal.force
+            do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
+
+            do!
+              runAnalyzers
+                config
+                analyzerPaths
+                checkedFile.ParseAndCheckResults
+                checkedFile.VolatileFile
+                checkedFile.Options
+                checkedFile.CompilerOptions
 
           do!
-            runAnalyzers
-              config
-              analyzerPaths
-              checkedFile.ParseAndCheckResults
-              checkedFile.VolatileFile
-              checkedFile.Options
-              checkedFile.CompilerOptions
-
-        do!
-          lspClient.NotifyDocumentAnalyzed
-            { TextDocument =
-                { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
-                  Version = checkedFile.VolatileFile.Version } }
+            lspClient.NotifyDocumentAnalyzed
+              { TextDocument =
+                  { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
+                    Version = checkedFile.VolatileFile.Version } }
+        with
+        | :? OperationCanceledException -> ()
+        | ex -> logger.error (Log.setMessage "Analyzing a checked file failed" >> Log.addExn ex)
       }
-      |> Async.StartWithCT checkedFile.CancellationToken)
+      |> fun work -> Async.StartAsTask(work, cancellationToken = cancellation.Token)
+      // Also when the work was cancelled before it started, and the try above never ran.
+      |> fun work -> work.ContinueWith(fun (_: Task<unit>) -> cancellation.Dispose()) |> ignore)
 
 
 
@@ -1350,7 +1394,16 @@ type AdaptiveState
     AVal.Observable.onOutOfDateWeak projectOptions
     |> Observable.throttleOn Concurrency.NewThreadScheduler.Default (TimeSpan.FromMilliseconds(200.))
     |> Observable.observeOn Concurrency.NewThreadScheduler.Default
-    |> Observable.subscribe (fun _ -> forceLoadProjects () |> Async.Ignore |> Async.Start)
+    |> Observable.subscribe (fun _ ->
+      async {
+        // An exception that escapes Async.Start ends the process.
+        try
+          do! forceLoadProjects () |> Async.Ignore
+        with
+        | :? OperationCanceledException -> ()
+        | ex -> logger.error (Log.setMessage "Reloading projects failed" >> Log.addExn ex)
+      }
+      |> Async.Start)
     |> disposables.Add
 
   let AMapReKeyMany f map = map |> AMap.toASet |> ASet.collect f |> AMap.ofASet
@@ -1460,8 +1513,7 @@ type AdaptiveState
 
       fileShimChanges |> AMap.force |> HashMap.tryFind file
 
-    FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem <-
-      FileSystem(FSharp.Compiler.IO.FileSystemAutoOpens.FileSystem, filesystemShim)
+    SharedFileSystem.register filesystemShim |> disposables.Add
 
   /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
   /// <param name="checker">The FSharpCompilerServiceChecker.</param>
@@ -2920,4 +2972,10 @@ type AdaptiveState
     member this.Dispose() =
 
       traceNotifications |> Option.iter (dispose)
+      // Cancel also runs the callbacks registered on the token, and throws what they throw. The rest must still go.
+      try
+        disposed.Cancel()
+      with ex ->
+        logger.error (Log.setMessage "Cancelling the analysis on dispose failed" >> Log.addExn ex)
+
       disposables.Dispose()

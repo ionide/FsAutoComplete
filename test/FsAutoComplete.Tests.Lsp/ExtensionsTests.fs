@@ -351,8 +351,10 @@ let analyzerTests state =
 
       let! (server, events) = serverInitialize path analyzerEnabledConfig state
       let scriptPath = Path.Combine(path, "Script.fsx")
-      do! Async.Sleep(TimeSpan.FromSeconds 5.)
       do! waitForWorkspaceFinishedParsing events
+      // The server loads analyzers in the background after the workspace load and does not report when it is done.
+      // A script checked before that gets no analyzer diagnostics, so give the analyzers time to load first.
+      do! Async.Sleep(TimeSpan.FromSeconds 5.)
       do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
       return server, events, path, scriptPath
     }

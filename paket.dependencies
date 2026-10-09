@@ -11,13 +11,13 @@ lowest_matching:true
 strategy: min
 
 nuget BenchmarkDotNet
-nuget Fantomas.Client >= 0.12.0-beta-002 prerelease
+nuget Fantomas.Client >= 0.12.0-beta-004 prerelease
 nuget FSharp.Compiler.Service >= 43.10.100
 nuget Ionide.Analyzers
 nuget FSharp.Analyzers.Build
-nuget Ionide.ProjInfo >= 0.74.1
-nuget Ionide.ProjInfo.FCS >= 0.74.1
-nuget Ionide.ProjInfo.ProjectSystem >= 0.74.1
+nuget Ionide.ProjInfo >= 0.75.1
+nuget Ionide.ProjInfo.FCS >= 0.75.1
+nuget Ionide.ProjInfo.ProjectSystem >= 0.75.1
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
@@ -47,9 +47,9 @@ nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true
 
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
-nuget Expecto ~> 10
-nuget Expecto.Diff
-nuget YoloDev.Expecto.TestSdk
+nuget Expecto >= 11.1.1 < 12
+nuget Expecto.Diff >= 11.1.1 < 12
+nuget YoloDev.Expecto.TestSdk >= 0.16.1
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol

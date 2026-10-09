@@ -15,6 +15,12 @@ open FSharp.UMX
 
 module Expecto =
   open System.Threading.Tasks
+
+  /// Like Expecto's Test.timeout, which cancels the test when the time is up and then waits until it stops, however
+  /// long that takes. This one waits at most 10 seconds: a test stuck in a synchronous step (a blocking call, a
+  /// deadlock) is reported as a timeout instead of holding up the tests after it. Synchronous test code cannot be
+  /// cancelled and keeps Expecto's behaviour.
+  val cancelOnTimeout: timeout: TimeSpan -> code: TestCode -> TestCode
   val inline testBuilderWithTimeout: ts: TimeSpan -> name: string -> testCase: TestCode -> focus: FocusState -> Test
   val inline testCaseWithTimeout: ts: TimeSpan -> name: string -> test: (unit -> unit) -> Test
   val inline ftestCaseWithTimeout: ts: TimeSpan -> name: string -> test: (unit -> unit) -> Test
@@ -73,6 +79,21 @@ val createAdaptiveServer:
   useTransparentCompiler: bool ->
     IFSharpLspServer * ClientEvents
 
+/// Stands in for a server and forwards every call to `Target`. Tests cache their server for the whole run, so a
+/// test group that is done can let go of the real server by clearing `Target`.
+[<Class>]
+type ServerHandle =
+  inherit System.Reflection.DispatchProxy
+  new: unit -> ServerHandle
+  member Target: IFSharpLspServer with get, set
+  override Invoke: method: System.Reflection.MethodInfo * args: obj array -> obj
+
+/// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
+val handleFor: server: IFSharpLspServer -> IFSharpLspServer * (unit -> unit)
+
+/// The server behind a `ServerHandle`, for tests that need the concrete server type.
+val realServer: server: IFSharpLspServer -> IFSharpLspServer
+
 val defaultConfigDto: FSharpConfigDto
 val clientCaps: ClientCapabilities
 
@@ -90,6 +111,9 @@ val runProcess: workingDir: string -> exePath: string -> args: string -> Async<B
 val inline expectExitCodeZero: r: BufferedCommandResult -> unit
 val dotnetRestore: dir: string -> Async<unit>
 val dotnetToolRestore: dir: string -> Async<unit>
+
+/// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
+val prepareTestProjects: path: string -> Async<unit>
 
 val serverInitialize:
   path: string ->

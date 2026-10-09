@@ -97,6 +97,10 @@ type DiagnosticMessage =
 
 /// a type that handles bookkeeping for sending file diagnostics.  It will debounce calls and handle sending diagnostics via the configured function when safe
 type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnostic[] -> Async<unit>) =
+  // Replaced on Dispose. An agent waiting in Receive outlives the cancellation of its token, and must not keep the
+  // sender, and the server it captures, alive.
+  let mutable sendDiagnostics = sendDiagnostics
+
   let send uri (diags: Map<string, Version * Diagnostic[]>) =
     let allDiags = Map.toArray diags |> Array.collect (snd >> snd)
 
@@ -227,6 +231,8 @@ type DiagnosticCollection(sendDiagnostics: DocumentUri -> int option -> Diagnost
 
   interface IDisposable with
     member x.Dispose() =
+      sendDiagnostics <- fun _ _ _ -> async.Return()
+
       for (_, cts) in agents.Values do
         cts.Cancel()
 
