@@ -267,7 +267,11 @@ module Document =
   let private analyzedCount (doc: Document) =
     let count = ref 0
     // The ReplaySubject replays past events during Subscribe, so the count is complete when it returns.
-    use _ = doc |> analyzedForCurrentVersion |> Observable.subscribe (fun _ -> count.Value <- count.Value + 1)
+    use _ =
+      doc
+      |> analyzedForCurrentVersion
+      |> Observable.subscribe (fun _ -> count.Value <- count.Value + 1)
+
     count.Value
 
   /// Waits for the `fsharp/documentAnalyzed` of the current `doc.Version` that follows the first `skip` of them.
@@ -297,8 +301,7 @@ module Document =
       return latest
     }
 
-  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
-    waitForDiagnosticsAfter 0 timeout doc
+  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> = waitForDiagnosticsAfter 0 timeout doc
 
 
   /// Note: Mutates passed `doc`

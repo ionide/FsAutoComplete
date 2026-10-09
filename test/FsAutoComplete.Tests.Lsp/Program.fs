@@ -242,15 +242,15 @@ let private withServerShutdown (createServer: unit -> FsAutoComplete.Lsp.IFSharp
   // Also the tests that were written without a timeout. Tests that have one get a second, equal one.
   |> mapTestCode (Helpers.Expecto.cancelOnTimeout Helpers.Expecto.DEFAULT_TIMEOUT)
   |> afterLastTest (fun () ->
-      let mutable shutdown = ignore
+    let mutable shutdown = ignore
 
-      // A server that fails to shut down must not fail the test that happened to finish last, nor keep the
-      // remaining servers alive.
-      while started.TryDequeue(&shutdown) do
-        try
-          shutdown ()
-        with e ->
-          Helpers.logger.Value.Warning(e, "A server of the test group failed to shut down"))
+    // A server that fails to shut down must not fail the test that happened to finish last, nor keep the
+    // remaining servers alive.
+    while started.TryDequeue(&shutdown) do
+      try
+        shutdown ()
+      with e ->
+        Helpers.logger.Value.Warning(e, "A server of the test group failed to shut down"))
 
 let rec private withoutSequencing test =
   match test with
@@ -262,8 +262,7 @@ let rec private withoutSequencing test =
 /// Runs `group` in Expecto's sequential phase, after every parallel test. For groups that change process-wide state,
 /// such as the current directory or environment variables: an in-process MSBuild build of another group saves both
 /// when it starts and restores them when it ends, which would undo or bring back such a change.
-let private inSequentialPhase group =
-  Test.Sequenced(SequenceMethod.Synchronous, withoutSequencing group)
+let private inSequentialPhase group = Test.Sequenced(SequenceMethod.Synchronous, withoutSequencing group)
 
 /// Runs `group` in Expecto's parallel phase, next to other groups. Its own tests still run one after another, and
 /// one after another with the group of the same name for the other compiler, which uses the same TestCases folders.
@@ -285,11 +284,9 @@ let lspTests toolsPath =
               let createServer () =
                 adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
-              let servers group =
-                withServerShutdown createServer group |> inParallelPhase
+              let servers group = withServerShutdown createServer group |> inParallelPhase
 
-              let serversInSequentialPhase group =
-                withServerShutdown createServer group |> inSequentialPhase
+              let serversInSequentialPhase group = withServerShutdown createServer group |> inSequentialPhase
 
               let compilerTests =
                 [ inSequentialPhase (Templates.tests ())
@@ -378,9 +375,14 @@ let generalTests =
 [<Tests>]
 let tests =
   match msbuild with
-  | Error message -> testList "FSAC" [ testCase "test host and .NET SDK major versions match" (fun _ -> failtest message) ]
+  | Error message ->
+    testList "FSAC" [ testCase "test host and .NET SDK major versions match" (fun _ -> failtest message) ]
   | Ok toolsPath ->
-    testList "FSAC" [ generalTests; lspTests toolsPath; SnapshotTests.snapshotTests loaders toolsPath ]
+    testList
+      "FSAC"
+      [ generalTests
+        lspTests toolsPath
+        SnapshotTests.snapshotTests loaders toolsPath ]
 
 open OpenTelemetry
 open OpenTelemetry.Resources
@@ -400,7 +402,8 @@ let private failuresAtTheEnd (inner: Expecto.Impl.TestPrinters) =
             do! inner.summary config summary
 
             let names label (tests: (FlatTest * Expecto.Impl.TestSummary) list) =
-              tests |> List.map (fun (test, _) -> $"{label}: {config.joinWith.format test.name}")
+              tests
+              |> List.map (fun (test, _) -> $"{label}: {config.joinWith.format test.name}")
 
             match names "Failed" summary.failed @ names "Errored" summary.errored with
             | [] -> ()
@@ -500,7 +503,9 @@ let runTests (args: string[]) =
   // Expecto redirects Console.Out and Console.Error, and a log line and a test's printfn then take the console locks
   // in opposite order.
   let logWriter = new StreamWriter(Console.OpenStandardError(), AutoFlush = true)
-  let logFormatter = Serilog.Formatting.Display.MessageTemplateTextFormatter(outputTemplate)
+
+  let logFormatter =
+    Serilog.Formatting.Display.MessageTemplateTextFormatter(outputTemplate)
 
   // Serilog's async wrapper calls the sink from a single thread.
   let logSink =
@@ -523,9 +528,7 @@ let runTests (args: string[]) =
       .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
-      .WriteTo.Async(fun c ->
-        c.Sink(logSink)
-        |> ignore)
+      .WriteTo.Async(fun c -> c.Sink(logSink) |> ignore)
       .CreateLogger() // make it so that every console log is logged to stderr
 
   // uncomment these next two lines if you want verbose output from the LSP server _during_ your tests

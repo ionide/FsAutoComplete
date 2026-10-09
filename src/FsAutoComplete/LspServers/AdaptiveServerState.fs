@@ -1340,31 +1340,45 @@ type AdaptiveState
     |> disposables.Add
 
 
+  // Cancelled on Dispose, so analysis started before it does not reach the client after it. Not disposed: a file
+  // checked while Dispose runs still links to it.
+  let disposed = new CancellationTokenSource()
+
   do
     disposables.Add
     <| fileChecked.Publish.Subscribe(fun (checkedFile) ->
+      let cancellation =
+        CancellationTokenSource.CreateLinkedTokenSource(checkedFile.CancellationToken, disposed.Token)
+
       async {
-        if checkedFile.VolatileFile.Source.Length > 0 then
-          let config = config |> AVal.force
-          let analyzerPaths = analyzerPaths |> AVal.force
-          do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
+        // An exception that escapes Async.Start ends the process.
+        try
+          if checkedFile.VolatileFile.Source.Length > 0 then
+            let config = config |> AVal.force
+            let analyzerPaths = analyzerPaths |> AVal.force
+            do! builtInCompilerAnalyzers config checkedFile.VolatileFile checkedFile.ParseAndCheckResults
+
+            do!
+              runAnalyzers
+                config
+                analyzerPaths
+                checkedFile.ParseAndCheckResults
+                checkedFile.VolatileFile
+                checkedFile.Options
+                checkedFile.CompilerOptions
 
           do!
-            runAnalyzers
-              config
-              analyzerPaths
-              checkedFile.ParseAndCheckResults
-              checkedFile.VolatileFile
-              checkedFile.Options
-              checkedFile.CompilerOptions
-
-        do!
-          lspClient.NotifyDocumentAnalyzed
-            { TextDocument =
-                { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
-                  Version = checkedFile.VolatileFile.Version } }
+            lspClient.NotifyDocumentAnalyzed
+              { TextDocument =
+                  { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
+                    Version = checkedFile.VolatileFile.Version } }
+        with
+        | :? OperationCanceledException -> ()
+        | ex -> logger.error (Log.setMessage "Analyzing a checked file failed" >> Log.addExn ex)
       }
-      |> Async.StartWithCT checkedFile.CancellationToken)
+      |> fun work -> Async.StartAsTask(work, cancellationToken = cancellation.Token)
+      // Also when the work was cancelled before it started, and the try above never ran.
+      |> fun work -> work.ContinueWith(fun (_: Task<unit>) -> cancellation.Dispose()) |> ignore)
 
 
 
@@ -2958,4 +2972,10 @@ type AdaptiveState
     member this.Dispose() =
 
       traceNotifications |> Option.iter (dispose)
+      // Cancel also runs the callbacks registered on the token, and throws what they throw. The rest must still go.
+      try
+        disposed.Cancel()
+      with ex ->
+        logger.error (Log.setMessage "Cancelling the analysis on dispose failed" >> Log.addExn ex)
+
       disposables.Dispose()

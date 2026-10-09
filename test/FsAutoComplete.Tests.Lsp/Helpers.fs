@@ -317,7 +317,9 @@ type ServerHandle() =
 
 /// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
 let handleFor (server: IFSharpLspServer) =
-  let handle = System.Reflection.DispatchProxy.Create<IFSharpLspServer, ServerHandle>()
+  let handle =
+    System.Reflection.DispatchProxy.Create<IFSharpLspServer, ServerHandle>()
+
   (handle :?> ServerHandle).Target <- server
 
   let shutdown () =
@@ -689,7 +691,8 @@ let private restoredDirectories = System.Collections.Generic.HashSet<string>()
 let private prepareLock = new SemaphoreSlim(1)
 
 let private isWithin (parent: string) (path: string) =
-  path = parent || path.StartsWith(parent + string Path.DirectorySeparatorChar, StringComparison.Ordinal)
+  path = parent
+  || path.StartsWith(parent + string Path.DirectorySeparatorChar, StringComparison.Ordinal)
 
 /// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
 /// Test groups that share a TestCases directory, and the same group for each compiler, reuse that work, and
@@ -705,8 +708,7 @@ let prepareTestProjects (path: string) =
 
       try
         for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
-          let overlaps directory =
-            isWithin built directory || isWithin directory built
+          let overlaps directory = isWithin built directory || isWithin directory built
 
           cleanedDirectories.RemoveWhere overlaps |> ignore
           restoredDirectories.RemoveWhere overlaps |> ignore
