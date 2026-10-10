@@ -828,7 +828,9 @@ type ParseAndCheckResults
     else
       cachedFullEntities.Force()
 
-  member __.GetCrefResolver() = cachedCrefResolver.Force()
+  // Building the resolver lists every entity of every referenced assembly, so only build it for a doc comment that has
+  // a cref to resolve, not for every tooltip.
+  member __.GetCrefResolver() = fun cref -> cachedCrefResolver.Force () cref
 
   member __.GetAllSymbolUsesInFile() = checkResults.GetAllUsesOfAllSymbolsInFile()
 
