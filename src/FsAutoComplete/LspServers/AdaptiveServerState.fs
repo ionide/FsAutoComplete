@@ -2277,6 +2277,35 @@ type AdaptiveState
     tyRes
     =
 
+    // With a snapshot, FCS only searches a file whose parsed identifiers contain the name of the symbol, or the name of
+    // the attribute without its suffix. But to parse a file FCS first imports all references of its project, which
+    // costs a lot for a project that turns out to have no file with the name. An identifier is in the text of its file,
+    // so a file without any of these names in its text has no references, and FCS is not asked.
+    let namesToFind (symbol: FSharp.Compiler.Symbols.FSharpSymbol) =
+      let attributeName =
+        let entity =
+          match symbol with
+          | :? FSharp.Compiler.Symbols.FSharpMemberOrFunctionOrValue as mfv -> mfv.DeclaringEntity
+          | :? FSharp.Compiler.Symbols.FSharpEntity as entity -> Some entity
+          | _ -> None
+
+        entity
+        |> Option.filter (fun e ->
+          e.IsAttributeType
+          && e.DisplayNameCore.EndsWith("Attribute", StringComparison.Ordinal))
+        |> Option.map (fun e -> e.DisplayNameCore.Substring(0, e.DisplayNameCore.Length - "Attribute".Length))
+
+      [ symbol.DisplayNameCore; yield! Option.toList attributeName ]
+
+    let mayContainReferences (file: string<LocalPath>) (symbol: FSharp.Compiler.Symbols.FSharpSymbol) =
+      async {
+        match! forceFindSourceText file with
+        | Error _ -> return true
+        | Ok text ->
+          let text = text.String
+          return namesToFind symbol |> List.exists (String.containsIdentifier text)
+      }
+
     let findReferencesForSymbolInFile (file: string<LocalPath>, project: CompilerProjectOption, symbol) =
       async {
         let checker = checker |> AVal.force
@@ -2284,7 +2313,9 @@ type AdaptiveState
         if File.Exists(UMX.untag file) then
           match project with
           | CompilerProjectOption.TransparentCompiler snap ->
-            return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
+            match! mayContainReferences file symbol with
+            | false -> return Seq.empty
+            | true -> return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
           // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
           | CompilerProjectOption.BackgroundCompiler opts ->
             return! checker.FindReferencesForSymbolInFile(file, opts, symbol)

@@ -222,7 +222,35 @@ module UtilsTests =
             <| fun _ ->
               let prefixes = [ "abc"; "def"; "ghi" ]
               let result = splitByPrefix2 prefixes "xyzSuffix"
-              Expect.equal result None "Should return None when no prefix matches" ] ]
+              Expect.equal result None "Should return None when no prefix matches" ]
+
+        testList
+          "containsIdentifier"
+          [ testCase "finds a whole identifier"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "let e = Expr.Foo" "Expr") "Should find Expr"
+
+            testCase "does not find a part of a longer identifier"
+            <| fun _ ->
+              for text in [ "Expression"; "SyntaxExpr"; "Expr_"; "Expr1"; "Expr'"; "_Expr" ] do
+                Expect.isFalse (String.containsIdentifier text "Expr") $"Should not find Expr in {text}"
+
+            testCase "keeps looking after a longer identifier"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "Expression Expr" "Expr") "Should find the second one"
+
+            testCase "finds a type parameter"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "let f (x: 'a) = x" "a") "Should find a in 'a"
+
+            testCase "finds a name in backticks"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "let ``foo bar`` = 1" "foo bar") "Should find foo bar"
+
+            testCase "finds an operator between identifiers"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "let c = a+++b" "+++") "Should find +++"
+
+            testCase "finds an empty name"
+            <| fun _ -> Expect.isTrue (String.containsIdentifier "let x = 1" "") "Should be true for an empty name"
+
+            testCase "does not find a missing name"
+            <| fun _ -> Expect.isFalse (String.containsIdentifier "let x = 1" "y") "Should not find y" ] ]
 
   /// Tests for Map module extensions
   let mapTests =

@@ -472,6 +472,33 @@ module String =
     | -1 -> NoMatch
     | n -> Split(s.[0 .. n - 1], s.Substring(n + 1))
 
+  let containsIdentifier (text: string) (name: string) =
+    let isIdentChar c = Char.IsLetterOrDigit c || c = '_' || c = '\''
+
+    if String.IsNullOrEmpty name then
+      true
+    else
+      let checkBefore = isIdentChar name.[0]
+      let checkAfter = isIdentChar name.[name.Length - 1]
+
+      let rec find (from: int) =
+        let i = text.IndexOf(name, from, StringComparison.Ordinal)
+
+        if i = -1 then
+          false
+        else
+          let after = i + name.Length
+
+          // An identifier does not start with ', so `'a` is `'` followed by `a`.
+          let extendsBefore =
+            checkBefore && i > 0 && isIdentChar text.[i - 1] && text.[i - 1] <> '\''
+
+          let extendsAfter = checkAfter && after < text.Length && isIdentChar text.[after]
+
+          if extendsBefore || extendsAfter then find (i + 1) else true
+
+      find 0
+
 [<Extension>]
 type ReadOnlySpanExtensions =
   /// Note: empty string -> 1 line
