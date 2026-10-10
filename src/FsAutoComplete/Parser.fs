@@ -88,6 +88,15 @@ module Parser =
 
     o
 
+  let msBuildGlobalPropertyOption =
+    let o = Option<string[]>("--msbuild-global-property", "--msbuild-prop")
+
+    o.Description <-
+      "Add or override an MSBuild global property for design-time project loading. Specify as KEY=VALUE, e.g. --msbuild-global-property Configuration=Release. Can be specified multiple times."
+
+    o.AllowMultipleArgumentsPerToken <- true
+    o
+
   let stateLocationOption =
     let o = Option<DirectoryInfo>("--state-directory")
 
@@ -111,6 +120,7 @@ module Parser =
     rootCommand.Options.Add stateLocationOption
     rootCommand.Options.Add otelTracingOption
     rootCommand.Options.Add useTransparentCompilerOption
+    rootCommand.Options.Add msBuildGlobalPropertyOption
 
     // for back-compat - we removed some options and this broke some clients.
     rootCommand.TreatUnmatchedTokensAsErrors <- false
@@ -120,12 +130,24 @@ module Parser =
       let adaptiveLspEnabled = parseResult.GetValue(adaptiveLspServerOption)
       let useTransparentCompiler = parseResult.GetValue(useTransparentCompilerOption)
 
+      let extraMsBuildProperties =
+        parseResult.GetValue(msBuildGlobalPropertyOption)
+        |> Option.ofObj
+        |> Option.defaultValue [||]
+        |> Array.choose (fun (kv: string) ->
+          match kv.IndexOf('=') with
+          | -1 -> None
+          | i -> Some(kv.[.. i - 1], kv.[i + 1 ..]))
+        |> Array.toList
+
       let workspaceLoaderFactory =
         fun toolsPath ->
+          let properties = ProjectLoader.globalProperties @ extraMsBuildProperties
+
           if projectGraphEnabled then
-            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, ProjectLoader.globalProperties)
+            Ionide.ProjInfo.WorkspaceLoaderViaProjectGraph.Create(toolsPath, properties)
           else
-            Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, ProjectLoader.globalProperties)
+            Ionide.ProjInfo.WorkspaceLoader.Create(toolsPath, properties)
 
       let sourceTextFactory: ISourceTextFactory = new RoslynSourceTextFactory()
 
