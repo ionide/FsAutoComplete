@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.85.2] - 2026-10-10
+
+### Fixed
+
+- [Loading projects no longer leaves MSBuild threads behind](https://github.com/ionide/FsAutoComplete/pull/1558) - Update `Ionide.ProjInfo` to `0.75.3`. With MSBuild 18, every design-time build left an in-process node thread behind that kept the evaluated projects in memory. Checkout the [Ionide.ProjInfo release notes](https://github.com/ionide/proj-info/releases/tag/v0.75.3) for more details.
+
 ## [0.85.1] - 2026-10-10
 
 ### Changed
