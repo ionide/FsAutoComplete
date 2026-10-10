@@ -1245,14 +1245,18 @@ type AdaptiveState
     }
 
 
-  let createSnapshots projectOptions =
-    Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projectOptions)
+  let createSnapshots useBuiltProjectReferences projectOptions =
+    Snapshots.createSnapshots
+      useBuiltProjectReferences
+      openFilesWithChanges
+      (AVal.constant sourceTextFactory)
+      (AMap.ofHashMap projectOptions)
     |> AMap.map (fun _ (proj, snap) ->
       { ProjectOptions = proj
         FSharpProjectCompilerOptions = snap |> AVal.map CompilerProjectOption.TransparentCompiler
         LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
 
-  let createOptions projectOptions =
+  let createOptions useBuiltProjectReferences projectOptions =
     let projectOptions = HashMap.toValueList projectOptions
     let fsharpOptions = projectOptions |> FCS.mapManyOptions |> Seq.toList
 
@@ -1266,7 +1270,13 @@ type AdaptiveState
         { fso with
             SourceFiles = fso.SourceFiles |> Array.map (Utils.normalizePath >> UMX.untag)
             Stamp = fso.Stamp |> Option.orElse (Some DateTime.UtcNow.Ticks)
-            ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString())) }
+            ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString()))
+            // Without the in-memory references, FCS reads a referenced project from the output DLL on its command line.
+            ReferencedProjects =
+              if useBuiltProjectReferences then
+                [||]
+              else
+                fso.ReferencedProjects }
         |> CompilerProjectOption.BackgroundCompiler
 
       Utils.normalizePath projectOption.ProjectFileName,
@@ -1279,10 +1289,12 @@ type AdaptiveState
     asyncAVal {
       let! projectOptions = projectOptions
 
+      and! useBuiltProjectReferences = config |> AVal.map (fun c -> c.DisableInMemoryProjectReferences)
+
       if useTransparentCompiler then
-        return createSnapshots projectOptions
+        return createSnapshots useBuiltProjectReferences projectOptions
       else
-        return createOptions projectOptions
+        return createOptions useBuiltProjectReferences projectOptions
     }
 
 
@@ -2217,11 +2229,14 @@ type AdaptiveState
       let mutable continueAlong = true
 
       while continueAlong do
+        // The project references of MSBuild too: a project referenced by its output DLL is not in the snapshot.
         let dependents =
           projectSnapshot
           |> Seq.filter (fun p ->
             (AVal.force p.FSharpProjectCompilerOptions).ReferencedProjectsPath
-            |> Seq.exists currentPass.Contains)
+            |> Seq.exists currentPass.Contains
+            || p.ProjectOptions.ReferencedProjects
+               |> List.exists (fun r -> currentPass.Contains r.ProjectFileName))
 
         if Seq.isEmpty dependents then
           continueAlong <- false
@@ -2277,6 +2292,35 @@ type AdaptiveState
     tyRes
     =
 
+    // With a snapshot, FCS only searches a file whose parsed identifiers contain the name of the symbol, or the name of
+    // the attribute without its suffix. But to parse a file FCS first imports all references of its project, which
+    // costs a lot for a project that turns out to have no file with the name. An identifier is in the text of its file,
+    // so a file without any of these names in its text has no references, and FCS is not asked.
+    let namesToFind (symbol: FSharp.Compiler.Symbols.FSharpSymbol) =
+      let attributeName =
+        let entity =
+          match symbol with
+          | :? FSharp.Compiler.Symbols.FSharpMemberOrFunctionOrValue as mfv -> mfv.DeclaringEntity
+          | :? FSharp.Compiler.Symbols.FSharpEntity as entity -> Some entity
+          | _ -> None
+
+        entity
+        |> Option.filter (fun e ->
+          e.IsAttributeType
+          && e.DisplayNameCore.EndsWith("Attribute", StringComparison.Ordinal))
+        |> Option.map (fun e -> e.DisplayNameCore.Substring(0, e.DisplayNameCore.Length - "Attribute".Length))
+
+      [ symbol.DisplayNameCore; yield! Option.toList attributeName ]
+
+    let mayContainReferences (file: string<LocalPath>) (symbol: FSharp.Compiler.Symbols.FSharpSymbol) =
+      async {
+        match! forceFindSourceText file with
+        | Error _ -> return true
+        | Ok text ->
+          let text = text.String
+          return namesToFind symbol |> List.exists (String.containsIdentifier text)
+      }
+
     let findReferencesForSymbolInFile (file: string<LocalPath>, project: CompilerProjectOption, symbol) =
       async {
         let checker = checker |> AVal.force
@@ -2284,7 +2328,9 @@ type AdaptiveState
         if File.Exists(UMX.untag file) then
           match project with
           | CompilerProjectOption.TransparentCompiler snap ->
-            return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
+            match! mayContainReferences file symbol with
+            | false -> return Seq.empty
+            | true -> return! checker.FindReferencesForSymbolInFile(file, snap, symbol)
           // `FSharpChecker.FindBackgroundReferencesInFile` only works with existing files
           | CompilerProjectOption.BackgroundCompiler opts ->
             return! checker.FindReferencesForSymbolInFile(file, opts, symbol)

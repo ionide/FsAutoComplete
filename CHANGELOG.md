@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.85.1] - 2026-10-10
+
+### Changed
+
+- [Find References skips files that do not contain the name](https://github.com/ionide/FsAutoComplete/pull/1557) - With the transparent compiler, a file is only searched when its text contains the name of the symbol as a whole identifier. Before, FCS imported the references of every project it searched, also of projects with no file that uses the name. On the Fantomas solution, Find References takes 1.5 s instead of about 3 s and adds about 215 MB to memory instead of about 480 MB.
+
+### Fixed
+
+- [The first hover in a file is fast again](https://github.com/ionide/FsAutoComplete/pull/1557) - Since 0.85.0, the first hover in a file listed every entity of every referenced assembly to resolve `<see cref>` links, also when the tooltip had none. It took over a second and kept 50 to 70 MB. The list is now only built for a tooltip with a cref.
+- [`DisableInMemoryProjectReferences` works again](https://github.com/ionide/FsAutoComplete/pull/1557) - The setting had no effect since 0.66.0. With it on, a referenced F# project comes from its output DLL instead of its source files, with both compilers.
+
 ## [0.85.0] - 2026-10-09
 
 ### Added

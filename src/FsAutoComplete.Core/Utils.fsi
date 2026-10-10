@@ -170,6 +170,10 @@ module String =
 
   val splitAtChar: splitter: char -> s: string -> SplitResult
 
+  /// Whether `text` contains `name` as a token of its own, not as part of a longer identifier: `Expr` is not in
+  /// `Expression`, but `a` is in `'a`. True for an empty name.
+  val containsIdentifier: text: string -> name: string -> bool
+
 [<Class>]
 [<Extension>]
 type ReadOnlySpanExtensions =
