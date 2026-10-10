@@ -36,8 +36,6 @@ type FSharpCompilerServiceChecker =
     ?transparentCompilerCacheSizes: int ->
       FSharpCompilerServiceChecker
 
-  member DisableInMemoryProjectReferences: bool with get, set
-
   static member GetDependingProjects:
     file: string<LocalPath> ->
     snapshots: seq<string * CompilerProjectOption> ->

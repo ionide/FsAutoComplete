@@ -1245,14 +1245,18 @@ type AdaptiveState
     }
 
 
-  let createSnapshots projectOptions =
-    Snapshots.createSnapshots openFilesWithChanges (AVal.constant sourceTextFactory) (AMap.ofHashMap projectOptions)
+  let createSnapshots useBuiltProjectReferences projectOptions =
+    Snapshots.createSnapshots
+      useBuiltProjectReferences
+      openFilesWithChanges
+      (AVal.constant sourceTextFactory)
+      (AMap.ofHashMap projectOptions)
     |> AMap.map (fun _ (proj, snap) ->
       { ProjectOptions = proj
         FSharpProjectCompilerOptions = snap |> AVal.map CompilerProjectOption.TransparentCompiler
         LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
 
-  let createOptions projectOptions =
+  let createOptions useBuiltProjectReferences projectOptions =
     let projectOptions = HashMap.toValueList projectOptions
     let fsharpOptions = projectOptions |> FCS.mapManyOptions |> Seq.toList
 
@@ -1266,7 +1270,13 @@ type AdaptiveState
         { fso with
             SourceFiles = fso.SourceFiles |> Array.map (Utils.normalizePath >> UMX.untag)
             Stamp = fso.Stamp |> Option.orElse (Some DateTime.UtcNow.Ticks)
-            ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString())) }
+            ProjectId = fso.ProjectId |> Option.orElse (Some(Guid.NewGuid().ToString()))
+            // Without the in-memory references, FCS reads a referenced project from the output DLL on its command line.
+            ReferencedProjects =
+              if useBuiltProjectReferences then
+                [||]
+              else
+                fso.ReferencedProjects }
         |> CompilerProjectOption.BackgroundCompiler
 
       Utils.normalizePath projectOption.ProjectFileName,
@@ -1279,10 +1289,12 @@ type AdaptiveState
     asyncAVal {
       let! projectOptions = projectOptions
 
+      and! useBuiltProjectReferences = config |> AVal.map (fun c -> c.DisableInMemoryProjectReferences)
+
       if useTransparentCompiler then
-        return createSnapshots projectOptions
+        return createSnapshots useBuiltProjectReferences projectOptions
       else
-        return createOptions projectOptions
+        return createOptions useBuiltProjectReferences projectOptions
     }
 
 
@@ -2217,11 +2229,14 @@ type AdaptiveState
       let mutable continueAlong = true
 
       while continueAlong do
+        // The project references of MSBuild too: a project referenced by its output DLL is not in the snapshot.
         let dependents =
           projectSnapshot
           |> Seq.filter (fun p ->
             (AVal.force p.FSharpProjectCompilerOptions).ReferencedProjectsPath
-            |> Seq.exists currentPass.Contains)
+            |> Seq.exists currentPass.Contains
+            || p.ProjectOptions.ReferencedProjects
+               |> List.exists (fun r -> currentPass.Contains r.ProjectFileName))
 
         if Seq.isEmpty dependents then
           continueAlong <- false

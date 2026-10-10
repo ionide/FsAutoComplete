@@ -196,7 +196,7 @@ let snapshotTests loaders toolsPath =
 
 
         let snaps =
-          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+          Snapshots.createSnapshots false AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
         let snapshots = snaps |> AMap.force
 
@@ -221,7 +221,7 @@ let snapshotTests loaders toolsPath =
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
         let snapsA =
-          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+          Snapshots.createSnapshots false AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
 
         let snapshotBefore = snapsA |> AMap.mapA (fun _ (_,v) -> v) |> AMap.force
 
@@ -238,6 +238,28 @@ let snapshotTests loaders toolsPath =
         Expect.equal cs1 cs2 "console should be the same"
       }
 
+      testCaseAsync "MultiProject - Built project references reference the output DLL" <| asyncEx {
+        let (loader : IWorkspaceLoader) = workspaceLoaderFactory toolsPath
+        let sourceTextFactory : FsAutoComplete.ISourceTextFactory = FsAutoComplete.RoslynSourceTextFactory()
+        use dDir = Helpers.DisposableDirectory.From Projects.MultiProjectScenario1.multiProjectScenario1Dir
+        let projects =  Projects.MultiProjectScenario1.projects dDir.DirectoryInfo
+        do! Dotnet.restoreAll projects
+
+        let loadedProjectsA = createProjectA projects loader ignore
+
+        let snapshots =
+          Snapshots.createSnapshots true AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+          |> AMap.mapA (fun _ (_,v) -> v)
+          |> AMap.force
+
+        let console = snapshots |> HashMap.find (normalizePath (Projects.MultiProjectScenario1.Console1.projectIn dDir.DirectoryInfo).FullName)
+
+        match console.ReferencedProjects with
+        | [ FSharpReferencedProjectSnapshot.PEReference(_, reader) ] ->
+          Expect.equal (Path.GetFileName reader.OutputFile) "Library1.dll" "Console should reference the DLL of Library1"
+        | references -> failtestf "Expected one reference to the DLL of Library1, got %A" references
+      }
+
       testCaseAsync "Cached Adaptive Snapshot - MultiProject - Updating Source file in Console recreates Console snapshot" <| asyncEx {
         let (loader : IWorkspaceLoader) = workspaceLoaderFactory toolsPath
         let sourceTextFactory : FsAutoComplete.ISourceTextFactory = FsAutoComplete.RoslynSourceTextFactory()
@@ -250,7 +272,7 @@ let snapshotTests loaders toolsPath =
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
         let snapsA =
-          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+          Snapshots.createSnapshots false AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
         let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
 
 
@@ -300,7 +322,7 @@ let snapshotTests loaders toolsPath =
         let loadedProjectsA = createProjectA projects loader (fun () -> loadedCalls <- loadedCalls + 1)
 
         let snapsA =
-          Snapshots.createSnapshots AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
+          Snapshots.createSnapshots false AMap.empty (AVal.constant sourceTextFactory) loadedProjectsA
         let snaps = snapsA |> AMap.mapA (fun _ (_,v) -> v)
 
 

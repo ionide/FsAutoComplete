@@ -142,8 +142,6 @@ type FSharpCompilerServiceChecker
   /// so we must purge any typecheck results for scripts.
   let scriptTypecheckRequirementsChanged = Event<_>()
 
-  let mutable disableInMemoryProjectReferences = false
-
   let fixupFsharpCoreAndFSIPathsForSnapshot (snapshot: FSharpProjectSnapshot) =
     match sdkFsharpCore, sdkFsiAuxLib with
     | None, _
@@ -249,10 +247,6 @@ type FSharpCompilerServiceChecker
     { projectOptions with
         SourceFiles = files }
 
-
-  member __.DisableInMemoryProjectReferences
-    with get () = disableInMemoryProjectReferences
-    and set (value) = disableInMemoryProjectReferences <- value
 
   static member GetDependingProjects (file: string<LocalPath>) (snapshots: seq<string * CompilerProjectOption>) =
     let project =
