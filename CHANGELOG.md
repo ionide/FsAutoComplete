@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.85.3] - 2026-10-12
+
+### Fixed
+
+- [textDocument/definition fails to decompile .NET assemblies](https://github.com/ionide/FsAutoComplete/pull/1561) -  Update `ICSharpCode.Decompiler` package to `11.1.0` version. This fixes decompilation error when doing "go to definition" action. Previous version of this package was of year 2023.
+
 ## [0.85.2] - 2026-10-10
 
 ### Fixed
