@@ -130,9 +130,9 @@ NUGET
     IcedTasks (0.11.7)
       FSharp.Core (>= 6.0.1)
       Microsoft.Bcl.AsyncInterfaces (>= 6.0) - restriction: || (&& (== net10.0) (< netstandard2.1)) (&& (== net8.0) (< netstandard2.1)) (&& (== net9.0) (< netstandard2.1)) (== netstandard2.0)
-    ICSharpCode.Decompiler (8.2.0.7535)
-      System.Collections.Immutable (>= 6.0)
-      System.Reflection.Metadata (>= 6.0)
+    ICSharpCode.Decompiler (11.1.0.9782)
+      System.Collections.Immutable (>= 9.0)
+      System.Reflection.Metadata (>= 9.0)
     Ionide.Analyzers (0.17)
     Ionide.KeepAChangelog.Tasks (0.3.1) - copy_local: true
     Ionide.LanguageServerProtocol (0.7)

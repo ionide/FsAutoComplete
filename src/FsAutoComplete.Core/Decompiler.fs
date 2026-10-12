@@ -1,4 +1,4 @@
-﻿module FsAutoComplete.Decompiler
+module FsAutoComplete.Decompiler
 
 open System
 open System.IO
@@ -172,7 +172,8 @@ let areSameTypes (typeArguments: IReadOnlyList<IType>) ((mParam, paramSym): IPar
     parameterTypeFullName = extTypeFullName
 
   if paramSym.IsByRef then
-    mParam.IsRef && compareToExternalType paramSym.ParameterType
+    mParam.ReferenceKind = ReferenceKind.Ref
+    && compareToExternalType paramSym.ParameterType
   else
     compareToExternalType paramSym.ParameterType
 
@@ -222,7 +223,7 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     // the assembly that actually defines the type.
     let (decompiler, typeDef) =
       if initialTypeDef <> null && initialTypeDef.ParentModule <> typeSystem.MainModule then
-        let peFile = initialTypeDef.ParentModule.PEFile
+        let peFile = initialTypeDef.ParentModule.MetadataFile
 
         if peFile <> null && peFile.FileName <> null then
           let redirectedDecompiler = decompilerForFile peFile.FileName
