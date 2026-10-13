@@ -896,7 +896,9 @@ module Commands =
       // Note: declarations in script files are currently always local!
       | Some SymbolDeclarationLocation.CurrentDocument ->
         let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+        let symbolUses =
+          tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, cancellationToken = ct)
 
         let symbolUses: _ seq =
           if includeDeclarations then
@@ -1448,8 +1450,8 @@ type Commands() =
 
               member _.VisitComponentInfo(_, synComponentInfo) =
                 match synComponentInfo with
-                | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
-                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                | SynComponentInfo(attributes = attributes; xmlDoc = xmlDoc) when
+                  longIdentContainsPos synComponentInfo.LongIdent pos && xmlDoc.IsEmpty
                   ->
                   Some(false, tryGetFirstAttributeLine attributes)
                 | _ -> None
@@ -1457,7 +1459,7 @@ type Commands() =
               member _.VisitRecordDefn(_, fields, _) =
                 let isInLine c =
                   match c with
-                  | SynField(attributes = attributes; xmlDoc = xmlDoc; idOpt = Some ident) when
+                  | SynFieldOrSpread.Field(SynField(attributes = attributes; xmlDoc = xmlDoc; idOpt = Some ident)) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
                     Some(false, tryGetFirstAttributeLine attributes)
@@ -1524,8 +1526,8 @@ type Commands() =
                       match d with
                       | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
                         match moduleInfo with
-                        | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
-                          longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                        | SynComponentInfo(attributes = attributes; xmlDoc = xmlDoc) when
+                          longIdentContainsPos moduleInfo.LongIdent pos && xmlDoc.IsEmpty
                           ->
                           Some(false, tryGetFirstAttributeLine attributes)
                         | _ -> findNested decls

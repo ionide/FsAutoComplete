@@ -34,7 +34,12 @@ let private isAstElemWithPreXmlDoc input pos =
       None
 
   let (|AnyUnelaborated|_|) getXmlDoc = List.tryPick (getXmlDoc >> (|Unelaborated|_|))
-  let field (SynField(xmlDoc = xmlDoc)) = xmlDoc
+
+  let field =
+    function
+    | SynFieldOrSpread.Field(SynField(xmlDoc = xmlDoc)) -> xmlDoc
+    | SynFieldOrSpread.Spread _ -> PreXmlDoc.Empty
+
   let unionCase (SynUnionCase(xmlDoc = xmlDoc)) = xmlDoc
   let enumCase (SynEnumCase(xmlDoc = xmlDoc)) = xmlDoc
 
@@ -47,7 +52,9 @@ let private isAstElemWithPreXmlDoc input pos =
     | SyntaxNode.SynBinding(SynBinding(xmlDoc = Unelaborated xmlDoc))
     | SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(xmlDoc = Unelaborated xmlDoc)))
     | SyntaxNode.SynTypeDefn(SynTypeDefn(
-      typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(recordFields = AnyUnelaborated field xmlDoc), _)))
+      typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(
+                                          recordFieldsAndSpreads = AnyUnelaborated field xmlDoc),
+                                        _)))
     | SyntaxNode.SynTypeDefn(SynTypeDefn(
       typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(unionCases = AnyUnelaborated unionCase xmlDoc), _)))
     | SyntaxNode.SynTypeDefn(SynTypeDefn(

@@ -306,7 +306,10 @@ module Syntax =
       | SynExpr.Record(_, _, fields, _) ->
 
         fields
-        |> List.iter (fun (SynExprRecordField(fieldName = (_, _); expr = e)) -> e |> Option.iter walkExpr)
+        |> List.iter (function
+          | SynExprRecordFieldOrSpread.Field(SynExprRecordField(fieldName = (_, _); expr = e), _) ->
+            e |> Option.iter walkExpr
+          | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = e), _) -> walkExpr e)
       | SynExpr.ObjExpr(ty, argOpt, _, bindings, _, ifaces, _, _) ->
 
         argOpt |> Option.iter (fun (e, _) -> walkExpr e)
@@ -494,7 +497,11 @@ module Syntax =
       match s with
       | SynTypeDefnSimpleRepr.Enum(cases, _) -> List.iter walkEnumCase cases
       | SynTypeDefnSimpleRepr.Union(_, cases, _) -> List.iter walkUnionCase cases
-      | SynTypeDefnSimpleRepr.Record(_, fields, _) -> List.iter walkField fields
+      | SynTypeDefnSimpleRepr.Record(_, fields, _) ->
+        fields
+        |> List.iter (function
+          | SynFieldOrSpread.Field f -> walkField f
+          | SynFieldOrSpread.Spread(SynTypeSpread(ty = t)) -> walkType t)
       | SynTypeDefnSimpleRepr.TypeAbbrev(_, t, _) -> walkType t
       | SynTypeDefnSimpleRepr.General _ -> ()
       | SynTypeDefnSimpleRepr.LibraryOnlyILAssembly _ -> ()
@@ -502,8 +509,7 @@ module Syntax =
       | SynTypeDefnSimpleRepr.Exception _ -> ()
 
     and walkComponentInfo
-      (SynComponentInfo(
-        attributes = AllAttrs attrs; typeParams = typars; constraints = constraints; longId = _; range = _) as s)
+      (SynComponentInfo(attributes = AllAttrs attrs; typeParams = typars; constraints = constraints; range = _) as s)
       =
       walker.WalkComponentInfo s
       List.iter walkAttribute attrs
@@ -636,7 +642,8 @@ module FoldingRange =
 
     override _.WalkInterpolatedStringPart i =
       match i with
-      | SynInterpolatedStringPart.FillExpr(qualifiers = Some ident) -> addIfInside ident.idRange
+      | SynInterpolatedStringPart.FillExpr(formatting = SynInterpolationFormatting.DotNet(format = Some ident)) ->
+        addIfInside ident.idRange
       | SynInterpolatedStringPart.String(_, r) -> addIfInside r
       | _ -> ()
 
@@ -769,7 +776,9 @@ module FsacSemanticTokenSites =
       if not (delegateDeclarationRanges.Contains(id.idRange)) then
         declarations.Add(id.idRange)
 
-    override _.WalkTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+    override _.WalkTypeDefn(SynTypeDefn(typeInfo = typeInfo; typeRepr = typeRepr)) =
+      let idents = typeInfo.LongIdent
+
       match typeRepr with
       | SynTypeDefnRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
       | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
@@ -781,7 +790,9 @@ module FsacSemanticTokenSites =
           | _ -> ())
       | _ -> tryLastIdentRange idents |> Option.iter definitions.Add
 
-    override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+    override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = typeInfo; typeRepr = typeRepr)) =
+      let idents = typeInfo.LongIdent
+
       match typeRepr with
       | SynTypeDefnSigRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
       | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->

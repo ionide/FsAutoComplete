@@ -3,9 +3,6 @@ version 7.2.1
 framework: netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0
 
 source https://api.nuget.org/v3/index.json
-# this is the FCS nightly feed, re-enable at your own risk!
-# source: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet8/nuget/v3/index.json
-# source: ./libs
 storage: none
 lowest_matching:true
 strategy: min
@@ -62,8 +59,26 @@ nuget CommunityToolkit.HighPerformance
 nuget System.Security.Cryptography.Pkcs
 nuget System.Net.Http
 nuget System.Text.RegularExpressions
+# the nightly FCS references System.Reflection.Metadata 10, which net8.0 and net9.0 do not ship
+nuget System.Reflection.Metadata >= 10.0.10
 
 
 ## Test Explorer
 nuget Microsoft.TestPlatform.TranslationLayer
 nuget Microsoft.TestPlatform.ObjectModel
+
+## Nightly FCS and FSharp.Core, built from dotnet/fsharp main.
+## Every FSharp.Analyzers.SDK release pins FSharp.Core to an exact version, so the main group stays on
+## the stable FCS and Directory.Build.targets swaps in these assemblies at build time.
+## Update with the update-fcs-nightly skill (.agents/skills/update-fcs-nightly), which keeps these versions in sync
+## with FcsNightlyVersion and FSharpCoreNightlyVersion in Directory.Build.props.
+group FcsNightly
+  source https://api.nuget.org/v3/index.json
+  source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet12/nuget/v3/index.json
+  storage: none
+  lowest_matching: true
+  strategy: min
+  framework: netstandard2.0, netstandard2.1
+
+  nuget FSharp.Compiler.Service 43.13.200-rc2.26509.106
+  nuget FSharp.Core 11.0.200-rc2.26509.106

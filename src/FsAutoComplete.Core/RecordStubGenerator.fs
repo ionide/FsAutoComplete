@@ -21,7 +21,7 @@ type RecordExpr =
   {
     Expr: SynExpr
     CopyExprOption: option<SynExpr * BlockSeparator>
-    FieldExprList: SynExprRecordField list
+    FieldExprList: SynExprRecordFieldOrSpread list
     LastKnownGoodPosForSymbolLookup: Position
   }
 
@@ -74,7 +74,8 @@ type RecordStubsInsertionParams =
         expr.FieldExprList
         |> List.choose (fun fieldInfo ->
           match fieldInfo with
-          | SynExprRecordField(fieldName = (SynLongIdent(id = identHead :: _), true)) ->
+          | SynExprRecordFieldOrSpread.Field(SynExprRecordField(fieldName = (SynLongIdent(id = identHead :: _), true)),
+                                             _) ->
             let fieldLine = identHead.idRange.StartLine
             let indentColumn = identHead.idRange.StartColumn
             Some(fieldInfo, indentColumn, fieldLine)
@@ -97,9 +98,10 @@ type RecordStubsInsertionParams =
 
         return!
           match lastFieldInfo with
-          | SynExprRecordField(expr = None) -> None
-          | SynExprRecordField(
-              fieldName = (SynLongIdent(id = _ :: _), true); expr = Some expr; blockSeparator = semiColonOpt) ->
+          | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = None), _) -> None
+          | SynExprRecordFieldOrSpread.Field(SynExprRecordField(
+                                               fieldName = (SynLongIdent(id = _ :: _), true); expr = Some expr),
+                                             semiColonOpt) ->
             match semiColonOpt with
             | None ->
               {
@@ -150,7 +152,7 @@ let formatRecord
   (insertionPos: RecordStubsInsertionParams)
   (fieldDefaultValue: string)
   (entity: FSharpEntity)
-  (fieldsWritten: SynExprRecordField list)
+  (fieldsWritten: SynExprRecordFieldOrSpread list)
   =
   Debug.Assert(entity.IsFSharpRecord, "Entity has to be an F# record.")
   use writer = new ColumnIndentedTextWriter()
@@ -166,9 +168,10 @@ let formatRecord
   let fieldsWritten =
     fieldsWritten
     |> List.collect (function
-      | SynExprRecordField(fieldName = (SynLongIdent(id = id), _)) ->
+      | SynExprRecordFieldOrSpread.Field(SynExprRecordField(fieldName = (SynLongIdent(id = id), _)), _) ->
         // Extract <Field> in qualified identifiers: A.B.<Field> = ...
-        if id.Length > 0 then [ (List.last id).idText ] else [])
+        if id.Length > 0 then [ (List.last id).idText ] else []
+      | SynExprRecordFieldOrSpread.Spread _ -> [])
     |> Set.ofList
 
   let fieldsToWrite =
@@ -215,8 +218,10 @@ let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos
               FieldExprList = recordFields
               LastKnownGoodPosForSymbolLookup =
                 recordFields
-                |> List.tryLast
-                |> Option.map (fun (SynExprRecordField(fieldName = (id, _))) -> id.Range.Start)
+                |> List.rev
+                |> List.tryPick (function
+                  | SynExprRecordFieldOrSpread.Field(SynExprRecordField(fieldName = (id, _)), _) -> Some id.Range.Start
+                  | SynExprRecordFieldOrSpread.Spread _ -> None)
                 |> Option.defaultValue synExpr.Range.Start
             }
         | _ -> None)
@@ -234,19 +239,23 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (
         let lastField = Seq.last expr.FieldExprList
 
         match lastField with
-        | SynExprRecordField(blockSeparator = Some(semiColonRange, Some _semiColonEndPos)) ->
+        | SynExprRecordFieldOrSpread.Field(_, Some(semiColonRange, Some _semiColonEndPos)) ->
           // The last field ends with a ';'
           // Look here: { field = expr;<start> ... }<end>
           Some(Range.unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
 
 
-        | SynExprRecordField(expr = Some fieldExpr) ->
+        | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = Some fieldExpr), _) ->
           // The last field doesn't end with a ';'
           // Look here: { field = expr<start> ... }<end>
           Some(Range.unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
 
-        | SynExprRecordField(expr = None) ->
+        | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = None), _) ->
           // We don't allow generation when the last field isn't assigned an expression
+          None
+
+        | SynExprRecordFieldOrSpread.Spread _ ->
+          // We don't allow generation when the last element is a spread
           None
 
     return!

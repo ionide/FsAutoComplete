@@ -29,7 +29,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         ||> ParsedInput.tryPick (fun _ node ->
           match node with
           | SyntaxNode.SynTypeDefn(SynTypeDefn(
-              typeInfo = SynComponentInfo(longId = [ typeIdent ])
+              typeInfo = SynComponentInfo(synType = Some(SynType.LongIdent(SynLongIdent(id = [ typeIdent ]))))
               typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _; range = mBody))) when
             Range.equals typeIdent.idRange mDiag
             ->
@@ -57,7 +57,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             ||> ParsedInput.tryPick (fun _path node ->
               match node with
               | SyntaxNode.SynTypeDefnSig(SynTypeDefnSig(
-                  typeInfo = SynComponentInfo(longId = [ typeIdent ])
+                  typeInfo = SynComponentInfo(synType = Some(SynType.LongIdent(SynLongIdent(id = [ typeIdent ]))))
                   typeRepr = SynTypeDefnSigRepr.Simple(repr = SynTypeDefnSimpleRepr.TypeAbbrev _; range = m))) when
                 Range.equals typeIdent.idRange signatureLocation
                 ->

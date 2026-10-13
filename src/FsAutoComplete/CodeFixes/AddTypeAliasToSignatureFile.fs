@@ -55,7 +55,7 @@ let fix
         ||> ParsedInput.tryPick (fun _path node ->
           match node with
           | SyntaxNode.SynTypeDefn(SynTypeDefn(
-              typeInfo = SynComponentInfo(longId = [ typeIdent ])
+              typeInfo = SynComponentInfo(synType = Some(SynType.LongIdent(SynLongIdent(id = [ typeIdent ]))))
               typeRepr = SynTypeDefnRepr.Simple(simpleRepr = SynTypeDefnSimpleRepr.TypeAbbrev _)) as tdn) when
             (Range.rangeContainsPos tdn.FullRange fcsPos)
             ->
@@ -88,7 +88,8 @@ let fix
               match node with
               | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(longId = longId; decls = decls))
               | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                moduleInfo = SynComponentInfo(longId = longId); moduleDecls = decls)) ->
+                moduleInfo = SynComponentInfo(synType = Some(SynType.LongIdent(SynLongIdent(id = longId))))
+                moduleDecls = decls)) ->
                 let mSigName = mkLongIdRange longId
 
                 // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.

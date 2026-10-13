@@ -75,8 +75,8 @@ let private getRangesAndPlacement input pos =
       match d with
       // Nested Module
       | SynModuleDecl.NestedModule(
-          moduleInfo = SynComponentInfo(attributes = attributes; longId = longId; accessibility = None)
-          trivia = { ModuleKeyword = Some r }) as m when longIdentContainsPos longId pos ->
+          moduleInfo = (SynComponentInfo(attributes = attributes; accessibility = None) as moduleInfo)
+          trivia = { ModuleKeyword = Some r }) as m when longIdentContainsPos moduleInfo.LongIdent pos ->
         let editRange = getEditRangeForModule attributes r pos.Line
         let path = (SyntaxNode.SynModule m) :: path
 
@@ -96,8 +96,8 @@ let private getRangesAndPlacement input pos =
           match td with
           // Class Type
           | SynTypeDefn(
-              typeInfo = SynComponentInfo(longId = longId; accessibility = None; range = r)
-              typeRepr = SynTypeDefnRepr.ObjectModel _) as t when longIdentContainsPos longId pos ->
+              typeInfo = (SynComponentInfo(accessibility = None; range = r) as typeInfo)
+              typeRepr = SynTypeDefnRepr.ObjectModel _) as t when longIdentContainsPos typeInfo.LongIdent pos ->
             let editRange = r.WithEnd r.Start
             let path = SyntaxNode.SynTypeDefn t :: path
 
