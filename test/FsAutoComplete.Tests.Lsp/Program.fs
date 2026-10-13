@@ -40,9 +40,11 @@ Environment.SetEnvironmentVariable("FSAC_WORKSPACELOAD_DELAY", "250")
 // Child `dotnet` processes started by tests must not leave MSBuild nodes, the MSBuild server or the compiler server
 // running, and parallel test hosts must not race to start a shared MSBuild server.
 for name, value in
-  [ "DOTNET_CLI_USE_MSBUILD_SERVER", "0"
+  [
+    "DOTNET_CLI_USE_MSBUILD_SERVER", "0"
     "MSBUILDDISABLENODEREUSE", "1"
-    "UseSharedCompilation", "false" ] do
+    "UseSharedCompilation", "false"
+  ] do
   Environment.SetEnvironmentVariable(name, value)
 
 // Every directory a test runs `dotnet` in must resolve the SDK pinned in the test project directory. Servers without a
@@ -95,17 +97,22 @@ let (|EqIC|_|) (a: string) (b: string) =
 let loaders =
   match getEnvVarAsStr "USE_WORKSPACE_LOADER" with
   | Some(EqIC "WorkspaceLoader") ->
-    [ "Ionide WorkspaceLoader",
-      (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+    [
+      "Ionide WorkspaceLoader",
+      (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    ]
   | Some(EqIC "ProjectGraph") ->
-    [ "MSBuild Project Graph WorkspaceLoader",
+    [
+      "MSBuild Project Graph WorkspaceLoader",
       (fun toolpath ->
-        WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties)) ]
+        WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
+    ]
   | _ ->
-    [ "Ionide WorkspaceLoader",
+    [
+      "Ionide WorkspaceLoader",
       (fun toolpath -> WorkspaceLoader.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
       // "MSBuild Project Graph WorkspaceLoader", (fun toolpath -> WorkspaceLoaderViaProjectGraph.Create(toolpath, FsAutoComplete.Core.ProjectLoader.globalProperties))
-      ]
+    ]
 
 
 let adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory =
@@ -276,11 +283,13 @@ let private inParallelPhase group =
 let lspTests toolsPath =
   testList
     "lsp"
-    [ for (loaderName, workspaceLoaderFactory) in loaders do
+    [
+      for (loaderName, workspaceLoaderFactory) in loaders do
 
         testList
           $"{loaderName}"
-          [ for (compilerName, useTransparentCompiler) in compilers do
+          [
+            for (compilerName, useTransparentCompiler) in compilers do
               let createServer () =
                 adaptiveLspServerFactory toolsPath workspaceLoaderFactory sourceTextFactory useTransparentCompiler
 
@@ -289,7 +298,8 @@ let lspTests toolsPath =
               let serversInSequentialPhase group = withServerShutdown createServer group |> inSequentialPhase
 
               let compilerTests =
-                [ inSequentialPhase (Templates.tests ())
+                [
+                  inSequentialPhase (Templates.tests ())
                   servers initTests
                   servers closeTests
 
@@ -340,9 +350,12 @@ let lspTests toolsPath =
                   servers InheritDocTooltipTests.tests
                   servers CrefLinkDocumentationTests.tests
 
-                  serversInSequentialPhase TestExplorer.tests ]
+                  serversInSequentialPhase TestExplorer.tests
+                ]
 
-              testList $"{compilerName}" compilerTests ] ]
+              testList $"{compilerName}" compilerTests
+          ]
+    ]
 
 let expectedRuntimeMajor =
   System.Reflection.CustomAttributeExtensions
@@ -357,7 +370,8 @@ let expectedRuntimeMajor =
 let generalTests =
   testList
     "general"
-    [ testCase "test host uses target runtime" (fun _ ->
+    [
+      testCase "test host uses target runtime" (fun _ ->
         Expect.equal Environment.Version.Major expectedRuntimeMajor "Test host runtime must match the target framework")
       testList (nameof (Utils)) [ Utils.Tests.Utils.tests; Utils.Tests.TextEdit.tests ]
       InlayHintTests.explicitTypeInfoTests sourceTextFactory
@@ -370,19 +384,26 @@ let generalTests =
       FsAutoComplete.Tests.Lsp.AdaptiveExtensionsTests.tests
       FsAutoComplete.Tests.Lsp.TimeoutTests.tests
       FsAutoComplete.Tests.Lsp.WorkspaceLoadFailureTests.tests sourceTextFactory
-      decompilerTests ]
+      decompilerTests
+    ]
 
 [<Tests>]
 let tests =
   match msbuild with
   | Error message ->
-    testList "FSAC" [ testCase "test host and .NET SDK major versions match" (fun _ -> failtest message) ]
+    testList
+      "FSAC"
+      [
+        testCase "test host and .NET SDK major versions match" (fun _ -> failtest message)
+      ]
   | Ok toolsPath ->
     testList
       "FSAC"
-      [ generalTests
+      [
+        generalTests
         lspTests toolsPath
-        SnapshotTests.snapshotTests loaders toolsPath ]
+        SnapshotTests.snapshotTests loaders toolsPath
+      ]
 
 open OpenTelemetry
 open OpenTelemetry.Resources
@@ -413,7 +434,8 @@ let private failuresAtTheEnd (inner: Expecto.Impl.TestPrinters) =
                   Expecto.Logging.Info
                   (Expecto.Logging.Message.eventX "Tests that did not pass:\n{tests}"
                    >> Expecto.Logging.Message.setField "tests" (String.concat "\n" notPassed))
-          } }
+          }
+  }
 
 let runTests (args: string[]) =
   let serviceName = "FsAutoComplete.Tests.Lsp"
@@ -495,7 +517,12 @@ let runTests (args: string[]) =
     |> Array.tryPick (function
       | [| "--loader"; "ionide" |] as args -> Some(args, [ "Ionide WorkspaceLoader", WorkspaceLoader.Create ])
       | [| "--loader"; "graph" |] as args ->
-        Some(args, [ "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create ])
+        Some(
+          args,
+          [
+            "MSBuild Project Graph WorkspaceLoader", WorkspaceLoaderViaProjectGraph.Create
+          ]
+        )
       | _ -> None)
     |> Option.defaultValue ([||], loaders)
 
@@ -509,9 +536,11 @@ let runTests (args: string[]) =
       .Destructure.FSharpTypes()
       .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
         box
-          {| FileName = r.FileName
-             Start = r.Start
-             End = r.End |})
+          {|
+            FileName = r.FileName
+            Start = r.Start
+            End = r.End
+          |})
       .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> box {| Line = r.Line; Column = r.Column |})
       .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
       .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)
@@ -534,11 +563,13 @@ let runTests (args: string[]) =
   use activitySource = new ActivitySource(serviceName)
 
   let cliArgs =
-    [ CLIArguments.Printer(failuresAtTheEnd defaultConfig.printer)
+    [
+      CLIArguments.Printer(failuresAtTheEnd defaultConfig.printer)
       CLIArguments.Verbosity Expecto.Logging.LogLevel.Info
       CLIArguments.Parallel
       // Every LSP test group starts its own servers, so more workers mostly add memory. `--parallel-workers` overrides it.
-      CLIArguments.Parallel_Workers 4 ]
+      CLIArguments.Parallel_Workers 4
+    ]
   // let trace = traceProvider.GetTracer("FsAutoComplete.Tests.Lsp")
   // use span =  trace.StartActiveSpan("runTests", SpanKind.Internal)
   use span = activitySource.StartActivity("runTests")

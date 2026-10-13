@@ -27,8 +27,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           | SyntaxNode.SynExpr(SynExpr.DotGet(
               expr = SynExpr.TypeApp(expr = SynExpr.Ident(Ident "typeof"); typeArgs = [ typeArg ]); range = range)) ->
             Some
-              {| NamedIdentRange = typeArg.Range
-                 FullExpressionRange = range |}
+              {|
+                NamedIdentRange = typeArg.Range
+                FullExpressionRange = range
+              |}
 
           | _ -> None)
         |> Result.ofOption (fun _ -> "no typeof expr found")
@@ -37,11 +39,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let replacement = $"nameof({typeName})"
 
       return
-        [ { Edits =
-              [| { Range = fcsRangeToLsp results.FullExpressionRange
-                   NewText = replacement } |]
+        [
+          {
+            Edits =
+              [|
+                {
+                  Range = fcsRangeToLsp results.FullExpressionRange
+                  NewText = replacement
+                }
+              |]
             File = codeActionParams.TextDocument
             Title = title
             SourceDiagnostic = None
-            Kind = FixKind.Refactor } ]
+            Kind = FixKind.Refactor
+          }
+        ]
     }

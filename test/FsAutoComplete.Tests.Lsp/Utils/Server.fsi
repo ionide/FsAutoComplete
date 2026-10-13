@@ -16,21 +16,25 @@ open Utils
 open Ionide.ProjInfo.Logging
 
 type Server =
-  { RootPath: string option
+  {
+    RootPath: string option
     Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int
     mutable DocumentVersionCounter: int
-    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int> }
+    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int>
+  }
 
 /// `Server` cached with `Async.Cache`
 type CachedServer = Async<Server>
 
 type Document =
-  { Server: Server
+  {
+    Server: Server
     FilePath: string
     Uri: DocumentUri
-    mutable Version: int }
+    mutable Version: int
+  }
 
   member TextDocumentIdentifier: TextDocumentIdentifier
   member VersionedTextDocumentIdentifier: VersionedTextDocumentIdentifier

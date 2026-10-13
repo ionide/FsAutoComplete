@@ -40,14 +40,18 @@ module TryGetToolTipEnhancedResult =
   type SymbolInfo =
     | Keyword of string
     | Symbol of
-      {| XmlDocSig: string
-         Assembly: string |}
+      {|
+        XmlDocSig: string
+        Assembly: string
+      |}
 
 type TryGetToolTipEnhancedResult =
-  { ToolTipText: ToolTipText
+  {
+    ToolTipText: ToolTipText
     Signature: string
     Footer: string
-    SymbolInfo: TryGetToolTipEnhancedResult.SymbolInfo }
+    SymbolInfo: TryGetToolTipEnhancedResult.SymbolInfo
+  }
 
 type ParseAndCheckResults
   (parseResults: FSharpParseFileResults, checkResults: FSharpCheckFileResults, entityCache: EntityCache) =
@@ -56,7 +60,8 @@ type ParseAndCheckResults
 
   let getAllEntitiesUncached (publicOnly: bool) : AssemblySymbol list =
     try
-      [ yield!
+      [
+        yield!
           AssemblyContent.GetAssemblySignatureContent AssemblyContentType.Full checkResults.PartialAssemblySignature
         let ctx = checkResults.ProjectContext
 
@@ -76,7 +81,8 @@ type ParseAndCheckResults
           let content =
             AssemblyContent.GetAssemblyContent entityCache.Locking contentType fileName signatures
 
-          yield! content ]
+          yield! content
+      ]
     with _ ->
       []
 
@@ -259,8 +265,10 @@ type ParseAndCheckResults
               return
                 ResultOrString.Ok(
                   FindDeclarationResult.ExternalDeclaration
-                    { File = UMX.untag localFilePath
-                      Position = rangeInNonexistentFile.Start }
+                    {
+                      File = UMX.untag localFilePath
+                      Position = rangeInNonexistentFile.Start
+                    }
                 )
             | Error reason -> return ResultOrString.Error(sprintf "%A" reason)
           | Error e -> return Error e
@@ -273,8 +281,10 @@ type ParseAndCheckResults
               return
                 ResultOrString.Ok(
                   FindDeclarationResult.ExternalDeclaration
-                    { File = UMX.untag localFilePath
-                      Position = pos }
+                    {
+                      File = UMX.untag localFilePath
+                      Position = pos
+                    }
                 )
             | Error _ ->
               logger.info (
@@ -320,8 +330,10 @@ type ParseAndCheckResults
                     return
                       Ok(
                         FindDeclarationResult.ExternalDeclaration
-                          { File = UMX.untag localFilePath
-                            Position = loc.Start }
+                          {
+                            File = UMX.untag localFilePath
+                            Position = loc.Start
+                          }
                       )
                   | Error _ -> return! tryDecompile ty
                 | None -> return! tryDecompile ty
@@ -430,10 +442,12 @@ type ParseAndCheckResults
           if pos.Column < directiveEndCol then
             match KeywordList.hashDirectiveTooltips.TryGetValue directiveWord with
             | true, tip ->
-              { ToolTipText = tip
+              {
+                ToolTipText = tip
                 Signature = "#" + directiveWord
                 Footer = ""
-                SymbolInfo = TryGetToolTipEnhancedResult.Keyword directiveWord }
+                SymbolInfo = TryGetToolTipEnhancedResult.Keyword directiveWord
+              }
               |> Some
             | _ ->
               logger.info (
@@ -462,10 +476,12 @@ type ParseAndCheckResults
           | [ ident ] ->
             match KeywordList.keywordTooltips.TryGetValue ident with
             | true, tip ->
-              { ToolTipText = tip
+              {
+                ToolTipText = tip
                 Signature = ident
                 Footer = ""
-                SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
+                SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident
+              }
               |> Some
             | _ ->
               // Check if we're hovering over a hash directive (e.g., #r, #load, #nowarn)
@@ -473,10 +489,12 @@ type ParseAndCheckResults
 
               match KeywordList.hashDirectiveTooltips.TryGetValue ident with
               | true, tip when trimmedLine.StartsWith("#" + ident) ->
-                { ToolTipText = tip
+                {
+                  ToolTipText = tip
                   Signature = "#" + ident
                   Footer = ""
-                  SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident }
+                  SymbolInfo = TryGetToolTipEnhancedResult.Keyword ident
+                }
                 |> Some
               | _ ->
                 logger.info (
@@ -508,13 +526,17 @@ type ParseAndCheckResults
 
               None
             | Some(signature, footer) ->
-              { ToolTipText = tip
+              {
+                ToolTipText = tip
                 Signature = signature
                 Footer = footer
                 SymbolInfo =
                   TryGetToolTipEnhancedResult.Symbol
-                    {| XmlDocSig = resolvedType.XmlDocSig
-                       Assembly = symbol.Symbol.Assembly.SimpleName |} }
+                    {|
+                      XmlDocSig = resolvedType.XmlDocSig
+                      Assembly = symbol.Symbol.Assembly.SimpleName
+                    |}
+              }
               |> Some
 
   member __.TryGetFormattedDocumentation (pos: Position) (lineStr: LineStr) =
@@ -750,12 +772,14 @@ type ParseAndCheckResults
           let longName = QuickParse.GetPartialLongNameEx(lineStr, pos.Column - 1)
 
           let getSymbols () =
-            [ for assemblySymbol in getAllSymbols () do
+            [
+              for assemblySymbol in getAllSymbols () do
                 if
                   assemblySymbol.FullName.Contains(".")
                   && not (PrettyNaming.IsOperatorDisplayName assemblySymbol.Symbol.DisplayName)
                 then
-                  yield assemblySymbol ]
+                  yield assemblySymbol
+            ]
 
           let fcsCompletionContext =
             ParsedInput.TryGetCompletionContext(pos, x.GetParseResults.ParseTree, lineStr)

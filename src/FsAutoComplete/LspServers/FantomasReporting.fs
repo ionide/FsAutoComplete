@@ -77,7 +77,9 @@ let private editorConfigLabel (qualify: bool) (path: string) =
 let documentsToOpen (warning: ConfigurationWarning) =
   let qualify = warning.EditorConfigFiles.Length > 1
 
-  [ for editorConfigFile in warning.EditorConfigFiles do
+  [
+    for editorConfigFile in warning.EditorConfigFiles do
       sprintf "Open %s" (editorConfigLabel qualify editorConfigFile), editorConfigFile
 
-    sprintf "Open %s" (Path.GetFileName warning.FilePath), warning.FilePath ]
+    sprintf "Open %s" (Path.GetFileName warning.FilePath), warning.FilePath
+  ]

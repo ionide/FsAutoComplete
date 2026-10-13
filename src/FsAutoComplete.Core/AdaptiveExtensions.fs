@@ -152,7 +152,8 @@ module AVal =
 
           lastDeps <- newDeps
 
-          result }
+          result
+    }
     :> aval<_>
 
   /// <summary>
@@ -564,7 +565,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
 
@@ -586,7 +588,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
@@ -606,7 +609,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   /// <summary>
@@ -641,7 +645,8 @@ module AsyncAVal =
                   cts.TryDispose()
               }
 
-            AdaptiveCancellableTask(cancel, real) }
+            AdaptiveCancellableTask(cancel, real)
+      }
       :> asyncaval<_>
 
 
@@ -655,7 +660,9 @@ module AsyncAVal =
 
     { new AbstractVal<'b>() with
         member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
+          match cache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
             let ref =
               RefCountingTaskCreator(fun ct ->
                 task {
@@ -675,8 +682,7 @@ module AsyncAVal =
 
             cache <- Some ref
             ref.New()
-          else
-            cache.Value.New() }
+    }
     :> asyncaval<_>
 
 
@@ -704,7 +710,9 @@ module AsyncAVal =
 
     { new AbstractVal<'c>() with
         member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
+          match cache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
             let ref =
               RefCountingTaskCreator(fun ct ->
                 task {
@@ -729,16 +737,15 @@ module AsyncAVal =
 
             cache <- Some ref
             ref.New()
-          else
-            cache.Value.New() }
+    }
     :> asyncaval<_>
 
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// input and adaptively depends on the resulting adaptive value.
   /// The resulting adaptive value  will hold the latest value of the asyncaval<_> returned by mapping.
   let bind (mapping: 'a -> CancellationToken -> asyncaval<'b>) (value: asyncaval<'a>) =
-    let mutable cache: option<_> = None
-    let mutable innerCache: option<_> = None
+    let mutable cache: option<RefCountingTaskCreator<asyncaval<'b>>> = None
+    let mutable innerCache: option<RefCountingTaskCreator<'b>> = None
     let mutable outerDataCache: option<_> = None
     let mutable inputChanged = 0
     let inners: ref<HashSet<asyncaval<'b>>> = ref HashSet.empty
@@ -756,28 +763,34 @@ module AsyncAVal =
               inners.Value <- HashSet.empty)
 
         member x.Compute t =
-          if x.OutOfDate then
-            if Interlocked.Exchange(&inputChanged, 0) = 1 || Option.isNone cache then
-              let outerTask =
-                RefCountingTaskCreator(fun ct ->
-                  task {
-                    let v = value.GetValue t
-                    use _s = ct.Register(fun () -> v.Cancel(ct))
+          match innerCache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
+            let changed = Interlocked.Exchange(&inputChanged, 0) = 1
 
-                    let! i = v.Task
+            let outerTask =
+              match cache with
+              | Some outerTask when not changed -> outerTask
+              | _ ->
+                let outerTask =
+                  RefCountingTaskCreator(fun ct ->
+                    task {
+                      let v = value.GetValue t
+                      use _s = ct.Register(fun () -> v.Cancel(ct))
 
-                    match outerDataCache with
-                    | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
-                    | _ ->
-                      let inner = mapping i ct
-                      outerDataCache <- Some(i, inner)
-                      return inner
+                      let! i = v.Task
 
-                  })
+                      match outerDataCache with
+                      | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
+                      | _ ->
+                        let inner = mapping i ct
+                        outerDataCache <- Some(i, inner)
+                        return inner
 
-              cache <- Some outerTask
+                    })
 
-            let outerTask = cache.Value
+                cache <- Some outerTask
+                outerTask
 
             let ref =
               RefCountingTaskCreator(fun ct ->
@@ -805,8 +818,7 @@ module AsyncAVal =
             innerCache <- Some ref
 
             ref.New()
-          else
-            innerCache.Value.New() }
+    }
     :>
 
     asyncaval<_>
@@ -969,9 +981,7 @@ module AsyncAValExtensions =
             value.AddMarkingCallback
 
         cb (fun () ->
-          let t = Transaction.Running.Value
-
-          t.AddFinalizer(fun () ->
+          let notify () =
             async {
               let! v = AsyncAVal.forceAsync value
 
@@ -981,7 +991,11 @@ module AsyncAValExtensions =
                 last.Value <- ValueSome v
                 do! action v
             }
-            |> startImmediateLogged))
+            |> startImmediateLogged
+
+          match Transaction.Running with
+          | ValueSome t -> t.AddFinalizer notify
+          | ValueNone -> notify ())
 
       match Transaction.Running with
       | ValueSome t ->

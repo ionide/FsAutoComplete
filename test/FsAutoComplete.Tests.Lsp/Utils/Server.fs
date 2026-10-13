@@ -18,21 +18,25 @@ open Ionide.ProjInfo.Logging
 let private logger = LogProvider.getLoggerByName "Utils.Server"
 
 type Server =
-  { RootPath: string option
+  {
+    RootPath: string option
     Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int
     mutable DocumentVersionCounter: int
-    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int> }
+    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int>
+  }
 
 /// `Server` cached with `Async.Cache`
 type CachedServer = Async<Server>
 
 type Document =
-  { Server: Server
+  {
+    Server: Server
     FilePath: string
     Uri: DocumentUri
-    mutable Version: int }
+    mutable Version: int
+  }
 
   member doc.TextDocumentIdentifier: TextDocumentIdentifier = { Uri = doc.Uri }
 
@@ -65,7 +69,8 @@ module Server =
       events |> Observable.add logEvent
 
       let p: InitializeParams =
-        { ProcessId = Some 1
+        {
+          ProcessId = Some 1
           RootPath = path
           Locale = None
           RootUri = path |> Option.map (sprintf "file://%s")
@@ -73,27 +78,36 @@ module Server =
           Capabilities = clientCaps
           ClientInfo =
             Some
-              { Name = "FSAC Tests"
-                Version = Some "0.0.0" }
+              {
+                Name = "FSAC Tests"
+                Version = Some "0.0.0"
+              }
           WorkspaceFolders =
             path
             |> Option.map (fun p ->
-              [| { Uri = Path.FilePathToUri p
-                   Name = "Test Folder" } |])
+              [|
+                {
+                  Uri = Path.FilePathToUri p
+                  Name = "Test Folder"
+                }
+              |])
           Trace = None
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       match! server.Initialize p with
       | Ok _ ->
         do! server.Initialized()
 
         return
-          { RootPath = path
+          {
+            RootPath = path
             Server = server
             Events = events
             UntitledCounter = 0
             DocumentVersionCounter = 0
-            OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary() }
+            OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary()
+          }
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
@@ -125,10 +139,12 @@ module Server =
         fun _ -> System.Threading.Interlocked.Increment(&server.DocumentVersionCounter)
       )
 
-    { Server = server
+    {
+      Server = server
       Uri = uri
       FilePath = fullPath
-      Version = version }
+      Version = version
+    }
 
   let private untitledDocUrif = sprintf "untitled:Untitled-%i"
 
@@ -315,17 +331,23 @@ module Document =
 
   /// Note: Mutates passed `doc`
   let private incrVersionedTextDocumentIdentifier (doc: Document) : VersionedTextDocumentIdentifier =
-    { Uri = doc.Uri
-      Version = incrVersion doc }
+    {
+      Uri = doc.Uri
+      Version = incrVersion doc
+    }
 
   let openWith initialText (doc: Document) =
     async {
       let p: DidOpenTextDocumentParams =
-        { TextDocument =
-            { Uri = doc.Uri
+        {
+          TextDocument =
+            {
+              Uri = doc.Uri
               LanguageId = "fsharp"
               Version = doc.Version
-              Text = initialText } }
+              Text = initialText
+            }
+        }
 
       do! doc.Server.Server.TextDocumentDidOpen p
 
@@ -337,7 +359,11 @@ module Document =
 
   let close (doc: Document) =
     async {
-      let p: DidCloseTextDocumentParams = { TextDocument = doc.TextDocumentIdentifier }
+      let p: DidCloseTextDocumentParams =
+        {
+          TextDocument = doc.TextDocumentIdentifier
+        }
+
       do! doc.Server.Server.TextDocumentDidClose p
       doc.Server.OpenDocumentVersions.TryRemove(doc.Uri) |> ignore
     }
@@ -349,8 +375,10 @@ module Document =
   let changeTextTo (text: string) (doc: Document) =
     async {
       let p: DidChangeTextDocumentParams =
-        { TextDocument = doc |> incrVersionedTextDocumentIdentifier
-          ContentChanges = [| U2.C2 { Text = text } |] }
+        {
+          TextDocument = doc |> incrVersionedTextDocumentIdentifier
+          ContentChanges = [| U2.C2 { Text = text } |]
+        }
 
       do! doc.Server.Server.TextDocumentDidChange p
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
@@ -359,8 +387,10 @@ module Document =
   let saveText (text: string) (doc: Document) =
     async {
       let p: DidSaveTextDocumentParams =
-        { Text = Some text
-          TextDocument = doc.TextDocumentIdentifier }
+        {
+          Text = Some text
+          TextDocument = doc.TextDocumentIdentifier
+        }
       // A save keeps the document version, so the `fsharp/documentAnalyzed` of the previous check matches it too.
       // Wait for the one after those, from the check the save starts.
       let analyzedBefore = analyzedCount doc
@@ -384,14 +414,18 @@ module Document =
   let codeActionAt (diagnostics: Diagnostic[]) (range: Range) (doc: Document) =
     async {
       let ps: CodeActionParams =
-        { TextDocument = doc.TextDocumentIdentifier
+        {
+          TextDocument = doc.TextDocumentIdentifier
           WorkDoneToken = None
           PartialResultToken = None
           Range = range
           Context =
-            { Diagnostics = diagnostics
+            {
+              Diagnostics = diagnostics
               Only = None
-              TriggerKind = None } }
+              TriggerKind = None
+            }
+        }
 
       let! res = doc.Server.Server.TextDocumentCodeAction ps
       return res |> assertOk
@@ -400,9 +434,11 @@ module Document =
   let inlayHintsAt range (doc: Document) =
     async {
       let ps: InlayHintParams =
-        { Range = range
+        {
+          Range = range
           TextDocument = doc.TextDocumentIdentifier
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       let! res = doc.Server.Server.TextDocumentInlayHint ps
       return res |> assertOk |> assertSome

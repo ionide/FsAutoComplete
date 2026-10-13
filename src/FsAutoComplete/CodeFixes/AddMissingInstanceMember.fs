@@ -10,13 +10,23 @@ let fix =
   Run.ifDiagnosticByCode (Set.ofList [ "673" ]) (fun diagnostic codeActionParams ->
     asyncResult {
       return
-        [ { Title = title
+        [
+          {
+            Title = title
             File = codeActionParams.TextDocument
             Kind = FixKind.Fix
             SourceDiagnostic = Some diagnostic
             Edits =
-              [| { Range =
-                     { Start = diagnostic.Range.Start
-                       End = diagnostic.Range.Start }
-                   NewText = "x." } |] } ]
+              [|
+                {
+                  Range =
+                    {
+                      Start = diagnostic.Range.Start
+                      End = diagnostic.Range.Start
+                    }
+                  NewText = "x."
+                }
+              |]
+          }
+        ]
     })

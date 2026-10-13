@@ -13,31 +13,40 @@ let nullAttachDebugger _ = false
 let tests =
   testList
     "VSTestWrapper Test Run"
-    [ testCaseAsync "it should return an empty list if given no projects"
+    [
+      testCaseAsync "it should return an empty list if given no projects"
       <| async {
         let expected = []
-        let! actual = VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger [] None false
+
+        let! actual =
+          VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger [] None false
+
         Expect.equal actual expected ""
       }
 
       testCaseAsync "it should be able to report basic test run outcomes"
       <| async {
         let expected =
-          [ "Tests.My test", TestOutcome.Passed
+          [
+            "Tests.My test", TestOutcome.Passed
             "Tests.Fails", TestOutcome.Failed
             "Tests.Skipped", TestOutcome.Skipped
             "Tests.Exception", TestOutcome.Failed
             "Tests+Nested.Test 1", TestOutcome.Passed
             "Tests+Nested.Test 2", TestOutcome.Passed
-            "Tests.Expects environment variable", TestOutcome.Failed ]
+            "Tests.Expects environment variable", TestOutcome.Failed
+          ]
 
         let sources =
-          [ Path.Combine(
+          [
+            Path.Combine(
               ResourceLocators.sampleProjectsRootDir,
               "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll"
-            ) ]
+            )
+          ]
 
-        let! runResults = VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger sources None false
+        let! runResults =
+          VSTestWrapper.runTestsAsync vstestPath ignore nullAttachDebugger sources None false
 
         let likenessOfTestResult (result: TestResult) = (result.TestCase.FullyQualifiedName, result.Outcome)
         let actual = runResults |> List.map likenessOfTestResult
@@ -48,14 +57,18 @@ let tests =
       testCaseAsync "it should run only tests that match the case filter"
       <| async {
         let expected =
-          [ ("Tests+Nested.Test 1", TestOutcome.Passed)
-            ("Tests+Nested.Test 2", TestOutcome.Passed) ]
+          [
+            ("Tests+Nested.Test 1", TestOutcome.Passed)
+            ("Tests+Nested.Test 2", TestOutcome.Passed)
+          ]
 
         let sources =
-          [ Path.Combine(
+          [
+            Path.Combine(
               ResourceLocators.sampleProjectsRootDir,
               "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll"
-            ) ]
+            )
+          ]
 
         let! runResults =
           VSTestWrapper.runTestsAsync
@@ -79,7 +92,9 @@ let tests =
         let expected = [ "VSTest.NUnit.Test1", TestOutcome.Passed ]
 
         let sources =
-          [ Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.NUnit/bin/Debug/net8.0/VSTest.NUnit.dll") ]
+          [
+            Path.Combine(ResourceLocators.sampleProjectsRootDir, "VSTest.NUnit/bin/Debug/net8.0/VSTest.NUnit.dll")
+          ]
 
         let! runResults =
           VSTestWrapper.runTestsAsync
@@ -112,10 +127,12 @@ let tests =
         Expect.throwsT<System.OperationCanceledException>
           (fun () ->
             let sources =
-              [ Path.Combine(
+              [
+                Path.Combine(
                   ResourceLocators.sampleProjectsRootDir,
                   "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll"
-                ) ]
+                )
+              ]
 
             Async.RunSynchronously(
               VSTestWrapper.runTestsAsync vstestPath ignore updateSpy sources None true,
@@ -143,10 +160,12 @@ let tests =
         Expect.throwsT<System.OperationCanceledException>
           (fun () ->
             let sources =
-              [ Path.Combine(
+              [
+                Path.Combine(
                   ResourceLocators.sampleProjectsRootDir,
                   "VSTest.XUnit.RunResults/bin/Debug/net8.0/VSTest.XUnit.RunResults.dll"
-                ) ]
+                )
+              ]
 
             Async.RunSynchronously(
               VSTestWrapper.runTestsAsync vstestPath ignore updateSpy sources None true,
@@ -156,4 +175,5 @@ let tests =
           ""
 
         Expect.hasLength reportedProcessIds 1 "Expected runTest to report a processId"
-      } ]
+      }
+    ]

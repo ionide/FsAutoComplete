@@ -28,15 +28,18 @@ let docFormattingTest state =
 
   testList
     "Generic Parameter Format Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Two params have a separator"
         (async {
           let! (server, path) = server
 
           let! doc =
             server.FSharpDocumentation
-              { TextDocument = { Uri = path }
-                Position = { Character = 5u; Line = 0u } } // Map.map
+              {
+                TextDocument = { Uri = path }
+                Position = { Character = 5u; Line = 0u }
+              } // Map.map
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
@@ -52,8 +55,10 @@ let docFormattingTest state =
 
           let! doc =
             server.FSharpDocumentation
-              { TextDocument = { Uri = path }
-                Position = { Character = 7u; Line = 1u } } // List.unzip3
+              {
+                TextDocument = { Uri = path }
+                Position = { Character = 7u; Line = 1u }
+              } // List.unzip3
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
@@ -70,8 +75,10 @@ let docFormattingTest state =
           // Line 3 (0-indexed), char 5: hovering on "DelegateWithArgs" type name
           let! doc =
             server.FSharpDocumentation
-              { TextDocument = { Uri = path }
-                Position = { Character = 5u; Line = 3u } }
+              {
+                TextDocument = { Uri = path }
+                Position = { Character = 5u; Line = 3u }
+              }
 
           match doc with
           | Result.Error err -> failtest $"Doc error: {err.Message}"
@@ -80,4 +87,5 @@ let docFormattingTest state =
             Expect.stringContains model.Signature "name" "Delegate signature should contain parameter name 'name'"
             Expect.stringContains model.Signature "count" "Delegate signature should contain parameter name 'count'"
           | Result.Ok _ -> failtest "couldn't parse doc as the json type we expected"
-        }) ]
+        })
+    ]

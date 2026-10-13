@@ -712,9 +712,11 @@ module FsacSemanticTokenSites =
   open FSharp.Compiler.Syntax
 
   type Ranges =
-    { Parameters: Range array
+    {
+      Parameters: Range array
       Definitions: Range array
-      Declarations: Range array }
+      Declarations: Range array
+    }
 
   type private SemanticTokenSiteCollector() =
     inherit SyntaxCollectorBase()
@@ -792,9 +794,11 @@ module FsacSemanticTokenSites =
       | _ -> tryLastIdentRange idents |> Option.iter declarations.Add
 
     member _.Ranges =
-      { Parameters = parameters.ToArray()
+      {
+        Parameters = parameters.ToArray()
         Definitions = definitions.ToArray()
-        Declarations = declarations.ToArray() }
+        Declarations = declarations.ToArray()
+      }
 
   /// Collect exact identifier ranges for parameter sites, function/member/type definitions,
   /// and function/member/type declarations in implementation and signature files.

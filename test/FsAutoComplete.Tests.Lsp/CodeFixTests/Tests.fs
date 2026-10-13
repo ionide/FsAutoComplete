@@ -10,7 +10,8 @@ open FsAutoComplete.CodeFix
 
 let private addMissingEqualsToTypeDefinitionTests state =
   serverTestList (nameof AddMissingEqualsToTypeDefinition) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddMissingEqualsToTypeDefinition.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddMissingEqualsToTypeDefinition.title
 
       testCaseAsync "can add = to record def"
       <| CodeFix.check
@@ -34,11 +35,13 @@ let private addMissingEqualsToTypeDefinitionTests state =
         selectCodeFix
         """
         type Name = Name of string
-        """ ])
+        """
+    ])
 
 let private addMissingFunKeywordTests state =
   serverTestList (nameof AddMissingFunKeyword) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can generate the fun keyword when error 10 is raised"
+    [
+      testCaseAsync "can generate the fun keyword when error 10 is raised"
       <| CodeFix.check
         server
         """
@@ -48,11 +51,13 @@ let private addMissingFunKeywordTests state =
         (CodeFix.ofKind "quickfix" >> CodeFix.withTitle AddMissingFunKeyword.title)
         """
         let doThing = fun x -> printfn "%s" x
-        """ ])
+        """
+    ])
 
 let private addMissingInstanceMemberTests state =
   serverTestList (nameof AddMissingInstanceMember) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can add this member prefix"
+    [
+      testCaseAsync "can add this member prefix"
       <| CodeFix.check
         server
         """
@@ -64,7 +69,8 @@ let private addMissingInstanceMemberTests state =
         """
         type C () =
           member x.Foo() = ()
-        """ ])
+        """
+    ])
 
 let private addMissingRecKeywordTests state =
   serverTestList (nameof AddMissingRecKeyword) state defaultConfigDto None (fun server ->
@@ -82,11 +88,13 @@ let private addMissingRecKeywordTests state =
         """
         let rec a x = x
         and b x = x
-        """ ])
+        """
+    ])
 
 let private addNewKeywordToDisposableConstructorInvocationTests state =
   serverTestList (nameof AddNewKeywordToDisposableConstructorInvocation) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix =
+    [
+      let selectCodeFix =
         CodeFix.withTitle AddNewKeywordToDisposableConstructorInvocation.title
 
       testCaseAsync "can add new to Disposable"
@@ -178,11 +186,13 @@ let private addNewKeywordToDisposableConstructorInvocationTests state =
         let sr =
             new System.IO.StreamReader
                 (path)
-        """ ])
+        """
+    ])
 
 let private addTypeToIndeterminateValueTests state =
   serverTestList (nameof AddTypeToIndeterminateValue) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddTypeToIndeterminateValue.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddTypeToIndeterminateValue.title
 
       testCaseAsync "can add type annotation to error 72 ('Lookup on object of indeterminate type')"
       <| CodeFix.check
@@ -229,11 +239,13 @@ let private addTypeToIndeterminateValueTests state =
               | _ -> s
             )
             {| Evens = 0 |}
-        """ ])
+        """
+    ])
 
 let private changeDerefBangToValueTests state =
   serverTestList (nameof ChangeDerefBangToValue) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ChangeDerefBangToValue.title
+    [
+      let selectCodeFix = CodeFix.withTitle ChangeDerefBangToValue.title
 
       testCaseAsync "can replace ! with .Value"
       <| CodeFix.check
@@ -303,11 +315,13 @@ let private changeDerefBangToValueTests state =
         """
         let rv = ref 5
         let v = (rv).Value
-        """ ])
+        """
+    ])
 
 let private changeDowncastToUpcastTests state =
   serverTestList (nameof ChangeDowncastToUpcast) state defaultConfigDto None (fun server ->
-    [ let selectOperatorCodeFix =
+    [
+      let selectOperatorCodeFix =
         CodeFix.withTitle ChangeDowncastToUpcast.titleUpcastOperator
 
       let selectFunctionCodeFix =
@@ -349,11 +363,13 @@ let private changeDowncastToUpcastTests state =
         let v: I = upcast C()
         """
 
-      () ])
+      ()
+    ])
 
 let private changeEqualsInFieldTypeToColonTests state =
   serverTestList (nameof ChangeEqualsInFieldTypeToColon) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
+    [
+      let selectCodeFix = CodeFix.withTitle ChangeEqualsInFieldTypeToColon.title
 
       testCaseAsync "can change = to : in single line"
       <| CodeFix.check
@@ -383,11 +399,13 @@ let private changeEqualsInFieldTypeToColonTests state =
           Name : string
           Key : int
         }
-        """ ])
+        """
+    ])
 
 let private changePrefixNegationToInfixSubtractionTests state =
   serverTestList (nameof ChangePrefixNegationToInfixSubtraction) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "converts negation to subtraction"
+    [
+      testCaseAsync "converts negation to subtraction"
       <| CodeFix.check
         server
         """
@@ -402,11 +420,13 @@ let private changePrefixNegationToInfixSubtractionTests state =
         let getListWithoutFirstAndLastElement list =
           let l = List.length list
           list[ 1 .. l - 1 ]
-        """ ])
+        """
+    ])
 
 let private changeRefCellDerefToNotTests state =
   serverTestList (nameof ChangeRefCellDerefToNot) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ChangeRefCellDerefToNot.title
+    [
+      let selectCodeFix = CodeFix.withTitle ChangeRefCellDerefToNot.title
 
       testCaseAsync "can change simple deref to not"
       <| CodeFix.check
@@ -448,11 +468,13 @@ let private changeRefCellDerefToNotTests state =
         """
         let x = 1
         not (x = false)
-        """ ])
+        """
+    ])
 
 let private changeTypeOfNameToNameOfTests state =
   serverTestList (nameof ChangeTypeOfNameToNameOf) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can suggest fix"
+    [
+      testCaseAsync "can suggest fix"
       <| CodeFix.check
         server
         """
@@ -462,11 +484,13 @@ let private changeTypeOfNameToNameOfTests state =
         (CodeFix.ofKind "refactor" >> CodeFix.withTitle ChangeTypeOfNameToNameOf.title)
         """
         let x = nameof(Async<string>)
-        """ ])
+        """
+    ])
 
 let private convertBangEqualsToInequalityTests state =
   serverTestList (nameof ConvertBangEqualsToInequality) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertBangEqualsToInequality.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertBangEqualsToInequality.title
 
       testCaseAsync "can change != to <>"
       <| CodeFix.check
@@ -478,11 +502,13 @@ let private convertBangEqualsToInequalityTests state =
         selectCodeFix
         """
         1 <> 2
-        """ ])
+        """
+    ])
 
 let private convertCSharpLambdaToFSharpLambdaTests state =
   serverTestList (nameof ConvertCSharpLambdaToFSharpLambda) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertCSharpLambdaToFSharpLambda.title
 
       testCaseAsync "can convert csharp lambda in variable assignment with cursor on input"
       <| CodeFix.check
@@ -578,11 +604,13 @@ let private convertCSharpLambdaToFSharpLambdaTests state =
           fun y ->
             let a = 1 + y
             a
-        """ ])
+        """
+    ])
 
 let private convertDoubleEqualsToSingleEqualsTests state =
   serverTestList (nameof ConvertDoubleEqualsToSingleEquals) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertDoubleEqualsToSingleEquals.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertDoubleEqualsToSingleEquals.title
 
       testCaseAsync "can replace == with ="
       <| CodeFix.check
@@ -604,11 +632,13 @@ let private convertDoubleEqualsToSingleEqualsTests state =
         1 $0== 1
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private convertInvalidRecordToAnonRecordTests state =
   serverTestList (nameof ConvertInvalidRecordToAnonRecord) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertInvalidRecordToAnonRecord.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertInvalidRecordToAnonRecord.title
 
       testCaseAsync "can convert single-line record with single field"
       <| CodeFix.check
@@ -669,11 +699,13 @@ let private convertInvalidRecordToAnonRecordTests state =
         let v = {| $0Name = "foo"; Value = 42 |}
         """
         (Diagnostics.acceptAll)
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private convertPositionalDUToNamedTests state =
   serverTestList (nameof ConvertPositionalDUToNamed) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertPositionalDUToNamed.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertPositionalDUToNamed.title
 
       testCaseAsync "in parenthesized let binding"
       <| CodeFix.check
@@ -827,15 +859,18 @@ let private convertPositionalDUToNamedTests state =
           match x with
           | X(field1 = 32; field2 = 23;) -> ()
           | _ -> ()
-        """ ])
+        """
+    ])
 
 let private addPrivateAccessModifierTests state =
   let config =
     { defaultConfigDto with
-        AddPrivateAccessModifier = Some true }
+        AddPrivateAccessModifier = Some true
+    }
 
   serverTestList (nameof AddPrivateAccessModifier) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddPrivateAccessModifier.title
 
       testCaseAsync "add private works for simple function"
       <| CodeFix.check
@@ -1333,11 +1368,13 @@ let private addPrivateAccessModifierTests state =
         let x: M.MyInt = 23
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private convertTripleSlashCommentToXmlTaggedDocTests state =
   serverTestList (nameof ConvertTripleSlashCommentToXmlTaggedDoc) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ConvertTripleSlashCommentToXmlTaggedDoc.title
+    [
+      let selectCodeFix = CodeFix.withTitle ConvertTripleSlashCommentToXmlTaggedDoc.title
 
       testCaseAsync "single line comment over top level function"
       <| CodeFix.check
@@ -1652,11 +1689,13 @@ let private convertTripleSlashCommentToXmlTaggedDocTests state =
         /// ...
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private generateXmlDocumentationTests state =
   serverTestList (nameof GenerateXmlDocumentation) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle GenerateXmlDocumentation.title
+    [
+      let selectCodeFix = CodeFix.withTitle GenerateXmlDocumentation.title
 
       testCaseAsync "documentation for function with two parameters"
       <| CodeFix.check
@@ -1981,11 +2020,13 @@ let private generateXmlDocumentationTests state =
             let x = 3
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private addMissingXmlDocumentationTests state =
   serverTestList (nameof AddMissingXmlDocumentation) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddMissingXmlDocumentation.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddMissingXmlDocumentation.title
 
       testCaseAsync "missing params and returns for function with two parameters"
       <| CodeFix.check
@@ -2183,16 +2224,19 @@ let private addMissingXmlDocumentationTests state =
           member val Name = "" with get, set
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private generateRecordStubTests state =
   let config =
     { defaultConfigDto with
         RecordStubGeneration = Some true
-        RecordStubGenerationBody = Some "failwith \"---\"" }
+        RecordStubGenerationBody = Some "failwith \"---\""
+    }
 
   serverTestList (nameof GenerateRecordStub) state config None (fun server ->
-    [ CodeFix.testAllPositions
+    [
+      CodeFix.testAllPositions
         "can generate record stubs for every pos in the record as soon as one field is known"
         server
         """
@@ -2207,16 +2251,19 @@ let private generateRecordStubTests state =
 
       let a = {  a = "";
                  b = failwith "---"  }
-      """ ])
+      """
+    ])
 
 let private generateUnionCasesTests state =
   let config =
     { defaultConfigDto with
         UnionCaseStubGeneration = Some true
-        UnionCaseStubGenerationBody = Some "failwith \"---\"" }
+        UnionCaseStubGenerationBody = Some "failwith \"---\""
+    }
 
   serverTestList (nameof GenerateUnionCases) state config None (fun server ->
-    [ let _selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
+    [
+      let _selectCodeFix = CodeFix.withTitle GenerateUnionCases.title
 
       testCaseAsync "can generate match cases for a simple DU with one case"
       <| CodeFix.check
@@ -2263,11 +2310,13 @@ let private generateUnionCasesTests state =
         | A -> failwith "---"
         | B -> failwith "---"
         | C -> failwith "---"
-        """ ])
+        """
+    ])
 
 let private makeDeclarationMutableTests state =
   serverTestList (nameof MakeDeclarationMutable) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle MakeDeclarationMutable.title
+    [
+      let selectCodeFix = CodeFix.withTitle MakeDeclarationMutable.title
 
       testCaseAsync "can make decl mutable in top level assignment"
       <| CodeFix.check
@@ -2351,11 +2400,13 @@ let private makeDeclarationMutableTests state =
             v $0<- 1
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private makeOuterBindingRecursiveTests state =
   serverTestList (nameof MakeOuterBindingRecursive) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can make the outer binding recursive when self-referential"
+    [
+      testCaseAsync "can make the outer binding recursive when self-referential"
       <| CodeFix.check
         server
         """
@@ -2373,15 +2424,18 @@ let private makeOuterBindingRecursiveTests state =
             | [] -> acc
             | _ :: tail ->
                 mySum tail (acc + 1)
-        """ ])
+        """
+    ])
 
 let private removeRedundantQualifierTests state =
   let config =
     { defaultConfigDto with
-        SimplifyNameAnalyzer = Some true }
+        SimplifyNameAnalyzer = Some true
+    }
 
   serverTestList (nameof RemoveRedundantQualifier) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle RemoveRedundantQualifier.title
+    [
+      let selectCodeFix = CodeFix.withTitle RemoveRedundantQualifier.title
 
       testCaseAsync "can remove redundant namespace"
       <| CodeFix.check
@@ -2404,11 +2458,13 @@ let private removeRedundantQualifierTests state =
         let _ = $0System.String.IsNullOrWhiteSpace "foo"
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private removeUnnecessaryReturnOrYieldTests state =
   serverTestList (nameof RemoveUnnecessaryReturnOrYield) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can remove return"
+    [
+      testCaseAsync "can remove return"
       <| CodeFix.check
         server
         """
@@ -2469,15 +2525,18 @@ let private removeUnnecessaryReturnOrYieldTests state =
         }
         """
         (Diagnostics.acceptAll)
-        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "yield")) ])
+        (CodeFix.withTitle (RemoveUnnecessaryReturnOrYield.title "yield"))
+    ])
 
 let private removeUnusedBindingTests state =
   let config =
     { defaultConfigDto with
-        FSIExtraSharedParameters = Some [| "--warnon:1182" |] }
+        FSIExtraSharedParameters = Some [| "--warnon:1182" |]
+    }
 
   serverTestList (nameof RemoveUnusedBinding) state config None (fun server ->
-    [ let selectRemoveUnusedBinding = CodeFix.withTitle RemoveUnusedBinding.titleBinding
+    [
+      let selectRemoveUnusedBinding = CodeFix.withTitle RemoveUnusedBinding.titleBinding
 
       let selectRemoveUnusedParameter =
         CodeFix.withTitle RemoveUnusedBinding.titleParameter
@@ -2522,15 +2581,18 @@ let private removeUnusedBindingTests state =
         """
         let container () =
            // dummy comment to keep spacing
-          ()""" ])
+          ()"""
+    ])
 
 let private removeUnusedOpensTests state =
   let config =
     { defaultConfigDto with
-        UnusedOpensAnalyzer = Some true }
+        UnusedOpensAnalyzer = Some true
+    }
 
   serverTestList (nameof RemoveUnusedOpens) state config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle RemoveUnusedOpens.title
+    [
+      let selectCodeFix = CodeFix.withTitle RemoveUnusedOpens.title
 
       testCaseAsync "can remove single unused open"
       <| CodeFix.check
@@ -2654,15 +2716,18 @@ let private removeUnusedOpensTests state =
         let x = String.IsNullOrWhiteSpace ""
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private renameUnusedValue state =
   let config =
     { defaultConfigDto with
-        UnusedDeclarationsAnalyzer = Some true }
+        UnusedDeclarationsAnalyzer = Some true
+    }
 
   serverTestList (nameof RenameUnusedValue) state config None (fun server ->
-    [ let selectReplace =
+    [
+      let selectReplace =
         CodeFix.ofKind "refactor" >> CodeFix.withTitle RenameUnusedValue.titleReplace
 
       let selectPrefix =
@@ -2856,11 +2921,13 @@ let private renameUnusedValue state =
         let $0_ = 6
         """
         (Diagnostics.acceptAll)
-        selectReplace ])
+        selectReplace
+    ])
 
 let private replaceWithSuggestionTests state =
   serverTestList (nameof ReplaceWithSuggestion) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
+    [
+      let selectCodeFix replacement = CodeFix.withTitle (ReplaceWithSuggestion.title replacement)
 
       let validateDiags (diags: Diagnostic[]) =
         Diagnostics.expectCode "39" diags
@@ -2885,7 +2952,8 @@ let private replaceWithSuggestionTests state =
 
       testList
         "can get multiple suggestions for flout"
-        [ testCaseAsync "can change flout to float"
+        [
+          testCaseAsync "can change flout to float"
           <| CodeFix.check
             server
             """
@@ -2906,7 +2974,8 @@ let private replaceWithSuggestionTests state =
             (selectCodeFix "float32")
             """
           let x = float32 2
-          """ ]
+          """
+        ]
 
       testCaseAsync "can change flout to float in var type"
       <| CodeFix.check
@@ -2973,15 +3042,18 @@ let private replaceWithSuggestionTests state =
         """
         let ``hello world`` = 2
         let x = ``hello world``
-        """ ])
+        """
+    ])
 
 let private resolveNamespaceTests state =
   let config =
     { defaultConfigDto with
-        ResolveNamespaces = Some true }
+        ResolveNamespaces = Some true
+    }
 
   serverTestList (nameof ResolveNamespace) state config None (fun server ->
-    [ let selectCodeFix =
+    [
+      let selectCodeFix =
         CodeFix.matching (fun ca -> ca.Title.StartsWith("open", StringComparison.Ordinal))
 
       testCaseAsync "doesn't fail when target not in last line"
@@ -3082,11 +3154,12 @@ module Nested =
       //TODO: Implement & unify with `Completion.AutoOpen` (`CompletionTests.fs`)
       // Issues:
       // * Different open locations of CodeFix and AutoOpen
-      ])
+    ])
 
 let private useMutationWhenValueIsMutableTests state =
   serverTestList (nameof UseMutationWhenValueIsMutable) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle UseMutationWhenValueIsMutable.title
+    [
+      let selectCodeFix = CodeFix.withTitle UseMutationWhenValueIsMutable.title
 
       testCaseAsync "can replace = with <- when cursor on ="
       <| CodeFix.check
@@ -3145,12 +3218,14 @@ let private useMutationWhenValueIsMutableTests state =
           v
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private useTripleQuotedInterpolationTests state =
   // blocked by FCS 43.7.200 - AST changes
   pserverTestList (nameof UseTripleQuotedInterpolation) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "converts erroring single-quoted interpolation to triple-quoted"
+    [
+      testCaseAsync "converts erroring single-quoted interpolation to triple-quoted"
       <| CodeFix.check
         server
         """
@@ -3162,11 +3237,13 @@ let private useTripleQuotedInterpolationTests state =
         // cannot use triple quotes string here: ends with `"""` -> cannot use in string
         @"
         let a = $"""""":^) {if true then ""y"" else ""n""} d""""""
-        " ])
+        "
+    ])
 
 let private wrapExpressionInParenthesesTests state =
   serverTestList (nameof WrapExpressionInParentheses) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle WrapExpressionInParentheses.title
+    [
+      let selectCodeFix = CodeFix.withTitle WrapExpressionInParentheses.title
 
       testCaseAsync "can add parenthesize expression"
       <| CodeFix.check
@@ -3187,11 +3264,13 @@ let private wrapExpressionInParenthesesTests state =
         printfn "%b" (System.String.$0IsNullOrWhiteSpace("foo"))
         """
         Diagnostics.acceptAll
-        selectCodeFix ])
+        selectCodeFix
+    ])
 
 let private removeRedundantAttributeSuffixTests state =
   serverTestList (nameof RemoveRedundantAttributeSuffix) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle RemoveRedundantAttributeSuffix.title
+    [
+      let selectCodeFix = CodeFix.withTitle RemoveRedundantAttributeSuffix.title
 
       testCaseAsync "redundant attribute suffix in let binding"
       <| CodeFix.check
@@ -3283,11 +3362,13 @@ let private removeRedundantAttributeSuffixTests state =
         [<Foo; Bar>]
         type A =
             class end
-        """ ])
+        """
+    ])
 
 let private removePatternArgumentTests state =
   serverTestList (nameof RemovePatternArgument) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle RemovePatternArgument.title
+    [
+      let selectCodeFix = CodeFix.withTitle RemovePatternArgument.title
 
       testCaseAsync "Literal pattern qualified single parameter"
       <| CodeFix.check
@@ -3513,15 +3594,18 @@ let private removePatternArgumentTests state =
         selectCodeFix
         """
         let (None) = None
-        """ ])
+        """
+    ])
 
 let private removeUnnecessaryParenthesesTests state =
   let config =
     { defaultConfigDto with
-        UnnecessaryParenthesesAnalyzer = Some true }
+        UnnecessaryParenthesesAnalyzer = Some true
+    }
 
   serverTestList (nameof RemoveUnnecessaryParentheses) state config None (fun server ->
-    [ let selector =
+    [
+      let selector =
         CodeFix.ofKind "quickfix"
         >> CodeFix.withTitle RemoveUnnecessaryParentheses.title
 
@@ -3674,13 +3758,14 @@ let private removeUnnecessaryParenthesesTests state =
         (Diagnostics.expectCode "FSAC0004")
         selector
 
-      ])
+    ])
 
 let tests textFactory state =
   testSequenced
   <| testList
     "CodeFix-tests"
-    [ HelpersTests.tests textFactory
+    [
+      HelpersTests.tests textFactory
       AddExplicitTypeAnnotationTests.tests state
       AdjustConstantTests.tests state
       ToInterpolatedStringTests.tests state
@@ -3735,4 +3820,5 @@ let tests textFactory state =
       AddMissingWildcardOperatorTests.tests state
       AddMissingSeqTests.tests state
       IntroduceMissingBindingTests.tests state
-      GenerateAnonRecordStubTests.tests state ]
+      GenerateAnonRecordStubTests.tests state
+    ]

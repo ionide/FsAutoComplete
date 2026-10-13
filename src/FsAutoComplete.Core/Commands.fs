@@ -50,8 +50,10 @@ type FormatDocumentResponse =
 
 /// Represents a desired change to a given file
 type DocumentEdit =
-  { InsertPosition: pos
-    InsertText: string }
+  {
+    InsertPosition: pos
+    InsertText: string
+  }
 
 module private Result =
   let ofCoreResponse (r: CoreResponse<'a>) =
@@ -263,11 +265,13 @@ module Commands =
     }
 
   let docForText (lines: IFSACSourceText) (tyRes: ParseAndCheckResults) : Document =
-    { LineCount = lines.GetLineCount()
+    {
+      LineCount = lines.GetLineCount()
       FullName = tyRes.FileName // from the compiler, assumed safe
       GetText = fun _ -> string lines
       GetLineText0 = fun i -> (lines :> ISourceText).GetLineString i
-      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1) }
+      GetLineText1 = fun i -> (lines :> ISourceText).GetLineString(i - 1)
+    }
 
   let getAbstractClassStub
     tryFindAbstractClassExprInBufferAtPos
@@ -351,7 +355,8 @@ module Commands =
             let entities =
               entities
               |> List.collect (fun e ->
-                [ yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
+                [
+                  yield e.TopRequireQualifiedAccessParent, e.AutoOpenParent, e.Namespace, e.CleanedIdents
                   if isAttribute then
                     let lastIdent = e.CleanedIdents.[e.CleanedIdents.Length - 1]
 
@@ -364,7 +369,8 @@ module Commands =
                         e.AutoOpenParent,
                         e.Namespace,
                         e.CleanedIdents
-                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9)) ])
+                        |> Array.replace (e.CleanedIdents.Length - 1) (lastIdent.Substring(0, lastIdent.Length - 9))
+                ])
 
             let createEntity =
               ParsedInput.TryFindInsertionContext
@@ -415,11 +421,13 @@ module Commands =
     async {
 
       let doc =
-        { Document.LineCount = lines.Length
+        {
+          Document.LineCount = lines.Length
           FullName = tyRes.FileName
           GetText = fun _ -> string lines
           GetLineText0 = fun i -> lines.GetLineString i
-          GetLineText1 = fun i -> lines.GetLineString(i - 1) }
+          GetLineText1 = fun i -> lines.GetLineString(i - 1)
+        }
 
       let! res = tryFindUnionDefinitionFromPos pos doc
 
@@ -449,10 +457,12 @@ module Commands =
 
         let! fantomasResponse =
           formatSelectionAsync
-            { SourceCode = currentCode
+            {
+              SourceCode = currentCode
               FilePath = filePath
               Config = None
-              Range = rangeToFormat }
+              Range = rangeToFormat
+            }
 
         match
           enum<FantomasResponseCode> fantomasResponse.Code, fantomasResponse.Content, fantomasResponse.SelectedRange
@@ -490,10 +500,12 @@ module Commands =
 
         let! fantomasResponse =
           formatDocumentAsync
-            { SourceCode = currentCode
+            {
+              SourceCode = currentCode
               FilePath = filePath
               Config = None
-              Cursor = None }
+              Cursor = None
+            }
 
         match enum<FantomasResponseCode> fantomasResponse.Code, fantomasResponse.Content with
         | FantomasResponseCode.Formatted, Some code ->
@@ -540,7 +552,10 @@ module Commands =
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols usages))
         else if fsym.IsInternalToProject then
           let! opts = getProjectOptions tyRes.FileName
-          let! symbols = getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+
+          let! symbols =
+            getUsesOfSymbol (tyRes.FileName, [ UMX.untag tyRes.FileName, opts ], sym.Symbol)
+
           return CoreResponse.Res(LocationResponse.Use(sym, filterSymbols symbols))
         else
           let! projs = getAllProjects ()
@@ -700,8 +715,10 @@ module Commands =
             match gens with
             | [ currentS ] -> [| (pipePos, removeSignPrefix currentS) |]
             | [ prevS; currentS ] ->
-              [| (prevLinePos, removeSignPrefix prevS)
-                 (pipePos, removeSignPrefix currentS) |]
+              [|
+                (prevLinePos, removeSignPrefix prevS)
+                (pipePos, removeSignPrefix currentS)
+              |]
             | _ ->
               let allS = gens |> Seq.intersperse "; " |> Seq.reduce (+)
               [| (pipePos, allS) |])
@@ -830,9 +847,11 @@ module Commands =
               pos
           | Pos _ -> pos
 
-        { Namespace = n
+        {
+          Namespace = n
           Position = pos
-          Scope = ic.ScopeKind }))
+          Scope = ic.ScopeKind
+        }))
 
   let symbolUseWorkspaceAux
     (getDeclarationLocation: FSharpSymbolUse * IFSACSourceText -> Async<SymbolDeclarationLocation option>)
@@ -899,12 +918,14 @@ module Commands =
             | Some(SymbolDeclarationLocation.Projects(projects (*isLocalForProject=*) , false)) ->
 
               let! resolvedProjects =
-                [ for project in projects do
+                [
+                  for project in projects do
                     yield Async.singleton (Some project)
 
                     yield!
                       project.ReferencedProjectsPath
-                      |> List.map (fun p -> Utils.normalizePath p |> tryGetProjectOptionsForFsproj) ]
+                      |> List.map (fun p -> Utils.normalizePath p |> tryGetProjectOptionsForFsproj)
+                ]
                 |> Async.parallel75
 
 
@@ -993,7 +1014,8 @@ module Commands =
           // * stop when error occurs
           // -> `Async.Choice`: executes in parallel, returns first `Some`
           // -> map `Error` to `Some` for `Async.Choice`, afterwards map `Some` back to `Error`
-          [ for project in projects do
+          [
+            for project in projects do
               for file in project.SourceFilesTagged do
 
                 async {
@@ -1001,7 +1023,8 @@ module Commands =
                   | Ok _ -> return None
                   | Error err -> return Some err
 
-                } ]
+                }
+          ]
           |> Async.parallel75
           |> Async.Ignore<_>
         // |> Async.map (function
@@ -1192,18 +1215,19 @@ module Commands =
       |> Array.map (fun (left, right) -> Range.mkRange parentRange.FileName left.End right.Start)
 
     [|
-       // note that the first and last segments can be zero-length.
-       // in that case we should not emit them because it confuses the
-       // encoding algorithm
-       if Position.posEq firstSegment.Start firstSegment.End then
-         ()
-       else
-         firstSegment
-       yield! innerSegments
-       if Position.posEq lastSegment.Start lastSegment.End then
-         ()
-       else
-         lastSegment |]
+      // note that the first and last segments can be zero-length.
+      // in that case we should not emit them because it confuses the
+      // encoding algorithm
+      if Position.posEq firstSegment.Start firstSegment.End then
+        ()
+      else
+        firstSegment
+      yield! innerSegments
+      if Position.posEq lastSegment.Start lastSegment.End then
+        ()
+      else
+        lastSegment
+    |]
 
   // TODO: LSP technically does now know how to handle overlapping, nested and multiline ranges, but
   // as of 3 February 2021 there are no good examples of this that I've found, so we still do this
@@ -1258,14 +1282,16 @@ module Commands =
       analyzerPredicate
     ) =
     let ctx: SDK.EditorContext =
-      { FileName = UMX.untag file
+      {
+        FileName = UMX.untag file
         SourceText = content
         ParseFileResults = pt
         CheckFileResults = Some checkFileResults
         TypedTree = Some tast
         CheckProjectResults = None
         ProjectOptions = projectOptions
-        AnalyzerIgnoreRanges = Ignore.getAnalyzerIgnoreRanges pt content }
+        AnalyzerIgnoreRanges = Ignore.getAnalyzerIgnoreRanges pt content
+      }
 
     let extractResultsFromAnalyzer (r: SDK.AnalysisResult) =
       match r.Output with
@@ -1405,9 +1431,18 @@ type Commands() =
                   rangeContainsPos s.RangeOfBindingWithoutRhs pos && xmlDoc.IsEmpty
                   ->
                   match valData with
-                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGet }))
-                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertySet }))
-                  | SynValData(memberFlags = Some({ MemberKind = SynMemberKind.PropertyGetSet })) -> None
+                  | SynValData(
+                      memberFlags = Some({
+                                           MemberKind = SynMemberKind.PropertyGet
+                                         }))
+                  | SynValData(
+                    memberFlags = Some({
+                                         MemberKind = SynMemberKind.PropertySet
+                                       }))
+                  | SynValData(
+                    memberFlags = Some({
+                                         MemberKind = SynMemberKind.PropertyGetSet
+                                       })) -> None
                   | _ -> Some(false, tryGetFirstAttributeLine attributes)
                 | _ -> defaultTraverse synBinding
 
@@ -1463,7 +1498,8 @@ type Commands() =
 
                 bindings |> List.tryPick isInLine
 
-              member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr } // needed for nested let bindings
+              member _.VisitExpr(_, _, defaultTraverse, expr) = defaultTraverse expr
+          } // needed for nested let bindings
         )
 
       let isModuleOrNamespaceOrAutoPropertyWithEmptyPreXmlDoc input pos : Option<bool * Option<int>> =
@@ -1525,7 +1561,8 @@ type Commands() =
                           | _ -> None)
                       | _ -> None)
 
-                  findNested decls }
+                  findNested decls
+          }
         )
 
       let isAstElemWithEmptyPreXmlDoc input pos =
@@ -1584,13 +1621,17 @@ type Commands() =
 
         return
           Some
-            { InsertPosition = insertPosition
-              InsertText = formattedXmlDoc }
+            {
+              InsertPosition = insertPosition
+              InsertText = formattedXmlDoc
+            }
     }
 
   static member InlayHints(text, tyRes: ParseAndCheckResults, range, ?showTypeHints, ?showParameterHints) =
     let hintConfig: Core.InlayHints.HintConfig =
-      { ShowTypeHints = defaultArg showTypeHints true
-        ShowParameterHints = defaultArg showParameterHints true }
+      {
+        ShowTypeHints = defaultArg showTypeHints true
+        ShowParameterHints = defaultArg showParameterHints true
+      }
 
     FsAutoComplete.Core.InlayHints.provideHints (text, tyRes, range, hintConfig)

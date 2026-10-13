@@ -107,12 +107,16 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLanguageVersion: Ge
           let functionEdit =
             if functionIdent.idText = "sprintf" then
               // Remove the `sprintf` function call
-              { Range = fcsRangeToLsp (unionRanges functionIdent.idRange mString.StartRange)
-                NewText = "$" }
+              {
+                Range = fcsRangeToLsp (unionRanges functionIdent.idRange mString.StartRange)
+                NewText = "$"
+              }
             else
               // Insert the dollar sign before the string
-              { Range = fcsRangeToLsp mString.StartRange
-                NewText = "$" }
+              {
+                Range = fcsRangeToLsp mString.StartRange
+                NewText = "$"
+              }
 
           let insertArgumentEdits =
             arguments
@@ -127,24 +131,32 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLanguageVersion: Ge
                   mkRange functionIdent.idRange.FileName stringPos stringPos
 
                 Some
-                  { Range = fcsRangeToLsp mReplace
+                  {
+                    Range = fcsRangeToLsp mReplace
                     NewText =
                       sprintf
                         "%s%s%s"
                         (if surroundWithSpaces then "{ " else "{")
                         argText
-                        (if surroundWithSpaces then " }" else "}") })
+                        (if surroundWithSpaces then " }" else "}")
+                  })
 
           let removeArgumentEdits =
             let m = mkRange functionIdent.idRange.FileName mString.End mLastArg.End
 
-            { Range = fcsRangeToLsp m
-              NewText = "" }
+            {
+              Range = fcsRangeToLsp m
+              NewText = ""
+            }
 
           return
-            [ { Edits = [| yield functionEdit; yield! insertArgumentEdits; yield removeArgumentEdits |]
+            [
+              {
+                Edits = [| yield functionEdit; yield! insertArgumentEdits; yield removeArgumentEdits |]
                 File = codeActionParams.TextDocument
                 Title = title
                 SourceDiagnostic = None
-                Kind = FixKind.Refactor } ]
+                Kind = FixKind.Refactor
+              }
+            ]
     }

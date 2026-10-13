@@ -12,9 +12,11 @@ open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
 type Config =
-  { ObjectIdentifier: string
+  {
+    ObjectIdentifier: string
     MethodBody: string
-    IndentationSize: int }
+    IndentationSize: int
+  }
 
 val titleWithTypeAnnotation: string
 val titleWithoutTypeAnnotation: string

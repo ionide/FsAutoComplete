@@ -10,11 +10,13 @@ open FsAutoComplete.FCSPatches
 // FCS 43.12 does not load projects that target unsupported language versions.
 let langVersion80Config =
   { defaultConfigDto with
-      FSIExtraSharedParameters = Some [| "--langversion:8.0" |] }
+      FSIExtraSharedParameters = Some [| "--langversion:8.0" |]
+  }
 
 let tests state =
   serverTestList (nameof ToInterpolatedString) state langVersion80Config None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
+    [
+      let selectCodeFix = CodeFix.withTitle ToInterpolatedString.title
 
       testCaseAsync "simple integer string format"
       <| CodeFix.check
@@ -360,4 +362,4 @@ let tests state =
         Diagnostics.acceptAll
         selectCodeFix
 
-      ])
+    ])

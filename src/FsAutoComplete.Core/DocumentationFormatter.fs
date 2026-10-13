@@ -17,21 +17,25 @@ module DocumentationFormatter =
   let mutable lastDisplayContext: FSharpDisplayContext = FSharpDisplayContext.Empty
 
   type EntityInfo =
-    { Constructors: string array
+    {
+      Constructors: string array
       Fields: string array
       Functions: string array
       Interfaces: string array
       Attributes: string array
-      DeclaredTypes: string array }
+      DeclaredTypes: string array
+    }
 
     static member Empty =
 
-      { Constructors = [||]
+      {
+        Constructors = [||]
         Fields = [||]
         Functions = [||]
         Interfaces = [||]
         Attributes = [||]
-        DeclaredTypes = [||] }
+        DeclaredTypes = [||]
+      }
 
   /// Concat two strings with a space between if both a and b are not IsNullOrWhiteSpace
   let internal (++) (a: string) (b: string) =
@@ -105,11 +109,13 @@ module DocumentationFormatter =
       let org = typ.Format newContext
       let t = tag.Replace(org, "<")
 
-      [ yield formatShowDocumentationLink t xmlDocSig assemblyName
+      [
+        yield formatShowDocumentationLink t xmlDocSig assemblyName
         if t.EndsWith("<", StringComparison.Ordinal) then
           yield! renderedGenericArgumentTypes |> Seq.intersperse (", ", 2)
 
-          yield formatShowDocumentationLink ">" xmlDocSig assemblyName ]
+          yield formatShowDocumentationLink ">" xmlDocSig assemblyName
+      ]
       |> combineParts
 
     elif typ.IsGenericParameter then
@@ -719,13 +725,15 @@ module DocumentationFormatter =
 
             [ getFuncSignatureForTypeSignature displayContext prop getter setter ] //Ensure properties are displayed only once, properly report
           | None ->
-            [ for f in v do
+            [
+              for f in v do
                 yield getFuncSignatureForTypeSignature displayContext f false false
 
                 yield!
                   f.GetOverloads false
                   |> Option.map (Seq.map (fun f -> getFuncSignatureForTypeSignature displayContext f false false))
-                  |> Option.defaultValue Seq.empty ])
+                  |> Option.defaultValue Seq.empty
+            ])
         |> Seq.toArray
 
       let interfaces =
@@ -751,12 +759,14 @@ module DocumentationFormatter =
             None)
         |> Seq.toArray
 
-      { Constructors = constructors
+      {
+        Constructors = constructors
         Fields = fields
         Functions = funcs
         Interfaces = interfaces
         Attributes = attrs
-        DeclaredTypes = types }
+        DeclaredTypes = types
+      }
 
     let typeDisplay =
       let name =

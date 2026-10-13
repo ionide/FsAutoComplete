@@ -114,9 +114,11 @@ type RoslynSourceTextFactory =
   interface ISourceTextFactory
 
 type VolatileFile =
-  { LastTouched: DateTime
+  {
+    LastTouched: DateTime
     Source: IFSACSourceText
-    Version: int }
+    Version: int
+  }
 
   member FileName: string<LocalPath>
   /// <summary>Updates the Lines value</summary>

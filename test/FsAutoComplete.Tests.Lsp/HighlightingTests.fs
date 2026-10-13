@@ -18,7 +18,10 @@ let tests state =
       let! (server, event) = serverInitialize testPath defaultConfigDto state
 
       for documentPath, fileName in [ scriptPath, "Script.fsx"; signaturePath, "Signature.fsi" ] do
-        let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument documentPath }
+        let tdop: DidOpenTextDocumentParams =
+          {
+            TextDocument = loadDocument documentPath
+          }
 
         do! server.TextDocumentDidOpen tdop
 
@@ -56,16 +59,22 @@ let tests state =
         let endCol = startCol + int current.[2]
         lastLine <- startLine
         lastCol <- startCol
-        let tokenType = enum<ClassificationUtils.SemanticTokenTypes> (int current.[3])
-        let tokenMods = enum<ClassificationUtils.SemanticTokenModifier> (int current.[4])
+        let tokenType = enum<ClassificationUtils.SemanticTokenTypes>(int current.[3])
+        let tokenMods = enum<ClassificationUtils.SemanticTokenModifier>(int current.[4])
 
         let range =
-          { Start =
-              { Line = uint32 startLine
-                Character = uint32 startCol }
+          {
+            Start =
+              {
+                Line = uint32 startLine
+                Character = uint32 startCol
+              }
             End =
-              { Line = uint32 endLine
-                Character = uint32 endCol } }
+              {
+                Line = uint32 endLine
+                Character = uint32 endCol
+              }
+          }
 
         range, tokenType, tokenMods)
 
@@ -74,9 +83,14 @@ let tests state =
   let getFullHighlights documentPath =
     async {
       let p: SemanticTokensParams =
-        { TextDocument = { Uri = Path.FilePathToUri documentPath }
+        {
+          TextDocument =
+            {
+              Uri = Path.FilePathToUri documentPath
+            }
           WorkDoneToken = None
-          PartialResultToken = None }
+          PartialResultToken = None
+        }
 
       let! server = server
       let! highlights = server.TextDocumentSemanticTokensFull p
@@ -155,19 +169,25 @@ let tests state =
         let! server = server
 
         let range: Range =
-          { Start =
-              { Line = startLine
-                Character = startChar }
-            End = { Line = endLine; Character = endChar } }
+          {
+            Start =
+              {
+                Line = startLine
+                Character = startChar
+              }
+            End = { Line = endLine; Character = endChar }
+          }
 
         let pos = { Line = line; Character = char }
 
         match!
           server.TextDocumentSemanticTokensRange
-            { Range = range
+            {
+              Range = range
               TextDocument = { Uri = Path.FilePathToUri scriptPath }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
         with
         | Ok(Some highlights) ->
           let decoded = decodeHighlighting highlights.Data
@@ -182,9 +202,11 @@ let tests state =
 
   testList
     "Document Highlighting Tests"
-    [ testList
+    [
+      testList
         "tests"
-        [ tokenIsOfType (0u, 29u) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
+        [
+          tokenIsOfType (0u, 29u) ClassificationUtils.SemanticTokenTypes.TypeParameter fullHighlights // the `^a` type parameter in the SRTP constraint
           tokenIsOfType (0u, 44u) ClassificationUtils.SemanticTokenTypes.Member fullHighlights // the `PeePee` member in the SRTP constraint
           tokenIsOfType (3u, 52u) ClassificationUtils.SemanticTokenTypes.Class fullHighlights // the `string` type annotation in the PooPoo srtp member
           tokenIsOfType (6u, 21u) ClassificationUtils.SemanticTokenTypes.EnumMember fullHighlights // the `PeePee` AP application in the `yeet` function definition
@@ -313,4 +335,6 @@ let tests state =
             ClassificationUtils.SemanticTokenTypes.Method
             ClassificationUtils.SemanticTokenModifier.Declaration
             false
-            signatureHighlights ] ] // the synthetic delegate Invoke member is not a source declaration
+            signatureHighlights
+        ]
+    ] // the synthetic delegate Invoke member is not a source declaration

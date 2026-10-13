@@ -192,27 +192,37 @@ type PlainNotification = { Content: string }
 /// Used to signal all Diagnostics for this `TextDocument` are collected and sent.
 /// -> For tests to get all Diagnostics of `TextDocument`
 type DocumentAnalyzedNotification =
-  { TextDocument: VersionedTextDocumentIdentifier }
+  {
+    TextDocument: VersionedTextDocumentIdentifier
+  }
 
 type TestDetectedNotification =
-  { File: string
-    Tests: TestAdapter.TestAdapterEntry<Range> array }
+  {
+    File: string
+    Tests: TestAdapter.TestAdapterEntry<Range> array
+  }
 
 type TestRunRequest =
-  { LimitToProjects: FilePath list option
+  {
+    LimitToProjects: FilePath list option
     TestCaseFilter: string option
-    AttachDebugger: bool }
+    AttachDebugger: bool
+  }
 
 type TestLogMessage = { Level: string; Message: string }
 
 type TestDiscoveryUpdateNotification =
-  { Tests: TestServer.TestItem array
-    TestLogs: TestLogMessage array }
+  {
+    Tests: TestServer.TestItem array
+    TestLogs: TestLogMessage array
+  }
 
 type TestRunProgress =
-  { TestLogs: TestLogMessage array
+  {
+    TestLogs: TestLogMessage array
     TestResults: TestServer.TestResult array
-    ActiveTests: TestServer.TestItem array }
+    ActiveTests: TestServer.TestItem array
+  }
 
 type ProjectParms =
   {
@@ -227,16 +237,20 @@ type WorkspaceLoadParms =
   }
 
 type WorkspacePeekRequest =
-  { Directory: string
+  {
+    Directory: string
     Deep: int
-    ExcludedDirs: string array }
+    ExcludedDirs: string array
+  }
 
 type DocumentationForSymbolRequest =
-  { XmlSig: string
+  {
+    XmlSig: string
     Assembly: string
     FileName: string option
     Line: int option
-    Character: int option }
+    Character: int option
+  }
 
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }
@@ -246,25 +260,33 @@ type FsdnRequest = { Query: string }
 type DotnetNewListRequest = { Query: string }
 
 type DotnetNewRunRequest =
-  { Template: string
+  {
+    Template: string
     Output: string option
-    Name: string option }
+    Name: string option
+  }
 
 type DotnetProjectRequest = { Target: string; Reference: string }
 
 type DotnetFileRequest =
-  { FsProj: string
-    FileVirtualPath: string }
+  {
+    FsProj: string
+    FileVirtualPath: string
+  }
 
 type DotnetFile2Request =
-  { FsProj: string
+  {
+    FsProj: string
     FileVirtualPath: string
-    NewFile: string }
+    NewFile: string
+  }
 
 type DotnetRenameFileRequest =
-  { FsProj: string
+  {
+    FsProj: string
     OldFileVirtualPath: string
-    NewFileName: string }
+    NewFileName: string
+  }
 
 type FSharpLiterateRequest =
   { TextDocument: TextDocumentIdentifier }
@@ -273,22 +295,30 @@ type FSharpPipelineHintRequest =
   { TextDocument: TextDocumentIdentifier }
 
 type CodeLensConfigDto =
-  { Signature: {| Enabled: bool option |} option
-    References: {| Enabled: bool option |} option }
+  {
+    Signature: {| Enabled: bool option |} option
+    References: {| Enabled: bool option |} option
+  }
 
 type InlayHintDto =
-  { typeAnnotations: bool option
+  {
+    typeAnnotations: bool option
     parameterNames: bool option
-    disableLongTooltip: bool option }
+    disableLongTooltip: bool option
+  }
 
 type InlineValueDto =
-  { Enabled: bool option
-    Prefix: string option }
+  {
+    Enabled: bool option
+    Prefix: string option
+  }
 
 type NotificationsDto =
-  { Trace: bool option
+  {
+    Trace: bool option
     TraceNamespaces: string array option
-    BackgroundServiceProgress: bool option }
+    BackgroundServiceProgress: bool option
+  }
 
 type FSACDto =
   {
@@ -298,7 +328,8 @@ type FSACDto =
   }
 
 type FSharpConfigDto =
-  { AutomaticWorkspaceInit: bool option
+  {
+    AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
     ExcludeProjectDirectories: string array option
     KeywordsAutocomplete: bool option
@@ -347,33 +378,42 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option }
+    Notifications: NotificationsDto option
+  }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
 type CodeLensConfig =
-  { Signature: {| Enabled: bool |}
-    References: {| Enabled: bool |} }
+  {
+    Signature: {| Enabled: bool |}
+    References: {| Enabled: bool |}
+  }
 
   static member Default: CodeLensConfig
 
 type InlayHintsConfig =
-  { typeAnnotations: bool
+  {
+    typeAnnotations: bool
     parameterNames: bool
-    disableLongTooltip: bool }
+    disableLongTooltip: bool
+  }
 
   static member Default: InlayHintsConfig
 
 type InlineValuesConfig =
-  { Enabled: bool option
-    Prefix: string option }
+  {
+    Enabled: bool option
+    Prefix: string option
+  }
 
   static member Default: InlineValuesConfig
 
 type NotificationsConfig =
-  { Trace: bool
+  {
+    Trace: bool
     TraceNamespaces: string array
-    BackgroundServiceProgress: bool }
+    BackgroundServiceProgress: bool
+  }
 
   static member Default: NotificationsConfig
   static member FromDto: dto: NotificationsDto -> NotificationsConfig
@@ -392,7 +432,8 @@ type FSACConfig =
   member AddDto: dto: FSACDto -> FSACConfig
 
 type FSharpConfig =
-  { AutomaticWorkspaceInit: bool
+  {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
     ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
@@ -441,7 +482,8 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig }
+    Fsac: FSACConfig
+  }
 
   static member Default: FSharpConfig
   static member FromDto: dto: FSharpConfigDto -> FSharpConfig
@@ -487,8 +529,10 @@ val encodeSemanticHighlightRanges:
     uint32 array option
 
 type FSharpInlayHintsRequest =
-  { TextDocument: TextDocumentIdentifier
-    Range: Range }
+  {
+    TextDocument: TextDocumentIdentifier
+    Range: Range
+  }
 
 [<AutoOpen>]
 module Extensions =

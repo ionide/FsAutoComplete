@@ -109,11 +109,13 @@ type RepoPathSegment
 type NormalizedRepoPathSegment
 
 type Document =
-  { FullName: string<LocalPath>
+  {
+    FullName: string<LocalPath>
     LineCount: int
     GetText: unit -> string
     GetLineText0: int -> string
-    GetLineText1: int -> string }
+    GetLineText1: int -> string
+  }
 
 
 /// <summary>
@@ -153,11 +155,11 @@ let inline internal normalizePathI (file: ReadOnlySpan<char>) : string<LocalPath
     try
       let written = p.Slice(0, 1).ToLower(buffer.Span, CultureInfo.InvariantCulture)
       p.Slice(written).CopyTo(buffer.Span.Slice(written))
-      UMX.tag<LocalPath> (StringPool.Shared.GetOrAdd buffer.Span)
+      UMX.tag<LocalPath>(StringPool.Shared.GetOrAdd buffer.Span)
     finally
       buffer.Dispose()
   else
-    UMX.tag<LocalPath> (StringPool.Shared.GetOrAdd file)
+    UMX.tag<LocalPath>(StringPool.Shared.GetOrAdd file)
 
 let inline normalizePath (file: string) : string<LocalPath> = normalizePathI file
 
@@ -432,10 +434,11 @@ module String =
       let digits = Array.takeWhile Char.IsDigit charr
       Array.revInPlace digits
 
-      String digits
-      |> function
-        | "" -> str, None
-        | index -> str.Substring(0, str.Length - index.Length), Some(int index)
+      if digits.Length = 0 then
+        str, None
+      else
+        let index = String digits
+        str.Substring(0, str.Length - index.Length), Some(int index)
 
 
   let (|StartsWith|_|) (pattern: string) (value: string) =
@@ -452,16 +455,18 @@ module String =
   let getLines (str: string) =
     use reader = new StringReader(str)
 
-    [| let line = ref (reader.ReadLine())
+    [|
+      let line = ref (reader.ReadLine())
 
-       while not (isNull (line.Value)) do
-         yield line.Value
-         line.Value <- reader.ReadLine()
+      while not (isNull (line.Value)) do
+        yield line.Value
+        line.Value <- reader.ReadLine()
 
-       if str.EndsWith("\n", StringComparison.Ordinal) then
-         // last trailing space not returned
-         // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
-         yield String.Empty |]
+      if str.EndsWith("\n", StringComparison.Ordinal) then
+        // last trailing space not returned
+        // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
+        yield String.Empty
+    |]
 
   type SplitResult =
     | NoMatch
@@ -778,8 +783,10 @@ module Version =
       | [| v |] -> v, ""
       | _ -> "", ""
 
-    { VersionInfo.Version = version
-      GitSha = sha }
+    {
+      VersionInfo.Version = version
+      GitSha = sha
+    }
 
 //source: https://nbevans.wordpress.com/2014/08/09/a-simple-stereotypical-javascript-like-debounce-service-for-f/
 type Debounce<'a>(timeout, fn) as x =
@@ -790,12 +797,12 @@ type Debounce<'a>(timeout, fn) as x =
         async {
           let! r = agent.TryReceive(x.Timeout)
 
-          match r with
-          | Some arg -> return! loop ida (idb + 1) (Some arg)
-          | None when ida <> idb ->
-            do! fn arg.Value
+          match r, arg with
+          | Some arg, _ -> return! loop ida (idb + 1) (Some arg)
+          | None, Some pending when ida <> idb ->
+            do! fn pending
             return! loop 0 0 None
-          | None -> return! loop 0 0 arg
+          | None, _ -> return! loop 0 0 arg
         }
 
       loop 0 0 None)
@@ -903,12 +910,14 @@ module Tracing =
     interface IActivityTracingStrategy with
       member this.ApplyInboundActivity(request: Protocol.JsonRpcRequest) : IDisposable =
         let tags =
-          [ "rpc.system", box "jsonrpc"
+          [
+            "rpc.system", box "jsonrpc"
             "rpc.jsonrpc.is_notification", box request.IsNotification
             "rpc.jsonrpc.is_response_expected", box request.IsResponseExpected
             "rpc.jsonrpc.version", box request.Version
             "rpc.jsonrpc.request_id", box request.RequestId
-            "rpc.method", box request.Method ]
+            "rpc.method", box request.Method
+          ]
           |> Seq.map KeyValuePair
 
         let activity =

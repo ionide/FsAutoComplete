@@ -45,7 +45,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           let sigFileName = Utils.normalizePath sigFilePath
 
           let sigTextDocumentIdentifier: TextDocumentIdentifier =
-            { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+            {
+              Uri = $"%s{codeActionParams.TextDocument.Uri}i"
+            }
 
           let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, _sigSourceText: IFSACSourceText) =
             getParseResultsForFile sigFileName (Position.mkPos 1 0)
@@ -68,12 +70,20 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             let newText = implSourceText.GetSubTextFromRange mImplBody
 
             return
-              [ { SourceDiagnostic = None
+              [
+                {
+                  SourceDiagnostic = None
                   Title = title
                   File = sigTextDocumentIdentifier
                   Edits =
-                    [| { Range = fcsRangeToLsp mSigTypeAbbrev
-                         NewText = newText } |]
-                  Kind = FixKind.Fix } ]
+                    [|
+                      {
+                        Range = fcsRangeToLsp mSigTypeAbbrev
+                        NewText = newText
+                      }
+                    |]
+                  Kind = FixKind.Fix
+                }
+              ]
         | _ -> return []
     })

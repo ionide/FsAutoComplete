@@ -31,12 +31,20 @@ let fix
           ||> Seq.fold (fun text (KeyValue(key, replacement)) -> text.Replace(key, replacement))
 
         return
-          [ { SourceDiagnostic = None
+          [
+            {
+              SourceDiagnostic = None
               Title = title
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = fcsPosToProtocolRange position
-                     NewText = replaced } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = fcsPosToProtocolRange position
+                    NewText = replaced
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | _ -> return []
     }

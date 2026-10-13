@@ -74,7 +74,9 @@ let fix
           let sigFileName = Utils.normalizePath sigFilePath
 
           let sigTextDocumentIdentifier: TextDocumentIdentifier =
-            { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+            {
+              Uri = $"%s{codeActionParams.TextDocument.Uri}i"
+            }
 
           let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, sigSourceText: IFSACSourceText) =
             getParseResultsForFile sigFileName (Position.mkPos 1 0)
@@ -110,8 +112,10 @@ let fix
 
                     | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
                         range = mNested
-                        trivia = { ModuleKeyword = Some mModule
-                                   EqualsRange = Some mEquals })) ->
+                        trivia = {
+                                   ModuleKeyword = Some mModule
+                                   EqualsRange = Some mEquals
+                                 })) ->
                       let moduleEqualsText =
                         sigSourceText.GetSubTextFromRange(Range.unionRanges mModule mEquals)
                       // Can this grabbed from configuration?
@@ -143,12 +147,20 @@ let fix
           | Some(mInsert, newText) ->
 
             return
-              [ { SourceDiagnostic = None
+              [
+                {
+                  SourceDiagnostic = None
                   Title = title
                   File = sigTextDocumentIdentifier
                   Edits =
-                    [| { Range = fcsRangeToLsp mInsert
-                         NewText = newText } |]
-                  Kind = FixKind.Fix } ]
+                    [|
+                      {
+                        Range = fcsRangeToLsp mInsert
+                        NewText = newText
+                      }
+                    |]
+                  Kind = FixKind.Fix
+                }
+              ]
         | _ -> return []
     })

@@ -22,7 +22,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let sigFileName = Utils.normalizePath sigFilePath
 
       let sigTextDocumentIdentifier: TextDocumentIdentifier =
-        { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+        {
+          Uri = $"%s{codeActionParams.TextDocument.Uri}i"
+        }
 
       let! (implParseAndCheckResults: ParseAndCheckResults, implLine: string, _implSourceText: IFSACSourceText) =
         getParseResultsForFile implFileName (protocolPosToPos diagnostic.Range.Start)
@@ -84,11 +86,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         |> Result.ofOption (fun () -> "No val range found in signature file")
 
       return
-        [ { SourceDiagnostic = None
+        [
+          {
+            SourceDiagnostic = None
             Title = title
             File = sigTextDocumentIdentifier
             Edits =
-              [| { Range = fcsRangeToLsp mVal
-                   NewText = valText } |]
-            Kind = FixKind.Fix } ]
+              [|
+                {
+                  Range = fcsRangeToLsp mVal
+                  NewText = valText
+                }
+              |]
+            Kind = FixKind.Fix
+          }
+        ]
     })

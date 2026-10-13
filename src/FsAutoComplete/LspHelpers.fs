@@ -40,21 +40,27 @@ module Conversions =
 
   /// convert a compiler position to an LSP position
   let fcsPosToLsp (pos: FcsPos) : LspPosition =
-    { Line = uint32 pos.Line - 1u
-      Character = uint32 pos.Column }
+    {
+      Line = uint32 pos.Line - 1u
+      Character = uint32 pos.Column
+    }
 
   /// convert a compiler range to an LSP range
   let fcsRangeToLsp (range: FcsRange) : LspRange =
-    { Start = fcsPosToLsp range.Start
-      End = fcsPosToLsp range.End }
+    {
+      Start = fcsPosToLsp range.Start
+      End = fcsPosToLsp range.End
+    }
 
   let protocolRangeToRange fn (range: LspRange) : FcsRange =
     FcsRange.mkRange fn (protocolPosToPos range.Start) (protocolPosToPos range.End)
 
   /// convert an FCS position to a single-character range in LSP
   let fcsPosToProtocolRange (pos: FcsPos) : LspRange =
-    { Start = fcsPosToLsp pos
-      End = fcsPosToLsp pos }
+    {
+      Start = fcsPosToLsp pos
+      End = fcsPosToLsp pos
+    }
 
 
   let fcsRangeToLspLocation (range: FcsRange) : LspLocation =
@@ -68,16 +74,22 @@ module Conversions =
     | FsAutoComplete.FindDeclarationResult.ExternalDeclaration ex ->
       let fileUri = Path.FilePathToUri ex.File
 
-      { Uri = fileUri
-        Range = fcsPosToProtocolRange ex.Position }
+      {
+        Uri = fileUri
+        Range = fcsPosToProtocolRange ex.Position
+      }
     | FsAutoComplete.FindDeclarationResult.Range r -> fcsRangeToLspLocation r
     | FsAutoComplete.FindDeclarationResult.File file ->
       let fileUri = Path.FilePathToUri file
 
-      { Uri = fileUri
+      {
+        Uri = fileUri
         Range =
-          { Start = { Line = 0u; Character = 0u }
-            End = { Line = 0u; Character = 0u } } }
+          {
+            Start = { Line = 0u; Character = 0u }
+            End = { Line = 0u; Character = 0u }
+          }
+      }
 
   type Diagnostic with
     /// The diagnostic's code, which usually appear in the user interface.
@@ -116,13 +128,20 @@ module Conversions =
   let private handleUnicodeParagraph (message: string) = message.Replace(unicodeParagraphCharacter, Environment.NewLine)
 
   let fcsErrorToDiagnostic (error: FSharpDiagnostic) =
-    { Range =
-        { Start =
-            { Line = uint32 (max 0 (error.StartLine - 1))
-              Character = uint32 (max 0 error.StartColumn) }
+    {
+      Range =
+        {
+          Start =
+            {
+              Line = uint32 (max 0 (error.StartLine - 1))
+              Character = uint32 (max 0 error.StartColumn)
+            }
           End =
-            { Line = uint32 (max 0 (error.EndLine - 1))
-              Character = uint32 (max 0 error.EndColumn) } }
+            {
+              Line = uint32 (max 0 (error.EndLine - 1))
+              Character = uint32 (max 0 error.EndColumn)
+            }
+        }
       Severity = fcsSeverityToDiagnostic error.Severity
       Source = Some "F# Compiler"
       Message = handleUnicodeParagraph error.Message
@@ -130,7 +149,12 @@ module Conversions =
       RelatedInformation = Some [||]
       Tags = None
       Data = None
-      CodeDescription = Some { Href = urlForCompilerCode error.ErrorNumber } }
+      CodeDescription =
+        Some
+          {
+            Href = urlForCompilerCode error.ErrorNumber
+          }
+    }
 
   let getSymbolInformations
     (uri: DocumentUri)
@@ -143,21 +167,27 @@ module Conversions =
       let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
 
       let location =
-        { Uri = uri
-          Range = fcsRangeToLsp decl.Range }
+        {
+          Uri = uri
+          Range = fcsRangeToLsp decl.Range
+        }
 
       let sym: SymbolInformation =
-        { Name = decl.LogicalName
+        {
+          Name = decl.LogicalName
           Kind = kind
           Location = location
           ContainerName = container
           Tags = None
-          Deprecated = None }
+          Deprecated = None
+        }
 
       sym
 
-    [| yield inner None topLevel.Declaration
-       yield! topLevel.Nested |> Array.map (inner (Some topLevel.Declaration.LogicalName)) |]
+    [|
+      yield inner None topLevel.Declaration
+      yield! topLevel.Nested |> Array.map (inner (Some topLevel.Declaration.LogicalName))
+    |]
 
   let getDocumentSymbols
     (glyphToSymbolKind: FSharpGlyph -> SymbolKind option)
@@ -169,19 +199,23 @@ module Conversions =
       let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
 
       let sym: DocumentSymbol =
-        { Name = decl.LogicalName
+        {
+          Name = decl.LogicalName
           Kind = kind
           Tags = None
           Deprecated = None
           Children = None
           Range = fcsRangeToLsp decl.Range
           Detail = None
-          SelectionRange = fcsRangeToLsp decl.Range }
+          SelectionRange = fcsRangeToLsp decl.Range
+        }
 
       sym
 
-    [| yield inner topLevel.Declaration
-       yield! topLevel.Nested |> Array.map inner |]
+    [|
+      yield inner topLevel.Declaration
+      yield! topLevel.Nested |> Array.map inner
+    |]
 
   let getWorkspaceSymbols
     (uri: DocumentUri)
@@ -195,21 +229,27 @@ module Conversions =
       let kind = defaultArg (glyphToSymbolKind decl.Glyph) SymbolKind.Module
 
       let location =
-        { Uri = uri
-          Range = fcsRangeToLsp decl.Range }
+        {
+          Uri = uri
+          Range = fcsRangeToLsp decl.Range
+        }
 
       let sym: WorkspaceSymbol =
-        { ContainerName = container
+        {
+          ContainerName = container
           Data = None
           Name = decl.LogicalName
           Kind = kind
           Location = U2.C1 location
-          Tags = None }
+          Tags = None
+        }
 
       if symbolFilter sym then Some sym else None
 
-    [| yield! inner None topLevel.Declaration |> Option.toArray
-       yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName)) |]
+    [|
+      yield! inner None topLevel.Declaration |> Option.toArray
+      yield! topLevel.Nested |> Array.choose (inner (Some topLevel.Declaration.LogicalName))
+    |]
 
   let inline applyQuery (query: string) (info: #IBaseSymbolInformation) =
     match query.Split([| '.' |], StringSplitOptions.RemoveEmptyEntries) with
@@ -227,9 +267,11 @@ module Conversions =
 
   let getCodeLensInformation (uri: DocumentUri) (typ: string) (topLevel: NavigationTopLevelDeclaration) : CodeLens[] =
     let map (decl: NavigationItem) : CodeLens =
-      { Command = None
+      {
+        Command = None
         Data = Some(Json.fromObject [| uri; typ |])
-        Range = fcsRangeToLsp decl.Range }
+        Range = fcsRangeToLsp decl.Range
+      }
 
     let shouldKeep (n: NavigationItem) =
       let keep =
@@ -363,8 +405,10 @@ module Workspace =
     match i with
     | Interesting.Directory(p, fsprojs) ->
       WorkspacePeekFound.Directory
-        { WorkspacePeekFoundDirectory.Directory = p
-          Fsprojs = fsprojs }
+        {
+          WorkspacePeekFoundDirectory.Directory = p
+          Fsprojs = fsprojs
+        }
     | Interesting.Solution(p, sd) ->
       let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
         let kind =
@@ -374,29 +418,37 @@ module Workspace =
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.MSBuildFormat _msbuildProj ->
             Some(
               WorkspacePeekFoundSolutionItemKind.MsbuildFormat
-                { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
+                {
+                  WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
+                }
             )
           | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
             let c = children |> List.choose item
 
             Some(
               WorkspacePeekFoundSolutionItemKind.Folder
-                { WorkspacePeekFoundSolutionItemKindFolder.Items = c
-                  Files = files }
+                {
+                  WorkspacePeekFoundSolutionItemKindFolder.Items = c
+                  Files = files
+                }
             )
 
         kind
         |> Option.map (fun k ->
-          { WorkspacePeekFoundSolutionItem.Guid = x.Guid
+          {
+            WorkspacePeekFoundSolutionItem.Guid = x.Guid
             Name = x.Name
-            Kind = k })
+            Kind = k
+          })
 
       let items = sd.Items |> List.choose item
 
       WorkspacePeekFound.Solution
-        { WorkspacePeekFoundSolution.Path = p
+        {
+          WorkspacePeekFoundSolution.Path = p
           Items = items
-          Configurations = [] }
+          Configurations = []
+        }
 
   let getProjectsFromWorkspacePeek loadedWorkspace =
     match loadedWorkspace with
@@ -492,12 +544,14 @@ module Structure =
     // map the collapseRange to the foldingRange
     let lsp = fcsRangeToLsp item.CollapseRange
 
-    { StartCharacter = Some lsp.Start.Character
+    {
+      StartCharacter = Some lsp.Start.Character
       StartLine = lsp.Start.Line
       EndCharacter = Some lsp.End.Character
       EndLine = lsp.End.Line
       Kind = kind
-      CollapsedText = None }
+      CollapsedText = None
+    }
 
 module ClassificationUtils =
   [<RequireQualifiedAccess>]
@@ -608,27 +662,37 @@ type PlainNotification = { Content: string }
 /// Used to signal all Diagnostics for this `TextDocument` are collected and sent.
 /// -> For tests to get all Diagnostics of `TextDocument`
 type DocumentAnalyzedNotification =
-  { TextDocument: VersionedTextDocumentIdentifier }
+  {
+    TextDocument: VersionedTextDocumentIdentifier
+  }
 
 type TestDetectedNotification =
-  { File: string
-    Tests: TestAdapter.TestAdapterEntry<Range> array }
+  {
+    File: string
+    Tests: TestAdapter.TestAdapterEntry<Range> array
+  }
 
 type TestRunRequest =
-  { LimitToProjects: FilePath list option
+  {
+    LimitToProjects: FilePath list option
     TestCaseFilter: string option
-    AttachDebugger: bool }
+    AttachDebugger: bool
+  }
 
 type TestLogMessage = { Level: string; Message: string }
 
 type TestDiscoveryUpdateNotification =
-  { Tests: TestServer.TestItem array
-    TestLogs: TestLogMessage array }
+  {
+    Tests: TestServer.TestItem array
+    TestLogs: TestLogMessage array
+  }
 
 type TestRunProgress =
-  { TestLogs: TestLogMessage array
+  {
+    TestLogs: TestLogMessage array
     TestResults: TestServer.TestResult array
-    ActiveTests: TestServer.TestItem array }
+    ActiveTests: TestServer.TestItem array
+  }
 
 type ProjectParms =
   {
@@ -643,16 +707,20 @@ type WorkspaceLoadParms =
   }
 
 type WorkspacePeekRequest =
-  { Directory: string
+  {
+    Directory: string
     Deep: int
-    ExcludedDirs: string array }
+    ExcludedDirs: string array
+  }
 
 type DocumentationForSymbolRequest =
-  { XmlSig: string
+  {
+    XmlSig: string
     Assembly: string
     FileName: string option
     Line: int option
-    Character: int option }
+    Character: int option
+  }
 
 type HighlightingRequest =
   { TextDocument: TextDocumentIdentifier }
@@ -664,25 +732,33 @@ type FsdnRequest = { Query: string }
 type DotnetNewListRequest = { Query: string }
 
 type DotnetNewRunRequest =
-  { Template: string
+  {
+    Template: string
     Output: string option
-    Name: string option }
+    Name: string option
+  }
 
 type DotnetProjectRequest = { Target: string; Reference: string }
 
 type DotnetFileRequest =
-  { FsProj: string
-    FileVirtualPath: string }
+  {
+    FsProj: string
+    FileVirtualPath: string
+  }
 
 type DotnetFile2Request =
-  { FsProj: string
+  {
+    FsProj: string
     FileVirtualPath: string
-    NewFile: string }
+    NewFile: string
+  }
 
 type DotnetRenameFileRequest =
-  { FsProj: string
+  {
+    FsProj: string
     OldFileVirtualPath: string
-    NewFileName: string }
+    NewFileName: string
+  }
 
 type FSharpLiterateRequest =
   { TextDocument: TextDocumentIdentifier }
@@ -691,22 +767,30 @@ type FSharpPipelineHintRequest =
   { TextDocument: TextDocumentIdentifier }
 
 type CodeLensConfigDto =
-  { Signature: {| Enabled: bool option |} option
-    References: {| Enabled: bool option |} option }
+  {
+    Signature: {| Enabled: bool option |} option
+    References: {| Enabled: bool option |} option
+  }
 
 type InlayHintDto =
-  { typeAnnotations: bool option
+  {
+    typeAnnotations: bool option
     parameterNames: bool option
-    disableLongTooltip: bool option }
+    disableLongTooltip: bool option
+  }
 
 type InlineValueDto =
-  { Enabled: bool option
-    Prefix: string option }
+  {
+    Enabled: bool option
+    Prefix: string option
+  }
 
 type NotificationsDto =
-  { Trace: bool option
+  {
+    Trace: bool option
     TraceNamespaces: string array option
-    BackgroundServiceProgress: bool option }
+    BackgroundServiceProgress: bool option
+  }
 
 type FSACDto =
   {
@@ -716,7 +800,8 @@ type FSACDto =
   }
 
 type FSharpConfigDto =
-  { AutomaticWorkspaceInit: bool option
+  {
+    AutomaticWorkspaceInit: bool option
     WorkspaceModePeekDeepLevel: int option
     ExcludeProjectDirectories: string array option
     KeywordsAutocomplete: bool option
@@ -765,56 +850,75 @@ type FSharpConfigDto =
     PipelineHints: InlineValueDto option
     InlayHints: InlayHintDto option
     Fsac: FSACDto option
-    Notifications: NotificationsDto option }
+    Notifications: NotificationsDto option
+  }
 
 type FSharpConfigRequest = { FSharp: FSharpConfigDto option }
 
 type CodeLensConfig =
-  { Signature: {| Enabled: bool |}
-    References: {| Enabled: bool |} }
+  {
+    Signature: {| Enabled: bool |}
+    References: {| Enabled: bool |}
+  }
 
   static member Default =
-    { Signature = {| Enabled = true |}
-      References = {| Enabled = true |} }
+    {
+      Signature = {| Enabled = true |}
+      References = {| Enabled = true |}
+    }
 
 type InlayHintsConfig =
-  { typeAnnotations: bool
+  {
+    typeAnnotations: bool
     parameterNames: bool
-    disableLongTooltip: bool }
+    disableLongTooltip: bool
+  }
 
   static member Default =
-    { typeAnnotations = true
+    {
+      typeAnnotations = true
       parameterNames = true
-      disableLongTooltip = true }
+      disableLongTooltip = true
+    }
 
 type InlineValuesConfig =
-  { Enabled: bool option
-    Prefix: string option }
+  {
+    Enabled: bool option
+    Prefix: string option
+  }
 
   static member Default = { Enabled = None; Prefix = Some "//" }
 
 type NotificationsConfig =
-  { Trace: bool
+  {
+    Trace: bool
     TraceNamespaces: string array
-    BackgroundServiceProgress: bool }
+    BackgroundServiceProgress: bool
+  }
 
   static member Default =
-    { Trace = false
+    {
+      Trace = false
       TraceNamespaces = [||]
-      BackgroundServiceProgress = false }
+      BackgroundServiceProgress = false
+    }
 
   static member FromDto(dto: NotificationsDto) : NotificationsConfig =
     let defaultConfig = NotificationsConfig.Default
 
-    { Trace = defaultArg dto.Trace defaultConfig.Trace
+    {
+      Trace = defaultArg dto.Trace defaultConfig.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces defaultConfig.TraceNamespaces
-      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress defaultConfig.BackgroundServiceProgress }
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress defaultConfig.BackgroundServiceProgress
+    }
 
 
   member this.AddDto(dto: NotificationsDto) : NotificationsConfig =
-    { Trace = defaultArg dto.Trace this.Trace
+    {
+      Trace = defaultArg dto.Trace this.Trace
       TraceNamespaces = defaultArg dto.TraceNamespaces this.TraceNamespaces
-      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress this.BackgroundServiceProgress }
+      BackgroundServiceProgress = defaultArg dto.BackgroundServiceProgress this.BackgroundServiceProgress
+    }
 
 type FSACConfig =
   {
@@ -825,18 +929,24 @@ type FSACConfig =
   }
 
   static member Default =
-    { CachedTypeCheckCount = 200L
-      ParallelReferenceResolution = true }
+    {
+      CachedTypeCheckCount = 200L
+      ParallelReferenceResolution = true
+    }
 
   static member FromDto(dto: FSACDto) =
     let defaultConfig = FSACConfig.Default
 
-    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount
-      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution defaultConfig.ParallelReferenceResolution }
+    {
+      CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount defaultConfig.CachedTypeCheckCount
+      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution defaultConfig.ParallelReferenceResolution
+    }
 
   member this.AddDto(dto: FSACDto) =
-    { CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount
-      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution this.ParallelReferenceResolution }
+    {
+      CachedTypeCheckCount = defaultArg dto.CachedTypeCheckCount this.CachedTypeCheckCount
+      ParallelReferenceResolution = defaultArg dto.ParallelReferenceResolution this.ParallelReferenceResolution
+    }
 
 let logger = lazy (LogProvider.getLoggerByName "LspHelpers")
 
@@ -848,7 +958,8 @@ let tryCreateRegex (pattern: string) =
     None
 
 type FSharpConfig =
-  { AutomaticWorkspaceInit: bool
+  {
+    AutomaticWorkspaceInit: bool
     WorkspaceModePeekDeepLevel: int
     ExcludeProjectDirectories: string array
     KeywordsAutocomplete: bool
@@ -901,10 +1012,12 @@ type FSharpConfig =
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig
     Notifications: NotificationsConfig
-    Fsac: FSACConfig }
+    Fsac: FSACConfig
+  }
 
   static member Default: FSharpConfig =
-    { AutomaticWorkspaceInit = false
+    {
+      AutomaticWorkspaceInit = false
       WorkspaceModePeekDeepLevel = 2
       ExcludeProjectDirectories = [||]
       KeywordsAutocomplete = false
@@ -953,10 +1066,12 @@ type FSharpConfig =
       InlayHints = InlayHintsConfig.Default
       InlineValues = InlineValuesConfig.Default
       Notifications = NotificationsConfig.Default
-      Fsac = FSACConfig.Default }
+      Fsac = FSACConfig.Default
+    }
 
   static member FromDto(dto: FSharpConfigDto) : FSharpConfig =
-    { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
+    {
+      AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit false
       WorkspaceModePeekDeepLevel = defaultArg dto.WorkspaceModePeekDeepLevel 2
       ExcludeProjectDirectories = defaultArg dto.ExcludeProjectDirectories [||]
       KeywordsAutocomplete = defaultArg dto.KeywordsAutocomplete false
@@ -996,8 +1111,10 @@ type FSharpConfig =
       IncludeAnalyzers = defaultArg dto.IncludeAnalyzers [||]
       DisableInMemoryProjectReferences = defaultArg dto.DisableInMemoryProjectReferences false
       LineLens =
-        { Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
-          Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) "" }
+        {
+          Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) "never"
+          Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) ""
+        }
       UseSdkScripts = defaultArg dto.UseSdkScripts true
       DotNetRoot =
         dto.DotNetRoot
@@ -1019,23 +1136,34 @@ type FSharpConfig =
         match dto.CodeLenses with
         | None -> CodeLensConfig.Default
         | Some clDto ->
-          { Signature = {| Enabled = clDto.Signature |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |}
+          {
+            Signature =
+              {|
+                Enabled = clDto.Signature |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true
+              |}
             References =
-              {| Enabled = clDto.References |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true |} }
+              {|
+                Enabled = clDto.References |> Option.bind (fun c -> c.Enabled) |> Option.defaultValue true
+              |}
+          }
       InlayHints =
         match dto.InlayHints with
         | None -> InlayHintsConfig.Default
         | Some ihDto ->
-          { typeAnnotations = defaultArg ihDto.typeAnnotations true
+          {
+            typeAnnotations = defaultArg ihDto.typeAnnotations true
             parameterNames = defaultArg ihDto.parameterNames true
-            disableLongTooltip = defaultArg ihDto.disableLongTooltip true }
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip true
+          }
 
       InlineValues =
         match dto.PipelineHints with
         | None -> InlineValuesConfig.Default
         | Some ivDto ->
-          { Enabled = ivDto.Enabled |> Option.defaultValue true |> Some
-            Prefix = ivDto.Prefix |> Option.defaultValue "//" |> Some }
+          {
+            Enabled = ivDto.Enabled |> Option.defaultValue true |> Some
+            Prefix = ivDto.Prefix |> Option.defaultValue "//" |> Some
+          }
       Notifications =
         dto.Notifications
         |> Option.map NotificationsConfig.FromDto
@@ -1043,13 +1171,15 @@ type FSharpConfig =
       Fsac =
         dto.Fsac
         |> Option.map FSACConfig.FromDto
-        |> Option.defaultValue FSACConfig.Default }
+        |> Option.defaultValue FSACConfig.Default
+    }
 
 
   /// called when a configuration change takes effect, so None-valued members here should revert options
   /// back to their defaults
   member x.AddDto(dto: FSharpConfigDto) =
-    { AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
+    {
+      AutomaticWorkspaceInit = defaultArg dto.AutomaticWorkspaceInit x.AutomaticWorkspaceInit
       AbstractClassStubGeneration = defaultArg dto.AbstractClassStubGeneration x.AbstractClassStubGeneration
       AbstractClassStubGenerationObjectIdentifier =
         defaultArg dto.AbstractClassStubGenerationObjectIdentifier x.AbstractClassStubGenerationObjectIdentifier
@@ -1104,8 +1234,10 @@ type FSharpConfig =
       DisableInMemoryProjectReferences =
         defaultArg dto.DisableInMemoryProjectReferences x.DisableInMemoryProjectReferences
       LineLens =
-        { Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
-          Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix }
+        {
+          Enabled = defaultArg (dto.LineLens |> Option.map (fun n -> n.Enabled)) x.LineLens.Enabled
+          Prefix = defaultArg (dto.LineLens |> Option.map (fun n -> n.Prefix)) x.LineLens.Prefix
+        }
       UseSdkScripts = defaultArg dto.UseSdkScripts x.UseSdkScripts
       DotNetRoot =
         dto.DotNetRoot
@@ -1123,31 +1255,42 @@ type FSharpConfig =
         match dto.CodeLenses with
         | None -> x.CodeLenses
         | Some clDto ->
-          { Signature =
-              {| Enabled =
+          {
+            Signature =
+              {|
+                Enabled =
                   clDto.Signature
                   |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |}
+                  |> Option.defaultValue x.CodeLenses.Signature.Enabled
+              |}
             References =
-              {| Enabled =
+              {|
+                Enabled =
                   clDto.References
                   |> Option.bind (fun c -> c.Enabled)
-                  |> Option.defaultValue x.CodeLenses.Signature.Enabled |} }
+                  |> Option.defaultValue x.CodeLenses.Signature.Enabled
+              |}
+          }
       InlayHints =
         match dto.InlayHints with
         | None -> InlayHintsConfig.Default
         | Some ihDto ->
-          { typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
+          {
+            typeAnnotations = defaultArg ihDto.typeAnnotations x.InlayHints.typeAnnotations
             parameterNames = defaultArg ihDto.parameterNames x.InlayHints.parameterNames
-            disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip }
+            disableLongTooltip = defaultArg ihDto.disableLongTooltip x.InlayHints.disableLongTooltip
+          }
       InlineValues =
-        { Enabled = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Enabled)) x.InlineValues.Enabled
-          Prefix = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Prefix)) x.InlineValues.Prefix }
+        {
+          Enabled = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Enabled)) x.InlineValues.Enabled
+          Prefix = defaultArg (dto.PipelineHints |> Option.map (fun n -> n.Prefix)) x.InlineValues.Prefix
+        }
       Notifications =
         dto.Notifications
         |> Option.map x.Notifications.AddDto
         |> Option.defaultValue NotificationsConfig.Default
-      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default }
+      Fsac = dto.Fsac |> Option.map x.Fsac.AddDto |> Option.defaultValue FSACConfig.Default
+    }
 
   member x.ScriptTFM =
     match x.UseSdkScripts with
@@ -1176,8 +1319,10 @@ let createTokenLegend<'types, 'modifiers
   let tokenModifiers =
     Enum.GetNames<'modifiers>() |> Array.map String.lowerCaseFirstChar
 
-  { TokenModifiers = tokenModifiers
-    TokenTypes = tokenTypes }
+  {
+    TokenModifiers = tokenModifiers
+    TokenTypes = tokenTypes
+  }
 
 
 /// <summary>
@@ -1198,8 +1343,10 @@ let encodeSemanticHighlightRanges
     ClassificationUtils.SemanticTokenModifier list)) array)
   =
   let fileStart =
-    { Start = { Line = 0u; Character = 0u }
-      End = { Line = 0u; Character = 0u } }
+    {
+      Start = { Line = 0u; Character = 0u }
+      End = { Line = 0u; Character = 0u }
+    }
 
   let computeLine
     (prev: Ionide.LanguageServerProtocol.Types.Range)
@@ -1263,8 +1410,10 @@ let encodeSemanticHighlightRanges
 
 
 type FSharpInlayHintsRequest =
-  { TextDocument: TextDocumentIdentifier
-    Range: Range }
+  {
+    TextDocument: TextDocumentIdentifier
+    Range: Range
+  }
 
 [<AutoOpen>]
 module Extensions =

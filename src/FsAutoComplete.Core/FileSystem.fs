@@ -270,7 +270,7 @@ module RoslynSourceText =
         else
           Some(uint32 ((x :> ISourceText).GetLineString(pos.Line - 1).Length))
 
-      member x.GetCharUnsafe(pos: Position) : char = (x :> IFSACSourceText).GetLine(pos).Value[pos.Column - 1]
+      member x.GetCharUnsafe(pos: Position) : char = (x :> ISourceText).GetLineString(pos.Line - 1).[pos.Column - 1]
 
       member x.TryGetChar(pos: Position) : char option =
         option {
@@ -447,9 +447,11 @@ type RoslynSourceTextFactory() =
 
 
 type VolatileFile =
-  { LastTouched: DateTime
+  {
+    LastTouched: DateTime
     Source: IFSACSourceText
-    Version: int }
+    Version: int
+  }
 
   member this.FileName = this.Source.FileName
 
@@ -472,9 +474,11 @@ type VolatileFile =
       | Some t -> t
       | None -> File.getLastWriteTimeOrDefaultNow source.FileName
 
-    { Source = source
+    {
+      Source = source
       Version = version
-      LastTouched = touched }
+      LastTouched = touched
+    }
 
 type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
@@ -607,9 +611,11 @@ module Symbol =
 
   /// Declaration, Implementation, Signature
   let getDeclarationLocations (symbol: FSharpSymbol) =
-    [| symbol.DeclarationLocation
-       symbol.ImplementationLocation
-       symbol.SignatureLocation |]
+    [|
+      symbol.DeclarationLocation
+      symbol.ImplementationLocation
+      symbol.SignatureLocation
+    |]
     |> Array.choose id
     |> Array.distinct
     |> Array.map (fun r -> r.NormalizeDriveLetterCasing())
@@ -751,8 +757,8 @@ module Tokenizer =
         //    * (uses Span)
 
         tryFixupRangeBySplittingAtDot (range, text, includeBackticks)
-      // Extra Pattern: `| -1 | _ when symbolNameCore = "" -> ...` is incorrect -> `when` clause applies to both...
-      | _ when symbolNameCore = "" ->
+      // Extra Pattern: `| -1 | _ when symbolNameCore.Length = 0 -> ...` is incorrect -> `when` clause applies to both...
+      | _ when symbolNameCore.Length = 0 ->
         // happens for:
         // * Active Pattern case inside Active Pattern declaration
         //   ```fsharp

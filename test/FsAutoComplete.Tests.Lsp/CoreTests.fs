@@ -37,7 +37,8 @@ let initTests createServer =
 
       use _tempDir =
         { new IDisposable with
-            member _.Dispose() = Directory.Delete(tempDir, true) }
+            member _.Dispose() = Directory.Delete(tempDir, true)
+        }
 
       let (server: IFSharpLspServer, _event) = createServer ()
       use _server = server :> IDisposable
@@ -45,7 +46,8 @@ let initTests createServer =
       let tempUri = Path.FilePathToUri tempDir
 
       let p: InitializeParams =
-        { ProcessId = Some 1
+        {
+          ProcessId = Some 1
           RootPath = Some tempDir
           Locale = None
           RootUri = Some tempUri
@@ -53,11 +55,14 @@ let initTests createServer =
           Capabilities = clientCaps
           ClientInfo =
             Some
-              { Name = "FSAC Tests"
-                Version = Some "0.0.0" }
+              {
+                Name = "FSAC Tests"
+                Version = Some "0.0.0"
+              }
           WorkspaceFolders = Some [| { Uri = tempUri; Name = "Test Folder" } |]
           Trace = None
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       let! result = server.Initialize p
 
@@ -69,17 +74,21 @@ let initTests createServer =
           res.Capabilities.CodeActionProvider
           (Some(
             U2.C2
-              { CodeActionOptions.ResolveProvider = None
+              {
+                CodeActionOptions.ResolveProvider = None
                 CodeActionOptions.CodeActionKinds = None
-                WorkDoneProgress = Some false }
+                WorkDoneProgress = Some false
+              }
           ))
           "Code Action Provider"
 
         Expect.equal
           res.Capabilities.CodeLensProvider
           (Some
-            { CodeLensOptions.ResolveProvider = Some true
-              WorkDoneProgress = Some false })
+            {
+              CodeLensOptions.ResolveProvider = Some true
+              WorkDoneProgress = Some false
+            })
           "Code Lens Provider"
 
         Expect.equal res.Capabilities.DefinitionProvider (Some(U2.C1 true)) "Definition Provider"
@@ -97,8 +106,10 @@ let initTests createServer =
           res.Capabilities.DocumentSymbolProvider
           (Some(
             U2.C2
-              { Label = Some "F#"
-                WorkDoneProgress = Some false }
+              {
+                Label = Some "F#"
+                WorkDoneProgress = Some false
+              }
           ))
           "Document Symbol Provider"
 
@@ -112,24 +123,29 @@ let initTests createServer =
           res.Capabilities.RenameProvider
           (Some(
             U2.C2
-              { PrepareProvider = Some true
-                WorkDoneProgress = Some false }
+              {
+                PrepareProvider = Some true
+                WorkDoneProgress = Some false
+              }
           ))
           "Rename Provider"
 
         Expect.equal
           res.Capabilities.SignatureHelpProvider
           (Some
-            { TriggerCharacters = Some [| "("; ","; " " |]
+            {
+              TriggerCharacters = Some [| "("; ","; " " |]
               RetriggerCharacters = Some [| ","; ")"; " " |]
-              WorkDoneProgress = Some false })
+              WorkDoneProgress = Some false
+            })
           "Signature Help Provider"
 
         let td =
           { TextDocumentSyncOptions.Default with
               OpenClose = Some true
               Change = Some TextDocumentSyncKind.Incremental
-              Save = Some(U2.C2 { IncludeText = Some true }) }
+              Save = Some(U2.C2 { IncludeText = Some true })
+          }
 
         Expect.equal res.Capabilities.TextDocumentSync (Some(U2.C1 td)) "Text Document Provider"
         Expect.equal res.Capabilities.TypeDefinitionProvider (Some(U3.C1 true)) "Type Definition Provider"
@@ -138,8 +154,10 @@ let initTests createServer =
           res.Capabilities.WorkspaceSymbolProvider
           (Some(
             U2.C2
-              { ResolveProvider = Some true
-                WorkDoneProgress = Some false }
+              {
+                ResolveProvider = Some true
+                WorkDoneProgress = Some false
+              }
           ))
           "Workspace Symbol Provider"
 
@@ -174,14 +192,17 @@ let documentSymbolTest state =
 
   testList
     "Document Symbols Tests"
-    [ testCaseAsync "Get Document Symbols"
+    [
+      testCaseAsync "Get Document Symbols"
       <| async {
         let! server, path = server
 
         let p: DocumentSymbolParams =
-          { TextDocument = { Uri = Path.FilePathToUri path }
+          {
+            TextDocument = { Uri = Path.FilePathToUri path }
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = server.TextDocumentDocumentSymbol p
 
@@ -197,7 +218,8 @@ let documentSymbolTest state =
           Expect.equal documentSymbols.Length 15 "Document Symbol has all symbols"
 
           allDocumentSymbolsExist documentSymbols [ fun n -> n.Name = "MyDateTime" && n.Kind = SymbolKind.Class ]
-      } ]
+      }
+    ]
 
 let workspaceSymbolTest state =
   let server =
@@ -213,14 +235,17 @@ let workspaceSymbolTest state =
 
   testList
     "Workspace Symbols Tests"
-    [ testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
+    [
+      testCaseAsync "Get Workspace Symbols Using Filename of Script File as Query"
       <| async {
         let! server, _path = server
 
         let p: WorkspaceSymbolParams =
-          { Query = "Script"
+          {
+            Query = "Script"
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = server.WorkspaceSymbol p
 
@@ -243,9 +268,11 @@ let workspaceSymbolTest state =
         let! server, _path = server
 
         let p: WorkspaceSymbolParams =
-          { Query = "X"
+          {
+            Query = "X"
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = server.WorkspaceSymbol p
 
@@ -257,22 +284,26 @@ let workspaceSymbolTest state =
 
           allSymbolInfosExist
             symbolInfos
-            [ fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+            [
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
               fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
-              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class ]
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
+            ]
 
         | Ok(Some(U2.C2 workspaceSymbols)) ->
           Expect.equal workspaceSymbols.Length 5 "Workspace did not find all the expected symbols"
 
           allWorkspaceSymbolsExist
             workspaceSymbols
-            [ fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
+            [
+              fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X" && n.Kind = SymbolKind.Class
               fun n -> n.Name = "X.X" && n.Kind = SymbolKind.Module
               fun n -> n.Name = "X.Y" && n.Kind = SymbolKind.Module
-              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class ]
+              fun n -> n.Name = "X.Z" && n.Kind = SymbolKind.Class
+            ]
       }
 
       testCaseAsync "Get Workspace Symbols Using Query w/o Text"
@@ -280,9 +311,11 @@ let workspaceSymbolTest state =
         let! server, _path = server
 
         let p: WorkspaceSymbolParams =
-          { Query = String.Empty
+          {
+            Query = String.Empty
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = server.WorkspaceSymbol p
 
@@ -291,7 +324,8 @@ let workspaceSymbolTest state =
         | Ok None -> failtest "Request none"
         | Ok(Some(U2.C1 res)) -> Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
         | Ok(Some(U2.C2 res)) -> Expect.equal res.Length 0 "Workspace found symbols when we didn't expect to find any"
-      } ]
+      }
+    ]
 
 
 let foldingTests state =
@@ -312,16 +346,19 @@ let foldingTests state =
   testSequenced
   <| testList
     "folding tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "can get ranges for sample file"
         (async {
           let! server, libraryPath = server
 
           let! rangeResponse =
             server.TextDocumentFoldingRange(
-              { TextDocument = { Uri = Path.FilePathToUri libraryPath }
+              {
+                TextDocument = { Uri = Path.FilePathToUri libraryPath }
                 WorkDoneToken = None
-                PartialResultToken = None }
+                PartialResultToken = None
+              }
             )
 
           match rangeResponse with
@@ -329,7 +366,8 @@ let foldingTests state =
             Expect.hasLength ranges 3 "Should be three ranges: one comment, one module, one let-binding"
           | Ok(None) -> failtestf "No ranges found in file, problem parsing?"
           | LspResult.Error e -> failtestf "Error from range LSP call: %A" e
-        }) ]
+        })
+    ]
 
 let inline _lang<'t when 't: (member Language: string)> (x: 't) = x.Language
 
@@ -343,26 +381,36 @@ let inline (|Value|) x = _value x
 let tooltipTests state =
   let (|Signature|_|) (hover: Hover) =
     match hover with
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 _docComment; U2.C1 _fullname; U2.C1 _assembly |] } ->
-      Some tooltip
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip)
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 _docComment; U2.C1 _fullname; U2.C1 _assembly |]
+      } -> Some tooltip
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip)
                             U2.C1 _docComment
                             U2.C1 _showDocumentationLink
                             U2.C1 _fullname
-                            U2.C1 _assembly |] } -> Some tooltip
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 ""; U2.C1 _docComment |] } -> Some tooltip
+                            U2.C1 _assembly |]
+      } -> Some tooltip
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value tooltip); U2.C1 ""; U2.C1 _docComment |]
+      } -> Some tooltip
     | _ -> None
 
   let (|Description|_|) (hover: Hover) =
     match hover with
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description |] } -> Some description
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description; U2.C1 _fullname; U2.C1 _assembly |] } ->
-      Some description
-    | { Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip)
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description |]
+      } -> Some description
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip); U2.C1 description; U2.C1 _fullname; U2.C1 _assembly |]
+      } -> Some description
+    | {
+        Contents = U3.C3 [| U2.C2(FSharpLanguage & Value _tooltip)
                             U2.C1 description
                             U2.C1 _showDocumentationLink
                             U2.C1 _fullname
-                            U2.C1 _assembly |] } -> Some description
+                            U2.C1 _assembly |]
+      } -> Some description
     | _ -> None
 
   let server =
@@ -371,7 +419,12 @@ let tooltipTests state =
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
-      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+      do!
+        server.TextDocumentDidOpen
+          {
+            TextDocument = loadDocument scriptPath
+          }
 
       match! waitForParseResultsForFile "Script.fsx" events with
       | Ok() -> () // all good, no parsing/checking errors
@@ -388,9 +441,11 @@ let tooltipTests state =
         let! server, scriptPath = server
 
         let pos: HoverParams =
-          { TextDocument = { Uri = sprintf "file://%s" scriptPath }
+          {
+            TextDocument = { Uri = sprintf "file://%s" scriptPath }
             Position = { Line = line; Character = character }
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         match! server.TextDocumentHover pos with
         | Ok(Some(Signature signature)) ->
@@ -410,9 +465,11 @@ let tooltipTests state =
         let! server, scriptPath = server
 
         let pos: HoverParams =
-          { TextDocument = { Uri = sprintf "file://%s" scriptPath }
+          {
+            TextDocument = { Uri = sprintf "file://%s" scriptPath }
             Position = { Line = line; Character = character }
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         match! server.TextDocumentHover pos with
         | Ok(Some(Description description)) ->
@@ -427,16 +484,20 @@ let tooltipTests state =
   testSequenced
   <| testList
     "tooltip evaluation"
-    [ testList
+    [
+      testList
         "tests"
-        [ verifyDescription
+        [
+          verifyDescription
             0u
             2u
-            [ "**Description**"
+            [
+              "**Description**"
               ""
               ""
               "Used to associate, or bind, a name to a value or function."
-              "" ] // `let` keyword
+              ""
+            ] // `let` keyword
           verifySignature 0u 4u "val arrayOfTuples: (int * int) array" // verify that even the first letter of the tooltip triggers correctly
           verifySignature 0u 5u "val arrayOfTuples: (int * int) array" // inner positions trigger
           verifySignature 1u 5u "val listOfTuples: list<int * int>" // verify we default to prefix-generics style
@@ -445,7 +506,8 @@ let tooltipTests state =
           verifyDescription
             4u
             4u
-            [ "**Description**"
+            [
+              "**Description**"
               ""
               "Print to a string using the given format."
               ""
@@ -459,11 +521,13 @@ let tooltipTests state =
               ""
               "**Generic Parameters**"
               ""
-              "* `'T` is `System.String`" ] // verify fancy descriptions for external library functions and correct backticks for multiple segments
+              "* `'T` is `System.String`"
+            ] // verify fancy descriptions for external library functions and correct backticks for multiple segments
           verifyDescription
             13u
             11u
-            [ "**Description**"
+            [
+              "**Description**"
               ""
               ""
               "My super summary"
@@ -477,7 +541,8 @@ let tooltipTests state =
               ""
               "**Returns**"
               ""
-              "" ]
+              ""
+            ]
           verifySignature 14u 5u "val nestedTuples: int * ((int * int) * int)" // verify that tuples render correctly (parens, etc)
           verifySignature 15u 5u "val nestedStructTuples: int * struct (int * int)" // verify we can differentiate between struct and non-struct tuples
           verifySignature 21u 9u "val speed: float<m/s>" // verify we nicely-render measure annotations
@@ -496,9 +561,11 @@ let tooltipTests state =
             32u
             12u
             (concatLines
-              [ "val funcWithStructTupleParam:"
+              [
+                "val funcWithStructTupleParam:"
                 "   f: struct (int * int)"
-                "   -> struct (int * int)" ])
+                "   -> struct (int * int)"
+              ])
           verifySignature 36u 15u (concatLines [ "member Foo:"; "   stuff: int * int * int"; "       -> int" ])
           verifySignature
             37u
@@ -513,82 +580,104 @@ let tooltipTests state =
             43u
             13u
             (concatLines
-              [ "val inline add:"
+              [
+                "val inline add:"
                 "   x: 'a (requires static member ( + ) ) ->"
                 "   y: 'b (requires static member ( + ) )"
-                "   -> 'c" ])
+                "   -> 'c"
+              ])
           //verify rendering of solved generic constraints in tooltips for members where they are solved
           verifyDescription
             45u
             15u
-            [ "**Generic Parameters**"
+            [
+              "**Generic Parameters**"
               ""
               "* `'a` is `int`"
               "* `'b` is `int`"
-              "* `'c` is `int`" ]
+              "* `'c` is `int`"
+            ]
           verifySignature
             48u
             28u
             (concatLines
-              [ "static member Start:"
+              [
+                "static member Start:"
                 "   body              : (MailboxProcessor<string> -> Async<unit>) *"
                 "   ?cancellationToken: System.Threading.CancellationToken"
-                "                    -> MailboxProcessor<string>" ])
+                "                    -> MailboxProcessor<string>"
+              ])
           verifySignature 54u 9u "Case2 of string * newlineBefore: bool * newlineAfter: bool"
           verifySignature
             60u
             7u
             (concatLines
 #if NET8_0
-              [ "active pattern Value: "
+              [
+                "active pattern Value: "
                 "   input: Expr"
-                "       -> option<obj * System.Type>" ])
+                "       -> option<obj * System.Type>"
+              ])
 #else
-              [ "active pattern Value: "
+              [
+                "active pattern Value: "
                 "   input: Expr"
-                "       -> option<objnull * System.Type>" ])
+                "       -> option<objnull * System.Type>"
+              ])
 #endif
           verifySignature
             77u
             5u
             (concatLines
-              [ "val testIWSAMTest:"
+              [
+                "val testIWSAMTest:"
                 "      unit"
-                "   -> Result<string,'e> (requires :> IWSAMTest<'e>)" ])
+                "   -> Result<string,'e> (requires :> IWSAMTest<'e>)"
+              ])
           verifySignature
             90u
             25u
             (concatLines
-              [ "static member GetAwaiter:"
+              [
+                "static member GetAwaiter:"
                 "   awaitable: 'Awaitable (requires member GetAwaiter )"
-                "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)" ])
+                "           -> Awaiter<^Awaiter,'TResult> (requires :> ICriticalNotifyCompletion and member IsCompleted and member GetResult)"
+              ])
           verifySignature
             65u
             7u
             (concatLines
-              [ "active pattern DefaultValue: "
+              [
+                "active pattern DefaultValue: "
                 "   input: Expr"
-                "       -> option<System.Type>" ])
+                "       -> option<System.Type>"
+              ])
           verifySignature
             70u
             7u
             (concatLines
 #if NET8_0
-              [ "active pattern ValueWithName: "
+              [
+                "active pattern ValueWithName: "
                 "   input: Expr"
-                "       -> option<obj * System.Type * string>" ])
+                "       -> option<obj * System.Type * string>"
+              ])
 #else
-              [ "active pattern ValueWithName: "
+              [
+                "active pattern ValueWithName: "
                 "   input: Expr"
-                "       -> option<objnull * System.Type * string>" ])
+                "       -> option<objnull * System.Type * string>"
+              ])
 #endif
           verifySignature
             96u
             7u
             (concatLines
-              [ "interface IWithAndWithoutParamNames"
+              [
+                "interface IWithAndWithoutParamNames"
                 "  abstract member WithParamNames: arg1: int * arg2: float -> string"
-                "  abstract member WithoutParamNames: int * string -> int" ])
+                "  abstract member WithoutParamNames: int * string -> int"
+              ])
 
           verifySignature 100u 7u "type TypeAlias = Int32"
 
@@ -634,14 +723,9 @@ let tooltipTests state =
 
           // FSI hash directive hover — regression for issue #1225.
           // Hovering on a hash directive (e.g. #nowarn, #r, #load) should show documentation.
-          verifyDescription
-            123u
-            3u
-            [ "**Description**"
-              ""
-              ""
-              "Disables a compiler warning or warnings"
-              "" ] ] ]
+          verifyDescription 123u 3u [ "**Description**"; ""; ""; "Disables a compiler warning or warnings"; "" ]
+        ]
+    ]
 
 let closeTests state =
   // Note: clear diagnostics also implies clear caches (-> remove file & project options from State).
@@ -649,7 +733,8 @@ let closeTests state =
   let workspace = Path.Combine(root, "Workspace")
 
   serverTestList "close tests" state defaultConfigDto (Some workspace) (fun server ->
-    [ testCaseAsync
+    [
+      testCaseAsync
         "closing untitled script file clears diagnostics"
         (async {
 
@@ -707,7 +792,8 @@ let closeTests state =
 
           let! diags = doc |> Document.waitForLatestDiagnostics (TimeSpan.FromSeconds 5.0)
           Expect.isNonEmpty diags "There should be no publishDiagnostics without any diags after close"
-        }) ])
+        })
+    ])
 
 let diagnosticsTest state =
   let server =
@@ -722,7 +808,8 @@ let diagnosticsTest state =
 
   testList
     "Diagnostics formatting Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "replacing unicode paragraph by newline"
         (async {
           let! (server, events, path) = server
@@ -730,7 +817,8 @@ let diagnosticsTest state =
           let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument path }
           do! server.TextDocumentDidOpen tdop
 
-          let! compilerResults = waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
+          let! compilerResults =
+            waitForCompilerDiagnosticsForFile "Program.fs" events |> Async.StartChild
 
           match! compilerResults with
           | Ok() -> failtest "should get an F# compiler checking error"
@@ -747,4 +835,5 @@ let diagnosticsTest state =
               errors
               (fun error -> not <| error.Message.Contains(unicodeParagraphCharacter))
               "message should not contains unicode paragraph characters"
-        }) ]
+        })
+    ]

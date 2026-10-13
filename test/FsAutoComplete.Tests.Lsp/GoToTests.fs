@@ -24,11 +24,21 @@ let private gotoTest state =
       do! waitForWorkspaceFinishedParsing event
 
       let definitionPath = Path.Combine(path, "Definition.fs")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument definitionPath }
+
+      let tdop: DidOpenTextDocumentParams =
+        {
+          TextDocument = loadDocument definitionPath
+        }
+
       do! server.TextDocumentDidOpen tdop
 
       let externalPath = Path.Combine(path, "External.fs")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument externalPath }
+
+      let tdop: DidOpenTextDocumentParams =
+        {
+          TextDocument = loadDocument externalPath
+        }
+
       do! server.TextDocumentDidOpen tdop
 
       let path = Path.Combine(path, "Library.fs")
@@ -55,16 +65,22 @@ let private gotoTest state =
   testSequenced
   <| testList
     "GoTo Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Go-to-definition on external symbol (System.Net.HttpWebRequest)"
         (async {
           let! server, _path, externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 4u; Character = 30u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -92,10 +108,15 @@ let private gotoTest state =
           let! server, _path, externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 2u; Character = 15u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -111,10 +132,12 @@ let private gotoTest state =
           let! server, path, _externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
+            {
+              TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 2u; Character = 29u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -129,8 +152,10 @@ let private gotoTest state =
 
               Expect.equal
                 res.Range
-                { Start = { Line = 2u; Character = 4u }
-                  End = { Line = 2u; Character = 16u } }
+                {
+                  Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 16u }
+                }
                 "Result should have correct range"
             | U2.C1(_) -> failwith "Not Implemented"
         })
@@ -141,10 +166,12 @@ let private gotoTest state =
           let! server, path, _externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
+            {
+              TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 16u; Character = 24u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -159,8 +186,10 @@ let private gotoTest state =
 
               Expect.equal
                 res.Range
-                { Start = { Line = 15u; Character = 4u }
-                  End = { Line = 15u; Character = 13u } }
+                {
+                  Start = { Line = 15u; Character = 4u }
+                  End = { Line = 15u; Character = 13u }
+                }
                 "Result should have correct range (line directives not applied)"
             | U2.C1(_) -> failwith "Not Implemented"
         })
@@ -171,10 +200,12 @@ let private gotoTest state =
           let! server, path, _externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
+            {
+              TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 4u; Character = 24u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -189,8 +220,10 @@ let private gotoTest state =
 
               Expect.equal
                 res.Range
-                { Start = { Line = 6u; Character = 4u }
-                  End = { Line = 6u; Character = 19u } }
+                {
+                  Start = { Line = 6u; Character = 4u }
+                  End = { Line = 6u; Character = 19u }
+                }
                 "Result should have correct range"
             | U2.C1(_) -> failwith "Not Implemented"
         })
@@ -201,10 +234,15 @@ let private gotoTest state =
           let! server, _path, _externalPath, definitionPath = server
 
           let p: ImplementationParams =
-            { TextDocument = { Uri = Path.FilePathToUri definitionPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri definitionPath
+                }
               Position = { Line = 8u; Character = 11u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentImplementation p
 
@@ -227,10 +265,15 @@ let private gotoTest state =
 
           // check for the 'button' member in giraffe view engine
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 9u; Character = 34u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -257,10 +300,15 @@ let private gotoTest state =
 
           // check for the 'List.concat' member in FSharp.Core
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 12u; Character = 36u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -288,10 +336,15 @@ let private gotoTest state =
 
           // check for the 'Stirng.Join' member in the BCL
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 14u; Character = 79u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -324,10 +377,15 @@ let private gotoTest state =
           let! server, _path, externalPath, _definitionPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 26u; Character = 23u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -345,10 +403,12 @@ let private gotoTest state =
           let! server, path, _externalPath, _definitionPath = server
 
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
+            {
+              TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 4u; Character = 24u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -363,8 +423,10 @@ let private gotoTest state =
 
               Expect.equal
                 res.Range
-                { Start = { Line = 4u; Character = 5u }
-                  End = { Line = 4u; Character = 6u } }
+                {
+                  Start = { Line = 4u; Character = 5u }
+                  End = { Line = 4u; Character = 6u }
+                }
                 "Result should have correct range"
             | U2.C1(_) -> failwith "Not Implemented"
         })
@@ -375,10 +437,12 @@ let private gotoTest state =
           let! server, path, _externalPath, _definitionPath = server
 
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri path }
+            {
+              TextDocument = { Uri = Path.FilePathToUri path }
               Position = { Line = 4u; Character = 20u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -393,8 +457,10 @@ let private gotoTest state =
 
               Expect.equal
                 res.Range
-                { Start = { Line = 4u; Character = 5u }
-                  End = { Line = 4u; Character = 6u } }
+                {
+                  Start = { Line = 4u; Character = 5u }
+                  End = { Line = 4u; Character = 6u }
+                }
                 "Result should have correct range"
             | U2.C1(_) -> failwith "Not Implemented"
         })
@@ -411,10 +477,15 @@ let private gotoTest state =
                           position
         *)
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 12u; Character = 16u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -446,10 +517,15 @@ let private gotoTest state =
                  position
         *)
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 16u; Character = 6u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -485,10 +561,15 @@ let private gotoTest state =
                                                      position
         *)
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 16u; Character = 42u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -524,10 +605,15 @@ let private gotoTest state =
                        position
         *)
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 18u; Character = 12u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -559,10 +645,15 @@ let private gotoTest state =
                 position
         *)
           let p: TypeDefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri externalPath }
+            {
+              TextDocument =
+                {
+                  Uri = Path.FilePathToUri externalPath
+                }
               Position = { Line = 24u; Character = 5u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentTypeDefinition p
 
@@ -580,7 +671,8 @@ let private gotoTest state =
                 (System.IO.File.Exists localPath)
                 (sprintf "File '%s' should exist locally after being downloaded" localPath)
             | U2.C1(_) -> failwith "Not Implemented"
-        }) ]
+        })
+    ]
 
 let private scriptGotoTests state =
   let server =
@@ -589,7 +681,12 @@ let private scriptGotoTests state =
       let! (server, event) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing event
       let scriptPath = Path.Combine(path, "Script.fsx")
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+
+      let tdop: DidOpenTextDocumentParams =
+        {
+          TextDocument = loadDocument scriptPath
+        }
+
       do! server.TextDocumentDidOpen tdop
       return server, scriptPath
     }
@@ -598,16 +695,19 @@ let private scriptGotoTests state =
   testSequenced
   <| testList
     "Script GoTo Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Go-to-definition on #load integration test"
         (async {
           let! server, scriptPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+            {
+              TextDocument = { Uri = Path.FilePathToUri scriptPath }
               Position = { Line = 0u; Character = 10u }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -625,11 +725,13 @@ let private scriptGotoTests state =
           let! server, scriptPath = server
 
           let p: DefinitionParams =
-            { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+            {
+              TextDocument = { Uri = Path.FilePathToUri scriptPath }
               Position = { Line = 5u; Character = 0u } // beginning of the usage of `testFunction` in the script file
 
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res = server.TextDocumentDefinition p
 
@@ -642,15 +744,19 @@ let private scriptGotoTests state =
 
             Expect.equal
               r.Range
-              { Start = { Line = 3u; Character = 4u }
-                End = { Line = 3u; Character = 16u } }
+              {
+                Start = { Line = 3u; Character = 4u }
+                End = { Line = 3u; Character = 16u }
+              }
               "should point to the range of the definition of `testFunction`"
           | Ok(_resultValue) -> failwith "Not Implemented"
-        }) ]
+        })
+    ]
 
 let private untitledGotoTests state =
   serverTestList "Untitled GoTo Tests" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can go to variable declaration"
+    [
+      testCaseAsync "can go to variable declaration"
       <| async {
         let (usagePos, declRange, text) =
           """
@@ -669,11 +775,13 @@ let private untitledGotoTests state =
         use doc = doc
 
         let p: DefinitionParams =
-          { TextDocument = doc.TextDocumentIdentifier
+          {
+            TextDocument = doc.TextDocumentIdentifier
             Position = usagePos
 
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = doc.Server.Server.TextDocumentDefinition p
 
@@ -704,11 +812,13 @@ let private untitledGotoTests state =
         use doc = doc
 
         let p: DefinitionParams =
-          { TextDocument = doc.TextDocumentIdentifier
+          {
+            TextDocument = doc.TextDocumentIdentifier
             Position = usagePos
 
             WorkDoneToken = None
-            PartialResultToken = None }
+            PartialResultToken = None
+          }
 
         let! res = doc.Server.Server.TextDocumentDefinition p
 
@@ -744,10 +854,12 @@ let private untitledGotoTests state =
           let! (doc, _diags) = server |> Server.createUntitledDocument text
 
           let p: DefinitionParams =
-            { TextDocument = doc.TextDocumentIdentifier
+            {
+              TextDocument = doc.TextDocumentIdentifier
               Position = usagePos
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! res =
             async {
@@ -770,7 +882,8 @@ let private untitledGotoTests state =
           | Ok(_resultValue) -> failwith "Not Implemented"
         finally
           Environment.CurrentDirectory <- previousCurrentDirectory
-      } ])
+      }
+    ])
 
 /// GoTo tests between a signature file and its implementation file
 let private signatureGotoTests state =
@@ -813,10 +926,12 @@ let private signatureGotoTests state =
     =
     async {
       let p: DefinitionParams =
-        { TextDocument = { Uri = Path.FilePathToUri fromFile }
+        {
+          TextDocument = { Uri = Path.FilePathToUri fromFile }
           Position = { Line = line; Character = character }
           WorkDoneToken = None
-          PartialResultToken = None }
+          PartialResultToken = None
+        }
 
       let! res = server.TextDocumentDefinition p
 
@@ -831,13 +946,16 @@ let private signatureGotoTests state =
 
   // `val add` in Signature.fsi
   let addInSignature =
-    { Start = { Line = 6u; Character = 4u }
-      End = { Line = 6u; Character = 7u } }
+    {
+      Start = { Line = 6u; Character = 4u }
+      End = { Line = 6u; Character = 7u }
+    }
 
   testSequenced
   <| testList
     "Signature File GoTo Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Go-to-definition from a usage in the implementation file goes to the signature"
         (async {
           let! server, _signaturePath, implementationPath, _usagePath = server
@@ -872,8 +990,10 @@ let private signatureGotoTests state =
               signaturePath
               (6u, 5u)
               "Signature.fs"
-              { Start = { Line = 8u; Character = 4u }
-                End = { Line = 8u; Character = 7u } }
+              {
+                Start = { Line = 8u; Character = 4u }
+                End = { Line = 8u; Character = 7u }
+              }
         })
 
       testCaseAsync
@@ -887,8 +1007,10 @@ let private signatureGotoTests state =
               signaturePath
               (2u, 7u)
               "Signature.fs"
-              { Start = { Line = 2u; Character = 5u }
-                End = { Line = 2u; Character = 10u } }
+              {
+                Start = { Line = 2u; Character = 5u }
+                End = { Line = 2u; Character = 10u }
+              }
         })
 
       testCaseAsync
@@ -902,15 +1024,20 @@ let private signatureGotoTests state =
               implementationPath
               (8u, 16u)
               "Signature.fs"
-              { Start = { Line = 6u; Character = 12u }
-                End = { Line = 6u; Character = 18u } }
-        }) ]
+              {
+                Start = { Line = 6u; Character = 12u }
+                End = { Line = 6u; Character = 18u }
+              }
+        })
+    ]
 
 let tests createServer =
   testSequenced
   <| testList
     "Go to definition tests"
-    [ gotoTest createServer
+    [
+      gotoTest createServer
       signatureGotoTests createServer
       scriptGotoTests createServer
-      untitledGotoTests createServer ]
+      untitledGotoTests createServer
+    ]

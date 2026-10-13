@@ -15,11 +15,13 @@ type SymbolKind =
   | Other
 
 type LexerSymbol =
-  { Kind: SymbolKind
+  {
+    Kind: SymbolKind
     Line: uint32
     LeftColumn: uint32
     RightColumn: uint32
-    Text: string }
+    Text: string
+  }
 
 [<RequireQualifiedAccess>]
 type SymbolLookupKind =
@@ -29,9 +31,11 @@ type SymbolLookupKind =
   | ForCompletion
 
 type private DraftToken =
-  { Kind: SymbolKind
+  {
+    Kind: SymbolKind
     Token: FSharpTokenInfo
-    RightColumn: uint32 }
+    RightColumn: uint32
+  }
 
   static member inline Create: kind: SymbolKind -> token: FSharpTokenInfo -> DraftToken
 

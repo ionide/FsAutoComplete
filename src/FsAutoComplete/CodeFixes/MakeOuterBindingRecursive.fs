@@ -28,13 +28,23 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       do! Result.guard (fun _ -> missingMemberName = outerBindingName) "member names didn't match, don't suggest fix"
 
       return
-        [ { Title = title
+        [
+          {
+            Title = title
             File = codeActionParams.TextDocument
             SourceDiagnostic = Some diagnostic
             Kind = FixKind.Fix
             Edits =
-              [| { Range =
-                     { Start = lspOuterBindingRange.Start
-                       End = lspOuterBindingRange.Start }
-                   NewText = "rec " } |] } ]
+              [|
+                {
+                  Range =
+                    {
+                      Start = lspOuterBindingRange.Start
+                      End = lspOuterBindingRange.Start
+                    }
+                  NewText = "rec "
+                }
+              |]
+          }
+        ]
     })

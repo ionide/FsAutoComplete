@@ -18,10 +18,12 @@ let private testInlineHints (server: CachedServer) text checkResp =
     use doc = doc
 
     let inlineValueRequest: InlineValueParams =
-      { Context = { FrameId = 0; StoppedLocation = range }
+      {
+        Context = { FrameId = 0; StoppedLocation = range }
         Range = range
         TextDocument = doc.TextDocumentIdentifier
-        WorkDoneToken = None }
+        WorkDoneToken = None
+      }
 
     let! resp = doc.Server.Server.TextDocumentInlineValue inlineValueRequest
     checkResp resp
@@ -41,7 +43,8 @@ value "foo"
 
 let tests state =
   serverTestList "inline hints" state defaultConfigDto None (fun server ->
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Gets inline hints for simple pipeline"
         (testInlineHints server good (fun resp ->
           Expect.isOk resp "should get inline hints for valid code fragment"
@@ -56,4 +59,5 @@ let tests state =
               | U3.C1 hint -> Some hint.Text
               | _ -> None)
 
-          Expect.containsAll hints [ nameof string; nameof int ] "should be 3 strings and an int")) ])
+          Expect.containsAll hints [ nameof string; nameof int ] "should be 3 strings and an int"))
+    ])

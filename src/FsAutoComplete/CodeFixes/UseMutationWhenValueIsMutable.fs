@@ -38,16 +38,25 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
           match walkForwardUntilCondition lines endOfMutableValue (fun c -> c = '=') with
           | Some equalsPos ->
-            let! prevPos = dec lines equalsPos |> Result.ofOption (fun _ -> "prev position wasn't valid")
+            let! prevPos =
+              dec lines equalsPos |> Result.ofOption (fun _ -> "prev position wasn't valid")
 
             return
-              [ { File = codeActionParams.TextDocument
+              [
+                {
+                  File = codeActionParams.TextDocument
                   Title = title
                   SourceDiagnostic = Some diagnostic
                   Edits =
-                    [| { Range = { Start = prevPos; End = equalsPos }
-                         NewText = "<-" } |]
-                  Kind = FixKind.Refactor } ]
+                    [|
+                      {
+                        Range = { Start = prevPos; End = equalsPos }
+                        NewText = "<-"
+                      }
+                    |]
+                  Kind = FixKind.Refactor
+                }
+              ]
           | None -> return []
         | _ -> return []
     })

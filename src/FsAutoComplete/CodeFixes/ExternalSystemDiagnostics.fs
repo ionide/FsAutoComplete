@@ -62,11 +62,15 @@ let private mapExternalDiagnostic diagnosticType =
           | message -> $"{code}: {firstLineOf message}"
 
         AsyncResult.retn
-          [ { SourceDiagnostic = Some diagnostic
+          [
+            {
+              SourceDiagnostic = Some diagnostic
               File = codeActionParams.TextDocument
               Title = title
               Edits = fixes |> List.toArray
-              Kind = FixKind.Fix } ]
+              Kind = FixKind.Fix
+            }
+          ]
 
       | _ -> AsyncResult.retn [])
 

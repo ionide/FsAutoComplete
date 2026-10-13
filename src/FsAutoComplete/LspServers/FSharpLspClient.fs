@@ -77,13 +77,18 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
 
   member x.CodeLensRefresh() =
     match x.ClientCapabilities with
-    | Some { Workspace = Some { CodeLens = Some { RefreshSupport = Some true } } } ->
-      sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
+    | Some {
+             Workspace = Some {
+                                CodeLens = Some { RefreshSupport = Some true }
+                              }
+           } -> sendServerNotification "workspace/codeLens/refresh" () |> Async.Ignore
     | _ -> async { return () }
 
   override x.WindowWorkDoneProgressCreate(token) =
     match x.ClientCapabilities with
-    | Some { Window = Some { WorkDoneProgress = Some true } } ->
+    | Some {
+             Window = Some { WorkDoneProgress = Some true }
+           } ->
       let progressCreate: WorkDoneProgressCreateParams = { Token = token.Token }
       sendServerRequest.Send "window/workDoneProgress/create" (box progressCreate)
     | _ -> async { return Error(JsonRpc.Error.InternalError "workDoneProgress is disabled") }
@@ -94,8 +99,10 @@ type FSharpLspClient(sendServerNotification: ClientNotificationSender, sendServe
   member x.Progress(token, value) =
 
     let progress: ProgressParams =
-      { Token = token
-        Value = Json.fromObject value }
+      {
+        Token = token
+        Value = Json.fromObject value
+      }
 
     x.Progress progress
 

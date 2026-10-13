@@ -148,7 +148,8 @@ module TypedAstExtensionHelpers =
     //TODO: Do we need to un-annotate like above?
     member x.AllBaseTypes =
       let rec allBaseTypes (entity: FSharpEntity) =
-        [ match entity.TryFullName with
+        [
+          match entity.TryFullName with
           | Some _ ->
             match entity.BaseType with
             | Some bt ->
@@ -157,7 +158,8 @@ module TypedAstExtensionHelpers =
               if bt.HasTypeDefinition then
                 yield! allBaseTypes bt.TypeDefinition
             | _ -> ()
-          | _ -> () ]
+          | _ -> ()
+        ]
 
       allBaseTypes x
 

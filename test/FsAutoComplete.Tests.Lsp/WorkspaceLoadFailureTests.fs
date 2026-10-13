@@ -51,7 +51,8 @@ let tests sourceTextFactory =
 
       let! initialized =
         server.Initialize
-          { ProcessId = Some 1
+          {
+            ProcessId = Some 1
             RootPath = Some directory.FullName
             RootUri = Some(Path.FilePathToUri directory.FullName)
             InitializationOptions = Some(Server.serialize defaultConfigDto)
@@ -59,11 +60,16 @@ let tests sourceTextFactory =
             ClientInfo = None
             WorkspaceFolders =
               Some
-                [| { Uri = Path.FilePathToUri directory.FullName
-                     Name = "Test Folder" } |]
+                [|
+                  {
+                    Uri = Path.FilePathToUri directory.FullName
+                    Name = "Test Folder"
+                  }
+                |]
             Trace = None
             Locale = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
       Expect.isOk initialized "Initialize succeeds"
       do! server.Initialized()
@@ -76,17 +82,23 @@ let tests sourceTextFactory =
 
       do!
         server.TextDocumentDidOpen
-          { TextDocument =
-              { Uri = Path.FilePathToUri source
+          {
+            TextDocument =
+              {
+                Uri = Path.FilePathToUri source
                 LanguageId = "fsharp"
                 Version = 1
-                Text = File.ReadAllText source } }
+                Text = File.ReadAllText source
+              }
+          }
 
       let! hover =
         server.TextDocumentHover
-          { TextDocument = { Uri = Path.FilePathToUri source }
+          {
+            TextDocument = { Uri = Path.FilePathToUri source }
             Position = { Line = 2u; Character = 4u }
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
       Expect.isError hover "A request that needs the projects reports the failure"
     finally

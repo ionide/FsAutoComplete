@@ -33,14 +33,24 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           |> Result.ofOption (fun _ -> "No end insert range")
 
         return
-          [ { Title = title
+          [
+            {
+              Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Edits =
-                [| { Range = startInsertRange
-                     NewText = "|" }
-                   { Range = endInsertRange
-                     NewText = "|" } |]
-              Kind = FixKind.Refactor } ]
+                [|
+                  {
+                    Range = startInsertRange
+                    NewText = "|"
+                  }
+                  {
+                    Range = endInsertRange
+                    NewText = "|"
+                  }
+                |]
+              Kind = FixKind.Refactor
+            }
+          ]
       | None -> return []
     })

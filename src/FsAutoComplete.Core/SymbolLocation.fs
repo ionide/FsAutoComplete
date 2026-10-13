@@ -53,7 +53,8 @@ let getDeclarationLocation
         match! projectsThatContainFile (taggedFilePath) with
         | [] -> return! None
         | projectsThatContainFile ->
-          let! projectsThatDependOnContainingProjects = getDependentProjectsOfProjects projectsThatContainFile
+          let! projectsThatDependOnContainingProjects =
+            getDependentProjectsOfProjects projectsThatContainFile
 
           match projectsThatDependOnContainingProjects with
           | [] -> return (SymbolDeclarationLocation.Projects(projectsThatContainFile, isSymbolLocalForProject))

@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof IgnoreExpression) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle IgnoreExpression.title
+    [
+      let selectCodeFix = CodeFix.withTitle IgnoreExpression.title
 
       testCaseAsync "ignore constant"
       <| CodeFix.check
@@ -72,4 +73,4 @@ let _ =
     (1, 2) |> ignore
     null"
 
-      ])
+    ])

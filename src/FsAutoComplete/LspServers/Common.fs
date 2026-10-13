@@ -18,8 +18,10 @@ open CliWrap
 module ErrorMsgUtils =
   let formatLineLookErr
     (x:
-      {| FileName: string<LocalPath>
-         Position: FcsPos |})
+      {|
+        FileName: string<LocalPath>
+        Position: FcsPos
+      |})
     =
     let position = fcsPosToLsp x.Position
     $"No line in {x.FileName} at position {position}"
@@ -32,8 +34,10 @@ module Result =
     (r:
       Result<
         'T,
-        {| FileName: string<LocalPath>
-           Position: FcsPos |}
+        {|
+          FileName: string<LocalPath>
+          Position: FcsPos
+        |}
        >)
     =
     r
@@ -303,8 +307,10 @@ module Helpers =
   let tryGetLineStr pos (text: IFSACSourceText) =
     text.GetLine(pos)
     |> Result.ofOption (fun () ->
-      {| FileName = text.FileName
-         Position = pos |})
+      {|
+        FileName = text.FileName
+        Position = pos
+      |})
 
 
   let fullPathNormalized = Path.GetFullPath >> Utils.normalizePath >> UMX.untag
@@ -315,8 +321,10 @@ module Helpers =
         RenameProvider =
           Some(
             U2.C2
-              { PrepareProvider = Some true
-                WorkDoneProgress = Some false }
+              {
+                PrepareProvider = Some true
+                WorkDoneProgress = Some false
+              }
           )
         DefinitionProvider = Some(U2.C1 true)
         TypeDefinitionProvider = Some(U3.C1 true)
@@ -326,39 +334,51 @@ module Helpers =
         DocumentSymbolProvider =
           Some(
             U2.C2
-              { Label = Some "F#"
-                WorkDoneProgress = Some false }
+              {
+                Label = Some "F#"
+                WorkDoneProgress = Some false
+              }
           )
         WorkspaceSymbolProvider =
           Some(
             U2.C2
-              { ResolveProvider = Some true
-                WorkDoneProgress = Some false }
+              {
+                ResolveProvider = Some true
+                WorkDoneProgress = Some false
+              }
           )
         DocumentFormattingProvider = Some(U2.C1 true)
         DocumentRangeFormattingProvider = Some(U2.C1 true)
         SignatureHelpProvider =
           Some
-            { TriggerCharacters = Some [| "("; ","; " " |]
+            {
+              TriggerCharacters = Some [| "("; ","; " " |]
               RetriggerCharacters = Some [| ","; ")"; " " |]
-              WorkDoneProgress = Some false }
+              WorkDoneProgress = Some false
+            }
         CompletionProvider =
           Some
-            { ResolveProvider = Some true
+            {
+              ResolveProvider = Some true
               TriggerCharacters = Some([| "."; "'"; "{" |])
               AllCommitCharacters = None //TODO: what chars should commit completions?
               CompletionItem = None
-              WorkDoneProgress = Some false }
+              WorkDoneProgress = Some false
+            }
         CodeLensProvider =
           Some
-            { CodeLensOptions.ResolveProvider = Some true
-              WorkDoneProgress = Some false }
+            {
+              CodeLensOptions.ResolveProvider = Some true
+              WorkDoneProgress = Some false
+            }
         CodeActionProvider =
           Some(
             U2.C2
-              { CodeActionKinds = None
+              {
+                CodeActionKinds = None
                 ResolveProvider = None
-                WorkDoneProgress = Some false }
+                WorkDoneProgress = Some false
+              }
           )
         TextDocumentSync =
           Some
@@ -366,20 +386,26 @@ module Helpers =
             { TextDocumentSyncOptions.Default with
                 OpenClose = Some true
                 Change = Some TextDocumentSyncKind.Incremental
-                Save = Some <| U2.C2 { IncludeText = Some true } }
+                Save = Some <| U2.C2 { IncludeText = Some true }
+            }
         FoldingRangeProvider = Some(U3.C1 true)
         SelectionRangeProvider = Some(U3.C1 true)
         CallHierarchyProvider = Some(U3.C1 true)
         SemanticTokensProvider =
           Some
           <| U2.C1
-            { Legend =
+            {
+              Legend =
                 createTokenLegend<ClassificationUtils.SemanticTokenTypes, ClassificationUtils.SemanticTokenModifier>
               Range = Some <| U2.C1 true
               Full = Some(U2.C1 true)
-              WorkDoneProgress = Some false }
+              WorkDoneProgress = Some false
+            }
         InlayHintProvider =
           Some
           <| U3.C2
-            { ResolveProvider = Some false
-              WorkDoneProgress = Some false } }
+            {
+              ResolveProvider = Some false
+              WorkDoneProgress = Some false
+            }
+    }

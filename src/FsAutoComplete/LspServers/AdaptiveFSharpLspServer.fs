@@ -102,7 +102,7 @@ module CallHierarchyHelpers =
     if Ionide.ProjInfo.ProjectSystem.Environment.isWindows then
       UMX.tag<NormalizedRepoPathSegment> loc.FileName
     else
-      UMX.tag<NormalizedRepoPathSegment> (System.IO.Path.GetFileName loc.FileName)
+      UMX.tag<NormalizedRepoPathSegment>(System.IO.Path.GetFileName loc.FileName)
 
   /// Result of resolving an external symbol's source location
   [<RequireQualifiedAccess>]
@@ -179,7 +179,7 @@ type AdaptiveFSharpLspServer
 
   let mutable lastFSharpDocumentationTypeCheck: ParseAndCheckResults option = None
 
-  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer> ()
+  let logger = LogProvider.getLoggerFor<AdaptiveFSharpLspServer>()
 
 
   let fantomasLogger = LogProvider.getLoggerByName "Fantomas"
@@ -196,7 +196,9 @@ type AdaptiveFSharpLspServer
   /// cannot gets the same message without the actions rather than actions that do nothing.
   let clientSupportsShowDocument () =
     match lspClient.ClientCapabilities with
-    | Some { Window = Some { ShowDocument = Some showDocument } } -> showDocument.Support
+    | Some {
+             Window = Some { ShowDocument = Some showDocument }
+           } -> showDocument.Support
     | _ -> false
 
   let handleConfigurationWarning (warning: ConfigurationWarning) =
@@ -242,18 +244,22 @@ type AdaptiveFSharpLspServer
             if not (clientSupportsShowDocument ()) then
               do!
                 lspClient.WindowShowMessage
-                  { Type = MessageType.Warning
-                    Message = message }
+                  {
+                    Type = MessageType.Warning
+                    Message = message
+                  }
             else
               let! response =
                 lspClient.WindowShowMessageRequest
-                  { Type = MessageType.Warning
+                  {
+                    Type = MessageType.Warning
                     Message = message
                     Actions =
                       documents
                       |> List.map (fun (title, _) -> { Title = title })
                       |> Array.ofList
-                      |> Some }
+                      |> Some
+                  }
 
               match response with
               | Ok(Some action) ->
@@ -261,10 +267,12 @@ type AdaptiveFSharpLspServer
                 | Some(_, path) ->
                   let! _ =
                     lspClient.WindowShowDocument
-                      { Uri = Path.FilePathToUri path
+                      {
+                        Uri = Path.FilePathToUri path
                         External = None
                         TakeFocus = Some true
-                        Selection = None }
+                        Selection = None
+                      }
 
                   ()
                 | None -> ()
@@ -442,8 +450,10 @@ type AdaptiveFSharpLspServer
 
           do!
             lspClient.WindowShowMessage
-              { Type = MessageType.Info
-                Message = (sprintf "\"%s\" is ignored by a .fantomasignore file." fileName) }
+              {
+                Type = MessageType.Info
+                Message = (sprintf "\"%s\" is ignored by a .fantomasignore file." fileName)
+              }
 
           return None
         | FormatDocumentResponse.UnChanged -> return None
@@ -451,15 +461,19 @@ type AdaptiveFSharpLspServer
         | FormatDocumentResponse.Cancelled -> return None
         | FormatDocumentResponse.ToolNotPresent ->
           let actions =
-            [| if Option.isSome rootPath then
-                 { Title = "Install locally" }
-                 { Title = "Install globally" } |]
+            [|
+              if Option.isSome rootPath then
+                { Title = "Install locally" }
+                { Title = "Install globally" }
+            |]
 
           let! response =
             lspClient.WindowShowMessageRequest
-              { Type = MessageType.Warning
+              {
+                Type = MessageType.Warning
                 Message = "No Fantomas install was found."
-                Actions = Some actions }
+                Actions = Some actions
+              }
 
           match response with
           | (Some { Title = "Install locally" }) ->
@@ -515,8 +529,10 @@ type AdaptiveFSharpLspServer
 
                     do!
                       lspClient.WindowShowMessage
-                        { Type = MessageType.Info
-                          Message = "fantomas was installed locally." }
+                        {
+                          Type = MessageType.Info
+                          Message = "fantomas was installed locally."
+                        }
 
                     fantomasService.ClearCache()
                   else
@@ -528,15 +544,18 @@ type AdaptiveFSharpLspServer
               )
               |> Option.defaultValue (async { return () })
           | (Some { Title = "Install globally" }) ->
-            let! result = Cli.Wrap("dotnet").WithArguments("tool install -g fantomas").ExecuteBufferedAsync().Task
+            let! result =
+              Cli.Wrap("dotnet").WithArguments("tool install -g fantomas").ExecuteBufferedAsync().Task
 
             if result.ExitCode = 0 then
               fantomasLogger.info (Log.setMessage "fantomas was installed globally")
 
               do!
                 lspClient.WindowShowMessage
-                  { Type = MessageType.Info
-                    Message = "fantomas was installed globally." }
+                  {
+                    Type = MessageType.Info
+                    Message = "fantomas was installed globally."
+                  }
 
               fantomasService.ClearCache()
             else
@@ -589,20 +608,24 @@ type AdaptiveFSharpLspServer
     | Some(NonEmptyArray p), (None | Some EmptyArray), (None | Some EmptyArray) ->
       let c =
         { dto with
-            FSIExtraSharedParameters = Some p }
+            FSIExtraSharedParameters = Some p
+        }
 
       None, c
     // mix old and new, warn and mimic old behavior
     | Some(NonEmptyArray p), Some(NonEmptyArray _), _
     | Some(NonEmptyArray p), _, Some(NonEmptyArray _) ->
       let m: ShowMessageParams =
-        { Type = MessageType.Warning
+        {
+          Type = MessageType.Warning
           Message =
-            "Do not mix usage of FSIExtraParameters and (FSIExtraInteractiveParameters or FSIExtraSharedParameters)." }
+            "Do not mix usage of FSIExtraParameters and (FSIExtraInteractiveParameters or FSIExtraSharedParameters)."
+        }
 
       let c =
         { dto with
-            FSIExtraSharedParameters = Some p }
+            FSIExtraSharedParameters = Some p
+        }
 
       Some m, c
     // no old parameter, proceed happily
@@ -687,7 +710,9 @@ type AdaptiveFSharpLspServer
 
             state.DiagnosticCollections.ClientSupportsDiagnostics <-
               match p.Capabilities with
-              | { TextDocument = Some { PublishDiagnostics = Some _ } } -> true
+              | {
+                  TextDocument = Some { PublishDiagnostics = Some _ }
+                } -> true
               | _ -> false
 
             state.Config <- c
@@ -702,16 +727,22 @@ type AdaptiveFSharpLspServer
                     | U2.C1 x ->
                       U2.C1
                         { x with
-                            Change = Some TextDocumentSyncKind.Incremental }
+                            Change = Some TextDocumentSyncKind.Incremental
+                        }
                     | x -> x)
-                InlineValueProvider = inlineValueToggle |> Option.map U3.C2 }
+                InlineValueProvider = inlineValueToggle |> Option.map U3.C2
+            }
 
           let response: Ionide.LanguageServerProtocol.Types.InitializeResult =
-            { Capabilities = defaultSettings
+            {
+              Capabilities = defaultSettings
               ServerInfo =
                 Some
-                  { InitializeResultServerInfo.Name = "FsAutoComplete"
-                    Version = Some <| FsAutoComplete.Utils.Version.info().Version } }
+                  {
+                    InitializeResultServerInfo.Name = "FsAutoComplete"
+                    Version = Some <| FsAutoComplete.Utils.Version.info().Version
+                  }
+            }
 
           return response
 
@@ -881,9 +912,11 @@ type AdaptiveFSharpLspServer
 
             if lineStr.TrimStart().StartsWith("#", StringComparison.Ordinal) then
               let completionList =
-                { IsIncomplete = false
+                {
+                  IsIncomplete = false
                   Items = KeywordList.hashSymbolCompletionItems
-                  ItemDefaults = None }
+                  ItemDefaults = None
+                }
 
 
               return! LspResult.success (Some(U2.C2 completionList))
@@ -921,7 +954,9 @@ type AdaptiveFSharpLspServer
                   // Otherwise we'll fail here and our retry logic will come into place
                   do!
                     match p.Context with
-                    | Some({ TriggerKind = CompletionTriggerKind.TriggerCharacter } as context) ->
+                    | Some({
+                             TriggerKind = CompletionTriggerKind.TriggerCharacter
+                           } as context) ->
                       volatileFile.Source.TryGetChar pos |> Option.map string = context.TriggerCharacter
                     | _ -> true
                     |> Result.requireTrue $"TextDocumentCompletion was sent before TextDocumentDidChange"
@@ -989,7 +1024,8 @@ type AdaptiveFSharpLspServer
                     InsertText = Some code
                     SortText = Some(sprintf "%06d" id)
                     FilterText = Some filterText
-                    Label = label }
+                    Label = label
+                }
 
               match!
                 retryAsyncOption
@@ -1005,8 +1041,10 @@ type AdaptiveFSharpLspServer
                 return!
                   Debug.measure "TextDocumentCompletion.TryGetCompletions success"
                   <| fun () ->
-                    [ for d in decls do
-                        d.FullName, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST) ]
+                    [
+                      for d in decls do
+                        d.FullName, (d, pos, filePath, volatileFile.Source.GetLine, typeCheckResults.GetAST)
+                    ]
 
                     |> state.UpdateAutocompleteItems
                     |> ignore<bool>
@@ -1022,9 +1060,11 @@ type AdaptiveFSharpLspServer
                         Array.append items KeywordList.keywordCompletionItems
 
                     let completionList =
-                      { IsIncomplete = false
+                      {
+                        IsIncomplete = false
                         Items = its
-                        ItemDefaults = None }
+                        ItemDefaults = None
+                      }
 
                     LspResult.success (Some(U2.C2 completionList))
 
@@ -1046,13 +1086,16 @@ type AdaptiveFSharpLspServer
         | HelpText.Simple(symbolName, text) ->
           let d: U2<_, MarkupContent> =
             U2.C2(
-              { Kind = MarkupKind.Markdown
-                Value = text }
+              {
+                Kind = MarkupKind.Markdown
+                Value = text
+              }
             )
 
           { ci with
               Detail = Some symbolName
-              Documentation = Some d }
+              Documentation = Some d
+          }
         | HelpText.Full(_name, tip, additionalEdit) ->
           let (si, comment) = TipFormatter.formatCompletionItemTip tip
 
@@ -1066,7 +1109,8 @@ type AdaptiveFSharpLspServer
 
               let insertPos =
                 { (fcsPos |> fcsPosToLsp) with
-                    Character = 0u }
+                    Character = 0u
+                }
 
               let displayText =
                 match config.ExternalAutocomplete, ci.Label.Split(" (open ") with
@@ -1075,21 +1119,28 @@ type AdaptiveFSharpLspServer
                 | _, _ -> ci.Label
 
               Some
-                [| { TextEdit.NewText = text
-                     TextEdit.Range = { Start = insertPos; End = insertPos } } |],
+                [|
+                  {
+                    TextEdit.NewText = text
+                    TextEdit.Range = { Start = insertPos; End = insertPos }
+                  }
+                |],
               $"{displayText} (open {ns})"
 
           let d =
             U2.C2(
-              { Kind = MarkupKind.Markdown
-                Value = comment }
+              {
+                Kind = MarkupKind.Markdown
+                Value = comment
+              }
             )
 
           { ci with
               Detail = Some si
               Documentation = Some d
               AdditionalTextEdits = edits
-              Label = label }
+              Label = label
+          }
 
       let helpText sym =
         match KeywordList.keywordDescriptions.TryGetValue sym with
@@ -1199,29 +1250,39 @@ type AdaptiveFSharpLspServer
                     // correct parameter for every argument position (fixes #744).
                     extraParams
                     |> Array.map (fun (name, typeDisplay) ->
-                      { ParameterInformation.Label = U2.C1 name
-                        Documentation = if typeDisplay = "" then None else Some(U2.C1 typeDisplay) })
+                      {
+                        ParameterInformation.Label = U2.C1 name
+                        Documentation = if typeDisplay = "" then None else Some(U2.C1 typeDisplay)
+                      })
                   | None ->
                     m.Parameters
                     |> Array.map (fun p ->
-                      { ParameterInformation.Label = U2.C1 p.ParameterName
-                        Documentation = Some(U2.C1(TipFormatter.cleanParameterDisplay p.Display)) })
+                      {
+                        ParameterInformation.Label = U2.C1 p.ParameterName
+                        Documentation = Some(U2.C1(TipFormatter.cleanParameterDisplay p.Display))
+                      })
 
                 let d =
                   U2.C2(
-                    { Kind = MarkupKind.Markdown
-                      Value = comment }
+                    {
+                      Kind = MarkupKind.Markdown
+                      Value = comment
+                    }
                   )
 
-                { SignatureInformation.Label = signature
+                {
+                  SignatureInformation.Label = signature
                   Documentation = Some d
                   Parameters = Some parameters
-                  ActiveParameter = None })
+                  ActiveParameter = None
+                })
 
             let res =
-              { Signatures = sigs
+              {
+                Signatures = sigs
                 ActiveSignature = sigHelp.ActiveOverload
-                ActiveParameter = sigHelp.ActiveParameter }
+                ActiveParameter = sigHelp.ActiveParameter
+              }
 
             return! LspResult.success (Some res)
         with e ->
@@ -1272,9 +1333,11 @@ type AdaptiveFSharpLspServer
 
             let linkContext: CommandResponse.DocumentationLinkContext option =
               Some
-                { FileName = filePath |> UMX.untag
+                {
+                  FileName = filePath |> UMX.untag
                   Line = int p.Position.Line
-                  Character = int p.Position.Character }
+                  Character = int p.Position.Character
+                }
 
             match
               TipFormatter.tryFormatTipEnhanced
@@ -1289,28 +1352,31 @@ type AdaptiveFSharpLspServer
                 |> CommandResponse.addDocumentationLinkContext linkContext
 
               let response =
-                { Contents =
+                {
+                  Contents =
                     U3.C3
                       [|
-                         // Display the signature as a code block
-                         tooltipResult.Signature
-                         |> TipFormatter.prepareSignature
-                         |> (fun content -> U2.C2 { Language = "fsharp"; Value = content })
-                         U2.C1 formattedDocComment
-                         match tooltipResult.SymbolInfo with
-                         | TryGetToolTipEnhancedResult.Keyword _ -> ()
-                         | TryGetToolTipEnhancedResult.Symbol symbolInfo when showExternalDocumentation ->
-                           TipFormatter.renderShowDocumentationLink
-                             tooltipInfo.HasTruncatedExamples
-                             symbolInfo.XmlDocSig
-                             symbolInfo.Assembly
-                           |> CommandResponse.addDocumentationLinkContext linkContext
-                           |> U2.C1
-                         | TryGetToolTipEnhancedResult.Symbol _ -> ()
-                         // Display each footer line as a separate line
-                         yield! tooltipResult.Footer |> TipFormatter.prepareFooterLines |> Array.map U2.C1 |]
+                        // Display the signature as a code block
+                        tooltipResult.Signature
+                        |> TipFormatter.prepareSignature
+                        |> (fun content -> U2.C2 { Language = "fsharp"; Value = content })
+                        U2.C1 formattedDocComment
+                        match tooltipResult.SymbolInfo with
+                        | TryGetToolTipEnhancedResult.Keyword _ -> ()
+                        | TryGetToolTipEnhancedResult.Symbol symbolInfo when showExternalDocumentation ->
+                          TipFormatter.renderShowDocumentationLink
+                            tooltipInfo.HasTruncatedExamples
+                            symbolInfo.XmlDocSig
+                            symbolInfo.Assembly
+                          |> CommandResponse.addDocumentationLinkContext linkContext
+                          |> U2.C1
+                        | TryGetToolTipEnhancedResult.Symbol _ -> ()
+                        // Display each footer line as a separate line
+                        yield! tooltipResult.Footer |> TipFormatter.prepareFooterLines |> Array.map U2.C1
+                      |]
 
-                  Range = None }
+                  Range = None
+                }
 
               return (Some response)
 
@@ -1318,8 +1384,10 @@ type AdaptiveFSharpLspServer
               let contents = [| U2.C1 "<Note>"; U2.C1 error |]
 
               let response =
-                { Contents = U3.C3 contents
-                  Range = None }
+                {
+                  Contents = U3.C3 contents
+                  Range = None
+                }
 
               return (Some response)
 
@@ -1422,10 +1490,14 @@ type AdaptiveFSharpLspServer
 
                   return
                     Some
-                      { TextDocument =
-                          { Uri = Path.FilePathToUri(UMX.untag file)
-                            Version = Some volatileFile.Version }
-                        Edits = edits }
+                      {
+                        TextDocument =
+                          {
+                            Uri = Path.FilePathToUri(UMX.untag file)
+                            Version = Some volatileFile.Version
+                          }
+                        Edits = edits
+                      }
               })
             |> Async.parallel75
             |> Async.map (Array.choose id)
@@ -1570,8 +1642,10 @@ type AdaptiveFSharpLspServer
             return
               uses
               |> Array.map (fun s ->
-                { DocumentHighlight.Range = fcsRangeToLsp s.Range
-                  Kind = None })
+                {
+                  DocumentHighlight.Range = fcsRangeToLsp s.Range
+                  Kind = None
+                })
               |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -1739,8 +1813,10 @@ type AdaptiveFSharpLspServer
               let zero = { Line = 0u; Character = 0u }
               let lastPos = sourceText.LastFilePosition
 
-              { Start = zero
-                End = fcsPosToLsp lastPos }
+              {
+                Start = zero
+                End = fcsPosToLsp lastPos
+              }
 
             [| { Range = range; NewText = formatted } |]
 
@@ -1786,12 +1862,18 @@ type AdaptiveFSharpLspServer
 
           let handlerFormattedRangeDoc (_sourceText: IFSACSourceText, formatted: string, range: FormatSelectionRange) =
             let range =
-              { Start =
-                  { Line = uint32 range.StartLine - 1u
-                    Character = uint32 range.StartColumn }
+              {
+                Start =
+                  {
+                    Line = uint32 range.StartLine - 1u
+                    Character = uint32 range.StartColumn
+                  }
                 End =
-                  { Line = uint32 range.EndLine - 1u
-                    Character = uint32 range.EndColumn } }
+                  {
+                    Line = uint32 range.EndLine - 1u
+                    Character = uint32 range.EndColumn
+                  }
+              }
 
             [| { Range = range; NewText = formatted } |]
 
@@ -1901,11 +1983,13 @@ type AdaptiveFSharpLspServer
           let config = state.Config
 
           let res =
-            [| if config.LineLens.Enabled <> "replaceCodeLens" then
-                 if config.CodeLenses.Signature.Enabled then
-                   yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
-               if config.CodeLenses.References.Enabled then
-                 yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference") |]
+            [|
+              if config.LineLens.Enabled <> "replaceCodeLens" then
+                if config.CodeLenses.Signature.Enabled then
+                  yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "signature")
+              if config.CodeLenses.References.Enabled then
+                yield! decls |> Array.collect (getCodeLensInformation p.TextDocument.Uri "reference")
+            |]
 
           match res with
           | [||] -> return None
@@ -1948,7 +2032,9 @@ type AdaptiveFSharpLspServer
               >> Log.addContextDestructured "file" filePath
             )
 
-            let! (sourceText: IFSACSourceText) = state.GetOpenFileSource filePath |> AsyncResult.ofStringErr
+            let! (sourceText: IFSACSourceText) =
+              state.GetOpenFileSource filePath |> AsyncResult.ofStringErr
+
             let! lineStr = sourceText |> tryGetLineStr pos |> Result.lineLookupErr
 
             let typ = data.[1]
@@ -1972,9 +2058,12 @@ type AdaptiveFSharpLspServer
                 { p with
                     Command =
                       Some
-                        { Title = title
+                        {
+                          Title = title
                           Command = ""
-                          Arguments = None } }
+                          Arguments = None
+                        }
+                }
 
               return codeLens
           with e ->
@@ -1989,9 +2078,11 @@ type AdaptiveFSharpLspServer
 
       let writePayload (sourceFile: string<LocalPath>, triggerPos: pos, usageLocations: range[]) =
         Some
-          [| Json.fromObject (Path.LocalPathToUri sourceFile)
-             Json.fromObject (fcsPosToLsp triggerPos)
-             Json.fromObject (usageLocations |> Array.map fcsRangeToLspLocation) |]
+          [|
+            Json.fromObject (Path.LocalPathToUri sourceFile)
+            Json.fromObject (fcsPosToLsp triggerPos)
+            Json.fromObject (usageLocations |> Array.map fcsRangeToLspLocation)
+          |]
 
       handler
         (fun p pos tyRes sourceText lineStr typ file ->
@@ -2015,9 +2106,11 @@ type AdaptiveFSharpLspServer
                 let formatted = SignatureData.formatSignature typ parms
 
                 let cmd =
-                  { Title = formatted
+                  {
+                    Title = formatted
                     Command = ""
-                    Arguments = None }
+                    Arguments = None
+                  }
 
                 return { p with Command = Some cmd } |> Some |> LspResult.success
             elif typ = "reference" then
@@ -2039,9 +2132,12 @@ type AdaptiveFSharpLspServer
                       { p with
                           Command =
                             Some
-                              { Title = ""
+                              {
+                                Title = ""
                                 Command = ""
-                                Arguments = None } }
+                                Arguments = None
+                              }
+                      }
                   )
 
               | Ok uses ->
@@ -2049,13 +2145,17 @@ type AdaptiveFSharpLspServer
 
                 let cmd =
                   if Array.isEmpty allUses then
-                    { Title = "0 References"
+                    {
+                      Title = "0 References"
                       Command = ""
-                      Arguments = None }
+                      Arguments = None
+                    }
                   else
-                    { Title = $"%d{allUses.Length} References"
+                    {
+                      Title = $"%d{allUses.Length} References"
                       Command = "fsharp.showReferences"
-                      Arguments = writePayload (file, pos, allUses) }
+                      Arguments = writePayload (file, pos, allUses)
+                    }
 
                 return { p with Command = Some cmd } |> Some |> LspResult.success
             else
@@ -2150,7 +2250,9 @@ type AdaptiveFSharpLspServer
               return sourceText, parseResults
             }
 
-          let! scopes = Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
+          let! scopes =
+            Commands.scopesForFile getParseResultsForFile file |> AsyncResult.ofStringErr
+
           return scopes |> Seq.map Structure.toFoldingRange |> Set.ofSeq |> Array.ofSeq |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -2178,8 +2280,10 @@ type AdaptiveFSharpLspServer
             | [] -> None
             | r :: xs ->
               Some
-                { Range = fcsRangeToLsp r
-                  Parent = mkSelectionRanges xs }
+                {
+                  Range = fcsRangeToLsp r
+                  Parent = mkSelectionRanges xs
+                }
 
           let file = selectionRangeP.TextDocument.GetFilePath() |> Utils.normalizePath
 
@@ -2318,15 +2422,18 @@ type AdaptiveFSharpLspServer
 
               String.concat "\n" lines
               |> fun line ->
-                { Kind = MarkupKind.Markdown
-                  Value = line }
+                {
+                  Kind = MarkupKind.Markdown
+                  Value = line
+                }
                 |> U2.C2
                 |> Some
 
           let hints: InlayHint[] =
             hints
             |> Array.map (fun h ->
-              { Position = fcsPosToLsp h.Pos
+              {
+                Position = fcsPosToLsp h.Pos
                 Label = U2.C1 h.Text
                 Kind =
                   match h.Kind with
@@ -2339,8 +2446,10 @@ type AdaptiveFSharpLspServer
                   | Some insertions ->
                     insertions
                     |> Array.map (fun insertion ->
-                      { Range = fcsPosToProtocolRange insertion.Pos
-                        NewText = insertion.Text })
+                      {
+                        Range = fcsPosToProtocolRange insertion.Pos
+                        NewText = insertion.Text
+                      })
                     |> Some
                 Tooltip = getTooltip h
                 PaddingLeft =
@@ -2351,7 +2460,8 @@ type AdaptiveFSharpLspServer
                   match h.Kind with
                   | InlayHints.HintKind.Parameter -> Some true
                   | _ -> None
-                Data = None })
+                Data = None
+              })
 
           return (Some hints)
         with e ->
@@ -2386,8 +2496,10 @@ type AdaptiveFSharpLspServer
           let hints =
             pipelineHints
             |> Array.map (fun (pos, lineHints) ->
-              { InlineValueText.Range = fcsPosToProtocolRange pos
-                Text = lineHints }
+              {
+                InlineValueText.Range = fcsPosToProtocolRange pos
+                Text = lineHints
+              }
               |> U3.C1)
             |> Some
 
@@ -2502,16 +2614,20 @@ type AdaptiveFSharpLspServer
               let name = bindingIdents |> Seq.map (fun x -> x.idText) |> String.concat "."
 
               let retVals =
-                { From =
-                    { Name = name
+                {
+                  From =
+                    {
+                      Name = name
                       Kind = (state.GlyphToSymbolKind) glyph |> Option.defaultValue SymbolKind.Method
                       Tags = None
                       Detail = Some(sprintf $"From {Path.GetFileName(UMX.untag fn)}")
                       Uri = loc.Uri
                       Range = fcsRangeToLsp fullBindingRange
                       SelectionRange = fcsRangeToLsp endRange.idRange
-                      Data = None }
-                  FromRanges = [| loc.Range |] }
+                      Data = None
+                    }
+                  FromRanges = [| loc.Range |]
+                }
 
               return retVals
             }
@@ -2603,14 +2719,16 @@ type AdaptiveFSharpLspServer
                     let displayName = symbol.DisplayName
                     let detail = $"In {System.IO.Path.GetFileName(UMX.untag localPath)}"
 
-                    { CallHierarchyItem.Name = displayName
+                    {
+                      CallHierarchyItem.Name = displayName
                       Kind = symbolKind
                       Tags = None
                       Detail = Some detail
                       Uri = targetUri
                       Range = fcsRangeToLsp declLoc
                       SelectionRange = fcsRangeToLsp declLoc
-                      Data = None }
+                      Data = None
+                    }
 
                   | ExternalSymbolLocationResult.SourceLinkFile(localPath, originalRange) ->
                     // SourceLink successfully fetched the file - use the local temp path
@@ -2619,14 +2737,16 @@ type AdaptiveFSharpLspServer
                     let displayName = symbol.DisplayName
                     let detail = $"In {System.IO.Path.GetFileName(UMX.untag localPath)}"
 
-                    { CallHierarchyItem.Name = displayName
+                    {
+                      CallHierarchyItem.Name = displayName
                       Kind = symbolKind
                       Tags = None
                       Detail = Some detail
                       Uri = targetUri
                       Range = fcsRangeToLsp originalRange
                       SelectionRange = fcsRangeToLsp originalRange
-                      Data = None }
+                      Data = None
+                    }
 
                   | ExternalSymbolLocationResult.External(assemblyName, declLoc) ->
                     // External symbol without SourceLink - provide what info we can
@@ -2638,30 +2758,36 @@ type AdaptiveFSharpLspServer
                     // The URI won't be navigable but at least provides context
                     let targetUri = Path.LocalPathToUri(Utils.normalizePath declLoc.FileName)
 
-                    { CallHierarchyItem.Name = displayName
+                    {
+                      CallHierarchyItem.Name = displayName
                       Kind = symbolKind
                       Tags = None
                       Detail = Some detail
                       Uri = targetUri
                       Range = fcsRangeToLsp declLoc
                       SelectionRange = fcsRangeToLsp declLoc
-                      Data = None }
+                      Data = None
+                    }
 
                   | ExternalSymbolLocationResult.NoLocation ->
                     // Symbol without declaration location (e.g., built-in functions)
 
-                    { CallHierarchyItem.Name = symbol.DisplayName
+                    {
+                      CallHierarchyItem.Name = symbol.DisplayName
                       Kind = getSymbolKind symbol
                       Tags = None
                       Detail = Some "Built-in"
                       Uri = p.Item.Uri // Use current file as fallback
                       Range = p.Item.Range
                       SelectionRange = p.Item.SelectionRange
-                      Data = None }
+                      Data = None
+                    }
 
                 return
-                  { CallHierarchyOutgoingCall.To = targetLocation
-                    FromRanges = fromRanges }
+                  {
+                    CallHierarchyOutgoingCall.To = targetLocation
+                    FromRanges = fromRanges
+                  }
               }
 
             let! outgoingCalls =
@@ -2696,7 +2822,8 @@ type AdaptiveFSharpLspServer
           let (filePath, pos) =
             { new ITextDocumentPositionParams with
                 member __.TextDocument = p.TextDocument
-                member __.Position = p.Position }
+                member __.Position = p.Position
+            }
             |> getFilePathAndPosition
 
           let! volatileFile = state.GetOpenFileOrRead filePath |> AsyncResult.ofStringErr
@@ -2715,14 +2842,18 @@ type AdaptiveFSharpLspServer
           let location = findDeclToLspLocation decl
 
           let returnValue: CallHierarchyItem[] =
-            [| { Name = lexedResult.Text
-                 Kind = SymbolKind.Function
-                 Tags = None
-                 Detail = None
-                 Uri = location.Uri
-                 Range = location.Range
-                 SelectionRange = location.Range
-                 Data = None } |]
+            [|
+              {
+                Name = lexedResult.Text
+                Kind = SymbolKind.Function
+                Tags = None
+                Detail = None
+                Uri = location.Uri
+                Range = location.Range
+                SelectionRange = location.Range
+                Data = None
+              }
+            |]
 
           return Some returnValue
         with e ->
@@ -2788,7 +2919,10 @@ type AdaptiveFSharpLspServer
 
           return
             tip
-            |> Option.map (fun tip -> { Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip })
+            |> Option.map (fun tip ->
+              {
+                Content = CommandResponse.typeSig FsAutoComplete.JsonSerializer.writeJson tip
+              })
         with e ->
           trace |> Tracing.recordException e
 
@@ -2818,11 +2952,15 @@ type AdaptiveFSharpLspServer
           let! lineStr = volatileFile.Source |> tryGetLineStr pos |> Result.lineLookupErr
 
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
-          let! (typ, parms, generics) = tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
+
+          let! (typ, parms, generics) =
+            tyRes.TryGetSignatureData pos lineStr |> Result.ofStringErr
 
           return
             Some
-              { Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics) }
+              {
+                Content = CommandResponse.signatureData FsAutoComplete.JsonSerializer.writeJson (typ, parms, generics)
+              }
 
         with e ->
           trace |> Tracing.recordException e
@@ -2857,24 +2995,36 @@ type AdaptiveFSharpLspServer
             |> AsyncResult.ofStringErr
           with
           | None -> return ()
-          | Some { InsertPosition = insertPos
-                   InsertText = text } ->
+          | Some {
+                   InsertPosition = insertPos
+                   InsertText = text
+                 } ->
 
             let edit: ApplyWorkspaceEditParams =
               let doc: OptionalVersionedTextDocumentIdentifier =
-                { Uri = p.TextDocument.Uri
-                  Version = Some p.TextDocument.Version }
+                {
+                  Uri = p.TextDocument.Uri
+                  Version = Some p.TextDocument.Version
+                }
 
               let edits =
-                [| U2.C1
-                     { Range = fcsPosToProtocolRange insertPos
-                       NewText = text } |]
+                [|
+                  U2.C1
+                    {
+                      Range = fcsPosToProtocolRange insertPos
+                      NewText = text
+                    }
+                |]
 
-              { Label = Some "Generate Xml Documentation"
+              {
+                Label = Some "Generate Xml Documentation"
                 Edit =
-                  { DocumentChanges = Some [| U4.C1({ TextDocument = doc; Edits = edits }: TextDocumentEdit) |]
+                  {
+                    DocumentChanges = Some [| U4.C1({ TextDocument = doc; Edits = edits }: TextDocumentEdit) |]
                     ChangeAnnotations = None
-                    Changes = None } }
+                    Changes = None
+                  }
+              }
 
             let! _ = lspClient.WorkspaceApplyEdit edit
             return ()
@@ -2906,7 +3056,11 @@ type AdaptiveFSharpLspServer
 
           let decls = decls |> Array.map (fun d -> d, fn)
 
-          return Some { Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls }
+          return
+            Some
+              {
+                Content = CommandResponse.declarations FsAutoComplete.JsonSerializer.writeJson decls
+              }
 
         with e ->
           trace |> Tracing.recordException e
@@ -2937,7 +3091,10 @@ type AdaptiveFSharpLspServer
           transact (fun () -> state.WorkspacePaths <- (WorkspaceChosen.Projs projs))
           let! _ = state.ParseAllFiles()
 
-          return { Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true }
+          return
+            {
+              Content = CommandResponse.workspaceLoad FsAutoComplete.JsonSerializer.writeJson true
+            }
 
         with e ->
           trace |> Tracing.recordException e
@@ -2971,7 +3128,9 @@ type AdaptiveFSharpLspServer
             | CoreResponse.InfoRes msg
             | CoreResponse.ErrorRes msg -> LspResult.internalError msg
             | CoreResponse.Res found ->
-              { Content = CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found }
+              {
+                Content = CommandResponse.workspacePeek FsAutoComplete.JsonSerializer.writeJson found
+              }
               |> LspResult.success
 
           return! res
@@ -3045,7 +3204,11 @@ type AdaptiveFSharpLspServer
 
           match! Commands.DotnetNewList() |> AsyncResult.ofCoreResponse with
           | Some funcs ->
-            return Some { Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs }
+            return
+              Some
+                {
+                  Content = CommandResponse.dotnetnewlist FsAutoComplete.JsonSerializer.writeJson funcs
+                }
           | None -> return None
         with e ->
           trace |> Tracing.recordException e
@@ -3183,7 +3346,12 @@ type AdaptiveFSharpLspServer
           and! tyRes = state.GetOpenFileTypeCheckResults filePath |> AsyncResult.ofStringErr
 
           match! Commands.Help tyRes pos lineStr |> Result.ofCoreResponse with
-          | Some t -> return Some { Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t }
+          | Some t ->
+            return
+              Some
+                {
+                  Content = CommandResponse.help FsAutoComplete.JsonSerializer.writeJson t
+                }
           | None -> return None
         with e ->
           trace |> Tracing.recordException e
@@ -3214,9 +3382,11 @@ type AdaptiveFSharpLspServer
 
           let linkContext: CommandResponse.DocumentationLinkContext option =
             Some
-              { FileName = filePath |> UMX.untag
+              {
+                FileName = filePath |> UMX.untag
                 Line = int p.Position.Line
-                Character = int p.Position.Character }
+                Character = int p.Position.Character
+              }
 
           match! Commands.FormattedDocumentation tyRes pos lineStr |> Result.ofCoreResponse with
           | Some(tip, xml, signature, footer, xmlKey) ->
@@ -3224,17 +3394,21 @@ type AdaptiveFSharpLspServer
 
             return
               Some
-                { Content =
+                {
+                  Content =
                     CommandResponse.formattedDocumentation
                       JsonSerializer.writeJson
                       state.Config.TooltipShowDocumentationLink
                       tryResolveCref
-                      {| Tip = tip
-                         XmlSig = xml
-                         Signature = signature
-                         Footer = footer
-                         XmlKey = xmlKey
-                         LinkContext = linkContext |} }
+                      {|
+                        Tip = tip
+                        XmlSig = xml
+                        Signature = signature
+                        Footer = footer
+                        XmlKey = xmlKey
+                        LinkContext = linkContext
+                      |}
+                }
           | None -> return None
         with e ->
           trace |> Tracing.recordException e
@@ -3275,9 +3449,11 @@ type AdaptiveFSharpLspServer
             match p.FileName, p.Line, p.Character with
             | Some fileName, Some line, Some character ->
               Some
-                { FileName = fileName |> Utils.normalizePath |> UMX.untag
+                {
+                  FileName = fileName |> Utils.normalizePath |> UMX.untag
                   Line = line
-                  Character = character }
+                  Character = character
+                }
             | _ -> None
 
           match!
@@ -3289,18 +3465,22 @@ type AdaptiveFSharpLspServer
             let tryResolveCref = tyRes.GetCrefResolver()
 
             return
-              { Content =
+              {
+                Content =
                   CommandResponse.formattedDocumentationForSymbol
                     JsonSerializer.writeJson
                     state.Config.TooltipShowDocumentationLink
                     tryResolveCref
-                    {| Xml = xml
-                       Assembly = assembly
-                       XmlDoc = xmlDoc
-                       Signature = signature
-                       Footer = footer
-                       XmlKey = xmlKey
-                       LinkContext = linkContext |} }
+                    {|
+                      Xml = xml
+                      Assembly = assembly
+                      XmlDoc = xmlDoc
+                      Signature = signature
+                      Footer = footer
+                      XmlKey = xmlKey
+                      LinkContext = linkContext
+                    |}
+              }
               |> Some
         with e ->
           trace |> Tracing.recordException e
@@ -3353,7 +3533,11 @@ type AdaptiveFSharpLspServer
           with
           | None -> return None
           | Some res ->
-            return Some { Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res }
+            return
+              Some
+                {
+                  Content = CommandResponse.pipelineHint FsAutoComplete.JsonSerializer.writeJson res
+                }
         with e ->
           trace |> Tracing.recordException e
 
@@ -3600,7 +3784,11 @@ type AdaptiveFSharpLspServer
             state.DiscoverTests()
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
-          return Some { Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+          return
+            Some
+              {
+                Content = CommandResponse.discoverTests FsAutoComplete.JsonSerializer.writeJson testDTOs
+              }
         with e ->
           trace |> Tracing.recordException e
 
@@ -3624,7 +3812,11 @@ type AdaptiveFSharpLspServer
             state.RunTests p.LimitToProjects p.TestCaseFilter p.AttachDebugger
             |> AsyncResult.mapError (fun msg -> JsonRpc.Error.InternalError msg)
 
-          return Some { Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs }
+          return
+            Some
+              {
+                Content = CommandResponse.runTests FsAutoComplete.JsonSerializer.writeJson testDTOs
+              }
         with e ->
           trace |> Tracing.recordException e
 

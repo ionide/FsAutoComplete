@@ -220,7 +220,8 @@ type Async =
                           let msg =
                             "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
 
-                          mailbox.Post(Choice3Of3(OperationCanceledException(msg))) }
+                          mailbox.Post(Choice3Of3(OperationCanceledException(msg)))
+                    }
                   )
 
                 guardFunction () // call the guard function
@@ -288,7 +289,8 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   let recordRequests =
     { new Server.ClientRequestSender with
-        member __.Send name payload = record serverInteractions name payload }
+        member __.Send name payload = record serverInteractions name payload
+    }
 
   let loader = workspaceLoader ()
   let client = new FSharpLspClient(recordNotifications, recordRequests)
@@ -335,7 +337,8 @@ let realServer (server: IFSharpLspServer) =
   | _ -> server
 
 let defaultConfigDto: FSharpConfigDto =
-  { WorkspaceModePeekDeepLevel = None
+  {
+    WorkspaceModePeekDeepLevel = None
     ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
@@ -382,19 +385,26 @@ let defaultConfigDto: FSharpConfigDto =
     AbstractClassStubGenerationObjectIdentifier = None
     CodeLenses =
       Some
-        { Signature = Some {| Enabled = Some true |}
-          References = Some {| Enabled = Some true |} }
+        {
+          Signature = Some {| Enabled = Some true |}
+          References = Some {| Enabled = Some true |}
+        }
     InlayHints =
       Some
-        { typeAnnotations = Some true
+        {
+          typeAnnotations = Some true
           parameterNames = Some true
-          disableLongTooltip = Some true }
+          disableLongTooltip = Some true
+        }
     PipelineHints =
       Some
-        { Enabled = Some true
-          Prefix = Some "//" }
+        {
+          Enabled = Some true
+          Prefix = Some "//"
+        }
     Notifications = None
-    Fsac = None }
+    Fsac = None
+  }
 
 let clientCaps: ClientCapabilities =
 
@@ -406,17 +416,21 @@ let clientCaps: ClientCapabilities =
 
   let workspaceCaps: WorkspaceClientCapabilities =
     let weCaps: WorkspaceEditClientCapabilities =
-      { DocumentChanges = Some true
+      {
+        DocumentChanges = Some true
         ResourceOperations = None
         FailureHandling = None
         NormalizesLineEndings = None
-        ChangeAnnotationSupport = None }
+        ChangeAnnotationSupport = None
+      }
 
     let symbolCaps: WorkspaceSymbolClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SymbolKind = None
         TagSupport = None
-        ResolveSupport = None }
+        ResolveSupport = None
+      }
 
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
@@ -430,7 +444,8 @@ let clientCaps: ClientCapabilities =
     let codeLensCaps: CodeLensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
-    { ApplyEdit = Some true
+    {
+      ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some didChangeConfigCaps
       DidChangeWatchedFiles = None
@@ -443,27 +458,34 @@ let clientCaps: ClientCapabilities =
       WorkspaceFolders = Some false
       Configuration = Some true
       FileOperations = None
-      Diagnostics = Some { RefreshSupport = Some false } }
+      Diagnostics = Some { RefreshSupport = Some false }
+    }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: TextDocumentSyncClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         WillSave = Some true
         WillSaveWaitUntil = Some true
-        DidSave = Some true }
+        DidSave = Some true
+      }
 
     let publishDiagCaps: PublishDiagnosticsClientCapabilities =
-      { RelatedInformation = Some true
+      {
+        RelatedInformation = Some true
         TagSupport = Some { ValueSet = [||] }
         VersionSupport = Some false
         CodeDescriptionSupport = Some true
-        DataSupport = Some false }
+        DataSupport = Some false
+      }
 
     let compCaps: CompletionClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         CompletionItem =
           Some
-            { SnippetSupport = Some true
+            {
+              SnippetSupport = Some true
               CommitCharactersSupport = Some true
               DocumentationFormat = None
               DeprecatedSupport = Some false
@@ -472,99 +494,133 @@ let clientCaps: ClientCapabilities =
               InsertReplaceSupport = Some false
               ResolveSupport = None
               InsertTextModeSupport = None
-              LabelDetailsSupport = Some true }
+              LabelDetailsSupport = Some true
+            }
         CompletionItemKind = Some { ValueSet = None }
         ContextSupport = Some true
         InsertTextMode = Some InsertTextMode.AsIs
-        CompletionList = Some { ItemDefaults = None } }
+        CompletionList = Some { ItemDefaults = None }
+      }
 
     let hoverCaps: HoverClientCapabilities =
-      { DynamicRegistration = Some true
-        ContentFormat = Some [| MarkupKind.Markdown |] }
+      {
+        DynamicRegistration = Some true
+        ContentFormat = Some [| MarkupKind.Markdown |]
+      }
 
     let sigCaps: SignatureHelpClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SignatureInformation =
           Some
-            { DocumentationFormat = Some [| MarkupKind.Markdown |]
+            {
+              DocumentationFormat = Some [| MarkupKind.Markdown |]
               ParameterInformation = Some { LabelOffsetSupport = Some true }
-              ActiveParameterSupport = Some true }
-        ContextSupport = Some true }
+              ActiveParameterSupport = Some true
+            }
+        ContextSupport = Some true
+      }
 
     let docSymCaps: DocumentSymbolClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SymbolKind = Some { ValueSet = None }
         HierarchicalDocumentSymbolSupport = Some false
         TagSupport = None
-        LabelSupport = Some true }
+        LabelSupport = Some true
+      }
 
     let foldingRangeCaps: FoldingRangeClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         LineFoldingOnly = Some true
         RangeLimit = Some 100u
         FoldingRange = Some { CollapsedText = Some true }
-        FoldingRangeKind = None }
+        FoldingRangeKind = None
+      }
 
     let semanticTokensCaps: SemanticTokensClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         Requests =
-          { Range = Some(U2.C1 true)
-            Full = Some(U2.C1 true) }
+          {
+            Range = Some(U2.C1 true)
+            Full = Some(U2.C1 true)
+          }
         TokenTypes = [||]
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
         OverlappingTokenSupport = None
         MultilineTokenSupport = None
         ServerCancelSupport = Some true
-        AugmentsSyntaxTokens = Some true }
+        AugmentsSyntaxTokens = Some true
+      }
 
     let codeActionCaps =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         CodeActionLiteralSupport = None
         IsPreferredSupport = None
         DisabledSupport = None
         DataSupport = None
         ResolveSupport = None
-        HonorsChangeAnnotations = None }
+        HonorsChangeAnnotations = None
+      }
 
     let inlayHintCaps: InlayHintClientCapabilities =
-      { DynamicRegistration = Some true
-        ResolveSupport = None }
+      {
+        DynamicRegistration = Some true
+        ResolveSupport = None
+      }
 
     let _inlineValueCaps: InlineValueClientCapabilities =
       { DynamicRegistration = Some true }
 
     let renameCaps: RenameClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         HonorsChangeAnnotations = Some false
         PrepareSupport = Some false
-        PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier }
+        PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier
+      }
 
     let referenceCaps: ReferenceClientCapabilities = { DynamicRegistration = Some true }
 
     let declarationCaps: DeclarationClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let defCaps: DefinitionClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let typeDefCaps: TypeDefinitionClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let implCaps: ImplementationClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let docLinkCaps: DocumentLinkClientCapabilities =
-      { DynamicRegistration = Some true
-        TooltipSupport = Some true }
+      {
+        DynamicRegistration = Some true
+        TooltipSupport = Some true
+      }
 
     let diagCaps: DiagnosticClientCapabilities =
-      { DynamicRegistration = Some true
-        RelatedDocumentSupport = Some true }
+      {
+        DynamicRegistration = Some true
+        RelatedDocumentSupport = Some true
+      }
 
     let highlightCaps: DocumentHighlightClientCapabilities =
       { DynamicRegistration = Some true }
@@ -594,7 +650,8 @@ let clientCaps: ClientCapabilities =
     let inlineValueCaps: InlineValueClientCapabilities =
       { DynamicRegistration = Some true }
 
-    { Synchronization = Some syncCaps
+    {
+      Synchronization = Some syncCaps
       PublishDiagnostics = Some publishDiagCaps
       Completion = Some compCaps
       Hover = Some hoverCaps
@@ -623,14 +680,17 @@ let clientCaps: ClientCapabilities =
       LinkedEditingRange = Some linkedEditingRangeCaps
       Moniker = Some monikerCaps
       InlineValue = Some inlineValueCaps
-      Diagnostic = Some diagCaps }
+      Diagnostic = Some diagCaps
+    }
 
-  { Workspace = Some workspaceCaps
+  {
+    Workspace = Some workspaceCaps
     TextDocument = Some textCaps
     Experimental = None
     Window = None
     General = None
-    NotebookDocument = None }
+    NotebookDocument = None
+  }
 
 open Expecto.Logging
 open Expecto.Logging.Message
@@ -745,22 +805,30 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
-      { ProcessId = Some 1
+      {
+        ProcessId = Some 1
         RootPath = Some path
         RootUri = Some(sprintf "file://%s" path)
         InitializationOptions = Some(Server.serialize config)
         Capabilities = clientCaps
         ClientInfo =
           Some
-            { Name = "FSAC Tests"
-              Version = Some "0.0.0" }
+            {
+              Name = "FSAC Tests"
+              Version = Some "0.0.0"
+            }
         WorkspaceFolders =
           Some
-            [| { Uri = Path.FilePathToUri path
-                 Name = "Test Folder" } |]
+            [|
+              {
+                Uri = Path.FilePathToUri path
+                Name = "Test Folder"
+              }
+            |]
         Trace = None
         Locale = None
-        WorkDoneToken = None }
+        WorkDoneToken = None
+      }
 
     let! result = server.Initialize p
 
@@ -772,15 +840,22 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
   }
 
 let loadDocument path : TextDocumentItem =
-  { Uri = Path.FilePathToUri path
+  {
+    Uri = Path.FilePathToUri path
     LanguageId = "fsharp"
     Version = 0
-    Text = File.ReadAllText path }
+    Text = File.ReadAllText path
+  }
 
 let parseProject projectFilePath (server: IFSharpLspServer) =
   async {
     let projectParams: ProjectParms =
-      { Project = { Uri = Path.FilePathToUri projectFilePath } }
+      {
+        Project =
+          {
+            Uri = Path.FilePathToUri projectFilePath
+          }
+      }
 
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams

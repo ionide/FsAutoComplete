@@ -26,7 +26,8 @@ let tryFindPattern pos input =
 
             Some(range)
 
-          | _ -> defaultTraverse expr }
+          | _ -> defaultTraverse expr
+    }
 
   SyntaxTraversal.Traverse(pos, input, visitor)
 
@@ -48,9 +49,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         let lspRange = fcsRangeToLsp operatorRange
 
         return
-          [ { Title = title
+          [
+            {
+              Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Edits = [| { Range = lspRange; NewText = "| _ ->" } |]
-              Kind = FixKind.Fix } ]
+              Kind = FixKind.Fix
+            }
+          ]
     })

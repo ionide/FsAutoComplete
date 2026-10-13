@@ -39,20 +39,31 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       assert (derefOpRange = derefOpRange')
 
       return
-        [ { Title = title
+        [
+          {
+            Title = title
             File = codeActionParams.TextDocument
             SourceDiagnostic = None
             Kind = FixKind.Refactor
             Edits =
               [|
-                 // remove leading `!` (and whitespaces after `!`)
-                 { Range =
-                     { Start = fcsPosToLsp derefOpRange'.Start
-                       End = fcsPosToLsp exprRange.Start }
-                   NewText = "" }
-                 // Append trailing `.Value`
-                 { Range =
-                     let lspPos = fcsPosToLsp exprRange.End
-                     { Start = lspPos; End = lspPos }
-                   NewText = ".Value" } |] } ]
+                // remove leading `!` (and whitespaces after `!`)
+                {
+                  Range =
+                    {
+                      Start = fcsPosToLsp derefOpRange'.Start
+                      End = fcsPosToLsp exprRange.Start
+                    }
+                  NewText = ""
+                }
+                // Append trailing `.Value`
+                {
+                  Range =
+                    let lspPos = fcsPosToLsp exprRange.End
+                    { Start = lspPos; End = lspPos }
+                  NewText = ".Value"
+                }
+              |]
+          }
+        ]
     })

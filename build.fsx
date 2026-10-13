@@ -468,7 +468,7 @@ let ciTests targetFramework sdkVersion =
       })
   }
 
-// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
+// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 12, a net10.0-only tool.
 // It then builds and tests with the SDK that matches the test target framework.
 let net80Tests =
   stage "test:net8.0" {
@@ -585,13 +585,15 @@ module Release =
         match data with
         | None -> ""
         | Some data ->
-          [ "Added", data.Added
+          [
+            "Added", data.Added
             "Changed", data.Changed
             "Fixed", data.Fixed
             "Deprecated", data.Deprecated
             "Removed", data.Removed
             "Security", data.Security
-            yield! Map.toList data.Custom ]
+            yield! Map.toList data.Custom
+          ]
           |> List.filter (fun (_, body) -> not (String.IsNullOrWhiteSpace body))
           |> List.map (fun (header, body) -> $"### %s{header}\n\n%s{body.Trim()}")
           |> String.concat "\n\n"

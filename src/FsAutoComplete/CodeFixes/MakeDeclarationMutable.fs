@@ -39,15 +39,25 @@ let fix
             return []
           else
             return
-              [ { File = codeActionParams.TextDocument
+              [
+                {
+                  File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diagnostic
                   Title = title
                   Edits =
-                    [| { Range =
-                           { Start = lspRange.Start
-                             End = lspRange.Start }
-                         NewText = "mutable " } |]
-                  Kind = FixKind.Refactor } ]
+                    [|
+                      {
+                        Range =
+                          {
+                            Start = lspRange.Start
+                            End = lspRange.Start
+                          }
+                        NewText = "mutable "
+                      }
+                    |]
+                  Kind = FixKind.Refactor
+                }
+              ]
         | _ -> return []
       | None -> return []
     })

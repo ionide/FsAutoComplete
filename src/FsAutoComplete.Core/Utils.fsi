@@ -54,11 +54,13 @@ type RepoPathSegment
 type NormalizedRepoPathSegment
 
 type Document =
-  { FullName: string<LocalPath>
+  {
+    FullName: string<LocalPath>
     LineCount: int
     GetText: unit -> string
     GetLineText0: int -> string
-    GetLineText1: int -> string }
+    GetLineText1: int -> string
+  }
 
 /// <summary>
 /// Checks if the file ends with `.fsx` `.fsscript` or `.sketchfs`

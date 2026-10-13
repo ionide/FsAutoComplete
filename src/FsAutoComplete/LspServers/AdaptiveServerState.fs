@@ -119,9 +119,11 @@ type AdaptiveWorkspaceChosen =
 
 [<CustomEquality; NoComparison>]
 type LoadedProject =
-  { ProjectOptions: Types.ProjectOptions
+  {
+    ProjectOptions: Types.ProjectOptions
     FSharpProjectCompilerOptions: aval<CompilerProjectOption>
-    LanguageVersion: LanguageVersionShim }
+    LanguageVersion: LanguageVersionShim
+  }
 
   interface IEquatable<LoadedProject> with
     member x.Equals(other) = x.ProjectOptions = other.ProjectOptions
@@ -191,14 +193,17 @@ module SharedFileSystem =
           lock gate (fun () ->
             openFileLookups <-
               openFileLookups
-              |> List.filter (fun tryFind -> not (obj.ReferenceEquals(tryFind, lookup)))) }
+              |> List.filter (fun tryFind -> not (obj.ReferenceEquals(tryFind, lookup))))
+    }
 
 type FileHasBeenChecked =
-  { Options: LoadedProject
+  {
+    Options: LoadedProject
     CompilerOptions: CompilerProjectOption
     ParseAndCheckResults: ParseAndCheckResults
     VolatileFile: VolatileFile
-    CancellationToken: CancellationToken }
+    CancellationToken: CancellationToken
+  }
 
 
 type AdaptiveState
@@ -208,7 +213,7 @@ type AdaptiveState
     workspaceLoader: IWorkspaceLoader,
     useTransparentCompiler: bool
   ) =
-  let logger = LogProvider.getLoggerFor<AdaptiveState> ()
+  let logger = LogProvider.getLoggerFor<AdaptiveState>()
   let thisType = typeof<AdaptiveState>
   let disposables = new Disposables.CompositeDisposable()
   let progressLookup = new ServerProgressLookup()
@@ -217,7 +222,7 @@ type AdaptiveState
   let serilogLoggerFactory = new SerilogLoggerFactory(Serilog.Log.Logger)
   do disposables.Add serilogLoggerFactory
 
-  let projectSelector = cval<IFindProject> (FindFirstProject())
+  let projectSelector = cval<IFindProject>(FindFirstProject())
 
   let rootPath = cval<string option> None
 
@@ -267,8 +272,10 @@ type AdaptiveState
     let toCompilerToolArgument (path: string) = sprintf "--compilertool:%s" path
 
     checker.SetFSIAdditionalArguments
-      [| yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
-         yield! fsiExtraParameters |]
+      [|
+        yield! fsiCompilerToolLocations |> Array.map toCompilerToolArgument
+        yield! fsiExtraParameters
+      |]
 
 
   let analyzersClient =
@@ -289,9 +296,11 @@ type AdaptiveState
 
     if enableAnalyzers then
       let mutable assemblyLoadStats =
-        { AnalyzerAssemblies = 0
+        {
+          AnalyzerAssemblies = 0
           AnalyzerNames = []
-          FailedAssemblies = 0 }
+          FailedAssemblies = 0
+        }
 
       let excludeInclude =
         match excludeAnalyzers, includeAnalyzers with
@@ -315,9 +324,11 @@ type AdaptiveState
           let stats = analyzersClient.LoadAnalyzers(analyzer.DllRootPath)
 
           assemblyLoadStats <-
-            { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
+            {
+              AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
               AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
-              FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
+              FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies
+            }
 
 
       analyzerPaths
@@ -326,9 +337,11 @@ type AdaptiveState
         let stats = analyzersClient.LoadAnalyzers(analyzerPath, excludeInclude)
 
         assemblyLoadStats <-
-          { AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
+          {
+            AnalyzerAssemblies = assemblyLoadStats.AnalyzerAssemblies + stats.AnalyzerAssemblies
             AnalyzerNames = assemblyLoadStats.AnalyzerNames @ stats.AnalyzerNames
-            FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies }
+            FailedAssemblies = assemblyLoadStats.FailedAssemblies + stats.FailedAssemblies
+          }
 
       )
 
@@ -397,9 +410,11 @@ type AdaptiveState
   let sendDiagnostics (uri: DocumentUri) (version: int option) (diags: Diagnostic[]) =
     logger.info (Log.setMessageI $"SendDiag for {uri:file}: {diags.Length:diags} entries")
 
-    { Uri = uri
+    {
+      Uri = uri
       Diagnostics = diags
-      Version = version }
+      Version = version
+    }
     |> lspClient.TextDocumentPublishDiagnostics
 
 
@@ -434,13 +449,15 @@ type AdaptiveState
         let references = FscArguments.references (p.OtherOptions)
 
         let ws =
-          { ProjectFileName = p.ProjectFileName
+          {
+            ProjectFileName = p.ProjectFileName
             ProjectFiles = responseFiles
             OutFileOpt = Option.ofObj p.TargetPath
             References = references
             Extra = p
             ProjectItems = projViewerItemsNormalized.Items
-            Additionals = Map.empty }
+            Additionals = Map.empty
+          }
 
         ProjectResponse.Project(ws, cache)
 
@@ -638,7 +655,8 @@ type AdaptiveState
           config.UnnecessaryParenthesesAnalyzer
           && isNotExcluded config.UnnecessaryParenthesesAnalyzerExclusions
         then
-          checkUnnecessaryParentheses ]
+          checkUnnecessaryParentheses
+      ]
 
     async { do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]> }
 
@@ -766,7 +784,8 @@ type AdaptiveState
             let diags =
               opens
               |> Array.map (fun n ->
-                { Range = fcsRangeToLsp n
+                {
+                  Range = fcsRangeToLsp n
                   Code = Some(U2.C2 "FSAC0001")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
@@ -774,7 +793,8 @@ type AdaptiveState
                   RelatedInformation = None
                   Tags = Some [| DiagnosticTag.Unnecessary |]
                   Data = None
-                  CodeDescription = None })
+                  CodeDescription = None
+                })
 
             do! diagnosticCollections.SetForAndWait(uri, "F# Unused opens", version, diags)
 
@@ -784,7 +804,8 @@ type AdaptiveState
             let diags =
               decls
               |> Array.map (fun n ->
-                { Range = fcsRangeToLsp n
+                {
+                  Range = fcsRangeToLsp n
                   Code = Some(U2.C2 "FSAC0003")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
@@ -792,7 +813,8 @@ type AdaptiveState
                   RelatedInformation = Some [||]
                   Tags = Some [| DiagnosticTag.Unnecessary |]
                   Data = None
-                  CodeDescription = None })
+                  CodeDescription = None
+                })
 
             do! diagnosticCollections.SetForAndWait(uri, "F# Unused declarations", version, diags)
 
@@ -803,18 +825,22 @@ type AdaptiveState
               decls
               |> Array.map
 
-                (fun
-                     ({ Range = range
-                        RelativeName = _relName }) ->
-                  { Diagnostic.Range = fcsRangeToLsp range
-                    Code = Some(U2.C2 "FSAC0002")
-                    Severity = Some DiagnosticSeverity.Hint
-                    Source = Some "FSAC"
-                    Message = "This qualifier is redundant"
-                    RelatedInformation = Some [||]
-                    Tags = Some [| DiagnosticTag.Unnecessary |]
-                    Data = None
-                    CodeDescription = None })
+                  (fun
+                       ({
+                          Range = range
+                          RelativeName = _relName
+                        }) ->
+                    {
+                      Diagnostic.Range = fcsRangeToLsp range
+                      Code = Some(U2.C2 "FSAC0002")
+                      Severity = Some DiagnosticSeverity.Hint
+                      Source = Some "FSAC"
+                      Message = "This qualifier is redundant"
+                      RelatedInformation = Some [||]
+                      Tags = Some [| DiagnosticTag.Unnecessary |]
+                      Data = None
+                      CodeDescription = None
+                    })
 
             do! diagnosticCollections.SetForAndWait(uri, "F# simplify names", version, diags)
 
@@ -824,7 +850,8 @@ type AdaptiveState
             let diags =
               ranges
               |> Array.map (fun range ->
-                { Diagnostic.Range = fcsRangeToLsp range
+                {
+                  Diagnostic.Range = fcsRangeToLsp range
                   Code = Some(U2.C2 "FSAC0004")
                   Severity = Some DiagnosticSeverity.Hint
                   Source = Some "FSAC"
@@ -832,7 +859,8 @@ type AdaptiveState
                   RelatedInformation = Some [||]
                   Tags = Some [| DiagnosticTag.Unnecessary |]
                   Data = None
-                  CodeDescription = None })
+                  CodeDescription = None
+                })
 
             do! diagnosticCollections.SetForAndWait(uri, "F# unnecessary parentheses", version, diags)
 
@@ -903,12 +931,15 @@ type AdaptiveState
                     | fixes ->
                       fixes
                       |> List.map (fun fix ->
-                        { Range = fcsRangeToLsp fix.FromRange
-                          NewText = fix.ToText })
+                        {
+                          Range = fcsRangeToLsp fix.FromRange
+                          NewText = fix.ToText
+                        })
                       |> Ionide.LanguageServerProtocol.Server.serialize
                       |> Some
 
-                  { Range = range
+                  {
+                    Range = range
                     Code = Option.ofObj m.Code |> Option.map U2.C2
                     Severity = Some severity
                     Source = Some $"F# Analyzers (%s{m.Type})"
@@ -916,24 +947,29 @@ type AdaptiveState
                     RelatedInformation = None
                     Tags = None
                     CodeDescription = None
-                    Data = fixes })
+                    Data = fixes
+                  })
 
               do! diagnosticCollections.SetForAndWait(uri, "F# Analyzers", version, diags)
           | NotificationEvent.TestDetected(file, tests) ->
             let rec map
               (r: TestAdapter.TestAdapterEntry<FSharp.Compiler.Text.range>)
               : TestAdapter.TestAdapterEntry<Ionide.LanguageServerProtocol.Types.Range> =
-              { Id = r.Id
+              {
+                Id = r.Id
                 List = r.List
                 Name = r.Name
                 Type = r.Type
                 ModuleType = r.ModuleType
                 Range = fcsRangeToLsp r.Range
-                Childs = ResizeArray(r.Childs |> Seq.map map) }
+                Childs = ResizeArray(r.Childs |> Seq.map map)
+              }
 
             do!
-              { File = Path.LocalPathToUri file
-                Tests = tests |> Array.map map }
+              {
+                File = Path.LocalPathToUri file
+                Tests = tests |> Array.map map
+              }
               |> lspClient.NotifyTestDetected
 
         with ex ->
@@ -968,15 +1004,19 @@ type AdaptiveState
         let! source = SourceTextFactory.readFile file sourceTextFactory
 
         return
-          { LastTouched = lastTouched
+          {
+            LastTouched = lastTouched
             Source = source
-            Version = 0 }
+            Version = 0
+          }
 
       else // When a user does "File -> New Text File -> Select a language -> F#" without saving, the file won't exist
         return
-          { LastTouched = DateTime.UtcNow
+          {
+            LastTouched = DateTime.UtcNow
             Source = sourceTextFactory.Create(file, "")
-            Version = 0 }
+            Version = 0
+          }
     }
 
   let addAValLogging cb (aval: aval<_>) =
@@ -1010,7 +1050,8 @@ type AdaptiveState
 
   let noopDisposable =
     { new IDisposable with
-        member this.Dispose() : unit = () }
+        member this.Dispose() : unit = ()
+    }
 
   let adaptiveWorkspacePaths =
     workspacePaths
@@ -1099,7 +1140,8 @@ type AdaptiveState
 
       // Collect other files that should trigger a reload of a project
       let additionalDependencies (p: Types.ProjectOptions) =
-        [ let projectFileChanges = projectFileChanges p.ProjectFileName
+        [
+          let projectFileChanges = projectFileChanges p.ProjectFileName
 
           match p.Properties with
           | ProjectAssetsFile v -> yield projectFileChanges (Utils.normalizePath v)
@@ -1121,11 +1163,14 @@ type AdaptiveState
                   Utils.normalizePath x |> projectFileChanges |> Some
                 else
                   None)
-          | _ -> () ]
+          | _ -> ()
+        ]
 
       HashMap.ofList
-        [ for p in projectOptions do
-            Utils.normalizePath p.ProjectFileName, (p, additionalDependencies p) ])
+        [
+          for p in projectOptions do
+            Utils.normalizePath p.ProjectFileName, (p, additionalDependencies p)
+        ])
 
   let openFilesTokens =
     ConcurrentDictionary<string<LocalPath>, CancellationTokenSource>()
@@ -1140,11 +1185,11 @@ type AdaptiveState
     | Some v -> v.Token
     | None -> CancellationToken.None
 
-  let openFiles = cmap<string<LocalPath>, cval<VolatileFile>> ()
+  let openFiles = cmap<string<LocalPath>, cval<VolatileFile>>()
   let openFilesReadOnly = openFiles |> AMap.map (fun _ x -> x :> aval<_>)
 
   let textChanges =
-    cmap<string<LocalPath>, cset<DidChangeTextDocumentParams * DateTime>> ()
+    cmap<string<LocalPath>, cset<DidChangeTextDocumentParams * DateTime>>()
 
   let textChangesReadOnly = textChanges |> AMap.map (fun _ x -> x :> aset<_>)
 
@@ -1252,9 +1297,11 @@ type AdaptiveState
       (AVal.constant sourceTextFactory)
       (AMap.ofHashMap projectOptions)
     |> AMap.map (fun _ (proj, snap) ->
-      { ProjectOptions = proj
+      {
+        ProjectOptions = proj
         FSharpProjectCompilerOptions = snap |> AVal.map CompilerProjectOption.TransparentCompiler
-        LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions })
+        LanguageVersion = LanguageVersionShim.fromOtherOptions proj.OtherOptions
+      })
 
   let createOptions useBuiltProjectReferences projectOptions =
     let projectOptions = HashMap.toValueList projectOptions
@@ -1276,20 +1323,24 @@ type AdaptiveState
               if useBuiltProjectReferences then
                 [||]
               else
-                fso.ReferencedProjects }
+                fso.ReferencedProjects
+        }
         |> CompilerProjectOption.BackgroundCompiler
 
       Utils.normalizePath projectOption.ProjectFileName,
-      { FSharpProjectCompilerOptions = AVal.constant fso
+      {
+        FSharpProjectCompilerOptions = AVal.constant fso
         LanguageVersion = langversion
-        ProjectOptions = projectOption })
+        ProjectOptions = projectOption
+      })
     |> AMap.ofList
 
   let loadedProjects =
     asyncAVal {
       let! projectOptions = projectOptions
 
-      and! useBuiltProjectReferences = config |> AVal.map (fun c -> c.DisableInMemoryProjectReferences)
+      and! useBuiltProjectReferences =
+        config |> AVal.map (fun c -> c.DisableInMemoryProjectReferences)
 
       if useTransparentCompiler then
         return createSnapshots useBuiltProjectReferences projectOptions
@@ -1381,9 +1432,13 @@ type AdaptiveState
 
           do!
             lspClient.NotifyDocumentAnalyzed
-              { TextDocument =
-                  { Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
-                    Version = checkedFile.VolatileFile.Version } }
+              {
+                TextDocument =
+                  {
+                    Uri = checkedFile.VolatileFile.FileName |> Path.LocalPathToUri
+                    Version = checkedFile.VolatileFile.Version
+                  }
+              }
         with
         | :? OperationCanceledException -> ()
         | ex -> logger.error (Log.setMessage "Analyzing a checked file failed" >> Log.addExn ex)
@@ -1645,7 +1700,8 @@ type AdaptiveState
 
                 let projectOptions: Types.ProjectOptions =
                   let projectSdkInfo: Types.ProjectSdkInfo =
-                    { IsTestProject = false
+                    {
+                      IsTestProject = false
                       Configuration = ""
                       IsPackable = false
                       TargetFramework = ""
@@ -1659,9 +1715,11 @@ type AdaptiveState
                       TargetFrameworks = []
                       RunArguments = None
                       RunCommand = None
-                      IsPublishable = None }
+                      IsPublishable = None
+                    }
 
-                  { ProjectId = opts.ProjectId
+                  {
+                    ProjectId = opts.ProjectId
                     ProjectFileName = opts.ProjectFileName
                     TargetFramework = ""
                     SourceFiles = opts.SourceFilesTagged |> List.map (UMX.untag)
@@ -1683,9 +1741,11 @@ type AdaptiveState
                   }
 
                 return
-                  { FSharpProjectCompilerOptions = opts |> AVal.constant
+                  {
+                    FSharpProjectCompilerOptions = opts |> AVal.constant
                     LanguageVersion = LanguageVersionShim.fromOtherOptions opts.OtherOptions
-                    ProjectOptions = projectOptions }
+                    ProjectOptions = projectOptions
+                  }
                   |> List.singleton
 
               with e ->
@@ -1767,7 +1827,8 @@ type AdaptiveState
 
   let getAllFilesToProjectOptions () =
     async {
-      let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
+      let! allFilesToFSharpProjectOptions =
+        allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
 
       return!
         allFilesToFSharpProjectOptions
@@ -1800,7 +1861,8 @@ type AdaptiveState
 
   let getAllProjectOptions () =
     async {
-      let! allFilesToFSharpProjectOptions = allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
+      let! allFilesToFSharpProjectOptions =
+        allFilesToFSharpProjectOptions |> AsyncAVal.forceAsync
 
       let! set =
         allFilesToFSharpProjectOptions
@@ -1867,12 +1929,13 @@ type AdaptiveState
     =
     asyncEx {
       let tags =
-        [ SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
+        [
+          SemanticConventions.fsac_sourceCodePath, box (UMX.untag file.Source.FileName)
           SemanticConventions.projectFilePath, box (options.ProjectFileName)
           "source.length", box (file.Source.Length)
           "source.version", box (file.Version)
 
-          ]
+        ]
 
       let! ct = Async.CancellationToken
       use! _l = typecheckLocker.LockAsync ct
@@ -1940,11 +2003,13 @@ type AdaptiveState
         do! triggerNotificationAndWait (NotificationEvent.ParseError(errors, file.Source.FileName, file.Version)) ct
 
         fileChecked.Trigger(
-          { Options = options
+          {
+            Options = options
             CompilerOptions = compilerOptions
             ParseAndCheckResults = parseAndCheck
             VolatileFile = file
-            CancellationToken = ct }
+            CancellationToken = ct
+          }
         )
 
 
@@ -2208,14 +2273,18 @@ type AdaptiveState
             if symbol.Kind = kind then
               let! (text) = forceFindOpenFileOrRead fileName |> Async.map Option.ofResult
               let! line = tryGetLineStr pos text.Source |> Option.ofResult
-              let! tyRes = forceGetOpenFileTypeCheckResultsOrCheck fileName |> Async.map (Option.ofResult)
+
+              let! tyRes =
+                forceGetOpenFileTypeCheckResultsOrCheck fileName |> Async.map (Option.ofResult)
+
               let symbolUse = tyRes.TryGetSymbolUse pos line
               return! Some(symbol, symbolUse)
             else
               return! None
           }
 
-        member x.ParseFileInProject(file) = forceGetParseResults file |> Async.map (Option.ofResult) }
+        member x.ParseFileInProject(file) = forceGetParseResults file |> Async.map (Option.ofResult)
+    }
 
   let getDependentProjectsOfProjects (ps: CompilerProjectOption list) =
     async {
@@ -2392,9 +2461,11 @@ type AdaptiveState
 
 
     let implementInterfaceConfig config () : ImplementInterface.Config =
-      { ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
+      {
+        ObjectIdentifier = config.InterfaceStubGenerationObjectIdentifier
         MethodBody = config.InterfaceStubGenerationMethodBody
-        IndentationSize = config.IndentationSize }
+        IndentationSize = config.IndentationSize
+      }
 
     let recordStubReplacements config () = Map.ofList [ "$1", config.RecordStubGenerationBody ]
 
@@ -2410,8 +2481,10 @@ type AdaptiveState
 
     let abstractClassStubReplacements config () =
       Map.ofList
-        [ "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
-          "$methodBody", config.AbstractClassStubGenerationMethodBody ]
+        [
+          "$objectIdent", config.AbstractClassStubGenerationObjectIdentifier
+          "$methodBody", config.AbstractClassStubGenerationMethodBody
+        ]
 
     let tryFindAbstractClassExprInBufferAtPos =
       AbstractClassStubGenerator.tryFindAbstractClassExprInBufferAtPos codeGenServer
@@ -2441,84 +2514,86 @@ type AdaptiveState
 
     config
     |> AVal.map (fun config ->
-      [| Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix forceFindSourceText)
-         Run.ifEnabled
-           (fun _ -> config.ResolveNamespaces)
-           (ResolveNamespace.fix tryGetParseAndCheckResultsForFile Commands.getNamespaceSuggestions)
-         ReplaceWithSuggestion.fix
-         RemoveRedundantQualifier.fix
-         Run.ifEnabled
-           (fun _ -> config.UnusedDeclarationsAnalyzer)
-           (RenameUnusedValue.fix tryGetParseAndCheckResultsForFile)
-         AddNewKeywordToDisposableConstructorInvocation.fix tryGetParseAndCheckResultsForFile
-         Run.ifEnabled
-           (fun _ -> config.UnionCaseStubGeneration)
-           (GenerateUnionCases.fix
-             forceFindSourceText
-             tryGetParseAndCheckResultsForFile
-             getUnionPatternMatchCases
-             (unionCaseStubReplacements config))
-         ExternalSystemDiagnostics.linter
-         ExternalSystemDiagnostics.analyzers
-         Run.ifEnabled
-           (fun _ -> config.InterfaceStubGeneration)
-           (ImplementInterface.fix tryGetParseAndCheckResultsForFile (implementInterfaceConfig config))
-         Run.ifEnabled
-           (fun _ -> config.RecordStubGeneration)
-           (GenerateRecordStub.fix tryGetParseAndCheckResultsForFile getRecordStub (recordStubReplacements config))
-         Run.ifEnabled
-           (fun _ -> config.AbstractClassStubGeneration)
-           (GenerateAbstractClassStub.fix
-             tryGetParseAndCheckResultsForFile
-             getAbstractClassStub
-             (abstractClassStubReplacements config))
-         AddMissingEqualsToTypeDefinition.fix forceFindSourceText
-         ChangePrefixNegationToInfixSubtraction.fix forceFindSourceText
-         ConvertDoubleEqualsToSingleEquals.fix getRangeText
-         ChangeEqualsInFieldTypeToColon.fix
-         WrapExpressionInParentheses.fix
-         ChangeRefCellDerefToNot.fix tryGetParseAndCheckResultsForFile
-         ChangeDowncastToUpcast.fix getRangeText
-         MakeDeclarationMutable.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
-         UseMutationWhenValueIsMutable.fix tryGetParseAndCheckResultsForFile
-         ConvertInvalidRecordToAnonRecord.fix tryGetParseAndCheckResultsForFile
-         RemoveUnnecessaryReturnOrYield.fix tryGetParseAndCheckResultsForFile getLineText
-         ConvertCSharpLambdaToFSharpLambda.fix tryGetParseAndCheckResultsForFile getLineText
-         AddMissingFunKeyword.fix forceFindSourceText getLineText
-         AddMissingWildcardOperator.fix tryGetParseAndCheckResultsForFile
-         MakeOuterBindingRecursive.fix tryGetParseAndCheckResultsForFile getLineText
-         AddMissingRecKeyword.fix forceFindSourceText getLineText
-         ConvertBangEqualsToInequality.fix getRangeText
-         ChangeDerefBangToValue.fix tryGetParseAndCheckResultsForFile
-         RemoveUnusedBinding.fix tryGetParseAndCheckResultsForFile
-         AddTypeToIndeterminateValue.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
-         ChangeTypeOfNameToNameOf.fix tryGetParseAndCheckResultsForFile
-         AddMissingInstanceMember.fix
-         AddMissingXmlDocumentation.fix tryGetParseAndCheckResultsForFile
-         AddExplicitTypeAnnotation.fix tryGetParseAndCheckResultsForFile
-         ConvertPositionalDUToNamed.fix tryGetParseAndCheckResultsForFile
-         ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseAndCheckResultsForFile
-         GenerateXmlDocumentation.fix tryGetParseAndCheckResultsForFile
-         RemoveRedundantAttributeSuffix.fix tryGetParseAndCheckResultsForFile
-         Run.ifEnabled
-           (fun _ -> config.AddPrivateAccessModifier)
-           (AddPrivateAccessModifier.fix tryGetParseAndCheckResultsForFile symbolUseWorkspace)
-         UseTripleQuotedInterpolation.fix tryGetParseAndCheckResultsForFile
-         RenameParamToMatchSignature.fix tryGetParseAndCheckResultsForFile
-         RemovePatternArgument.fix tryGetParseAndCheckResultsForFile
-         ToInterpolatedString.fix tryGetParseAndCheckResultsForFile getLanguageVersion
-         AdjustConstant.fix tryGetParseAndCheckResultsForFile
-         UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile
-         RemoveUnnecessaryParentheses.fix forceFindSourceText
-         AddTypeAliasToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
-         UpdateTypeAbbreviationInSignatureFile.fix tryGetParseAndCheckResultsForFile
-         AddBindingToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
-         ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
-         IgnoreExpression.fix tryGetParseAndCheckResultsForFile
-         ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile
-         AddMissingSeq.fix tryGetParseAndCheckResultsForFile
-         IntroduceMissingBinding.fix tryGetParseAndCheckResultsForFile getLineText
-         GenerateAnonRecordStub.fix tryGetParseAndCheckResultsForFile |])
+      [|
+        Run.ifEnabled (fun _ -> config.UnusedOpensAnalyzer) (RemoveUnusedOpens.fix forceFindSourceText)
+        Run.ifEnabled
+          (fun _ -> config.ResolveNamespaces)
+          (ResolveNamespace.fix tryGetParseAndCheckResultsForFile Commands.getNamespaceSuggestions)
+        ReplaceWithSuggestion.fix
+        RemoveRedundantQualifier.fix
+        Run.ifEnabled
+          (fun _ -> config.UnusedDeclarationsAnalyzer)
+          (RenameUnusedValue.fix tryGetParseAndCheckResultsForFile)
+        AddNewKeywordToDisposableConstructorInvocation.fix tryGetParseAndCheckResultsForFile
+        Run.ifEnabled
+          (fun _ -> config.UnionCaseStubGeneration)
+          (GenerateUnionCases.fix
+            forceFindSourceText
+            tryGetParseAndCheckResultsForFile
+            getUnionPatternMatchCases
+            (unionCaseStubReplacements config))
+        ExternalSystemDiagnostics.linter
+        ExternalSystemDiagnostics.analyzers
+        Run.ifEnabled
+          (fun _ -> config.InterfaceStubGeneration)
+          (ImplementInterface.fix tryGetParseAndCheckResultsForFile (implementInterfaceConfig config))
+        Run.ifEnabled
+          (fun _ -> config.RecordStubGeneration)
+          (GenerateRecordStub.fix tryGetParseAndCheckResultsForFile getRecordStub (recordStubReplacements config))
+        Run.ifEnabled
+          (fun _ -> config.AbstractClassStubGeneration)
+          (GenerateAbstractClassStub.fix
+            tryGetParseAndCheckResultsForFile
+            getAbstractClassStub
+            (abstractClassStubReplacements config))
+        AddMissingEqualsToTypeDefinition.fix forceFindSourceText
+        ChangePrefixNegationToInfixSubtraction.fix forceFindSourceText
+        ConvertDoubleEqualsToSingleEquals.fix getRangeText
+        ChangeEqualsInFieldTypeToColon.fix
+        WrapExpressionInParentheses.fix
+        ChangeRefCellDerefToNot.fix tryGetParseAndCheckResultsForFile
+        ChangeDowncastToUpcast.fix getRangeText
+        MakeDeclarationMutable.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
+        UseMutationWhenValueIsMutable.fix tryGetParseAndCheckResultsForFile
+        ConvertInvalidRecordToAnonRecord.fix tryGetParseAndCheckResultsForFile
+        RemoveUnnecessaryReturnOrYield.fix tryGetParseAndCheckResultsForFile getLineText
+        ConvertCSharpLambdaToFSharpLambda.fix tryGetParseAndCheckResultsForFile getLineText
+        AddMissingFunKeyword.fix forceFindSourceText getLineText
+        AddMissingWildcardOperator.fix tryGetParseAndCheckResultsForFile
+        MakeOuterBindingRecursive.fix tryGetParseAndCheckResultsForFile getLineText
+        AddMissingRecKeyword.fix forceFindSourceText getLineText
+        ConvertBangEqualsToInequality.fix getRangeText
+        ChangeDerefBangToValue.fix tryGetParseAndCheckResultsForFile
+        RemoveUnusedBinding.fix tryGetParseAndCheckResultsForFile
+        AddTypeToIndeterminateValue.fix tryGetParseAndCheckResultsForFile forceGetFSharpProjectOptions
+        ChangeTypeOfNameToNameOf.fix tryGetParseAndCheckResultsForFile
+        AddMissingInstanceMember.fix
+        AddMissingXmlDocumentation.fix tryGetParseAndCheckResultsForFile
+        AddExplicitTypeAnnotation.fix tryGetParseAndCheckResultsForFile
+        ConvertPositionalDUToNamed.fix tryGetParseAndCheckResultsForFile
+        ConvertTripleSlashCommentToXmlTaggedDoc.fix tryGetParseAndCheckResultsForFile
+        GenerateXmlDocumentation.fix tryGetParseAndCheckResultsForFile
+        RemoveRedundantAttributeSuffix.fix tryGetParseAndCheckResultsForFile
+        Run.ifEnabled
+          (fun _ -> config.AddPrivateAccessModifier)
+          (AddPrivateAccessModifier.fix tryGetParseAndCheckResultsForFile symbolUseWorkspace)
+        UseTripleQuotedInterpolation.fix tryGetParseAndCheckResultsForFile
+        RenameParamToMatchSignature.fix tryGetParseAndCheckResultsForFile
+        RemovePatternArgument.fix tryGetParseAndCheckResultsForFile
+        ToInterpolatedString.fix tryGetParseAndCheckResultsForFile getLanguageVersion
+        AdjustConstant.fix tryGetParseAndCheckResultsForFile
+        UpdateValueInSignatureFile.fix tryGetParseAndCheckResultsForFile
+        RemoveUnnecessaryParentheses.fix forceFindSourceText
+        AddTypeAliasToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
+        UpdateTypeAbbreviationInSignatureFile.fix tryGetParseAndCheckResultsForFile
+        AddBindingToSignatureFile.fix forceGetFSharpProjectOptions tryGetParseAndCheckResultsForFile
+        ReplaceLambdaWithDotLambda.fix getLanguageVersion tryGetParseAndCheckResultsForFile
+        IgnoreExpression.fix tryGetParseAndCheckResultsForFile
+        ExprTypeMismatch.fix tryGetParseAndCheckResultsForFile
+        AddMissingSeq.fix tryGetParseAndCheckResultsForFile
+        IntroduceMissingBinding.fix tryGetParseAndCheckResultsForFile getLineText
+        GenerateAnonRecordStub.fix tryGetParseAndCheckResultsForFile
+      |])
 
   let forgetDocument (uri: DocumentUri) =
     async {
@@ -2861,7 +2936,8 @@ type AdaptiveState
   member state.DiscoverTests() =
 
     asyncResult {
-      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+      let! vstestBinary =
+        TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
 
       let! projects = projectOptions |> AsyncAVal.forceAsync
 
@@ -2881,8 +2957,10 @@ type AdaptiveState
 
           do!
             lspClient.WindowShowMessage(
-              { Type = MessageType.Error
-                Message = message }
+              {
+                Type = MessageType.Error
+                Message = message
+              }
             )
 
           return! (Error message)
@@ -2892,8 +2970,10 @@ type AdaptiveState
 
           do!
             lspClient.WindowShowMessage(
-              { Type = MessageType.Error
-                Message = message }
+              {
+                Type = MessageType.Error
+                Message = message
+              }
             )
 
           return! (Error message)
@@ -2908,13 +2988,21 @@ type AdaptiveState
           let dto =
             match update with
             | TestServer.VSTestWrapper.TestDiscoveryUpdate.Progress tests ->
-              { Tests = tests |> tryTestCasesToDTOs |> Array.ofList
-                TestLogs = [||] }
+              {
+                Tests = tests |> tryTestCasesToDTOs |> Array.ofList
+                TestLogs = [||]
+              }
             | TestServer.VSTestWrapper.TestDiscoveryUpdate.LogMessage(level, message) ->
-              { Tests = [||]
+              {
+                Tests = [||]
                 TestLogs =
-                  [| { Message = message
-                       Level = string level } |] }
+                  [|
+                    {
+                      Message = message
+                      Level = string level
+                    }
+                  |]
+              }
 
 
           lspClient.NotifyTestDiscoveryUpdate(dto) |> Async.RunSynchronously
@@ -2929,7 +3017,8 @@ type AdaptiveState
 
   member state.RunTests (limitToProjects: FilePath list option) (testCaseFilter: string option) (shouldDebug: bool) =
     asyncResult {
-      let! vstestBinary = TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
+      let! vstestBinary =
+        TestServer.VSTestWrapper.tryFindVsTestFromDotnetRoot state.Config.DotNetRoot state.RootPath
 
       let! projects = projectOptions |> AsyncAVal.forceAsync
 
@@ -2969,18 +3058,26 @@ type AdaptiveState
         let dto =
           match runUpdate with
           | TestServer.VSTestWrapper.TestRunUpdate.Progress progress ->
-            { TestLogs = [||]
+            {
+              TestLogs = [||]
               TestResults = progress.NewTestResults |> List.ofSeq |> tryTestResultsToDTOs |> Array.ofSeq
               ActiveTests =
                 progress.ActiveTests
                 |> Seq.choose (TestServer.TestItem.tryTestCaseToDTO projectsByBinaryPath.TryFind)
-                |> Array.ofSeq }
+                |> Array.ofSeq
+            }
           | TestServer.VSTestWrapper.TestRunUpdate.LogMessage(level, message) ->
-            { TestLogs =
-                [| { Message = message
-                     Level = string level } |]
+            {
+              TestLogs =
+                [|
+                  {
+                    Message = message
+                    Level = string level
+                  }
+                |]
               TestResults = [||]
-              ActiveTests = [||] }
+              ActiveTests = [||]
+            }
 
         Async.RunSynchronously(async { do! lspClient.NotifyTestRunUpdate(dto) }, cancellationToken = tokenSource.Token)
 

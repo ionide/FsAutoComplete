@@ -154,11 +154,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
                 $"; {fieldStubs} ", { Start = lspStart; End = lspEnd }
 
             return
-              [ { Title = title
+              [
+                {
+                  Title = title
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diagnostic
                   Edits =
-                    [| { Range = insertRange
-                         NewText = insertText } |]
-                  Kind = FixKind.Fix } ]
+                    [|
+                      {
+                        Range = insertRange
+                        NewText = insertText
+                      }
+                    |]
+                  Kind = FixKind.Fix
+                }
+              ]
     })

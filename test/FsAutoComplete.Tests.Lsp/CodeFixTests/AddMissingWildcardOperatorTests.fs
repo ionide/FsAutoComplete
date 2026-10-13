@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof AddMissingWildcardOperator) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddMissingWildcardOperator.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddMissingWildcardOperator.title
 
       testCaseAsync "can suggest wildcard pattern for missing match case"
       <| CodeFix.check
@@ -34,4 +35,5 @@ let tests state =
             match su with
             | First -> "hey"
             | _ -> "hello"
-        """ ])
+        """
+    ])

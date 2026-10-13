@@ -34,6 +34,7 @@ module SemaphoreSlimExtensions =
                   // only release if the task completed successfully
                   // otherwise, we could be releasing a semaphore that was never acquired
                   if t.Status = TaskStatus.RanToCompletion then
-                    x.Release() |> ignore }
+                    x.Release() |> ignore
+            }
         }
       )

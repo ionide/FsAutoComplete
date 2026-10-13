@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof ExprTypeMismatch) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "Update return type"
+    [
+      testCaseAsync "Update return type"
       <| CodeFix.check
         server
         "let a b : int = $0\"meh\""
@@ -78,4 +79,5 @@ let tests state =
         "let a b : int voption = 1$0"
         Diagnostics.acceptAll
         (CodeFix.withTitle "Replace expression with ValueNone")
-        "let a b : int voption = ValueNone" ])
+        "let a b : int voption = ValueNone"
+    ])

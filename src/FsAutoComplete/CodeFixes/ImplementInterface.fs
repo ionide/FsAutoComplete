@@ -162,9 +162,11 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
 
     let insertPos = expr.Range.End
 
-    { StartColumn = startCol
+    {
+      StartColumn = startCol
       InsertAt = insertPos
-      InsertWith = false }
+      InsertWith = false
+    }
     |> Some
   | None ->
     // align with `interface` or `new`
@@ -180,15 +182,19 @@ let private tryFindInsertionData (interfaceData: InterfaceData) (ast: ParsedInpu
         |> Option.map (fun r -> r.End)
         |> Option.defaultValue interfaceData.Range.End
 
-      { StartColumn = startCol
+      {
+        StartColumn = startCol
         InsertAt = insertPos
-        InsertWith = withRange |> Option.isNone }
+        InsertWith = withRange |> Option.isNone
+      }
       |> Some
 
 type Config =
-  { ObjectIdentifier: string
+  {
+    ObjectIdentifier: string
     MethodBody: string
-    IndentationSize: int }
+    IndentationSize: int
+  }
 
 let titleWithTypeAnnotation = "Implement interface"
 let titleWithoutTypeAnnotation = "Implement interface without type annotation"
@@ -263,8 +269,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (config: unit -> Config
 
           let appendWithEdit =
             if insertionData.InsertWith then
-              { Range = fcsPosToProtocolRange insertionData.InsertAt
-                NewText = " with" }
+              {
+                Range = fcsPosToProtocolRange insertionData.InsertAt
+                NewText = " with"
+              }
               |> Some
             else
               None
@@ -280,8 +288,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (config: unit -> Config
               | _ ->
                 let pos = diagnostic.Range.End
 
-                { Range = { Start = pos; End = pos }
-                  NewText = " }" }
+                {
+                  Range = { Start = pos; End = pos }
+                  NewText = " }"
+                }
                 |> Some
             | _ -> None
 
@@ -308,30 +318,37 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (config: unit -> Config
 
               stub.TrimEnd(System.Environment.NewLine.ToCharArray())
 
-            { Range = fcsPosToProtocolRange insertionData.InsertAt
-              NewText = stub }
+            {
+              Range = fcsPosToProtocolRange insertionData.InsertAt
+              NewText = stub
+            }
 
           let getFix title (mainEdit: TextEdit) =
-            { Title = title
+            {
+              Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Kind = FixKind.Fix
               Edits =
-                [| match appendWithEdit with
-                   | Some edit -> edit
-                   | None -> ()
+                [|
+                  match appendWithEdit with
+                  | Some edit -> edit
+                  | None -> ()
 
-                   mainEdit
+                  mainEdit
 
-                   match appendClosingBracketEdit with
-                   | Some edit -> edit
-                   | None -> () |] }
+                  match appendClosingBracketEdit with
+                  | Some edit -> edit
+                  | None -> ()
+                |]
+            }
 
           let edits =
-            [ getFix titleWithTypeAnnotation (getMainEdit true)
+            [
+              getFix titleWithTypeAnnotation (getMainEdit true)
               // TODO: reenable when https://github.com/dotnet/fsharp/issues/14698 is fixed and shipped
               // getFix titleWithoutTypeAnnotation (getMainEdit false)
-              ]
+            ]
 
           return edits
         else

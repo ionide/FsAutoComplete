@@ -38,13 +38,17 @@ let stripLeadingSlash (repo: string<NormalizedRepoPathSegment>) =
   (UMX.untag repo).TrimStart('/') |> UMX.tag<NormalizedRepoPathSegment>
 
 type SourceLinkJson =
-  { documents: System.Collections.Generic.Dictionary<string<SourcelinkPattern>, string<Url>> }
+  {
+    documents: System.Collections.Generic.Dictionary<string<SourcelinkPattern>, string<Url>>
+  }
 
 type private Document =
-  { Name: string<RepoPathSegment>
+  {
+    Name: string<RepoPathSegment>
     Hash: byte[]
     Language: System.Guid
-    IsEmbedded: bool }
+    IsEmbedded: bool
+  }
 
 let private compareRepoPath (d: Document) fcsPath =
   // The fcsPath is the full path from FCS (normalized, backslashes converted to forward slashes).
@@ -65,7 +69,7 @@ let private compareRepoPath (d: Document) fcsPath =
       let s = UMX.untag d.Name
       let normalized = normalizePath s |> UMX.untag
       // Convert backslashes to forward slashes for consistent comparison
-      UMX.tag<NormalizedRepoPathSegment> (normalized.Replace("\\", "/"))
+      UMX.tag<NormalizedRepoPathSegment>(normalized.Replace("\\", "/"))
     else
       normalizeRepoPath d.Name
 
@@ -84,8 +88,7 @@ let private compareRepoPath (d: Document) fcsPath =
   fcsStr = docStr
   || fcsStr.EndsWith("/" + docStr, System.StringComparison.Ordinal)
 
-let private pdbForDll (dllPath: string<LocalPath>) =
-  UMX.tag<LocalPath> (Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
+let private pdbForDll (dllPath: string<LocalPath>) = UMX.tag<LocalPath>(Path.ChangeExtension(UMX.untag dllPath, ".pdb"))
 
 let private tryGetSourcesForPdb (pdbPath: string<LocalPath>) =
   let pdbPath = UMX.untag pdbPath
@@ -173,14 +176,16 @@ let private documentsFromReader (reader: MetadataReader) =
 
         if not (doc.Name.IsNil || doc.Language.IsNil) then
           yield
-            { Name = UMX.tag<RepoPathSegment> (reader.GetString(doc.Name))
+            {
+              Name = UMX.tag<RepoPathSegment>(reader.GetString(doc.Name))
               Hash = reader.GetBlobBytes(doc.Hash)
               Language = reader.GetGuid(doc.Language)
-              IsEmbedded = isEmbedded reader docHandle }
+              IsEmbedded = isEmbedded reader docHandle
+            }
   }
 
 let replace (url: string<Url>) (replacement: string<NormalizedRepoPathSegment>) : string<Url> =
-  UMX.tag<Url> ((UMX.untag url).Replace("*", UMX.untag replacement))
+  UMX.tag<Url>((UMX.untag url).Replace("*", UMX.untag replacement))
 
 let private tryGetUrlWithWildcard
   (pathPattern: string<SourcelinkPattern>)

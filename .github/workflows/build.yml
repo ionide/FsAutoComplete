@@ -76,7 +76,7 @@ jobs:
           ${{ matrix.dotnet-version }}
 
     # Build everything with the .NET 10 SDK: it can target every supported TFM, and
-    # Paket 10 is a net9.0-only tool that the .NET 8 SDK cannot restore. This is what
+    # Paket 12 is a net10.0-only tool that the .NET 8 SDK cannot restore. This is what
     # keeps `dotnet tool restore` working on the net8 leg.
     - name: Setup .NET 10 build SDK
       id: build-sdk
@@ -99,7 +99,7 @@ jobs:
       run: dotnet tool restore
 
     - name: Check format
-      run: dotnet fantomas --check build.fsx src
+      run: dotnet fantomas check .
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
@@ -132,6 +132,9 @@ jobs:
 
     - name: Setup .NET
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        # fsharp-analyzers 0.38 and later run on .NET 10
+        dotnet-version: "10.x"
 
     - name: Restore tools
       run: dotnet tool restore

@@ -88,9 +88,11 @@ module FsacSemanticTokenSites =
   open FSharp.Compiler.Text
 
   type Ranges =
-    { Parameters: Range array
+    {
+      Parameters: Range array
       Definitions: Range array
-      Declarations: Range array }
+      Declarations: Range array
+    }
 
   /// Collect exact identifier ranges for parameter sites, function/member/type definitions,
   /// and function/member/type declarations in implementation and signature files.

@@ -63,12 +63,18 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           List.map (fun ident ->
             let updateText = ident.idText.Replace("Attribute", "")
 
-            { Edits =
-                [| { Range = fcsRangeToLsp ident.idRange
-                     NewText = updateText } |]
+            {
+              Edits =
+                [|
+                  {
+                    Range = fcsRangeToLsp ident.idRange
+                    NewText = updateText
+                  }
+                |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = None
-              Kind = FixKind.Refactor })
+              Kind = FixKind.Refactor
+            })
         )
     }

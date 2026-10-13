@@ -32,25 +32,36 @@ let resultOptionGet =
 
 module CallHierarchyPrepareParams =
   let create (uri: DocumentUri) line character : CallHierarchyPrepareParams =
-    { TextDocument = { Uri = uri }
+    {
+      TextDocument = { Uri = uri }
       Position =
-        { Character = uint32 character
-          Line = uint32 line }
-      WorkDoneToken = None }
+        {
+          Character = uint32 character
+          Line = uint32 line
+        }
+      WorkDoneToken = None
+    }
 
 module LspRange =
   let create startLine startCharacter endLine endCharacter : Range =
-    { Start =
-        { Character = uint32 startCharacter
-          Line = uint32 startLine }
+    {
+      Start =
+        {
+          Character = uint32 startCharacter
+          Line = uint32 startLine
+        }
       End =
-        { Character = uint32 endCharacter
-          Line = uint32 endLine } }
+        {
+          Character = uint32 endCharacter
+          Line = uint32 endLine
+        }
+    }
 
 
 let incomingTests createServer =
   serverTestList "IncomingTests" createServer defaultConfigDto (Some incomingExamples) (fun server ->
-    [ testCaseAsync "Example1"
+    [
+      testCaseAsync "Example1"
       <| async {
         let! (aDoc, _) = Server.openDocument "Example1.fsx" server
         use aDoc = aDoc
@@ -63,45 +74,59 @@ let incomingTests createServer =
           |> Async.map resultOptionGet
 
         let expectedPrepareResult: CallHierarchyItem array =
-          [| { Data = None
-               Detail = None
-               Kind = SymbolKind.Function
-               Name = "bar"
-               Range = LspRange.create 2 8 2 11
-               SelectionRange = LspRange.create 2 8 2 11
-               Tags = None
-               Uri = aDoc.Uri } |]
+          [|
+            {
+              Data = None
+              Detail = None
+              Kind = SymbolKind.Function
+              Name = "bar"
+              Range = LspRange.create 2 8 2 11
+              SelectionRange = LspRange.create 2 8 2 11
+              Tags = None
+              Uri = aDoc.Uri
+            }
+          |]
 
         Expect.equal prepareResult expectedPrepareResult "prepareResult"
 
         let expectedIncomingResult: CallHierarchyIncomingCall array =
-          [| { FromRanges = [| LspRange.create 8 12 8 15 |]
-               From =
-                 { Data = None
-                   Detail = Some "From Example1.fsx"
-                   Kind = SymbolKind.Function
-                   Name = "foo"
-                   Range = LspRange.create 6 12 8 18
-                   SelectionRange = LspRange.create 6 12 6 15
-                   Tags = None
-                   Uri = aDoc.Uri } } |]
+          [|
+            {
+              FromRanges = [| LspRange.create 8 12 8 15 |]
+              From =
+                {
+                  Data = None
+                  Detail = Some "From Example1.fsx"
+                  Kind = SymbolKind.Function
+                  Name = "foo"
+                  Range = LspRange.create 6 12 8 18
+                  SelectionRange = LspRange.create 6 12 6 15
+                  Tags = None
+                  Uri = aDoc.Uri
+                }
+            }
+          |]
 
         let incomingParams: CallHierarchyIncomingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! incomingResult =
           server.Server.CallHierarchyIncomingCalls incomingParams
           |> Async.map resultOptionGet
 
         Expect.equal incomingResult expectedIncomingResult "incomingResult"
-      } ])
+      }
+    ])
 
 
 let outgoingTests createServer =
   serverTestList "OutgoingTests" createServer defaultConfigDto (Some outgoingExamples) (fun server ->
-    [ testCaseAsync "Example1 - Simple function calls"
+    [
+      testCaseAsync "Example1 - Simple function calls"
       <| async {
         let! (aDoc, _) = Server.openDocument "Example1.fsx" server
         use aDoc = aDoc
@@ -118,9 +143,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "mainFunction" "Should find mainFunction"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -151,9 +178,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "complexFunction" "Should find complexFunction"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -183,9 +212,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "processData" "Should find processData"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -219,9 +250,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "main" "Should find main function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -255,9 +288,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "outerFunction" "Should find outerFunction"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -289,9 +324,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "main" "Should find main function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -323,9 +360,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "factorial" "Should find factorial function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -355,9 +394,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "isEven" "Should find isEven function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -389,9 +430,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "sumTree" "Should find sumTree function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -422,9 +465,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "asyncFactorial" "Should find asyncFactorial function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -455,9 +500,11 @@ let outgoingTests createServer =
 
         // Get level 1 calls from entryPoint
         let outgoingParams1: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level1Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams1
@@ -474,9 +521,11 @@ let outgoingTests createServer =
           level1Calls |> Array.find (fun call -> call.To.Name = "level1Function")
 
         let outgoingParams2: CallHierarchyOutgoingCallsParams =
-          { Item = level1FunctionItem.To
+          {
+            Item = level1FunctionItem.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level2Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams2
@@ -492,9 +541,11 @@ let outgoingTests createServer =
           level2Calls |> Array.find (fun call -> call.To.Name = "level2Function")
 
         let outgoingParams3: CallHierarchyOutgoingCallsParams =
-          { Item = level2FunctionItem.To
+          {
+            Item = level2FunctionItem.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level3Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams3
@@ -523,9 +574,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "complexLevel2" "Should find complexLevel2 function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingCalls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -542,9 +595,11 @@ let outgoingTests createServer =
           outgoingCalls |> Array.find (fun call -> call.To.Name = "anotherLevel3")
 
         let deeperParams: CallHierarchyOutgoingCallsParams =
-          { Item = anotherLevel3Item.To
+          {
+            Item = anotherLevel3Item.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! deeperCalls =
           server.Server.CallHierarchyOutgoingCalls deeperParams
@@ -578,9 +633,11 @@ let outgoingTests createServer =
 
         // Level 1: topLevelEntry -> level1Main
         let outgoingParams1: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level1Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams1
@@ -594,9 +651,11 @@ let outgoingTests createServer =
 
         // Level 2: level1Main -> level2Process (using first result)
         let outgoingParams2: CallHierarchyOutgoingCallsParams =
-          { Item = firstLevel1Call.To
+          {
+            Item = firstLevel1Call.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level2Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams2
@@ -610,9 +669,11 @@ let outgoingTests createServer =
 
         // Level 3: level2Process -> level3Helper (using first result)
         let outgoingParams3: CallHierarchyOutgoingCallsParams =
-          { Item = firstLevel2Call.To
+          {
+            Item = firstLevel2Call.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level3Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams3
@@ -626,9 +687,11 @@ let outgoingTests createServer =
 
         // Level 4: level3Helper -> level4Action (using first result)
         let outgoingParams4: CallHierarchyOutgoingCallsParams =
-          { Item = firstLevel3Call.To
+          {
+            Item = firstLevel3Call.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level4Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams4
@@ -642,9 +705,11 @@ let outgoingTests createServer =
 
         // Level 5: level4Action should have no outgoing calls (it's a leaf function)
         let outgoingParams5: CallHierarchyOutgoingCallsParams =
-          { Item = firstLevel4Call.To
+          {
+            Item = firstLevel4Call.To
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! level5Calls =
           server.Server.CallHierarchyOutgoingCalls outgoingParams5
@@ -674,9 +739,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "parallelWorkflow" "Should find parallelWorkflow function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -720,9 +787,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "serviceOperation" "Should find serviceOperation function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -754,9 +823,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "orchestrateWorkflow" "Should find orchestrateWorkflow function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -789,9 +860,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "mainWorkflow" "Should find mainWorkflow function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -822,9 +895,11 @@ let outgoingTests createServer =
         Expect.equal prepareResult[0].Name "complexLevel2" "Should find complexLevel2 function"
 
         let outgoingParams: CallHierarchyOutgoingCallsParams =
-          { Item = prepareResult[0]
+          {
+            Item = prepareResult[0]
             PartialResultToken = None
-            WorkDoneToken = None }
+            WorkDoneToken = None
+          }
 
         let! outgoingResult =
           server.Server.CallHierarchyOutgoingCalls outgoingParams
@@ -892,7 +967,8 @@ let outgoingTests createServer =
           // Workspace files must exist
           if isWorkspaceFile then
             Expect.isTrue (File.Exists localPath) $"Workspace file for {call.To.Name} should exist at {localPath}"
-      } ])
+      }
+    ])
 
 let tests createServer =
   testList "CallHierarchy" [ incomingTests createServer; outgoingTests createServer ]

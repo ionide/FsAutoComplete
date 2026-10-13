@@ -14,7 +14,8 @@ open System.Text.RegularExpressions
 type LineText = string
 
 let undefinedName =
-  [ "not define"
+  [
+    "not define"
     "nedefinuje|Není definovaný|Není definované|Není definovaná|Nemáte definovaný"
     "definiert nicht|nicht.*? definiert"
     "no define|no está definido|no está definida"
@@ -27,7 +28,8 @@ let undefinedName =
     "не определяет|не определено|не определены|не определен"
     "tanımlamıyor|tanımlı değil"
     "未.*?定义"
-    "未定義" ]
+    "未定義"
+  ]
   |> List.map (fun i ->
     let regex = Regex(i, RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
     fun (j: string) -> regex.IsMatch(j))
@@ -44,10 +46,14 @@ let fix
 
   /// insert a line of text at a given line
   let insertLine line lineStr =
-    { Range =
-        { Start = { Line = line; Character = 0u }
-          End = { Line = line; Character = 0u } }
-      NewText = lineStr }
+    {
+      Range =
+        {
+          Start = { Line = line; Character = 0u }
+          End = { Line = line; Character = 0u }
+        }
+      NewText = lineStr
+    }
 
   /// Returns true if a source line looks like an explicit nested module declaration
   /// (e.g. `module Foo =` or `  module Bar =`), as opposed to a namespace-level
@@ -114,13 +120,19 @@ let fix
       retVal
 
   let qualifierFix file diagnostic qual =
-    { SourceDiagnostic = Some diagnostic
+    {
+      SourceDiagnostic = Some diagnostic
       Edits =
-        [| { Range = diagnostic.Range
-             NewText = qual } |]
+        [|
+          {
+            Range = diagnostic.Range
+            NewText = qual
+          }
+        |]
       File = file
       Title = $"Use %s{qual}"
-      Kind = FixKind.Fix }
+      Kind = FixKind.Fix
+    }
 
   let openFix (text: ISourceText) file diagnostic (word: string) (ns, name: string, ctx, _multiple) : Fix =
     let insertPoint = adjustInsertionPoint text ctx
@@ -155,11 +167,13 @@ let fix
 
     let edits = [| yield insertLine docLine lineStr |]
 
-    { Edits = edits
+    {
+      Edits = edits
       File = file
       SourceDiagnostic = Some diagnostic
       Title = $"open %s{actualOpen}"
-      Kind = FixKind.Fix }
+      Kind = FixKind.Fix
+    }
 
   Run.ifDiagnosticByCheckMessage undefinedName (fun diagnostic codeActionParameter ->
     asyncResult {

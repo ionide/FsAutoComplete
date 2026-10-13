@@ -20,7 +20,7 @@ dotnet test
 dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
 
 # Format code
-dotnet fantomas src/ test/
+dotnet fantomas .
 ```
 
 ### DevContainer

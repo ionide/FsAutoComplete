@@ -8,18 +8,22 @@ open FSharp.Compiler.Text
 let logger = LogProvider.getLoggerByName "FSharpLint"
 
 type EnrichedLintWarning =
-  { Warning: Suggestion.LintWarning
+  {
+    Warning: Suggestion.LintWarning
     HelpUrl: string
-    Code: string }
+    Code: string
+  }
 
 let pageForLint (identifier: string) =
   sprintf "http://fsprojects.github.io/FSharpLint/how-tos/rules/%s.html" identifier
 
 /// In addition we add the url to the matching help page for fsharplint
 let enrichLintWarning (w: Suggestion.LintWarning) : EnrichedLintWarning =
-  { Code = w.RuleIdentifier
+  {
+    Code = w.RuleIdentifier
     HelpUrl = pageForLint w.RuleIdentifier
-    Warning = w }
+    Warning = w
+  }
 
 /// Attempts to load the F#Lint configuration from the closest available settings file to the given project file.
 let loadConfiguration (workspaceRoot: string option) (lintConfigFileRelativePath: string option) =
@@ -41,10 +45,13 @@ let lintWithConfiguration (lintConfig: ConfigurationParam) ctok ast (sourceCode:
       Lint.lintParsedSource
         { Lint.OptionalLintParameters.Default with
             Configuration = lintConfig
-            CancellationToken = Some ctok }
-        { Ast = ast
+            CancellationToken = Some ctok
+        }
+        {
+          Ast = ast
           Source = sourceCode.ToString()
-          TypeCheckResults = Some typeCheckResults }
+          TypeCheckResults = Some typeCheckResults
+        }
 
     match res with
     | LintResult.Failure f ->

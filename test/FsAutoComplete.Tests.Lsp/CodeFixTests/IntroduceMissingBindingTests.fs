@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof IntroduceMissingBinding) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "introduce binding for undefined identifier"
+    [
+      testCaseAsync "introduce binding for undefined identifier"
       <| CodeFix.check
         server
         "let a () =
@@ -43,4 +44,5 @@ let tests state =
         Diagnostics.acceptAll
         (CodeFix.withTitle (IntroduceMissingBinding.title "myTopLevel"))
         "let myTopLevel = failwith \"Not Implemented\"
-let x = myTopLevel + 1" ])
+let x = myTopLevel + 1"
+    ])

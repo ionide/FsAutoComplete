@@ -94,11 +94,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           $"(%s{currentText}) |> ignore"
 
       return
-        [ { SourceDiagnostic = None
+        [
+          {
+            SourceDiagnostic = None
             Title = title
             File = codeActionParams.TextDocument
             Edits =
-              [| { Range = fcsRangeToLsp expr.Range
-                   NewText = newText } |]
-            Kind = FixKind.Fix } ]
+              [|
+                {
+                  Range = fcsRangeToLsp expr.Range
+                  NewText = newText
+                }
+              |]
+            Kind = FixKind.Fix
+          }
+        ]
     })

@@ -71,7 +71,10 @@ let tryFindAbstractClassExprInBufferAtPos
                 | SynMemberDefn.ImplicitCtor _
                 | SynMemberDefn.Member(
                   memberDefn = SynBinding(
-                    valData = SynValData(memberFlags = Some { MemberKind = SynMemberKind.Constructor })))
+                    valData = SynValData(
+                      memberFlags = Some {
+                                           MemberKind = SynMemberKind.Constructor
+                                         })))
                 | SynMemberDefn.ImplicitInherit _
                 | SynMemberDefn.LetBindings _ as possible ->
                   let c = Range.rangeOrder.Compare(m, possible.Range)
@@ -146,7 +149,9 @@ let writeAbstractClassStub
         abstractClassData.AbstractTypeIdentRange.Start.Line
         abstractClassData.AbstractTypeIdentRange.End.Column
 
-    let! _lexerSym, usages = codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FileName, pos, SymbolKind.Ident)
+    let! _lexerSym, usages =
+      codeGenServer.GetSymbolAndUseAtPositionOfKind(doc.FileName, pos, SymbolKind.Ident)
+
     let! usage = usages
 
     let! displayContext, entity =

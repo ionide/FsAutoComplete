@@ -224,11 +224,13 @@ let fix (getFileLines: GetFileLines) : CodeFix =
         return
           newText
           |> ValueOption.map (fun newText ->
-            { Edits = [| { Range = d.Range; NewText = newText } |]
+            {
+              Edits = [| { Range = d.Range; NewText = newText } |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = Some d
-              Kind = FixKind.Fix })
+              Kind = FixKind.Fix
+            })
           |> ValueOption.toList
 
       | _notParens -> return []

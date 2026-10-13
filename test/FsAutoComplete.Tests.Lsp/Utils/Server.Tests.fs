@@ -44,7 +44,8 @@ let private acknowledgedWaitTimeout = TimeSpan.FromSeconds 1.
 let tests state =
   testList
     (nameof (Server))
-    [ testCaseAsync
+    [
+      testCaseAsync
         "pre-canceled acknowledged notification completes as canceled"
         (async {
           let notifications =
@@ -168,16 +169,20 @@ let tests state =
         })
       testList
         "no root path"
-        [ testList
+        [
+          testList
             "can get diagnostics"
-            [ let config =
+            [
+              let config =
                 { defaultConfigDto with
                     UnusedOpensAnalyzer = Some false
                     UnusedDeclarationsAnalyzer = Some false
-                    SimplifyNameAnalyzer = Some false }
+                    SimplifyNameAnalyzer = Some false
+                }
 
               serverTestList "no analyzers" state config None (fun server ->
-                [ testCaseAsync
+                [
+                  testCaseAsync
                     "can get nothing wrong"
                     (async {
                       let! (doc, diags) = server |> Server.createUntitledDocument ""
@@ -223,16 +228,19 @@ let tests state =
 
                         for name in fnames i do
                           Expect.exists diags (fun d -> d.Message.Contains name) ""
-                    }) ])
+                    })
+                ])
 
               let config =
                 { defaultConfigDto with
                     UnusedOpensAnalyzer = Some false
                     UnusedDeclarationsAnalyzer = Some true
-                    SimplifyNameAnalyzer = Some false }
+                    SimplifyNameAnalyzer = Some false
+                }
 
               serverTestList "just unused decl analyzer" state config None (fun server ->
-                [ testCaseAsync "can get nothing wrong"
+                [
+                  testCaseAsync "can get nothing wrong"
                   <| (async {
                     let! (doc, diags) = server |> Server.createUntitledDocument ""
                     use doc = doc
@@ -291,16 +299,19 @@ let tests state =
                             diags
                             (fun d -> d.Message = "This value is unused" && d.Range.Start.Line = uint32 i)
                             $"No unused value error in line {i}")
-                    }) ])
+                    })
+                ])
 
               let config =
                 { defaultConfigDto with
                     UnusedOpensAnalyzer = Some true
                     UnusedDeclarationsAnalyzer = Some true
-                    SimplifyNameAnalyzer = Some true }
+                    SimplifyNameAnalyzer = Some true
+                }
 
               serverTestList "three analyzers" state config None (fun server ->
-                [ testCaseAsync
+                [
+                  testCaseAsync
                     "can get nothing wrong"
                     (async {
                       let! (doc, diags) = server |> Server.createUntitledDocument ""
@@ -359,17 +370,21 @@ let tests state =
                         diags
                         (fun d -> d.Message = "This qualifier is redundant" && d.Range.Start.Line = 2u)
                         ""
-                    }) ]) ]
+                    })
+                ])
+            ]
 
           testList
             "untitled document"
-            [ serverTestList
+            [
+              serverTestList
                 "untitled counter in server for createUntitledDocument"
                 state
                 defaultConfigDto
                 None
                 (fun server ->
-                  [ testCaseAsync
+                  [
+                    testCaseAsync
                       "creating document increases untitled counter"
                       (async {
                         let! actualServer = server
@@ -411,10 +426,12 @@ let tests state =
                           let! postCounter = getCounter server
                           Expect.isGreaterThan postCounter preCounter "Untitled Counter should increase"
                           preCounter <- postCounter
-                      }) ])
+                      })
+                  ])
 
               serverTestList "document version" state defaultConfigDto None (fun server ->
-                [ testCaseAsync
+                [
+                  testCaseAsync
                     "changing document text increases document version"
                     (async {
                       let! (doc, _) = server |> Server.createUntitledDocument ""
@@ -435,11 +452,15 @@ let tests state =
                         let postVersion = doc.Version
                         Expect.isGreaterThan postVersion preVersion "Document Version should increase"
                         preVersion <- postVersion
-                    }) ]) ] ]
+                    })
+                ])
+            ]
+        ]
 
       testList
         "with root path"
-        [ let inTestCases name =
+        [
+          let inTestCases name =
             System.IO.Path.Combine(__SOURCE_DIRECTORY__, "..", "TestCases", "ServerTests", name)
             |> Some
 
@@ -447,13 +468,15 @@ let tests state =
             { defaultConfigDto with
                 UnusedOpensAnalyzer = Some false
                 UnusedDeclarationsAnalyzer = Some false
-                SimplifyNameAnalyzer = Some false }
+                SimplifyNameAnalyzer = Some false
+            }
 
           let allAnalyzersConfig =
             { defaultConfigDto with
                 UnusedOpensAnalyzer = Some true
                 UnusedDeclarationsAnalyzer = Some true
-                SimplifyNameAnalyzer = Some true }
+                SimplifyNameAnalyzer = Some true
+            }
 
           serverTestList
             "dir with just a script and no analyzers"
@@ -461,7 +484,8 @@ let tests state =
             noAnalyzersConfig
             (inTestCases "JustScript")
             (fun server ->
-              [ testCaseAsync
+              [
+                testCaseAsync
                   "can load script file"
                   (async {
                     let! (doc, diags) = server |> Server.openDocument "Script.fsx"
@@ -492,7 +516,8 @@ let tests state =
                       "Should be not defined error"
 
                     Expect.equal diag.Range.Start.Line 0u "Error should be in line 1"
-                  }) ])
+                  })
+              ])
 
           serverTestList
             "dir with just a script and all anaylzers"
@@ -500,7 +525,8 @@ let tests state =
             allAnalyzersConfig
             (inTestCases "JustScript")
             (fun server ->
-              [ testCaseAsync
+              [
+                testCaseAsync
                   "can load script file"
                   (async {
                     let! (doc, diags) = server |> Server.openDocument "Script.fsx"
@@ -535,15 +561,18 @@ let tests state =
                       diags
                       (fun diag -> diag.Message.Contains "This value is unused" && diag.Range.Start.Line = 0u)
                       "Should be unused value"
-                  }) ])
+                  })
+              ])
 
           testSequenced
           <| testList
             "contesting"
-            [ let projectDir = inTestCases "Project"
+            [
+              let projectDir = inTestCases "Project"
 
               serverTestList "dir with project and no analyzers" state noAnalyzersConfig projectDir (fun server ->
-                [ testCaseAsync
+                [
+                  testCaseAsync
                     "can load file in project"
                     (async {
                       let! (doc, diags) = server |> Server.openDocument "Other.fs"
@@ -590,10 +619,12 @@ let tests state =
                         "Should be not defined error"
 
                       Expect.equal diag.Range.Start.Line 4u "Error should be in line 5"
-                    }) ])
+                    })
+                ])
 
               serverTestList "dir with project and all analyzers" state allAnalyzersConfig projectDir (fun server ->
-                [ testCaseAsync
+                [
+                  testCaseAsync
                     "can load file in project"
                     (async {
                       let! (doc, diags) = server |> Server.openDocument "Other.fs"
@@ -647,15 +678,20 @@ let tests state =
                         diags
                         (fun diag -> diag.Message.Contains "Unused open statement" && diag.Range.Start.Line = 2u)
                         "Should be unused open"
-                    }) ]) ] ]
+                    })
+                ])
+            ]
+        ]
 
       testList
         "Waiting for diagnostics"
-        [ let allAnalyzersConfig =
+        [
+          let allAnalyzersConfig =
             { defaultConfigDto with
                 UnusedOpensAnalyzer = Some true
                 UnusedDeclarationsAnalyzer = Some true
-                SimplifyNameAnalyzer = Some true }
+                SimplifyNameAnalyzer = Some true
+            }
 
           serverTestList "waitForLatestDiagnostics" state allAnalyzersConfig None (fun server ->
             [
@@ -679,31 +715,36 @@ let tests state =
                 // generate source with lots of Analyzer Diagnostics (and F# compiler errors)
                 // identifier to force some textual changes
                 let nss =
-                  [| "System"
-                     "System.Diagnostics"
-                     "System.Text"
-                     "System.Text.RegularExpressions"
-                     "System.Threading"
-                     "System.Runtime"
-                     "FSharp.Control"
-                     "FSharp.Linq"
-                     "FSharp.Quotations"
-                     "FSharp.Reflection" |]
+                  [|
+                    "System"
+                    "System.Diagnostics"
+                    "System.Text"
+                    "System.Text.RegularExpressions"
+                    "System.Threading"
+                    "System.Runtime"
+                    "FSharp.Control"
+                    "FSharp.Linq"
+                    "FSharp.Quotations"
+                    "FSharp.Reflection"
+                  |]
 
                 let tys =
-                  [| "System.String"
-                     "System.Index"
-                     "System.Int32"
-                     "System.Random"
-                     "System.Guid"
-                     "System.Text.RegularExpressions.Regex"
-                     "System.Text.RegularExpressions.Match"
-                     "System.Text.StringBuilder"
-                     "System.Diagnostics.TraceLevel"
-                     "System.Diagnostics.Stopwatch" |]
+                  [|
+                    "System.String"
+                    "System.Index"
+                    "System.Int32"
+                    "System.Random"
+                    "System.Guid"
+                    "System.Text.RegularExpressions.Regex"
+                    "System.Text.RegularExpressions.Match"
+                    "System.Text.StringBuilder"
+                    "System.Diagnostics.TraceLevel"
+                    "System.Diagnostics.Stopwatch"
+                  |]
 
                 let lines =
-                  [ $"// {identifier}"
+                  [
+                    $"// {identifier}"
                     for i in 1..repeats do
                       $"// Rep {i}"
 
@@ -725,7 +766,8 @@ let tests state =
                       for j in 1..nCompilerErrorsPerRepeat do
                         $"let _{identifier}ErrorRep{i}Val{j} = valueRep{i}Val{j}"
 
-                      "" ]
+                      ""
+                  ]
 
                 String.concat "\n" lines
 
@@ -739,10 +781,12 @@ let tests state =
                   let nSimplifyNamesPerRepeat = 9
 
                   let calcExpected repeats =
-                    {| UnusedOpens = nUnusedOpensPerRepeat * repeats
-                       UnusedDecls = nUnusedDeclsPerRepeat * repeats
-                       SimplifyNames = nSimplifyNamesPerRepeat * repeats
-                       CompilerErrors = nCompilerErrorsPerRepeat * repeats |}
+                    {|
+                      UnusedOpens = nUnusedOpensPerRepeat * repeats
+                      UnusedDecls = nUnusedDeclsPerRepeat * repeats
+                      SimplifyNames = nSimplifyNamesPerRepeat * repeats
+                      CompilerErrors = nCompilerErrorsPerRepeat * repeats
+                    |}
 
                   let repeats = 2
 
@@ -774,10 +818,12 @@ let tests state =
                     let count message = groups |> Map.tryFind message |> Option.defaultValue 0
 
                     let actual =
-                      {| UnusedOpens = count "Unused open statement"
-                         UnusedDecls = count "This value is unused"
-                         SimplifyNames = count "This qualifier is redundant"
-                         CompilerErrors = count "The value or constructor is not defined" |}
+                      {|
+                        UnusedOpens = count "Unused open statement"
+                        UnusedDecls = count "This value is unused"
+                        SimplifyNames = count "This qualifier is redundant"
+                        CompilerErrors = count "The value or constructor is not defined"
+                      |}
 
                     // exact count isn't actually that important because each analyzers sends all its diags together.
                     // important part is just: has arrived -> `waitForLatestDiagnostics` waited long enough for all diags
@@ -806,14 +852,18 @@ let tests state =
                 (async {
                   let checkDiags (unusedOpen, unusedValue, simplifyName) (diags: Diagnostic[]) =
                     let actual =
-                      {| UnusedOpen = diags |> Array.exists (fun d -> d.Message = "Unused open statement")
-                         UnusedDecl = diags |> Array.exists (fun d -> d.Message = "This value is unused")
-                         SimplifyName = diags |> Array.exists (fun d -> d.Message = "This qualifier is redundant") |}
+                      {|
+                        UnusedOpen = diags |> Array.exists (fun d -> d.Message = "Unused open statement")
+                        UnusedDecl = diags |> Array.exists (fun d -> d.Message = "This value is unused")
+                        SimplifyName = diags |> Array.exists (fun d -> d.Message = "This qualifier is redundant")
+                      |}
 
                     let expected =
-                      {| UnusedOpen = unusedOpen
-                         UnusedDecl = unusedValue
-                         SimplifyName = simplifyName |}
+                      {|
+                        UnusedOpen = unusedOpen
+                        UnusedDecl = unusedValue
+                        SimplifyName = simplifyName
+                      |}
 
                     Expect.equal actual expected "Should contain correct diagnostics"
 
@@ -887,15 +937,19 @@ let f (v: System.String) = ()
                   let source = "()"
                   let! diags = doc |> Document.changeTextTo source
                   checkDiags (false, false, false) diags
-                }) ]) ]
+                })
+            ])
+        ]
 
       testList
         "timing"
-        [ let allAnalyzersConfig =
+        [
+          let allAnalyzersConfig =
             { defaultConfigDto with
                 UnusedOpensAnalyzer = Some true
                 UnusedDeclarationsAnalyzer = Some true
-                SimplifyNameAnalyzer = Some true }
+                SimplifyNameAnalyzer = Some true
+            }
 
           let mkSource (msg: string) =
             Text.trimTripleQuotation
@@ -916,17 +970,21 @@ f2 "bar" |> ignore
     """
 
           serverTestList "server" state allAnalyzersConfig None (fun server ->
-            [ testList
+            [
+              testList
                 "single parse"
-                [ testCaseAsync "single parse"
+                [
+                  testCaseAsync "single parse"
                   <| async {
                     let! (doc, _) = server |> Server.createUntitledDocument (mkSource "single parse")
                     use _doc = doc
                     ()
-                  } ]
+                  }
+                ]
               testList
                 "parse of same document"
-                [ testCaseAsync "single doc"
+                [
+                  testCaseAsync "single doc"
                   <| async {
                     let! (doc, _) = server |> Server.createUntitledDocument (mkSource "0 parse")
                     use doc = doc
@@ -936,21 +994,28 @@ f2 "bar" |> ignore
                       ()
 
                     ()
-                  } ]
+                  }
+                ]
               testList
                 "parse in different documents"
-                [ for i in 0..5 do
+                [
+                  for i in 0..5 do
                     testCaseAsync $"doc {i}"
                     <| async {
                       let! (doc, _) = server |> Server.createUntitledDocument (mkSource "parse {i}")
                       use _doc = doc
                       ()
-                    } ] ]) ]
+                    }
+                ]
+            ])
+        ]
 
       testList
         "Document"
-        [ serverTestList "no root path without analyzers" state defaultConfigDto None (fun server ->
-            [ testCaseAsync "can create Document by absolute path without root path"
+        [
+          serverTestList "no root path without analyzers" state defaultConfigDto None (fun server ->
+            [
+              testCaseAsync "can create Document by absolute path without root path"
               <| async {
                 let relativePath = "../TestCases/ServerTests/JustScript/Script.fsx"
 
@@ -979,9 +1044,11 @@ f2 "bar" |> ignore
               }
 
               let mutable docState =
-                {| Uri = ""
-                   Version = -1
-                   CallCounter = 0 |}
+                {|
+                  Uri = ""
+                  Version = -1
+                  CallCounter = 0
+                |}
 
               let getDoc server =
                 async {
@@ -995,16 +1062,19 @@ f2 "bar" |> ignore
                   let! (doc, diags) = server |> Server.createUntitledDocument text
 
                   docState <-
-                    {| Uri = doc.Uri
-                       Version = doc.Version
-                       // tracks how often `getDoc` was called
-                       CallCounter = docState.CallCounter + 1 |}
+                    {|
+                      Uri = doc.Uri
+                      Version = doc.Version
+                      // tracks how often `getDoc` was called
+                      CallCounter = docState.CallCounter + 1
+                    |}
 
                   return (doc, diags)
                 }
 
               documentTestList "multiple actions on single document" server getDoc (fun doc ->
-                [ testCaseAsync "doc is doc returned from getDocument"
+                [
+                  testCaseAsync "doc is doc returned from getDocument"
                   <| async {
                     let! (doc, _) = doc
                     Expect.equal (doc.Uri, doc.Version) (docState.Uri, docState.Version) "Should be same doc"
@@ -1019,11 +1089,13 @@ f2 "bar" |> ignore
                   let completionAt pos (doc: Document) =
                     async {
                       let ps: CompletionParams =
-                        { TextDocument = doc.TextDocumentIdentifier
+                        {
+                          TextDocument = doc.TextDocumentIdentifier
                           Position = pos
                           Context = None
                           WorkDoneToken = None
-                          PartialResultToken = None }
+                          PartialResultToken = None
+                        }
 
                       let! res = doc.Server.Server.TextDocumentCompletion ps
                       Expect.isOk res "Should be ok result"
@@ -1063,9 +1135,11 @@ f2 "bar" |> ignore
                     let! (doc, _) = doc
 
                     let ps: HoverParams =
-                      { TextDocument = doc.TextDocumentIdentifier
+                      {
+                        TextDocument = doc.TextDocumentIdentifier
                         Position = { Line = 0u; Character = 6u }
-                        WorkDoneToken = None }
+                        WorkDoneToken = None
+                      }
 
                     let! res = doc.Server.Server.TextDocumentHover ps
                     Expect.isOk res "Should have hover data"
@@ -1076,4 +1150,8 @@ f2 "bar" |> ignore
                     let! (doc, _) = doc
                     Expect.equal (doc.Uri, doc.Version) (docState.Uri, docState.Version) "Should be same doc"
                     Expect.equal docState.CallCounter 1 "getDocument should only be called once"
-                  } ]) ]) ] ]
+                  }
+                ])
+            ])
+        ]
+    ]

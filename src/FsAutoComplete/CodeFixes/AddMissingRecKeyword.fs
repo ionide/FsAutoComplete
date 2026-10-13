@@ -25,7 +25,8 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
       // * get the range of the symbol, in order to
       // * get the symbol name
       // * so we can format a nice message in the code fix
-      let! nextPos = inc lines endOfError |> Result.ofOption (fun _ -> "next position wasn't valid")
+      let! nextPos =
+        inc lines endOfError |> Result.ofOption (fun _ -> "next position wasn't valid")
 
       let firstWhiteSpaceAfterError =
         walkForwardUntilCondition lines nextPos (System.Char.IsWhiteSpace >> not)
@@ -42,10 +43,13 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
         let! line =
           getLineText
             lines
-            { Start = diagnostic.Range.Start.StartOfLine()
+            {
+              Start = diagnostic.Range.Start.StartOfLine()
               End =
                 { diagnostic.Range.End with
-                    Character = lineLen } }
+                    Character = lineLen
+                }
+            }
 
         match Lexer.getSymbol (uint32 fcsPos.Line) (uint32 fcsPos.Column) line SymbolLookupKind.Fuzzy [||] with
         | Some lexSym ->
@@ -61,12 +65,20 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
           let! symbolName = getLineText lines protocolRange
 
           return
-            [ { Title = title symbolName
+            [
+              {
+                Title = title symbolName
                 File = codeActionParams.TextDocument
                 SourceDiagnostic = Some diagnostic
                 Edits =
-                  [| { Range = { Start = endOfError; End = endOfError }
-                       NewText = " rec" } |]
-                Kind = FixKind.Fix } ]
+                  [|
+                    {
+                      Range = { Start = endOfError; End = endOfError }
+                      NewText = " rec"
+                    }
+                  |]
+                Kind = FixKind.Fix
+              }
+            ]
         | None -> return []
     })

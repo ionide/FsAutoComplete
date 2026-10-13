@@ -196,8 +196,10 @@ let findMethodFromArgs (args: FindDeclExternalParam list) (methods: IMethod seq)
     && (Seq.zip mParams args) |> Seq.forall (areSameTypes m.TypeArguments))
 
 type ExternalContentPosition =
-  { File: string
-    Position: FSharp.Compiler.Text.Position }
+  {
+    File: string
+    Position: FSharp.Compiler.Text.Position
+  }
 
 let toSafeFileNameRegex =
   System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
@@ -222,16 +224,19 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     // Detect this by comparing parent module to the main module, and if they differ, redirect to
     // the assembly that actually defines the type.
     let (decompiler, typeDef) =
-      if initialTypeDef <> null && initialTypeDef.ParentModule <> typeSystem.MainModule then
+      if
+        not (isNull initialTypeDef)
+        && initialTypeDef.ParentModule <> typeSystem.MainModule
+      then
         let peFile = initialTypeDef.ParentModule.MetadataFile
 
-        if peFile <> null && peFile.FileName <> null then
+        if not (isNull peFile) && not (isNull peFile.FileName) then
           let redirectedDecompiler = decompilerForFile peFile.FileName
 
           let redirectedTypeDef =
             getDeclaringTypeName externalSym |> resolveType redirectedDecompiler.TypeSystem
 
-          if redirectedTypeDef <> null then
+          if not (isNull redirectedTypeDef) then
             redirectedDecompiler, redirectedTypeDef
           else
             decompiler, initialTypeDef
@@ -279,13 +284,17 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     match location with
     | Some l ->
       Ok
-        { File = tempFile
+        {
+          File = tempFile
           // external library columns are 1-based, not 0-based like FCS Pos columns
-          Position = FSharp.Compiler.Text.Position.mkPos l.Line (l.Column - 1) }
+          Position = FSharp.Compiler.Text.Position.mkPos l.Line (l.Column - 1)
+        }
     | None ->
       Ok
-        { File = tempFile
-          Position = FSharp.Compiler.Text.Position.pos0 }
+        {
+          File = tempFile
+          Position = FSharp.Compiler.Text.Position.pos0
+        }
   with e ->
     Result.Error(Exception(externalSym, assemblyPath, e))
 
@@ -303,13 +312,13 @@ let tryFindExternalDeclaration
     |> List.tryFind (fun x -> x.SimpleName = assembly)
   with
   | None -> Result.Error(ReferenceNotFound assembly)
-  | Some assembly when assembly.FileName = None -> Result.Error(ReferenceHasNoFileName assembly)
   | Some assembly ->
-    let assemblyPath =
-      assembly.FileName.Value
-      |> tryFindImplementationAssembly
-      |> Option.defaultValue assembly.FileName.Value
+    match assembly.FileName with
+    | None -> Result.Error(ReferenceHasNoFileName assembly)
+    | Some fileName ->
+      let assemblyPath =
+        fileName |> tryFindImplementationAssembly |> Option.defaultValue fileName
 
-    match decompile externalSym assemblyPath with
-    | Error err -> Result.Error(DecompileError err)
-    | Ok result -> Ok result
+      match decompile externalSym assemblyPath with
+      | Error err -> Result.Error(DecompileError err)
+      | Ok result -> Ok result

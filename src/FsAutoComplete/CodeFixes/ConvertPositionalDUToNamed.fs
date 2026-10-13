@@ -42,8 +42,10 @@ let private createEdit (astField: SynPat, duField: string) : TextEdit list =
   let suffix = ";"
   let endRange = astField.Range.End |> fcsPosToProtocolRange
 
-  [ { NewText = prefix; Range = startRange }
-    { NewText = suffix; Range = endRange } ]
+  [
+    { NewText = prefix; Range = startRange }
+    { NewText = suffix; Range = endRange }
+  ]
 
 let private createWildCard endRange (duField: string) : TextEdit =
   let wildcard = $" {duField} = _;"
@@ -127,8 +129,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
 
           let endPos = fcsPosToLsp pos
 
-          { NewText = ""
-            Range = { Start = startPos; End = endPos } })
+          {
+            NewText = ""
+            Range = { Start = startPos; End = endPos }
+          })
         |> Seq.toArray
 
       let! patternEdits =
@@ -156,9 +160,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           Array.append patternEdits removeCommaEdits |> Array.sortBy (fun e -> e.Range)
 
         return
-          [ { Edits = allEdits
+          [
+            {
+              Edits = allEdits
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = None
-              Kind = FixKind.Refactor } ]
+              Kind = FixKind.Refactor
+            }
+          ]
     }
