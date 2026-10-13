@@ -23,8 +23,8 @@ they ship, so a failure under one compiler only is the most valuable thing you c
   ship (System.Reflection.Metadata). The build shows the next one as an MSB3277 version conflict.
 - `nightly` is FSAC `main` plus one commit per earlier update (`git log main..nightly`). Each message records the API
   ports and behaviour changes of that update. Read them before you port.
-- Every update rebases `nightly`, so publishing it is a force push. The branch protection on ionide/FsAutoComplete
-  allows that to admins only.
+- Every update rebases `nightly`, so publishing it is a force push. The `nightly` ruleset on ionide/FsAutoComplete
+  blocks force pushes and deletion for everyone but repository admins.
 
 ## Steps
 
@@ -35,7 +35,8 @@ conflicts commit by commit:
 
 - `paket.lock`: take the side of the rebase base (`git checkout --ours paket.lock`), then run `dotnet paket install`
   to add the commit's `FcsNightly` group again, and stage the result.
-- Every other file: keep both main's change and the commit's change.
+- Every other file: keep both main's change and the commit's change. When main reformatted the file, write the
+  commit's change in main's new layout.
 
 Done when the rebase has finished, `git log HEAD..<remote>/main` is empty, and the working tree is clean.
 
@@ -75,7 +76,9 @@ Done when the build has 0 errors and 0 warnings, and
 ### 5. Test
 
 Run the full net10.0 suite as "Running Tests" in `AGENTS.md` describes, once with
-`USE_TRANSPARENT_COMPILER=TransparentCompiler` and once with `BackgroundCompiler`. Triage every failure:
+`USE_TRANSPARENT_COMPILER=TransparentCompiler` and once with `BackgroundCompiler`. Send each run to its own log file:
+tests that expect exceptions log long stack traces, and the result is the closing `EXPECTO!` line. Triage every
+failure:
 
 - **Under both compilers, the same failure**: an FCS behaviour change. Find the commit in the range. Adapt FSAC when
   its behaviour should stay; update the test when the FCS change is an improvement and the test's intent still holds.
@@ -83,14 +86,19 @@ Run the full net10.0 suite as "Running Tests" in `AGENTS.md` describes, once wit
 - **Under one compiler only**: a transparent compiler (or background compiler) change, the finding this branch
   exists for. Leave the test as it is, find the suspect commits in the range, and report it.
 
-Done when both runs report `Failed: 0` and `Errored: 0`, or every remaining failure is a reported one-compiler
+Done when both `EXPECTO!` lines report `0 failed, 0 errored`, or every remaining failure is a reported one-compiler
 finding.
 
 ### 6. Format
 
 `dotnet fantomas .` from the repository root. `.fantomasignore` skips the test case projects.
 
-### 7. Report
+### 7. Commit and report
+
+The update is one new commit on top of the rebased ones. Its message names the old and new version and the
+`dotnet/fsharp changes` link, and lists the API ports and the behaviour changes with their dotnet/fsharp PR numbers
+(or says that FSAC needed none).
 
 Report to the user: the old and new version, the `dotnet/fsharp changes` link, the API ports, the behaviour changes
 with their dotnet/fsharp PR numbers, the test counts per compiler, every one-compiler finding, and what is left.
+Publishing is left to a repository admin: `git push --force-with-lease <remote> nightly`.
