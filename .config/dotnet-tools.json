@@ -10,7 +10,7 @@
       "rollForward": false
     },
     "dotnet-reportgenerator-globaltool": {
-      "version": "5.5.4",
+      "version": "5.5.11",
       "commands": [
         "reportgenerator"
       ],
@@ -31,7 +31,7 @@
       "rollForward": false
     },
     "telplin": {
-      "version": "0.9.6",
+      "version": "0.17.1",
       "commands": [
         "telplin"
       ],
