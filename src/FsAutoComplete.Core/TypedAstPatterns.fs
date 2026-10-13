@@ -9,6 +9,10 @@ open FSharp.Compiler.Text
 /// Active patterns over `FSharpSymbolUse`.
 module SymbolUse =
 
+  /// Whether the type is a function type as written. Since dotnet/fsharp#19325, `IsFunctionType` also holds
+  /// for an abbreviation of a function type, but a value annotated with such an abbreviation is still a value.
+  let private isFunctionTypeAsWritten (ty: FSharpType) = ty.IsFunctionType && not ty.IsAbbreviation
+
   let (|ActivePatternCase|_|) (symbol: FSharpSymbolUse) =
     match symbol.Symbol with
     | :? FSharpActivePatternCase as ap -> ActivePatternCase(ap) |> Some
@@ -156,7 +160,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when isFunctionTypeAsWritten fullType -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -170,7 +174,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when isFunctionTypeAsWritten fullType -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -183,7 +187,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when isFunctionTypeAsWritten fullType -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -197,7 +201,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when isFunctionTypeAsWritten fullType -> Some symbol
       | _ -> None
     | _ -> None
 

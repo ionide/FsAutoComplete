@@ -22,6 +22,9 @@
     <!-- Only the tool package is packable -->
     <IsPackable>false</IsPackable>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <!-- nightly FCS and FSharp.Core from the FcsNightly paket group, see Directory.Build.targets -->
+    <FcsNightlyVersion>43.13.200-rc2.26509.106</FcsNightlyVersion>
+    <FSharpCoreNightlyVersion>11.0.200-rc2.26509.106</FSharpCoreNightlyVersion>
   </PropertyGroup>
 
 </Project>

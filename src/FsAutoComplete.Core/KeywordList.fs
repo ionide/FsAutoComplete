@@ -10,6 +10,13 @@ module KeywordList =
 
   let keywordDescriptions = FSharpKeywords.KeywordsWithDescription |> dict
 
+  /// RichText has no public constructor. A diagnostic created from a plain string carries that
+  /// string as a single part tagged TextTag.Text, the same as TaggedText.tagText.
+  let private richText (text: string) : RichText =
+    FSharp.Compiler.Diagnostics.FSharpDiagnostic
+      .Create(FSharp.Compiler.Diagnostics.FSharpDiagnosticSeverity.Info, text, 0, Range.Zero)
+      .RichMessage
+
   let keywordTooltips =
     keywordDescriptions
     |> Seq.map (fun kv ->
@@ -21,7 +28,7 @@ module KeywordList =
         ToolTipText
           [
             ToolTipElement.Single(
-              [| TaggedText.tagText kv.Key |],
+              richText kv.Key,
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
             )
           ]
@@ -56,7 +63,7 @@ module KeywordList =
         ToolTipText
           [
             ToolTipElement.Single(
-              [| TaggedText.tagText ("#" + kv.Key) |],
+              richText ("#" + kv.Key),
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
             )
           ]

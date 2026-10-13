@@ -131,6 +131,23 @@ let tests state =
           $"Could not find a highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType} in the token set %A{highlights}"
       })
 
+  let noTokenOfType
+    ((line, char) as pos)
+    testTokenType
+    (highlights: (Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier)[] Async)
+    =
+    testCaseAsync
+      $"no token of type {testTokenType} at %A{pos}"
+      (async {
+        let! highlights = highlights
+        let pos = { Line = line; Character = char }
+
+        Expect.isFalse
+          (highlights
+           |> Array.exists (fun (r, token, _modifiers) -> rangeContainsRange r pos && token = testTokenType))
+          $"Found a highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType} in the token set %A{highlights}"
+      })
+
   let tokenHasModifier
     ((line, char) as pos)
     testTokenType
@@ -292,12 +309,7 @@ let tests state =
             ClassificationUtils.SemanticTokenModifier.Definition
             false
             fullHighlights // type augmentation reference to `SemanticDefinitionType`
-          tokenHasModifier
-            (53u, 24u)
-            ClassificationUtils.SemanticTokenTypes.Method
-            ClassificationUtils.SemanticTokenModifier.Declaration
-            false
-            fullHighlights // the synthetic delegate Invoke member is not a source declaration
+          noTokenOfType (53u, 24u) ClassificationUtils.SemanticTokenTypes.Method fullHighlights // FCS no longer reports the synthetic delegate Invoke member on the `delegate` keyword
 
           // Signature-file values, members, and types should be declarations rather than definitions.
           tokenHasModifier
@@ -330,11 +342,6 @@ let tests state =
             ClassificationUtils.SemanticTokenModifier.Definition
             false
             signatureHighlights // a signature type declaration is not a definition
-          tokenHasModifier
-            (8u, 26u)
-            ClassificationUtils.SemanticTokenTypes.Method
-            ClassificationUtils.SemanticTokenModifier.Declaration
-            false
-            signatureHighlights
+          noTokenOfType (8u, 26u) ClassificationUtils.SemanticTokenTypes.Method signatureHighlights
         ]
-    ] // the synthetic delegate Invoke member is not a source declaration
+    ] // FCS no longer reports the synthetic delegate Invoke member on the `delegate` keyword

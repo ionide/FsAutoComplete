@@ -106,14 +106,22 @@ module SyntaxTreeOps =
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
-        || walkExprs (recordFields |> List.map (fun (_ident, _range, expr) -> expr))
+        || walkExprs (
+          recordFields
+          |> List.map (function
+            | SynExprAnonRecordFieldOrSpread.Field(SynExprAnonRecordField(expr = expr), _) -> expr
+            | SynExprAnonRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> expr)
+        )
 
       | SynExpr.Record(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
         || let flds =
-             recordFields |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr) in
+             recordFields
+             |> List.choose (function
+               | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = expr), _) -> expr
+               | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> Some expr) in
 
            walkExprs flds
 
@@ -271,7 +279,9 @@ type LanguageVersionShim(versionText: string) =
 
   member x.SupportsFeature(featureId: LanguageFeatureShim) =
     match featureId.Case with
-    | None -> false
+    // Every feature FSAC asks about exists in the oldest FCS it supports. FCS removes the flag of a feature
+    // once every supported language version has it, e.g. StringInterpolation (dotnet/fsharp#20707).
+    | None -> true
     | Some x -> supportsFeature.Value(realLanguageVersion, x)
 
   member x.Real = realLanguageVersion

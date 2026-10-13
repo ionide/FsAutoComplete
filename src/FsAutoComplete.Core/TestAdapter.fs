@@ -231,7 +231,9 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       visitExpr parent letOrUse.Body
     | SynExpr.Record(_, _, fields, _) ->
       fields
-      |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
+      |> List.choose (function
+        | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = expr), _) -> expr
+        | SynExprRecordFieldOrSpread.Spread _ -> None)
       |> List.iter (visitExpr parent)
     | SynExpr.MatchLambda(_, _, clauses, _, _) -> visitMatches parent clauses
     | SynExpr.ObjExpr(bindings = bindings) -> visitBindings parent bindings
@@ -307,7 +309,8 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
 
   and visitTypeDef parent t =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
-    let (SynComponentInfo(longId = ids; range = r)) = ci
+    let (SynComponentInfo(range = r)) = ci
+    let ids = ci.LongIdent
     let name = String.concat "." [ for i in ids -> i.idText ]
 
     let moduleType =
@@ -371,7 +374,7 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
           | SynModuleDecl.Types(typeDefns, _) ->
             typeDefns
             |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
-              let (SynComponentInfo(longId = ids)) = ci
+              let ids = ci.LongIdent
               String.concat "." [ for i in ids -> i.idText ])
             |> List.append types
           | _ -> types)
@@ -384,7 +387,8 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         for b in bindings do
           visitBinding parent b
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
-        let (SynComponentInfo(longId = ids; range = r)) = ci
+        let (SynComponentInfo(range = r)) = ci
+        let ids = ci.LongIdent
         let name = String.concat "." [ for i in ids -> i.idText ]
 
         let moduleType =
@@ -491,7 +495,8 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
 
   and visitTypeDef parent t =
     let (SynTypeDefn(typeInfo = ci; typeRepr = om; members = members)) = t
-    let (SynComponentInfo(longId = ids; range = r)) = ci
+    let (SynComponentInfo(range = r)) = ci
+    let ids = ci.LongIdent
     let name = String.concat "." [ for i in ids -> i.idText ]
 
     let moduleType =
@@ -555,7 +560,7 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
           | SynModuleDecl.Types(typeDefns, _) ->
             typeDefns
             |> List.map (fun (SynTypeDefn(typeInfo = ci)) ->
-              let (SynComponentInfo(longId = ids)) = ci
+              let ids = ci.LongIdent
               String.concat "." [ for i in ids -> i.idText ])
             |> List.append types
           | _ -> types)
@@ -568,7 +573,8 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         for b in bindings do
           visitBinding parent b
       | SynModuleDecl.NestedModule(moduleInfo = ci; decls = decls) ->
-        let (SynComponentInfo(longId = ids; range = r)) = ci
+        let (SynComponentInfo(range = r)) = ci
+        let ids = ci.LongIdent
         let name = String.concat "." [ for i in ids -> i.idText ]
 
         let moduleType =
