@@ -593,13 +593,10 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
             //TODO: always correct?
             let arg = args |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
 
-            if arg |> Option.isSome then
-              let pat = arg.Value
-              traversePat x (SyntaxNode.SynExpr(expr) :: path) pat
-            elif rangeContainsPos body.Range pos then
-              traverseSynExpr body
-            else
-              None
+            match arg with
+            | Some pat -> traversePat x (SyntaxNode.SynExpr(expr) :: path) pat
+            | None when rangeContainsPos body.Range pos -> traverseSynExpr body
+            | None -> None
           | _ -> defaultTraverse expr
 
         member visitor.VisitPat(path, defaultTraverse, pat) =

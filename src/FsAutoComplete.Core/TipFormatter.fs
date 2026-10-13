@@ -282,7 +282,10 @@ module private Section =
       |> String.concat nl
       |> addSection name
 
-  let fromOption (name: string) (content: string option) = if content.IsNone then "" else addSection name content.Value
+  let fromOption (name: string) (content: string option) =
+    match content with
+    | Some content -> addSection name content
+    | None -> ""
 
   let fromList (name: string) (content: string seq) =
     if Seq.isEmpty content then
@@ -1085,7 +1088,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.cast<XmlNode>
     |> Seq.tryHead
     |> Option.bind (fun node ->
-      if node.Attributes <> null then
+      if not (isNull node.Attributes) then
         node.Attributes.["cref"] |> Option.ofObj |> Option.map (fun a -> a.InnerText)
       else
         None)
@@ -1095,7 +1098,7 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.cast<XmlNode>
     |> Seq.choose (fun node ->
       let attrs =
-        if node.Attributes <> null then
+        if not (isNull node.Attributes) then
           [
             for i in 0 .. node.Attributes.Count - 1 ->
               node.Attributes.[i].Name.ToLowerInvariant(), node.Attributes.[i].InnerText
@@ -1356,7 +1359,7 @@ let private getXmlDoc dllFile =
       let dir = Path.GetDirectoryName xmlFile
       let parent = Path.GetDirectoryName dir
 
-      if parent <> null && not (String.IsNullOrEmpty parent) then
+      if not (String.IsNullOrEmpty parent) then
         Some(Path.Combine(parent, Path.GetFileName xmlFile))
       else
         None

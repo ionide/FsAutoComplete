@@ -224,16 +224,19 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     // Detect this by comparing parent module to the main module, and if they differ, redirect to
     // the assembly that actually defines the type.
     let (decompiler, typeDef) =
-      if initialTypeDef <> null && initialTypeDef.ParentModule <> typeSystem.MainModule then
+      if
+        not (isNull initialTypeDef)
+        && initialTypeDef.ParentModule <> typeSystem.MainModule
+      then
         let peFile = initialTypeDef.ParentModule.MetadataFile
 
-        if peFile <> null && peFile.FileName <> null then
+        if not (isNull peFile) && not (isNull peFile.FileName) then
           let redirectedDecompiler = decompilerForFile peFile.FileName
 
           let redirectedTypeDef =
             getDeclaringTypeName externalSym |> resolveType redirectedDecompiler.TypeSystem
 
-          if redirectedTypeDef <> null then
+          if not (isNull redirectedTypeDef) then
             redirectedDecompiler, redirectedTypeDef
           else
             decompiler, initialTypeDef
@@ -309,13 +312,13 @@ let tryFindExternalDeclaration
     |> List.tryFind (fun x -> x.SimpleName = assembly)
   with
   | None -> Result.Error(ReferenceNotFound assembly)
-  | Some assembly when assembly.FileName = None -> Result.Error(ReferenceHasNoFileName assembly)
   | Some assembly ->
-    let assemblyPath =
-      assembly.FileName.Value
-      |> tryFindImplementationAssembly
-      |> Option.defaultValue assembly.FileName.Value
+    match assembly.FileName with
+    | None -> Result.Error(ReferenceHasNoFileName assembly)
+    | Some fileName ->
+      let assemblyPath =
+        fileName |> tryFindImplementationAssembly |> Option.defaultValue fileName
 
-    match decompile externalSym assemblyPath with
-    | Error err -> Result.Error(DecompileError err)
-    | Ok result -> Ok result
+      match decompile externalSym assemblyPath with
+      | Error err -> Result.Error(DecompileError err)
+      | Ok result -> Ok result

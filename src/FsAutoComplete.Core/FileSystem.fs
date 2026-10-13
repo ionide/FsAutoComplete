@@ -270,7 +270,7 @@ module RoslynSourceText =
         else
           Some(uint32 ((x :> ISourceText).GetLineString(pos.Line - 1).Length))
 
-      member x.GetCharUnsafe(pos: Position) : char = (x :> IFSACSourceText).GetLine(pos).Value[pos.Column - 1]
+      member x.GetCharUnsafe(pos: Position) : char = (x :> ISourceText).GetLineString(pos.Line - 1).[pos.Column - 1]
 
       member x.TryGetChar(pos: Position) : char option =
         option {
@@ -757,8 +757,8 @@ module Tokenizer =
         //    * (uses Span)
 
         tryFixupRangeBySplittingAtDot (range, text, includeBackticks)
-      // Extra Pattern: `| -1 | _ when symbolNameCore = "" -> ...` is incorrect -> `when` clause applies to both...
-      | _ when symbolNameCore = "" ->
+      // Extra Pattern: `| -1 | _ when symbolNameCore.Length = 0 -> ...` is incorrect -> `when` clause applies to both...
+      | _ when symbolNameCore.Length = 0 ->
         // happens for:
         // * Active Pattern case inside Active Pattern declaration
         //   ```fsharp

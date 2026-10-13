@@ -422,16 +422,14 @@ module CodeGenerationUtils =
       writer.Indent ctx.Indentation
 
       match getParamArgs getterArgInfos ctx getter with
-      | "", _
-      | "()", _ -> writer.Write("with get ()")
+      | args, _ when String.IsNullOrEmpty args || args = "()" -> writer.Write("with get ()")
       | args, _ -> writer.Write("with get {0}", args)
 
       writer |> closeDeclaration
       writer |> writeImplementation
 
       match getParamArgs setterArgInfos ctx setter with
-      | "", _
-      | "()", _ ->
+      | args, _ when String.IsNullOrEmpty args || args = "()" ->
         if verboseMode then
           writer.WriteLine("and set (v: {0}): unit =", retType)
         else
@@ -472,8 +470,8 @@ module CodeGenerationUtils =
         writer.Indent ctx.Indentation
 
         match getParamArgs argInfos ctx v with
-        | "", _
-        | "()", _ -> writer.WriteLine("with set (v: {0}): unit =", retType)
+        | args, _ when String.IsNullOrEmpty args || args = "()" ->
+          writer.WriteLine("with set (v: {0}): unit =", retType)
         | args, namesWithIndices ->
           let valueArgName, _ = normalizeArgName namesWithIndices "v"
           writer.Write("with set {0} ({1}", args, valueArgName)
@@ -494,8 +492,7 @@ module CodeGenerationUtils =
         writer.Write(usage)
 
         match getParamArgs argInfos ctx v with
-        | "", _
-        | "()", _ ->
+        | args, _ when String.IsNullOrEmpty args || args = "()" ->
           // Use the short-hand notation for getters without arguments
           writer |> closeDeclaration
           writer |> writeImplementation
@@ -521,8 +518,7 @@ module CodeGenerationUtils =
 
   let (|TypeOfMember|_|) (m: FSharpMemberOrFunctionOrValue) =
     match m.FullTypeSafe with
-    | Some(MemberFunctionType typ) when m.IsProperty && m.DeclaringEntity.IsSome && m.DeclaringEntity.Value.IsFSharp ->
-      Some typ
+    | Some(MemberFunctionType typ) when m.IsProperty && (m.DeclaringEntity |> Option.exists _.IsFSharp) -> Some typ
     | Some typ -> Some typ
     | None -> None
 

@@ -326,16 +326,17 @@ module Lexer =
       None
 
   let inline private tryGetLexerSymbolIslands sym =
-    match sym.Text with
-    | "" -> None
-    | _ -> Some(sym.RightColumn, sym.Text.Split '.')
+    if String.IsNullOrEmpty sym.Text then
+      None
+    else
+      Some(sym.RightColumn, sym.Text.Split '.')
 
   // Parsing - find the identifier around the current location
   // (we look for full identifier in the backward direction, but only
   // for a short identifier forward - this means that when you hover
   // 'B' in 'A.B.C', you will get intellisense for 'A.B' module)
   let findIdents (col: uint32) lineStr lookupType =
-    if lineStr = "" then
+    if String.IsNullOrEmpty lineStr then
       None
     else
       getSymbol 0u col lineStr lookupType [||] |> Option.bind tryGetLexerSymbolIslands
@@ -348,7 +349,7 @@ module Lexer =
     match getSymbol 0u col lineStr SymbolLookupKind.ByLongIdent [||] with
     | Some sym ->
       match sym.Text with
-      | "" -> [], ""
+      | text when String.IsNullOrEmpty text -> [], ""
       | text ->
         let res = text.Split '.' |> List.ofArray |> List.rev
 

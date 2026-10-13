@@ -1041,4 +1041,5 @@ type LogProvider =
     let location =
       mi.DeclaringType.FullName.Split('+') |> Seq.tryHead |> Option.defaultValue ""
 
-    sprintf "%s.%s" location memberName.Value |> LogProvider.getLoggerByName
+    sprintf "%s.%s" location (defaultArg memberName "")
+    |> LogProvider.getLoggerByName

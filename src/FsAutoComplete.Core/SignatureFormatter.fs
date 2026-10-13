@@ -353,7 +353,7 @@ module SignatureFormatter =
 
     let safeParameterName (p: FSharpParameter) =
       match Option.defaultValue p.DisplayNameCore p.Name with
-      | "" -> ""
+      | name when String.IsNullOrEmpty name -> ""
       | name ->
         let n = FSharpKeywords.NormalizeIdentifierBackticks name
         if p.IsOptionalArg then "?" + n else n // render optional args as "?ident: type"
@@ -369,9 +369,10 @@ module SignatureFormatter =
     let formatName indent padding (parameter: FSharpParameter) =
       let name = safeParameterName parameter
 
-      match name with
-      | "" -> indent + "  ".PadRight padding
-      | _ -> indent + name.PadRight padding + ":"
+      if String.IsNullOrEmpty name then
+        indent + "  ".PadRight padding
+      else
+        indent + name.PadRight padding + ":"
 
     let isDelegate =
       match func.EnclosingEntitySafe with

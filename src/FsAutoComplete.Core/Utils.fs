@@ -434,10 +434,11 @@ module String =
       let digits = Array.takeWhile Char.IsDigit charr
       Array.revInPlace digits
 
-      String digits
-      |> function
-        | "" -> str, None
-        | index -> str.Substring(0, str.Length - index.Length), Some(int index)
+      if digits.Length = 0 then
+        str, None
+      else
+        let index = String digits
+        str.Substring(0, str.Length - index.Length), Some(int index)
 
 
   let (|StartsWith|_|) (pattern: string) (value: string) =
@@ -796,12 +797,12 @@ type Debounce<'a>(timeout, fn) as x =
         async {
           let! r = agent.TryReceive(x.Timeout)
 
-          match r with
-          | Some arg -> return! loop ida (idb + 1) (Some arg)
-          | None when ida <> idb ->
-            do! fn arg.Value
+          match r, arg with
+          | Some arg, _ -> return! loop ida (idb + 1) (Some arg)
+          | None, Some pending when ida <> idb ->
+            do! fn pending
             return! loop 0 0 None
-          | None -> return! loop 0 0 arg
+          | None, _ -> return! loop 0 0 arg
         }
 
       loop 0 0 None)

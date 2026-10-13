@@ -578,8 +578,10 @@ type ActivityExtensions =
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_escaped, box escaped)
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_type, box errorType)
 
-            if Option.isSome stacktrace then
-              yield KeyValuePair(SemanticConventions.General.Exceptions.exception_stacktrace, box stacktrace.Value)
+            match stacktrace with
+            | Some stacktrace ->
+              yield KeyValuePair(SemanticConventions.General.Exceptions.exception_stacktrace, box stacktrace)
+            | None -> ()
 
             yield KeyValuePair(SemanticConventions.General.Exceptions.exception_message, box errorMessage)
           ]
@@ -658,11 +660,12 @@ type ActivitySourceExtensions =
         |> Option.defaultValue "")
 
 
+    let memberName = defaultArg memberName ""
     let kind = defaultArg activityKind ActivityKind.Internal
 
     let tags =
       seq {
-        yield! SemanticHelpers.createSourceCodeTags path.Value line.Value name_space memberName.Value
+        yield! SemanticHelpers.createSourceCodeTags (defaultArg path "") (defaultArg line 0) name_space memberName
 
         match tags with
         | Some t -> yield! t
@@ -670,7 +673,7 @@ type ActivitySourceExtensions =
       }
       |> Seq.map KeyValuePair
 
-    let name = name |> Option.defaultWith (fun () -> $"{name_space}.{memberName.Value}")
+    let name = name |> Option.defaultWith (fun () -> $"{name_space}.{memberName}")
 
     let span =
       tracer.StartActivity(
@@ -711,7 +714,8 @@ type ActivitySourceExtensions =
       [<CallerLineNumber>] ?line: int
     ) =
     let name_space = ty.FullName
-    let name = $"{name_space}.{memberName.Value}"
+    let memberName = defaultArg memberName ""
+    let name = $"{name_space}.{memberName}"
 
     tracer.StartActivityExt(
       name,
@@ -721,7 +725,7 @@ type ActivitySourceExtensions =
       ?tags = tags,
       ?links = links,
       ?startTime = startTime,
-      ?memberName = memberName,
+      memberName = memberName,
       ?path = path,
       ?line = line
     )
