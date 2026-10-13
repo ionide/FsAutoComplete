@@ -13,8 +13,8 @@ strategy: min
 nuget BenchmarkDotNet
 nuget Fantomas.Client >= 0.12.0-beta-004 prerelease
 nuget FSharp.Compiler.Service >= 43.10.100
-nuget Ionide.Analyzers
-nuget FSharp.Analyzers.Build
+nuget Ionide.Analyzers >= 0.19.0
+nuget FSharp.Analyzers.Build >= 0.5.0
 nuget Ionide.ProjInfo >= 0.75.3
 nuget Ionide.ProjInfo.FCS >= 0.75.3
 nuget Ionide.ProjInfo.ProjectSystem >= 0.75.3

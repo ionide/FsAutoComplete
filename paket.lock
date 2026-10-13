@@ -56,7 +56,7 @@ NUGET
       System.Memory (>= 4.6.3)
     FParsec (1.1.1) - restriction: || (== net10.0) (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.1) (>= net5.0))
       FSharp.Core (>= 4.3.4)
-    FSharp.Analyzers.Build (0.3)
+    FSharp.Analyzers.Build (0.5)
     FSharp.Analyzers.SDK (0.37.2)
       FSharp.Compiler.Service (>= 43.12.201) - restriction: || (== net10.0) (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
       FSharp.Core (10.1.201) - restriction: || (== net10.0) (== net8.0) (== net9.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
@@ -133,7 +133,7 @@ NUGET
     ICSharpCode.Decompiler (11.1.0.9782)
       System.Collections.Immutable (>= 9.0)
       System.Reflection.Metadata (>= 9.0)
-    Ionide.Analyzers (0.17)
+    Ionide.Analyzers (0.19)
     Ionide.KeepAChangelog.Tasks (0.3.1) - copy_local: true
     Ionide.LanguageServerProtocol (0.7)
       FSharp.Core (>= 6.0)

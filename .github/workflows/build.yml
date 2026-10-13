@@ -132,6 +132,9 @@ jobs:
 
     - name: Setup .NET
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        # fsharp-analyzers 0.38 and later run on .NET 10
+        dotnet-version: "10.x"
 
     - name: Restore tools
       run: dotnet tool restore
