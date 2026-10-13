@@ -1450,8 +1450,8 @@ type Commands() =
 
               member _.VisitComponentInfo(_, synComponentInfo) =
                 match synComponentInfo with
-                | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
-                  longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                | SynComponentInfo(attributes = attributes; xmlDoc = xmlDoc) when
+                  longIdentContainsPos synComponentInfo.LongIdent pos && xmlDoc.IsEmpty
                   ->
                   Some(false, tryGetFirstAttributeLine attributes)
                 | _ -> None
@@ -1526,8 +1526,8 @@ type Commands() =
                       match d with
                       | SynModuleDecl.NestedModule(moduleInfo = moduleInfo; decls = decls) ->
                         match moduleInfo with
-                        | SynComponentInfo(attributes = attributes; longId = longId; xmlDoc = xmlDoc) when
-                          longIdentContainsPos longId pos && xmlDoc.IsEmpty
+                        | SynComponentInfo(attributes = attributes; xmlDoc = xmlDoc) when
+                          longIdentContainsPos moduleInfo.LongIdent pos && xmlDoc.IsEmpty
                           ->
                           Some(false, tryGetFirstAttributeLine attributes)
                         | _ -> findNested decls

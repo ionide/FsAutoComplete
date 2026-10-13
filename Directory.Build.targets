@@ -8,6 +8,26 @@
     </PropertyGroup>
 </Target>
 
+<!--
+  Compile and run against the nightly FCS and FSharp.Core instead of the ones the main paket group resolves.
+  Every FSharp.Analyzers.SDK release pins FSharp.Core to an exact version, so the nightly packages cannot
+  replace the stable ones in the main group. Only projects that resolve FSharp.Compiler.Service are changed.
+-->
+<Target Name="UseFcsNightly" AfterTargets="ResolvePackageAssets" Condition="'$(FcsNightlyVersion)' != ''">
+    <PropertyGroup>
+        <_FcsNightlyDir>$(NuGetPackageRoot)fsharp.compiler.service/$(FcsNightlyVersion)/lib/netstandard2.0/</_FcsNightlyDir>
+        <_FSharpCoreNightlyDir>$(NuGetPackageRoot)fsharp.core/$(FSharpCoreNightlyVersion)/lib/netstandard2.1/</_FSharpCoreNightlyDir>
+        <_UsesFcs>@(ResolvedCompileFileDefinitions->AnyHaveMetadataValue('Filename', 'FSharp.Compiler.Service'))</_UsesFcs>
+    </PropertyGroup>
+    <Error Condition="'$(_UsesFcs)' == 'true' and !Exists('$(_FcsNightlyDir)FSharp.Compiler.Service.dll')"
+           Text="Nightly FCS $(FcsNightlyVersion) is not in $(_FcsNightlyDir). Run 'dotnet paket restore'." />
+    <ItemGroup Condition="'$(_UsesFcs)' == 'true'">
+        <ResolvedCompileFileDefinitions Remove="@(ResolvedCompileFileDefinitions)" Condition="'%(Filename)' == 'FSharp.Compiler.Service' or '%(Filename)' == 'FSharp.DependencyManager.Nuget' or '%(Filename)' == 'FSharp.Core'" />
+        <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="'%(Filename)' == 'FSharp.Compiler.Service' or '%(Filename)' == 'FSharp.DependencyManager.Nuget' or '%(Filename)' == 'FSharp.Core'" />
+        <Reference Include="$(_FcsNightlyDir)FSharp.Compiler.Service.dll;$(_FcsNightlyDir)FSharp.DependencyManager.Nuget.dll;$(_FSharpCoreNightlyDir)FSharp.Core.dll" Private="true" />
+    </ItemGroup>
+</Target>
+
 <PropertyGroup>
     <SarifOutput Condition="$(SarifOutput) == ''">./</SarifOutput>
     <CodeRoot Condition="$(CodeRoot) == ''">.</CodeRoot>

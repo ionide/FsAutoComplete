@@ -103,7 +103,9 @@ let fix
                   | SyntaxNode.SynModuleOrNamespaceSig(SynModuleOrNamespaceSig(
                       longId = longId; range = mParent; decls = decls))
                   | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                    moduleInfo = SynComponentInfo(longId = longId); range = mParent; moduleDecls = decls)) ->
+                    moduleInfo = SynComponentInfo(synType = Some(SynType.LongIdent(SynLongIdent(id = longId))))
+                    range = mParent
+                    moduleDecls = decls)) ->
                     let mSigName = mkLongIdRange longId
 
                     // `parentSigLocation` will only contain the single identifier in case a module is prefixed with a namespace.

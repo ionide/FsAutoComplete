@@ -876,3 +876,40 @@ NUGET
       FSharp.Core (>= 7.0.200) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
       Microsoft.Testing.Extensions.VSTestBridge (>= 2.3.3) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
       Microsoft.Testing.Platform.MSBuild (>= 2.3.3) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net8.0)) (&& (== netstandard2.1) (>= net8.0))
+
+GROUP FcsNightly
+STORAGE: NONE
+STRATEGY: MIN
+LOWEST_MATCHING: TRUE
+RESTRICTION: || (== netstandard2.0) (== netstandard2.1)
+NUGET
+  remote: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet12/nuget/v3/index.json
+    FSharp.Compiler.Service (43.13.200-rc2.26509.106)
+      FSharp.Core (11.0.200-rc2.26509.106)
+      System.Buffers (>= 4.6.1)
+      System.Collections.Immutable (>= 10.0.10)
+      System.Diagnostics.DiagnosticSource (>= 10.0.10)
+      System.Memory (>= 4.6.3)
+      System.Reflection.Emit (>= 4.7)
+      System.Reflection.Metadata (>= 10.0.10)
+      System.Runtime.CompilerServices.Unsafe (>= 6.1.2)
+    FSharp.Core (11.0.200-rc2.26509.106)
+  remote: https://api.nuget.org/v3/index.json
+    System.Buffers (4.6.1)
+    System.Collections.Immutable (10.0.10)
+      System.Memory (>= 4.6.3)
+      System.Runtime.CompilerServices.Unsafe (>= 6.1.2)
+    System.Diagnostics.DiagnosticSource (10.0.10)
+      System.Memory (>= 4.6.3)
+      System.Runtime.CompilerServices.Unsafe (>= 6.1.2)
+    System.Memory (4.6.3)
+      System.Buffers (>= 4.6.1) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (>= net462))
+      System.Numerics.Vectors (>= 4.6.1) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (>= net462))
+      System.Runtime.CompilerServices.Unsafe (>= 6.1.2) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (>= net462))
+    System.Numerics.Vectors (4.6.1) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (>= net462))
+    System.Reflection.Emit (4.7)
+      System.Reflection.Emit.ILGeneration (>= 4.7) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (< netstandard1.1)) (&& (== netstandard2.1) (< netstandard2.0)) (&& (== netstandard2.1) (>= uap10.1))
+    System.Reflection.Emit.ILGeneration (4.7) - restriction: || (== netstandard2.0) (&& (== netstandard2.1) (< netstandard1.1)) (&& (== netstandard2.1) (< netstandard2.0)) (&& (== netstandard2.1) (>= uap10.1))
+    System.Reflection.Metadata (10.0.10)
+      System.Collections.Immutable (>= 10.0.10)
+    System.Runtime.CompilerServices.Unsafe (6.1.2)

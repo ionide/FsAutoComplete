@@ -346,9 +346,17 @@ let tests state =
 
       testCaseAsync "Reflecting into LanguageVersion - feature unsupported in older version"
       <| async {
-        let languageFeature = LanguageFeatureShim("StringInterpolation")
+        // FCS no longer has a flag for StringInterpolation, so use a feature it still gates.
+        let languageFeature = LanguageFeatureShim("UnmanagedConstraintCsharpInterop")
         let languageVersion = LanguageVersionShim("4.7")
         Expect.equal false (languageVersion.SupportsFeature languageFeature) ""
+      }
+
+      testCaseAsync "Reflecting into LanguageVersion - feature without a flag is always on"
+      <| async {
+        let languageFeature = LanguageFeatureShim("StringInterpolation")
+        let languageVersion = LanguageVersionShim("4.7")
+        Expect.equal true (languageVersion.SupportsFeature languageFeature) ""
       }
 
       testCaseAsync "Multiline applications are not supported"

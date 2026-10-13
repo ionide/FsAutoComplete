@@ -508,8 +508,7 @@ module Syntax =
       | SynTypeDefnSimpleRepr.Exception _ -> ()
 
     and walkComponentInfo
-      (SynComponentInfo(
-        attributes = AllAttrs attrs; typeParams = typars; constraints = constraints; longId = _; range = _) as s)
+      (SynComponentInfo(attributes = AllAttrs attrs; typeParams = typars; constraints = constraints; range = _) as s)
       =
       walker.WalkComponentInfo s
       List.iter walkAttribute attrs
@@ -776,7 +775,9 @@ module FsacSemanticTokenSites =
       if not (delegateDeclarationRanges.Contains(id.idRange)) then
         declarations.Add(id.idRange)
 
-    override _.WalkTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+    override _.WalkTypeDefn(SynTypeDefn(typeInfo = typeInfo; typeRepr = typeRepr)) =
+      let idents = typeInfo.LongIdent
+
       match typeRepr with
       | SynTypeDefnRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
       | SynTypeDefnRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
@@ -788,7 +789,9 @@ module FsacSemanticTokenSites =
           | _ -> ())
       | _ -> tryLastIdentRange idents |> Option.iter definitions.Add
 
-    override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = SynComponentInfo(longId = idents); typeRepr = typeRepr)) =
+    override _.WalkTypeDefnSig(SynTypeDefnSig(typeInfo = typeInfo; typeRepr = typeRepr)) =
+      let idents = typeInfo.LongIdent
+
       match typeRepr with
       | SynTypeDefnSigRepr.ObjectModel(kind = SynTypeDefnKind.Augmentation _) -> ()
       | SynTypeDefnSigRepr.ObjectModel(SynTypeDefnKind.Delegate _, members, _) ->
