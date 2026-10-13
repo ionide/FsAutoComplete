@@ -16,14 +16,15 @@ let (</>) (path1 : string) path2 = Path.Join(path1, path2)
 let tests state =
   let sameProjectRoot = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", "SameProject")
   let crossProjectRoot tfm = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", $"CrossProject-{tfm}")
-  let tfms = [
+  let tfms =
+    [
 #if NET8_0_OR_GREATER
-    "net8.0"
+      "net8.0"
 #endif
 #if NET9_0_OR_GREATER
-    "net9.0"
+      "net9.0"
 #endif
-  ]
+    ]
   let aFile, bFile = "A.fs", "B.fs"
   testList (nameof DependentFileChecking) [
     testList "SameProject" [

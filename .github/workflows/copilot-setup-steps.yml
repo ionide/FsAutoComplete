@@ -39,7 +39,7 @@ jobs:
       run: dotnet build -c Release --no-restore
 
     - name: Verify Fantomas formatting
-      run: dotnet fantomas --check build.fsx src
+      run: dotnet fantomas check .
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1

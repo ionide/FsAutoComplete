@@ -47,5 +47,5 @@ This comprehensive approach ensures that the newly introduced code fix is proper
 When preparing to submit a pull request, please consider the following guidelines:
 
 - Eliminate any extraneous code or comments that may remain from the sample code.
-- Ensure proper source code formatting by running the command `dotnet fantomas src`. 
+- Ensure proper source code formatting by running the command `dotnet fantomas .`. 
 - Avoid including focused tests, as they can cause the continuous integration build to fail.

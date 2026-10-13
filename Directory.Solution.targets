@@ -1,10 +1,10 @@
 <Project>
   <Target Name="Format">
-    <Exec Command="dotnet fantomas src" />
+    <Exec Command="dotnet fantomas ." />
   </Target>
 
   <Target Name="CheckFormat">
-    <Exec Command="dotnet fantomas --check src" />
+    <Exec Command="dotnet fantomas check ." />
   </Target>
 
   <ItemGroup>

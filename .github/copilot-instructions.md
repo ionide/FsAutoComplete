@@ -68,7 +68,7 @@ dotnet test
 dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
 
 # Format code
-dotnet fantomas src/ test/
+dotnet fantomas .
 ```
 
 #### Development Environment Options
@@ -211,7 +211,7 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 
 ### Before Submitting Changes
 1. Ensure all tests pass: `dotnet test`
-2. Run code formatting: `dotnet fantomas src/ test/`
+2. Run code formatting: `dotnet fantomas .`
 3. Verify the solution builds cleanly
 4. Test your changes with a real F# project if possible
 

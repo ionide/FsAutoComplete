@@ -64,7 +64,7 @@ dotnet build
 # Run tests: see "Running Tests" below
 
 # Format code
-dotnet fantomas src/ test/
+dotnet fantomas .
 ```
 
 #### Development Environment Options
@@ -224,7 +224,7 @@ test/FsAutoComplete.Tests.Lsp/bin/Debug/net10.0/FsAutoComplete.Tests.Lsp --filte
 
 ### Before Submitting Changes
 1. Ensure all tests pass: `dotnet test`
-2. Run code formatting: `dotnet fantomas src/ test/`
+2. Run code formatting: `dotnet fantomas .`
 3. ALWAYS add test cases for changes, run them and report results in PRs
 4. Verify the solution builds cleanly
 5. Test your changes with a real F# project if possible
