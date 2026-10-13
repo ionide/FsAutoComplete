@@ -196,8 +196,10 @@ let findMethodFromArgs (args: FindDeclExternalParam list) (methods: IMethod seq)
     && (Seq.zip mParams args) |> Seq.forall (areSameTypes m.TypeArguments))
 
 type ExternalContentPosition =
-  { File: string
-    Position: FSharp.Compiler.Text.Position }
+  {
+    File: string
+    Position: FSharp.Compiler.Text.Position
+  }
 
 let toSafeFileNameRegex =
   System.Text.RegularExpressions.Regex("[^\w\.`\s]+", RegexOptions.Compiled)
@@ -279,13 +281,17 @@ let decompile (externalSym: FindDeclExternalSymbol) assemblyPath : Result<Extern
     match location with
     | Some l ->
       Ok
-        { File = tempFile
+        {
+          File = tempFile
           // external library columns are 1-based, not 0-based like FCS Pos columns
-          Position = FSharp.Compiler.Text.Position.mkPos l.Line (l.Column - 1) }
+          Position = FSharp.Compiler.Text.Position.mkPos l.Line (l.Column - 1)
+        }
     | None ->
       Ok
-        { File = tempFile
-          Position = FSharp.Compiler.Text.Position.pos0 }
+        {
+          File = tempFile
+          Position = FSharp.Compiler.Text.Position.pos0
+        }
   with e ->
     Result.Error(Exception(externalSym, assemblyPath, e))
 

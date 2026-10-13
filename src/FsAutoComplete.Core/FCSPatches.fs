@@ -120,8 +120,10 @@ module SyntaxTreeOps =
       | SynExpr.ObjExpr(bindings = bindings; extraImpls = extraImpls) ->
         walkBinds bindings
         || walkBinds
-          [ for (SynInterfaceImpl(bindings = bindings)) in extraImpls do
-              yield! bindings ]
+          [
+            for (SynInterfaceImpl(bindings = bindings)) in extraImpls do
+              yield! bindings
+          ]
 
       | SynExpr.ForEach(enumExpr = e1; bodyExpr = e2)
       | SynExpr.While(whileExpr = e1; doExpr = e2)

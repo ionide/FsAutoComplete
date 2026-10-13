@@ -57,13 +57,15 @@ module TestDiscoveryResult =
 
 module ExpectedTests =
   let VSTestXUnitRunResults =
-    [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+    [
+      "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed
       "Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped
       "Tests.Exception", FsAutoComplete.TestServer.TestOutcome.Failed
       "Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed
-      "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed ]
+      "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed
+    ]
 
   let VSTestXunitTests =
     [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ]
@@ -99,9 +101,11 @@ let tests createServer =
   testSequenced
   <| testList
     "TestExplorerTests"
-    [ testList
+    [
+      testList
         "DiscoverTests"
-        [ testCaseAsync "it should error if the workspace hasn't been built"
+        [
+          testCaseAsync "it should error if the workspace hasn't been built"
           <| async {
             let workspaceRoot =
               Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
@@ -133,10 +137,12 @@ let tests createServer =
               res |> TestDiscoveryResult.tryUnwrapTestDiscoveryResult |> List.map _.FullName
 
             Expect.equal (set actual) (set expected) ""
-          } ]
+          }
+        ]
       testList
         "RunTests"
-        [ testCaseAsync "it should report tests of all basic outcomes"
+        [
+          testCaseAsync "it should report tests of all basic outcomes"
           <| async {
             let workspaceRoot =
               Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
@@ -148,9 +154,11 @@ let tests createServer =
             Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
 
@@ -188,9 +196,11 @@ let tests createServer =
             Expect.throwsT<System.OperationCanceledException>
               (fun () ->
                 let runRequest: TestRunRequest =
-                  { LimitToProjects = None
+                  {
+                    LimitToProjects = None
                     TestCaseFilter = None
-                    AttachDebugger = true }
+                    AttachDebugger = true
+                  }
 
                 Async.RunSynchronously(
                   server.TestRunTests(runRequest) |> Async.Ignore,
@@ -224,13 +234,17 @@ let tests createServer =
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects = None
+                {
+                  LimitToProjects = None
                   TestCaseFilter = Some "FullyQualifiedName~Tests.Expects environment variable"
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected =
-              [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
+              [
+                "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed
+              ]
 
             TestRunResult.tryUnwrapTestRunResult response
             |> TestRunResult.expectOutcomes expected
@@ -252,10 +266,15 @@ let tests createServer =
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects =
-                    Some [ Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj") ]
+                {
+                  LimitToProjects =
+                    Some
+                      [
+                        Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj")
+                      ]
                   TestCaseFilter = None
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected = []
@@ -276,16 +295,20 @@ let tests createServer =
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects =
+                {
+                  LimitToProjects =
                     Some
-                      [ Path.Combine(
+                      [
+                        Path.Combine(
                           __SOURCE_DIRECTORY__,
                           "SampleTestProjects",
                           "VSTest.XUnit.RunResults",
                           "VSTest.XUnit.RunResults.fsproj"
-                        ) ]
+                        )
+                      ]
                   TestCaseFilter = None
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected = ExpectedTests.VSTestXUnitRunResults
@@ -330,16 +353,20 @@ let tests createServer =
             Expect.throwsT<System.OperationCanceledException>
               (fun () ->
                 let runRequest: TestRunRequest =
-                  { LimitToProjects =
+                  {
+                    LimitToProjects =
                       Some
-                        [ Path.Combine(
+                        [
+                          Path.Combine(
                             __SOURCE_DIRECTORY__,
                             "SampleTestProjects",
                             "VSTest.XUnit.RunResults",
                             "VSTest.XUnit.RunResults.fsproj"
-                          ) ]
+                          )
+                        ]
                     TestCaseFilter = None
-                    AttachDebugger = true }
+                    AttachDebugger = true
+                  }
 
                 Async.RunSynchronously(
                   server.TestRunTests(runRequest) |> Async.Ignore,
@@ -348,4 +375,6 @@ let tests createServer =
               ""
 
             Expect.hasLength processIdSpy 1 "Should only launch one process to debug"
-          } ] ]
+          }
+        ]
+    ]

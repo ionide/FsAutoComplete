@@ -5,13 +5,15 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Syntax
 
 type TestAdapterEntry<'range> =
-  { Name: string
+  {
+    Name: string
     Range: 'range
     Childs: ResizeArray<TestAdapterEntry<'range>>
     Id: int
     List: bool
     ModuleType: string
-    Type: string }
+    Type: string
+  }
 
 [<Literal>]
 let private ExpectoType = "Expecto"
@@ -131,13 +133,15 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = s
+          {
+            Name = s
             Range = range
             Childs = ResizeArray()
             Id = ident
             List = true
             ModuleType = NoneModuleType
-            Type = ExpectoType }
+            Type = ExpectoType
+          }
 
         parent.Childs.Add entry
 
@@ -150,13 +154,15 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = s
+          {
+            Name = s
             Range = expr1.Range
             Childs = ResizeArray()
             Id = ident
             List = false
             ModuleType = NoneModuleType
-            Type = ExpectoType }
+            Type = ExpectoType
+          }
 
         parent.Childs.Add entry
       | _ ->
@@ -168,13 +174,15 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = s
+          {
+            Name = s
             Range = expr1.Range
             Childs = ResizeArray()
             Id = ident
             List = false
             ModuleType = NoneModuleType
-            Type = ExpectoType }
+            Type = ExpectoType
+          }
 
         parent.Childs.Add entry
       | List -> ()
@@ -245,13 +253,15 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
     Seq.iter (fun (SynModuleOrNamespace(decls = decls)) -> visitDeclarations prefix decls) modulesOrNss
 
   let allTests =
-    { Name = ""
+    {
+      Name = ""
       Range = Range.range0
       Childs = ResizeArray()
       Id = -1
       List = false
       ModuleType = NoneModuleType
-      Type = "" }
+      Type = ""
+    }
 
   match ast with
   | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) -> visitModulesAndNamespaces allTests modules
@@ -309,13 +319,15 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
     ident <- ident + 1
 
     let entry =
-      { Name = name
+      {
+        Name = name
         Range = r
         Childs = ResizeArray()
         Id = ident
         List = true
         ModuleType = moduleType
-        Type = NUnitType }
+        Type = NUnitType
+      }
 
     parent.Childs.Add entry
 
@@ -338,13 +350,15 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       ident <- ident + 1
 
       let entry =
-        { Name = getName pat
+        {
+          Name = getName pat
           Range = r
           Childs = ResizeArray()
           Id = ident
           List = false
           ModuleType = NoneModuleType
-          Type = NUnitType }
+          Type = NUnitType
+        }
 
       parent.Childs.Add entry
 
@@ -382,13 +396,15 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = name
+          {
+            Name = name
             Range = r
             Childs = ResizeArray()
             Id = ident
             List = true
             ModuleType = moduleType
-            Type = NUnitType }
+            Type = NUnitType
+          }
 
         parent.Childs.Add entry
         visitDeclarations entry decls
@@ -408,13 +424,15 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = name
+          {
+            Name = name
             Range = r
             Childs = ResizeArray()
             Id = ident
             List = true
             ModuleType = moduleType
-            Type = NUnitType }
+            Type = NUnitType
+          }
 
         parent.Childs.Add entry
         visitDeclarations entry decls
@@ -424,13 +442,15 @@ let getNUnitTest (ast: ParsedInput) : TestAdapterEntry<range> list =
       modulesOrNss
 
   let allTests =
-    { Name = ""
+    {
+      Name = ""
       Range = Range.range0
       Childs = ResizeArray()
       Id = -1
       List = false
       ModuleType = NoneModuleType
-      Type = "" }
+      Type = ""
+    }
 
   match ast with
   | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) -> visitModulesAndNamespaces allTests modules
@@ -483,13 +503,15 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
     ident <- ident + 1
 
     let entry =
-      { Name = name
+      {
+        Name = name
         Range = r
         Childs = ResizeArray()
         Id = ident
         List = true
         ModuleType = moduleType
-        Type = XUnitType }
+        Type = XUnitType
+      }
 
     parent.Childs.Add entry
 
@@ -512,13 +534,15 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       ident <- ident + 1
 
       let entry =
-        { Name = getName pat
+        {
+          Name = getName pat
           Range = r
           Childs = ResizeArray()
           Id = ident
           List = false
           ModuleType = NoneModuleType
-          Type = XUnitType }
+          Type = XUnitType
+        }
 
       parent.Childs.Add entry
 
@@ -556,13 +580,15 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = name
+          {
+            Name = name
             Range = r
             Childs = ResizeArray()
             Id = ident
             List = true
             ModuleType = moduleType
-            Type = XUnitType }
+            Type = XUnitType
+          }
 
         parent.Childs.Add entry
         visitDeclarations entry decls
@@ -582,13 +608,15 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
         ident <- ident + 1
 
         let entry =
-          { Name = name
+          {
+            Name = name
             Range = r
             Childs = ResizeArray()
             Id = ident
             List = true
             ModuleType = moduleType
-            Type = XUnitType }
+            Type = XUnitType
+          }
 
         parent.Childs.Add entry
         visitDeclarations entry decls
@@ -598,13 +626,15 @@ let getXUnitTest ast : TestAdapterEntry<range> list =
       modulesOrNss
 
   let allTests =
-    { Name = ""
+    {
+      Name = ""
       Range = Range.range0
       Childs = ResizeArray()
       Id = -1
       List = false
       ModuleType = NoneModuleType
-      Type = "" }
+      Type = ""
+    }
 
   match ast with
   | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) -> visitModulesAndNamespaces allTests modules

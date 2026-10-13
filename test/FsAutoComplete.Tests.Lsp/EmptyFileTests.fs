@@ -31,13 +31,20 @@ let tests state =
   testSequenced
   <| testList
     "empty file features"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "no parsing/checking errors"
             (async {
               let! server, events, scriptPath = server1
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+              do!
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               match! waitForParseResultsForFile "EmptyFile.fsx" events with
               | Ok _ -> () // all good, no parsing/checking errors
@@ -51,14 +58,18 @@ let tests state =
               do! server.TextDocumentDidOpen { TextDocument = loadDocument path }
 
               let completionParams: CompletionParams =
-                { TextDocument = { Uri = Path.FilePathToUri path }
+                {
+                  TextDocument = { Uri = Path.FilePathToUri path }
                   Position = { Line = 0u; Character = 0u }
                   Context =
                     Some
-                      { TriggerKind = CompletionTriggerKind.Invoked
-                        TriggerCharacter = None }
+                      {
+                        TriggerKind = CompletionTriggerKind.Invoked
+                        TriggerCharacter = None
+                      }
                   WorkDoneToken = None
-                  PartialResultToken = None }
+                  PartialResultToken = None
+                }
 
               match! server.TextDocumentCompletion completionParams with
               | Ok(Some _) -> failtest "An empty file has empty completions"
@@ -69,34 +80,53 @@ let tests state =
             "type 'c' for checking error and autocompletion starts with 'abs'"
             (async {
               let! server, events, scriptPath = server2
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+              do!
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               do!
                 server.TextDocumentDidChange
-                  { TextDocument =
-                      { Uri = Path.FilePathToUri scriptPath
-                        Version = 1 }
+                  {
+                    TextDocument =
+                      {
+                        Uri = Path.FilePathToUri scriptPath
+                        Version = 1
+                      }
                     ContentChanges =
-                      [| U2.C1
-                           { Range =
-                               { Start = { Line = 0u; Character = 0u }
-                                 End = { Line = 0u; Character = 0u } }
-                             RangeLength = Some 0u
-                             Text = "c" } |] }
+                      [|
+                        U2.C1
+                          {
+                            Range =
+                              {
+                                Start = { Line = 0u; Character = 0u }
+                                End = { Line = 0u; Character = 0u }
+                              }
+                            RangeLength = Some 0u
+                            Text = "c"
+                          }
+                      |]
+                  }
 
               // The empty file has no compiler diagnostics, so the first ones come from checking the 'c'.
               let! compilerResults = waitForCompilerDiagnosticsForFile "EmptyFile.fsx" events
 
               let! completions =
                 server.TextDocumentCompletion
-                  { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+                  {
+                    TextDocument = { Uri = Path.FilePathToUri scriptPath }
                     Position = { Line = 0u; Character = 1u }
                     Context =
                       Some
-                        { TriggerKind = CompletionTriggerKind.Invoked
-                          TriggerCharacter = None }
+                        {
+                          TriggerKind = CompletionTriggerKind.Invoked
+                          TriggerCharacter = None
+                        }
                     WorkDoneToken = None
-                    PartialResultToken = None }
+                    PartialResultToken = None
+                  }
                 |> Async.StartChild
 
               match compilerResults with
@@ -117,4 +147,6 @@ let tests state =
                 Expect.equal firstItem.Label "abs" "first member should be abs"
               | Ok None -> failtest "Should have gotten some completion items"
               | Error e -> failtestf "Got an error while retrieving completions: %A" e
-            }) ] ]
+            })
+        ]
+    ]

@@ -37,8 +37,10 @@ module SymbolUse =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 
@@ -306,8 +308,10 @@ module SymbolPatterns =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 
@@ -335,8 +339,10 @@ module SymbolPatterns =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 

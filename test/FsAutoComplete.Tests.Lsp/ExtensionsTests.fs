@@ -23,11 +23,17 @@ let fsdnTest state =
 
   testList
     "FSDN Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "FSDN on list"
         (async {
           let! server = server
-          let p: FsdnRequest = { Query = "('a -> 'b) -> 'a list -> 'b list" }
+
+          let p: FsdnRequest =
+            {
+              Query = "('a -> 'b) -> 'a list -> 'b list"
+            }
+
           let! res = server.FSharpFsdn p
 
           match res with
@@ -36,7 +42,7 @@ let fsdnTest state =
             Expect.stringContains n.Content "List.map" (sprintf "the List.map is a valid response, but was %A" n)
 
             let r =
-              JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FsdnResponse>> (n.Content)
+              JsonSerializer.readJson<CommandResponse.ResponseMsg<CommandResponse.FsdnResponse>>(n.Content)
 
             Expect.equal r.Kind "fsdn" (sprintf "fsdn response, but was %A, from json %A" r n)
 
@@ -44,7 +50,8 @@ let fsdnTest state =
               r.Data.Functions
               "List.map"
               (sprintf "the List.map is a valid response, but was %A, from json %A" r n)
-        }) ]
+        })
+    ]
 
 let uriTests =
   let verifyUri (given: string) (expectedLocal: string) =
@@ -65,7 +72,8 @@ let uriTests =
     }
 
   let samples =
-    [ "file:///c%3A/foo/bar/baz", "c:/foo/bar/baz"
+    [
+      "file:///c%3A/foo/bar/baz", "c:/foo/bar/baz"
       "file:///c%3A/foo/bar bar/baz", "c:/foo/bar bar/baz" // spaces, windows-root
       "file:///Users/bob jones/foo/bar", "/Users/bob jones/foo/bar" // spaces, unix-root
       "file:///Users/bobjones/foo/bar", "/Users/bobjones/foo/bar"
@@ -75,18 +83,22 @@ let uriTests =
       "file:///Users/carly rae/oss/f%23test", "/Users/carly rae/oss/f#test" // spaces and escaped chars, unix-root
       "file:///d%3A/code/Saturn/src/Saturn/Utils.fs", "d:/code/Saturn/src/Saturn/Utils.fs"
       // unicode (accented chars) in path — .NET Uri normalises %C3%B3 back to ó in its string representation
-      "file:///home/user/c\u00F3digo/Program.fs", "/home/user/c\u00F3digo/Program.fs" ]
+      "file:///home/user/c\u00F3digo/Program.fs", "/home/user/c\u00F3digo/Program.fs"
+    ]
 
   // Separate tests that verify FilePathToUri emits correct UTF-8 percent-encoded sequences
   // without the normalisation that Uri.ToString() applies.
   let unicodeEncodingTests =
-    [ test "FilePathToUri encodes accented chars as UTF-8 percent sequences" {
+    [
+      test "FilePathToUri encodes accented chars as UTF-8 percent sequences" {
         let uri = Path.FilePathToUri "/home/user/c\u00F3digo/Program.fs"
         Expect.equal uri "file:///home/user/c%C3%B3digo/Program.fs" "ó (U+00F3) must encode as %C3%B3 (UTF-8), not %F3"
-      } ]
+      }
+    ]
 
   let untitledTests =
-    [ test "FileUriToLocalPath gives untitled URIs a stable absolute path" {
+    [
+      test "FileUriToLocalPath gives untitled URIs a stable absolute path" {
         let localPath = Path.FileUriToLocalPath "untitled:Untitled-7"
         let expected = Path.Combine(AppContext.BaseDirectory, "Untitled-7.fsx")
         Expect.equal localPath expected "Untitled paths should not depend on the current directory"
@@ -95,17 +107,20 @@ let uriTests =
           (Path.FilePathToUri localPath)
           "untitled:Untitled-7"
           "The stable path should preserve the untitled URI"
-      } ]
+      }
+    ]
 
   testList
     "Uri tests"
-    [ testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
+    [
+      testList "roundtrip tests" (samples |> List.map (fun (uriForm, filePath) -> verifyUri uriForm filePath))
       testList
         "fileName to uri tests"
         (samples
          |> List.map (fun (uriForm, filePath) -> convertRawPathToUri filePath uriForm))
       testList "unicode encoding tests" unicodeEncodingTests
-      testList "untitled tests" untitledTests ]
+      testList "untitled tests" untitledTests
+    ]
 
 /// Tests for linter
 let linterTests state =
@@ -117,7 +132,8 @@ let linterTests state =
         serverInitialize
           path
           { defaultConfigDto with
-              Linter = Some true }
+              Linter = Some true
+          }
           state
 
       let path = Path.Combine(path, "Script.fsx")
@@ -138,126 +154,174 @@ let linterTests state =
   let urlFor (code: U2<int32, string> option) =
     match code with
     | None -> None
-    | Some(U2.C1 intCode) -> Some { Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%d{intCode}.html" }
-    | Some(U2.C2 strCode) -> Some { Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%s{strCode}.html" }
+    | Some(U2.C1 intCode) ->
+      Some
+        {
+          Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%d{intCode}.html"
+        }
+    | Some(U2.C2 strCode) ->
+      Some
+        {
+          Href = $"http://fsprojects.github.io/FSharpLint/how-tos/rules/%s{strCode}.html"
+        }
 
   let expectedDiagnostics =
-    [| { Range =
-           { Start = { Line = 0u; Character = 7u }
-             End = { Line = 0u; Character = 11u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0042"))
-         Source = Some "F# Linter"
-         Message = "Consider changing `test` to PascalCase."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "Test"
-       { Range =
-           { Start = { Line = 1u; Character = 16u }
-             End = { Line = 1u; Character = 25u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`not (a = b)` might be able to be refactored into `a <> b`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "a <> b"
-       { Range =
-           { Start = { Line = 2u; Character = 16u }
-             End = { Line = 2u; Character = 26u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`not (a <> b)` might be able to be refactored into `a = b`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "a = b"
-       { Range =
-           { Start = { Line = 3u; Character = 12u }
-             End = { Line = 3u; Character = 22u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`fun x -> x` might be able to be refactored into `id`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "id"
-       { Range =
-           { Start = { Line = 4u; Character = 12u }
-             End = { Line = 4u; Character = 20u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`not true` might be able to be refactored into `false`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "false"
-       { Range =
-           { Start = { Line = 5u; Character = 12u }
-             End = { Line = 5u; Character = 21u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`not false` might be able to be refactored into `true`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "true"
-       { Range =
-           { Start = { Line = 7u; Character = 14u }
-             End = { Line = 7u; Character = 21u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`a <> true` might be able to be refactored into `not a`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "not a"
-       { Range =
-           { Start = { Line = 8u; Character = 14u }
-             End = { Line = 8u; Character = 20u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`x = null` might be able to be refactored into `isNull x`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "isNull a"
-       { Range =
-           { Start = { Line = 9u; Character = 14u }
-             End = { Line = 9u; Character = 37u } }
-         Severity = Some DiagnosticSeverity.Information
-         Code = Some(U2.C2("FL0065"))
-         Source = Some "F# Linter"
-         Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
-         RelatedInformation = None
-         Tags = None
-         Data = None
-         CodeDescription = None },
-       "List.min a" |]
+    [|
+      {
+        Range =
+          {
+            Start = { Line = 0u; Character = 7u }
+            End = { Line = 0u; Character = 11u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0042"))
+        Source = Some "F# Linter"
+        Message = "Consider changing `test` to PascalCase."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "Test"
+      {
+        Range =
+          {
+            Start = { Line = 1u; Character = 16u }
+            End = { Line = 1u; Character = 25u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`not (a = b)` might be able to be refactored into `a <> b`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "a <> b"
+      {
+        Range =
+          {
+            Start = { Line = 2u; Character = 16u }
+            End = { Line = 2u; Character = 26u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`not (a <> b)` might be able to be refactored into `a = b`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "a = b"
+      {
+        Range =
+          {
+            Start = { Line = 3u; Character = 12u }
+            End = { Line = 3u; Character = 22u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`fun x -> x` might be able to be refactored into `id`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "id"
+      {
+        Range =
+          {
+            Start = { Line = 4u; Character = 12u }
+            End = { Line = 4u; Character = 20u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`not true` might be able to be refactored into `false`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "false"
+      {
+        Range =
+          {
+            Start = { Line = 5u; Character = 12u }
+            End = { Line = 5u; Character = 21u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`not false` might be able to be refactored into `true`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "true"
+      {
+        Range =
+          {
+            Start = { Line = 7u; Character = 14u }
+            End = { Line = 7u; Character = 21u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`a <> true` might be able to be refactored into `not a`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "not a"
+      {
+        Range =
+          {
+            Start = { Line = 8u; Character = 14u }
+            End = { Line = 8u; Character = 20u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`x = null` might be able to be refactored into `isNull x`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "isNull a"
+      {
+        Range =
+          {
+            Start = { Line = 9u; Character = 14u }
+            End = { Line = 9u; Character = 37u }
+          }
+        Severity = Some DiagnosticSeverity.Information
+        Code = Some(U2.C2("FL0065"))
+        Source = Some "F# Linter"
+        Message = "`List.head (List.sort x)` might be able to be refactored into `List.min x`."
+        RelatedInformation = None
+        Tags = None
+        Data = None
+        CodeDescription = None
+      },
+      "List.min a"
+    |]
     |> Array.map (fun (diag, text) ->
       { diag with
           CodeDescription = urlFor diag.Code
-          Data = Some(Ionide.LanguageServerProtocol.Server.serialize [ { Range = diag.Range; NewText = text } ]) })
+          Data = Some(Ionide.LanguageServerProtocol.Server.serialize [ { Range = diag.Range; NewText = text } ])
+      })
 
   testList
     "Linter Test"
-    [ yield
+    [
+      yield
         testCaseAsync
           "Linter Diagnostics"
           (async {
@@ -266,7 +330,8 @@ let linterTests state =
             Seq.zip diags expectedDiagnostics
             |> Seq.iteri (fun idx (actual, expected) ->
               Expect.equal actual expected $"%d{idx} - Linter messages and codefixes match")
-          }) ]
+          })
+    ]
 
 let formattingTests state =
   let server =
@@ -286,13 +351,17 @@ let formattingTests state =
     let start = { Line = 0u; Character = 0u }
 
     let ``end`` =
-      { Line = uint32 sourceLines.Length - 1u
-        Character = uint32 sourceLines.[sourceLines.Length - 1].Length }
+      {
+        Line = uint32 sourceLines.Length - 1u
+        Character = uint32 sourceLines.[sourceLines.Length - 1].Length
+      }
 
     let expectedText = File.ReadAllText expectedFile
 
-    { Range = { Start = start; End = ``end`` }
-      NewText = normalizeLineEndings expectedText }
+    {
+      Range = { Start = start; End = ``end`` }
+      NewText = normalizeLineEndings expectedText
+    }
 
   let verifyFormatting scenario document =
     testCaseAsync
@@ -302,25 +371,35 @@ let formattingTests state =
         let sourceFile = Path.Combine(rootPath, sprintf "%s.input.fsx" document)
         let expectedFile = Path.Combine(rootPath, sprintf "%s.expected.fsx" document)
         let expectedTextEdit = editForWholeFile sourceFile expectedFile
-        do! server.TextDocumentDidOpen { TextDocument = loadDocument sourceFile }
+
+        do!
+          server.TextDocumentDidOpen
+            {
+              TextDocument = loadDocument sourceFile
+            }
 
         match! waitForParseResultsForFile (Path.GetFileName sourceFile) events with
         | Ok() ->
           match!
             server.TextDocumentFormatting
-              { TextDocument = { Uri = Path.FilePathToUri sourceFile }
+              {
+                TextDocument = { Uri = Path.FilePathToUri sourceFile }
                 Options =
-                  { TabSize = 4u
+                  {
+                    TabSize = 4u
                     InsertSpaces = true
                     TrimTrailingWhitespace = None
                     InsertFinalNewline = None
-                    TrimFinalNewlines = None }
-                WorkDoneToken = None }
+                    TrimFinalNewlines = None
+                  }
+                WorkDoneToken = None
+              }
           with
           | Ok(Some [| edit |]) ->
             let normalized =
               { edit with
-                  NewText = normalizeLineEndings edit.NewText }
+                  NewText = normalizeLineEndings edit.NewText
+              }
 
             Expect.equal normalized expectedTextEdit "should replace the entire file range with the expected content"
           | Ok other -> failwithf "Invalid formatting result: %A" other
@@ -330,9 +409,13 @@ let formattingTests state =
 
   testList
     "fantomas integration"
-    [ testList
+    [
+      testList
         "tests"
-        [ verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter" ] ]
+        [
+          verifyFormatting "can replace entire content of file when formatting whole document" "endCharacter"
+        ]
+    ]
 
 
 let analyzerTests state =
@@ -347,7 +430,8 @@ let analyzerTests state =
       let analyzerEnabledConfig =
         { defaultConfigDto with
             EnableAnalyzers = Some true
-            AnalyzersPath = Some [| analyzerPath |] }
+            AnalyzersPath = Some [| analyzerPath |]
+        }
 
       let! (server, events) = serverInitialize path analyzerEnabledConfig state
       let scriptPath = Path.Combine(path, "Script.fsx")
@@ -355,16 +439,24 @@ let analyzerTests state =
       // The server loads analyzers in the background after the workspace load and does not report when it is done.
       // A script checked before that gets no analyzer diagnostics, so give the analyzers time to load first.
       do! Async.Sleep(TimeSpan.FromSeconds 5.)
-      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+      do!
+        server.TextDocumentDidOpen
+          {
+            TextDocument = loadDocument scriptPath
+          }
+
       return server, events, path, scriptPath
     }
     |> Async.Cache
 
   testList
     "analyzer integration"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "can run analyzer on file"
             (async {
               let! _server, events, _rootPath, testFilePath = server
@@ -374,20 +466,28 @@ let analyzerTests state =
                 |> Async.AwaitObservable
 
               let expected =
-                [| { Range =
-                       { Start = { Line = 3u; Character = 13u }
-                         End = { Line = 3u; Character = 31u } }
-                     Severity = Some DiagnosticSeverity.Warning
-                     Code = Some(U2.C2("OV001"))
-                     Source = Some "F# Analyzers (Option.Value analyzer)"
-                     Message = "Option.Value shouldn't be used"
-                     RelatedInformation = None
-                     Tags = None
-                     Data = None
-                     CodeDescription = None } |]
+                [|
+                  {
+                    Range =
+                      {
+                        Start = { Line = 3u; Character = 13u }
+                        End = { Line = 3u; Character = 31u }
+                      }
+                    Severity = Some DiagnosticSeverity.Warning
+                    Code = Some(U2.C2("OV001"))
+                    Source = Some "F# Analyzers (Option.Value analyzer)"
+                    Message = "Option.Value shouldn't be used"
+                    RelatedInformation = None
+                    Tags = None
+                    Data = None
+                    CodeDescription = None
+                  }
+                |]
 
               Expect.equal diagnostics expected "Expected a single analyzer warning about options"
-            }) ] ]
+            })
+        ]
+    ]
 
 let signatureTests state =
   let server =
@@ -396,7 +496,12 @@ let signatureTests state =
       let scriptPath = Path.Combine(path, "Script.fsx")
       let! (server, events) = serverInitialize path defaultConfigDto state
       do! waitForWorkspaceFinishedParsing events
-      do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+      do!
+        server.TextDocumentDidOpen
+          {
+            TextDocument = loadDocument scriptPath
+          }
 
       match! waitForParseResultsForFile "Script.fsx" events with
       | Ok() -> () // all good, no parsing/checking errors
@@ -412,12 +517,14 @@ let signatureTests state =
         let! server, scriptPath = server
 
         let pos: TextDocumentPositionParams =
-          { TextDocument = { Uri = Path.FilePathToUri scriptPath }
-            Position = { Line = line; Character = character } }
+          {
+            TextDocument = { Uri = Path.FilePathToUri scriptPath }
+            Position = { Line = line; Character = character }
+          }
 
         match! server.FSharpSignature pos with
         | Ok(Some { Content = content }) ->
-          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>> (content)
+          let r = JsonSerializer.readJson<CommandResponse.ResponseMsg<string>>(content)
           Expect.equal r.Kind "typesig" "Should have a kind of 'typesig'"
 
           Expect.equal
@@ -442,8 +549,12 @@ let signatureTests state =
   testSequenced
   <| testList
     "signature evaluation"
-    [ testList
+    [
+      testList
         "tests"
-        [ verifySignature 0u (4u, 16u) "val arrayOfTuples: (int * int) array"
+        [
+          verifySignature 0u (4u, 16u) "val arrayOfTuples: (int * int) array"
           verifySignature 1u (4u, 15u) "val listOfTuples: (int * int) list"
-          verifySignature 2u (4u, 15u) "val someFunction: a: 'a -> unit" ] ]
+          verifySignature 2u (4u, 15u) "val someFunction: a: 'a -> unit"
+        ]
+    ]

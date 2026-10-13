@@ -17,8 +17,10 @@ type PatternMatchExpr =
 
 [<NoComparison>]
 type UnionMatchCasesInsertionParams =
-  { InsertionPos: Position
-    IndentColumn: int }
+  {
+    InsertionPos: Position
+    IndentColumn: int
+  }
 
 val shouldGenerateUnionPatternMatchCases: patMatchExpr: PatternMatchExpr -> entity: FSharpEntity -> bool
 

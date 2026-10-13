@@ -24,7 +24,8 @@ module TestItem =
     (targetFramework: string)
     (testCase: Microsoft.VisualStudio.TestPlatform.ObjectModel.TestCase)
     : TestItem =
-    { FullName = testCase.FullyQualifiedName
+    {
+      FullName = testCase.FullyQualifiedName
       DisplayName = testCase.DisplayName
       ExecutorUri = testCase.ExecutorUri |> string
       ProjectFilePath = projFilePath
@@ -32,8 +33,11 @@ module TestItem =
       CodeFilePath = Some testCase.CodeFilePath
       CodeLocationRange =
         Some
-          { StartLine = testCase.LineNumber
-            EndLine = testCase.LineNumber } }
+          {
+            StartLine = testCase.LineNumber
+            EndLine = testCase.LineNumber
+          }
+    }
 
   let tryTestCaseToDTO
     (projectLookup: string -> Ionide.ProjInfo.Types.ProjectOptions option)
@@ -64,12 +68,14 @@ module TestOutcome =
     | _ -> TestOutcome.None
 
 type TestResult =
-  { TestItem: TestItem
+  {
+    TestItem: TestItem
     Outcome: TestOutcome
     ErrorMessage: string option
     ErrorStackTrace: string option
     AdditionalOutput: string option
-    Duration: TimeSpan }
+    Duration: TimeSpan
+  }
 
 module TestResult =
   type VSTestResult = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult
@@ -77,7 +83,8 @@ module TestResult =
   let ofVsTestResult (projFilePath: string) (targetFramework: string) (vsTestResult: VSTestResult) : TestResult =
     let stringToOption (text: string) = if String.IsNullOrEmpty(text) then None else Some text
 
-    { Outcome = TestOutcome.ofVSTestOutcome vsTestResult.Outcome
+    {
+      Outcome = TestOutcome.ofVSTestOutcome vsTestResult.Outcome
       ErrorMessage = vsTestResult.ErrorMessage |> stringToOption
       ErrorStackTrace = vsTestResult.ErrorStackTrace |> stringToOption
       AdditionalOutput =
@@ -85,4 +92,5 @@ module TestResult =
         | [] -> None
         | messages -> messages |> List.map _.Text |> String.concat Environment.NewLine |> Some
       Duration = vsTestResult.Duration
-      TestItem = TestItem.ofVsTestCase projFilePath targetFramework vsTestResult.TestCase }
+      TestItem = TestItem.ofVsTestCase projFilePath targetFramework vsTestResult.TestCase
+    }

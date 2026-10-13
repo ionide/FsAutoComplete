@@ -91,19 +91,29 @@ let fix
             let changedText, changedRange =
               if alreadyWrappedInParens then
                 ": " + typeString,
-                { Start = protocolDeclRange.End
-                  End = protocolDeclRange.End }
+                {
+                  Start = protocolDeclRange.End
+                  End = protocolDeclRange.End
+                }
               else
                 "(" + declText + ": " + typeString + ")", protocolDeclRange
 
             return
-              [ { Title = title
+              [
+                {
+                  Title = title
                   File = codeActionParams.TextDocument
                   SourceDiagnostic = Some diagnostic
                   Kind = FixKind.Fix
                   Edits =
-                    [| { Range = changedRange
-                         NewText = changedText } |] } ]
+                    [|
+                      {
+                        Range = changedRange
+                        NewText = changedText
+                      }
+                    |]
+                }
+              ]
         | _ -> return []
 
       | _ -> return []

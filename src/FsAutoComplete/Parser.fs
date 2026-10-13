@@ -27,9 +27,11 @@ module Parser =
 
   [<Struct>]
   type Rng =
-    { File: string
+    {
+      File: string
       Start: FSharp.Compiler.Text.pos
-      End: FSharp.Compiler.Text.pos }
+      End: FSharp.Compiler.Text.pos
+    }
 
   let verboseOption =
     let o = Option<bool>("--verbose", "-v", "--debug")
@@ -247,9 +249,11 @@ module Parser =
         .Enrich.FromLogContext()
         .Destructure.FSharpTypes()
         .Destructure.ByTransforming<FSharp.Compiler.Text.Range>(fun r ->
-          { File = r.FileName
+          {
+            File = r.FileName
             Start = r.Start
-            End = r.End })
+            End = r.End
+          })
         .Destructure.ByTransforming<FSharp.Compiler.Text.Position>(fun r -> { Line = r.Line; Column = r.Column })
         .Destructure.ByTransforming<Newtonsoft.Json.Linq.JToken>(fun tok -> tok.ToString() |> box)
         .Destructure.ByTransforming<System.IO.DirectoryInfo>(fun di -> box di.FullName)

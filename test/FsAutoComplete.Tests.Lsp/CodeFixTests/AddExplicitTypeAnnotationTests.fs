@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof AddExplicitTypeAnnotation) state defaultConfigDto None (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle AddExplicitTypeAnnotation.title
+    [
+      let selectCodeFix = CodeFix.withTitle AddExplicitTypeAnnotation.title
 
       testCaseAsync "can suggest explicit parameter for record-typed function parameters"
       <| CodeFix.check
@@ -269,7 +270,8 @@ let tests state =
 
       testList
         "parens"
-        [ testCaseAsync "single param without parens -> add parens"
+        [
+          testCaseAsync "single param without parens -> add parens"
           <| CodeFix.check
             server
             """
@@ -315,7 +317,8 @@ let tests state =
           """
           testList
             "tuple params without parens -> no parens"
-            [ testCaseAsync "start"
+            [
+              testCaseAsync "start"
               <| CodeFix.check
                 server
                 """
@@ -347,10 +350,12 @@ let tests state =
                 selectCodeFix
                 """
             let f (x, y, z: int) = x + y + z + 1
-            """ ]
+            """
+            ]
           testList
             "tuple params with parens -> keep parens"
-            [ testCaseAsync "start"
+            [
+              testCaseAsync "start"
               <| CodeFix.check
                 server
                 """
@@ -382,10 +387,12 @@ let tests state =
                 selectCodeFix
                 """
             let f (x, y, (z: int)) = x + y + z + 1
-            """ ]
+            """
+            ]
           testList
             "tuple params without parens but spaces -> no parens"
-            [ testCaseAsync "start"
+            [
+              testCaseAsync "start"
               <| CodeFix.check
                 server
                 """
@@ -417,10 +424,12 @@ let tests state =
                 selectCodeFix
                 """
             let f (  x   ,   y   ,   z: int   ) = x + y + z + 1
-            """ ]
+            """
+            ]
           testList
             "long tuple params without parens but spaces -> no parens"
-            [ testCaseAsync "start"
+            [
+              testCaseAsync "start"
               <| CodeFix.check
                 server
                 """
@@ -452,7 +461,8 @@ let tests state =
                 selectCodeFix
                 """
             let f (  xValue   ,   yAnotherValue   ,   zFinalValue: int   ) = xValue + yAnotherValue + zFinalValue + 1
-            """ ]
+            """
+            ]
           testCaseAsync "never add parens to primary ctor param"
           <| CodeFix.check
             server
@@ -743,4 +753,6 @@ let tests state =
             selectCodeFix
             """
           let f2 () : (int * (unit -> int)) -> int = fun pair -> fst pair + (snd pair) ()
-          """ ] ])
+          """
+        ]
+    ])

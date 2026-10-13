@@ -8,12 +8,18 @@ open Ionide.LanguageServerProtocol.Types
 module private Helpers =
 
   let makeRange startLine startChar endLine endChar : Range =
-    { Start =
-        { Line = uint32 startLine
-          Character = uint32 startChar }
+    {
+      Start =
+        {
+          Line = uint32 startLine
+          Character = uint32 startChar
+        }
       End =
-        { Line = uint32 endLine
-          Character = uint32 endChar } }
+        {
+          Line = uint32 endLine
+          Character = uint32 endChar
+        }
+    }
 
   let makeEntry
     (range: Range)
@@ -32,7 +38,8 @@ module private Helpers =
 let encodeSemanticHighlightRangesTests =
   testList
     "encodeSemanticHighlightRanges"
-    [ testCase "empty input returns None"
+    [
+      testCase "empty input returns None"
       <| fun _ ->
         let result = encodeSemanticHighlightRanges [||]
         Expect.isNone result "Empty input should return None"
@@ -88,8 +95,10 @@ let encodeSemanticHighlightRangesTests =
         let validRange = Helpers.makeRange 5 2 5 8
 
         let entries =
-          [| Helpers.makeEntry multilineRange ClassificationUtils.SemanticTokenTypes.String
-             Helpers.makeEntry validRange ClassificationUtils.SemanticTokenTypes.Variable |]
+          [|
+            Helpers.makeEntry multilineRange ClassificationUtils.SemanticTokenTypes.String
+            Helpers.makeEntry validRange ClassificationUtils.SemanticTokenTypes.Variable
+          |]
 
         match encodeSemanticHighlightRanges entries with
         | None -> failtest "Expected Some but got None"
@@ -115,9 +124,11 @@ let encodeSemanticHighlightRangesTests =
         let rangeC = Helpers.makeRange 3 2 3 7
 
         let entries =
-          [| Helpers.makeEntry rangeA ClassificationUtils.SemanticTokenTypes.Variable
-             Helpers.makeEntry rangeB ClassificationUtils.SemanticTokenTypes.Function
-             Helpers.makeEntry rangeC ClassificationUtils.SemanticTokenTypes.Class |]
+          [|
+            Helpers.makeEntry rangeA ClassificationUtils.SemanticTokenTypes.Variable
+            Helpers.makeEntry rangeB ClassificationUtils.SemanticTokenTypes.Function
+            Helpers.makeEntry rangeC ClassificationUtils.SemanticTokenTypes.Class
+          |]
 
         match encodeSemanticHighlightRanges entries with
         | None -> failtest "Expected Some but got None"
@@ -137,6 +148,7 @@ let encodeSemanticHighlightRangesTests =
           // Token C: new line → lineDelta = 3-1 = 2, charDelta = 2 (absolute), len=5
           Expect.equal data.[10] 2u "Token C lineDelta = 2"
           Expect.equal data.[11] 2u "Token C charDelta = 2 (absolute on new line)"
-          Expect.equal data.[12] 5u "Token C tokenLen = 5" ]
+          Expect.equal data.[12] 5u "Token C tokenLen = 5"
+    ]
 
 let allTests = testList "LspHelpers" [ encodeSemanticHighlightRangesTests ]

@@ -18,7 +18,8 @@ module UtilsTests =
 
         testList
           "isAScript"
-          [ testCase "detects .fsx files as scripts"
+          [
+            testCase "detects .fsx files as scripts"
             <| fun _ -> Expect.isTrue (isAScript "test.fsx") "Should detect .fsx as script"
 
             testCase "detects .fsscript files as scripts"
@@ -34,11 +35,13 @@ module UtilsTests =
             <| fun _ -> Expect.isTrue (isAScript "/path/to/test.fsx") "Should detect .fsx in full path as script"
 
             testCase "handles Windows paths"
-            <| fun _ -> Expect.isTrue (isAScript @"C:\path\to\test.fsx") "Should detect .fsx in Windows path as script" ]
+            <| fun _ -> Expect.isTrue (isAScript @"C:\path\to\test.fsx") "Should detect .fsx in Windows path as script"
+          ]
 
         testList
           "isSignatureFile"
-          [ testCase "detects .fsi files"
+          [
+            testCase "detects .fsi files"
             <| fun _ -> Expect.isTrue (isSignatureFile "test.fsi") "Should detect .fsi files"
 
             testCase "does not detect .fs files"
@@ -48,11 +51,13 @@ module UtilsTests =
             <| fun _ -> Expect.isFalse (isSignatureFile "test.fsx") "Should not detect .fsx files"
 
             testCase "handles full paths"
-            <| fun _ -> Expect.isTrue (isSignatureFile "/path/to/test.fsi") "Should detect .fsi in full path" ]
+            <| fun _ -> Expect.isTrue (isSignatureFile "/path/to/test.fsi") "Should detect .fsi in full path"
+          ]
 
         testList
           "isFsharpFile"
-          [ testCase "detects .fs files"
+          [
+            testCase "detects .fs files"
             <| fun _ -> Expect.isTrue (isFsharpFile "test.fs") "Should detect .fs files"
 
             testCase "does not detect .fsi files"
@@ -62,11 +67,13 @@ module UtilsTests =
             <| fun _ -> Expect.isFalse (isFsharpFile "test.fsx") "Should not detect .fsx files"
 
             testCase "handles full paths"
-            <| fun _ -> Expect.isTrue (isFsharpFile "/path/to/test.fs") "Should detect .fs in full path" ]
+            <| fun _ -> Expect.isTrue (isFsharpFile "/path/to/test.fs") "Should detect .fs in full path"
+          ]
 
         testList
           "isFileWithFSharp"
-          [ testCase "detects all F# file types"
+          [
+            testCase "detects all F# file types"
             <| fun _ ->
               Expect.isTrue (isFileWithFSharp "test.fs") "Should detect .fs files"
               Expect.isTrue (isFileWithFSharp "test.fsi") "Should detect .fsi files"
@@ -78,7 +85,9 @@ module UtilsTests =
             <| fun _ ->
               Expect.isFalse (isFileWithFSharp "test.cs") "Should not detect .cs files"
               Expect.isFalse (isFileWithFSharp "test.txt") "Should not detect .txt files"
-              Expect.isFalse (isFileWithFSharp "test") "Should not detect files without extension" ] ]
+              Expect.isFalse (isFileWithFSharp "test") "Should not detect files without extension"
+          ]
+      ]
 
   /// Tests for path manipulation functions
   let pathTests =
@@ -88,7 +97,8 @@ module UtilsTests =
 
         testList
           "combinePaths"
-          [ testCase "combines simple paths"
+          [
+            testCase "combines simple paths"
             <| fun _ ->
               let result = combinePaths "base" "file.fs"
               let expected = Path.Combine("base", "file.fs")
@@ -110,11 +120,13 @@ module UtilsTests =
             <| fun _ ->
               let result = combinePaths "base" "\\/file.fs"
               let expected = Path.Combine("base", "file.fs")
-              Expect.equal result expected "Should trim multiple leading separators" ]
+              Expect.equal result expected "Should trim multiple leading separators"
+          ]
 
         testList
           "path operator </>"
-          [ testCase "works like combinePaths"
+          [
+            testCase "works like combinePaths"
             <| fun _ ->
               let result = "base" </> "file.fs"
               let expected = combinePaths "base" "file.fs"
@@ -124,16 +136,20 @@ module UtilsTests =
             <| fun _ ->
               let result = "/usr/local" </> "/bin/tool"
               let expected = Path.Combine("/usr/local", "bin/tool")
-              Expect.equal result expected "Should handle complex paths" ]
+              Expect.equal result expected "Should handle complex paths"
+          ]
 
         testList
           "normalizePath"
-          [ testCase "resolves ordinary Untitled-prefixed files from the current directory"
+          [
+            testCase "resolves ordinary Untitled-prefixed files from the current directory"
             <| fun _ ->
               for relativePath in [ "Untitled-notes.fsx"; "Untitled-7.fs"; "Untitled-7.fsx" ] do
                 let expected = relativePath |> Path.GetFullPath |> normalizePath
                 let actual = normalizePath relativePath
-                Expect.equal actual expected $"Should resolve {relativePath} from the current directory" ] ]
+                Expect.equal actual expected $"Should resolve {relativePath} from the current directory"
+          ]
+      ]
 
   /// Tests for string manipulation functions
   let stringTests =
@@ -143,7 +159,8 @@ module UtilsTests =
 
         testList
           "chooseByPrefix"
-          [ testCase "returns suffix when prefix matches"
+          [
+            testCase "returns suffix when prefix matches"
             <| fun _ ->
               let result = chooseByPrefix "test" "testSuffix"
               Expect.equal result (Some "Suffix") "Should return suffix when prefix matches"
@@ -166,11 +183,13 @@ module UtilsTests =
             testCase "case sensitive matching"
             <| fun _ ->
               let result = chooseByPrefix "Test" "testSuffix"
-              Expect.equal result None "Should be case sensitive" ]
+              Expect.equal result None "Should be case sensitive"
+          ]
 
         testList
           "chooseByPrefix2"
-          [ testCase "finds first matching prefix"
+          [
+            testCase "finds first matching prefix"
             <| fun _ ->
               let prefixes = [ "abc"; "def"; "ghi" ]
               let result = chooseByPrefix2 prefixes "defSuffix"
@@ -186,11 +205,13 @@ module UtilsTests =
             <| fun _ ->
               let prefixes = [ "a"; "ab"; "abc" ]
               let result = chooseByPrefix2 prefixes "abcdefg"
-              Expect.equal result (Some "bcdefg") "Should return first match" ]
+              Expect.equal result (Some "bcdefg") "Should return first match"
+          ]
 
         testList
           "splitByPrefix"
-          [ testCase "splits when prefix matches"
+          [
+            testCase "splits when prefix matches"
             <| fun _ ->
               let result = splitByPrefix "test" "testSuffix"
               Expect.equal result (Some("test", "Suffix")) "Should split when prefix matches"
@@ -208,11 +229,13 @@ module UtilsTests =
             testCase "case sensitive matching"
             <| fun _ ->
               let result = splitByPrefix "Test" "testSuffix"
-              Expect.equal result None "Should be case sensitive" ]
+              Expect.equal result None "Should be case sensitive"
+          ]
 
         testList
           "splitByPrefix2"
-          [ testCase "finds first matching prefix"
+          [
+            testCase "finds first matching prefix"
             <| fun _ ->
               let prefixes = [ "abc"; "def"; "ghi" ]
               let result = splitByPrefix2 prefixes "defSuffix"
@@ -222,11 +245,13 @@ module UtilsTests =
             <| fun _ ->
               let prefixes = [ "abc"; "def"; "ghi" ]
               let result = splitByPrefix2 prefixes "xyzSuffix"
-              Expect.equal result None "Should return None when no prefix matches" ]
+              Expect.equal result None "Should return None when no prefix matches"
+          ]
 
         testList
           "containsIdentifier"
-          [ testCase "finds a whole identifier"
+          [
+            testCase "finds a whole identifier"
             <| fun _ -> Expect.isTrue (String.containsIdentifier "let e = Expr.Foo" "Expr") "Should find Expr"
 
             testCase "does not find a part of a longer identifier"
@@ -250,7 +275,9 @@ module UtilsTests =
             <| fun _ -> Expect.isTrue (String.containsIdentifier "let x = 1" "") "Should be true for an empty name"
 
             testCase "does not find a missing name"
-            <| fun _ -> Expect.isFalse (String.containsIdentifier "let x = 1" "y") "Should not find y" ] ]
+            <| fun _ -> Expect.isFalse (String.containsIdentifier "let x = 1" "y") "Should not find y"
+          ]
+      ]
 
   /// Tests for Map module extensions
   let mapTests =
@@ -260,7 +287,8 @@ module UtilsTests =
 
         testList
           "Map.merge"
-          [ testCase "merges two empty maps"
+          [
+            testCase "merges two empty maps"
             <| fun _ ->
               let result = Map.merge Map.empty Map.empty
               Expect.equal result Map.empty "Should merge empty maps to empty map"
@@ -285,11 +313,13 @@ module UtilsTests =
               let second = Map.ofList [ ("b", 3); ("c", 4) ]
               let result = Map.merge first second
               let expected = Map.ofList [ ("a", 1); ("b", 3); ("c", 4) ]
-              Expect.equal result expected "Second map values should override" ]
+              Expect.equal result expected "Second map values should override"
+          ]
 
         testList
           "Map.combineTakeFirst"
-          [ testCase "takes first value for duplicate keys"
+          [
+            testCase "takes first value for duplicate keys"
             <| fun _ ->
               let first = Map.ofList [ ("a", 1); ("b", 2) ]
               let second = Map.ofList [ ("b", 3); ("c", 4) ]
@@ -303,11 +333,13 @@ module UtilsTests =
               let second = Map.ofList [ ("c", 3); ("d", 4) ]
               let result = Map.combineTakeFirst first second
               let expected = Map.ofList [ ("a", 1); ("b", 2); ("c", 3); ("d", 4) ]
-              Expect.equal result expected "Should combine when no duplicates" ]
+              Expect.equal result expected "Should combine when no duplicates"
+          ]
 
         testList
           "Map.values"
-          [ testCase "extracts all values from map"
+          [
+            testCase "extracts all values from map"
             <| fun _ ->
               let map = Map.ofList [ ("a", 1); ("b", 2); ("c", 3) ]
               let result = Map.values map |> Seq.sort |> Seq.toList
@@ -317,7 +349,9 @@ module UtilsTests =
             testCase "returns empty sequence for empty map"
             <| fun _ ->
               let result = Map.values Map.empty |> Seq.toList
-              Expect.equal result [] "Should return empty sequence for empty map" ] ]
+              Expect.equal result [] "Should return empty sequence for empty map"
+          ]
+      ]
 
   /// Tests for active patterns
   let patternTests =
@@ -327,7 +361,8 @@ module UtilsTests =
 
         testList
           "StartsWith pattern"
-          [ testCase "matches when string starts with pattern"
+          [
+            testCase "matches when string starts with pattern"
             <| fun _ ->
               match "testString" with
               | StartsWith "test" s -> Expect.equal s "testString" "Should match and return full string"
@@ -349,11 +384,13 @@ module UtilsTests =
             <| fun _ ->
               match "anyString" with
               | StartsWith "" s -> Expect.equal s "anyString" "Should match with empty pattern"
-              | _ -> failtest "Should have matched" ]
+              | _ -> failtest "Should have matched"
+          ]
 
         testList
           "Contains pattern"
-          [ testCase "matches when string contains pattern"
+          [
+            testCase "matches when string contains pattern"
             <| fun _ ->
               match "testStringValue" with
               | Contains "String" s -> Expect.equal s "testStringValue" "Should match and return full string"
@@ -369,7 +406,9 @@ module UtilsTests =
             <| fun _ ->
               match null with
               | Contains "test" _ -> failtest "Should not match null"
-              | _ -> () ] ] // expected
+              | _ -> ()
+          ]
+      ] // expected
 
   let allTests =
     testList "FsAutoComplete.Utils Tests" [ fileTypeTests; pathTests; stringTests; mapTests; patternTests ]
@@ -388,7 +427,10 @@ module FcsInvariantTests =
       let fileName = "test.fsx"
       let checker = FSharpChecker.Create()
       let sourceText = SourceText.ofString source
-      let! projOptions, _ = checker.GetProjectOptionsFromScript(fileName, sourceText, assumeDotNetFramework = false)
+
+      let! projOptions, _ =
+        checker.GetProjectOptionsFromScript(fileName, sourceText, assumeDotNetFramework = false)
+
       let parsingOptions, _ = checker.GetParsingOptionsFromProjectOptions(projOptions)
       let! parseResults = checker.ParseFile(fileName, sourceText, parsingOptions)
       return parseResults.ParseTree
@@ -405,7 +447,8 @@ module FcsInvariantTests =
   let tests =
     testList
       "FCS invariants"
-      [ testList
+      [
+        testList
           "SynType.WithNull fullRange ends with 'null'"
           [ // NullableTypes.collectNullKeywordRanges derives each range as the last 4 characters
             // of the SynType.WithNull fullRange, relying on FCS placing the 'null' keyword exactly
@@ -480,4 +523,6 @@ module FcsInvariantTests =
                   text
                   "null"
                   $"SynType.WithNull fullRange must end with 'null' in return-type annotation. Got '{text}'."
-            } ] ]
+            }
+          ]
+      ]

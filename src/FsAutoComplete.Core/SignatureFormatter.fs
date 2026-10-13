@@ -34,9 +34,11 @@ module SignatureFormatter =
 
   let private measureTypeNames =
     Set.ofList
-      [ "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+      [
+        "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
         "Microsoft.FSharp.Core.CompilerServices.MeasureInverse`1"
-        "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" ]
+        "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2"
+      ]
 
   let private isMeasureType (t: FSharpEntity) = Set.contains t.FullName measureTypeNames
 
@@ -781,14 +783,16 @@ module SignatureFormatter =
 
 
       let res =
-        [ yield constructors
+        [
+          yield constructors
           if not fse.IsFSharpModule then
             yield! fields
 
             if Seq.length fields > 0 then
               yield nl
 
-            yield! funcs ]
+            yield! funcs
+        ]
         |> Seq.distinct
         |> String.concat $"{nl}  "
 

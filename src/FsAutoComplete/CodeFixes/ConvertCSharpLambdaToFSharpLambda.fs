@@ -41,8 +41,10 @@ let private tryRangeOfParenEnclosingOpEqualsGreaterUsage input pos =
 let fix (getParseResultsForFile: GetParseResultsForFile) (_: GetLineText) : CodeFix =
   Run.ifDiagnosticByCode
     (Set.ofList
-      [ "39" // undefined value
-        "43" ]) // operator not defined
+      [
+        "39" // undefined value
+        "43"
+      ]) // operator not defined
     (fun diagnostic codeActionParams ->
       asyncResult {
         let fileName = codeActionParams.TextDocument.GetFilePath() |> Utils.normalizePath
@@ -53,19 +55,30 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (_: GetLineText) : Code
         match tryRangeOfParenEnclosingOpEqualsGreaterUsage tyRes.GetAST fcsPos with
         | Some(argsRange, opRange) ->
           return
-            [ { Title = title
+            [
+              {
+                Title = title
                 File = codeActionParams.TextDocument
                 SourceDiagnostic = Some diagnostic
                 Edits =
                   [|
-                     // add `fun ` in front of args
-                     { Range =
-                         { Start = fcsPosToLsp argsRange.Start
-                           End = fcsPosToLsp argsRange.Start }
-                       NewText = "fun " }
-                     // replace `=>` with `->`
-                     { Range = fcsRangeToLsp opRange
-                       NewText = "->" } |]
-                Kind = FixKind.Refactor } ]
+                    // add `fun ` in front of args
+                    {
+                      Range =
+                        {
+                          Start = fcsPosToLsp argsRange.Start
+                          End = fcsPosToLsp argsRange.Start
+                        }
+                      NewText = "fun "
+                    }
+                    // replace `=>` with `->`
+                    {
+                      Range = fcsRangeToLsp opRange
+                      NewText = "->"
+                    }
+                  |]
+                Kind = FixKind.Refactor
+              }
+            ]
         | None -> return []
       })

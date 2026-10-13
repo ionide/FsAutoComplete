@@ -45,11 +45,13 @@ module Types =
     | Rewrite
 
   type Fix =
-    { Edits: TextEdit[]
+    {
+      Edits: TextEdit[]
       File: TextDocumentIdentifier
       Title: string
       SourceDiagnostic: Diagnostic option
-      Kind: FixKind }
+      Kind: FixKind
+    }
 
   type CodeFix = CodeActionParams -> Async<Result<Fix list, string>>
 
@@ -82,14 +84,19 @@ module Types =
       : CodeAction =
 
       let edit =
-        { TextDocument =
-            { Uri = fileUri.Uri
-              Version = fileVersion }
-          Edits = edits |> Array.map U2.C1 }
+        {
+          TextDocument =
+            {
+              Uri = fileUri.Uri
+              Version = fileVersion
+            }
+          Edits = edits |> Array.map U2.C1
+        }
 
       let workspaceEdit = WorkspaceEdit.Create([| edit |], clientCapabilities)
 
-      { CodeAction.Title = title
+      {
+        CodeAction.Title = title
         Kind =
           Some(
             match fixKind with
@@ -102,7 +109,8 @@ module Types =
         Disabled = None
         Edit = Some workspaceEdit
         Command = None
-        Data = None }
+        Data = None
+      }
 
 module SourceText =
   let inline private assertLineIndex lineIndex (sourceText: ISourceText) =
@@ -260,8 +268,10 @@ module Navigation =
     else
       let prevLine = currentLine - 1u
 
-      { Line = uint32 prevLine
-        Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine }
+      {
+        Line = uint32 prevLine
+        Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition prevLine
+      }
       |> Some
 
   /// Tries to detect the first cursor position in line after `currentLine` (0-based).
@@ -273,8 +283,10 @@ module Navigation =
     else
       let nextLine = currentLine + 1u
 
-      { Line = uint32 nextLine
-        Character = 0u }
+      {
+        Line = uint32 nextLine
+        Character = 0u
+      }
       |> Some
 
   /// Gets the range to delete the complete line `lineIndex` (0-based).
@@ -288,23 +300,33 @@ module Navigation =
     match tryEndOfPrevLine lines lineIndex with
     | Some start ->
       // delete leading linebreak
-      { Start = start
+      {
+        Start = start
         End =
-          { Line = lineIndex
-            Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+          {
+            Line = lineIndex
+            Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex
+          }
+      }
     | None ->
       match tryStartOfNextLine lines lineIndex with
       | Some fin ->
         // delete trailing linebreak
-        { Start = { Line = lineIndex; Character = 0u }
-          End = fin }
+        {
+          Start = { Line = lineIndex; Character = 0u }
+          End = fin
+        }
       | None ->
         // single line
         // -> just delete all text in line
-        { Start = { Line = lineIndex; Character = 0u }
+        {
+          Start = { Line = lineIndex; Character = 0u }
           End =
-            { Line = lineIndex
-              Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex } }
+            {
+              Line = lineIndex
+              Character = lines |> SourceText.WithEmptyHandling.afterLastCharacterPosition lineIndex
+            }
+        }
 
 
 

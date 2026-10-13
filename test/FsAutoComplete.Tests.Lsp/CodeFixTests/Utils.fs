@@ -16,8 +16,7 @@ module Diagnostics =
 
     Expecto.Flip.Expect.exists
       $"There should be a Diagnostic with code %s{code} but were: {diagMsgs} "
-      (fun (d: Diagnostic) ->
-        d.CodeAsString = Some code)
+      (fun (d: Diagnostic) -> d.CodeAsString = Some code)
       diags
 
   let acceptAll = ignore

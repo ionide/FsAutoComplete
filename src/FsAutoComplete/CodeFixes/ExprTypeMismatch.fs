@@ -20,7 +20,8 @@ let findReturnType (cursor: pos) (tree: ParsedInput) =
             Range.rangeContainsPos bodyExpr.Range cursor
             ->
             Some t.Range
-          | _ -> None }
+          | _ -> None
+    }
 
   SyntaxTraversal.Traverse(cursor, tree, visitor)
 
@@ -34,7 +35,8 @@ let needParenthesisWhenWrappedInSome (diagnosticRange: range) (tree: ParsedInput
             match synExpr with
             | SynExpr.Const _
             | SynExpr.Ident _ -> Some false
-            | e -> defaultTraverse e }
+            | e -> defaultTraverse e
+    }
 
   SyntaxTraversal.Traverse(diagnosticRange.Start, tree, visitor)
   |> Option.defaultValue true
@@ -66,13 +68,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             let currentType = sourceText.GetSubTextFromRange mReturnType
             let actualType = extendedData.ActualType.Format(extendedData.DisplayContext)
 
-            { SourceDiagnostic = None
+            {
+              SourceDiagnostic = None
               Title = $"Update %s{currentType} to %s{actualType}"
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = fcsRangeToLsp mReturnType
-                     NewText = actualType } |]
-              Kind = FixKind.Fix })
+                [|
+                  {
+                    Range = fcsRangeToLsp mReturnType
+                    NewText = actualType
+                  }
+                |]
+              Kind = FixKind.Fix
+            })
           |> Option.toList
 
         let optionFixes =
@@ -96,20 +104,34 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             let space, openP, closeP =
               if not needsParenthesis then " ", "", "" else "", "(", ")"
 
-            [ { SourceDiagnostic = None
+            [
+              {
+                SourceDiagnostic = None
                 Title = $"Wrap expression in %s{wrapIn}"
                 File = codeActionParams.TextDocument
                 Edits =
-                  [| { Range = fcsRangeToLsp diagnostic.Range
-                       NewText = $"%s{wrapIn}%s{space}%s{openP}%s{currentExpr}%s{closeP}" } |]
-                Kind = FixKind.Fix }
-              { SourceDiagnostic = None
+                  [|
+                    {
+                      Range = fcsRangeToLsp diagnostic.Range
+                      NewText = $"%s{wrapIn}%s{space}%s{openP}%s{currentExpr}%s{closeP}"
+                    }
+                  |]
+                Kind = FixKind.Fix
+              }
+              {
+                SourceDiagnostic = None
                 Title = $"Replace expression with %s{replaceWithNone}"
                 File = codeActionParams.TextDocument
                 Edits =
-                  [| { Range = fcsRangeToLsp diagnostic.Range
-                       NewText = replaceWithNone } |]
-                Kind = FixKind.Fix } ]
+                  [|
+                    {
+                      Range = fcsRangeToLsp diagnostic.Range
+                      NewText = replaceWithNone
+                    }
+                  |]
+                Kind = FixKind.Fix
+              }
+            ]
           else
             []
 

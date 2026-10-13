@@ -109,7 +109,8 @@ module private JsonSerializerConverters =
           member x.ReadJson(_reader, _t, _, _serializer) = raise (System.NotSupportedException())
 
           member x.CanRead = false
-          member x.CanWrite = true }
+          member x.CanWrite = true
+      }
 
     let sameDU =
       let cache = System.Collections.Concurrent.ConcurrentDictionary<_, bool>()
@@ -119,12 +120,14 @@ module private JsonSerializerConverters =
 
         cache.GetOrAdd(key, (fun _ -> Microsoft.FSharp.Reflection.FSharpType.IsUnion y && y.BaseType = x))
 
-    [| writeOnlyConverter fsharpErrorSeverityWriter (=)
-       writeOnlyConverter rangeWriter (=)
-       OptionConverter() :> JsonConverter
-       writeOnlyConverter workspacePeekFoundWriter sameDU
-       writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
-       writeOnlyConverter projectOutputTypeWriter sameDU |]
+    [|
+      writeOnlyConverter fsharpErrorSeverityWriter (=)
+      writeOnlyConverter rangeWriter (=)
+      OptionConverter() :> JsonConverter
+      writeOnlyConverter workspacePeekFoundWriter sameDU
+      writeOnlyConverter workspacePeekFoundSolutionItemKindWriter sameDU
+      writeOnlyConverter projectOutputTypeWriter sameDU
+    |]
 
 module JsonSerializer =
 

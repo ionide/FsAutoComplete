@@ -14,15 +14,23 @@ open FsAutoComplete.LspHelpers
 
 
 let documentChanges path version range text : DidChangeTextDocumentParams =
-  { TextDocument =
-      { Uri = Path.FilePathToUri path
-        Version = version }
+  {
+    TextDocument =
+      {
+        Uri = Path.FilePathToUri path
+        Version = version
+      }
 
     ContentChanges =
-      [| U2.C1
-         <| { Range = range
-              RangeLength = Some 0u
-              Text = text } |] }
+      [|
+        U2.C1
+        <| {
+             Range = range
+             RangeLength = Some 0u
+             Text = text
+           }
+      |]
+  }
 
 type CompletionKind =
   | Nada
@@ -31,7 +39,8 @@ type CompletionKind =
   | Incomplete
 
 let completion doc pos trigger : CompletionParams =
-  { TextDocument = { Uri = Path.FilePathToUri doc }
+  {
+    TextDocument = { Uri = Path.FilePathToUri doc }
     WorkDoneToken = None
     PartialResultToken = None
     Position = pos
@@ -40,16 +49,23 @@ let completion doc pos trigger : CompletionParams =
       | Nada -> None
       | Invoked ->
         Some
-          { TriggerKind = CompletionTriggerKind.Invoked
-            TriggerCharacter = None }
+          {
+            TriggerKind = CompletionTriggerKind.Invoked
+            TriggerCharacter = None
+          }
       | Char c ->
         Some
-          { TriggerKind = CompletionTriggerKind.TriggerCharacter
-            TriggerCharacter = Some(string c) }
+          {
+            TriggerKind = CompletionTriggerKind.TriggerCharacter
+            TriggerCharacter = Some(string c)
+          }
       | Incomplete ->
         Some
-          { TriggerKind = CompletionTriggerKind.TriggerForIncompleteCompletions
-            TriggerCharacter = None } }
+          {
+            TriggerKind = CompletionTriggerKind.TriggerForIncompleteCompletions
+            TriggerCharacter = None
+          }
+  }
 
 let pos l c = { Line = l; Character = c }
 
@@ -76,7 +92,8 @@ let tests state =
   testSequenced
   <| testList
     "Completion Tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "simple module member completion on dot"
         (async {
           let! server, path = server
@@ -512,8 +529,12 @@ let tests state =
 
           match response with
           | Ok(Some(CompletionItems completions)) ->
-            Expect.isGreaterThan completions.Length 0 "should have completions when triggered by { inside interpolated string"
-          | Ok None -> failtest "Should have gotten some completion items when { triggers completion inside interpolated string"
+            Expect.isGreaterThan
+              completions.Length
+              0
+              "should have completions when triggered by { inside interpolated string"
+          | Ok None ->
+            failtest "Should have gotten some completion items when { triggers completion inside interpolated string"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
         })
 
@@ -535,7 +556,8 @@ let tests state =
 
           | Ok None -> failtest "Should have gotten some completion items"
           | Error e -> failtestf "Got an error while retrieving completions: %A" e
-        }) ]
+        })
+    ]
 
 ///Tests for getting autocomplete
 let autocompleteTest state =
@@ -566,7 +588,8 @@ let autocompleteTest state =
     |> Async.Cache
 
   let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Get Autocomplete module members"
         (async {
           let! server, path = serverConfig
@@ -672,13 +695,16 @@ let autocompleteTest state =
           | Result.Ok(Some(CompletionItems res)) ->
             Expect.exists res (fun n -> n.Label = "Bar") "Autocomplete contains given symbol"
             Expect.exists res (fun n -> n.Label = "Baz") "Autocomplete contains given symbol"
-        }) ]
+        })
+    ]
 
   testSequenced
   <| testList
     "Autocomplete Tests"
-    [ testList "Autocomplete within project files" (makeAutocompleteTestList server)
-      testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer) ]
+    [
+      testList "Autocomplete within project files" (makeAutocompleteTestList server)
+      testList "Autocomplete within script files" (makeAutocompleteTestList scriptServer)
+    ]
 
 let autoOpenTests state =
   let dirPath =
@@ -689,14 +715,17 @@ let autoOpenTests state =
     let config =
       { defaultConfigDto with
           ExternalAutocomplete = Some true
-          ResolveNamespaces = Some true }
+          ResolveNamespaces = Some true
+      }
 
     Server.create (Some dirPath) config state
 
 
   let serverFor (scriptPath: string) scriptText =
     async {
-      let! _document, _diagnostics = Server.openDocumentWithText scriptPath (String.join "\n" scriptText) autoOpenServer
+      let! _document, _diagnostics =
+        Server.openDocumentWithText scriptPath (String.join "\n" scriptText) autoOpenServer
+
       let _scriptName = Path.GetFileName scriptPath
       return (autoOpenServer, scriptPath)
     }
@@ -707,30 +736,40 @@ let autoOpenTests state =
 
     let indentation = pos.Character + uint32 (text.Length - text.TrimStart().Length)
 
-    { Line = pos.Line
-      Character = indentation }
+    {
+      Line = pos.Line
+      Character = indentation
+    }
 
   let getQuickFix (server: IFSharpLspServer, path: string) (word: string, _ns: string) (cursor: Position) =
     async {
       let p =
-        { CodeActionParams.TextDocument = { Uri = Path.FilePathToUri path }
+        {
+          CodeActionParams.TextDocument = { Uri = Path.FilePathToUri path }
           WorkDoneToken = None
           PartialResultToken = None
           Range = { Start = cursor; End = cursor }
           Context =
-            { Diagnostics =
-                [| { Range = { Start = cursor; End = cursor }
-                     Severity = Some DiagnosticSeverity.Error
-                     // Message required for QuickFix to fire ("is not defined")
-                     Message = $"The value or constructor '{word}' is not defined."
-                     Code = Some(U2.C1 39)
-                     Source = Some "F# Compiler"
-                     RelatedInformation = None
-                     Tags = None
-                     Data = None
-                     CodeDescription = None } |]
+            {
+              Diagnostics =
+                [|
+                  {
+                    Range = { Start = cursor; End = cursor }
+                    Severity = Some DiagnosticSeverity.Error
+                    // Message required for QuickFix to fire ("is not defined")
+                    Message = $"The value or constructor '{word}' is not defined."
+                    Code = Some(U2.C1 39)
+                    Source = Some "F# Compiler"
+                    RelatedInformation = None
+                    Tags = None
+                    Data = None
+                    CodeDescription = None
+                  }
+                |]
               Only = None
-              TriggerKind = None } }
+              TriggerKind = None
+            }
+        }
 
       let (|ContainsOpenAction|_|) (codeActions: CodeAction[]) =
         codeActions
@@ -740,7 +779,11 @@ let autoOpenTests state =
 
       let (|SingleEdit|_|) (action: CodeAction) =
         match action with
-        | { Edit = Some { DocumentChanges = Some [| U4.C1 { Edits = [| U2.C1 edit |] } |] } } -> Some edit
+        | {
+            Edit = Some {
+                          DocumentChanges = Some [| U4.C1 { Edits = [| U2.C1 edit |] } |]
+                        }
+          } -> Some edit
         | _ -> None
 
       match! server.TextDocumentCodeAction p with
@@ -893,26 +936,30 @@ let autoOpenTests state =
   let testScript name scriptName =
     testList
       name
-      [ let scriptPath = Path.Combine(dirPath, scriptName)
+      [
+        let scriptPath = Path.Combine(dirPath, scriptName)
         let testPositions, cleanScript = readData scriptPath
         let server = serverFor scriptPath cleanScript
 
         yield!
           testPositions
           |> Seq.map (fun (cursor, expectedOpen) ->
-            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen false) ]
+            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen false)
+      ]
 
   let _ptestScript name scriptName =
     testList
       name
-      [ let scriptPath = Path.Combine(dirPath, scriptName)
+      [
+        let scriptPath = Path.Combine(dirPath, scriptName)
         let testPositions, cleanScript = readData scriptPath
         let server = serverFor scriptPath cleanScript
 
         yield!
           testPositions
           |> Seq.map (fun (cursor, expectedOpen) ->
-            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen true) ]
+            test false None server ("Regex", "System.Text.RegularExpressions") cursor expectedOpen true)
+      ]
 
   testList
     "Completion.AutoOpen"
@@ -933,7 +980,8 @@ let autoOpenTests state =
       testScript
         "with implicit top level module with open and new lines"
         "ImplicitTopLevelModuleWithOpenAndNewLines.fsx"
-      testScript "with root module with comments and new line before open" "ModuleDocsAndNewLineBeforeOpen.fsx" ]
+      testScript "with root module with comments and new line before open" "ModuleDocsAndNewLineBeforeOpen.fsx"
+    ]
 
 let fullNameExternalAutocompleteTest state =
   let server =
@@ -941,7 +989,8 @@ let fullNameExternalAutocompleteTest state =
       let config =
         { defaultConfigDto with
             ExternalAutocomplete = Some true
-            FullNameExternalAutocomplete = Some true }
+            FullNameExternalAutocomplete = Some true
+        }
 
       let path =
         Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
@@ -962,7 +1011,8 @@ let fullNameExternalAutocompleteTest state =
       let config =
         { defaultConfigDto with
             ExternalAutocomplete = Some true
-            FullNameExternalAutocomplete = Some true }
+            FullNameExternalAutocomplete = Some true
+        }
 
       let path =
         Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FullNameExternalAutocompleteTest")
@@ -992,7 +1042,8 @@ let fullNameExternalAutocompleteTest state =
       })
 
   let makeAutocompleteTestList (serverConfig: (IFSharpLspServer * string) Async) =
-    [ makeAutocompleteTest
+    [
+      makeAutocompleteTest
         serverConfig
         "Autocomplete for Array.map contains no backticks"
         (0u, 8u)
@@ -1060,10 +1111,13 @@ let fullNameExternalAutocompleteTest state =
       makeAutocompleteTest serverConfig "Autocomplete for Result is just Result" (5u, 6u) (fun (CompletionItems res) ->
         let n = res |> Array.tryFind (fun i -> i.Label = "Result")
         Expect.isSome n "Completion doesn't exist"
-        Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol") ]
+        Expect.equal n.Value.InsertText (Some "Result") "Autocomplete contains given symbol")
+    ]
 
   testSequenced
   <| testList
     "fullNameExternalAutocompleteTest Tests"
-    [ testList "fullNameExternalAutocompleteTest within project files" (makeAutocompleteTestList server)
-      testList "fullNameExternalAutocompleteTest within script files" (makeAutocompleteTestList scriptServer) ]
+    [
+      testList "fullNameExternalAutocompleteTest within project files" (makeAutocompleteTestList server)
+      testList "fullNameExternalAutocompleteTest within script files" (makeAutocompleteTestList scriptServer)
+    ]

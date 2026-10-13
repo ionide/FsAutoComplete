@@ -368,10 +368,12 @@ module CodeGenerationUtils =
         | _, _, _, name -> name + parArgs
 
       let modifiers =
-        [ if v.InlineAnnotation = FSharpInlineAnnotation.AlwaysInline then
+        [
+          if v.InlineAnnotation = FSharpInlineAnnotation.AlwaysInline then
             yield "inline"
           if v.Accessibility.IsInternal then
-            yield "internal" ]
+            yield "internal"
+        ]
 
       let argInfos, retType = getArgTypes ctx v
       let usage = buildUsage argInfos
@@ -723,13 +725,15 @@ module CodeGenerationUtils =
         insts
 
     let ctx =
-      { Writer = writer
+      {
+        Writer = writer
         TypeInstantiations = instantiations
         ArgInstantiations = Seq.empty
         Indentation = indentation
         ObjectIdent = objectIdent
         MethodBody = lines
-        DisplayContext = displayContext }
+        DisplayContext = displayContext
+      }
 
     let missingMembers =
       getMembersToImplement e

@@ -142,7 +142,9 @@ module Snapshots =
 
       let getSource () =
         task {
-          let! sourceText = SourceTextFactory.readFile sourceFilePath sourceTextFactory CancellationToken.None
+          let! sourceText =
+            SourceTextFactory.readFile sourceFilePath sourceTextFactory CancellationToken.None
+
           return sourceText :> ISourceTextNew
         }
 
@@ -163,8 +165,10 @@ module Snapshots =
       let! lastModified = AdaptiveFile.getLastWriteTimeUtcEnsureDir path
 
       return
-        { LastModified = lastModified
-          Path = path }
+        {
+          LastModified = lastModified
+          Path = path
+        }
     }
 
   let private createReferencedProjectsFSharpReference projectOutputFile (snapshot: aval<FSharpProjectSnapshot>) =

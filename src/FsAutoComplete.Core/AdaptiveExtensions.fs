@@ -152,7 +152,8 @@ module AVal =
 
           lastDeps <- newDeps
 
-          result }
+          result
+    }
     :> aval<_>
 
   /// <summary>
@@ -564,7 +565,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
 
@@ -586,7 +588,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
@@ -606,7 +609,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   /// <summary>
@@ -641,7 +645,8 @@ module AsyncAVal =
                   cts.TryDispose()
               }
 
-            AdaptiveCancellableTask(cancel, real) }
+            AdaptiveCancellableTask(cancel, real)
+      }
       :> asyncaval<_>
 
 
@@ -676,7 +681,8 @@ module AsyncAVal =
             cache <- Some ref
             ref.New()
           else
-            cache.Value.New() }
+            cache.Value.New()
+    }
     :> asyncaval<_>
 
 
@@ -730,7 +736,8 @@ module AsyncAVal =
             cache <- Some ref
             ref.New()
           else
-            cache.Value.New() }
+            cache.Value.New()
+    }
     :> asyncaval<_>
 
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
@@ -806,7 +813,8 @@ module AsyncAVal =
 
             ref.New()
           else
-            innerCache.Value.New() }
+            innerCache.Value.New()
+    }
     :>
 
     asyncaval<_>

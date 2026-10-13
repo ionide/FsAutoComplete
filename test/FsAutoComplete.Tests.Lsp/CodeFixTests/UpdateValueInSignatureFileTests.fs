@@ -13,7 +13,8 @@ let path =
 
 let tests state =
   serverTestList (nameof UpdateValueInSignatureFile) state defaultConfigDto (Some path) (fun server ->
-    [ let selectCodeFix = CodeFix.withTitle UpdateValueInSignatureFile.title
+    [
+      let selectCodeFix = CodeFix.withTitle UpdateValueInSignatureFile.title
 
       testCaseAsync "first unit test for UpdateValueInSignatureFile"
       <| checkCodeFixInImplementationAndVerifySignature
@@ -34,4 +35,5 @@ let a$0 (b:int) (c: string) = 0
 module A
 
 val a: b: int -> c: string -> int
-""" ])
+"""
+    ])

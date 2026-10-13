@@ -70,10 +70,12 @@ module private ConvertIntToOtherBase =
     let (cursor, source) = Cursor.assertExtractRange beforeWithCursor
 
     documentTestList name server (Server.createUntitledDocument source) (fun doc ->
-      [ checkBase doc (source, cursor) Base.Decimal expectedDecimal
+      [
+        checkBase doc (source, cursor) Base.Decimal expectedDecimal
         checkBase doc (source, cursor) Base.Hexadecimal expectedHexadecimal
         checkBase doc (source, cursor) Base.Octal expectedOctal
-        checkBase doc (source, cursor) Base.Binary expectedBinary ])
+        checkBase doc (source, cursor) Base.Binary expectedBinary
+      ])
 
   /// Checks all combinations of base': Can convert from any base to all others but not to self
   ///
@@ -95,11 +97,14 @@ module private ConvertIntToOtherBase =
 
     testList
       name
-      [ let data =
-          [ (Base.Decimal, decimalNumber)
+      [
+        let data =
+          [
+            (Base.Decimal, decimalNumber)
             (Base.Hexadecimal, hexadecimalNumber)
             (Base.Octal, octalNumber)
-            (Base.Binary, binaryNumber) ]
+            (Base.Binary, binaryNumber)
+          ]
 
         let valueOf (base') = data |> List.find (fun (b, _) -> b = base') |> snd
 
@@ -120,7 +125,8 @@ module private ConvertIntToOtherBase =
               (mkExpected Base.Decimal)
               (mkExpected Base.Hexadecimal)
               (mkExpected Base.Octal)
-              (mkExpected Base.Binary) ]
+              (mkExpected Base.Binary)
+      ]
 
   type private Journey =
     | JustDestination of string
@@ -158,11 +164,14 @@ module private ConvertIntToOtherBase =
 
     testList
       name
-      [ let data =
-          [ (Base.Decimal, decimalNumber)
+      [
+        let data =
+          [
+            (Base.Decimal, decimalNumber)
             (Base.Hexadecimal, hexadecimalNumber)
             (Base.Octal, octalNumber)
-            (Base.Binary, binaryNumber) ]
+            (Base.Binary, binaryNumber)
+          ]
 
         for (base', j) in data do
           match j |> Journey.source with
@@ -187,11 +196,13 @@ module private ConvertIntToOtherBase =
               (mkExpected Base.Decimal)
               (mkExpected Base.Hexadecimal)
               (mkExpected Base.Octal)
-              (mkExpected Base.Binary) ]
+              (mkExpected Base.Binary)
+      ]
 
   let tests state =
     serverTestList "Convert int-number to other bases" state defaultConfigDto None (fun server ->
-      [ checkAll server "can convert simple number" "let n = {number}" "123" "0x7B" "0o173" "0b1111011"
+      [
+        checkAll server "can convert simple number" "let n = {number}" "123" "0x7B" "0o173" "0b1111011"
         checkAll server "can convert simple negative number" "let n = {number}" "-123" "-0x7B" "-0o173" "-0b1111011"
         checkAll server "can convert 0" "let n = {number}" "0" "0x0" "0o0" "0b0"
         checkAll server "can convert 1" "let n = {number}" "1" "0x1" "0o1" "0b1"
@@ -208,7 +219,8 @@ module private ConvertIntToOtherBase =
             //   `-0b1000_0000y` becomes `-0x80y`, while `0b1000_0000y` becomes `0x80y`
             testList
               "sbyte"
-              [ checkAll
+              [
+                checkAll
                   server
                   "can convert MaxValue"
                   "let n = {number} = System.SByte.MaxValue"
@@ -231,10 +243,12 @@ module private ConvertIntToOtherBase =
                   (JustDestination "-128y")
                   (InOut "-0x80y")
                   (InOut "-0o200y")
-                  (InOut "-0b10000000y") ]
+                  (InOut "-0b10000000y")
+              ]
             testList
               "byte"
-              [ checkAll
+              [
+                checkAll
                   server
                   "can convert MaxValue"
                   "let n = {number} = System.Byte.MaxValue"
@@ -249,11 +263,13 @@ module private ConvertIntToOtherBase =
                   "0uy"
                   "0x0uy"
                   "0o0uy"
-                  "0b0uy" ]
+                  "0b0uy"
+              ]
 
             testList
               "uint64"
-              [ checkAll
+              [
+                checkAll
                   server
                   "can convert MaxValue"
                   "let n = {number} = System.UInt64.MaxValue"
@@ -268,7 +284,8 @@ module private ConvertIntToOtherBase =
                   "0UL"
                   "0x0UL"
                   "0o0UL"
-                  "0b0UL" ]
+                  "0b0UL"
+              ]
             testList
               "int64"
               [
@@ -296,11 +313,13 @@ module private ConvertIntToOtherBase =
                   (JustDestination "-9223372036854775808L")
                   (InOut "-0x8000000000000000L")
                   (InOut "-0o1000000000000000000000L")
-                  (InOut "-0b1000000000000000000000000000000000000000000000000000000000000000L") ]
+                  (InOut "-0b1000000000000000000000000000000000000000000000000000000000000000L")
+              ]
 
             testList
               "int (without suffix)"
-              [ checkAll
+              [
+                checkAll
                   server
                   "can convert Int64.MaxValue"
                   "let n = {number} = Int32.MaxValue"
@@ -323,12 +342,16 @@ module private ConvertIntToOtherBase =
                   (JustDestination "-2147483648")
                   (InOut "-0x80000000")
                   (InOut "-0o20000000000")
-                  (InOut "-0b10000000000000000000000000000000") ] ]
+                  (InOut "-0b10000000000000000000000000000000")
+              ]
+          ]
 
         testList
           "types"
-          [ let suffixes =
-              [ ("sbyte", [ "y" ])
+          [
+            let suffixes =
+              [
+                ("sbyte", [ "y" ])
                 ("byte", [ "uy" ])
                 ("int16", [ "s" ])
                 ("uint16", [ "us" ])
@@ -337,15 +360,18 @@ module private ConvertIntToOtherBase =
                 ("nativeint", [ "n" ])
                 ("unativeint", [ "un" ])
                 ("int64", [ "L" ])
-                ("uint64", [ "UL" ]) ]
+                ("uint64", [ "UL" ])
+              ]
 
             for (name, suffixes) in suffixes do
               testList
                 $"can convert {name}"
-                [ for suffix in suffixes do
+                [
+                  for suffix in suffixes do
                     testList
                       $"with suffix {suffix}"
-                      [ checkAll
+                      [
+                        checkAll
                           server
                           $"with value 123"
                           $"let n = {{number}}{suffix}"
@@ -362,20 +388,25 @@ module private ConvertIntToOtherBase =
                             "123"
                             "0x7B"
                             "0o173"
-                            "0b1111011" ] ]
+                            "0b1111011"
+                      ]
+                ]
 
             testCaseAsync "does not trigger for bigint"
             <| CodeFix.checkNotApplicable
               server
               "let n = 9999999999999999999999999999$0I"
               Diagnostics.acceptAll
-              (selectIntCodeFix Base.Hexadecimal) ]
+              (selectIntCodeFix Base.Hexadecimal)
+          ]
 
         testList
           "sign shenanigans"
-          [ testList
+          [
+            testList
               "keep unnecessary sign"
-              [ checkAll server "keep + in +123" "let n = {number}" "+123" "+0x7B" "+0o173" "+0b1111011"
+              [
+                checkAll server "keep + in +123" "let n = {number}" "+123" "+0x7B" "+0o173" "+0b1111011"
                 checkAll server "keep + in +0" "let n = {number}" "+0" "+0x0" "+0o0" "+0b0"
                 checkAll server "keep - in -0" "let n = {number}" "-0" "-0x0" "-0o0" "-0b0"
                 checkAllJourneys
@@ -385,11 +416,13 @@ module private ConvertIntToOtherBase =
                   (JustDestination "-123")
                   (InOut "+0xFFFFFF85")
                   (InOut "+0o37777777605")
-                  (InOut "+0b11111111111111111111111110000101") ]
+                  (InOut "+0b11111111111111111111111110000101")
+              ]
 
             testList
               "explicit sign and actual sign do not match"
-              [ testList
+              [
+                testList
                   "keep explicit `-` in positive constant"
                   [
                     // Hex/Oct/Bin have sign bit, but can additional have explicit `-` sign
@@ -400,21 +433,27 @@ module private ConvertIntToOtherBase =
                       (JustDestination "123")
                       (InOut "-0xFFFFFF85")
                       (InOut "-0o37777777605")
-                      (InOut "-0b11111111111111111111111110000101") ]
+                      (InOut "-0b11111111111111111111111110000101")
+                  ]
                 testList
                   "keep explicit `+` in negative constant"
-                  [ checkAllJourneys
+                  [
+                    checkAllJourneys
                       server
                       "keep + in +(-123)"
                       "let n = {number}"
                       (JustDestination "-123")
                       (InOut "+0xFFFFFF85")
                       (InOut "+0o37777777605")
-                      (InOut "+0b11111111111111111111111110000101") ] ] ]
+                      (InOut "+0b11111111111111111111111110000101")
+                  ]
+              ]
+          ]
 
         testList
           "locations"
-          [ check
+          [
+            check
               server
               "can convert in math expression"
               "let n = max (123 + 456$0 / 13 * 17 - 9) (456 - 123)"
@@ -448,7 +487,8 @@ module private ConvertIntToOtherBase =
           """
             testList
               "can convert in enum"
-              [ check
+              [
+                check
                   server
                   "just value"
                   """
@@ -559,7 +599,8 @@ module private ConvertIntToOtherBase =
               | Alpha = 123
               | Beta = (1 <<< 0b111001000)
               | Gamma = 789
-            """ ]
+            """
+              ]
             check
               server
               "can convert in pattern"
@@ -615,7 +656,8 @@ module private ConvertIntToOtherBase =
               """
           [<Measure>] type km
           let n = 0b111001000<km>
-          """ ]
+          """
+          ]
 
         checkAllJourneys
           server
@@ -636,9 +678,11 @@ module private ConvertIntToOtherBase =
 
         testList
           "different upper-lower-cases in bases"
-          [ testList
+          [
+            testList
               "hexadecimal"
-              [ testCaseAsync "0x"
+              [
+                testCaseAsync "0x"
                 <| CodeFix.checkApplicable
                   server
                   "let n = 0x123$0"
@@ -649,10 +693,12 @@ module private ConvertIntToOtherBase =
                   server
                   "let n = 0X123$0"
                   Diagnostics.acceptAll
-                  (selectIntCodeFix Base.Decimal) ]
+                  (selectIntCodeFix Base.Decimal)
+              ]
             testList
               "octal"
-              [ testCaseAsync "0o"
+              [
+                testCaseAsync "0o"
                 <| CodeFix.checkApplicable
                   server
                   "let n = 0o443$0"
@@ -663,10 +709,12 @@ module private ConvertIntToOtherBase =
                   server
                   "let n = 0O443$0"
                   Diagnostics.acceptAll
-                  (selectIntCodeFix Base.Decimal) ]
+                  (selectIntCodeFix Base.Decimal)
+              ]
             testList
               "binary"
-              [ testCaseAsync "0b"
+              [
+                testCaseAsync "0b"
                 <| CodeFix.checkApplicable
                   server
                   "let n = 0b100100011$0"
@@ -677,7 +725,10 @@ module private ConvertIntToOtherBase =
                   server
                   "let n = 0B100100011$0"
                   Diagnostics.acceptAll
-                  (selectIntCodeFix Base.Decimal) ] ] ])
+                  (selectIntCodeFix Base.Decimal)
+              ]
+          ]
+      ])
 
   module Float =
     let tests state =
@@ -713,16 +764,20 @@ module private ConvertIntToOtherBase =
                 "let n = {number}"
                 "0x40490FDBlf"
                 "0o10022207733lf"
-                "0b1000000010010010000111111011011lf" ]
+                "0b1000000010010010000111111011011lf"
+            ]
 
           testList
             "can convert 0"
-            [ checkAll server "float" "let n = {number}" "0x0LF" "0o0LF" "0b0LF"
-              checkAll server "float32" "let n = {number}" "0x0lf" "0o0lf" "0b0lf" ]
+            [
+              checkAll server "float" "let n = {number}" "0x0LF" "0o0LF" "0b0LF"
+              checkAll server "float32" "let n = {number}" "0x0lf" "0o0lf" "0b0lf"
+            ]
 
           testList
             "can convert -pi"
-            [ checkAll
+            [
+              checkAll
                 server
                 "float"
                 "let n = {number}"
@@ -739,7 +794,8 @@ module private ConvertIntToOtherBase =
 
               testList
                 "keep existing `-`"
-                [ checkAll
+                [
+                  checkAll
                     server
                     "float"
                     "let n = {number}"
@@ -752,11 +808,14 @@ module private ConvertIntToOtherBase =
                     "let n = {number}"
                     "-0x40490FDBlf"
                     "-0o10022207733lf"
-                    "-0b1000000010010010000111111011011lf" ] ]
+                    "-0b1000000010010010000111111011011lf"
+                ]
+            ]
 
           testList
             "can convert MaxValue"
-            [ checkAll
+            [
+              checkAll
                 server
                 "float"
                 "let n = {number}"
@@ -769,11 +828,13 @@ module private ConvertIntToOtherBase =
                 "let n = {number}"
                 "0x7F7FFFFFlf"
                 "0o17737777777lf"
-                "0b1111111011111111111111111111111lf" ]
+                "0b1111111011111111111111111111111lf"
+            ]
 
           testList
             "can convert MinValue"
-            [ checkAll
+            [
+              checkAll
                 server
                 "float"
                 "let n = {number}"
@@ -805,7 +866,9 @@ module private ConvertIntToOtherBase =
                     "let n = {number}"
                     "-0x7F7FFFFFlf"
                     "-0o17737777777lf"
-                    "-0b1111111011111111111111111111111lf" ] ]
+                    "-0b1111111011111111111111111111111lf"
+                ]
+            ]
 
           testList
             "can convert nan"
@@ -842,13 +905,15 @@ module private ConvertIntToOtherBase =
                 "0o37760000000lf"
                 "0b11111111110000000000000000000000lf"
 
-              ]
+            ]
 
           testList
             "can convert infinity"
-            [ testList
+            [
+              testList
                 "+"
-                [ checkAll
+                [
+                  checkAll
                     server
                     "float"
                     "let n = {number}"
@@ -861,10 +926,12 @@ module private ConvertIntToOtherBase =
                     "let n = {number}"
                     "0x7F800000lf"
                     "0o17740000000lf"
-                    "0b1111111100000000000000000000000lf" ]
+                    "0b1111111100000000000000000000000lf"
+                ]
               testList
                 "-"
-                [ checkAll
+                [
+                  checkAll
                     server
                     "float"
                     "let n = {number}"
@@ -877,7 +944,10 @@ module private ConvertIntToOtherBase =
                     "let n = {number}"
                     "0xFF800000lf"
                     "0o37740000000lf"
-                    "0b11111111100000000000000000000000lf" ] ] ])
+                    "0b11111111100000000000000000000000lf"
+                ]
+            ]
+        ])
 
 module private ConvertCharToOtherForm =
   let private tryExtractChar (title: String) =
@@ -888,9 +958,7 @@ module private ConvertCharToOtherForm =
       && title.EndsWith(fin, StringComparison.Ordinal)
     then
       let c =
-        title
-          .Substring(start.Length, title.Length - start.Length - fin.Length)
-          .ToString()
+        title.Substring(start.Length, title.Length - start.Length - fin.Length).ToString()
 
       let c =
         if
@@ -971,11 +1039,13 @@ module private ConvertCharToOtherForm =
     let (cursor, source) = Cursor.assertExtractRange beforeWithCursor
 
     documentTestList name server (Server.createUntitledDocument source) (fun doc ->
-      [ checkFormat doc (source, cursor) (CharFormat.Char) expectedChar
+      [
+        checkFormat doc (source, cursor) (CharFormat.Char) expectedChar
         checkFormat doc (source, cursor) (CharFormat.Decimal) expectedDecimal
         checkFormat doc (source, cursor) (CharFormat.Hexadecimal) expectedHexadecimal
         checkFormat doc (source, cursor) (CharFormat.Utf16Hexadecimal) expectedUtf16Hexadecimal
-        checkFormat doc (source, cursor) (CharFormat.Utf32Hexadecimal) expectedUtf32Hexadecimal ])
+        checkFormat doc (source, cursor) (CharFormat.Utf32Hexadecimal) expectedUtf32Hexadecimal
+      ])
 
   /// in `template`: use `{char}` as placeholder
   let private checkAll
@@ -994,12 +1064,15 @@ module private ConvertCharToOtherForm =
 
     testList
       name
-      [ let data =
-          [ CharFormat.Char, charValue
+      [
+        let data =
+          [
+            CharFormat.Char, charValue
             CharFormat.Decimal, decimalValue
             CharFormat.Hexadecimal, hexadecimalValue
             CharFormat.Utf16Hexadecimal, utf16HexadecimalValue
-            CharFormat.Utf32Hexadecimal, utf32HexadecimalValue ]
+            CharFormat.Utf32Hexadecimal, utf32HexadecimalValue
+          ]
 
         let valueOf (format) = data |> List.find (fun (b, _) -> b = format) |> snd
 
@@ -1021,11 +1094,13 @@ module private ConvertCharToOtherForm =
               (mkExpected CharFormat.Decimal)
               (mkExpected CharFormat.Hexadecimal)
               (mkExpected CharFormat.Utf16Hexadecimal)
-              (mkExpected CharFormat.Utf32Hexadecimal) ]
+              (mkExpected CharFormat.Utf32Hexadecimal)
+      ]
 
   let tests state =
     serverTestList "Convert char" state defaultConfigDto None (fun server ->
-      [ checkAll server "can convert ç" "let c = '{char}'" "ç" "\\231" "\\xE7" "\\u00E7" "\\U000000E7"
+      [
+        checkAll server "can convert ç" "let c = '{char}'" "ç" "\\231" "\\xE7" "\\u00E7" "\\U000000E7"
         checkAll server "can convert \\n" "let c = '{char}'" "\\n" "\\010" "\\x0A" "\\u000A" "\\U0000000A"
         checkAll
           server
@@ -1081,7 +1156,8 @@ module private ConvertCharToOtherForm =
 
         testList
           "byte"
-          [ let checkAll
+          [
+            let checkAll
               server
               name
               (template: String)
@@ -1108,12 +1184,15 @@ module private ConvertCharToOtherForm =
               "\\u0000"
               "\\U00000000"
 
-            check server "does not trigger for char outside of byte range" "let c = 'ç$0'B" "" "" "" "" "" ] ])
+            check server "does not trigger for char outside of byte range" "let c = 'ç$0'B" "" "" "" "" ""
+          ]
+      ])
 
 module private ConvertByteBetweenIntAndChar =
   let tests state =
     serverTestList "Convert Byte between Int And Char" state defaultConfigDto None (fun server ->
-      [ let template = sprintf "let c = %s"
+      [
+        let template = sprintf "let c = %s"
         let charTemplate (c: string) = template $"'%s{c}'B"
 
         ConvertCharToOtherForm.check
@@ -1150,12 +1229,14 @@ module private ConvertByteBetweenIntAndChar =
           server
           "let c = 'ú$0'B;"
           Diagnostics.acceptAll
-          (ConvertIntToOtherBase.selectIntCodeFix Base.Decimal) ])
+          (ConvertIntToOtherBase.selectIntCodeFix Base.Decimal)
+      ])
 
 module private AddDigitGroupSeparator =
   let private intTests state =
     serverTestList "To int numbers" state defaultConfigDto None (fun server ->
-      [ testCaseAsync "can add separator to long decimal int"
+      [
+        testCaseAsync "can add separator to long decimal int"
         <| CodeFix.check
           server
           "let value = 1234567890$0"
@@ -1205,7 +1286,8 @@ module private AddDigitGroupSeparator =
 
         testList
           "can add separator to hexadecimal int"
-          [ testCaseAsync "words"
+          [
+            testCaseAsync "words"
             <| CodeFix.check
               server
               "let value = 0x1234578$0"
@@ -1218,7 +1300,8 @@ module private AddDigitGroupSeparator =
               "let value = 0x1234578$0"
               Diagnostics.acceptAll
               (CodeFix.withTitle Title.Int.Separate.hexadecimal2)
-              "let value = 0x1_23_45_78" ]
+              "let value = 0x1_23_45_78"
+          ]
         testCaseAsync "can add separator to octal int"
         <| CodeFix.check
           server
@@ -1228,7 +1311,8 @@ module private AddDigitGroupSeparator =
           "let value = 0o1_234_567"
         testList
           "can add separator to binary int"
-          [ testCaseAsync "nibbles"
+          [
+            testCaseAsync "nibbles"
             <| CodeFix.check
               server
               "let value = 0b1010101010101010101$0"
@@ -1241,7 +1325,8 @@ module private AddDigitGroupSeparator =
               "let value = 0b1010101010101010101$0"
               Diagnostics.acceptAll
               (CodeFix.withTitle Title.Int.Separate.binary8)
-              "let value = 0b101_01010101_01010101" ]
+              "let value = 0b101_01010101_01010101"
+          ]
         testCaseAsync "can add separator to bigint"
         <| CodeFix.check
           server
@@ -1255,11 +1340,13 @@ module private AddDigitGroupSeparator =
           server
           "let value = 123$0"
           Diagnostics.acceptAll
-          (CodeFix.withTitle Title.Int.Separate.decimal3) ])
+          (CodeFix.withTitle Title.Int.Separate.decimal3)
+      ])
 
   let private floatTests state =
     serverTestList "To float numbers" state defaultConfigDto None (fun server ->
-      [ testCaseAsync "can add separator to X.X float"
+      [
+        testCaseAsync "can add separator to X.X float"
         <| CodeFix.check
           server
           "let value = 1234567.01234567$0"
@@ -1359,7 +1446,8 @@ module private AddDigitGroupSeparator =
           "let value = 123.012345678e+1234567$0"
           Diagnostics.acceptAll
           (CodeFix.withTitle Title.Float.Separate.all3)
-          "let value = 123.012_345_678e+1_234_567" ])
+          "let value = 123.012_345_678e+1_234_567"
+      ])
 
   let tests state = testList "Add Digit Group Separator" [ intTests state; floatTests state ]
 
@@ -1386,7 +1474,8 @@ module private ReplaceWithName =
 
   let private intTests state =
     serverTestList "Replace Int" state defaultConfigDto None (fun server ->
-      [ let checkReplaceWith = checkReplaceWith server
+      [
+        let checkReplaceWith = checkReplaceWith server
         let checkCannotReplaceWith = checkCannotReplaceWith server
 
         /// Formats with suffix
@@ -1394,76 +1483,96 @@ module private ReplaceWithName =
 
         testList
           "can replace SByte"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.SByte) (format SByte.MaxValue) (nameof System.SByte.MaxValue)
             testCaseAsync "with MinValue"
-            <| checkReplaceWith (nameof System.SByte) (format SByte.MinValue) (nameof (System.SByte.MinValue)) ]
+            <| checkReplaceWith (nameof System.SByte) (format SByte.MinValue) (nameof (System.SByte.MinValue))
+          ]
 
         testList
           "can replace Byte"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Byte) (format Byte.MaxValue) (nameof System.Byte.MaxValue)
             testCaseAsync "not with MinValue"
-            <| checkCannotReplaceWith (nameof System.Byte) (format Byte.MinValue) (nameof (System.Byte.MinValue)) ]
+            <| checkCannotReplaceWith (nameof System.Byte) (format Byte.MinValue) (nameof (System.Byte.MinValue))
+          ]
 
         testList
           "can replace Int16"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Int16) (format Int16.MaxValue) (nameof System.Int16.MaxValue)
             testCaseAsync "with MinValue"
-            <| checkReplaceWith (nameof System.Int16) (format Int16.MinValue) (nameof (System.Int16.MinValue)) ]
+            <| checkReplaceWith (nameof System.Int16) (format Int16.MinValue) (nameof (System.Int16.MinValue))
+          ]
 
         testList
           "can replace UInt16"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.UInt16) (format UInt16.MaxValue) (nameof System.UInt16.MaxValue)
             testCaseAsync "not with MinValue"
-            <| checkCannotReplaceWith (nameof System.UInt16) (format UInt16.MinValue) (nameof (System.UInt16.MinValue)) ]
+            <| checkCannotReplaceWith (nameof System.UInt16) (format UInt16.MinValue) (nameof (System.UInt16.MinValue))
+          ]
 
         testList
           "can replace Int32"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Int32) (format Int32.MaxValue) (nameof System.Int32.MaxValue)
             testCaseAsync "with MinValue"
-            <| checkReplaceWith (nameof System.Int32) (format Int32.MinValue) (nameof (System.Int32.MinValue)) ]
+            <| checkReplaceWith (nameof System.Int32) (format Int32.MinValue) (nameof (System.Int32.MinValue))
+          ]
 
         testList
           "can replace UInt32"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.UInt32) (format UInt32.MaxValue) (nameof System.UInt32.MaxValue)
             testCaseAsync "not with MinValue"
-            <| checkCannotReplaceWith (nameof System.UInt32) (format UInt32.MinValue) (nameof (System.UInt32.MinValue)) ]
+            <| checkCannotReplaceWith (nameof System.UInt32) (format UInt32.MinValue) (nameof (System.UInt32.MinValue))
+          ]
 
         testList
           "can replace NativeInt"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.IntPtr) (format IntPtr.MaxValue) (nameof System.IntPtr.MaxValue)
             testCaseAsync "with MinValue"
-            <| checkReplaceWith (nameof System.IntPtr) (format IntPtr.MinValue) (nameof (System.IntPtr.MinValue)) ]
+            <| checkReplaceWith (nameof System.IntPtr) (format IntPtr.MinValue) (nameof (System.IntPtr.MinValue))
+          ]
 
         testList
           "can replace UNativeInt"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.UIntPtr) (format UIntPtr.MaxValue) (nameof System.UIntPtr.MaxValue)
             testCaseAsync "not with MinValue"
             <| checkCannotReplaceWith
               (nameof System.UIntPtr)
               (format UIntPtr.MinValue)
-              (nameof (System.UIntPtr.MinValue)) ]
+              (nameof (System.UIntPtr.MinValue))
+          ]
 
         testList
           "can replace Int64"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Int64) (format Int64.MaxValue) (nameof System.Int64.MaxValue)
             testCaseAsync "with MinValue"
-            <| checkReplaceWith (nameof System.Int64) (format Int64.MinValue) (nameof (System.Int64.MinValue)) ]
+            <| checkReplaceWith (nameof System.Int64) (format Int64.MinValue) (nameof (System.Int64.MinValue))
+          ]
 
         testList
           "can replace UInt64"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.UInt64) (format UInt64.MaxValue) (nameof System.UInt64.MaxValue)
             testCaseAsync "not with MinValue"
-            <| checkCannotReplaceWith (nameof System.UInt64) (format UInt64.MinValue) (nameof (System.UInt64.MinValue)) ]
+            <| checkCannotReplaceWith (nameof System.UInt64) (format UInt64.MinValue) (nameof (System.UInt64.MinValue))
+          ]
 
         testCaseAsync "Emit leading System if System not open"
         <| CodeFix.check
@@ -1471,7 +1580,8 @@ module private ReplaceWithName =
           $"let value = {format Int32.MaxValue}$0"
           Diagnostics.acceptAll
           (CodeFix.withTitle (Title.replaceWith "Int32.MaxValue"))
-          $"let value = System.Int32.MaxValue" ])
+          $"let value = System.Int32.MaxValue"
+      ])
 
   let private floatTests state =
     serverTestList "Replace Float" state defaultConfigDto None (fun server ->
@@ -1501,7 +1611,8 @@ module private ReplaceWithName =
 
         testList
           "can replace float"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Double) "1.7976931348623157E+308" (nameof System.Double.MaxValue)
             testCaseAsync "with MinValue"
             <| checkReplaceWith (nameof System.Double) "-1.7976931348623157E+308" (nameof System.Double.MinValue)
@@ -1516,11 +1627,13 @@ module private ReplaceWithName =
             testCaseAsync "with -infinity (int)"
             <| checkReplaceWith' "0o1777600000000000000000LF" "-infinity"
             testCaseAsync "with nan (int)"
-            <| checkReplaceWith' "0b1111111111111000000100010001010010010010001000100010001000100100LF" "nan" ]
+            <| checkReplaceWith' "0b1111111111111000000100010001010010010010001000100010001000100100LF" "nan"
+          ]
 
         testList
           "can replace float32"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith (nameof System.Single) "3.4028235E+38f" (nameof System.Single.MaxValue)
             testCaseAsync "with MinValue"
             <| checkReplaceWith (nameof System.Single) "-3.4028235E+38f" (nameof System.Single.MinValue)
@@ -1535,7 +1648,8 @@ module private ReplaceWithName =
             testCaseAsync "with -infinity (int)"
             <| checkReplaceWith' "0o37740000000lf" "-infinityf"
             testCaseAsync "with nan (int)"
-            <| checkReplaceWith' "0b1111111101001000100100100100100lf" "nanf" ]
+            <| checkReplaceWith' "0b1111111101001000100100100100100lf" "nanf"
+          ]
 
         testCaseAsync "Emit leading System if System not open"
         <| CodeFix.check
@@ -1547,7 +1661,8 @@ module private ReplaceWithName =
 
         testList
           "can replace decimal"
-          [ testCaseAsync "with MaxValue"
+          [
+            testCaseAsync "with MaxValue"
             <| checkReplaceWith
               (nameof System.Decimal)
               "79228162514264337593543950335m"
@@ -1556,18 +1671,21 @@ module private ReplaceWithName =
             <| checkReplaceWith
               (nameof System.Decimal)
               "-79228162514264337593543950335m"
-              (nameof System.Decimal.MinValue) ]
+              (nameof System.Decimal.MinValue)
+          ]
 
-        ])
+      ])
 
   let tests state = testList "Replace With Name" [ intTests state; floatTests state ]
 
 module SignHelpers =
   let tests state =
     serverTestList "Sign Helpers" state defaultConfigDto None (fun server ->
-      [ testList
+      [
+        testList
           "extract `-`"
-          [ testCaseAsync "from bin int"
+          [
+            testCaseAsync "from bin int"
             <| CodeFix.check
               server
               "let value = 0b10000101y$0"
@@ -1593,10 +1711,12 @@ module SignHelpers =
               server
               "let value = -123y$0"
               Diagnostics.acceptAll
-              (CodeFix.withTitle Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant) ]
+              (CodeFix.withTitle Title.Int.Convert.SpecialCase.extractMinusFromNegativeConstant)
+          ]
         testList
           "integrate `-`"
-          [ testCaseAsync "into bin int"
+          [
+            testCaseAsync "into bin int"
             <| CodeFix.check
               server
               "let value = -0b1111011y$0"
@@ -1622,11 +1742,13 @@ module SignHelpers =
               server
               "let value = -123y$0"
               Diagnostics.acceptAll
-              (CodeFix.withTitle Title.Int.Convert.SpecialCase.integrateExplicitMinus) ]
+              (CodeFix.withTitle Title.Int.Convert.SpecialCase.integrateExplicitMinus)
+          ]
 
         testList
           "MinValue"
-          [ testCaseAsync "can remove explicit `-`"
+          [
+            testCaseAsync "can remove explicit `-`"
             <| CodeFix.check
               server
               "let value = -0b10000000y$0"
@@ -1638,17 +1760,20 @@ module SignHelpers =
               server
               "let value = -127y$0"
               Diagnostics.acceptAll
-              (CodeFix.withTitle Title.Int.Convert.SpecialCase.removeExplicitMinusWithMinValue) ]
+              (CodeFix.withTitle Title.Int.Convert.SpecialCase.removeExplicitMinusWithMinValue)
+          ]
 
         testList
           "use implicit `+`"
-          [ testCaseAsync "can change to positive"
+          [
+            testCaseAsync "can change to positive"
             <| CodeFix.check
               server
               "let value = -0b1111_1101y$0"
               Diagnostics.acceptAll
               (CodeFix.withTitle Title.Int.Convert.SpecialCase.useImplicitPlusInPositiveConstantWithMinusSign)
-              "let value = 0b11y" ]
+              "let value = 0b11y"
+          ]
 
         testList
           "ensure valid sign"
@@ -1724,12 +1849,15 @@ module SignHelpers =
               "let value = 5.0+0o1777600000000000000000LF$0"
               Diagnostics.acceptAll
               (CodeFix.withTitle (Title.replaceWith "-infinity"))
-              "let value = 5.0+ -infinity" ] ])
+              "let value = 5.0+ -infinity"
+          ]
+      ])
 
 let tests state =
   testList
     (nameof AdjustConstant)
-    [ ConvertIntToOtherBase.tests state
+    [
+      ConvertIntToOtherBase.tests state
       ConvertIntToOtherBase.Float.tests state
       ConvertCharToOtherForm.tests state
       ConvertByteBetweenIntAndChar.tests state
@@ -1737,4 +1865,5 @@ let tests state =
       ReplaceWithName.tests state
       SignHelpers.tests state
 
-      AddDigitGroupSeparator.tests state ]
+      AddDigitGroupSeparator.tests state
+    ]

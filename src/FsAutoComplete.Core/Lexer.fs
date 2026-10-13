@@ -16,11 +16,13 @@ type SymbolKind =
   | Other
 
 type LexerSymbol =
-  { Kind: SymbolKind
+  {
+    Kind: SymbolKind
     Line: uint32
     LeftColumn: uint32
     RightColumn: uint32
-    Text: string }
+    Text: string
+  }
 
 [<RequireQualifiedAccess>]
 type SymbolLookupKind =
@@ -30,14 +32,18 @@ type SymbolLookupKind =
   | ForCompletion
 
 type private DraftToken =
-  { Kind: SymbolKind
+  {
+    Kind: SymbolKind
     Token: FSharpTokenInfo
-    RightColumn: uint32 }
+    RightColumn: uint32
+  }
 
   static member inline Create kind token =
-    { Kind = kind
+    {
+      Kind = kind
       Token = token
-      RightColumn = uint32 (token.LeftColumn + token.FullMatchedLength - 1) }
+      RightColumn = uint32 (token.LeftColumn + token.FullMatchedLength - 1)
+    }
 
 module Lexer =
   let logger = LogProvider.getLoggerByName "Lexer"
@@ -134,13 +140,15 @@ module Lexer =
           let mergedToken =
             { lastToken.Token with
                 Tag = token.Tag
-                RightColumn = token.RightColumn }
+                RightColumn = token.RightColumn
+            }
 
           acc,
           Some
             { lastToken with
                 Token = mergedToken
-                Kind = SymbolKind.Operator }
+                Kind = SymbolKind.Operator
+            }
         | Some t when token.LeftColumn <= int t.RightColumn -> acc, lastToken
         | Some({ Kind = SymbolKind.ActivePattern } as lastToken) when
           token.Tag = FSharpTokenTag.BAR
@@ -151,13 +159,15 @@ module Lexer =
             { lastToken.Token with
                 Tag = FSharpTokenTag.IDENT
                 RightColumn = token.RightColumn
-                FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength }
+                FullMatchedLength = lastToken.Token.FullMatchedLength + token.FullMatchedLength
+            }
 
           acc,
           Some
             { lastToken with
                 Token = mergedToken
-                RightColumn = lastToken.RightColumn + uint32 token.FullMatchedLength }
+                RightColumn = lastToken.RightColumn + uint32 token.FullMatchedLength
+            }
         | _ ->
           match token, lineStr with
           | GenericTypeParameterPrefix -> acc, Some(DraftToken.Create GenericTypeParameter token)
@@ -166,21 +176,28 @@ module Lexer =
           | Other ->
             let draftToken =
               match lastToken with
-              | Some { Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind } when isIdentifier token ->
+              | Some {
+                       Kind = GenericTypeParameter | StaticallyResolvedTypeParameter as kind
+                     } when isIdentifier token ->
                 DraftToken.Create
                   kind
                   { token with
                       LeftColumn = token.LeftColumn - 1
-                      FullMatchedLength = token.FullMatchedLength + 1 }
+                      FullMatchedLength = token.FullMatchedLength + 1
+                  }
               | Some({ Kind = SymbolKind.ActivePattern } as ap) when token.Tag = FSharpTokenTag.RPAREN ->
                 DraftToken.Create SymbolKind.Ident ap.Token
               | Some({ Kind = SymbolKind.Operator } as op) when token.Tag = FSharpTokenTag.RPAREN ->
                 DraftToken.Create SymbolKind.Operator op.Token
               // ^ operator
-              | Some { Kind = SymbolKind.StaticallyResolvedTypeParameter } ->
-                { Kind = SymbolKind.Operator
+              | Some {
+                       Kind = SymbolKind.StaticallyResolvedTypeParameter
+                     } ->
+                {
+                  Kind = SymbolKind.Operator
                   RightColumn = uint32 (token.RightColumn - 1)
-                  Token = token }
+                  Token = token
+                }
               | _ ->
                 let kind =
                   if isOperator token then Operator
@@ -223,8 +240,10 @@ module Lexer =
       // Assume that tokens are ordered in an decreasing order of start columns
       let rec tryFindStartColumn tokens =
         match tokens with
-        | { Kind = Ident; Token = t1 } :: { Kind = SymbolKind.Other | SymbolKind.Dot
-                                            Token = t2 } :: remainingTokens ->
+        | { Kind = Ident; Token = t1 } :: {
+                                            Kind = SymbolKind.Other | SymbolKind.Dot
+                                            Token = t2
+                                          } :: remainingTokens ->
           if t2.Tag = FSharpTokenTag.DOT then
             tryFindStartColumn remainingTokens
           else
@@ -236,8 +255,10 @@ module Lexer =
       let decreasingTokens =
         match tokensUnderCursor |> List.sortBy (fun token -> -token.Token.LeftColumn) with
         // Skip the first dot if it is the start of the identifier
-        | { Kind = SymbolKind.Other | SymbolKind.Dot
-            Token = t } :: remainingTokens when t.Tag = FSharpTokenTag.DOT -> remainingTokens
+        | {
+            Kind = SymbolKind.Other | SymbolKind.Dot
+            Token = t
+          } :: remainingTokens when t.Tag = FSharpTokenTag.DOT -> remainingTokens
         | newTokens -> newTokens
 
       match decreasingTokens with
@@ -245,11 +266,13 @@ module Lexer =
       | first :: _ ->
         tryFindStartColumn decreasingTokens
         |> Option.map (fun leftCol ->
-          { Kind = Ident
+          {
+            Kind = Ident
             Line = line
             LeftColumn = leftCol
             RightColumn = first.RightColumn + 1u
-            Text = lineStr.[int leftCol .. int first.RightColumn] })
+            Text = lineStr.[int leftCol .. int first.RightColumn]
+          })
     | SymbolLookupKind.Fuzzy ->
       // Select IDENT token. If failed, select OPERATOR token.
       tokensUnderCursor
@@ -264,21 +287,25 @@ module Lexer =
 
       |> Option.orElseWith (fun _ -> tokensUnderCursor |> List.tryFind (fun { DraftToken.Kind = k } -> k = Operator))
       |> Option.map (fun token ->
-        { Kind = token.Kind
+        {
+          Kind = token.Kind
           Line = line
           LeftColumn = uint32 token.Token.LeftColumn
           RightColumn = token.RightColumn + 1u
-          Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
+          Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength)
+        })
     | SymbolLookupKind.ForCompletion
     | SymbolLookupKind.Simple ->
       tokensUnderCursor
       |> List.tryLast
       |> Option.map (fun token ->
-        { Kind = token.Kind
+        {
+          Kind = token.Kind
           Line = line
           LeftColumn = uint32 token.Token.LeftColumn
           RightColumn = token.RightColumn + 1u
-          Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength) })
+          Text = lineStr.Substring(token.Token.LeftColumn, token.Token.FullMatchedLength)
+        })
 
   let getSymbol (line: uint32) (col: uint32) lineStr lookupKind (args: string[]) =
     let tokens = tokenizeLine args lineStr

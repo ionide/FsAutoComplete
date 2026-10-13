@@ -26,9 +26,11 @@ module DotnetCli =
     // Waits until the redirected output is read to the end.
     proc.WaitForExit()
 
-    {| ExitCode = proc.ExitCode
-       StdOut = output.ToString()
-       StdErr = error.ToString() |}
+    {|
+      ExitCode = proc.ExitCode
+      StdOut = output.ToString()
+      StdErr = error.ToString()
+    |}
 
   let private builtPaths = Collections.Concurrent.ConcurrentQueue<string>()
 

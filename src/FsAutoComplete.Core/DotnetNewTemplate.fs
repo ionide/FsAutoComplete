@@ -4,10 +4,12 @@ open System
 
 module DotnetNewTemplate =
   type Template =
-    { Name: string
+    {
+      Name: string
       ShortName: string
       Language: TemplateLanguage list
-      Tags: string list }
+      Tags: string list
+    }
 
   and TemplateLanguage =
     | CSharp
@@ -15,17 +17,21 @@ module DotnetNewTemplate =
     | VB
 
   and DetailedTemplate =
-    { TemplateName: string
+    {
+      TemplateName: string
       Author: string
       TemplateDescription: string
-      Options: TemplateParameter list }
+      Options: TemplateParameter list
+    }
 
   and TemplateParameter =
-    { ParameterName: string
+    {
+      ParameterName: string
       ShortName: string
       ParameterType: TemplateParameterType
       ParameterDescription: string
-      DefaultValue: string }
+      DefaultValue: string
+    }
 
   and TemplateParameterType =
     | Bool
@@ -81,43 +87,60 @@ module DotnetNewTemplate =
     readTemplates ()
     |> parseTemplateOutput
     |> Array.map (fun (name, shortName) ->
-      { Name = name
+      {
+        Name = name
         ShortName = shortName
         Language = []
-        Tags = [] })
+        Tags = []
+      })
     |> Array.toList
 
   let templateDetails () : DetailedTemplate list =
-    [ { TemplateName = "Console Application"
+    [
+      {
+        TemplateName = "Console Application"
         Author = "Microsoft"
         TemplateDescription =
           "A project for creating a command-line application that can run on .NET Core on Windows, Linux and macOS"
         Options =
-          [ { ParameterName = "--no-restore"
+          [
+            {
+              ParameterName = "--no-restore"
               ShortName = ""
               ParameterType = TemplateParameterType.Bool
               ParameterDescription = "If specified, skips the automatic restore of the project on create."
-              DefaultValue = "false / (*) true" } ] }
+              DefaultValue = "false / (*) true"
+            }
+          ]
+      }
 
-      { TemplateName = "Class library"
+      {
+        TemplateName = "Class library"
         Author = "Microsoft"
         TemplateDescription = "A project for creating a class library that targets .NET Standard or .NET Core"
         Options =
-          [ { ParameterName = "--framework"
+          [
+            {
+              ParameterName = "--framework"
               ShortName = "-f"
               ParameterType =
                 TemplateParameterType.Choice
                   [ "net8.0     - Target .net 8"; "netstandard2.0    - Target netstandard2.0" ]
               ParameterDescription = "The target framework for the project."
-              DefaultValue = "netstandard2.0" }
+              DefaultValue = "netstandard2.0"
+            }
 
-            { ParameterName = "--no-restore"
+            {
+              ParameterName = "--no-restore"
               ShortName = ""
               ParameterType = TemplateParameterType.Bool
               ParameterDescription = "If specified, skips the automatic restore of the project on create."
-              DefaultValue = "false / (*) true" }
+              DefaultValue = "false / (*) true"
+            }
 
-            ] } ]
+          ]
+      }
+    ]
 
   let isMatch (filterstr: string) (x: string) = x.Contains(filterstr, StringComparison.OrdinalIgnoreCase)
 

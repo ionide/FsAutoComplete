@@ -585,13 +585,15 @@ module Release =
         match data with
         | None -> ""
         | Some data ->
-          [ "Added", data.Added
+          [
+            "Added", data.Added
             "Changed", data.Changed
             "Fixed", data.Fixed
             "Deprecated", data.Deprecated
             "Removed", data.Removed
             "Security", data.Security
-            yield! Map.toList data.Custom ]
+            yield! Map.toList data.Custom
+          ]
           |> List.filter (fun (_, body) -> not (String.IsNullOrWhiteSpace body))
           |> List.map (fun (header, body) -> $"### %s{header}\n\n%s{body.Trim()}")
           |> String.concat "\n\n"

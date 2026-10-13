@@ -20,7 +20,8 @@ open Helpers.Expecto.ShadowedTimeouts
 let private scriptTests state =
   testList
     "script"
-    [ let server =
+    [
+      let server =
         async {
           let path =
             Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "FindReferences", "Script")
@@ -29,7 +30,10 @@ let private scriptTests state =
           do! waitForWorkspaceFinishedParsing event
           let scriptPath = Path.Combine(path, "Script.fsx")
 
-          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+          let tdop: DidOpenTextDocumentParams =
+            {
+              TextDocument = loadDocument scriptPath
+            }
 
           do! server.TextDocumentDidOpen tdop
           return server, scriptPath
@@ -42,11 +46,13 @@ let private scriptTests state =
           let! server, scriptPath = server
 
           let request: ReferenceParams =
-            { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+            {
+              TextDocument = { Uri = Path.FilePathToUri scriptPath }
               Position = { Line = 2u; Character = 0u } // beginning of the usage of the `foo` function
               Context = { IncludeDeclaration = true }
               WorkDoneToken = None
-              PartialResultToken = None } // beginning of the usage of the `foo` function
+              PartialResultToken = None
+            } // beginning of the usage of the `foo` function
 
           let! response = server.TextDocumentReferences request
 
@@ -60,10 +66,13 @@ let private scriptTests state =
 
             Expect.equal
               reference.Range
-              { Start = { Line = 0u; Character = 4u }
-                End = { Line = 0u; Character = 7u } }
+              {
+                Start = { Line = 0u; Character = 4u }
+                End = { Line = 0u; Character = 7u }
+              }
               "should point to the definition of `foo`"
-        }) ]
+        })
+    ]
 
 module private Cursor =
   let cursor = Cursor.Marker
@@ -77,11 +86,13 @@ let private extractRanges (sourceWithCursors: string) =
     sourceWithCursors
     |> Text.trimTripleQuotation
     |> Cursors.extractWith
-      [| Cursor.cursor
-         Cursor.usageStart
-         Cursor.usageEnd
-         Cursor.defStart
-         Cursor.defEnd |]
+      [|
+        Cursor.cursor
+        Cursor.usageStart
+        Cursor.usageEnd
+        Cursor.defStart
+        Cursor.defEnd
+      |]
 
   let cursor, cursors =
     let cs, cursors = cursors |> List.partition (fst >> (=) Cursor.cursor)
@@ -111,9 +122,11 @@ let private extractRanges (sourceWithCursors: string) =
   let (decls, usages) = collectRanges cursors ([], [])
 
   source,
-  {| Cursor = cursor
-     Declarations = decls |> List.rev |> List.toArray
-     Usages = usages |> List.rev |> List.toArray |}
+  {|
+    Cursor = cursor
+    Declarations = decls |> List.rev |> List.toArray
+    Usages = usages |> List.rev |> List.toArray
+  |}
 
 let private mkLocation doc range = { Uri = doc.Uri; Range = range }
 
@@ -253,16 +266,24 @@ let private solutionTests state =
           let length = mark.Length
           let line = i - 1 // marker is line AFTER actual range
 
-          { Start =
-              { Line = uint32 line
-                Character = uint32 col }
+          {
+            Start =
+              {
+                Line = uint32 line
+                Character = uint32 col
+              }
             End =
-              { Line = uint32 line
-                Character = uint32 (col + length) } }
+              {
+                Line = uint32 line
+                Character = uint32 (col + length)
+              }
+          }
 
         let loc =
-          { Uri = path |> normalizePath |> Path.LocalPathToUri
-            Range = range }
+          {
+            Uri = path |> normalizePath |> Path.LocalPathToUri
+            Range = range
+          }
 
         let name = if splits.Length > 1 then splits[1] else ""
 
@@ -330,7 +351,8 @@ let private solutionTests state =
       let mainDoc = Path.Combine("B", "WorkingModule.fs")
 
       documentTestList "inside B/WorkingModule.fs" server (Server.openDocument mainDoc) (fun doc ->
-        [ let refs = readAllReferences path
+        [
+          let refs = readAllReferences path
 
           for r in refs do
             testCaseAsync
@@ -349,11 +371,13 @@ let private solutionTests state =
                   cursor.Range.Start
 
                 let request: ReferenceParams =
-                  { TextDocument = doc.TextDocumentIdentifier
+                  {
+                    TextDocument = doc.TextDocumentIdentifier
                     Position = cursor
                     Context = { IncludeDeclaration = true }
                     WorkDoneToken = None
-                    PartialResultToken = None }
+                    PartialResultToken = None
+                  }
 
                 let! refs = doc.Server.Server.TextDocumentReferences request
 
@@ -369,18 +393,22 @@ let private solutionTests state =
                   File.ReadAllText path
 
                 Expect.locationsEqual getSource false refs expected
-              }) ]) ])
+              })
+        ])
+    ])
 
 /// multiple untitled files (-> all docs are unrelated)
 /// -> Tests for external symbols (-> over all docs) & symbol just in current doc (-> no matches in other unrelated docs)
 let private untitledTests state =
   serverTestList "untitled" state defaultConfigDto None (fun server ->
-    [ testCaseAsync
+    [
+      testCaseAsync
         "can find external `Delay` in all open untitled docs"
         (async {
           // Note: Cursor MUST be in first source
           let sources =
-            [| """
+            [|
+              """
           open System
           open System.Threading.Tasks
           let _ = task {
@@ -395,7 +423,7 @@ let private untitledTests state =
                 .$<Delay>$ TimeSpan.MaxValue
           }
           """
-               """
+              """
           open System
           open System.Threading.Tasks
           let _ = task {
@@ -407,11 +435,12 @@ let private untitledTests state =
             do! Task.$<Delay>$ TimeSpan.MaxValue
           }
           """
-               // No Task.Delay
-               """
+              // No Task.Delay
+              """
           open System
           printfn "do stuff"
-          """ |]
+          """
+            |]
             |> Array.map (extractRanges)
 
           let! docs =
@@ -434,11 +463,13 @@ let private untitledTests state =
             cursors[0]
 
           let request: ReferenceParams =
-            { TextDocument = cursorDoc.TextDocumentIdentifier
+            {
+              TextDocument = cursorDoc.TextDocumentIdentifier
               Position = cursor
               Context = { IncludeDeclaration = true }
               WorkDoneToken = None
-              PartialResultToken = None }
+              PartialResultToken = None
+            }
 
           let! refs = cursorDoc.Server.Server.TextDocumentReferences request
 
@@ -458,7 +489,8 @@ let private untitledTests state =
 
           Expect.locationsEqual getSource true refs expected
 
-        }) ])
+        })
+    ])
 
 /// Tests to check references span the correct range. For example: `Delay`, not `Task.Delay`
 let private rangeTests state =
@@ -471,11 +503,13 @@ let private rangeTests state =
       Expect.hasLength diags 0 "There should be no diags"
 
       let request: ReferenceParams =
-        { TextDocument = doc.TextDocumentIdentifier
+        {
+          TextDocument = doc.TextDocumentIdentifier
           Position = cursors.Cursor.Value
           Context = { IncludeDeclaration = true }
           WorkDoneToken = None
-          PartialResultToken = None }
+          PartialResultToken = None
+        }
 
       let! refs = doc.Server.Server.TextDocumentReferences request
 
@@ -498,7 +532,8 @@ let private rangeTests state =
     }
 
   serverTestList "range" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can get range of variable"
+    [
+      testCaseAsync "can get range of variable"
       <| checkRanges
         server
         """
@@ -626,22 +661,26 @@ let private rangeTests state =
               .$<Task>$
               .Delay TimeSpan.MaxValue
         }
-        """ ])
+        """
+    ])
 
 let tests state =
   testList
     "Find All References tests"
-    [ scriptTests state
+    [
+      scriptTests state
       solutionTests state
       untitledTests state
-      rangeTests state ]
+      rangeTests state
+    ]
 
 
 let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
   testSequenced
   <| testList
     ($"{nameof Tokenizer.tryFixupRange}")
-    [ let checker = lazy (FSharpChecker.Create())
+    [
+      let checker = lazy (FSharpChecker.Create())
 
       let getSymbolUses (source: string) cursor =
         async {
@@ -650,8 +689,11 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
           let path: string<LocalPath> = UMX.tag file
           let source = sourceTextFactory.Create(path, source)
 
-          let! (projOptions, _) = checker.GetProjectOptionsFromScript(file, source, assumeDotNetFramework = false)
-          let! (parseResults, checkResults) = checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
+          let! (projOptions, _) =
+            checker.GetProjectOptionsFromScript(file, source, assumeDotNetFramework = false)
+
+          let! (parseResults, checkResults) =
+            checker.ParseAndCheckFileInProject(file, 0, source, projOptions)
           // Expect.isEmpty parseResults.Diagnostics "There should be no parse diags"
           Expect.hasLength parseResults.Diagnostics 0 "There should be no parse diags"
 
@@ -1165,4 +1207,5 @@ let tryFixupRangeTests (sourceTextFactory: ISourceTextFactory) =
             (
               $<-.->$
               ) 1 2
-        """ ]
+        """
+    ]

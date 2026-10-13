@@ -26,12 +26,14 @@ type private CrefCandidateKind =
   | UnionCase
 
 type private CrefCandidate =
-  { XmlDocSig: string
+  {
+    XmlDocSig: string
     AssemblyName: string
     DisplayName: string
     FullName: string option
     GenericArity: int option
-    Kind: CrefCandidateKind }
+    Kind: CrefCandidateKind
+  }
 
 let private stripGenericArity (name: string) =
   let idx = name.LastIndexOf('`')
@@ -80,12 +82,14 @@ let createCrefResolver (symbols: AssemblySymbol list) =
     then
       acc
     else
-      { XmlDocSig = xmlDocSig
+      {
+        XmlDocSig = xmlDocSig
         AssemblyName = assemblyName
         DisplayName = displayName
         FullName = fullName
         GenericArity = genericArity
-        Kind = kind }
+        Kind = kind
+      }
       :: acc
 
   let tryAddCandidate kind getCandidate acc =
@@ -302,8 +306,10 @@ module private Format =
     | NonVoidElement of innerText: string * attributes: Map<string, string>
 
   type FormatterInfo =
-    { TagName: string
-      Formatter: TagInfo -> string option }
+    {
+      TagName: string
+      Formatter: TagInfo -> string option
+    }
 
   let private extractTextFromQuote (quotedText: string) = quotedText.Substring(1, quotedText.Length - 2)
 
@@ -403,7 +409,8 @@ module private Format =
     | _ -> text
 
   let private codeBlock =
-    { TagName = "code"
+    {
+      TagName = "code"
       Formatter =
         function
         | VoidElement _ -> None
@@ -444,7 +451,8 @@ module private Format =
     |> applyFormatter
 
   let private example =
-    { TagName = "example"
+    {
+      TagName = "example"
       Formatter =
         function
         | VoidElement _ -> None
@@ -466,18 +474,21 @@ module private Format =
     |> applyFormatter
 
   let private codeInline =
-    { TagName = "c"
+    {
+      TagName = "c"
       Formatter =
         function
         | VoidElement _ -> None
-        | NonVoidElement(innerText, _) -> "`" + innerText + "`" |> Some }
+        | NonVoidElement(innerText, _) -> "`" + innerText + "`" |> Some
+    }
     |> applyFormatter
 
   let private link text uri = $"[`%s{text}`](%s{uri})"
   let private code text = $"`%s{text}`"
 
   let private anchor =
-    { TagName = "a"
+    {
+      TagName = "a"
       Formatter =
         function
         | VoidElement attributes ->
@@ -488,25 +499,30 @@ module private Format =
         | NonVoidElement(innerText, attributes) ->
           match href attributes with
           | Some href -> Some(link innerText href)
-          | None -> Some(code innerText) }
+          | None -> Some(code innerText)
+    }
     |> applyFormatter
 
   let private paragraph =
-    { TagName = "para"
+    {
+      TagName = "para"
       Formatter =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some }
+        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some
+    }
     |> applyFormatter
 
   let private block =
-    { TagName = "block"
+    {
+      TagName = "block"
       Formatter =
         function
         | VoidElement _ -> None
 
-        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some }
+        | NonVoidElement(innerText, _) -> nl + innerText + nl |> Some
+    }
     |> applyFormatter
 
   let private see (showDocumentationLinks: bool) (tryResolveCref: string -> (string * string * string) option) =
@@ -523,7 +539,8 @@ module private Format =
         | Some langword -> Some(code langword)
         | None -> None
 
-    { TagName = "see"
+    {
+      TagName = "see"
       Formatter =
         function
         | VoidElement attributes -> formatFromAttributes attributes
@@ -539,11 +556,13 @@ module private Format =
             | None ->
               match href attributes with
               | Some externalUrl -> Some(link innerText externalUrl)
-              | None -> Some $"`{innerText}`" }
+              | None -> Some $"`{innerText}`"
+    }
     |> applyFormatter
 
   let private xref =
-    { TagName = "xref"
+    {
+      TagName = "xref"
       Formatter =
         function
         | VoidElement attributes ->
@@ -557,11 +576,13 @@ module private Format =
             | Some href -> Some(link innerText href)
             | None -> None
           else
-            Some(code innerText) }
+            Some(code innerText)
+    }
     |> applyFormatter
 
   let private paramRef =
-    { TagName = "paramref"
+    {
+      TagName = "paramref"
       Formatter =
         function
         | VoidElement attributes ->
@@ -583,7 +604,8 @@ module private Format =
     |> applyFormatter
 
   let private typeParamRef =
-    { TagName = "typeparamref"
+    {
+      TagName = "typeparamref"
       Formatter =
         function
         | VoidElement attributes ->
@@ -599,7 +621,8 @@ module private Format =
               Some(code name)
             | None -> None
           else
-            Some(code innerText) }
+            Some(code innerText)
+    }
     |> applyFormatter
 
   let private fixPortableClassLibrary (text: string) =
@@ -718,7 +741,8 @@ module private Format =
   let private thsPattern = Regex "<th\s?>"
 
   let private convertTable =
-    { TagName = "table"
+    {
+      TagName = "table"
       Formatter =
         function
         | VoidElement _ -> None
@@ -872,7 +896,8 @@ module private Format =
           extractRowsForTable res newText
       | _ -> res
 
-    { TagName = "list"
+    {
+      TagName = "list"
       Formatter =
         function
         | VoidElement _ -> None
@@ -944,7 +969,8 @@ module private Format =
              + separator
              + Environment.NewLine
              + itemsText)
-          |> Some }
+          |> Some
+    }
     |> applyFormatter
 
   /// <summary>
@@ -1070,8 +1096,10 @@ type private XmlDocMember(doc: XmlDocument, indentationSize: int, columnOffset: 
     |> Seq.choose (fun node ->
       let attrs =
         if node.Attributes <> null then
-          [ for i in 0 .. node.Attributes.Count - 1 ->
-              node.Attributes.[i].Name.ToLowerInvariant(), node.Attributes.[i].InnerText ]
+          [
+            for i in 0 .. node.Attributes.Count - 1 ->
+              node.Attributes.[i].Name.ToLowerInvariant(), node.Attributes.[i].InnerText
+          ]
           |> Map.ofList
         else
           Map.empty
@@ -1634,8 +1662,10 @@ let private tryComputeTooltipInfo
           docComment, false
         | TryGetXmlDocMemberResult.Error -> ERROR_WHILE_PARSING_DOC_COMMENT, false
 
-      {| DocComment = docComment
-         HasTruncatedExamples = hasTruncatedExamples |}
+      {|
+        DocComment = docComment
+        HasTruncatedExamples = hasTruncatedExamples
+      |}
       |> Ok
       |> Some
 

@@ -78,9 +78,11 @@ let private eachCompileOnOwnLine (fsprojPath: string) =
 let allTests =
   testList
     "FsProjEditor"
-    [ testList
+    [
+      testList
         "moveFileUp"
-        [ testCase "moves second file above first"
+        [
+          testCase "moves second file above first"
           <| fun _ ->
             let path = createTempFsproj [ "A.fs"; "B.fs"; "C.fs" ]
 
@@ -150,11 +152,13 @@ let allTests =
               FsProjEditor.moveFileUp path "B.fs"
               Expect.isTrue (eachCompileOnOwnLine path) "Each Compile element must remain on its own line (CRLF)"
             finally
-              File.Delete path ]
+              File.Delete path
+        ]
 
       testList
         "moveFileDown"
-        [ testCase "moves first file below second"
+        [
+          testCase "moves first file below second"
           <| fun _ ->
             let path = createTempFsproj [ "A.fs"; "B.fs"; "C.fs" ]
 
@@ -224,11 +228,13 @@ let allTests =
               FsProjEditor.moveFileDown path "B.fs"
               Expect.isTrue (eachCompileOnOwnLine path) "Each Compile element must remain on its own line (CRLF)"
             finally
-              File.Delete path ]
+              File.Delete path
+        ]
 
       testList
         "moveFileUp and moveFileDown roundtrip"
-        [ testCase "move up then down restores original order"
+        [
+          testCase "move up then down restores original order"
           <| fun _ ->
             let path = createTempFsproj [ "A.fs"; "B.fs"; "C.fs" ]
 
@@ -248,4 +254,6 @@ let allTests =
               FsProjEditor.moveFileUp path "B.fs"
               Expect.equal (getCompileOrder path) [ "A.fs"; "B.fs"; "C.fs" ] "Round-trip should restore original order"
             finally
-              File.Delete path ] ]
+              File.Delete path
+        ]
+    ]

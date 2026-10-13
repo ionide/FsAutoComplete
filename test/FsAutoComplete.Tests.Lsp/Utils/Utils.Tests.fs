@@ -7,7 +7,8 @@ module private Expect =
   let private failureTests =
     testList
       (nameof Expect.failure)
-      [ testCaseAsync "failtest should be success" (Expect.failure <| async { failtest "some error" })
+      [
+        testCaseAsync "failtest should be success" (Expect.failure <| async { failtest "some error" })
         testCaseAsync "equal failure should be success" (Expect.failure <| async { Expect.equal 1 2 "" })
         testCaseAsync
           "no failure should fail"
@@ -45,7 +46,8 @@ module private Expect =
             with
             | :? System.NotImplementedException as ex -> Expect.equal ex.Message msg "Should have correct error message"
             | ex -> failtest "Expected System.Exception, but was %A" (ex.GetType())
-          }) ]
+          })
+      ]
 
   let tests = testList (nameof Expect) [ failureTests ]
 
@@ -58,7 +60,8 @@ module private Range =
   let touchesTests =
     testList
       (nameof Range.touches)
-      [ testCase "completely disjoint ranges don't touch"
+      [
+        testCase "completely disjoint ranges don't touch"
         <| fun _ ->
           let r1 = { Start = pos 1u 5u; End = pos 3u 7u }
           let r2 = { Start = pos 5u 3u; End = pos 7u 8u }
@@ -103,12 +106,14 @@ module private Range =
           let r2 = { Start = pos 2u 3u; End = pos 5u 8u }
 
           let touch = Range.touches r1 r2
-          Expect.isFalse touch "Should not touch" ]
+          Expect.isFalse touch "Should not touch"
+      ]
 
   let private overlapsStrictlyTests =
     testList
       (nameof Range.overlapsStrictly)
-      [ testCase "completely distinct ranges on different lines don't overlap"
+      [
+        testCase "completely distinct ranges on different lines don't overlap"
         <| fun _ ->
           let r1 = { Start = pos 1u 3u; End = pos 2u 7u }
           let r2 = { Start = pos 4u 5u; End = pos 7u 8u }
@@ -174,12 +179,14 @@ module private Range =
           let overlap = Range.overlapsStrictly r1 r2
           Expect.isTrue overlap "Should overlap"
           let overlap = Range.overlapsStrictly r2 r1
-          Expect.isTrue overlap "Should overlap" ]
+          Expect.isTrue overlap "Should overlap"
+      ]
 
   let private overlapsLooselyTests =
     testList
       (nameof Range.overlapsLoosely)
-      [ testCase "completely distinct ranges on different lines don't overlap"
+      [
+        testCase "completely distinct ranges on different lines don't overlap"
         <| fun _ ->
           let r1 = { Start = pos 1u 3u; End = pos 2u 7u }
           let r2 = { Start = pos 4u 5u; End = pos 7u 8u }
@@ -245,12 +252,14 @@ module private Range =
           let overlap = Range.overlapsLoosely r1 r2
           Expect.isTrue overlap "Should overlap"
           let overlap = Range.overlapsLoosely r2 r1
-          Expect.isTrue overlap "Should overlap" ]
+          Expect.isTrue overlap "Should overlap"
+      ]
 
   let isDisjointStrictlyTests =
     testList
       (nameof Range.isDisjointStrictly)
-      [ testCase "completely distinct ranges on different lines are disjoint"
+      [
+        testCase "completely distinct ranges on different lines are disjoint"
         <| fun _ ->
           let r1 = { Start = pos 1u 3u; End = pos 2u 7u }
           let r2 = { Start = pos 4u 5u; End = pos 7u 8u }
@@ -316,12 +325,14 @@ module private Range =
           let disjoint = Range.isDisjointStrictly r1 r2
           Expect.isFalse disjoint "Should not be disjoint"
           let disjoint = Range.isDisjointStrictly r2 r1
-          Expect.isFalse disjoint "Should not be disjoint" ]
+          Expect.isFalse disjoint "Should not be disjoint"
+      ]
 
   let isDisjointLooselyTests =
     testList
       (nameof Range.isDisjointLoosely)
-      [ testCase "completely distinct ranges on different lines are disjoint"
+      [
+        testCase "completely distinct ranges on different lines are disjoint"
         <| fun _ ->
           let r1 = { Start = pos 1u 3u; End = pos 2u 7u }
           let r2 = { Start = pos 4u 5u; End = pos 7u 8u }
@@ -387,28 +398,33 @@ module private Range =
           let disjoint = Range.isDisjointLoosely r1 r2
           Expect.isFalse disjoint "Should not be disjoint"
           let disjoint = Range.isDisjointLoosely r2 r1
-          Expect.isFalse disjoint "Should not be disjoint" ]
+          Expect.isFalse disjoint "Should not be disjoint"
+      ]
 
   let tests =
     testList
       (nameof Range)
-      [ touchesTests
+      [
+        touchesTests
         overlapsStrictlyTests
         overlapsLooselyTests
         isDisjointStrictlyTests
-        isDisjointLooselyTests ]
+        isDisjointLooselyTests
+      ]
 
 module private Text =
   let private trimTripleQuotationTests =
     testList
       (nameof Text.trimTripleQuotation)
-      [ let check input expected =
+      [
+        let check input expected =
           let actual = input |> Text.trimTripleQuotation
           Expect.equal actual expected "Invalid trimming"
 
         testList
           "normal string"
-          [ testCase "empty string"
+          [
+            testCase "empty string"
             <| fun _ ->
               let text = ""
               let expected = text
@@ -469,11 +485,13 @@ module private Text =
             <| fun _ ->
               let text = "\n  foo bar\n\n    baz\n  lorem ipsum\n    dolor sit\n    "
               let expected = "foo bar\n\n  baz\nlorem ipsum\n  dolor sit\n"
-              check text expected ]
+              check text expected
+          ]
 
         testList
           "triple quotation"
-          [ testCase "fsharp code written on beginning of line"
+          [
+            testCase "fsharp code written on beginning of line"
             <| fun _ ->
               let text =
                 """
@@ -636,7 +654,9 @@ else
 
               let a = text |> Text.trimTripleQuotation
               let b = text |> Text.trimTripleQuotation
-              Expect.equal b a "both trimmings should be same" ] ]
+              Expect.equal b a "both trimmings should be same"
+          ]
+      ]
 
   let tests = testList (nameof Text) [ trimTripleQuotationTests ]
 

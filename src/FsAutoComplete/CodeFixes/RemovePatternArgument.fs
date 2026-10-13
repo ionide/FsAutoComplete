@@ -28,11 +28,17 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           | _ -> None)
         |> Option.toList
         |> List.map (fun range ->
-          { Edits =
-              [| { Range = fcsRangeToLsp range
-                   NewText = "" } |]
+          {
+            Edits =
+              [|
+                {
+                  Range = fcsRangeToLsp range
+                  NewText = ""
+                }
+              |]
             File = codeActionParams.TextDocument
             Title = title
             SourceDiagnostic = None
-            Kind = FixKind.Refactor })
+            Kind = FixKind.Refactor
+          })
     })

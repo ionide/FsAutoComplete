@@ -181,7 +181,8 @@ type FSharpCompilerServiceChecker
           || opt.EndsWith("FSharp.Compiler.Interactive.Settings.dll", StringComparison.Ordinal))
 
       { p with
-          OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
+          OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |]
+      }
 
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
@@ -218,7 +219,8 @@ type FSharpCompilerServiceChecker
           |> Array.map (fun opt ->
             match opt with
             | Reference r -> $"-r:{Path.GetFullPath r}"
-            | opt -> opt) }
+            | opt -> opt)
+    }
 
 
   /// ensures that any user-configured include/load files are added to the typechecking context
@@ -245,7 +247,8 @@ type FSharpCompilerServiceChecker
     )
 
     { projectOptions with
-        SourceFiles = files }
+        SourceFiles = files
+    }
 
 
   static member GetDependingProjects (file: string<LocalPath>) (snapshots: seq<string * CompilerProjectOption>) =
@@ -256,14 +259,16 @@ type FSharpCompilerServiceChecker
     project
     |> Option.map (fun (_, option) ->
       option,
-      [ yield!
+      [
+        yield!
           snapshots
           |> Seq.map snd
           |> Seq.distinctBy (fun o -> o.ProjectFileName)
           |> Seq.filter (fun o ->
             o.ReferencedProjectsPath
             |> List.map Path.GetFullPath
-            |> List.contains option.ProjectFileName) ])
+            |> List.contains option.ProjectFileName)
+      ])
 
   member private __.GetNetFxScriptSnapshot(file: string<LocalPath>, source) =
     async {
@@ -570,7 +575,8 @@ type FSharpCompilerServiceChecker
       let path = UMX.untag filePath
 
       try
-        let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
+        let! (p, c) =
+          checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
 
@@ -720,7 +726,8 @@ type FSharpCompilerServiceChecker
       let file = UMX.untag file
 
       try
-        let! results = checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
+        let! results =
+          checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
 
         checkerLogger.info (
           Log.setMessage "FindReferencesForSymbolInFile - {file} - {projectFile}  - {results}"

@@ -36,14 +36,18 @@ module TryGetToolTipEnhancedResult =
   type SymbolInfo =
     | Keyword of string
     | Symbol of
-      {| XmlDocSig: string
-         Assembly: string |}
+      {|
+        XmlDocSig: string
+        Assembly: string
+      |}
 
 type TryGetToolTipEnhancedResult =
-  { ToolTipText: ToolTipText
+  {
+    ToolTipText: ToolTipText
     Signature: string
     Footer: string
-    SymbolInfo: TryGetToolTipEnhancedResult.SymbolInfo }
+    SymbolInfo: TryGetToolTipEnhancedResult.SymbolInfo
+  }
 
 type ParseAndCheckResults =
   new:

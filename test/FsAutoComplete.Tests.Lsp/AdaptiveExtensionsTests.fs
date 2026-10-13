@@ -9,7 +9,8 @@ open FsAutoComplete.Adaptive
 let tests =
   testList
     "asyncaval.AddCallback"
-    [ testCaseAsync "a value that fails to compute does not stop later values"
+    [
+      testCaseAsync "a value that fails to compute does not stop later values"
       <| async {
         let source = cval 0
         let firstFailed = TaskCompletionSource()
@@ -38,4 +39,5 @@ let tests =
 
         let! next = nextValue.Task.WaitAsync(TimeSpan.FromSeconds 5.) |> Async.AwaitTask
         Expect.equal next 1 "The callback receives the next value"
-      } ]
+      }
+    ]

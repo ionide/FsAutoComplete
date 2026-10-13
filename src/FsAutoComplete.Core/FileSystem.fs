@@ -447,9 +447,11 @@ type RoslynSourceTextFactory() =
 
 
 type VolatileFile =
-  { LastTouched: DateTime
+  {
+    LastTouched: DateTime
     Source: IFSACSourceText
-    Version: int }
+    Version: int
+  }
 
   member this.FileName = this.Source.FileName
 
@@ -472,9 +474,11 @@ type VolatileFile =
       | Some t -> t
       | None -> File.getLastWriteTimeOrDefaultNow source.FileName
 
-    { Source = source
+    {
+      Source = source
       Version = version
-      LastTouched = touched }
+      LastTouched = touched
+    }
 
 type FileSystem(actualFs: IFileSystem, tryFindFile: string<LocalPath> -> VolatileFile option) =
   let fsLogger = LogProvider.getLoggerByName "FileSystem"
@@ -607,9 +611,11 @@ module Symbol =
 
   /// Declaration, Implementation, Signature
   let getDeclarationLocations (symbol: FSharpSymbol) =
-    [| symbol.DeclarationLocation
-       symbol.ImplementationLocation
-       symbol.SignatureLocation |]
+    [|
+      symbol.DeclarationLocation
+      symbol.ImplementationLocation
+      symbol.SignatureLocation
+    |]
     |> Array.choose id
     |> Array.distinct
     |> Array.map (fun r -> r.NormalizeDriveLetterCasing())

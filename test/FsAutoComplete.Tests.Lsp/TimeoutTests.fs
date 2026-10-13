@@ -13,7 +13,8 @@ let private run (code: TestCode) =
 let tests =
   testList
     "cancelOnTimeout"
-    [ testCaseAsync "a test that runs too long fails as a timeout and stops"
+    [
+      testCaseAsync "a test that runs too long fails as a timeout and stops"
       <| async {
         let steps = ref 0
 
@@ -56,7 +57,7 @@ let tests =
 
         match result with
         | Choice2Of2 e -> Expect.equal e.Message "the test's own failure" "The test's exception is not replaced"
-        | Choice1Of2 () -> failtest "The test should have failed"
+        | Choice1Of2() -> failtest "The test should have failed"
       }
 
       testCaseAsync "a test with two timeouts still gets the time to stop"
@@ -139,10 +140,13 @@ let tests =
           |> Async.Catch
           |> Async.StartAsTask
 
-        let! _ = Task.WhenAny(reported, Task.Delay(TimeSpan.FromSeconds 15.)) |> Async.AwaitTask
+        let! _ =
+          Task.WhenAny(reported, Task.Delay(TimeSpan.FromSeconds 15.)) |> Async.AwaitTask
+
         Expect.isTrue reported.IsCompleted "The test is reported, not left waiting"
 
         match reported.Result with
         | Choice2Of2(:? AssertException as e) -> Expect.stringContains e.Message "Timeout" "The test fails as a timeout"
         | other -> failtestf "Expected a timeout, got %A" other
-      } ]
+      }
+    ]

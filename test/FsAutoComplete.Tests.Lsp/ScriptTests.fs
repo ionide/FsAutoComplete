@@ -24,7 +24,8 @@ let scriptPreviewTests state =
         serverInitialize
           path
           { defaultConfigDto with
-              FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
+              FSIExtraSharedParameters = Some [| "--langversion:preview" |]
+          }
           state
 
       do! waitForWorkspaceFinishedParsing events
@@ -34,18 +35,27 @@ let scriptPreviewTests state =
 
   testList
     "script features"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "can typecheck scripts when preview features are used"
             (async {
               let! server, events, scriptPath = server
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+              do!
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               match! waitForParseResultsForFile "Script.fsx" events with
               | Ok() -> () // all good, no parsing/checking errors
               | Core.Result.Error errors -> failwithf "Errors while parsing script %s: %A" scriptPath errors
-            }) ] ]
+            })
+        ]
+    ]
 
 let scriptEvictionTests state =
   let server =
@@ -61,14 +71,20 @@ let scriptEvictionTests state =
 
   ptestList
     "script eviction tests"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "can update script typechecking when arguments change"
             (async {
               let! server, events, scriptPath = server
 
-              let openScript () = server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+              let openScript () =
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               do! openScript ()
 
@@ -78,10 +94,13 @@ let scriptEvictionTests state =
 
               let configChange: DidChangeConfigurationParams =
                 let config: FSharpConfigRequest =
-                  { FSharp =
+                  {
+                    FSharp =
                       Some
                         { defaultConfigDto with
-                            FSIExtraSharedParameters = Some [| "--nowarn:760" |] } }
+                            FSIExtraSharedParameters = Some [| "--nowarn:760" |]
+                        }
+                  }
 
                 { Settings = Server.serialize config }
 
@@ -95,7 +114,9 @@ let scriptEvictionTests state =
                 |> Async.AwaitObservable
                 |> AsyncResult.bimap ignore (fun errors ->
                   Expect.isEmpty errors "Should be no typecheck errors after we set the preview argument")
-            }) ] ]
+            })
+        ]
+    ]
 
 let dependencyManagerTests state =
   let server =
@@ -115,9 +136,12 @@ let dependencyManagerTests state =
 
       let dependencyManagerEnabledConfig =
         { defaultConfigDto with
-            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |]
+        }
 
-      let! (server, events) = serverInitialize workingDir dependencyManagerEnabledConfig state
+      let! (server, events) =
+        serverInitialize workingDir dependencyManagerEnabledConfig state
+
       do! waitForWorkspaceFinishedParsing events
       return server, events, workingDir
     }
@@ -126,15 +150,22 @@ let dependencyManagerTests state =
   testSequenced
   <| testList
     "dependencyManager integrations"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "can typecheck script that depends on #r dummy dependency manager"
             (async {
               let! server, events, workingDir = server
               let scriptName = "DepManagerPresentScript.fsx"
               let scriptPath = Path.Combine(workingDir, scriptName)
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+              do!
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               match! waitForParseResultsForFile scriptName events with
               | Ok _ -> ()
@@ -147,7 +178,12 @@ let dependencyManagerTests state =
               let! server, events, workingDir = server
               let scriptName = "DepManagerAbsentScript.fsx"
               let scriptPath = Path.Combine(workingDir, scriptName)
-              do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+              do!
+                server.TextDocumentDidOpen
+                  {
+                    TextDocument = loadDocument scriptPath
+                  }
 
               match! waitForParseResultsForFile scriptName events with
               | Ok _ -> failwith "Expected to fail typechecking a script with a dependency manager that's missing"
@@ -155,7 +191,9 @@ let dependencyManagerTests state =
                 match e with
                 | [| { Code = Some(U2.C2 "998" | U2.C1 998) }; _ |] -> () // this is the error code that signals a missing dependency manager, so this is a 'success'
                 | e -> failwithf "Unexpected error during typechecking: %A" e
-            }) ] ]
+            })
+        ]
+    ]
 
 let scriptProjectOptionsCacheTests state =
   let server =
@@ -165,7 +203,8 @@ let scriptProjectOptionsCacheTests state =
 
       let previewEnabledConfig =
         { defaultConfigDto with
-            FSIExtraSharedParameters = Some [| "--langversion:preview" |] }
+            FSIExtraSharedParameters = Some [| "--langversion:preview" |]
+        }
 
       let! (server, events) = serverInitialize workingDir previewEnabledConfig state
       let options = ResizeArray()
@@ -182,9 +221,11 @@ let scriptProjectOptionsCacheTests state =
   testSequenced
   <| testList
     "ScriptProjectOptionsCache"
-    [ testList
+    [
+      testList
         "tests"
-        [ testCaseAsync
+        [
+          testCaseAsync
             "reopening an unchanged script file should return same project options for file"
             (async {
               let! server, _events, _workingDir, testFilePath, allOpts = server
@@ -192,13 +233,22 @@ let scriptProjectOptionsCacheTests state =
               // Hover type checks the script, so it returns after the project options for the open script are resolved.
               let openAndResolveOptions () =
                 async {
-                  do! server.TextDocumentDidOpen { TextDocument = loadDocument testFilePath }
+                  do!
+                    server.TextDocumentDidOpen
+                      {
+                        TextDocument = loadDocument testFilePath
+                      }
 
                   let! _ =
                     server.TextDocumentHover
-                      { TextDocument = { Uri = Path.FilePathToUri testFilePath }
+                      {
+                        TextDocument =
+                          {
+                            Uri = Path.FilePathToUri testFilePath
+                          }
                         Position = { Line = 0u; Character = 0u }
-                        WorkDoneToken = None }
+                        WorkDoneToken = None
+                      }
 
                   ()
                 }
@@ -206,4 +256,6 @@ let scriptProjectOptionsCacheTests state =
               do! openAndResolveOptions ()
               do! openAndResolveOptions ()
               Expect.hasLength allOpts 1 "should only have one event"
-            }) ] ]
+            })
+        ]
+    ]
