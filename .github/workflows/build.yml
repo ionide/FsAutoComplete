@@ -76,7 +76,7 @@ jobs:
           ${{ matrix.dotnet-version }}
 
     # Build everything with the .NET 10 SDK: it can target every supported TFM, and
-    # Paket 10 is a net9.0-only tool that the .NET 8 SDK cannot restore. This is what
+    # Paket 12 is a net10.0-only tool that the .NET 8 SDK cannot restore. This is what
     # keeps `dotnet tool restore` working on the net8 leg.
     - name: Setup .NET 10 build SDK
       id: build-sdk

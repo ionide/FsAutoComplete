@@ -468,7 +468,7 @@ let ciTests targetFramework sdkVersion =
       })
   }
 
-// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
+// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 12, a net10.0-only tool.
 // It then builds and tests with the SDK that matches the test target framework.
 let net80Tests =
   stage "test:net8.0" {
