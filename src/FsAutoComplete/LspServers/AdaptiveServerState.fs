@@ -446,7 +446,10 @@ type AdaptiveState
           TestAdapter.getExpectoTests parseResults.ParseTree
         elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "nunit.framework.dll") then
           TestAdapter.getNUnitTest parseResults.ParseTree
-        elif proj.OtherOptions |> Seq.exists (fun o -> o.Contains "xunit.assert.dll") then
+        elif
+          proj.OtherOptions
+          |> Seq.exists (fun o -> o.Contains "xunit.assert.dll" || o.Contains "xunit.v3.assert.dll")
+        then
           TestAdapter.getXUnitTest parseResults.ParseTree
         else
           []
