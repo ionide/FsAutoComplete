@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.85.4] - 2026-10-15
+
+### Fixed
+
+- [Internal: `gotoTest` no longer fails in a Release build](https://github.com/ionide/FsAutoComplete/pull/1562) - The test project always builds the `GoToCSharp` fixture in Debug.
+
 ## [0.85.3] - 2026-10-12
 
 ### Fixed

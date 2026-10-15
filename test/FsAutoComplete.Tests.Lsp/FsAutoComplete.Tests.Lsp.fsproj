@@ -25,7 +25,7 @@
     </ProjectReference>
     <ProjectReference Include="..\OptionAnalyzer\OptionAnalyzer.fsproj" />
     <ProjectReference Include="..\FsAutoComplete.DependencyManager.Dummy\FsAutoComplete.DependencyManager.Dummy.fsproj" />
-    <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" SetConfiguration="Configuration=Debug" />
     <PreparedTestProject Include="TestCases\DependentFileChecking\SameProject\SameProject.fsproj" />
     <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net8.0\App\App.fsproj" />
     <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net9.0\App\App.fsproj" Condition="'$(TargetFramework)' != 'net8.0'" />
