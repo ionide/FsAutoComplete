@@ -13,6 +13,8 @@ type FSharpLspClient =
   new: sendServerNotification: ClientNotificationSender * sendServerRequest: ClientRequestSender -> FSharpLspClient
   inherit LspClient
   member ClientCapabilities: ClientCapabilities option with get, set
+  /// When true, the client supports Ionide-specific fsharp/ custom notifications.
+  member SupportsCustomFSharpNotifications: bool with get, set
   override WindowShowMessage: ShowMessageParams -> Async<unit>
   override WindowShowMessageRequest: ShowMessageRequestParams -> AsyncLspResult<MessageActionItem option>
   override WindowLogMessage: LogMessageParams -> Async<unit>
