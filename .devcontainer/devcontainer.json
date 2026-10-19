@@ -12,7 +12,7 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "FSharp.workspacePath": "FsAutoComplete.sln"
+        "FSharp.workspacePath": "FsAutoComplete.slnx"
       },
       "extensions": [
         "Ionide.Ionide-fsharp",

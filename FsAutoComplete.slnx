@@ -1,0 +1,26 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/.paket/">
+    <File Path="paket.dependencies" />
+    <File Path="paket.lock" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/FsAutoComplete.Logging/FsAutoComplete.Logging.fsproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/FsAutoComplete.DependencyManager.Dummy/FsAutoComplete.DependencyManager.Dummy.fsproj" />
+    <Project Path="test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj" />
+    <Project Path="test/FsAutoComplete.Tests.TestExplorer/FsAutoComplete.Tests.TestExplorer.fsproj" />
+    <Project Path="test/OptionAnalyzer/OptionAnalyzer.fsproj" />
+  </Folder>
+  <Project Path="benchmarks/benchmarks.fsproj" />
+  <Project Path="src/FsAutoComplete.Core/FsAutoComplete.Core.fsproj" />
+  <Project Path="src/FsAutoComplete/FsAutoComplete.fsproj" />
+  <Properties Name="MonoDevelopProperties">
+    <Property Name="StartupItem" Value="FsAutoComplete\FsAutoComplete.fsproj" />
+  </Properties>
+</Solution>
