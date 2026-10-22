@@ -23,8 +23,8 @@
     <IsPackable>false</IsPackable>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <!-- nightly FCS and FSharp.Core from the FcsNightly paket group, see Directory.Build.targets -->
-    <FcsNightlyVersion>43.13.200-rc2.26512.139</FcsNightlyVersion>
-    <FSharpCoreNightlyVersion>11.0.200-rc2.26512.139</FSharpCoreNightlyVersion>
+    <FcsNightlyVersion>43.13.200-rc2.26521.122</FcsNightlyVersion>
+    <FSharpCoreNightlyVersion>11.0.200-rc2.26521.122</FSharpCoreNightlyVersion>
   </PropertyGroup>
 
 </Project>
