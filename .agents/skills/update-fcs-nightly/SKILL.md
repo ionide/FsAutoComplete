@@ -1,6 +1,6 @@
 ---
 name: update-fcs-nightly
-description: Move the nightly branch to the newest FCS built from dotnet/fsharp main, port FSAC to what changed, and get the tests green with both compilers.
+description: Judge whether a newer FCS nightly is worth taking, then move the nightly branch to it, port FSAC to what changed, and get the tests green with both compilers.
 ---
 
 # Update the nightly FCS
@@ -28,7 +28,47 @@ they ship, so a failure under one compiler only is the most valuable thing you c
 
 ## Steps
 
-### 1. Rebase on the latest main
+### 1. Judge whether the newest nightly is worth it
+
+```
+dotnet fsi .agents/skills/update-fcs-nightly/scripts/bump.fsx --dry-run
+```
+
+When it prints `is already the newest`, tell the user and stop. When the user named a version, pass it as the last
+argument. Otherwise keep the `dotnet/fsharp changes` link: it is the change log for this update.
+
+List the commits that touch the checker, in the range of the link and on dotnet/fsharp `main` after its end. The
+second list is merged but in no nightly yet: the feed lags `main` by days. The version suffix is the build date
+(`26521` is 2026, then month × 50 + day: 21 October), not the date of the last commit in it.
+
+```
+.agents/skills/update-fcs-nightly/scripts/service-commits.sh <from> <to>
+.agents/skills/update-fcs-nightly/scripts/service-commits.sh <to> main
+gh api repos/dotnet/fsharp/compare/<to>...main --jq '.commits[].commit.message | split("\n")[0]' | rg FCSMinorVersion
+```
+
+The script filters on files, not titles: a title like "Completion: respect EditorBrowsableAttribute" hides an `.fsi`
+change. Sort each commit by the files it lists:
+
+- `TransparentCompiler.*`, `FSharpProjectSnapshot.fs`: transparent compiler.
+- `BackgroundCompiler.*`, `IncrementalBuild.*`: background compiler.
+- `service.*`, `FSharpCheckerResults.*`, `Caches.*` and the rest, or files of both lists above: both compilers.
+- Any `.fsi`: an API port to expect.
+
+Read the PR of each one (`gh pr view <number> -R dotnet/fsharp --json title,author,body`) for what it fixes and any
+numbers it measured. Report to the user:
+
+- the old and new version, and the `dotnet/fsharp changes` link;
+- the transparent compiler changes, then the changes to both compilers or to the background compiler only, one line
+  each with the PR number and what it fixes;
+- the API ports to expect: the `.fsi` files changed;
+- the same kinds of change merged on `main` but in no nightly yet, and an `FCSMinorVersion` bump, which moves the
+  next nightly to a new minor version;
+- a recommendation: update now, or wait for the named pending PRs.
+
+Done when the user has decided. Go on to step 2 only on their go-ahead.
+
+### 2. Rebase on the latest main
 
 Fetch the remote that points at ionide/FsAutoComplete, check out `nightly`, and rebase it on `<remote>/main`. Resolve
 conflicts commit by commit:
@@ -40,18 +80,9 @@ conflicts commit by commit:
 
 Done when the rebase has finished, `git log HEAD..<remote>/main` is empty, and the working tree is clean.
 
-### 2. Find the newest nightly
-
-```
-dotnet fsi .agents/skills/update-fcs-nightly/scripts/bump.fsx --dry-run
-```
-
-When it prints `is already the newest`, tell the user and stop. Otherwise keep the `dotnet/fsharp changes` link: it
-is the change log for this update. When the user named a version, pass it as the last argument.
-
 ### 3. Bump
 
-Run the same command without `--dry-run`, then:
+Run the command of step 1 without `--dry-run`, then:
 
 ```
 dotnet paket install
