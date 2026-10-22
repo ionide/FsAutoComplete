@@ -887,8 +887,8 @@ LOWEST_MATCHING: TRUE
 RESTRICTION: || (== netstandard2.0) (== netstandard2.1)
 NUGET
   remote: https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet12/nuget/v3/index.json
-    FSharp.Compiler.Service (43.13.200-rc2.26512.139)
-      FSharp.Core (11.0.200-rc2.26512.139)
+    FSharp.Compiler.Service (43.13.200-rc2.26521.122)
+      FSharp.Core (11.0.200-rc2.26521.122)
       System.Buffers (>= 4.6.1)
       System.Collections.Immutable (>= 10.0.10)
       System.Diagnostics.DiagnosticSource (>= 10.0.10)
@@ -896,7 +896,7 @@ NUGET
       System.Reflection.Emit (>= 4.7)
       System.Reflection.Metadata (>= 10.0.10)
       System.Runtime.CompilerServices.Unsafe (>= 6.1.2)
-    FSharp.Core (11.0.200-rc2.26512.139)
+    FSharp.Core (11.0.200-rc2.26521.122)
   remote: https://api.nuget.org/v3/index.json
     System.Buffers (4.6.1)
     System.Collections.Immutable (10.0.10)
