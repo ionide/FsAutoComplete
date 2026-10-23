@@ -2409,7 +2409,10 @@ type AdaptiveState
           | Error _ -> return Seq.empty
           | Ok tyRes ->
             let! ct = Async.CancellationToken
-            let usages = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+            let usages =
+              tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, cancellationToken = ct)
+
             return usages |> Seq.map (fun u -> u.Range)
       }
 

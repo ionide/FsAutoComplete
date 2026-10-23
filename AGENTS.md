@@ -45,7 +45,7 @@ FsAutoComplete currently provides F# support for:
 
 #### Target Frameworks
 - **netstandard2.0 & netstandard2.1**: For broader compatibility
-- **net8.0 & net9.0**: For latest .NET features and performance
+- **net10.0**: The server, its libraries and the tests. FSharp.Analyzers.SDK targets .NET 10 alone, so FSAC does too. The projects FSAC loads can target any framework
 
 ## Development Workflow
 

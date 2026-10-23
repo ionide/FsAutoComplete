@@ -131,6 +131,26 @@ let tests state =
           $"Could not find a highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType} in the token set %A{highlights}"
       })
 
+  let noTokenOfType
+    ((line, char) as pos)
+    testTokenType
+    (highlights: (Range * ClassificationUtils.SemanticTokenTypes * ClassificationUtils.SemanticTokenModifier)[] Async)
+    =
+    testCaseAsync
+      $"no token of type {testTokenType} at %A{pos}"
+      (async {
+        let! highlights = highlights
+        let pos = { Line = line; Character = char }
+
+        let tokens =
+          highlights
+          |> Array.filter (fun (r, token, _modifiers) -> rangeContainsRange r pos && token = testTokenType)
+
+        Expect.isEmpty
+          tokens
+          $"Expected no highlighting range that contained (%d{line},%d{char}) and type %A{testTokenType}"
+      })
+
   let tokenHasModifier
     ((line, char) as pos)
     testTokenType
@@ -292,12 +312,8 @@ let tests state =
             ClassificationUtils.SemanticTokenModifier.Definition
             false
             fullHighlights // type augmentation reference to `SemanticDefinitionType`
-          tokenHasModifier
-            (53u, 24u)
-            ClassificationUtils.SemanticTokenTypes.Method
-            ClassificationUtils.SemanticTokenModifier.Declaration
-            false
-            fullHighlights // the synthetic delegate Invoke member is not a source declaration
+          // the synthetic delegate Invoke member is not a source symbol, so `delegate` gets no Method token
+          noTokenOfType (53u, 24u) ClassificationUtils.SemanticTokenTypes.Method fullHighlights
 
           // Signature-file values, members, and types should be declarations rather than definitions.
           tokenHasModifier
@@ -330,11 +346,7 @@ let tests state =
             ClassificationUtils.SemanticTokenModifier.Definition
             false
             signatureHighlights // a signature type declaration is not a definition
-          tokenHasModifier
-            (8u, 26u)
-            ClassificationUtils.SemanticTokenTypes.Method
-            ClassificationUtils.SemanticTokenModifier.Declaration
-            false
-            signatureHighlights
+          // the synthetic delegate Invoke member is not a source symbol, so `delegate` gets no Method token
+          noTokenOfType (8u, 26u) ClassificationUtils.SemanticTokenTypes.Method signatureHighlights
         ]
-    ] // the synthetic delegate Invoke member is not a source declaration
+    ]

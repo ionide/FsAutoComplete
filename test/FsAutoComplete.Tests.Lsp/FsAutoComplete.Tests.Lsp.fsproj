@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- All supported runtimes; everything builds with the .NET 10 SDK. -->
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <RollForward>Minor</RollForward>
     <IsTestProject>true</IsTestProject>
@@ -28,7 +27,7 @@
     <ProjectReference Include="TestCases\GoToCSharp\GoToCSharp.csproj" ReferenceOutputAssembly="false" SetConfiguration="Configuration=Debug" />
     <PreparedTestProject Include="TestCases\DependentFileChecking\SameProject\SameProject.fsproj" />
     <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net8.0\App\App.fsproj" />
-    <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net9.0\App\App.fsproj" Condition="'$(TargetFramework)' != 'net8.0'" />
+    <PreparedTestProject Include="TestCases\DependentFileChecking\CrossProject-net9.0\App\App.fsproj" />
     <PreparedTestProject Include="TestCases\NUnitTests\NUnitTests.fsproj" />
     <PreparedTestProject Include="TestCases\XUnitTests\XUnitTests.fsproj" />
     <PreparedTestProject Include="TestCases\ExpectoTests\ExpectoTests.fsproj" />

@@ -38,24 +38,7 @@ module AdaptiveExtensions =
     member tcs.TrySetFromTaskFinished(real: Task<'a>) =
 
       // note: using ContinueWith instead of task CE for better stack traces
-      real.ContinueWith(fun (task: Task<_>) ->
-#if NET9_0_OR_GREATER
-        tcs.TrySetFromTask(task) |> ignore<bool>
-#else
-        match task.Status with
-        | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
-        | TaskStatus.Canceled ->
-          let ct = TaskCanceledException(task).CancellationToken
-
-          if ct.IsCancellationRequested then
-            tcs.TrySetCanceled ct |> ignore<bool>
-          else
-            tcs.TrySetCanceled() |> ignore<bool>
-        | TaskStatus.Faulted -> tcs.TrySetException task.Exception.InnerExceptions |> ignore<bool>
-        | _ -> ()
-
-#endif
-      )
+      real.ContinueWith(fun (task: Task<_>) -> tcs.TrySetFromTask(task) |> ignore<bool>)
       |> ignore<Task>
 
   type ChangeableHashMap<'Key, 'Value> with

@@ -2,10 +2,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- All supported runtimes. Everything builds with the .NET 10 SDK (Paket 10 is a
-         net9.0-only tool the .NET 8 SDK can't restore); CI legs differ only in which
-         runtime the tests run on (dotnet test -f <tfm>). -->
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <!-- .NET 10 only: FSharp.Analyzers.SDK targets net10.0 alone, and FSAC hosts the
+         analyzers in-process. The projects FSAC loads can target any framework. -->
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>fsautocomplete</AssemblyName>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
@@ -58,13 +57,14 @@
     <PackageId>fsautocomplete</PackageId>
     <ToolCommandName>fsautocomplete</ToolCommandName>
     <PackageType>DotnetTool</PackageType>
-    <!-- This rollforward enables us to actually run on the .net 6 runtime without
-         retargeting the whole app, minimizing packaged binary size. -->
+    <!-- Lets the tool run on a newer major runtime when .NET 10 itself is not installed. -->
     <RollForward>LatestMajor</RollForward>
     <!-- workaround for not being able to have p2p dependencies in tool output dir
     https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
     <TargetsForTfmSpecificBuildOutput>
       $(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>
+      $(TargetsForTfmSpecificContentInPackage);PackToolStub</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
   <!-- workaround for not being able to have p2p dependencies in tool output dir
   https://github.com/nuget/home/issues/3891#issuecomment-377319939 -->
@@ -72,6 +72,21 @@
     <ItemGroup>
       <BuildOutputInPackage
         Include="@(ReferenceCopyLocalPaths -> WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target>
+  <!-- An SDK older than 10 installs the net8.0 build of the tool, which is the placeholder in
+       FsAutoComplete.ToolStub that says to install the .NET 10 SDK. -->
+  <Target Name="PackToolStub">
+    <MSBuild Projects="..\FsAutoComplete.ToolStub\FsAutoComplete.ToolStub.csproj" Targets="Build"
+      Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework;RuntimeIdentifier">
+      <Output TaskParameter="TargetOutputs" ItemName="_ToolStubAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_ToolStubDirectory>@(_ToolStubAssembly->'%(RootDir)%(Directory)')</_ToolStubDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(_ToolStubDirectory)fsautocomplete.dll;$(_ToolStubDirectory)fsautocomplete.deps.json;$(_ToolStubDirectory)fsautocomplete.runtimeconfig.json;..\FsAutoComplete.ToolStub\DotnetToolSettings.xml"
+        PackagePath="tools/net8.0/any/" />
     </ItemGroup>
   </Target>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -4,7 +4,7 @@
 
 Requirements:
 
-* .NET SDK — see [global.json](global.json) for the exact version. Minimum: >= 8.0, Recommended: >= 10.0
+* The .NET 10 SDK, see [global.json](global.json). The CI and the tests also need the .NET 8 SDK: the Test Explorer sample projects target net8.0, and a test loads a project that pins SDK 8 in its global.json.
 
 ```bash
 # Restore .NET tools (includes local Paket)
@@ -17,7 +17,7 @@ dotnet build
 dotnet test
 
 # Run a specific test project
-dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+dotnet test -f net10.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
 
 # Format code
 dotnet fantomas .

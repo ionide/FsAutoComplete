@@ -468,32 +468,6 @@ let ciTests targetFramework sdkVersion =
       })
   }
 
-// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 12, a net10.0-only tool.
-// It then builds and tests with the SDK that matches the test target framework.
-let net80Tests =
-  stage "test:net8.0" {
-    workingDir lspTestsPath
-    run (createGlobalJson "10.0.100")
-    toolRestore
-    run "dotnet restore"
-    run (createGlobalJson "8.0.100")
-    run "dotnet build -c Release -f net8.0 --no-restore"
-    run (testCommand "net8.0")
-    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
-  }
-
-let net90Tests =
-  stage "test:net9.0" {
-    workingDir lspTestsPath
-    run (createGlobalJson "10.0.100")
-    toolRestore
-    run "dotnet restore"
-    run (createGlobalJson "9.0.100")
-    run "dotnet build -c Release -f net9.0 --no-restore"
-    run (testCommand "net9.0")
-    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
-  }
-
 let net100Tests =
   stage "test:net10.0" {
     workingDir lspTestsPath
@@ -505,37 +479,11 @@ let net100Tests =
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
-let ciNet80Tests = ciTests "net8.0" "8.0.100"
-let ciNet90Tests = ciTests "net9.0" "9.0.100"
 let ciNet100Tests = ciTests "net10.0" "10.0.100"
-
-pipeline "test:net8.0" {
-  description "Run net8.0 tests"
-  net80Tests
-  runIfOnlySpecified true
-}
-
-pipeline "test:net9.0" {
-  description "Run net9.0 tests"
-  net90Tests
-  runIfOnlySpecified true
-}
 
 pipeline "test:net10.0" {
   description "Run net10.0 tests"
   net100Tests
-  runIfOnlySpecified true
-}
-
-pipeline "test-ci:net8.0" {
-  description "Run net8.0 tests of a Release build, as CI does"
-  ciNet80Tests
-  runIfOnlySpecified true
-}
-
-pipeline "test-ci:net9.0" {
-  description "Run net9.0 tests of a Release build, as CI does"
-  ciNet90Tests
   runIfOnlySpecified true
 }
 
@@ -548,8 +496,6 @@ pipeline "test-ci:net10.0" {
 
 pipeline "Tests" {
   description "Run all tests"
-  net80Tests
-  net90Tests
   net100Tests
   runIfOnlySpecified true
 }
