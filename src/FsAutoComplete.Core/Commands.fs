@@ -896,7 +896,9 @@ module Commands =
       // Note: declarations in script files are currently always local!
       | Some SymbolDeclarationLocation.CurrentDocument ->
         let! ct = Async.CancellationToken
-        let symbolUses = tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, ct)
+
+        let symbolUses =
+          tyRes.GetCheckResults.GetUsesOfSymbolInFile(symbol, cancellationToken = ct)
 
         let symbolUses: _ seq =
           if includeDeclarations then
@@ -1303,7 +1305,7 @@ module Commands =
           >> Log.addContextDestructured "file" (UMX.untag file)
         )
 
-        results
+        results |> List.map _.Message
       | Error e ->
         Loggers.analyzers.error (
           Log.setMessage "Analyzer {analyzer} errored while processing {file}: {message}"
@@ -1317,7 +1319,7 @@ module Commands =
 
     async {
       try
-        let! r = client.RunAnalyzersSafely(ctx, analyzerPredicate)
+        let! r = client.RunAnalyzers(ctx, analyzerPredicate)
 
         return r |> List.collect extractResultsFromAnalyzer |> List.toArray
       with ex ->

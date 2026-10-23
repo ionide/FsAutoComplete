@@ -384,6 +384,7 @@ let generalTests =
       FsAutoComplete.Tests.Lsp.AdaptiveExtensionsTests.tests
       FsAutoComplete.Tests.Lsp.TimeoutTests.tests
       FsAutoComplete.Tests.Lsp.WorkspaceLoadFailureTests.tests sourceTextFactory
+      FsAutoComplete.Tests.Lsp.OlderSdkTests.tests
       decompilerTests
     ]
 

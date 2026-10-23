@@ -20,15 +20,7 @@ let tests state =
   let crossProjectRoot tfm =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DependentFileChecking", $"CrossProject-{tfm}")
 
-  let tfms =
-    [
-#if NET8_0_OR_GREATER
-      "net8.0"
-#endif
-#if NET9_0_OR_GREATER
-      "net9.0"
-#endif
-    ]
+  let tfms = [ "net8.0"; "net9.0" ]
 
   let aFile, bFile = "A.fs", "B.fs"
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.86.0] - 2026-10-23
+
+### Changed
+
+- *Breaking*: [FsAutoComplete runs on .NET 10](https://github.com/ionide/FsAutoComplete/pull/1550) - The server targets `net10.0` only, so it needs the .NET 10 SDK, or at least the .NET 10 runtime. The projects it loads can still target `net8.0`, `net9.0` or any other framework, and a `global.json` that pins the .NET 8 or 9 SDK keeps working. FSharp.Analyzers.SDK targets .NET 10 since 0.38, and FsAutoComplete hosts the analyzers in its own process (thanks @Thorium!)
+- *Breaking*: Update FSharp.Analyzers.SDK to `0.41.0`, FSharp.Compiler.Service to `43.12.402` and FSharp.Core to `10.1.402`. FsAutoComplete only loads analyzers that were built against FSharp.Analyzers.SDK 0.41, such as Ionide.Analyzers `0.20.0` and G-Research.FSharp.Analyzers `0.26.0`. Until now it hosted 0.37 and skipped the current releases of both. Checkout the [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.0) for details.
+
+### Added
+
+- Installing FsAutoComplete with a .NET SDK older than 10 installs a placeholder, instead of failing with "Settings file 'DotnetToolSettings.xml' was not found in the package". The placeholder says to install the .NET 10 SDK, on the console and as the error of the `initialize` request, which editors show.
+
 ## [0.85.4] - 2026-10-15
 
 ### Fixed

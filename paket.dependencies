@@ -1,6 +1,6 @@
 version 7.2.1
 
-framework: netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0
+framework: netstandard2.0, netstandard2.1, net10.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
@@ -12,8 +12,8 @@ strategy: min
 
 nuget BenchmarkDotNet
 nuget Fantomas.Client >= 0.12.0-beta-004 prerelease
-nuget FSharp.Compiler.Service >= 43.10.100
-nuget Ionide.Analyzers >= 0.19.0
+nuget FSharp.Compiler.Service 43.12.402
+nuget Ionide.Analyzers 0.20.0
 nuget FSharp.Analyzers.Build >= 0.5.0
 nuget Ionide.ProjInfo >= 0.75.3
 nuget Ionide.ProjInfo.FCS >= 0.75.3
@@ -24,7 +24,7 @@ nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis
-nuget FSharp.Analyzers.SDK
+nuget FSharp.Analyzers.SDK 0.41.0
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core

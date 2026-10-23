@@ -58,7 +58,7 @@ open Helpers
 open BenchmarkDotNet.Jobs
 
 [<MemoryDiagnoser>]
-[<SimpleJob(RuntimeMoniker.Net80)>]
+[<SimpleJob>]
 type SourceText_LineChanges_Benchmarks() =
 
   [<Params(1, 15, 50, 100, 1000)>]

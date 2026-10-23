@@ -612,19 +612,11 @@ let tooltipTests state =
             60u
             7u
             (concatLines
-#if NET8_0
-              [
-                "active pattern Value: "
-                "   input: Expr"
-                "       -> option<obj * System.Type>"
-              ])
-#else
               [
                 "active pattern Value: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type>"
               ])
-#endif
           verifySignature
             77u
             5u
@@ -656,19 +648,11 @@ let tooltipTests state =
             70u
             7u
             (concatLines
-#if NET8_0
-              [
-                "active pattern ValueWithName: "
-                "   input: Expr"
-                "       -> option<obj * System.Type * string>"
-              ])
-#else
               [
                 "active pattern ValueWithName: "
                 "   input: Expr"
                 "       -> option<objnull * System.Type * string>"
               ])
-#endif
           verifySignature
             96u
             7u

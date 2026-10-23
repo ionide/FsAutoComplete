@@ -28,6 +28,19 @@ It is based on:
 * [FSharpLint](https://github.com/fsprojects/FSharpLint/) for the linter feature.
 * [Fantomas](https://github.com/fsprojects/fantomas) for F# code formatting.
 
+## Requirements
+
+FsAutoComplete runs on .NET 10. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), which includes the .NET 10 runtime.
+
+Your projects do not need to change for this:
+
+* They can keep targeting `net8.0`, `net9.0` or any other framework.
+* A `global.json` that pins the .NET 8 or 9 SDK keeps working. FsAutoComplete then loads the projects with that SDK, as long as the .NET 10 runtime is installed as well.
+
+Why .NET 10: FsAutoComplete runs [F# analyzers](https://github.com/ionide/FSharp.Analyzers.SDK) in its own process. FSharp.Analyzers.SDK targets .NET 10 since version 0.38, and an analyzer is only loaded when it was built against the same version of the SDK as FsAutoComplete, so FsAutoComplete targets .NET 10 too. The [changelog](./CHANGELOG.md) names the version of FSharp.Analyzers.SDK that each release hosts.
+
+When you install FsAutoComplete with an older SDK, you get a placeholder instead. It says to install the .NET 10 SDK when it starts, and editors show that as the error of the language server. Install the .NET 10 SDK, then install FsAutoComplete again, for example with `dotnet tool update --global fsautocomplete`.
+
 ## Documentation 
 
 * **Building, Testing, and Releasing** - See [CONTRIBUTING.md](./CONTRIBUTING.md) for build requirements, build commands, testing instructions, and the release process.
