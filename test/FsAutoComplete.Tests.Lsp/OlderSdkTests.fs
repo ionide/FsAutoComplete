@@ -101,10 +101,37 @@ let private request (id: int) (method: string) (parameters: JsonNode) =
 let private notification (method: string) (parameters: JsonNode) =
   message [ "method", JsonValue.Create method; "params", parameters ]
 
-/// Answers the server until it publishes diagnostics for `file` that are not empty, and returns them. Outside the
-/// `task` of `firstDiagnostics`: a `let rec` there cannot compile to a state machine (FS3511).
-let rec private handle (input: Stream) (output: Stream) (file: string) (fileUri: string) =
+/// Whether `uri` names `file`. FSAC turns the URI of an opened file into a path and back, which can change the case
+/// of a Windows drive letter, so the URIs are not compared as text.
+let private isFile (file: string) (uri: string) =
+  let comparison =
+    if OperatingSystem.IsWindows() then
+      StringComparison.OrdinalIgnoreCase
+    else
+      StringComparison.Ordinal
+
+  String.Equals(Path.GetFullPath(Path.FileUriToLocalPath uri), Path.GetFullPath file, comparison)
+
+/// Answers the server until it publishes diagnostics for `file` that are not empty, and returns them. Every message
+/// from the server goes to `trace`, for the failure message. Outside the `task` of `firstDiagnostics`: a `let rec`
+/// there cannot compile to a state machine (FS3511).
+let rec private handle
+  (input: Stream)
+  (output: Stream)
+  (trace: ConcurrentQueue<string>)
+  (file: string)
+  (fileUri: string)
+  =
   let received = readMessage output
+  let json = received.ToJsonString()
+
+  trace.Enqueue(
+    if json.Length > 300 then
+      json.Substring(0, 300) + "..."
+    else
+      json
+  )
+
   let method = Option.ofObj received["method"] |> Option.map _.GetValue<string>()
   let id = Option.ofObj received["id"]
 
@@ -119,26 +146,27 @@ let rec private handle (input: Stream) (output: Stream) (file: string) (fileUri:
         (JsonNode.Parse
           $"""{{ "textDocument": {{ "uri": %s{JsonValue.Create(fileUri).ToJsonString()}, "languageId": "fsharp", "version": 1, "text": %s{JsonValue.Create(File.ReadAllText file).ToJsonString()} }} }}"""))
 
-    handle input output file fileUri
-  | Some "textDocument/publishDiagnostics", _ when received["params"].["uri"].GetValue<string>() = fileUri ->
+    handle input output trace file fileUri
+  | Some "textDocument/publishDiagnostics", _ when isFile file (received["params"].["uri"].GetValue<string>()) ->
     let diagnostics = received["params"].["diagnostics"].AsArray()
 
     if diagnostics.Count = 0 then
-      handle input output file fileUri
+      handle input output trace file fileUri
     else
       diagnostics
   | Some _, Some id ->
     // A request from the server, such as client/registerCapability.
     send input (message [ "id", id.DeepClone(); "result", null ])
-    handle input output file fileUri
-  | _ -> handle input output file fileUri
+    handle input output trace file fileUri
+  | _ -> handle input output trace file fileUri
 
 /// Starts FSAC in `directory`, opens `file` and returns the diagnostics of the first publish for it that is not empty.
 let private firstDiagnostics (dotnet: FileInfo) (directory: string) (file: string) =
   task {
     let fsac = Path.Combine(AppContext.BaseDirectory, "fsautocomplete.dll")
-    use proc = Process.Start(startInfo dotnet directory [ fsac ])
+    use proc = Process.Start(startInfo dotnet directory [ fsac; "--verbose" ])
     let log = ConcurrentQueue<string>()
+    let trace = ConcurrentQueue<string>()
 
     proc.ErrorDataReceived.Add(fun args ->
       if not (isNull args.Data) then
@@ -160,18 +188,21 @@ let private firstDiagnostics (dotnet: FileInfo) (directory: string) (file: strin
               $"""{{ "processId": %i{Environment.ProcessId}, "rootUri": %s{JsonValue.Create(Path.FilePathToUri directory).ToJsonString()}, "capabilities": {{ "textDocument": {{ "publishDiagnostics": {{}} }} }}, "initializationOptions": {{ "AutomaticWorkspaceInit": true }} }}"""))
 
         let! diagnostics =
-          Task.Run(fun () -> handle input output file fileUri).WaitAsync(Helpers.Expecto.DEFAULT_TIMEOUT)
+          Task.Run(fun () -> handle input output trace file fileUri).WaitAsync(Helpers.Expecto.DEFAULT_TIMEOUT)
 
         send input (request 2 "shutdown" null)
         send input (notification "exit" null)
         return diagnostics
       with e ->
+        let last (lines: ConcurrentQueue<string>) = String.Join("\n", Seq.truncate 40 (Seq.rev lines) |> Seq.rev)
+
         return
           failtestf
-            "FSAC did not report diagnostics for %s: %s\nLast lines of its log:\n%s"
+            "FSAC did not report diagnostics for %s: %s\nLast messages from FSAC:\n%s\nLast lines of its log:\n%s"
             file
             e.Message
-            (String.Join("\n", Seq.truncate 40 (Seq.rev log) |> Seq.rev))
+            (last trace)
+            (last log)
     finally
       if not (proc.WaitForExit(TimeSpan.FromSeconds 10.)) then
         proc.Kill(entireProcessTree = true)
