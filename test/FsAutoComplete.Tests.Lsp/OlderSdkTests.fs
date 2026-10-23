@@ -101,6 +101,38 @@ let private request (id: int) (method: string) (parameters: JsonNode) =
 let private notification (method: string) (parameters: JsonNode) =
   message [ "method", JsonValue.Create method; "params", parameters ]
 
+/// Answers the server until it publishes diagnostics for `file` that are not empty, and returns them. Outside the
+/// `task` of `firstDiagnostics`: a `let rec` there cannot compile to a state machine (FS3511).
+let rec private handle (input: Stream) (output: Stream) (file: string) (fileUri: string) =
+  let received = readMessage output
+  let method = Option.ofObj received["method"] |> Option.map _.GetValue<string>()
+  let id = Option.ofObj received["id"]
+
+  match method, id with
+  | None, Some id when id.GetValue<int>() = 1 ->
+    send input (notification "initialized" (JsonObject()))
+
+    send
+      input
+      (notification
+        "textDocument/didOpen"
+        (JsonNode.Parse
+          $"""{{ "textDocument": {{ "uri": %s{JsonValue.Create(fileUri).ToJsonString()}, "languageId": "fsharp", "version": 1, "text": %s{JsonValue.Create(File.ReadAllText file).ToJsonString()} }} }}"""))
+
+    handle input output file fileUri
+  | Some "textDocument/publishDiagnostics", _ when received["params"].["uri"].GetValue<string>() = fileUri ->
+    let diagnostics = received["params"].["diagnostics"].AsArray()
+
+    if diagnostics.Count = 0 then
+      handle input output file fileUri
+    else
+      diagnostics
+  | Some _, Some id ->
+    // A request from the server, such as client/registerCapability.
+    send input (message [ "id", id.DeepClone(); "result", null ])
+    handle input output file fileUri
+  | _ -> handle input output file fileUri
+
 /// Starts FSAC in `directory`, opens `file` and returns the diagnostics of the first publish for it that is not empty.
 let private firstDiagnostics (dotnet: FileInfo) (directory: string) (file: string) =
   task {
@@ -117,32 +149,6 @@ let private firstDiagnostics (dotnet: FileInfo) (directory: string) (file: strin
     let output = proc.StandardOutput.BaseStream
     let fileUri = Path.FilePathToUri file
 
-    let rec handle () =
-      let received = readMessage output
-      let method = Option.ofObj received["method"] |> Option.map _.GetValue<string>()
-      let id = Option.ofObj received["id"]
-
-      match method, id with
-      | None, Some id when id.GetValue<int>() = 1 ->
-        send input (notification "initialized" (JsonObject()))
-
-        send
-          input
-          (notification
-            "textDocument/didOpen"
-            (JsonNode.Parse
-              $"""{{ "textDocument": {{ "uri": %s{JsonValue.Create(fileUri).ToJsonString()}, "languageId": "fsharp", "version": 1, "text": %s{JsonValue.Create(File.ReadAllText file).ToJsonString()} }} }}"""))
-
-        handle ()
-      | Some "textDocument/publishDiagnostics", _ when received["params"].["uri"].GetValue<string>() = fileUri ->
-        let diagnostics = received["params"].["diagnostics"].AsArray()
-        if diagnostics.Count = 0 then handle () else diagnostics
-      | Some _, Some id ->
-        // A request from the server, such as client/registerCapability.
-        send input (message [ "id", id.DeepClone(); "result", null ])
-        handle ()
-      | _ -> handle ()
-
     try
       try
         send
@@ -153,7 +159,9 @@ let private firstDiagnostics (dotnet: FileInfo) (directory: string) (file: strin
             (JsonNode.Parse
               $"""{{ "processId": %i{Environment.ProcessId}, "rootUri": %s{JsonValue.Create(Path.FilePathToUri directory).ToJsonString()}, "capabilities": {{ "textDocument": {{ "publishDiagnostics": {{}} }} }}, "initializationOptions": {{ "AutomaticWorkspaceInit": true }} }}"""))
 
-        let! diagnostics = Task.Run(handle).WaitAsync(Helpers.Expecto.DEFAULT_TIMEOUT)
+        let! diagnostics =
+          Task.Run(fun () -> handle input output file fileUri).WaitAsync(Helpers.Expecto.DEFAULT_TIMEOUT)
+
         send input (request 2 "shutdown" null)
         send input (notification "exit" null)
         return diagnostics
