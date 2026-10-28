@@ -226,6 +226,8 @@ type SharedProgressGeneration(report: ServerProgressReport) =
   member val Batches = 0 with get, set
   member val BatchTotal = 0 with get, set
   member val BatchCompleted = 0 with get, set
+  /// Set by the agent once it read this generation as the wanted state.
+  member val Seen = false with get, set
   member x.IsIdle = Map.isEmpty x.Operations && x.Batches = 0
 
 type SharedProgressRequest =
@@ -344,6 +346,7 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
 
                     current
                     |> Option.map (fun generation ->
+                      generation.Seen <- true
                       generation.Report, buildMessage generation, calcPercentage generation))
 
                 return! sync shown wanted |> Async.AwaitTask
@@ -383,7 +386,12 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
   /// Call while holding syncRoot.
   let retireIfIdle (generation: SharedProgressGeneration) =
     match current with
-    | Some c when obj.ReferenceEquals(c, generation) && generation.IsIdle -> current <- None
+    | Some c when obj.ReferenceEquals(c, generation) && generation.IsIdle ->
+      current <- None
+
+      // The agent never saw this report, so it will not end and dispose it either.
+      if not generation.Seen then
+        (generation.Report :> IDisposable).Dispose()
     | _ -> ()
 
   /// Call while holding syncRoot. onEnd is called while holding syncRoot.

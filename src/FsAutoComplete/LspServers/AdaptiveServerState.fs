@@ -88,15 +88,19 @@ type ServerProgressLookup() =
   /// See <see href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#window_workDoneProgress_cancel">LSP Spec on WorkDoneProgress Cancel</see> for more information.
   /// </remarks>
   member x.Cancel(token: ProgressToken) =
-    lock progressTable (fun () ->
-      match progressTable.TryGetValue(token) with
-      | true, weakRef ->
-        match weakRef.TryGetTarget() with
-        | true, progress ->
-          progress.Cancel()
+    let progress =
+      lock progressTable (fun () ->
+        match progressTable.TryGetValue(token) with
+        | true, weakRef ->
           progressTable.Remove(token) |> ignore<bool>
-        | _ -> ()
-      | _ -> ())
+
+          match weakRef.TryGetTarget() with
+          | true, progress -> Some progress
+          | _ -> None
+        | _ -> None)
+
+    // Cancel outside the lock: the token callbacks may take other locks.
+    progress |> Option.iter (fun p -> p.Cancel())
 
   interface IDisposable with
     member x.Dispose() =
