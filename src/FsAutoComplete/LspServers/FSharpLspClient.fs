@@ -187,216 +187,311 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
     member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
+open FsAutoComplete.Logging
+
+/// <summary>One operation tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the operation ends.</summary>
+[<Sealed>]
+type SharedProgressScope(cancellationToken: CancellationToken, onDispose: unit -> unit) =
+  let mutable disposed = 0
+
+  member _.CancellationToken = cancellationToken
+
+  interface IDisposable with
+    member _.Dispose() =
+      if Interlocked.Exchange(&disposed, 1) = 0 then
+        onDispose ()
+
+/// <summary>A batch of operations tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the batch ends.</summary>
+[<Sealed>]
+type SharedProgressBatch
+  (cancellationToken: CancellationToken, beginOperation: unit -> SharedProgressScope, onDispose: unit -> unit) =
+  let mutable disposed = 0
+
+  member _.CancellationToken = cancellationToken
+
+  member _.Begin() = beginOperation ()
+
+  interface IDisposable with
+    member _.Dispose() =
+      if Interlocked.Exchange(&disposed, 1) = 0 then
+        onDispose ()
+
+/// One progress report of a SharedProgressReporter, from its creation until its last operation ends.
+/// Only access it while holding the lock of the reporter.
+type SharedProgressGeneration(report: ServerProgressReport) =
+  member val Report = report
+
+  /// The running operations and their labels, in the order they started.
+  member val Operations = Map.empty<int64, string option> with get, set
+  member val Batches = 0 with get, set
+  member val BatchTotal = 0 with get, set
+  member val BatchCompleted = 0 with get, set
+  member x.IsIdle = Map.isEmpty x.Operations && x.Batches = 0
+
+type SharedProgressRequest =
+  | SyncProgress
+  | FlushProgress of AsyncReplyChannel<unit>
+
 /// <summary>
-/// A shared progress reporter that consolidates multiple concurrent typecheck operations
-/// into a single LSP progress notification. Instead of creating a new Begin/End cycle per file,
-/// this maintains one notification that updates its message with the current file being checked.
+/// Shows concurrent operations, such as typechecks, as one LSP progress report.
+/// The report starts with the first operation, lists the running operations in its message,
+/// and ends when the last operation ends.
 /// </summary>
-type SharedTypecheckProgressReporter
-  (title: string, createReport: unit -> ServerProgressReport, ?isEnabled: unit -> bool) =
+[<Sealed>]
+type SharedProgressReporter(title: string, createReport: unit -> ServerProgressReport, ?isEnabled: unit -> bool) =
 
-  let locker = new SemaphoreSlim(1, 1)
   let isEnabled = defaultArg isEnabled (fun () -> true)
-  let mutable activeFiles = Map.empty<string, int>
-  let mutable progressReport: ServerProgressReport option = None
-  let mutable batchTotal = 0
-  let mutable batchCompleted = 0
-  let mutable batchFiles = Map.empty<string, int>
-  let mutable activeBatchScopes = 0
+  let logger = LogProvider.getLoggerByName "SharedProgressReporter"
+  let syncRoot = obj ()
+  let mutable current: SharedProgressGeneration option = None
+  let mutable lastOperationId = 0L
+  let mutable syncPending = 0
+  let mutable disposed = false
 
-  let normalizePath (path: string) = IO.Path.GetFullPath(path)
+  let buildMessage (generation: SharedProgressGeneration) =
+    let labels =
+      generation.Operations
+      |> Map.values
+      |> Seq.choose id
+      |> Seq.distinct
+      |> Seq.toList
 
-  let incrementCount key counts =
-    counts
-    |> Map.change key (function
-      | Some count -> Some(count + 1)
-      | None -> Some 1)
-
-  let decrementCount key counts =
-    counts
-    |> Map.change key (function
-      | Some count when count > 1 -> Some(count - 1)
-      | Some _ -> None
-      | None -> None)
-
-  let buildMessage () =
-    let activeFileNames =
-      activeFiles |> Map.toList |> List.map (fst >> IO.Path.GetFileName)
-
-    let filesPart =
-      match activeFileNames with
+    let labelsPart =
+      match labels with
       | [] -> None
-      | [ file ] -> Some file
-      | files ->
-        let n = List.length files
-        let fileList = files |> List.truncate 3 |> String.concat ", "
+      | [ label ] -> Some label
+      | labels ->
+        let shown = labels |> List.truncate 3 |> String.concat ", "
+        let hidden = labels.Length - 3
 
-        (if n > 3 then $"{fileList} (+{n - 3} more)" else fileList) |> Some
+        Some(if hidden > 0 then $"{shown} (+{hidden} more)" else shown)
 
     let batchPart =
-      if batchTotal > 0 then
-        Some $"{batchCompleted}/{batchTotal} completed"
+      if generation.BatchTotal > 0 then
+        Some $"{generation.BatchCompleted}/{generation.BatchTotal} completed"
       else
         None
 
-    match filesPart, batchPart with
-    | Some files, Some batch -> Some $"{files} ({batch})"
-    | Some files, None -> Some files
+    match labelsPart, batchPart with
+    | Some labels, Some batch -> Some $"{labels} ({batch})"
+    | Some labels, None -> Some labels
     | None, Some batch -> Some batch
     | None, None -> None
 
-  let calcPercentage () =
-    if batchTotal > 0 then
-      ((float batchCompleted) / (float batchTotal)) * 100.0 |> uint32 |> Some
+  let calcPercentage (generation: SharedProgressGeneration) =
+    if generation.BatchTotal > 0 then
+      min 100 (generation.BatchCompleted * 100 / generation.BatchTotal)
+      |> uint32
+      |> Some
     else
       None
 
-  member private x.StartFile(fileName: string) =
-    cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      let normalizedName = normalizePath fileName
-      activeFiles <- incrementCount normalizedName activeFiles
-
-      match progressReport with
-      | None ->
-        let report = createReport ()
-        progressReport <- Some report
-        let message = buildMessage ()
-        do! report.Begin(title, ?message = message, ?percentage = calcPercentage ())
-      | Some report ->
-        let message = buildMessage ()
-        do! report.Report(?message = message, ?percentage = calcPercentage ())
-    }
-
-  member private x.EndFile(fileName: string) =
-    cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      let normalizedName = normalizePath fileName
-      activeFiles <- decrementCount normalizedName activeFiles
-
-      if batchTotal > 0 && Map.containsKey normalizedName batchFiles then
-        batchCompleted <- min (batchCompleted + 1) batchTotal
-        batchFiles <- decrementCount normalizedName batchFiles
-
-      match progressReport with
-      | Some report when Map.isEmpty activeFiles && activeBatchScopes <= 0 ->
-        do! report.End()
-        progressReport <- None
-      | Some report ->
-        let message = buildMessage ()
-        do! report.Report(?message = message, ?percentage = calcPercentage ())
-      | None -> ()
-    }
-
-  /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
-  member x.Begin(fileName: string) : CancellableTask<IAsyncDisposable> =
-    cancellableTask {
-      let started = isEnabled ()
-
-      if started then
-        do! x.StartFile(fileName)
-
-      return
-        { new IAsyncDisposable with
-            member _.DisposeAsync() =
-              if started then
-                x.EndFile (fileName) CancellationToken.None |> ValueTask
-              else
-                ValueTask() }
-    }
-
-  member private x.StartBatch(files: string array) =
-    cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      activeBatchScopes <- activeBatchScopes + 1
-      let normalizedFiles = files |> Array.map normalizePath
-      batchTotal <- batchTotal + normalizedFiles.Length
-
-      batchFiles <-
-        (batchFiles, normalizedFiles)
-        ||> Array.fold (fun counts file -> incrementCount file counts)
-
-      // Eagerly create the report so the CancellationToken is available for linking
-      match progressReport with
-      | None ->
-        let report = createReport ()
-        progressReport <- Some report
-        do! report.Begin(title, ?percentage = calcPercentage ())
-      | Some report -> do! report.Report(?percentage = calcPercentage ())
-    }
-
-  member private x.EndBatch() =
-    cancellableTask {
-      use! __ = fun (ct: CancellationToken) -> locker.LockAsync(ct)
-      activeBatchScopes <- activeBatchScopes - 1
-
-      if activeBatchScopes <= 0 then
-        activeBatchScopes <- 0
-        batchTotal <- 0
-        batchCompleted <- 0
-        batchFiles <- Map.empty
-
-      // End the report if nothing else is active
-      if Map.isEmpty activeFiles && activeBatchScopes <= 0 then
-        match progressReport with
-        | Some report ->
-          do! report.End()
-          progressReport <- None
-        | None -> ()
-    }
-
-  /// <summary>Set up a batch of files to be typechecked. Returns an IAsyncDisposable that clears the batch on dispose.</summary>
-  member x.BeginBatch(files: string array) : CancellableTask<IAsyncDisposable> =
-    cancellableTask {
-      let started = isEnabled ()
-
-      if started then
-        do! x.StartBatch(files)
-
-      return
-        { new IAsyncDisposable with
-            member _.DisposeAsync() =
-              if started then
-                x.EndBatch () CancellationToken.None |> ValueTask
-              else
-                ValueTask() }
-    }
-
-  /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
-  member x.GetCancellationToken() : Task<CancellationToken> =
+  let send (kind: string) (work: CancellationToken -> Task<unit>) =
     task {
-      use! __ = locker.LockAsync()
-
-      return
-        match progressReport with
-        | Some report -> report.CancellationToken
-        | None -> CancellationToken.None
+      try
+        do! work CancellationToken.None
+      with e ->
+        logger.warn (
+          Log.setMessage "Could not send {kind} of {title} progress"
+          >> Log.addContext "kind" kind
+          >> Log.addContext "title" title
+          >> Log.addExn e
+        )
     }
 
-  /// <summary>Set up a batch of files synchronously (for contexts where CancellableTask is not available).
-  /// Sets up batch tracking and adds all files to activeFiles so their names appear in the message.
-  /// Returns an IDisposable that ends all file tracking and the batch on dispose.</summary>
-  member x.BeginBatchSync(files: string array) : IDisposable =
-    let started = isEnabled ()
+  /// Brings the client from the shown progress state to the wanted one.
+  /// A report that started and ended between two syncs is never sent.
+  let sync
+    (shown: (ServerProgressReport * string option * uint32 option) option)
+    (wanted: (ServerProgressReport * string option * uint32 option) option)
+    =
+    task {
+      match shown, wanted with
+      | Some(shownReport, shownMessage, shownPercentage), Some(report, message, percentage) when
+        obj.ReferenceEquals(shownReport, report)
+        ->
+        if shownMessage <> message || shownPercentage <> percentage then
+          do! send "report" (report.Report(?message = message, ?percentage = percentage))
+      | _ ->
+        match shown with
+        | Some(shownReport, _, _) ->
+          do! send "end" (shownReport.End())
+          (shownReport :> IDisposable).Dispose()
+        | None -> ()
 
-    if started then
-      x.StartBatch (files) CancellationToken.None |> ignore<Task<unit>>
+        match wanted with
+        | Some(report, message, percentage) ->
+          do! send "begin" (report.Begin(title, ?message = message, ?percentage = percentage))
+        | None -> ()
 
-      for file in files do
-        x.StartFile (file) CancellationToken.None |> ignore<Task<unit>>
+      return wanted
+    }
 
-    { new IDisposable with
-        member _.Dispose() =
-          if started then
-            for file in files do
-              x.EndFile (file) CancellationToken.None |> ignore<Task<unit>>
+  // The callers only change the state; this agent alone talks to the client, in order,
+  // so no caller waits for a client round-trip.
+  let sender =
+    MailboxProcessor<SharedProgressRequest>.Start(fun inbox ->
+      let rec loop shown =
+        async {
+          let! request = inbox.Receive()
 
-            x.EndBatch () CancellationToken.None |> ignore<Task<unit>> }
+          let! shown =
+            async {
+              try
+                let wanted =
+                  lock syncRoot (fun () ->
+                    syncPending <- 0
+
+                    current
+                    |> Option.map (fun generation ->
+                      generation.Report, buildMessage generation, calcPercentage generation))
+
+                return! sync shown wanted |> Async.AwaitTask
+              with e ->
+                logger.warn (
+                  Log.setMessage "Could not sync {title} progress"
+                  >> Log.addContext "title" title
+                  >> Log.addExn e
+                )
+
+                return shown
+            }
+
+          match request with
+          | FlushProgress reply -> reply.Reply()
+          | SyncProgress -> ()
+
+          return! loop shown
+        }
+
+      loop None)
+
+  let requestSync () =
+    if Interlocked.Exchange(&syncPending, 1) = 0 then
+      sender.Post SyncProgress
+
+  /// Call while holding syncRoot.
+  let currentGeneration () =
+    match current with
+    | Some generation when not generation.Report.CancellationToken.IsCancellationRequested -> generation
+    | _ ->
+      // The user cancelled the current report: new operations get a fresh report and token.
+      let generation = SharedProgressGeneration(createReport ())
+      current <- Some generation
+      generation
+
+  /// Call while holding syncRoot.
+  let retireIfIdle (generation: SharedProgressGeneration) =
+    match current with
+    | Some c when obj.ReferenceEquals(c, generation) && generation.IsIdle -> current <- None
+    | _ -> ()
+
+  /// Call while holding syncRoot. onEnd is called while holding syncRoot.
+  let startOperation (generation: SharedProgressGeneration) (label: string option) (onEnd: unit -> unit) =
+    lastOperationId <- lastOperationId + 1L
+    let operationId = lastOperationId
+    generation.Operations <- Map.add operationId label generation.Operations
+
+    new SharedProgressScope(
+      generation.Report.CancellationToken,
+      fun () ->
+        lock syncRoot (fun () ->
+          generation.Operations <- Map.remove operationId generation.Operations
+          onEnd ()
+          retireIfIdle generation)
+
+        requestSync ()
+    )
+
+  let disabledScope () = new SharedProgressScope(CancellationToken.None, ignore)
+
+  let disabledBatch () = new SharedProgressBatch(CancellationToken.None, disabledScope, ignore)
+
+  /// <summary>Starts an operation. Its label shows in the message of the report until the scope is disposed.</summary>
+  member _.Begin(label: string) =
+    if not (isEnabled ()) then
+      disabledScope ()
+    else
+      let scope =
+        lock syncRoot (fun () ->
+          if disposed then
+            disabledScope ()
+          else
+            startOperation (currentGeneration ()) (Some label) ignore)
+
+      requestSync ()
+      scope
+
+  /// <summary>Starts a batch of <paramref name="count"/> operations. The report shows how many of them completed.</summary>
+  member _.BeginBatch(count: int) =
+    if count <= 0 || not (isEnabled ()) then
+      disabledBatch ()
+    else
+      let generation =
+        lock syncRoot (fun () ->
+          if disposed then
+            None
+          else
+            let generation = currentGeneration ()
+            generation.Batches <- generation.Batches + 1
+            generation.BatchTotal <- generation.BatchTotal + count
+            Some generation)
+
+      match generation with
+      | None -> disabledBatch ()
+      | Some generation ->
+        requestSync ()
+
+        let token = generation.Report.CancellationToken
+        // Only accessed while holding syncRoot.
+        let completed = ref 0
+        let ended = ref false
+
+        let completeOperation () =
+          if not ended.Value then
+            completed.Value <- completed.Value + 1
+            generation.BatchCompleted <- generation.BatchCompleted + 1
+
+        let beginOperation () =
+          let scope =
+            lock syncRoot (fun () ->
+              if token.IsCancellationRequested then
+                // The user cancelled the batch, so its remaining operations do not show.
+                new SharedProgressScope(token, ignore)
+              else
+                startOperation generation None completeOperation)
+
+          requestSync ()
+          scope
+
+        let endBatch () =
+          lock syncRoot (fun () ->
+            ended.Value <- true
+            generation.Batches <- generation.Batches - 1
+
+            if generation.Batches = 0 then
+              generation.BatchTotal <- 0
+              generation.BatchCompleted <- 0
+            else
+              // Operations of this batch that never ran no longer count towards the batches still running.
+              generation.BatchTotal <- generation.BatchTotal - max 0 (count - completed.Value)
+
+            retireIfIdle generation)
+
+          requestSync ()
+
+        new SharedProgressBatch(token, beginOperation, endBatch)
+
+  /// <summary>Completes when the client has been sent the current progress state.</summary>
+  member _.Flush() : Task<unit> = sender.PostAndAsyncReply FlushProgress |> Async.StartImmediateAsTask
 
   interface IDisposable with
-    member x.Dispose() =
-      progressReport |> Option.iter (fun r -> (r :> IDisposable).Dispose())
-      locker.Dispose()
+    member _.Dispose() =
+      lock syncRoot (fun () ->
+        disposed <- true
+        current <- None)
+
+      requestSync ()
 
 
 open System.Diagnostics.Tracing

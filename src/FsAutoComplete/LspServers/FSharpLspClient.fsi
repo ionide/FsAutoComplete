@@ -80,29 +80,47 @@ type ServerProgressReport =
   interface IAsyncDisposable
   interface IDisposable
 
+/// <summary>One operation tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the operation ends.</summary>
+[<Sealed>]
+type SharedProgressScope =
+  /// <summary>Cancelled when the user cancels the progress report that shows the operation.</summary>
+  member CancellationToken: CancellationToken
+  interface IDisposable
+
+/// <summary>A batch of operations tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the batch ends.</summary>
+[<Sealed>]
+type SharedProgressBatch =
+  /// <summary>Cancelled when the user cancels the progress report that shows the batch.</summary>
+  member CancellationToken: CancellationToken
+
+  /// <summary>
+  /// Starts an operation of the batch. When its scope is disposed, it counts as completed.
+  /// It has no label: the work it runs shows its own label once it actually starts.
+  /// </summary>
+  member Begin: unit -> SharedProgressScope
+  interface IDisposable
+
 /// <summary>
-/// A shared progress reporter that consolidates multiple concurrent typecheck operations
-/// into a single LSP progress notification. Instead of creating a new Begin/End cycle per file,
-/// this maintains one notification that updates its message with the current file being checked.
+/// Shows concurrent operations, such as typechecks, as one LSP progress report.
+/// The report starts with the first operation, lists the running operations in its message,
+/// and ends when the last operation ends.
 /// </summary>
-type SharedTypecheckProgressReporter =
+[<Sealed>]
+type SharedProgressReporter =
+  /// <param name="title">The title of the progress report.</param>
+  /// <param name="createReport">Creates the report that a new progress cycle uses.</param>
+  /// <param name="isEnabled">When it returns false, operations are not shown and their token is never cancelled.</param>
   new:
-    title: string * createReport: (unit -> ServerProgressReport) * ?isEnabled: (unit -> bool) ->
-      SharedTypecheckProgressReporter
+    title: string * createReport: (unit -> ServerProgressReport) * ?isEnabled: (unit -> bool) -> SharedProgressReporter
 
-  /// <summary>Begin tracking a file being typechecked. Returns an IAsyncDisposable that ends tracking on dispose.</summary>
-  member Begin: fileName: string -> CancellableTask<IAsyncDisposable>
+  /// <summary>Starts an operation. Its label shows in the message of the report until the scope is disposed.</summary>
+  member Begin: label: string -> SharedProgressScope
 
-  /// <summary>Set up a batch of files to be typechecked. Returns an IAsyncDisposable that clears the batch on dispose.</summary>
-  member BeginBatch: files: string array -> CancellableTask<IAsyncDisposable>
+  /// <summary>Starts a batch of <paramref name="count"/> operations. The report shows how many of them completed.</summary>
+  member BeginBatch: count: int -> SharedProgressBatch
 
-  /// <summary>Gets the cancellation token from the current progress report, or CancellationToken.None if no report is active.</summary>
-  member GetCancellationToken: unit -> Task<CancellationToken>
-
-  /// <summary>Set up a batch of files synchronously (for contexts where CancellableTask is not available).
-  /// Sets up batch tracking and adds all files to activeFiles so their names appear in the message.
-  /// Returns an IDisposable that ends all file tracking and the batch on dispose.</summary>
-  member BeginBatchSync: files: string array -> IDisposable
+  /// <summary>Completes when the client has been sent the current progress state.</summary>
+  member Flush: unit -> Task<unit>
   interface IDisposable
 
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
