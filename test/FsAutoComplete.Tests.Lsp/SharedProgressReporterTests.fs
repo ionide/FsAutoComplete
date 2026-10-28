@@ -346,6 +346,27 @@ let batchTests =
         dispose running
       }
 
+      testCaseAsync "A batch keeps one report across operations that run one after another"
+      <| async {
+        let t = createReporter true
+        let batch = t.Reporter.BeginBatch 2
+
+        for label in [ "A.fs"; "B.fs" ] do
+          use _operation = batch.Begin()
+          use _running = t.Reporter.Begin label
+          let! _ = t.Flush()
+          ()
+
+        let! calls = t.Flush()
+        Expect.isFalse (List.contains End calls) "The report should stay open between the operations"
+        Expect.equal t.Reports.Count 1 "One report should be used"
+        Expect.equal (lastState calls) (Some(Some "2/2 completed", Some 100u)) "Both operations completed"
+
+        dispose batch
+        let! calls = t.Flush()
+        Expect.equal (List.last calls) End "The report should end with the batch"
+      }
+
       testCaseAsync "An empty batch shows nothing"
       <| async {
         let t = createReporter true

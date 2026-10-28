@@ -552,16 +552,18 @@ type AdaptiveState
 
     let inline getSourceLine lineNo = (source: ISourceText).GetLineString(lineNo - 1)
 
-    let checkUnusedOpens =
+    let checkUnusedOpens (batch: SharedProgressBatch) =
       asyncEx {
         try
           let! ct = Async.CancellationToken
+          use _operation = batch.Begin()
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = analyzerProgressReporter.Begin($"Unused opens - {fileName}")
+          batch.CancellationToken.ThrowIfCancellationRequested()
+          use _running = analyzerProgressReporter.Begin($"Unused opens - {fileName}")
 
           let! unused =
             UnusedOpens.getUnusedOpens (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation batch.CancellationToken
 
           do!
             triggerNotificationAndWait
@@ -572,18 +574,20 @@ type AdaptiveState
         | e -> logger.error (Log.setMessage "checkUnusedOpens failed" >> Log.addExn e)
       }
 
-    let checkUnusedDeclarations =
+    let checkUnusedDeclarations (batch: SharedProgressBatch) =
       asyncEx {
         try
           let! ct = Async.CancellationToken
+          use _operation = batch.Begin()
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = analyzerProgressReporter.Begin($"Unused declarations - {fileName}")
+          batch.CancellationToken.ThrowIfCancellationRequested()
+          use _running = analyzerProgressReporter.Begin($"Unused declarations - {fileName}")
 
           let isScript = Utils.isAScript (filePathUntag)
 
           let! unused =
             UnusedDeclarations.getUnusedDeclarations (tyRes.GetCheckResults, isScript)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation batch.CancellationToken
 
           let unused = unused |> Seq.toArray
 
@@ -593,16 +597,18 @@ type AdaptiveState
         | e -> logger.error (Log.setMessage "checkUnusedDeclarations failed" >> Log.addExn e)
       }
 
-    let checkSimplifiedNames =
+    let checkSimplifiedNames (batch: SharedProgressBatch) =
       asyncEx {
         try
           let! ct = Async.CancellationToken
+          use _operation = batch.Begin()
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = analyzerProgressReporter.Begin($"Simplify names - {fileName}")
+          batch.CancellationToken.ThrowIfCancellationRequested()
+          use _running = analyzerProgressReporter.Begin($"Simplify names - {fileName}")
 
           let! simplified =
             SimplifyNames.getSimplifiableNames (tyRes.GetCheckResults, getSourceLine)
-            |> Async.withCancellation progress.CancellationToken
+            |> Async.withCancellation batch.CancellationToken
 
           let simplified = Array.ofSeq simplified
           do! triggerNotificationAndWait (NotificationEvent.SimplifyNames(filePath, simplified, file.Version)) ct
@@ -611,17 +617,19 @@ type AdaptiveState
         | e -> logger.error (Log.setMessage "checkSimplifiedNames failed" >> Log.addExn e)
       }
 
-    let checkUnnecessaryParentheses =
+    let checkUnnecessaryParentheses (batch: SharedProgressBatch) =
       asyncEx {
         try
           let! ct = Async.CancellationToken
+          use _operation = batch.Begin()
           use! _l = analyzersLocker.LockAsync(ct)
-          use progress = analyzerProgressReporter.Begin($"Unnecessary parens - {fileName}")
+          batch.CancellationToken.ThrowIfCancellationRequested()
+          use _running = analyzerProgressReporter.Begin($"Unnecessary parens - {fileName}")
 
           let unnecessaryParentheses =
             (System.Collections.Generic.HashSet(comparer = Range.comparer), tyRes.GetAST)
             ||> ParsedInput.fold (fun ranges path node ->
-              progress.CancellationToken.ThrowIfCancellationRequested()
+              batch.CancellationToken.ThrowIfCancellationRequested()
 
               match node with
               | SyntaxNode.SynExpr(SynExpr.Paren(expr = inner; rightParenRange = Some _; range = range)) when
@@ -638,7 +646,7 @@ type AdaptiveState
 
               | _ -> ranges)
 
-          progress.CancellationToken.ThrowIfCancellationRequested()
+          batch.CancellationToken.ThrowIfCancellationRequested()
 
           do!
             triggerNotificationAndWait
@@ -675,7 +683,17 @@ type AdaptiveState
           checkUnnecessaryParentheses
       ]
 
-    async { do! analyzers |> Async.parallel75 |> Async.Ignore<unit[]> }
+    async {
+      // The analyzers run one at a time behind analyzersLocker. One batch keeps them in one progress report,
+      // and a cancel of that report stops the analyzers that did not run yet.
+      use batch = analyzerProgressReporter.BeginBatch(analyzers.Length)
+
+      do!
+        analyzers
+        |> List.map (fun check -> check batch)
+        |> Async.parallel75
+        |> Async.Ignore<unit[]>
+    }
 
   let tryUriCreate (s: string) =
     match Uri.TryCreate(s, UriKind.Absolute) with
