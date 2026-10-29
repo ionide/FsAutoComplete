@@ -302,7 +302,43 @@ let batchTests =
         Expect.equal (List.last calls) End "The report should end with the last batch"
       }
 
-      testCaseAsync "A new batch starts from zero when the previous one ended"
+      testCaseAsync "When the last batch ends, the operations that still run count towards the percentage"
+      <| async {
+        let t = createReporter true
+        let batch = t.Reporter.BeginBatch 2
+        let running = t.Reporter.Begin "Open.fs"
+        batch.Begin() |> dispose
+        batch.Begin() |> dispose
+        let! calls = t.Flush()
+        Expect.equal (lastState calls) (Some(Some "Open.fs (2/2 completed)", Some 100u)) "The batch completed"
+
+        dispose batch
+        let! calls = t.Flush()
+
+        Expect.equal
+          (lastState calls)
+          (Some(Some "Open.fs (2/3 completed)", Some 66u))
+          "The running operation should count, so the report does not stay at 100%"
+
+        let late = t.Reporter.Begin "Late.fs"
+        let! calls = t.Flush()
+
+        Expect.equal
+          (lastState calls)
+          (Some(Some "Open.fs, Late.fs (2/4 completed)", Some 50u))
+          "An operation that starts after the batch ended should count too"
+
+        dispose running
+        let! calls = t.Flush()
+        Expect.equal (lastState calls) (Some(Some "Late.fs (3/4 completed)", Some 75u)) "One more operation completed"
+
+        dispose late
+        let! calls = t.Flush()
+        Expect.equal (List.last calls) End "The report should end with the last operation"
+        Expect.equal t.Reports.Count 1 "One report should be used"
+      }
+
+      testCaseAsync "A new batch adds to the count of a report that is still open"
       <| async {
         let t = createReporter true
         // Keeps the report open between the two batches.
@@ -310,19 +346,29 @@ let batchTests =
         let first = t.Reporter.BeginBatch 2
         first.Begin() |> dispose
         dispose first
-        let! callsBefore = t.Flush()
+        let! calls = t.Flush()
+        Expect.equal (lastState calls) (Some(Some "Open.fs (1/2 completed)", Some 50u)) "The first batch ended early"
 
         let second = t.Reporter.BeginBatch 3
         let! calls = t.Flush()
-        let newCalls = calls |> List.skip callsBefore.Length
 
         Expect.equal
-          newCalls
-          [ Report(Some "Open.fs (0/3 completed)", Some 0u) ]
-          "The second batch should not keep the counts of the first"
+          (lastState calls)
+          (Some(Some "Open.fs (1/5 completed)", Some 20u))
+          "The second batch should add to the count"
+
+        second.Begin() |> dispose
+        let! calls = t.Flush()
+
+        Expect.equal
+          (lastState calls)
+          (Some(Some "Open.fs (2/5 completed)", Some 40u))
+          "An operation of the second batch completed"
 
         dispose second
         dispose keepOpen
+        let! calls = t.Flush()
+        Expect.equal (List.last calls) End "The report should end with the last operation"
       }
 
       testCaseAsync "A batch that ends early stops counting its operations that did not complete"

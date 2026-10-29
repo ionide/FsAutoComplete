@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.86.1] - 2026-10-29
+
+### Changed
+
+- [Fewer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1545) - Typechecks share one "Typechecking" progress report, instead of one report per file. Its message lists the files being checked and, after a save, how many of the dependent files are done, with a percentage. Cancelling the report stops the checks of the dependent files that did not run yet. With `backgroundServiceProgress` on, the analyzers of a file share one "Analyzing" report the same way. (thanks @TheAngryByrd!)
+
 ## [0.86.0] - 2026-10-23
 
 ### Changed

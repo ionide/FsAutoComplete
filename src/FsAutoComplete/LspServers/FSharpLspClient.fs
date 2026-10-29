@@ -224,8 +224,11 @@ type SharedProgressGeneration(report: ServerProgressReport) =
   /// The running operations and their labels, in the order they started.
   member val Operations = Map.empty<int64, string option> with get, set
   member val Batches = 0 with get, set
-  member val BatchTotal = 0 with get, set
-  member val BatchCompleted = 0 with get, set
+  /// The operations that count towards the percentage, and how many of them completed.
+  member val Total = 0 with get, set
+  member val Completed = 0 with get, set
+  /// The running operations that count towards Total outside of a batch.
+  member val Counted = Set.empty<int64> with get, set
   /// Set by the agent once it read this generation as the wanted state.
   member val Seen = false with get, set
   member x.IsIdle = Map.isEmpty x.Operations && x.Batches = 0
@@ -269,8 +272,8 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
         Some(if hidden > 0 then $"{shown} (+{hidden} more)" else shown)
 
     let batchPart =
-      if generation.BatchTotal > 0 then
-        Some $"{generation.BatchCompleted}/{generation.BatchTotal} completed"
+      if generation.Total > 0 then
+        Some $"{generation.Completed}/{generation.Total} completed"
       else
         None
 
@@ -281,10 +284,8 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
     | None, None -> None
 
   let calcPercentage (generation: SharedProgressGeneration) =
-    if generation.BatchTotal > 0 then
-      min 100 (generation.BatchCompleted * 100 / generation.BatchTotal)
-      |> uint32
-      |> Some
+    if generation.Total > 0 then
+      min 100 (generation.Completed * 100 / generation.Total) |> uint32 |> Some
     else
       None
 
@@ -394,18 +395,33 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
         (generation.Report :> IDisposable).Dispose()
     | _ -> ()
 
+  /// Call while holding syncRoot.
+  let countOperation (generation: SharedProgressGeneration) operationId =
+    generation.Counted <- Set.add operationId generation.Counted
+    generation.Total <- generation.Total + 1
+
   /// Call while holding syncRoot. onEnd is called while holding syncRoot.
   let startOperation (generation: SharedProgressGeneration) (label: string option) (onEnd: unit -> unit) =
     lastOperationId <- lastOperationId + 1L
     let operationId = lastOperationId
     generation.Operations <- Map.add operationId label generation.Operations
 
+    // After the last batch ended, the report still shows a percentage, so new operations count towards it.
+    if generation.Batches = 0 && generation.Total > 0 then
+      countOperation generation operationId
+
     new SharedProgressScope(
       generation.Report.CancellationToken,
       fun () ->
         lock syncRoot (fun () ->
           generation.Operations <- Map.remove operationId generation.Operations
-          onEnd ()
+
+          if Set.contains operationId generation.Counted then
+            generation.Counted <- Set.remove operationId generation.Counted
+            generation.Completed <- generation.Completed + 1
+          else
+            onEnd ()
+
           retireIfIdle generation)
 
         requestSync ()
@@ -442,7 +458,7 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
           else
             let generation = currentGeneration ()
             generation.Batches <- generation.Batches + 1
-            generation.BatchTotal <- generation.BatchTotal + count
+            generation.Total <- generation.Total + count
             Some generation)
 
       match generation with
@@ -458,7 +474,7 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
         let completeOperation () =
           if not ended.Value then
             completed.Value <- completed.Value + 1
-            generation.BatchCompleted <- generation.BatchCompleted + 1
+            generation.Completed <- generation.Completed + 1
 
         let beginOperation () =
           let scope =
@@ -477,12 +493,15 @@ type SharedProgressReporter(title: string, createReport: unit -> ServerProgressR
             ended.Value <- true
             generation.Batches <- generation.Batches - 1
 
+            // Operations of this batch that never ran no longer count.
+            generation.Total <- generation.Total - max 0 (count - completed.Value)
+
+            // A report cannot drop its percentage, so the operations that still run count towards it.
+            // Otherwise the percentage would stay at its last value until the report ends.
             if generation.Batches = 0 then
-              generation.BatchTotal <- 0
-              generation.BatchCompleted <- 0
-            else
-              // Operations of this batch that never ran no longer count towards the batches still running.
-              generation.BatchTotal <- generation.BatchTotal - max 0 (count - completed.Value)
+              for operationId in generation.Operations.Keys do
+                if not (Set.contains operationId generation.Counted) then
+                  countOperation generation operationId
 
             retireIfIdle generation)
 
