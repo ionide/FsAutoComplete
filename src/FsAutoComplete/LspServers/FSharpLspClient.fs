@@ -187,6 +187,340 @@ type ServerProgressReport(lspClient: FSharpLspClient, ?token: ProgressToken, ?ca
     member x.Dispose() = (x :> IAsyncDisposable).DisposeAsync() |> ignore
 
 
+open FsAutoComplete.Logging
+
+/// <summary>One operation tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the operation ends.</summary>
+[<Sealed>]
+type SharedProgressScope(cancellationToken: CancellationToken, onDispose: unit -> unit) =
+  let mutable disposed = 0
+
+  member _.CancellationToken = cancellationToken
+
+  interface IDisposable with
+    member _.Dispose() =
+      if Interlocked.Exchange(&disposed, 1) = 0 then
+        onDispose ()
+
+/// <summary>A batch of operations tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the batch ends.</summary>
+[<Sealed>]
+type SharedProgressBatch
+  (cancellationToken: CancellationToken, beginOperation: unit -> SharedProgressScope, onDispose: unit -> unit) =
+  let mutable disposed = 0
+
+  member _.CancellationToken = cancellationToken
+
+  member _.Begin() = beginOperation ()
+
+  interface IDisposable with
+    member _.Dispose() =
+      if Interlocked.Exchange(&disposed, 1) = 0 then
+        onDispose ()
+
+/// One progress report of a SharedProgressReporter, from its creation until its last operation ends.
+/// Only access it while holding the lock of the reporter.
+type SharedProgressGeneration(report: ServerProgressReport) =
+  member val Report = report
+
+  /// The running operations and their labels, in the order they started.
+  member val Operations = Map.empty<int64, string option> with get, set
+  member val Batches = 0 with get, set
+  /// The operations that count towards the percentage, and how many of them completed.
+  member val Total = 0 with get, set
+  member val Completed = 0 with get, set
+  /// The running operations that count towards Total outside of a batch.
+  member val Counted = Set.empty<int64> with get, set
+  /// Set by the agent once it read this generation as the wanted state.
+  member val Seen = false with get, set
+  member x.IsIdle = Map.isEmpty x.Operations && x.Batches = 0
+
+type SharedProgressRequest =
+  | SyncProgress
+  | FlushProgress of AsyncReplyChannel<unit>
+
+/// <summary>
+/// Shows concurrent operations, such as typechecks, as one LSP progress report.
+/// The report starts with the first operation, lists the running operations in its message,
+/// and ends when the last operation ends.
+/// </summary>
+[<Sealed>]
+type SharedProgressReporter(title: string, createReport: unit -> ServerProgressReport, ?isEnabled: unit -> bool) =
+
+  let isEnabled = defaultArg isEnabled (fun () -> true)
+  let logger = LogProvider.getLoggerByName "SharedProgressReporter"
+  let syncRoot = obj ()
+  let mutable current: SharedProgressGeneration option = None
+  let mutable lastOperationId = 0L
+  let mutable syncPending = 0
+  let mutable disposed = false
+
+  let buildMessage (generation: SharedProgressGeneration) =
+    let labels =
+      generation.Operations
+      |> Map.values
+      |> Seq.choose id
+      |> Seq.distinct
+      |> Seq.toList
+
+    let labelsPart =
+      match labels with
+      | [] -> None
+      | [ label ] -> Some label
+      | labels ->
+        let shown = labels |> List.truncate 3 |> String.concat ", "
+        let hidden = labels.Length - 3
+
+        Some(if hidden > 0 then $"{shown} (+{hidden} more)" else shown)
+
+    let batchPart =
+      if generation.Total > 0 then
+        Some $"{generation.Completed}/{generation.Total} completed"
+      else
+        None
+
+    match labelsPart, batchPart with
+    | Some labels, Some batch -> Some $"{labels} ({batch})"
+    | Some labels, None -> Some labels
+    | None, Some batch -> Some batch
+    | None, None -> None
+
+  let calcPercentage (generation: SharedProgressGeneration) =
+    if generation.Total > 0 then
+      min 100 (generation.Completed * 100 / generation.Total) |> uint32 |> Some
+    else
+      None
+
+  let send (kind: string) (work: CancellationToken -> Task<unit>) =
+    task {
+      try
+        do! work CancellationToken.None
+      with e ->
+        logger.warn (
+          Log.setMessage "Could not send {kind} of {title} progress"
+          >> Log.addContext "kind" kind
+          >> Log.addContext "title" title
+          >> Log.addExn e
+        )
+    }
+
+  /// Brings the client from the shown progress state to the wanted one.
+  /// A report that started and ended between two syncs is never sent.
+  let sync
+    (shown: (ServerProgressReport * string option * uint32 option) option)
+    (wanted: (ServerProgressReport * string option * uint32 option) option)
+    =
+    task {
+      match shown, wanted with
+      | Some(shownReport, shownMessage, shownPercentage), Some(report, message, percentage) when
+        obj.ReferenceEquals(shownReport, report)
+        ->
+        if shownMessage <> message || shownPercentage <> percentage then
+          do! send "report" (report.Report(?message = message, ?percentage = percentage))
+      | _ ->
+        match shown with
+        | Some(shownReport, _, _) ->
+          do! send "end" (shownReport.End())
+          (shownReport :> IDisposable).Dispose()
+        | None -> ()
+
+        match wanted with
+        | Some(report, message, percentage) ->
+          do! send "begin" (report.Begin(title, ?message = message, ?percentage = percentage))
+        | None -> ()
+
+      return wanted
+    }
+
+  // The callers only change the state; this agent alone talks to the client, in order,
+  // so no caller waits for a client round-trip.
+  let sender =
+    MailboxProcessor<SharedProgressRequest>.Start(fun inbox ->
+      let rec loop shown =
+        async {
+          let! request = inbox.Receive()
+
+          let! shown =
+            async {
+              try
+                let wanted =
+                  lock syncRoot (fun () ->
+                    syncPending <- 0
+
+                    current
+                    |> Option.map (fun generation ->
+                      generation.Seen <- true
+                      generation.Report, buildMessage generation, calcPercentage generation))
+
+                return! sync shown wanted |> Async.AwaitTask
+              with e ->
+                logger.warn (
+                  Log.setMessage "Could not sync {title} progress"
+                  >> Log.addContext "title" title
+                  >> Log.addExn e
+                )
+
+                return shown
+            }
+
+          match request with
+          | FlushProgress reply -> reply.Reply()
+          | SyncProgress -> ()
+
+          return! loop shown
+        }
+
+      loop None)
+
+  let requestSync () =
+    if Interlocked.Exchange(&syncPending, 1) = 0 then
+      sender.Post SyncProgress
+
+  /// Call while holding syncRoot.
+  let currentGeneration () =
+    match current with
+    | Some generation when not generation.Report.CancellationToken.IsCancellationRequested -> generation
+    | _ ->
+      // The user cancelled the current report: new operations get a fresh report and token.
+      let generation = SharedProgressGeneration(createReport ())
+      current <- Some generation
+      generation
+
+  /// Call while holding syncRoot.
+  let retireIfIdle (generation: SharedProgressGeneration) =
+    match current with
+    | Some c when obj.ReferenceEquals(c, generation) && generation.IsIdle ->
+      current <- None
+
+      // The agent never saw this report, so it will not end and dispose it either.
+      if not generation.Seen then
+        (generation.Report :> IDisposable).Dispose()
+    | _ -> ()
+
+  /// Call while holding syncRoot.
+  let countOperation (generation: SharedProgressGeneration) operationId =
+    generation.Counted <- Set.add operationId generation.Counted
+    generation.Total <- generation.Total + 1
+
+  /// Call while holding syncRoot. onEnd is called while holding syncRoot.
+  let startOperation (generation: SharedProgressGeneration) (label: string option) (onEnd: unit -> unit) =
+    lastOperationId <- lastOperationId + 1L
+    let operationId = lastOperationId
+    generation.Operations <- Map.add operationId label generation.Operations
+
+    // After the last batch ended, the report still shows a percentage, so new operations count towards it.
+    if generation.Batches = 0 && generation.Total > 0 then
+      countOperation generation operationId
+
+    new SharedProgressScope(
+      generation.Report.CancellationToken,
+      fun () ->
+        lock syncRoot (fun () ->
+          generation.Operations <- Map.remove operationId generation.Operations
+
+          if Set.contains operationId generation.Counted then
+            generation.Counted <- Set.remove operationId generation.Counted
+            generation.Completed <- generation.Completed + 1
+          else
+            onEnd ()
+
+          retireIfIdle generation)
+
+        requestSync ()
+    )
+
+  let disabledScope () = new SharedProgressScope(CancellationToken.None, ignore)
+
+  let disabledBatch () = new SharedProgressBatch(CancellationToken.None, disabledScope, ignore)
+
+  /// <summary>Starts an operation. Its label shows in the message of the report until the scope is disposed.</summary>
+  member _.Begin(label: string) =
+    if not (isEnabled ()) then
+      disabledScope ()
+    else
+      let scope =
+        lock syncRoot (fun () ->
+          if disposed then
+            disabledScope ()
+          else
+            startOperation (currentGeneration ()) (Some label) ignore)
+
+      requestSync ()
+      scope
+
+  /// <summary>Starts a batch of <paramref name="count"/> operations. The report shows how many of them completed.</summary>
+  member _.BeginBatch(count: int) =
+    if count <= 0 || not (isEnabled ()) then
+      disabledBatch ()
+    else
+      let generation =
+        lock syncRoot (fun () ->
+          if disposed then
+            None
+          else
+            let generation = currentGeneration ()
+            generation.Batches <- generation.Batches + 1
+            generation.Total <- generation.Total + count
+            Some generation)
+
+      match generation with
+      | None -> disabledBatch ()
+      | Some generation ->
+        requestSync ()
+
+        let token = generation.Report.CancellationToken
+        // Only accessed while holding syncRoot.
+        let completed = ref 0
+        let ended = ref false
+
+        let completeOperation () =
+          if not ended.Value then
+            completed.Value <- completed.Value + 1
+            generation.Completed <- generation.Completed + 1
+
+        let beginOperation () =
+          let scope =
+            lock syncRoot (fun () ->
+              if token.IsCancellationRequested then
+                // The user cancelled the batch, so its remaining operations do not show.
+                new SharedProgressScope(token, ignore)
+              else
+                startOperation generation None completeOperation)
+
+          requestSync ()
+          scope
+
+        let endBatch () =
+          lock syncRoot (fun () ->
+            ended.Value <- true
+            generation.Batches <- generation.Batches - 1
+
+            // Operations of this batch that never ran no longer count.
+            generation.Total <- generation.Total - max 0 (count - completed.Value)
+
+            // A report cannot drop its percentage, so the operations that still run count towards it.
+            // Otherwise the percentage would stay at its last value until the report ends.
+            if generation.Batches = 0 then
+              for operationId in generation.Operations.Keys do
+                if not (Set.contains operationId generation.Counted) then
+                  countOperation generation operationId
+
+            retireIfIdle generation)
+
+          requestSync ()
+
+        new SharedProgressBatch(token, beginOperation, endBatch)
+
+  /// <summary>Completes when the client has been sent the current progress state.</summary>
+  member _.Flush() : Task<unit> = sender.PostAndAsyncReply FlushProgress |> Async.StartImmediateAsTask
+
+  interface IDisposable with
+    member _.Dispose() =
+      lock syncRoot (fun () ->
+        disposed <- true
+        current <- None)
+
+      requestSync ()
+
+
 open System.Diagnostics.Tracing
 open System.Collections.Concurrent
 open System.Diagnostics

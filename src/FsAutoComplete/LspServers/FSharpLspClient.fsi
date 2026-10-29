@@ -7,6 +7,7 @@ open Ionide.LanguageServerProtocol.JsonRpc
 open FsAutoComplete.LspHelpers
 open System
 open System.Threading
+open System.Threading.Tasks
 open IcedTasks
 
 type FSharpLspClient =
@@ -77,6 +78,49 @@ type ServerProgressReport =
   /// <returns></returns>
   member End: ?message: string -> CancellableTask<unit>
   interface IAsyncDisposable
+  interface IDisposable
+
+/// <summary>One operation tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the operation ends.</summary>
+[<Sealed>]
+type SharedProgressScope =
+  /// <summary>Cancelled when the user cancels the progress report that shows the operation.</summary>
+  member CancellationToken: CancellationToken
+  interface IDisposable
+
+/// <summary>A batch of operations tracked by a <see cref="SharedProgressReporter"/>. Dispose it when the batch ends.</summary>
+[<Sealed>]
+type SharedProgressBatch =
+  /// <summary>Cancelled when the user cancels the progress report that shows the batch.</summary>
+  member CancellationToken: CancellationToken
+
+  /// <summary>
+  /// Starts an operation of the batch. When its scope is disposed, it counts as completed.
+  /// It has no label: the work it runs shows its own label once it actually starts.
+  /// </summary>
+  member Begin: unit -> SharedProgressScope
+  interface IDisposable
+
+/// <summary>
+/// Shows concurrent operations, such as typechecks, as one LSP progress report.
+/// The report starts with the first operation, lists the running operations in its message,
+/// and ends when the last operation ends.
+/// </summary>
+[<Sealed>]
+type SharedProgressReporter =
+  /// <param name="title">The title of the progress report.</param>
+  /// <param name="createReport">Creates the report that a new progress cycle uses.</param>
+  /// <param name="isEnabled">When it returns false, operations are not shown and their token is never cancelled.</param>
+  new:
+    title: string * createReport: (unit -> ServerProgressReport) * ?isEnabled: (unit -> bool) -> SharedProgressReporter
+
+  /// <summary>Starts an operation. Its label shows in the message of the report until the scope is disposed.</summary>
+  member Begin: label: string -> SharedProgressScope
+
+  /// <summary>Starts a batch of <paramref name="count"/> operations. The report shows how many of them completed.</summary>
+  member BeginBatch: count: int -> SharedProgressBatch
+
+  /// <summary>Completes when the client has been sent the current progress state.</summary>
+  member Flush: unit -> Task<unit>
   interface IDisposable
 
 /// <summary>listener for the the events generated from the fsc ActivitySource</summary>
