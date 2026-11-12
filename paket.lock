@@ -57,7 +57,7 @@ NUGET
     FParsec (1.1.1) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net5.0)) (&& (== netstandard2.1) (>= net5.0))
       FSharp.Core (>= 4.3.4)
     FSharp.Analyzers.Build (0.5)
-    FSharp.Analyzers.SDK (0.41)
+    FSharp.Analyzers.SDK (0.41.1)
       FSharp.Compiler.Service (43.12.402) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net10.0)) (&& (== netstandard2.1) (>= net10.0))
       FSharp.Core (10.1.402) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net10.0)) (&& (== netstandard2.1) (>= net10.0))
       McMaster.NETCore.Plugins (>= 2.0) - restriction: || (== net10.0) (&& (== netstandard2.0) (>= net10.0)) (&& (== netstandard2.1) (>= net10.0))
