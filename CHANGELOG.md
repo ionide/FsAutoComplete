@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Update FSharp.Analyzers.SDK to `0.41.1`. Analyzers that walk the typed tree with `TASTCollecting.walkTast` share one converted tree per file, so each analyzer no longer converts it again. Checkout the [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.1) for details.
+
 ## [0.86.1] - 2026-10-29
 
 ### Changed
