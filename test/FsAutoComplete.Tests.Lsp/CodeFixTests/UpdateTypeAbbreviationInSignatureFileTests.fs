@@ -63,4 +63,4 @@ namespace Foo
 type X = int -> int
 """
 
-      ])
+    ])

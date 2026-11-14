@@ -24,7 +24,7 @@ type SymbolUseWorkspace =
         System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>,
         string
        >
-     >
+        >
 
 [<Struct>]
 type private Placement =
@@ -163,7 +163,10 @@ let private getRangesAndPlacement input pos =
     match node with
     // explicit Ctor
     | SyntaxNode.SynBinding(SynBinding(
-        valData = SynValData(memberFlags = Some({ MemberKind = SynMemberKind.Constructor })))) -> None
+        valData = SynValData(
+          memberFlags = Some({
+                               MemberKind = SynMemberKind.Constructor
+                             })))) -> None
     | SyntaxNode.SynBinding(SynBinding(headPat = headPat; kind = SynBindingKind.Normal) as s) when
       rangeContainsPos s.RangeOfHeadPattern pos
       ->
@@ -197,9 +200,9 @@ let private getRangesAndPlacement input pos =
         longId = longId
         attribs = attribs
         accessibility = None
-        trivia = { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r }) as mOrN) when
-      longIdentContainsPos longId pos
-      ->
+        trivia = {
+                   LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module r
+                 }) as mOrN) when longIdentContainsPos longId pos ->
       let editRange = getEditRangeForModule attribs r pos.Line
 
       if path.Length = 0 then // Top level module
@@ -226,7 +229,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: Sy
       match rangesAndPlacement with
       | Some(editRange, declRange, placement) ->
 
-        let! uses = symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
+        let! uses =
+          symbolUseWorkspace false true true fcsPos lineStr sourceText parseAndCheck
+
         let useRanges = uses.Values |> Array.concat
 
         let usedOutsideOfDecl =
@@ -244,14 +249,20 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (symbolUseWorkspace: Sy
             | After -> " private"
 
           let e =
-            { Range = fcsRangeToLsp editRange
-              NewText = text }
+            {
+              Range = fcsRangeToLsp editRange
+              NewText = text
+            }
 
           return
-            [ { Edits = [| e |]
+            [
+              {
+                Edits = [| e |]
                 File = codeActionParams.TextDocument
                 Title = title
                 SourceDiagnostic = None
-                Kind = FixKind.Refactor } ]
+                Kind = FixKind.Refactor
+              }
+            ]
       | _ -> return []
     }

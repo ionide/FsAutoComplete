@@ -20,12 +20,20 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       match tyRes.GetParseResults.TryRangeOfRefCellDereferenceContainingPos fcsPos with
       | Some derefRange ->
         return
-          [ { SourceDiagnostic = Some diagnostic
+          [
+            {
+              SourceDiagnostic = Some diagnostic
               Title = title
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = fcsRangeToLsp derefRange
-                     NewText = "not " } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = fcsRangeToLsp derefRange
+                    NewText = "not "
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | None -> return []
     })

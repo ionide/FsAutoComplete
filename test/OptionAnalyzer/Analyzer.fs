@@ -142,11 +142,13 @@ let optionValueAnalyzer: Analyzer<EditorContext> =
       return
         state
         |> Seq.map (fun r ->
-          { Type = "Option.Value analyzer"
+          {
+            Type = "Option.Value analyzer"
             Message = "Option.Value shouldn't be used"
             Code = "OV001"
             Severity = Severity.Warning
             Range = r
-            Fixes = [] })
+            Fixes = []
+          })
         |> Seq.toList
     }

@@ -49,27 +49,34 @@ let toUpdate
     let location =
       tryString "location.file" node
       |> Option.map (fun file ->
-        { File = file
+        {
+          File = file
           LineStart = tryNumber "location.line-start" node |> Option.map int
-          LineEnd = tryNumber "location.line-end" node |> Option.map int })
+          LineEnd = tryNumber "location.line-end" node |> Option.map int
+        })
 
     let methodIdentifier =
       tryString "location.type" node
       |> Option.map (fun typeName ->
-        { Namespace = tryString "location.namespace" node
+        {
+          Namespace = tryString "location.namespace" node
           TypeName = typeName
-          MethodName = tryString "location.method" node })
+          MethodName = tryString "location.method" node
+        })
 
     let error =
       match tryString "error.message" node, tryString "error.stacktrace" node with
       | None, None -> None
       | message, stackTrace ->
         Some
-          { Message = message
-            StackTrace = stackTrace }
+          {
+            Message = message
+            StackTrace = stackTrace
+          }
 
     Some
-      { Uid = uid
+      {
+        Uid = uid
         DisplayName = tryString "display-name" node
         NodeType = tryString "node-type" node |> Option.map toNodeType
         ExecutionState = tryString "execution-state" node |> Option.map toExecutionState
@@ -80,20 +87,24 @@ let toUpdate
         Error = error
         StandardOutput = tryString "standardOutput" node
         StandardError = tryString "standardError" node
-        Raw = node }
+        Raw = node
+      }
 
 let toUpdateBatch
   (log: ClientLogLevel -> string -> unit)
   (e: Microsoft.Testing.Platform.ServerMode.Client.MtpTestNodeUpdateEventArgs)
   : TestNodeUpdateBatch =
-  { RunId = e.RunId
+  {
+    RunId = e.RunId
     Updates =
       e.Changes
       |> Seq.choose (fun u -> toUpdate log (Option.ofObj u.ParentUid) u.Node)
-      |> List.ofSeq }
+      |> List.ofSeq
+  }
 
 let toCapabilities (c: Microsoft.Testing.Platform.ServerMode.Client.MtpServerCapabilities) : ServerCapabilities =
-  { ServerProcessId = Option.ofNullable c.ServerProcessId
+  {
+    ServerProcessId = Option.ofNullable c.ServerProcessId
     ServerName = Option.ofObj c.ServerName
     ServerVersion = Option.ofObj c.ServerVersion
     ProtocolVersion = Option.ofObj c.ProtocolVersion
@@ -101,17 +112,22 @@ let toCapabilities (c: Microsoft.Testing.Platform.ServerMode.Client.MtpServerCap
     MultiRequestSupport = c.MultiRequestSupport
     VSTestProviderSupport = c.VSTestProviderSupport
     SupportsAttachments = c.SupportsAttachments
-    MultiConnectionProvider = c.MultiConnectionProvider }
+    MultiConnectionProvider = c.MultiConnectionProvider
+  }
 
 let toAttachment (a: Microsoft.Testing.Platform.ServerMode.Client.MtpAttachment) : Attachment =
-  { Uri = Option.ofObj a.Uri
+  {
+    Uri = Option.ofObj a.Uri
     Producer = Option.ofObj a.Producer
     Type = Option.ofObj a.Type
     DisplayName = Option.ofObj a.DisplayName
-    Description = Option.ofObj a.Description }
+    Description = Option.ofObj a.Description
+  }
 
 let toRunResult (r: Microsoft.Testing.Platform.ServerMode.Client.MtpRunResult) : RunResult =
-  { Attachments = r.Artifacts |> Seq.map toAttachment |> List.ofSeq }
+  {
+    Attachments = r.Artifacts |> Seq.map toAttachment |> List.ofSeq
+  }
 
 let toLogLevel (level: Microsoft.Testing.Platform.ServerMode.Client.MtpClientLogLevel) : ClientLogLevel =
   match level with
@@ -133,8 +149,10 @@ let toLogMessage (e: Microsoft.Testing.Platform.ServerMode.Client.MtpLogEventArg
   { Level = level; Message = e.Message }
 
 let toTelemetry (e: Microsoft.Testing.Platform.ServerMode.Client.MtpTelemetryEventArgs) : TelemetryEvent =
-  { EventName = e.EventName
-    Metrics = e.Metrics }
+  {
+    EventName = e.EventName
+    Metrics = e.Metrics
+  }
 
 let ofOptions (o: MtpClientOptions) : Microsoft.Testing.Platform.ServerMode.Client.MtpServerClientOptions =
   let upstream = Microsoft.Testing.Platform.ServerMode.Client.MtpServerClientOptions()

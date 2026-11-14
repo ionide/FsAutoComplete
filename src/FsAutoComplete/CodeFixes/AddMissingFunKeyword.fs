@@ -26,12 +26,16 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
       let! line =
         getLineText
           lines
-          { Start =
+          {
+            Start =
               { diagnostic.Range.Start with
-                  Character = 0u }
+                  Character = 0u
+              }
             End =
               { diagnostic.Range.End with
-                  Character = uint32 lineLen } }
+                  Character = uint32 lineLen
+              }
+          }
 
       let! prevPos =
         dec lines diagnostic.Range.Start
@@ -53,12 +57,20 @@ let fix (getFileLines: GetFileLines) (getLineText: GetLineText) : CodeFix =
           let symbolStartRange = fcsPosToProtocolRange fcsStartPos
 
           return
-            [ { Title = title
+            [
+              {
+                Title = title
                 File = codeActionParams.TextDocument
                 SourceDiagnostic = Some diagnostic
                 Edits =
-                  [| { Range = symbolStartRange
-                       NewText = "fun " } |]
-                Kind = FixKind.Fix } ]
+                  [|
+                    {
+                      Range = symbolStartRange
+                      NewText = "fun "
+                    }
+                  |]
+                Kind = FixKind.Fix
+              }
+            ]
         | None -> return []
     })

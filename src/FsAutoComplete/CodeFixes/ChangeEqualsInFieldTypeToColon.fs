@@ -11,12 +11,20 @@ let fix: CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "10" ]) (fun diagnostic codeActionParams ->
     if diagnostic.Message = "Unexpected symbol '=' in field declaration. Expected ':' or other token." then
       AsyncResult.retn
-        [ { File = codeActionParams.TextDocument
+        [
+          {
+            File = codeActionParams.TextDocument
             Title = title
             SourceDiagnostic = Some diagnostic
             Edits =
-              [| { Range = diagnostic.Range
-                   NewText = ":" } |]
-            Kind = FixKind.Fix } ]
+              [|
+                {
+                  Range = diagnostic.Range
+                  NewText = ":"
+                }
+              |]
+            Kind = FixKind.Fix
+          }
+        ]
     else
       AsyncResult.retn [])

@@ -44,13 +44,18 @@ let private inheritDocServer state =
     let buildResult = DotnetCli.build csharpLibPath
 
     if buildResult.ExitCode <> 0 then
-      failtest $"C# library build failed:\n{buildResult.StdErr}"
+      failtest $"C# library build failed:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
     let! (server, events) = serverInitialize projectPath defaultConfigDto state
     do! waitForWorkspaceFinishedParsing events
 
     let scriptPath = Path.Combine(projectPath, "Script.fs")
-    do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+    do!
+      server.TextDocumentDidOpen
+        {
+          TextDocument = loadDocument scriptPath
+        }
 
     match! waitForParseResultsForFile "Script.fs" events with
     | Ok() -> ()
@@ -68,9 +73,11 @@ let tests state =
       let! (srv, scriptPath) = server
 
       let pos: HoverParams =
-        { TextDocument = { Uri = Path.FilePathToUri scriptPath }
+        {
+          TextDocument = { Uri = Path.FilePathToUri scriptPath }
           Position = { Line = line; Character = char }
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       return! srv.TextDocumentHover pos
     }
@@ -136,4 +143,5 @@ let tests state =
               "Hover returned None for InheritDocConsumer.GetNamed; \
                the <inheritdoc cref=\"...\"/> was not resolved"
           | Result.Error e -> failtestf "Hover request errored: %A" e
-        }) ]
+        })
+    ]

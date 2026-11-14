@@ -29,7 +29,8 @@ let private errorsInto (errors: ResizeArray<string>) =
 let tests =
   testList
     "MtpWrapper Test Runs"
-    [ testCaseAsync "runs nothing when no application is named"
+    [
+      testCaseAsync "runs nothing when no application is named"
       <| async {
         let! actual = MtpWrapper.runTestsAsync ignore []
         Expect.isEmpty actual "no application runs no tests"
@@ -148,7 +149,9 @@ let tests =
           |> fun operation -> Async.StartAsTask(operation, cancellationToken = cancellation.Token)
 
         try
-          let! testProcess = launched.Task.WaitAsync(TimeSpan.FromSeconds 30.0) |> Async.AwaitTask
+          let! testProcess =
+            launched.Task.WaitAsync(TimeSpan.FromSeconds 30.0) |> Async.AwaitTask
+
           let started = gate.Value + ".started"
           let elapsed = Stopwatch.StartNew()
 
@@ -226,7 +229,8 @@ let tests =
           |> snd
           |> _.Uid
 
-        let! results = MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [ uid ] ]
+        let! results =
+          MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [ uid ] ]
 
         let names =
           results
@@ -239,14 +243,17 @@ let tests =
 
       testCaseAsync "a uid the application does not know runs nothing"
       <| async {
-        let! results = MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [ "deadbeef" ] ]
+        let! results =
+          MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [ "deadbeef" ] ]
 
         Expect.isEmpty results "an application runs only the tests it recognises"
       }
 
       testCaseAsync "an explicitly empty uid selection runs no tests"
       <| async {
-        let! results = MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [] ]
+        let! results =
+          MtpWrapper.runTestsAsync ignore [ sampleApp, MtpWrapper.TestSelection.Uids [] ]
+
         Expect.isEmpty results "an empty selection does not turn into a request to run all tests"
       }
 
@@ -257,8 +264,10 @@ let tests =
         let! results =
           MtpWrapper.runTestsAsync
             (errorsInto errors)
-            [ ResourceLocators.missingApp, MtpWrapper.TestSelection.All
-              sampleApp, MtpWrapper.TestSelection.All ]
+            [
+              ResourceLocators.missingApp, MtpWrapper.TestSelection.All
+              sampleApp, MtpWrapper.TestSelection.All
+            ]
 
         Expect.equal
           (byName "Tests.My test" results).ExecutionState
@@ -281,8 +290,10 @@ let tests =
           let! results =
             MtpWrapper.runTestsAsync
               (errorsInto errors)
-              [ brokenApp, MtpWrapper.TestSelection.All
-                sampleApp, MtpWrapper.TestSelection.All ]
+              [
+                brokenApp, MtpWrapper.TestSelection.All
+                sampleApp, MtpWrapper.TestSelection.All
+              ]
 
           Expect.equal
             (byName "Tests.My test" results).ExecutionState
@@ -305,8 +316,10 @@ let tests =
           let! outcome =
             MtpWrapper.runTestsAsync
               (errorsInto errors)
-              [ ResourceLocators.missingApp, MtpWrapper.TestSelection.All
-                brokenApp, MtpWrapper.TestSelection.All ]
+              [
+                ResourceLocators.missingApp, MtpWrapper.TestSelection.All
+                brokenApp, MtpWrapper.TestSelection.All
+              ]
             |> Async.Catch
 
           match outcome with
@@ -319,4 +332,5 @@ let tests =
             "the missing application is reported"
 
           Expect.exists errors (fun message -> message.Contains brokenApp) "the broken application is reported"
-        }) ]
+        })
+    ]

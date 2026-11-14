@@ -107,13 +107,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
 
             $"new %s{targetTyText}%s{textBetween}%s{argExprText}"
 
-          { SourceDiagnostic = Some diagnostic
+          {
+            SourceDiagnostic = Some diagnostic
             File = codeActionParams.TextDocument
             Title = title
             Edits =
-              [| { Range =
-                     { Start = diagnostic.Range.Start
-                       End = diagnostic.Range.End }
-                   NewText = newText } |]
-            Kind = FixKind.Refactor })
+              [|
+                {
+                  Range =
+                    {
+                      Start = diagnostic.Range.Start
+                      End = diagnostic.Range.End
+                    }
+                  NewText = newText
+                }
+              |]
+            Kind = FixKind.Refactor
+          })
     })

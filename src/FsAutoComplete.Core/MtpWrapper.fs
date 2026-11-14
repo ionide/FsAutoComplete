@@ -22,7 +22,8 @@ module MtpWrapper =
 
   let private clientOptions =
     { MtpClientOptions.Default with
-        ClientName = "FsAutoComplete" }
+        ClientName = "FsAutoComplete"
+    }
 
   /// Starts a task under the async's cancellation token and reports its outcome only once it has
   /// finished: its result, its exception unwrapped, or request cancellation as async cancellation.

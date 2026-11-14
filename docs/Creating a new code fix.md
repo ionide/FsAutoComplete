@@ -34,12 +34,12 @@ The unit test file contains a [single focused test](https://github.com/haf/expec
 
 1. Using the `dotnet test` command:
  ```bash
-dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+dotnet test -f net10.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
  ```
 
 2. Alternatively, using the `dotnet run` command:
  ```bash
-dotnet run -f net8.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+dotnet run -f net10.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
  ```
 
 This comprehensive approach ensures that the newly introduced code fix is properly integrated, tested, and ready for seamless integration into the FSAutocomplete environment.
@@ -47,5 +47,5 @@ This comprehensive approach ensures that the newly introduced code fix is proper
 When preparing to submit a pull request, please consider the following guidelines:
 
 - Eliminate any extraneous code or comments that may remain from the sample code.
-- Ensure proper source code formatting by running the command `dotnet fantomas src`. 
+- Ensure proper source code formatting by running the command `dotnet fantomas .`. 
 - Avoid including focused tests, as they can cause the continuous integration build to fail.

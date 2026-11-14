@@ -75,15 +75,22 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         // else
         // Return a list of Fix records for when the code fix is applicable.
         return
-          [ { SourceDiagnostic = None
+          [
+            {
+              SourceDiagnostic = None
               Title = title
               File = codeActionParams.TextDocument
               // Based on conditional logic, you typically want to suggest a text edit to the user.
               Edits =
-                [| {
-                     // When dealing with FCS, we typically want to use the FCS flavour of range.
-                     // However, to interact correctly with the LSP protocol, we need to return an LSP range.
-                     Range = fcsRangeToLsp ceExprRange
-                     NewText = $"seq {sourceText}" } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    // When dealing with FCS, we typically want to use the FCS flavour of range.
+                    // However, to interact correctly with the LSP protocol, we need to return an LSP range.
+                    Range = fcsRangeToLsp ceExprRange
+                    NewText = $"seq {sourceText}"
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
     })

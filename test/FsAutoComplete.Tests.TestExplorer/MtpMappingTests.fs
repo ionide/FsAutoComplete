@@ -9,7 +9,8 @@ let private project = "/repo/Tests.fsproj"
 let private framework = "net8.0"
 
 let private node uid : TestNodeUpdate =
-  { Uid = uid
+  {
+    Uid = uid
     DisplayName = None
     NodeType = Some NodeType.Action
     ExecutionState = None
@@ -20,7 +21,8 @@ let private node uid : TestNodeUpdate =
     Error = None
     StandardOutput = None
     StandardError = None
-    Raw = Dictionary<string, obj>() }
+    Raw = Dictionary<string, obj>()
+  }
 
 let private map (n: TestNodeUpdate) = TestItem.ofMtpNode project framework n
 
@@ -30,24 +32,30 @@ let private identified ns typeName displayName =
       DisplayName = Some displayName
       MethodIdentifier =
         Some
-          { Namespace = ns
+          {
+            Namespace = ns
             TypeName = typeName
-            MethodName = Some "Test1" } }
+            MethodName = Some "Test1"
+          }
+  }
 
 [<Tests>]
 let mtpNodeTests =
   testList
     "TestItem.ofMtpNode"
-    [ testCase "the uid identifies the node within its project and framework"
+    [
+      testCase "the uid identifies the node within its project and framework"
       <| fun _ ->
         let actual = map (node "a3f9")
 
         Expect.equal
           (TestId.tryParse actual.Id)
           (Ok
-            { ProjectFilePath = project
+            {
+              ProjectFilePath = project
               TargetFramework = framework
-              Target = TestIdTarget.MtpNode "a3f9" })
+              Target = TestIdTarget.MtpNode "a3f9"
+            })
           "the id routes the uid to its project and framework"
 
       testCase "the display name is the full name"
@@ -55,7 +63,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "a3f9" with
-                DisplayName = Some "Tests.Adds(a: 1)" }
+                DisplayName = Some "Tests.Adds(a: 1)"
+            }
 
         Expect.equal actual.FullName "Tests.Adds(a: 1)" "the name the server displays names the test"
 
@@ -104,8 +113,10 @@ let mtpNodeTests =
       testCase "tests of one name in two types have different full names"
       <| fun _ ->
         let names =
-          [ map (identified (Some "MyNamespace") "ClassA" "Test1")
-            map (identified (Some "MyNamespace") "ClassB" "Test1") ]
+          [
+            map (identified (Some "MyNamespace") "ClassA" "Test1")
+            map (identified (Some "MyNamespace") "ClassB" "Test1")
+          ]
           |> List.map _.FullName
 
         Expect.equal (List.distinct names |> List.length) 2 "each type's test has its own name"
@@ -115,12 +126,14 @@ let mtpNodeTests =
         let actual =
           map
             { node "a3f9" with
-                ParentUid = Some "b1c2" }
+                ParentUid = Some "b1c2"
+            }
 
         let parent =
           map
             { node "b1c2" with
-                NodeType = Some NodeType.Group }
+                NodeType = Some NodeType.Group
+            }
 
         Expect.equal actual.ParentId (Some parent.Id) "the parent id matches the parent's id"
 
@@ -141,7 +154,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "Tests.Adds" with
-                NodeType = Some NodeType.Action }
+                NodeType = Some NodeType.Action
+            }
 
         Expect.isTrue actual.IsLeaf "an action is a test"
 
@@ -150,7 +164,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "Tests" with
-                NodeType = Some NodeType.Group }
+                NodeType = Some NodeType.Group
+            }
 
         Expect.isFalse actual.IsLeaf "a group holds tests"
 
@@ -159,7 +174,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "Tests.Adds" with
-                NodeType = None }
+                NodeType = None
+            }
 
         Expect.isTrue actual.IsLeaf "only a group is excluded from running"
 
@@ -168,7 +184,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "Tests.Adds" with
-                DisplayName = None }
+                DisplayName = None
+            }
 
         Expect.equal actual.DisplayName "Tests.Adds" "the uid names the node when the server sends no display name"
 
@@ -177,7 +194,8 @@ let mtpNodeTests =
         let actual =
           map
             { node "Tests.Adds" with
-                DisplayName = Some "Adds two numbers" }
+                DisplayName = Some "Adds two numbers"
+            }
 
         Expect.equal actual.DisplayName "Adds two numbers" "the server names the node"
 
@@ -188,9 +206,12 @@ let mtpNodeTests =
             { node "Tests.Adds" with
                 Location =
                   Some
-                    { File = "/repo/Tests.fs"
+                    {
+                      File = "/repo/Tests.fs"
                       LineStart = Some 12
-                      LineEnd = Some 20 } }
+                      LineEnd = Some 20
+                    }
+            }
 
         Expect.equal actual.CodeFilePath (Some "/repo/Tests.fs") "the file is carried over"
 
@@ -206,9 +227,12 @@ let mtpNodeTests =
             { node "Tests.Adds" with
                 Location =
                   Some
-                    { File = "/repo/Tests.fs"
+                    {
+                      File = "/repo/Tests.fs"
                       LineStart = Some 12
-                      LineEnd = None } }
+                      LineEnd = None
+                    }
+            }
 
         Expect.equal actual.CodeLocationRange (Some { StartLine = 12; EndLine = 12 }) "the start line bounds both ends"
 
@@ -219,9 +243,12 @@ let mtpNodeTests =
             { node "Tests.Adds" with
                 Location =
                   Some
-                    { File = "/repo/Tests.fs"
+                    {
+                      File = "/repo/Tests.fs"
                       LineStart = None
-                      LineEnd = None } }
+                      LineEnd = None
+                    }
+            }
 
         Expect.equal actual.CodeFilePath (Some "/repo/Tests.fs") "the file is still known"
         Expect.isNone actual.CodeLocationRange "no line was reported"
@@ -246,14 +273,16 @@ let mtpNodeTests =
 
         Expect.isNone
           (TestFrameworkId.tryOfExecutorUri actual.ExecutorUri)
-          "name breakdown by adapter does not apply to a platform that reports its own tree" ]
+          "name breakdown by adapter does not apply to a platform that reports its own tree"
+    ]
 
 [<Tests>]
 let mtpNodesTests =
   let parentOf (parent: TestNodeUpdate) =
     let child =
       { node "a3f9" with
-          ParentUid = Some parent.Uid }
+          ParentUid = Some parent.Uid
+      }
 
     match TestHierarchy.ofMtpNodes project framework [ parent; child ] with
     | [ parent; child ] -> parent, child
@@ -263,9 +292,11 @@ let mtpNodesTests =
     "TestHierarchy.ofMtpNodes"
     [ // The node type is optional on the wire, and nothing stops a test from having children.
       for description, nodeType in
-        [ "a grouping", Some NodeType.Group
+        [
+          "a grouping", Some NodeType.Group
           "a test", Some NodeType.Action
-          "a node of no reported type", None ] do
+          "a node of no reported type", None
+        ] do
         testCase $"a child links to {description} parent by the parent's own id"
         <| fun _ ->
           let parent, child = parentOf { node "b1c2" with NodeType = nodeType }
@@ -278,14 +309,18 @@ let mtpNodesTests =
           TestHierarchy.ofMtpNodes
             project
             framework
-            [ { node "a3f9" with
-                  ParentUid = Some "b1c2" } ]
+            [
+              { node "a3f9" with
+                  ParentUid = Some "b1c2"
+              }
+            ]
           |> List.exactlyOne
 
         Expect.equal
           child.ParentId
           (Some(TestId.group project framework "b1c2"))
-          "only a grouping has children, unless the parent is seen to be otherwise" ]
+          "only a grouping has children, unless the parent is seen to be otherwise"
+    ]
 
 [<Tests>]
 let idScopeTests =
@@ -301,12 +336,15 @@ let idScopeTests =
 
   testList
     "TestItem ids"
-    [ testCase "one platform uid in two projects or frameworks names different tests"
+    [
+      testCase "one platform uid in two projects or frameworks names different tests"
       <| fun _ ->
         let ids =
-          [ TestItem.ofMtpNode project framework (node "a3f9")
+          [
+            TestItem.ofMtpNode project framework (node "a3f9")
             TestItem.ofMtpNode "/repo/Other.fsproj" framework (node "a3f9")
-            TestItem.ofMtpNode project "net9.0" (node "a3f9") ]
+            TestItem.ofMtpNode project "net9.0" (node "a3f9")
+          ]
           |> List.map _.Id
 
         Expect.equal (distinctIds ids) 3 "each project and framework has its own id"
@@ -314,9 +352,11 @@ let idScopeTests =
       testCase "one VSTest name in two projects or frameworks names different tests"
       <| fun _ ->
         let ids =
-          [ TestItem.ofVsTestCase project framework (vsTestCase "Tests.My test")
+          [
+            TestItem.ofVsTestCase project framework (vsTestCase "Tests.My test")
             TestItem.ofVsTestCase "/repo/Other.fsproj" framework (vsTestCase "Tests.My test")
-            TestItem.ofVsTestCase project "net9.0" (vsTestCase "Tests.My test") ]
+            TestItem.ofVsTestCase project "net9.0" (vsTestCase "Tests.My test")
+          ]
           |> List.map _.Id
 
         Expect.equal (distinctIds ids) 3 "each project and framework has its own id"
@@ -324,10 +364,13 @@ let idScopeTests =
       testCase "a group and a test with one uid have different ids"
       <| fun _ ->
         let ids =
-          [ map (node "Tests")
+          [
+            map (node "Tests")
             map
               { node "Tests" with
-                  NodeType = Some NodeType.Group } ]
+                  NodeType = Some NodeType.Group
+              }
+          ]
           |> List.map _.Id
 
         Expect.equal (distinctIds ids) 2 "a group cannot be mistaken for a runnable test"
@@ -340,9 +383,11 @@ let idScopeTests =
         Expect.equal
           (TestId.tryParse actual.Id)
           (Ok
-            { ProjectFilePath = project
+            {
+              ProjectFilePath = project
               TargetFramework = framework
-              Target = TestIdTarget.VsTestCase testCase.Id })
+              Target = TestIdTarget.VsTestCase testCase.Id
+            })
           "the id carries the adapter's case id"
 
       testCase "a VSTest result keeps the discovery id when its display name changes"
@@ -357,7 +402,8 @@ let idScopeTests =
         let result =
           TestResult.ofVsTestResult project framework (Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult ran)
 
-        Expect.equal result.TestItem.Id discoveryId "the result lands on the test discovery reported" ]
+        Expect.equal result.TestItem.Id discoveryId "the result lands on the test discovery reported"
+    ]
 
 [<Tests>]
 let mtpHierarchyTests =
@@ -366,9 +412,12 @@ let mtpHierarchyTests =
         DisplayName = Some displayName
         MethodIdentifier =
           Some
-            { Namespace = ns
+            {
+              Namespace = ns
               TypeName = typeName
-              MethodName = Some "Test1" } }
+              MethodName = Some "Test1"
+            }
+    }
 
   let tree nodes = TestHierarchy.ofMtpNodes project framework nodes
 
@@ -381,15 +430,20 @@ let mtpHierarchyTests =
 
   testList
     "TestHierarchy.ofMtpNodes"
-    [ testCase "a node hangs off the parent the platform reported"
+    [
+      testCase "a node hangs off the parent the platform reported"
       <| fun _ ->
         let actual =
           tree
-            [ { node "b1c2" with
+            [
+              { node "b1c2" with
                   NodeType = Some NodeType.Group
-                  DisplayName = Some "Any.Name+At all" }
+                  DisplayName = Some "Any.Name+At all"
+              }
               { test "a3f9" None "Tests" "Adds" with
-                  ParentUid = Some "b1c2" } ]
+                  ParentUid = Some "b1c2"
+              }
+            ]
 
         let child = actual |> List.find _.IsLeaf
 
@@ -400,17 +454,21 @@ let mtpHierarchyTests =
       <| fun _ ->
         let actual =
           tree
-            [ test "a3f9" (Some "MyNamespace") "ClassA" "Test1"
+            [
+              test "a3f9" (Some "MyNamespace") "ClassA" "Test1"
               test "b1c2" (Some "MyNamespace") "ClassA" "Test1 (1,2)"
-              test "c7d8" (Some "MyNamespace") "ClassB" "Test1" ]
+              test "c7d8" (Some "MyNamespace") "ClassB" "Test1"
+            ]
 
         Expect.equal
           (actual
            |> List.filter _.IsLeaf
            |> List.map (fun t -> t.DisplayName, parentNameOf actual t))
-          [ "Test1", Some "MyNamespace.ClassA"
+          [
+            "Test1", Some "MyNamespace.ClassA"
             "Test1 (1,2)", Some "MyNamespace.ClassA"
-            "Test1", Some "MyNamespace.ClassB" ]
+            "Test1", Some "MyNamespace.ClassB"
+          ]
           "each test hangs off its type"
 
         Expect.equal
@@ -422,8 +480,10 @@ let mtpHierarchyTests =
       <| fun _ ->
         let actual =
           tree
-            [ test "a3f9" None "XUnitTests" "XUnitTests.Contains.separator+characters"
-              test "b1c2" None "XUnitTests" "theory(x: 1.5)" ]
+            [
+              test "a3f9" None "XUnitTests" "XUnitTests.Contains.separator+characters"
+              test "b1c2" None "XUnitTests" "theory(x: 1.5)"
+            ]
 
         Expect.equal (groupNames actual) [ "XUnitTests" ] "only the type is a group"
 
@@ -463,8 +523,11 @@ let mtpHierarchyTests =
       <| fun _ ->
         let actual =
           tree
-            [ { node "a3f9" with
-                  DisplayName = Some "list.sublist.case" } ]
+            [
+              { node "a3f9" with
+                  DisplayName = Some "list.sublist.case"
+              }
+            ]
 
         Expect.equal (actual |> List.map _.ParentId) [ None ] "nothing is inferred from the name"
 
@@ -473,13 +536,15 @@ let mtpHierarchyTests =
         let reported = test "a3f9" (Some "MyNamespace") "ClassA" "Test1"
         let discovered = tree [ reported ] |> List.find _.IsLeaf
 
-        Expect.equal (TestItem.ofMtpNode project framework reported) discovered "a run update matches discovery" ]
+        Expect.equal (TestItem.ofMtpNode project framework reported) discovered "a run update matches discovery"
+    ]
 
 [<Tests>]
 let mtpOutcomeTests =
   testList
     "TestOutcome.ofMtpExecutionState"
-    [ testCase "a passed test passed"
+    [
+      testCase "a passed test passed"
       <| fun _ ->
         Expect.equal (TestOutcome.ofMtpExecutionState (Some ExecutionState.Passed)) TestOutcome.Passed "the test passed"
 
@@ -537,7 +602,8 @@ let mtpOutcomeTests =
         Expect.equal
           (TestOutcome.ofMtpExecutionState (Some(ExecutionState.Other "quarantined")))
           TestOutcome.None
-          "an unknown state is not read as a verdict" ]
+          "an unknown state is not read as a verdict"
+    ]
 
 [<Tests>]
 let mtpResultTests =
@@ -545,12 +611,14 @@ let mtpResultTests =
 
   testList
     "TestResult.ofMtpNode"
-    [ testCase "the result names the test it belongs to"
+    [
+      testCase "the result names the test it belongs to"
       <| fun _ ->
         let passed =
           { node "a3f9" with
               DisplayName = Some "Tests.Adds"
-              ExecutionState = Some ExecutionState.Passed }
+              ExecutionState = Some ExecutionState.Passed
+          }
 
         let actual = result passed
 
@@ -564,7 +632,8 @@ let mtpResultTests =
         let actual =
           result
             { node "a3f9" with
-                ExecutionState = Some ExecutionState.Failed }
+                ExecutionState = Some ExecutionState.Failed
+            }
 
         Expect.equal actual.Outcome TestOutcome.Failed "the server's verdict is the outcome"
 
@@ -576,8 +645,11 @@ let mtpResultTests =
                 ExecutionState = Some ExecutionState.Failed
                 Error =
                   Some
-                    { Message = Some "Assert.True() failure"
-                      StackTrace = Some "at Tests.Adds()" } }
+                    {
+                      Message = Some "Assert.True() failure"
+                      StackTrace = Some "at Tests.Adds()"
+                    }
+            }
 
         Expect.equal actual.ErrorMessage (Some "Assert.True() failure") "the failure is explained"
         Expect.equal actual.ErrorStackTrace (Some "at Tests.Adds()") "the failure is located"
@@ -587,7 +659,8 @@ let mtpResultTests =
         let actual =
           result
             { node "a3f9" with
-                ExecutionState = Some ExecutionState.Passed }
+                ExecutionState = Some ExecutionState.Passed
+            }
 
         Expect.isNone actual.ErrorMessage "nothing failed"
         Expect.isNone actual.ErrorStackTrace "nothing failed"
@@ -598,7 +671,8 @@ let mtpResultTests =
           result
             { node "a3f9" with
                 ExecutionState = Some ExecutionState.Passed
-                Duration = Some(System.TimeSpan.FromMilliseconds 250.0) }
+                Duration = Some(System.TimeSpan.FromMilliseconds 250.0)
+            }
 
         Expect.equal
           actual.Duration
@@ -610,7 +684,8 @@ let mtpResultTests =
         let actual =
           result
             { node "a3f9" with
-                ExecutionState = Some ExecutionState.Passed }
+                ExecutionState = Some ExecutionState.Passed
+            }
 
         Expect.equal actual.Duration System.TimeSpan.Zero "no time was reported"
 
@@ -620,7 +695,8 @@ let mtpResultTests =
           result
             { node "a3f9" with
                 ExecutionState = Some ExecutionState.Passed
-                StandardOutput = Some "hello" }
+                StandardOutput = Some "hello"
+            }
 
         Expect.equal actual.AdditionalOutput (Some "hello") "what the test printed is kept"
 
@@ -631,7 +707,8 @@ let mtpResultTests =
             { node "a3f9" with
                 ExecutionState = Some ExecutionState.Failed
                 StandardOutput = Some "hello"
-                StandardError = Some "boom" }
+                StandardError = Some "boom"
+            }
 
         Expect.equal
           actual.AdditionalOutput
@@ -643,9 +720,11 @@ let mtpResultTests =
         let actual =
           result
             { node "a3f9" with
-                ExecutionState = Some ExecutionState.Passed }
+                ExecutionState = Some ExecutionState.Passed
+            }
 
-        Expect.isNone actual.AdditionalOutput "the test printed nothing" ]
+        Expect.isNone actual.AdditionalOutput "the test printed nothing"
+    ]
 
 [<Tests>]
 let mtpWireTests =
@@ -660,21 +739,26 @@ let mtpWireTests =
 
   testList
     "Interop.toUpdate"
-    [ testCase "the method identifier is read off the node"
+    [
+      testCase "the method identifier is read off the node"
       <| fun _ ->
         let actual =
           update
-            [ "location.namespace", box "MyNamespace"
+            [
+              "location.namespace", box "MyNamespace"
               "location.type", box "ClassA"
               "location.method", box "Test1(System.Int32)"
-              "location.method-arity", box 0 ]
+              "location.method-arity", box 0
+            ]
 
         Expect.equal
           actual.MethodIdentifier
           (Some
-            { Namespace = Some "MyNamespace"
+            {
+              Namespace = Some "MyNamespace"
               TypeName = "ClassA"
-              MethodName = Some "Test1(System.Int32)" })
+              MethodName = Some "Test1(System.Int32)"
+            })
           "the namespace, type and method are carried over"
 
       testCase "a type reported with its namespace has no namespace of its own"
@@ -684,13 +768,16 @@ let mtpWireTests =
         Expect.equal
           actual.MethodIdentifier
           (Some
-            { Namespace = None
+            {
+              Namespace = None
               TypeName = "MyNamespace.ClassA"
-              MethodName = None })
+              MethodName = None
+            })
           "the platform folds the namespace into the type from 2.0"
 
       testCase "a node without a type has no method identifier"
       <| fun _ ->
         let actual = update [ "location.method", box "Test1" ]
 
-        Expect.isNone actual.MethodIdentifier "a method means nothing without its type" ]
+        Expect.isNone actual.MethodIdentifier "a method means nothing without its type"
+    ]

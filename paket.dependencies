@@ -1,6 +1,6 @@
 version 7.2.1
 
-framework: netstandard2.0, netstandard2.1, net8.0, net9.0, net10.0
+framework: netstandard2.0, netstandard2.1, net10.0
 
 source https://api.nuget.org/v3/index.json
 # this is the FCS nightly feed, re-enable at your own risk!
@@ -11,20 +11,20 @@ lowest_matching:true
 strategy: min
 
 nuget BenchmarkDotNet
-nuget Fantomas.Client >= 0.12.0-beta-002 prerelease
-nuget FSharp.Compiler.Service >= 43.10.100
-nuget Ionide.Analyzers
-nuget FSharp.Analyzers.Build
-nuget Ionide.ProjInfo >= 0.74.1
-nuget Ionide.ProjInfo.FCS >= 0.74.1
-nuget Ionide.ProjInfo.ProjectSystem >= 0.74.1
+nuget Fantomas.Client >= 0.12.0-beta-004 prerelease
+nuget FSharp.Compiler.Service 43.12.402
+nuget Ionide.Analyzers 0.20.0
+nuget FSharp.Analyzers.Build >= 0.5.0
+nuget Ionide.ProjInfo >= 0.75.3
+nuget Ionide.ProjInfo.FCS >= 0.75.3
+nuget Ionide.ProjInfo.ProjectSystem >= 0.75.3
 nuget Microsoft.Build >= 17.2 copy_local:false
 nuget Microsoft.Build.Framework >= 17.4 copy_local:false
 nuget Microsoft.Build.Utilities.Core >= 17.4 copy_local:false
 nuget Microsoft.Build.Tasks.Core >= 17.4 copy_local: false
 nuget Nuget.Frameworks >= 6.3 copy_local: false
 nuget Microsoft.CodeAnalysis
-nuget FSharp.Analyzers.SDK
+nuget FSharp.Analyzers.SDK 0.41.1
 nuget ICSharpCode.Decompiler
 nuget Mono.Cecil >= 0.11.4
 nuget FSharpLint.Core
@@ -47,9 +47,9 @@ nuget Microsoft.NET.Test.Sdk >= 17.4
 nuget Dotnet.ReproducibleBuilds copy_local:true
 
 nuget Ionide.KeepAChangelog.Tasks copy_local: true
-nuget Expecto ~> 10
-nuget Expecto.Diff
-nuget YoloDev.Expecto.TestSdk
+nuget Expecto >= 11.1.1 < 12
+nuget Expecto.Diff >= 11.1.1 < 12
+nuget YoloDev.Expecto.TestSdk >= 0.16.1
 nuget AltCover
 nuget GitHubActionsTestLogger
 nuget Ionide.LanguageServerProtocol

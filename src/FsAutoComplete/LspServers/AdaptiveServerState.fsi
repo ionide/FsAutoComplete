@@ -30,9 +30,11 @@ type AdaptiveWorkspaceChosen =
 
 [<CustomEquality; NoComparison>]
 type LoadedProject =
-  { ProjectOptions: Types.ProjectOptions
+  {
+    ProjectOptions: Types.ProjectOptions
     FSharpProjectCompilerOptions: aval<CompilerProjectOption>
-    LanguageVersion: LanguageVersionShim }
+    LanguageVersion: LanguageVersionShim
+  }
 
   interface IEquatable<LoadedProject>
   override GetHashCode: unit -> int

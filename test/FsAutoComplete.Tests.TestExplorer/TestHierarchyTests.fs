@@ -26,7 +26,8 @@ let parameterisedCaseTests =
 
   testList
     "TestItem.fullNameWithParameterisedCases"
-    [ testCase "xunit theory cases nest under the method"
+    [
+      testCase "xunit theory cases nest under the method"
       <| fun _ ->
         let actual =
           fullNameOf "executor://xunit/VsTestRunner2/netcoreapp" "Tests.Adds" "Tests.Adds(a: 1, b: 2)"
@@ -73,13 +74,15 @@ let parameterisedCaseTests =
           TestHierarchy.withInferredGroupings [ case "(a: 1)"; case "(a: 2)" ]
           |> List.filter _.IsLeaf
 
-        Expect.hasLength actual 2 "both theory cases survive" ]
+        Expect.hasLength actual 2 "both theory cases survive"
+    ]
 
 [<Tests>]
 let tests =
   testList
     "TestHierarchy"
-    [ testCase "a leaf with an unsegmented name has no parent"
+    [
+      testCase "a leaf with an unsegmented name has no parent"
       <| fun _ ->
         let actual = TestHierarchy.withInferredGroupings [ leaf "MyTest" ]
 
@@ -160,4 +163,5 @@ let tests =
 
         Expect.notEqual test.Id grouping.Id "a test and a grouping never share an id"
         Expect.equal child.ParentId (Some grouping.Id) "the nested test hangs off the grouping"
-        Expect.equal test.ParentId (named "Tests" false |> _.Id |> Some) "the test hangs off its own parent" ]
+        Expect.equal test.ParentId (named "Tests" false |> _.Id |> Some) "the test hangs off its own parent"
+    ]

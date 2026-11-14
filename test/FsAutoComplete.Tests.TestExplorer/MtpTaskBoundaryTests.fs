@@ -66,7 +66,8 @@ let private release (spy: ResourceSpy) =
 let tests =
   testList
     "MtpWrapper.startTaskAsync"
-    [ testCase "a result the task produces after a racing cancellation is not dropped"
+    [
+      testCase "a result the task produces after a racing cancellation is not dropped"
       <| fun _ ->
         let outcome =
           startThenCancel (fun _ ->
@@ -116,13 +117,15 @@ let tests =
 
         match outcome with
         | Choice2Of2(:? OperationCanceledException) -> ()
-        | other -> failtest $"expected an OperationCanceledException failure, got {other}" ]
+        | other -> failtest $"expected an OperationCanceledException failure, got {other}"
+    ]
 
 [<Tests>]
 let ownershipTests =
   testList
     "MtpWrapper.ownedAsync"
-    [ testCase "a resource acquired under a racing cancellation is released and disposed"
+    [
+      testCase "a resource acquired under a racing cancellation is released and disposed"
       <| fun _ ->
         let spy = new ResourceSpy()
 
@@ -172,4 +175,5 @@ let ownershipTests =
         | Failed error -> Expect.isTrue (obj.ReferenceEquals(error, failure)) $"not the work's failure: {error}"
         | other -> failtest $"expected the work's failure, got {other}"
 
-        Expect.equal spy.Events [ "disposed" ] "the resource was disposed although its release failed" ]
+        Expect.equal spy.Events [ "disposed" ] "the resource was disposed although its release failed"
+    ]

@@ -1,0 +1,2 @@
+# Fantomas 6 reads only the nearest .fantomasignore. Without this file it would
+# use the root one, which ignores TestCases/, and the formatting tests would get no edits.

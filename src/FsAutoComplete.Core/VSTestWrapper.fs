@@ -111,6 +111,14 @@ module VSTestWrapper =
     </RunConfiguration>
 </RunSettings>"
 
+  /// Ends the vstest.console process the wrapper started, which otherwise keeps running until FSAC exits.
+  /// Best effort: a failure here must not replace the result or the error of the discovery or run.
+  let private endSession (vstest: VsTestConsoleWrapper) =
+    try
+      vstest.EndSession()
+    with _ ->
+      ()
+
   let discoverTestsAsync
     (vstestPath: string)
     (onDiscoveryProgress: TestDiscoveryUpdate -> unit)
@@ -119,12 +127,16 @@ module VSTestWrapper =
     async {
       let consoleParams = ConsoleParameters()
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-      let discoveryHandler = TestDiscoveryHandler(onDiscoveryProgress)
 
-      use! _onCancel = Async.OnCancel(fun () -> vstest.CancelDiscovery())
+      try
+        let discoveryHandler = TestDiscoveryHandler(onDiscoveryProgress)
 
-      vstest.DiscoverTests(sources, null, discoveryHandler)
-      return discoveryHandler.DiscoveredTests |> List.ofSeq
+        use! _onCancel = Async.OnCancel(fun () -> vstest.CancelDiscovery())
+
+        vstest.DiscoverTests(sources, null, discoveryHandler)
+        return discoveryHandler.DiscoveredTests |> List.ofSeq
+      finally
+        endSession vstest
     }
 
   /// Runs whatever `run` or `runWithHost` selects, using a custom test host only when debugging.
@@ -139,18 +151,22 @@ module VSTestWrapper =
     async {
       let consoleParams = ConsoleParameters()
       let vstest = new VsTestConsoleWrapper(vstestPath, consoleParams)
-      let runHandler = TestRunHandler(onTestRunProgress)
-      let runSettings = RunSettings.defaultRunSettings
 
-      use! _cancel = Async.OnCancel(fun () -> vstest.CancelTestRun())
+      try
+        let runHandler = TestRunHandler(onTestRunProgress)
+        let runSettings = RunSettings.defaultRunSettings
 
-      if shouldDebug then
-        let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
-        runWithHost vstest runSettings runHandler hostLauncher
-      else
-        run vstest runSettings runHandler
+        use! _cancel = Async.OnCancel(fun () -> vstest.CancelTestRun())
 
-      return runHandler.TestResults |> List.ofSeq
+        if shouldDebug then
+          let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
+          runWithHost vstest runSettings runHandler hostLauncher
+        else
+          run vstest runSettings runHandler
+
+        return runHandler.TestResults |> List.ofSeq
+      finally
+        endSession vstest
     }
 
   /// onAttachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns

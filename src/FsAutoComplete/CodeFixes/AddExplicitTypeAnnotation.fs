@@ -12,8 +12,10 @@ open FsAutoComplete.Core.InlayHints
 open FsAutoComplete.Core
 
 let toLspEdit ({ Pos = insertAt; Text = text }: HintInsertion) =
-  { Range = fcsPosToProtocolRange insertAt
-    NewText = text }
+  {
+    Range = fcsPosToProtocolRange insertAt
+    NewText = text
+  }
 
 let toLspEdits (edits: HintInsertion[]) = edits |> Array.map toLspEdit
 
@@ -121,8 +123,12 @@ let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sou
                   |> String.concat " -> "
 
             // Put the return type after the current headPat.
-            [ { Range = fcsPosToProtocolRange headPatRange.End
-                NewText = $" : {returnTypeText}" } ]
+            [
+              {
+                Range = fcsPosToProtocolRange headPatRange.End
+                NewText = $" : {returnTypeText}"
+              }
+            ]
 
         let parameterEdits =
           parameters
@@ -137,11 +143,15 @@ let tryFunctionIdentifier (parseAndCheck: ParseAndCheckResults) textDocument sou
           |> Seq.collect id
           |> Seq.toArray
 
-        [ { File = textDocument
+        [
+          {
+            File = textDocument
             Title = title
             Edits = [| yield! parameterEdits; yield! returnTypeEdits |]
             Kind = FixKind.Refactor
-            SourceDiagnostic = None } ]
+            SourceDiagnostic = None
+          }
+        ]
       | _ -> []
     | _ -> []
 
@@ -173,9 +183,13 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         | None -> return []
         | Some(_, edits) ->
           return
-            [ { File = codeActionParams.TextDocument
+            [
+              {
+                File = codeActionParams.TextDocument
                 Title = title
                 Edits = edits |> toLspEdits
                 Kind = FixKind.Refactor
-                SourceDiagnostic = None } ]
+                SourceDiagnostic = None
+              }
+            ]
     }

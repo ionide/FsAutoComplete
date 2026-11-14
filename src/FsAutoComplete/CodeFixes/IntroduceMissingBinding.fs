@@ -35,13 +35,16 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       // Get the text from column 0 to the diagnostic start to measure indentation
       let lineStart =
         { diagnostic.Range.Start with
-            Character = 0u }
+            Character = 0u
+        }
 
       let! linePrefixText =
         getLineText
           sourceText
-          { Start = lineStart
-            End = diagnostic.Range.Start }
+          {
+            Start = lineStart
+            End = diagnostic.Range.Start
+          }
 
       let indent =
         linePrefixText
@@ -54,11 +57,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
       let newBinding = $"{indent}let {missingName} = failwith \"Not Implemented\"\n"
 
       return
-        [ { Title = title missingName
+        [
+          {
+            Title = title missingName
             File = codeActionParams.TextDocument
             SourceDiagnostic = Some diagnostic
             Kind = FixKind.Fix
             Edits =
-              [| { Range = insertionRange
-                   NewText = newBinding } |] } ]
+              [|
+                {
+                  Range = insertionRange
+                  NewText = newBinding
+                }
+              |]
+          }
+        ]
     })

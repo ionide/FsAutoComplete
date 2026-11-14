@@ -61,7 +61,10 @@ let tryFindLambda (cursor: pos) (tree: ParsedInput) =
       | _ -> None
 
     | SyntaxNode.SynExpr(SynExpr.DotLambda(
-        range = mLambda; trivia = { FSharp.Compiler.SyntaxTrivia.SynExprDotLambdaTrivia.UnderscoreRange = m })) ->
+        range = mLambda
+        trivia = {
+                   FSharp.Compiler.SyntaxTrivia.SynExprDotLambdaTrivia.UnderscoreRange = m
+                 })) ->
 
       match List.tryHead path with
       | Some(SyntaxNode.SynExpr(SynExpr.Paren _)) ->
@@ -98,39 +101,69 @@ let fix (getLanguageVersion: GetLanguageVersion) (getParseResultsForFile: GetPar
           let edits =
             match replaceInfo with
             | ReplaceInfo.RawLambda m ->
-              [| { Range = fcsRangeToLsp m
-                   NewText = "_" } |]
+              [|
+                {
+                  Range = fcsRangeToLsp m
+                  NewText = "_"
+                }
+              |]
             | ReplaceInfo.ParenLambda(lpr, mLambda, rpr) ->
-              [| { Range = fcsRangeToLsp lpr
-                   NewText = "" }
-                 { Range = fcsRangeToLsp mLambda
-                   NewText = " _" }
-                 { Range = fcsRangeToLsp rpr
-                   NewText = "" } |]
+              [|
+                {
+                  Range = fcsRangeToLsp lpr
+                  NewText = ""
+                }
+                {
+                  Range = fcsRangeToLsp mLambda
+                  NewText = " _"
+                }
+                {
+                  Range = fcsRangeToLsp rpr
+                  NewText = ""
+                }
+              |]
 
           return
-            [ { SourceDiagnostic = None
+            [
+              {
+                SourceDiagnostic = None
                 Title = titleReplaceToDotLambda
                 File = codeActionParams.TextDocument
                 Edits = edits
-                Kind = FixKind.Fix } ]
+                Kind = FixKind.Fix
+              }
+            ]
         | Some(FixType.ReplaceToLambda replaceInfo) ->
           let edits =
             match replaceInfo with
             | DotLambdaReplaceInfo.NeedParen(m, mEnd) ->
-              [| { Range = fcsRangeToLsp m
-                   NewText = "(fun _i -> _i" }
-                 { Range = fcsRangeToLsp mEnd
-                   NewText = ")" } |]
+              [|
+                {
+                  Range = fcsRangeToLsp m
+                  NewText = "(fun _i -> _i"
+                }
+                {
+                  Range = fcsRangeToLsp mEnd
+                  NewText = ")"
+                }
+              |]
 
             | DotLambdaReplaceInfo.NotNeedParen m ->
-              [| { Range = fcsRangeToLsp m
-                   NewText = "fun _i -> _i" } |]
+              [|
+                {
+                  Range = fcsRangeToLsp m
+                  NewText = "fun _i -> _i"
+                }
+              |]
 
           return
-            [ { SourceDiagnostic = None
+            [
+              {
+                SourceDiagnostic = None
                 Title = titleReplaceToLambda
                 File = codeActionParams.TextDocument
                 Edits = edits
-                Kind = FixKind.Fix } ]
+                Kind = FixKind.Fix
+              }
+            ]
     }

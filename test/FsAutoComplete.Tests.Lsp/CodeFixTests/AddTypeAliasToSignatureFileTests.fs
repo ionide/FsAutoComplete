@@ -25,7 +25,8 @@ let tests state =
           selectCodeFix
           sigAfter)
 
-    [ test
+    [
+      test
         "Sample use-case for AddTypeAliasToSignatureFile"
         """
 module Foo
@@ -183,4 +184,5 @@ module Bar =
     type Foo = int
 
     val a: int
-""" ])
+"""
+    ])

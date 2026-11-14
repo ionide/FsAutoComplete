@@ -102,9 +102,11 @@ module CommandResponse =
   type ResponseMsg<'T> = { Kind: string; Data: 'T }
 
   type DocumentationLinkContext =
-    { FileName: string
+    {
+      FileName: string
       Line: int
-      Character: int }
+      Character: int
+    }
 
   let private documentationCommandPattern =
     Regex(@"command:fsharp\.showDocumentation\?(?<payload>[^'""\)\s]+)", RegexOptions.Compiled)
@@ -135,9 +137,11 @@ module CommandResponse =
       )
 
   type ResponseError<'T> =
-    { Code: int
+    {
+      Code: int
       Message: string
-      AdditionalData: 'T }
+      AdditionalData: 'T
+    }
 
   [<RequireQualifiedAccess>]
   type ErrorCodes =
@@ -158,7 +162,8 @@ module CommandResponse =
   and ProjectData = { Project: ProjectFilePath }
 
   type ProjectResponseInfoDotnetSdk =
-    { IsTestProject: bool
+    {
+      IsTestProject: bool
       Configuration: string
       IsPackable: bool
       TargetFramework: string
@@ -167,20 +172,25 @@ module CommandResponse =
       RestoreSuccess: bool
       TargetFrameworks: string list
       RunCmd: RunCmd option
-      IsPublishable: bool option }
+      IsPublishable: bool option
+    }
 
   and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
 
   type ProjectLoadingResponse = { Project: ProjectFilePath }
 
   type ProjectReference =
-    { RelativePath: string
-      ProjectFileName: string }
+    {
+      RelativePath: string
+      ProjectFileName: string
+    }
 
   type PackageReference =
-    { Name: string
+    {
+      Name: string
       Version: string
-      FullPath: string }
+      FullPath: string
+    }
 
   /// a structure containing the data needed to render project trees for a solution explorer
   type ProjectResponse =
@@ -210,13 +220,16 @@ module CommandResponse =
     | Custom of string
 
   and ProjectResponseItem =
-    { Name: string
+    {
+      Name: string
       FilePath: string
       VirtualPath: string
-      Metadata: Map<string, string> }
+      Metadata: Map<string, string>
+    }
 
   type DocumentationDescription =
-    { XmlKey: string
+    {
+      XmlKey: string
       Constructors: string array
       Fields: string array
       Functions: string array
@@ -225,10 +238,12 @@ module CommandResponse =
       DeclaredTypes: string array
       Signature: string
       Comment: string
-      FooterLines: string array }
+      FooterLines: string array
+    }
 
     static member CreateFromError(error: string) =
-      { XmlKey = ""
+      {
+        XmlKey = ""
         Constructors = [||]
         Fields = [||]
         Functions = [||]
@@ -237,41 +252,49 @@ module CommandResponse =
         DeclaredTypes = [||]
         FooterLines = [||]
         Signature = "<Note>"
-        Comment = error }
+        Comment = error
+      }
 
   type CompilerLocationResponse =
-    { Fsc: string option
+    {
+      Fsc: string option
       Fsi: string option
       MSBuild: string option
-      SdkRoot: string option }
+      SdkRoot: string option
+    }
 
   type FSharpErrorInfo =
-    { FileName: string
+    {
+      FileName: string
       StartLine: int
       EndLine: int
       StartColumn: int
       EndColumn: int
       Severity: FSharpDiagnosticSeverity
       Message: string
-      Subcategory: string }
+      Subcategory: string
+    }
 
     static member IsIgnored(e: FSharpDiagnostic) =
       // FST-1027 support in Fake 5
       e.ErrorNumber = 213 && e.Message.StartsWith("'paket:", StringComparison.Ordinal)
 
     static member OfFSharpError(e: FSharpDiagnostic) =
-      { FileName = e.FileName
+      {
+        FileName = e.FileName
         StartLine = e.StartLine
         EndLine = e.EndLine
         StartColumn = e.StartColumn + 1
         EndColumn = e.EndColumn + 1
         Severity = e.Severity
         Message = e.Message
-        Subcategory = e.Subcategory }
+        Subcategory = e.Subcategory
+      }
 
 
   type Declaration =
-    { UniqueName: string
+    {
+      UniqueName: string
       Name: string
       Glyph: string
       GlyphChar: string
@@ -280,12 +303,14 @@ module CommandResponse =
       BodyRange: Range
       File: string
       EnclosingEntity: string
-      IsAbstract: bool }
+      IsAbstract: bool
+    }
 
     static member OfDeclarationItem(e: NavigationItem, fn) =
       let (glyph, glyphChar) = CompletionUtils.getIcon e.Glyph
 
-      { UniqueName = e.UniqueName
+      {
+        UniqueName = e.UniqueName
         Name = e.LogicalName
         Glyph = glyph
         GlyphChar = glyphChar
@@ -294,18 +319,23 @@ module CommandResponse =
         BodyRange = e.BodyRange
         File = fn
         EnclosingEntity = CompletionUtils.getEnclosingEntityChar e.EnclosingEntityKind
-        IsAbstract = e.IsAbstract }
+        IsAbstract = e.IsAbstract
+      }
 
   type DeclarationResponse =
-    { Declaration: Declaration
-      Nested: Declaration[] }
+    {
+      Declaration: Declaration
+      Nested: Declaration[]
+    }
 
   type Parameter = { Name: string; Type: string }
 
   type SignatureData =
-    { OutputType: string
+    {
+      OutputType: string
       Parameters: Parameter list list
-      Generics: string list }
+      Generics: string list
+    }
 
   type WorkspacePeekResponse = { Found: WorkspacePeekFound list }
 
@@ -314,34 +344,46 @@ module CommandResponse =
     | Solution of WorkspacePeekFoundSolution
 
   and WorkspacePeekFoundDirectory =
-    { Directory: string
-      Fsprojs: string list }
+    {
+      Directory: string
+      Fsprojs: string list
+    }
 
   and WorkspacePeekFoundSolution =
-    { Path: string
+    {
+      Path: string
       Items: WorkspacePeekFoundSolutionItem list
-      Configurations: WorkspacePeekFoundSolutionConfiguration list }
+      Configurations: WorkspacePeekFoundSolutionConfiguration list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItem =
-    { Guid: Guid
+    {
+      Guid: Guid
       Name: string
-      Kind: WorkspacePeekFoundSolutionItemKind }
+      Kind: WorkspacePeekFoundSolutionItemKind
+    }
 
   and WorkspacePeekFoundSolutionItemKind =
     | MsbuildFormat of WorkspacePeekFoundSolutionItemKindMsbuildFormat
     | Folder of WorkspacePeekFoundSolutionItemKindFolder
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindMsbuildFormat =
-    { Configurations: WorkspacePeekFoundSolutionConfiguration list }
+    {
+      Configurations: WorkspacePeekFoundSolutionConfiguration list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindFolder =
-    { Items: WorkspacePeekFoundSolutionItem list
-      Files: FilePath list }
+    {
+      Items: WorkspacePeekFoundSolutionItem list
+      Files: FilePath list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionConfiguration =
-    { Id: string
+    {
+      Id: string
       ConfigurationName: string
-      PlatformName: string }
+      PlatformName: string
+    }
 
   type WorkspaceLoadResponse = { Status: string }
 
@@ -351,34 +393,48 @@ module CommandResponse =
   type FsdnResponse = { Functions: string list }
 
   type DotnetNewListResponse =
-    { Installed: DotnetNewTemplate.Template list }
+    {
+      Installed: DotnetNewTemplate.Template list
+    }
 
   type DotnetNewGetDetailsResponse =
-    { Detailed: DotnetNewTemplate.DetailedTemplate }
+    {
+      Detailed: DotnetNewTemplate.DetailedTemplate
+    }
 
   type DotnetNewCreateCliResponse =
-    { CommandName: string
-      ParameterStr: string }
+    {
+      CommandName: string
+      ParameterStr: string
+    }
 
   type HighlightingRange =
-    { Range: Ionide.LanguageServerProtocol.Types.Range
-      TokenType: string }
+    {
+      Range: Ionide.LanguageServerProtocol.Types.Range
+      TokenType: string
+    }
 
   type HighlightingResponse = { Highlights: HighlightingRange[] }
 
   type PipelineHint =
-    { Line: int
+    {
+      Line: int
       Types: string[]
-      PrecedingNonPipeExprLine: int option }
+      PrecedingNonPipeExprLine: int option
+    }
 
   let private errorG (serialize: Serializer) (errorData: ErrorData) message =
     let inline ser code data =
       serialize
-        { Kind = "error"
+        {
+          Kind = "error"
           Data =
-            { Code = (int code)
+            {
+              Code = (int code)
               Message = message
-              AdditionalData = data } }
+              AdditionalData = data
+            }
+        }
 
     match errorData with
     | ErrorData.GenericError -> ser (ErrorCodes.GenericError) (obj ())
@@ -390,7 +446,8 @@ module CommandResponse =
     let info = projectResult.Extra.ProjectSdkInfo
 
     let projectInfo =
-      { IsTestProject = info.IsTestProject
+      {
+        IsTestProject = info.IsTestProject
         Configuration = info.Configuration
         IsPackable = info.IsPackable
         TargetFramework = info.TargetFramework
@@ -402,22 +459,28 @@ module CommandResponse =
           match info.RunCommand, info.RunArguments with
           | Some cmd, Some args ->
             Some
-              { RunCmd.Command = cmd
-                Arguments = args }
+              {
+                RunCmd.Command = cmd
+                Arguments = args
+              }
           | Some cmd, None -> Some { RunCmd.Command = cmd; Arguments = "" }
           | _ -> None
-        IsPublishable = info.IsPublishable }
+        IsPublishable = info.IsPublishable
+      }
 
     let mapItemResponse (p: Ionide.ProjInfo.ProjectViewerItem) : ProjectResponseItem =
       match p with
       | Ionide.ProjInfo.ProjectViewerItem.Compile(fullPath, extraInfo) ->
-        { ProjectResponseItem.Name = "Compile"
+        {
+          ProjectResponseItem.Name = "Compile"
           ProjectResponseItem.FilePath = fullPath
           ProjectResponseItem.VirtualPath = extraInfo.Link
-          ProjectResponseItem.Metadata = Map.empty }
+          ProjectResponseItem.Metadata = Map.empty
+        }
 
     let projectData =
-      { Project = projectResult.ProjectFileName
+      {
+        Project = projectResult.ProjectFileName
         Files = projectResult.ProjectFiles
         Output =
           match projectResult.OutFileOpt with
@@ -426,14 +489,18 @@ module CommandResponse =
         ProjectReferences =
           projectResult.Extra.ReferencedProjects
           |> List.map (fun n ->
-            { RelativePath = n.RelativePath
-              ProjectFileName = n.ProjectFileName })
+            {
+              RelativePath = n.RelativePath
+              ProjectFileName = n.ProjectFileName
+            })
         PackageReferences =
           projectResult.Extra.PackageReferences
           |> List.map (fun n ->
-            { Name = n.Name
+            {
+              Name = n.Name
               Version = n.Version
-              FullPath = n.FullPath })
+              FullPath = n.FullPath
+            })
         References = List.sortBy IO.Path.GetFileName projectResult.References
         OutputType =
           match projectResult.Extra.ProjectOutputType with
@@ -442,7 +509,8 @@ module CommandResponse =
           | Ionide.ProjInfo.Types.ProjectOutputType.Custom outType -> Custom outType
         Info = projectInfo
         Items = projectResult.ProjectItems |> List.map mapItemResponse
-        AdditionalInfo = projectResult.Additionals }
+        AdditionalInfo = projectResult.Additionals
+      }
 
     serialize { Kind = "project"; Data = projectData }
 
@@ -456,15 +524,21 @@ module CommandResponse =
       | Ionide.ProjInfo.Types.MissingExtraProjectInfos _ ->
         [ sprintf "this project was not loaded because ExtraProjectInfos were missing" ]
       | Ionide.ProjInfo.Types.InvalidExtraProjectInfos(_, err) ->
-        [ sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err ]
+        [
+          sprintf "this project was not loaded because ExtraProjectInfos were invalid: %s" err
+        ]
       | Ionide.ProjInfo.Types.ReferencesNotLoaded(_, referenceErrors) ->
 
-        [ yield sprintf "this project was not loaded because some references could not be loaded:"
+        [
+          yield sprintf "this project was not loaded because some references could not be loaded:"
           yield!
             referenceErrors
             |> Seq.collect (fun (projPath, er) ->
-              [ yield sprintf "  - %s:" projPath
-                yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line) ]) ]
+              [
+                yield sprintf "  - %s:" projPath
+                yield! getMessageLines er |> Seq.map (fun line -> sprintf "    - %s" line)
+              ])
+        ]
       | Ionide.ProjInfo.Types.GenericError(_, errorMessage) -> [ errorMessage ]
       | Ionide.ProjInfo.Types.ProjectNotRestored _ -> [ "Project not restored" ]
 
@@ -490,16 +564,23 @@ module CommandResponse =
 
   let projectLoading (serialize: Serializer) projectFileName =
     serialize
-      { Kind = "projectLoading"
-        Data = { ProjectLoadingResponse.Project = projectFileName } }
+      {
+        Kind = "projectLoading"
+        Data =
+          {
+            ProjectLoadingResponse.Project = projectFileName
+          }
+      }
 
   let workspacePeek (serialize: Serializer) (found: WorkspacePeek.Interesting list) =
     let mapInt i =
       match i with
       | WorkspacePeek.Interesting.Directory(p, fsprojs) ->
         WorkspacePeekFound.Directory
-          { WorkspacePeekFoundDirectory.Directory = p
-            Fsprojs = fsprojs }
+          {
+            WorkspacePeekFoundDirectory.Directory = p
+            Fsprojs = fsprojs
+          }
       | WorkspacePeek.Interesting.Solution(p, sd) ->
         let rec item (x: Ionide.ProjInfo.InspectSln.SolutionItem) =
           let kind =
@@ -509,51 +590,72 @@ module CommandResponse =
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.MSBuildFormat _ ->
               Some(
                 WorkspacePeekFoundSolutionItemKind.MsbuildFormat
-                  { WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = [] }
+                  {
+                    WorkspacePeekFoundSolutionItemKindMsbuildFormat.Configurations = []
+                  }
               )
             | Ionide.ProjInfo.InspectSln.SolutionItemKind.Folder(children, files) ->
               let c = children |> List.choose item
 
               Some(
                 WorkspacePeekFoundSolutionItemKind.Folder
-                  { WorkspacePeekFoundSolutionItemKindFolder.Items = c
-                    Files = files }
+                  {
+                    WorkspacePeekFoundSolutionItemKindFolder.Items = c
+                    Files = files
+                  }
               )
 
           kind
           |> Option.map (fun k ->
-            { WorkspacePeekFoundSolutionItem.Guid = x.Guid
+            {
+              WorkspacePeekFoundSolutionItem.Guid = x.Guid
               Name = x.Name
-              Kind = k })
+              Kind = k
+            })
 
         let items = sd.Items |> List.choose item
 
         WorkspacePeekFound.Solution
-          { WorkspacePeekFoundSolution.Path = p
+          {
+            WorkspacePeekFoundSolution.Path = p
             Items = items
-            Configurations = [] }
+            Configurations = []
+          }
 
-    let data = { WorkspacePeekResponse.Found = found |> List.map mapInt }
+    let data =
+      {
+        WorkspacePeekResponse.Found = found |> List.map mapInt
+      }
+
     serialize { Kind = "workspacePeek"; Data = data }
 
   let workspaceLoad (serialize: Serializer) finished =
     let data = if finished then "finished" else "started"
 
     serialize
-      { Kind = "workspaceLoad"
-        Data = { WorkspaceLoadResponse.Status = data } }
+      {
+        Kind = "workspaceLoad"
+        Data = { WorkspaceLoadResponse.Status = data }
+      }
 
   let projectLoad (serialize: Serializer) finished =
     let data = if finished then "finished" else "started"
 
     serialize
-      { Kind = "projectLoad"
-        Data = { WorkspaceLoadResponse.Status = data } }
+      {
+        Kind = "projectLoad"
+        Data = { WorkspaceLoadResponse.Status = data }
+      }
 
   let projectChanged (serialize: Serializer) projectChanged =
     serialize
-      { Kind = "projectChanged"
-        Data = { ProjectLoadingResponse.Project = projectChanged } }
+      {
+        Kind = "projectChanged"
+        Data =
+          {
+            ProjectLoadingResponse.Project = projectChanged
+          }
+      }
 
   let signatureData
     (serialize: Serializer)
@@ -562,11 +664,15 @@ module CommandResponse =
     let pms = parms |> List.map (List.map (fun (n, t) -> { Name = n; Type = t }))
 
     serialize
-      { Kind = "signatureData"
+      {
+        Kind = "signatureData"
         Data =
-          { Parameters = pms
+          {
+            Parameters = pms
             OutputType = typ
-            Generics = generics } }
+            Generics = generics
+          }
+      }
 
   let help (serialize: Serializer) (data: string) = serialize { Kind = "help"; Data = data }
 
@@ -576,29 +682,42 @@ module CommandResponse =
 
   let dotnetnewlist (serialize: Serializer) (installedTemplate: DotnetNewTemplate.Template list) =
     serialize
-      { Kind = "dotnetnewlist"
-        Data = installedTemplate }
+      {
+        Kind = "dotnetnewlist"
+        Data = installedTemplate
+      }
 
   let dotnetnewgetDetails (serialize: Serializer) (detailedTemplate: DotnetNewTemplate.DetailedTemplate) =
-    let data = { DotnetNewGetDetailsResponse.Detailed = detailedTemplate }
+    let data =
+      {
+        DotnetNewGetDetailsResponse.Detailed = detailedTemplate
+      }
 
     serialize
-      { Kind = "dotnetnewgetDetails"
-        Data = data }
+      {
+        Kind = "dotnetnewgetDetails"
+        Data = data
+      }
 
   let dotnetnewCreateCli (serialize: Serializer) (commandName: string, parameterStr: string) =
     serialize
-      { Kind = "dotnetnewCreateCli"
+      {
+        Kind = "dotnetnewCreateCli"
         Data =
-          { CommandName = commandName
-            ParameterStr = parameterStr } }
+          {
+            CommandName = commandName
+            ParameterStr = parameterStr
+          }
+      }
 
   let declarations (serialize: Serializer) (decls: (NavigationTopLevelDeclaration * string<LocalPath>)[]) =
     let decls' =
       decls
       |> Array.map (fun (d, fn) ->
-        { Declaration = Declaration.OfDeclarationItem(d.Declaration, UMX.untag fn)
-          Nested = d.Nested |> Array.map (fun a -> Declaration.OfDeclarationItem(a, UMX.untag fn)) })
+        {
+          Declaration = Declaration.OfDeclarationItem(d.Declaration, UMX.untag fn)
+          Nested = d.Nested |> Array.map (fun a -> Declaration.OfDeclarationItem(a, UMX.untag fn))
+        })
 
     serialize { Kind = "declarations"; Data = decls' }
 
@@ -607,19 +726,22 @@ module CommandResponse =
     (showDocumentationLinks: bool)
     (tryResolveCref: string -> (string * string * string) option)
     (param:
-      {| Tip: ToolTipText option
-         XmlSig: (string * string) option
-         Signature: (string * DocumentationFormatter.EntityInfo)
-         Footer: string
-         XmlKey: string
-         LinkContext: DocumentationLinkContext option |})
+      {|
+        Tip: ToolTipText option
+        XmlSig: (string * string) option
+        Signature: (string * DocumentationFormatter.EntityInfo)
+        Footer: string
+        XmlKey: string
+        LinkContext: DocumentationLinkContext option
+      |})
     =
 
     let (signature, entity) = param.Signature
     let addContext = addDocumentationLinkContext param.LinkContext
 
     let createDocumentationDescription formattedDocComment =
-      { XmlKey = param.XmlKey
+      {
+        XmlKey = param.XmlKey
         Constructors = entity.Constructors |> Array.map addContext
         Fields = entity.Fields |> Array.map addContext
         Functions = entity.Functions |> Array.map addContext
@@ -628,7 +750,8 @@ module CommandResponse =
         DeclaredTypes = entity.DeclaredTypes |> Array.map addContext
         FooterLines = TipFormatter.prepareFooterLines param.Footer |> Array.map addContext
         Signature = TipFormatter.prepareSignature signature |> addContext
-        Comment = formattedDocComment |> addContext }
+        Comment = formattedDocComment |> addContext
+      }
 
     let data: DocumentationDescription =
       match param.Tip, param.XmlSig with
@@ -659,27 +782,32 @@ module CommandResponse =
       | _ -> failwith "Shouldn't happen"
 
     serialize
-      { Kind = "formattedDocumentation"
-        Data = data }
+      {
+        Kind = "formattedDocumentation"
+        Data = data
+      }
 
   let formattedDocumentationForSymbol
     (serialize: Serializer)
     (showDocumentationLinks: bool)
     (tryResolveCref: string -> (string * string * string) option)
     (param:
-      {| Xml: string
-         Assembly: string
-         XmlDoc: FSharpXmlDoc
-         Signature: (string * DocumentationFormatter.EntityInfo)
-         Footer: string
-         XmlKey: string
-         LinkContext: DocumentationLinkContext option |})
+      {|
+        Xml: string
+        Assembly: string
+        XmlDoc: FSharpXmlDoc
+        Signature: (string * DocumentationFormatter.EntityInfo)
+        Footer: string
+        XmlKey: string
+        LinkContext: DocumentationLinkContext option
+      |})
     =
     let (signature, entity) = param.Signature
     let addContext = addDocumentationLinkContext param.LinkContext
 
     let createDocumentationDescription formattedDocComment =
-      { XmlKey = param.XmlKey
+      {
+        XmlKey = param.XmlKey
         Constructors = entity.Constructors |> Array.map addContext
         Fields = entity.Fields |> Array.map addContext
         Functions = entity.Functions |> Array.map addContext
@@ -688,7 +816,8 @@ module CommandResponse =
         DeclaredTypes = entity.DeclaredTypes |> Array.map addContext
         FooterLines = TipFormatter.prepareFooterLines param.Footer |> Array.map addContext
         Signature = TipFormatter.prepareSignature signature |> addContext
-        Comment = formattedDocComment |> addContext }
+        Comment = formattedDocComment |> addContext
+      }
 
     let data: DocumentationDescription =
       match
@@ -709,8 +838,10 @@ module CommandResponse =
       | TipFormatter.TipFormatterResult.Error error -> DocumentationDescription.CreateFromError error
 
     serialize
-      { Kind = "formattedDocumentation"
-        Data = data }
+      {
+        Kind = "formattedDocumentation"
+        Data = data
+      }
 
   let typeSig (serialize: Serializer) (tip) =
     let data = TipFormatter.extractSignature tip
@@ -718,34 +849,46 @@ module CommandResponse =
 
   let compilerLocation (serialize: Serializer) fsc fsi msbuild sdkRoot =
     let data =
-      { Fsi = fsi
+      {
+        Fsi = fsi
         Fsc = fsc
         MSBuild = msbuild
-        SdkRoot = sdkRoot }
+        SdkRoot = sdkRoot
+      }
 
     serialize
-      { Kind = "compilerlocation"
-        Data = data }
+      {
+        Kind = "compilerlocation"
+        Data = data
+      }
 
   let compile (serialize: Serializer) (errors, code) =
     serialize
-      { Kind = "compile"
+      {
+        Kind = "compile"
         Data =
-          { Code = code
-            Errors = Array.map FSharpErrorInfo.OfFSharpError errors } }
+          {
+            Code = code
+            Errors = Array.map FSharpErrorInfo.OfFSharpError errors
+          }
+      }
 
   let fsharpLiterate (serialize: Serializer) (content: string) =
     serialize
-      { Kind = "fsharpLiterate"
-        Data = content }
+      {
+        Kind = "fsharpLiterate"
+        Data = content
+      }
 
   let pipelineHint (serialize: Serializer) (content: (int * int option * string list)[]) =
     let ctn =
       content
       |> Array.map (fun (l, pnp, tt) ->
-        { Line = l
+        {
+          Line = l
           Types = Array.ofList tt
-          PrecedingNonPipeExprLine = pnp })
+          PrecedingNonPipeExprLine = pnp
+        })
 
     serialize { Kind = "pipelineHint"; Data = ctn }
 
@@ -755,10 +898,14 @@ module CommandResponse =
 
   let discoverTests (serialize: Serializer) (content: DiscoverTestsResponse) =
     serialize
-      { Kind = "discoverTests"
-        Data = content }
+      {
+        Kind = "discoverTests"
+        Data = content
+      }
 
   let runTests (serialize: Serializer) (content: TestServer.TestResult list) =
     serialize
-      { Kind = "runTests"
-        Data = content |> Array.ofList }
+      {
+        Kind = "runTests"
+        Data = content |> Array.ofList
+      }

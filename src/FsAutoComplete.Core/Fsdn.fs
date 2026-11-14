@@ -6,18 +6,27 @@ open Newtonsoft.Json
 let private httpClient = new System.Net.Http.HttpClient()
 
 type Response =
-  {| values:
-       {| api:
-            {| name:
-                 {| ``namespace``: string
-                    class_name: string
-                    id: string |} |} |}[] |}
+  {|
+    values:
+      {|
+        api:
+          {|
+            name:
+              {|
+                ``namespace``: string
+                class_name: string
+                id: string
+              |}
+          |}
+      |}[]
+  |}
 
 let query (queryStr: string) =
   async {
 
     let exclusionList =
-      [ "System.Net.Http"
+      [
+        "System.Net.Http"
         "System.Web"
         "System.Xml"
         "System.Xml.Linq"
@@ -35,10 +44,12 @@ let query (queryStr: string) =
         "FsUnit"
         "Newtonsoft.Json"
         "Suave"
-        "System.Reactive" ]
+        "System.Reactive"
+      ]
 
     let queryString =
-      [ "query", queryStr
+      [
+        "query", queryStr
         "exclusion", (exclusionList |> String.concat "+")
         "respect_name_difference", "enabled"
         "greedy_matching", "enabled"
@@ -49,7 +60,8 @@ let query (queryStr: string) =
         "complement", "enabled"
         "language", "fsharp"
         "single_letter_as_variable", "enabled"
-        "limit", "50" ]
+        "limit", "50"
+      ]
       |> List.map (fun (k, v) -> sprintf "%s=%s" k (System.Uri.EscapeDataString v))
       |> String.concat "&"
 

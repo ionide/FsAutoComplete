@@ -33,10 +33,12 @@ let tests state =
 
   testList
     "Find unit tests with code analysis"
-    [ testSequenced
+    [
+      testSequenced
       <| testList
         "For VSTest projects"
-        [ let getTestNotification = getTestNotification false
+        [
+          let getTestNotification = getTestNotification false
 
           testCaseAsync
             "Find nunit test"
@@ -91,11 +93,29 @@ let tests state =
               let! testNotification = getTestNotification "ExpectoTests" "Sample.fs"
               Expect.hasLength testNotification.Tests 1 "Expected to have found 1 expecto test list"
               Expect.hasLength testNotification.Tests.[0].Childs 15 "Expected to have found 13 expecto tests"
-            }) ]
+            })
+
+          testCaseAsync
+            "Only parse the files of test projects on startup"
+            (async {
+              let path =
+                Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "DetectUnitTestsOnStartup")
+
+              let! server = Server.createForPreparedProjects (Some path) defaultConfigDto state
+              let! testNotification = waitForTestDetected "UnitTest1.fs" server.Events
+              Expect.hasLength testNotification.Tests 1 "Expected to have found 1 nunit test"
+
+              // The library project is loaded but not parsed. Its files get an empty notification,
+              // so the client drops tests it found before.
+              let! libraryNotification = waitForTestDetected "Library.fs" server.Events
+              Expect.isEmpty libraryNotification.Tests "Expected no tests in the library project"
+            })
+        ]
       testSequenced
       <| testList
         "For MTP projects"
-        [ let getTestNotification = getTestNotification true
+        [
+          let getTestNotification = getTestNotification true
 
           testCaseAsync
             "Find nunit test"
@@ -142,4 +162,6 @@ let tests state =
                 testNotification.Tests[0].Childs[2].ModuleType
                 "ModuleWithSuffix"
                 "Expect Clashing test to be a module with suffix"
-            }) ] ]
+            })
+        ]
+    ]

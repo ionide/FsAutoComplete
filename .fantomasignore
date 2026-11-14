@@ -1,0 +1,9 @@
+# Sample projects and test inputs: their layout is part of what the tests assert.
+TestCases/
+SampleTestProjects/
+
+# Generated or restored content.
+paket-files/
+.paket/
+bin/
+obj/

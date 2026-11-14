@@ -20,8 +20,10 @@ type PatternMatchExpr =
 
 [<NoComparison>]
 type UnionMatchCasesInsertionParams =
-  { InsertionPos: Position
-    IndentColumn: int }
+  {
+    InsertionPos: Position
+    IndentColumn: int
+  }
 
 [<NoComparison>]
 type private Context =
@@ -182,9 +184,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
               |> Option.map (clauseIsCandidateForCodeGen pos)
               |> Option.defaultValue false
             then
-              { MatchWithOrFunctionRange = functionKeywordRange
+              {
+                MatchWithOrFunctionRange = functionKeywordRange
                 Expr = matchLambdaExpr
-                Clauses = synMatchClauseList }
+                Clauses = synMatchClauseList
+              }
               |> Some
             else
               None)
@@ -204,9 +208,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
           then
             match debugPoint with
             | DebugPointAtBinding.Yes range ->
-              { MatchWithOrFunctionRange = range
+              {
+                MatchWithOrFunctionRange = range
                 Expr = matchExpr
-                Clauses = synMatchClauseList }
+                Clauses = synMatchClauseList
+              }
               |> Some
             | _ -> None
           else
@@ -215,9 +221,11 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
           if synMatchClauseList.IsEmpty then
             match debugPoint with
             | DebugPointAtBinding.Yes range ->
-              { MatchWithOrFunctionRange = range
+              {
+                MatchWithOrFunctionRange = range
                 Expr = matchExpr
-                Clauses = [] }
+                Clauses = []
+              }
               |> Some
             | _ -> None
           else
@@ -436,8 +444,10 @@ let tryFindInsertionParams (codeGenService: ICodeGenerationService) document (pa
       // FSI interactive bugs:
       // error FS0192: internal error: binding null type in envBindTypeRef: list of (clause, line index)
       let clauseAndLineIdxList =
-        [ for clause in patMatchExpr.Clauses do
-            yield clause, clause.Range.StartLine ]
+        [
+          for clause in patMatchExpr.Clauses do
+            yield clause, clause.Range.StartLine
+        ]
 
       // Get first of the clauses that are on the same last line
       let lastLineIdx =
@@ -460,19 +470,24 @@ let tryFindInsertionParams (codeGenService: ICodeGenerationService) document (pa
           let start = Position.mkPos clause.Range.StartLine 0
           Range.mkRange clause.Range.FileName start clause.Range.Start
 
-      let! barTokenOpt = tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
+      let! barTokenOpt =
+        tryFindBarTokenLPosInRange codeGenService possibleBarLocationRange document
 
       match barTokenOpt with
       | Some(_, barTokenLPos) ->
         return
-          { IndentColumn = barTokenLPos.Column
-            InsertionPos = last.Range.End }
+          {
+            IndentColumn = barTokenLPos.Column
+            InsertionPos = last.Range.End
+          }
           |> Some
 
       | None ->
         return
-          { IndentColumn = firstClauseOnLastLine.Range.StartColumn
-            InsertionPos = last.Range.End }
+          {
+            IndentColumn = firstClauseOnLastLine.Range.StartColumn
+            InsertionPos = last.Range.End
+          }
           |> Some
   }
 
@@ -505,14 +520,19 @@ let tryFindCaseInsertionParamsAtPos (codeGenService: ICodeGenerationService) pos
     else
       return
         patMatchExpr,
-        { InsertionPos = patMatchExpr.Expr.Range.End
-          IndentColumn = patMatchExpr.Expr.Range.Start.Column }
+        {
+          InsertionPos = patMatchExpr.Expr.Range.End
+          IndentColumn = patMatchExpr.Expr.Range.Start.Column
+        }
   }
 
 let tryFindUnionDefinitionFromPos (codeGenService: ICodeGenerationService) pos document =
   asyncOption {
-    let! _, symbolUse = codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
-    let! patMatchExpr, insertionParams = tryFindCaseInsertionParamsAtPos codeGenService pos document
+    let! _, symbolUse =
+      codeGenService.GetSymbolAndUseAtPositionOfKind(document.FullName, pos, SymbolKind.Ident)
+
+    let! patMatchExpr, insertionParams =
+      tryFindCaseInsertionParamsAtPos codeGenService pos document
 
 
     let! superficialTypeDefinition =
@@ -553,12 +573,14 @@ let private formatCase (ctxt: Context) (case: FSharpUnionCase) =
       ""
     else
       let fieldNames =
-        [| for field in case.Fields ->
-             if String.IsNullOrEmpty(field.Name) || isUnnamedUnionCaseField field then
-               "_"
-             else
-               // Lowercase the first character of the field name
-               sprintf "%c%s" (Char.ToLower(field.Name.[0])) (field.Name.Substring(1)) |]
+        [|
+          for field in case.Fields ->
+            if String.IsNullOrEmpty(field.Name) || isUnnamedUnionCaseField field then
+              "_"
+            else
+              // Lowercase the first character of the field name
+              sprintf "%c%s" (Char.ToLower(field.Name.[0])) (field.Name.Substring(1))
+        |]
 
       // De-duplicate field names if there are conflicts
       let newFieldNames =
@@ -605,10 +627,12 @@ let formatMatchExpr insertionParams (caseDefaultValue: string) (patMatchExpr: Pa
         | lst -> Some(String.concat "." lst)
 
   let ctxt =
-    { UnionTypeName = entity.DisplayName
+    {
+      UnionTypeName = entity.DisplayName
       Writer = writer
       CaseDefaultValue = caseDefaultValue
-      Qualifier = shortestQualifier }
+      Qualifier = shortestQualifier
+    }
 
   writer.Indent insertionParams.IndentColumn
 

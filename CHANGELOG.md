@@ -1,5 +1,78 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Update FSharp.Analyzers.SDK to `0.41.1`. Analyzers that walk the typed tree with `TASTCollecting.walkTast` share one converted tree per file, so each analyzer no longer converts it again. Checkout the [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.1) for details.
+
+## [0.86.1] - 2026-10-29
+
+### Changed
+
+- [Fewer progress notifications](https://github.com/ionide/FsAutoComplete/pull/1545) - Typechecks share one "Typechecking" progress report, instead of one report per file. Its message lists the files being checked and, after a save, how many of the dependent files are done, with a percentage. Cancelling the report stops the checks of the dependent files that did not run yet. With `backgroundServiceProgress` on, the analyzers of a file share one "Analyzing" report the same way. (thanks @TheAngryByrd!)
+
+## [0.86.0] - 2026-10-23
+
+### Changed
+
+- *Breaking*: [FsAutoComplete runs on .NET 10](https://github.com/ionide/FsAutoComplete/pull/1550) - The server targets `net10.0` only, so it needs the .NET 10 SDK, or at least the .NET 10 runtime. The projects it loads can still target `net8.0`, `net9.0` or any other framework, and a `global.json` that pins the .NET 8 or 9 SDK keeps working. FSharp.Analyzers.SDK targets .NET 10 since 0.38, and FsAutoComplete hosts the analyzers in its own process (thanks @Thorium!)
+- *Breaking*: Update FSharp.Analyzers.SDK to `0.41.0`, FSharp.Compiler.Service to `43.12.402` and FSharp.Core to `10.1.402`. FsAutoComplete only loads analyzers that were built against FSharp.Analyzers.SDK 0.41, such as Ionide.Analyzers `0.20.0` and G-Research.FSharp.Analyzers `0.26.0`. Until now it hosted 0.37 and skipped the current releases of both. Checkout the [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.0) for details.
+
+### Added
+
+- Installing FsAutoComplete with a .NET SDK older than 10 installs a placeholder, instead of failing with "Settings file 'DotnetToolSettings.xml' was not found in the package". The placeholder says to install the .NET 10 SDK, on the console and as the error of the `initialize` request, which editors show.
+
+## [0.85.4] - 2026-10-15
+
+### Fixed
+
+- [Internal: `gotoTest` no longer fails in a Release build](https://github.com/ionide/FsAutoComplete/pull/1562) - The test project always builds the `GoToCSharp` fixture in Debug.
+
+## [0.85.3] - 2026-10-12
+
+### Fixed
+
+- [textDocument/definition fails to decompile .NET assemblies](https://github.com/ionide/FsAutoComplete/pull/1561) -  Update `ICSharpCode.Decompiler` package to `11.1.0` version. This fixes decompilation error when doing "go to definition" action. Previous version of this package was of year 2023.
+
+## [0.85.2] - 2026-10-10
+
+### Fixed
+
+- [Loading projects no longer leaves MSBuild threads behind](https://github.com/ionide/FsAutoComplete/pull/1558) - Update `Ionide.ProjInfo` to `0.75.3`. With MSBuild 18, every design-time build left an in-process node thread behind that kept the evaluated projects in memory. Checkout the [Ionide.ProjInfo release notes](https://github.com/ionide/proj-info/releases/tag/v0.75.3) for more details.
+
+## [0.85.1] - 2026-10-10
+
+### Changed
+
+- [Find References skips files that do not contain the name](https://github.com/ionide/FsAutoComplete/pull/1557) - With the transparent compiler, a file is only searched when its text contains the name of the symbol as a whole identifier. Before, FCS imported the references of every project it searched, also of projects with no file that uses the name. On the Fantomas solution, Find References takes 1.5 s instead of about 3 s and adds about 215 MB to memory instead of about 480 MB.
+
+### Fixed
+
+- [The first hover in a file is fast again](https://github.com/ionide/FsAutoComplete/pull/1557) - Since 0.85.0, the first hover in a file listed every entity of every referenced assembly to resolve `<see cref>` links, also when the tooltip had none. It took over a second and kept 50 to 70 MB. The list is now only built for a tooltip with a cref.
+- [`DisableInMemoryProjectReferences` works again](https://github.com/ionide/FsAutoComplete/pull/1557) - The setting had no effect since 0.66.0. With it on, a referenced F# project comes from its output DLL instead of its source files, with both compilers.
+
+## [0.85.0] - 2026-10-09
+
+### Added
+
+- [Emit declaration and definition semantic token modifiers](https://github.com/ionide/FsAutoComplete/pull/1551) - Function, method and type definitions get the `definition` modifier, abstract members and signature file declarations get the `declaration` modifier (thanks @huaixv!)
+- [Resolve cref links in hover and documentation](https://github.com/ionide/FsAutoComplete/pull/1527) - `<see cref>` and `<seealso cref>` targets show clean display text, and documentation links carry their source location (thanks @NatElkins!)
+
+### Changed
+
+- [Analyzer code actions show the replacement, not just the code](https://github.com/ionide/FsAutoComplete/pull/1549) - An analyzer fix is titled like "Fix FR0136 -> Guid.NewGuid()", so several fixes for one span no longer look the same (thanks @Thorium!)
+- [Only parse the files of test projects for test detection](https://github.com/ionide/FsAutoComplete/pull/1553) - Test detection skips projects that do not reference Expecto, NUnit or xUnit, and parses files with the parsing options of their project. With the transparent compiler this keeps much less of the workspace in memory.
+- [Cache source lines, stream file bytes, and trim hot-path allocations](https://github.com/ionide/FsAutoComplete/pull/1535) (thanks @Thorium!)
+- [Make DiscoverTests() exit early if there are no projects present at all](https://github.com/ionide/FsAutoComplete/pull/1539) (thanks @Numpsy!)
+- Update `Fantomas.Client` to `0.12.0-beta-004` and `Ionide.ProjInfo` to `0.75.1`. Checkout the [Fantomas.Client changelog](https://github.com/fsprojects/fantomas/blob/main/src/Fantomas.Client/CHANGELOG.md) and the [Ionide.ProjInfo release notes](https://github.com/ionide/proj-info/releases/tag/v0.75.1) for more details.
+- Releases are published when a new version is added to `CHANGELOG.md` on `main`, instead of from a tag. The GitHub release links to the published package on NuGet.
+
+### Fixed
+
+- [A project load that throws no longer ends the language server](https://github.com/ionide/FsAutoComplete/pull/1554) - The exception is logged and requests return errors, instead of the process ending.
+- [`vstest.console` stops after each test discovery and run](https://github.com/ionide/FsAutoComplete/pull/1554) - Before, each one left a process running until FSAC exited.
+
 ## [0.84.0] - 2026-08-29
 
 ### Added

@@ -24,7 +24,8 @@ let tests state =
   let (fsiFile, fsFile) = ("Code.fsi", "Code.fs")
 
   serverTestList (nameof RenameParamToMatchSignature) state defaultConfigDto (Some path) (fun server ->
-    [ let checkWithFsi fsiSource fsSourceWithCursor selectCodeFix fsSourceExpected =
+    [
+      let checkWithFsi fsiSource fsSourceWithCursor selectCodeFix fsSourceExpected =
         async {
           let fsiSource = fsiSource |> Text.trimTripleQuotation
 
@@ -345,4 +346,5 @@ let tests state =
         module Code
 
         let f ``sig' and implementation 'impl' do not match`` = ``sig' and implementation 'impl' do not match`` + 1
-        """ ])
+        """
+    ])

@@ -11,16 +11,30 @@ let title = "Wrap expression in parentheses"
 let fix: CodeFix =
   Run.ifDiagnosticByCode (Set.ofList [ "597" ]) (fun diagnostic codeActionParams ->
     AsyncResult.retn
-      [ { Title = title
+      [
+        {
+          Title = title
           File = codeActionParams.TextDocument
           SourceDiagnostic = Some diagnostic
           Edits =
-            [| { Range =
-                   { Start = diagnostic.Range.Start
-                     End = diagnostic.Range.Start }
-                 NewText = "(" }
-               { Range =
-                   { Start = diagnostic.Range.End
-                     End = diagnostic.Range.End }
-                 NewText = ")" } |]
-          Kind = FixKind.Fix } ])
+            [|
+              {
+                Range =
+                  {
+                    Start = diagnostic.Range.Start
+                    End = diagnostic.Range.Start
+                  }
+                NewText = "("
+              }
+              {
+                Range =
+                  {
+                    Start = diagnostic.Range.End
+                    End = diagnostic.Range.End
+                  }
+                NewText = ")"
+              }
+            |]
+          Kind = FixKind.Fix
+        }
+      ])

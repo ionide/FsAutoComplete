@@ -17,10 +17,12 @@ let private normalizePathCasing =
   Path.FilePathToUri >> Path.FileUriToLocalPath >> Path.FilePathToUri
 
 let renameRaw ident pos newName =
-  { TextDocument = ident
+  {
+    TextDocument = ident
     Position = pos
     NewName = newName
-    WorkDoneToken = None }
+    WorkDoneToken = None
+  }
 
 let rename (doc: Document) = renameRaw doc.TextDocumentIdentifier
 
@@ -61,7 +63,8 @@ let private sameProjectTests state =
     Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "RenameTest", "SameProject")
 
   serverTestList "Within Same Project" state defaultConfigDto (Some testDir) (fun server ->
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Rename from usage within same project but different file"
         (async {
           let! (doc, diags) = server |> Server.openDocument "Program.fs"
@@ -84,14 +87,18 @@ let private sameProjectTests state =
               Expect.hasEditAtRange
                 result
                 "Program.fs"
-                { Start = { Line = 7u; Character = 12u }
-                  End = { Line = 7u; Character = 13u } }
+                {
+                  Start = { Line = 7u; Character = 12u }
+                  End = { Line = 7u; Character = 13u }
+                }
 
               Expect.hasEditAtRange
                 result
                 "Test.fs"
-                { Start = { Line = 2u; Character = 4u }
-                  End = { Line = 2u; Character = 5u } }
+                {
+                  Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 5u }
+                }
         })
 
       testCaseAsync
@@ -122,21 +129,26 @@ let private sameProjectTests state =
               Expect.hasEditAtRange
                 result
                 "Program.fs"
-                { Start = { Line = 7u; Character = 12u }
-                  End = { Line = 7u; Character = 13u } }
+                {
+                  Start = { Line = 7u; Character = 12u }
+                  End = { Line = 7u; Character = 13u }
+                }
 
               Expect.hasEditAtRange
                 result
                 "Test.fs"
-                { Start = { Line = 2u; Character = 4u }
-                  End = { Line = 2u; Character = 5u } }
+                {
+                  Start = { Line = 2u; Character = 4u }
+                  End = { Line = 2u; Character = 5u }
+                }
         })
 
-      ])
+    ])
 
 let private sameScriptTests state =
   serverTestList "Within same script file" state defaultConfigDto None (fun server ->
-    [ /// `expectedText = None` -> Rename not valid at location
+    [
+      /// `expectedText = None` -> Rename not valid at location
       let checkRename' textWithCursor newName (expectedText: string option) =
         async {
           let (cursor, text) =
@@ -294,7 +306,8 @@ let private sameScriptTests state =
           member this.Count
             with get () = _v
             and set v = _v <- v
-        """ ])
+        """
+    ])
 
 let private crossProjectTests state =
   let server =
@@ -311,7 +324,8 @@ let private crossProjectTests state =
   testSequenced
   <| testList
     "Across projects"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "Rename from usage across projects"
         (async {
           let! (server, rootDir, events) = server
@@ -319,7 +333,11 @@ let private crossProjectTests state =
           let usageFile = Path.Combine(rootDir, "LibB", "Library.fs")
 
           // open and parse the usage file
-          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument usageFile }
+          let tdop: DidOpenTextDocumentParams =
+            {
+              TextDocument = loadDocument usageFile
+            }
+
           do! server.TextDocumentDidOpen tdop
 
           do!
@@ -341,14 +359,18 @@ let private crossProjectTests state =
             Expect.hasEditAtRange
               edits
               "LibA/Library.fs"
-              { Start = { Line = 3u; Character = 8u }
-                End = { Line = 3u; Character = 13u } }
+              {
+                Start = { Line = 3u; Character = 8u }
+                End = { Line = 3u; Character = 13u }
+              }
 
             Expect.hasEditAtRange
               edits
               "LibB/Library.fs"
-              { Start = { Line = 6u; Character = 28u }
-                End = { Line = 6u; Character = 33u } }
+              {
+                Start = { Line = 6u; Character = 28u }
+                End = { Line = 6u; Character = 33u }
+              }
 
           | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
         })
@@ -360,7 +382,11 @@ let private crossProjectTests state =
           let usageFile = Path.Combine(rootDir, "LibB", "Library.fs")
 
           // open and parse the usage file
-          let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument usageFile }
+          let tdop: DidOpenTextDocumentParams =
+            {
+              TextDocument = loadDocument usageFile
+            }
+
           do! server.TextDocumentDidOpen tdop
 
           do!
@@ -382,20 +408,26 @@ let private crossProjectTests state =
             Expect.hasEditAtRange
               edits
               "LibA/Library.fs"
-              { Start = { Line = 6u; Character = 8u }
-                End = { Line = 6u; Character = 12u } }
+              {
+                Start = { Line = 6u; Character = 8u }
+                End = { Line = 6u; Character = 12u }
+              }
 
             Expect.hasEditAtRange
               edits
               "LibB/Library.fs"
-              { Start = { Line = 9u; Character = 37u }
-                End = { Line = 9u; Character = 41u } }
+              {
+                Start = { Line = 9u; Character = 37u }
+                End = { Line = 9u; Character = 41u }
+              }
           | Result.Ok edits -> failtestf "got some unexpected edits: %A" edits
-        }) ]
+        })
+    ]
 
 let private prepareRenameTests state =
   serverTestList "Prepare Rename tests" state defaultConfigDto None (fun server ->
-    [ let check shouldBeAbleToRename sourceWithCursor =
+    [
+      let check shouldBeAbleToRename sourceWithCursor =
         async {
           let (cursor, text) =
             sourceWithCursor |> Text.trimTripleQuotation |> Cursor.assertExtractPosition
@@ -403,9 +435,11 @@ let private prepareRenameTests state =
           let! (doc, _diags) = server |> Server.createUntitledDocument text
 
           let p: PrepareRenameParams =
-            { TextDocument = doc.TextDocumentIdentifier
+            {
+              TextDocument = doc.TextDocumentIdentifier
               Position = cursor
-              WorkDoneToken = None }
+              WorkDoneToken = None
+            }
 
           let! res = doc.Server.Server.TextDocumentPrepareRename p
 
@@ -609,13 +643,16 @@ let private prepareRenameTests state =
       let foo = 42
         $0
       let bar = 42
-      """ ])
+      """
+    ])
 
 let tests state =
   testList
     "Rename Tests"
-    [ sameProjectTests state
+    [
+      sameProjectTests state
       sameScriptTests state
       crossProjectTests state
 
-      prepareRenameTests state ]
+      prepareRenameTests state
+    ]

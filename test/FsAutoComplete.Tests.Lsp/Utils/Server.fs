@@ -18,21 +18,25 @@ open Ionide.ProjInfo.Logging
 let private logger = LogProvider.getLoggerByName "Utils.Server"
 
 type Server =
-  { RootPath: string option
+  {
+    RootPath: string option
     Server: IFSharpLspServer
     Events: ClientEvents
     mutable UntitledCounter: int
     mutable DocumentVersionCounter: int
-    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int> }
+    OpenDocumentVersions: System.Collections.Concurrent.ConcurrentDictionary<DocumentUri, int>
+  }
 
 /// `Server` cached with `Async.Cache`
 type CachedServer = Async<Server>
 
 type Document =
-  { Server: Server
+  {
+    Server: Server
     FilePath: string
     Uri: DocumentUri
-    mutable Version: int }
+    mutable Version: int
+  }
 
   member doc.TextDocumentIdentifier: TextDocumentIdentifier = { Uri = doc.Uri }
 
@@ -48,16 +52,7 @@ type Document =
     override doc.Dispose() : unit = doc |> Document.close |> Async.RunSynchronously
 
 module Server =
-  let private initialUntitledCounter () =
-    match Environment.GetEnvironmentVariable "FSAC_TEST_SHARD" with
-    | null -> 0
-    | "1" -> 1_000_000
-    | "2" -> 2_000_000
-    | "3" -> 3_000_000
-    | "4" -> 4_000_000
-    | shard -> invalidArg "FSAC_TEST_SHARD" $"FSAC_TEST_SHARD must be 1, 2, 3, or 4. Actual value: %s{shard}"
-
-  let private processUntitledCounter = [| initialUntitledCounter () |]
+  let private processUntitledCounter = [| 0 |]
 
   let private initialize prepareProjects path (config: FSharpConfigDto) createServer =
     async {
@@ -67,18 +62,15 @@ module Server =
       )
 
       match path, prepareProjects with
-      | Some path, true ->
-        dotnetCleanup path
-
-        for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-          do! file |> Path.GetDirectoryName |> dotnetRestore
+      | Some path, true -> do! prepareTestProjects path
       | _ -> ()
 
       let (server: IFSharpLspServer, events: IObservable<_>) = createServer ()
       events |> Observable.add logEvent
 
       let p: InitializeParams =
-        { ProcessId = Some 1
+        {
+          ProcessId = Some 1
           RootPath = path
           Locale = None
           RootUri = path |> Option.map (sprintf "file://%s")
@@ -86,27 +78,36 @@ module Server =
           Capabilities = clientCaps
           ClientInfo =
             Some
-              { Name = "FSAC Tests"
-                Version = Some "0.0.0" }
+              {
+                Name = "FSAC Tests"
+                Version = Some "0.0.0"
+              }
           WorkspaceFolders =
             path
             |> Option.map (fun p ->
-              [| { Uri = Path.FilePathToUri p
-                   Name = "Test Folder" } |])
+              [|
+                {
+                  Uri = Path.FilePathToUri p
+                  Name = "Test Folder"
+                }
+              |])
           Trace = None
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       match! server.Initialize p with
       | Ok _ ->
         do! server.Initialized()
 
         return
-          { RootPath = path
+          {
+            RootPath = path
             Server = server
             Events = events
-            UntitledCounter = initialUntitledCounter ()
+            UntitledCounter = 0
             DocumentVersionCounter = 0
-            OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary() }
+            OpenDocumentVersions = System.Collections.Concurrent.ConcurrentDictionary()
+          }
       | Result.Error error -> return failwith $"Initialization failed: %A{error}"
     }
 
@@ -138,10 +139,12 @@ module Server =
         fun _ -> System.Threading.Interlocked.Increment(&server.DocumentVersionCounter)
       )
 
-    { Server = server
+    {
+      Server = server
       Uri = uri
       FilePath = fullPath
-      Version = version }
+      Version = version
+    }
 
   let private untitledDocUrif = sprintf "untitled:Untitled-%i"
 
@@ -271,7 +274,24 @@ module Document =
   /// -> All past `documentAnalyzed` events and their diags are all received at once
   /// -> waiting a bit after a version-specific `documentAnalyzed` always returns latest diags.
   //ENHANCEMENT: Send `publishDiagnostics` with Doc Version (LSP `3.15.0`) -> can correlate `documentAnalyzed` and `publishDiagnostics`
-  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> =
+  let private analyzedForCurrentVersion (doc: Document) =
+    doc
+    |> analyzedStream
+    |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+
+  /// Number of `fsharp/documentAnalyzed` received so far for the current `doc.Version`.
+  let private analyzedCount (doc: Document) =
+    let count = ref 0
+    // The ReplaySubject replays past events during Subscribe, so the count is complete when it returns.
+    use _ =
+      doc
+      |> analyzedForCurrentVersion
+      |> Observable.subscribe (fun _ -> count.Value <- count.Value + 1)
+
+    count.Value
+
+  /// Waits for the `fsharp/documentAnalyzed` of the current `doc.Version` that follows the first `skip` of them.
+  let private waitForDiagnosticsAfter skip timeout (doc: Document) : Async<Diagnostic[]> =
     async {
       logger.trace (
         Log.setMessage "Waiting for diags for {uri} at version {version}"
@@ -288,14 +308,16 @@ module Document =
 
       do!
         doc
-        |> analyzedStream
-        |> Observable.filter (fun n -> n.TextDocument.Version = doc.Version)
+        |> analyzedForCurrentVersion
+        |> Observable.skip skip
         |> Observable.timeoutSpan timeout
         |> Async.AwaitObservable
         |> Async.Ignore
 
       return latest
     }
+
+  let waitForLatestDiagnostics timeout (doc: Document) : Async<Diagnostic[]> = waitForDiagnosticsAfter 0 timeout doc
 
 
   /// Note: Mutates passed `doc`
@@ -309,17 +331,23 @@ module Document =
 
   /// Note: Mutates passed `doc`
   let private incrVersionedTextDocumentIdentifier (doc: Document) : VersionedTextDocumentIdentifier =
-    { Uri = doc.Uri
-      Version = incrVersion doc }
+    {
+      Uri = doc.Uri
+      Version = incrVersion doc
+    }
 
   let openWith initialText (doc: Document) =
     async {
       let p: DidOpenTextDocumentParams =
-        { TextDocument =
-            { Uri = doc.Uri
+        {
+          TextDocument =
+            {
+              Uri = doc.Uri
               LanguageId = "fsharp"
               Version = doc.Version
-              Text = initialText } }
+              Text = initialText
+            }
+        }
 
       do! doc.Server.Server.TextDocumentDidOpen p
 
@@ -331,7 +359,11 @@ module Document =
 
   let close (doc: Document) =
     async {
-      let p: DidCloseTextDocumentParams = { TextDocument = doc.TextDocumentIdentifier }
+      let p: DidCloseTextDocumentParams =
+        {
+          TextDocument = doc.TextDocumentIdentifier
+        }
+
       do! doc.Server.Server.TextDocumentDidClose p
       doc.Server.OpenDocumentVersions.TryRemove(doc.Uri) |> ignore
     }
@@ -343,24 +375,29 @@ module Document =
   let changeTextTo (text: string) (doc: Document) =
     async {
       let p: DidChangeTextDocumentParams =
-        { TextDocument = doc |> incrVersionedTextDocumentIdentifier
-          ContentChanges = [| U2.C2 { Text = text } |] }
+        {
+          TextDocument = doc |> incrVersionedTextDocumentIdentifier
+          ContentChanges = [| U2.C2 { Text = text } |]
+        }
 
       do! doc.Server.Server.TextDocumentDidChange p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
       return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
     }
 
   let saveText (text: string) (doc: Document) =
     async {
       let p: DidSaveTextDocumentParams =
-        { Text = Some text
-          TextDocument = doc.TextDocumentIdentifier }
+        {
+          Text = Some text
+          TextDocument = doc.TextDocumentIdentifier
+        }
+      // A save keeps the document version, so the `fsharp/documentAnalyzed` of the previous check matches it too.
+      // Wait for the one after those, from the check the save starts.
+      let analyzedBefore = analyzedCount doc
       // Simulate the file being written to disk so we don't hit the typechecker cache
       IO.File.SetLastWriteTimeUtc(doc.FilePath, DateTime.UtcNow)
       do! doc.Server.Server.TextDocumentDidSave p
-      do! Async.Sleep(TimeSpan.FromMilliseconds 250.)
-      return! doc |> waitForLatestDiagnostics Helpers.defaultTimeout
+      return! doc |> waitForDiagnosticsAfter analyzedBefore Helpers.defaultTimeout
     }
 
   let private assertOk result =
@@ -377,14 +414,18 @@ module Document =
   let codeActionAt (diagnostics: Diagnostic[]) (range: Range) (doc: Document) =
     async {
       let ps: CodeActionParams =
-        { TextDocument = doc.TextDocumentIdentifier
+        {
+          TextDocument = doc.TextDocumentIdentifier
           WorkDoneToken = None
           PartialResultToken = None
           Range = range
           Context =
-            { Diagnostics = diagnostics
+            {
+              Diagnostics = diagnostics
               Only = None
-              TriggerKind = None } }
+              TriggerKind = None
+            }
+        }
 
       let! res = doc.Server.Server.TextDocumentCodeAction ps
       return res |> assertOk
@@ -393,9 +434,11 @@ module Document =
   let inlayHintsAt range (doc: Document) =
     async {
       let ps: InlayHintParams =
-        { Range = range
+        {
+          Range = range
           TextDocument = doc.TextDocumentIdentifier
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       let! res = doc.Server.Server.TextDocumentInlayHint ps
       return res |> assertOk |> assertSome

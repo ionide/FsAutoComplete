@@ -5,7 +5,8 @@ open FsAutoComplete.TestServer
 open Ionide.ProjInfo
 
 let private emptyProject: Types.ProjectOptions =
-  { ProjectId = None
+  {
+    ProjectId = None
     ProjectFileName = "/repo/Tests.fsproj"
     TargetFramework = "net8.0"
     SourceFiles = []
@@ -17,7 +18,8 @@ let private emptyProject: Types.ProjectOptions =
     TargetRefPath = None
     ProjectOutputType = Types.ProjectOutputType.Library
     ProjectSdkInfo =
-      { IsTestProject = false
+      {
+        IsTestProject = false
         Configuration = ""
         IsPackable = false
         TargetFramework = "net8.0"
@@ -31,28 +33,38 @@ let private emptyProject: Types.ProjectOptions =
         TargetFrameworks = []
         RunArguments = None
         RunCommand = None
-        IsPublishable = None }
+        IsPublishable = None
+      }
     Items = []
     Properties = []
     CustomProperties = []
     AllProperties = Map.empty
     AllItems = Map.empty
-    Analyzers = [] }
+    Analyzers = []
+  }
 
 let private withPackages names project =
   { project with
       Types.ProjectOptions.PackageReferences =
         names
         |> List.map (fun name ->
-          { Types.PackageReference.Name = name
+          {
+            Types.PackageReference.Name = name
             Version = "1.0.0"
-            FullPath = $"/packages/{name}" }) }
+            FullPath = $"/packages/{name}"
+          })
+  }
 
 let private withProperty name value project =
   { project with
       Types.ProjectOptions.CustomProperties =
-        [ { Types.Property.Name = name
-            Value = value } ] }
+        [
+          {
+            Types.Property.Name = name
+            Value = value
+          }
+        ]
+  }
 
 let private vsTestPackages =
   withPackages [ "Microsoft.NET.Test.Sdk"; "Microsoft.TestPlatform.TestHost" ]
@@ -61,7 +73,8 @@ let private vsTestPackages =
 let tests =
   testList
     "TestProject.classify"
-    [ testCase "a project without tests has no platform"
+    [
+      testCase "a project without tests has no platform"
       <| fun _ ->
         let actual = TestProject.classify emptyProject
 
@@ -117,7 +130,8 @@ let tests =
         Expect.contains
           TestProject.requiredCustomProperties
           "IsTestingPlatformApplication"
-          "classification reads a property the loader must be told to retain" ]
+          "classification reads a property the loader must be told to retain"
+    ]
 
 [<Tests>]
 let platformSelectionTests =
@@ -126,7 +140,8 @@ let platformSelectionTests =
 
   testList
     "TestProject.platformFor"
-    [ testCase "a plain VSTest project is unaffected by the flag"
+    [
+      testCase "a plain VSTest project is unaffected by the flag"
       <| fun _ ->
         let project = emptyProject |> vsTestPackages
 
@@ -172,4 +187,5 @@ let platformSelectionTests =
       testCase "a project without tests stays hidden under either flag"
       <| fun _ ->
         Expect.isNone (mtpDisabled emptyProject) "the flag is off"
-        Expect.isNone (mtpEnabled emptyProject) "the flag is on" ]
+        Expect.isNone (mtpEnabled emptyProject) "the flag is on"
+    ]

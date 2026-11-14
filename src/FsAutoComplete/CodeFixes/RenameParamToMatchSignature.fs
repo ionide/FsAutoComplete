@@ -68,13 +68,19 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           // `usages` includes parameter position
           usages
           |> Array.map (fun usage ->
-            { Range = fcsRangeToLsp usage.Range
-              NewText = sigName })
+            {
+              Range = fcsRangeToLsp usage.Range
+              NewText = sigName
+            })
 
         return
-          [ { File = codeActionParams.TextDocument
+          [
+            {
+              File = codeActionParams.TextDocument
               Title = title sigName
               Edits = edits
               Kind = FixKind.Fix
-              SourceDiagnostic = Some diagnostic } ]
+              SourceDiagnostic = Some diagnostic
+            }
+          ]
     })

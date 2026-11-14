@@ -20,12 +20,14 @@ let private testSignatureHelp' (server: CachedServer) text pos triggerType check
     use doc = doc
 
     let sigHelpRequest: SignatureHelpParams =
-      { TextDocument = doc.TextDocumentIdentifier
+      {
+        TextDocument = doc.TextDocumentIdentifier
         WorkDoneToken = None
         Position = pos
         Context =
           Some
-            { TriggerKind =
+            {
+              TriggerKind =
                 match triggerType with
                 | Manual -> SignatureHelpTriggerKind.Invoked
                 | Char _c -> SignatureHelpTriggerKind.TriggerCharacter
@@ -34,7 +36,9 @@ let private testSignatureHelp' (server: CachedServer) text pos triggerType check
                 | Manual -> None
                 | Char c -> Some(string c)
               IsRetrigger = false
-              ActiveSignatureHelp = None } }
+              ActiveSignatureHelp = None
+            }
+      }
 
     let! resp = doc.Server.Server.TextDocumentSignatureHelp sigHelpRequest
 
@@ -55,145 +59,188 @@ let private testSignatureHelp (server: CachedServer) textWithCursor triggerType 
 let private functionApplicationEdgeCasesTests server =
   testList
     "function application edge cases"
-    [ testCaseAsync "issue 742 - signature help on functions counts the prior parameters"
-      <| testSignatureHelp server """
+    [
+      testCaseAsync "issue 742 - signature help on functions counts the prior parameters"
+      <| testSignatureHelp
+        server
+        """
       id 12 $0// note: keep the trailing space after '12' on this line
-      """ (Char ' ') (fun resp -> Expect.isNone resp "there should be no sighelp on this location")
+      """
+        (Char ' ')
+        (fun resp -> Expect.isNone resp "there should be no sighelp on this location")
       testCaseAsync "issue 744 - signature help suggests parameters other than the first"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let f a b = ()
 
       f 1 $0 // preserve last space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveParameter (Some 1u) "should have suggested the second parameter"
 
-          let sigInfo = sigHelp.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "should have parameter info"
+            let sigInfo = sigHelp.Signatures.[0]
+            Expect.isSome sigInfo.Parameters "should have parameter info"
 
-          Expect.equal
-            sigInfo.Parameters.Value.Length
-            2
-            "should report both curried parameters so that editors can highlight the correct one"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal
+              sigInfo.Parameters.Value.Length
+              2
+              "should report both curried parameters so that editors can highlight the correct one"
+          | None -> failwithf "There should be sighelp for this position")
       testCaseAsync "curried function - 3 parameters, cursor at 1st arg, all params reported with correct labels"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let f a b c = ()
 
       f $0 // preserve trailing space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveParameter (Some 0u) "should indicate first parameter is active"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveParameter (Some 0u) "should indicate first parameter is active"
 
-          let sigInfo = sigHelp.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "should have parameter info"
-          let ps = sigInfo.Parameters.Value
+            let sigInfo = sigHelp.Signatures.[0]
+            Expect.isSome sigInfo.Parameters "should have parameter info"
+            let ps = sigInfo.Parameters.Value
 
-          Expect.equal ps.Length 3 "should report all three curried parameters"
-          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
-          Expect.equal ps.[1].Label (U2.C1 "b") "second param label should be 'b'"
-          Expect.equal ps.[2].Label (U2.C1 "c") "third param label should be 'c'"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal ps.Length 3 "should report all three curried parameters"
+            Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+            Expect.equal ps.[1].Label (U2.C1 "b") "second param label should be 'b'"
+            Expect.equal ps.[2].Label (U2.C1 "c") "third param label should be 'c'"
+          | None -> failwithf "There should be sighelp for this position")
       testCaseAsync "curried function - 3 parameters, cursor at 3rd arg"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let f a b c = ()
 
       f 1 2 $0 // preserve trailing space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveParameter (Some 2u) "should indicate third parameter is active"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveParameter (Some 2u) "should indicate third parameter is active"
 
-          let sigInfo = sigHelp.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "should have parameter info"
+            let sigInfo = sigHelp.Signatures.[0]
+            Expect.isSome sigInfo.Parameters "should have parameter info"
 
-          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three curried parameters"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three curried parameters"
+          | None -> failwithf "There should be sighelp for this position")
       testCaseAsync "curried function with typed parameters - all parameter groups reported"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let typed (a: int) (b: string) (c: float) = ()
 
       typed 1 $0 // preserve trailing space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter is active"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter is active"
 
-          let sigInfo = sigHelp.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "should have parameter info"
+            let sigInfo = sigHelp.Signatures.[0]
+            Expect.isSome sigInfo.Parameters "should have parameter info"
 
-          Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three typed curried parameters"
-          Expect.equal sigInfo.Parameters.Value.[0].Label (U2.C1 "a") "first param label should be 'a'"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal sigInfo.Parameters.Value.Length 3 "should report all three typed curried parameters"
+            Expect.equal sigInfo.Parameters.Value.[0].Label (U2.C1 "a") "first param label should be 'a'"
+          | None -> failwithf "There should be sighelp for this position")
       testCaseAsync "curried function - mixed curried and tupled groups"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let mixed a (b, c) d = ()
 
       mixed 1 $0 // preserve trailing space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter group is active"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveParameter (Some 1u) "should indicate second parameter group is active"
 
-          let sigInfo = sigHelp.Signatures.[0]
-          Expect.isSome sigInfo.Parameters "should have parameter info"
-          let ps = sigInfo.Parameters.Value
+            let sigInfo = sigHelp.Signatures.[0]
+            Expect.isSome sigInfo.Parameters "should have parameter info"
+            let ps = sigInfo.Parameters.Value
 
-          Expect.equal ps.Length 3 "should report three parameter groups (a, (b,c), d)"
-          Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
-          Expect.equal ps.[1].Label (U2.C1 "(b, c)") "second param (tuple group) label should be '(b, c)'"
-          Expect.equal ps.[2].Label (U2.C1 "d") "third param label should be 'd'"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal ps.Length 3 "should report three parameter groups (a, (b,c), d)"
+            Expect.equal ps.[0].Label (U2.C1 "a") "first param label should be 'a'"
+            Expect.equal ps.[1].Label (U2.C1 "(b, c)") "second param (tuple group) label should be '(b, c)'"
+            Expect.equal ps.[2].Label (U2.C1 "d") "third param label should be 'd'"
+          | None -> failwithf "There should be sighelp for this position")
       ptestCaseAsync "issue 745 - signature help shows tuples in parens"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let f (a, b) = ()
 
       f $0 // preserve last space
-      """ Manual (fun resp ->
-        match resp with
-        | Some sigHelp ->
-          Expect.equal sigHelp.ActiveSignature (Some 0u) "should have suggested the first overload"
+      """
+        Manual
+        (fun resp ->
+          match resp with
+          | Some sigHelp ->
+            Expect.equal sigHelp.ActiveSignature (Some 0u) "should have suggested the first overload"
 
-          Expect.equal
-            sigHelp.Signatures.[0].Label
-            "val f : (a:'a * b:'b) -> unit"
-            "should highlight tuples with parens in signature help"
-        | None -> failwithf "There should be sighelp for this position")
+            Expect.equal
+              sigHelp.Signatures.[0].Label
+              "val f : (a:'a * b:'b) -> unit"
+              "should highlight tuples with parens in signature help"
+          | None -> failwithf "There should be sighelp for this position")
       testCaseAsync "issue 746 - signature help understands piping for parameter application"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       [1..10] |> List.map id $0// keep trailing space
-      """ Manual (fun resp ->
-        Expect.isNone
-          resp
-          "there should be no suggestions at this position, since we've provided all parameters to List.map")
+      """
+        Manual
+        (fun resp ->
+          Expect.isNone
+            resp
+            "there should be no suggestions at this position, since we've provided all parameters to List.map")
       testCaseAsync "issue 747 - signature help is provided for the most inner function"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let f a b c = ()
 
       let g a b = ()
 
       f (g $0)
-      """ Manual (fun resp ->
-        Expect.isSome resp "should have provided signature help"
-        let resp = resp.Value
-        let methodsig = resp.Signatures.[0]
-        Expect.stringStarts methodsig.Label "val g: " "should have provided signatures for function g")
+      """
+        Manual
+        (fun resp ->
+          Expect.isSome resp "should have provided signature help"
+          let resp = resp.Value
+          let methodsig = resp.Signatures.[0]
+          Expect.stringStarts methodsig.Label "val g: " "should have provided signatures for function g")
       testCaseAsync "issue 748 - signature help is provided for functions inside CEs"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let _ =
           async {
               let x = sqrt $0// trigger here
               return ()
           }
-      """ Manual (fun resp ->
-        Expect.isSome resp "should have provided signature help"
-        let resp = resp.Value
-        let methodsig = resp.Signatures.[0]
-        Expect.stringStarts methodsig.Label "val sqrt: " "should have provided signatures for sqrt")
+      """
+        Manual
+        (fun resp ->
+          Expect.isSome resp "should have provided signature help"
+          let resp = resp.Value
+          let methodsig = resp.Signatures.[0]
+          Expect.stringStarts methodsig.Label "val sqrt: " "should have provided signatures for sqrt")
       testCaseAsync "issue 750 - signature help should have tips when triggered on generic type applications"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
 open System
 
 /// Tries to cast an object to a given type; throws with the given error message if it fails.
@@ -207,18 +254,23 @@ let tryConvert<'T> (descriptor: string) (value: obj) : 'T =
 // Tooltip does NOT show when the generic argument is present:
 let result = (box 123) |> tryConvert<string> $0(* trigger at > char, no sigdata occurs *)
 
-      """ Manual (fun resp ->
-        Expect.isSome resp "should get sigdata when triggered on applications"
-        let resp = resp.Value
-        let signatures = resp.Signatures.[0]
-        Expect.stringStarts signatures.Label "val tryConvert:" "should have given help for tryConvert") ]
+      """
+        Manual
+        (fun resp ->
+          Expect.isSome resp "should get sigdata when triggered on applications"
+          let resp = resp.Value
+          let signatures = resp.Signatures.[0]
+          Expect.stringStarts signatures.Label "val tryConvert:" "should have given help for tryConvert")
+    ]
 
 let private overloadEdgeCasesTests server =
   testList
     "overload edge cases"
-    [ testList
+    [
+      testList
         "unattached parens"
-        [ let text = "let ___ = new System.IO.MemoryStream (  )"
+        [
+          let text = "let ___ = new System.IO.MemoryStream (  )"
 
           for c in 37..39 do
             let pos = { Line = 0u; Character = uint32 c }
@@ -233,10 +285,12 @@ let private overloadEdgeCasesTests server =
                >> fun resp ->
                  Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
 
-                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ]
+                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads")
+        ]
       testList
         "attached parens"
-        [ let text = "let _____ = new System.IO.MemoryStream(42)"
+        [
+          let text = "let _____ = new System.IO.MemoryStream(42)"
 
           for c in 39..41 do
             let pos = { Line = 0u; Character = uint32 c }
@@ -251,61 +305,81 @@ let private overloadEdgeCasesTests server =
                >> fun resp ->
                  Expect.isSome resp $"Should get some signature overloads at position %A{pos} on file Overloads.fsx"
 
-                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads") ] ]
+                 Expect.isNonEmpty resp.Value.Signatures "Should have some overloads")
+        ]
+    ]
 
 let issuesTests server =
   testList
     "issues"
-    [ testCaseAsync "issue #950 - exception when in first column in first line"
+    [
+      testCaseAsync "issue #950 - exception when in first column in first line"
       <| testSignatureHelp' server "Syste" { Line = 0u; Character = 0u } Manual (fun r ->
         let err = Expect.wantError r "No signature help at first position"
         Expect.equal err.Message "Couldn't find previous non-whitespace char" "Should fail because no prev char")
       testCaseAsync "type names aren't backticked"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
       let count (x: int) = x
 
       let _ = count $010
-      """ TriggerType.Manual (fun sigs ->
-        Expect.isSome sigs "Should have sigs for backtick check"
-        let sigText = sigs.Value.Signatures[0].Label
+      """
+        TriggerType.Manual
+        (fun sigs ->
+          Expect.isSome sigs "Should have sigs for backtick check"
+          let sigText = sigs.Value.Signatures[0].Label
 
-        Expect.equal
-          sigText
-          "val count: x: int -> int"
-          "Should have no backticks because signatures are only ever rendered in `code` form")
+          Expect.equal
+            sigText
+            "val count: x: int -> int"
+            "Should have no backticks because signatures are only ever rendered in `code` form")
       testCaseAsync "issue #1040" // IndexOutOfRangeException
       <| testSignatureHelp server "().ToString(\n\n,$0\n)" Manual (fun sigs -> Expect.isSome sigs "Should have sigs")
       testCaseAsync "issue #1029 - parameter documentation should use simplified type names not fully-qualified ones"
-      <| testSignatureHelp server """
+      <| testSignatureHelp
+        server
+        """
 let f (arr: char[]) = arr
 
 let _ = f $0
-        """ Manual (fun sigs ->
-        Expect.isSome sigs "Should have sigs for simplified type names check"
-        let sigInfo = sigs.Value.Signatures.[0]
-        Expect.isSome sigInfo.Parameters "Should have parameter info"
-        let param = sigInfo.Parameters.Value.[0]
+        """
+        Manual
+        (fun sigs ->
+          Expect.isSome sigs "Should have sigs for simplified type names check"
+          let sigInfo = sigs.Value.Signatures.[0]
+          Expect.isSome sigInfo.Parameters "Should have parameter info"
+          let param = sigInfo.Parameters.Value.[0]
 
-        match param.Documentation with
-        | Some(U2.C1 doc) ->
-          Expect.isFalse
-            (doc.Contains("Microsoft.FSharp.Core"))
-            $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
+          match param.Documentation with
+          | Some(U2.C1 doc) ->
+            Expect.isFalse
+              (doc.Contains("Microsoft.FSharp.Core"))
+              $"Parameter documentation should not contain fully-qualified names, but was: {doc}"
 
-          Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
-        | _ -> failwith "Expected string documentation for parameter") ]
+            Expect.stringContains doc "char" "Parameter documentation should contain simplified type name 'char'"
+          | _ -> failwith "Expected string documentation for parameter")
+    ]
 
 let tests state =
   serverTestList "signature help" state defaultConfigDto None (fun server ->
-    [ functionApplicationEdgeCasesTests server
+    [
+      functionApplicationEdgeCasesTests server
       overloadEdgeCasesTests server
       testList
         "parameter position detect"
-        [ testCaseAsync "Can suggest second parameter when on the second parameter"
-          <| testSignatureHelp server """
+        [
+          testCaseAsync "Can suggest second parameter when on the second parameter"
+          <| testSignatureHelp
+            server
+            """
           System.IO.Directory.EnumerateDirectories("/var", $0) // signature help triggered at the space after the comma should suggest overload 1, not overload 0
-          """ Manual (fun resp ->
-            Expect.isSome resp "should get sigdata when triggered on applications"
-            Expect.equal (Some 1u) resp.Value.ActiveSignature "should have suggested the second overload") ]
+          """
+            Manual
+            (fun resp ->
+              Expect.isSome resp "should get sigdata when triggered on applications"
+              Expect.equal (Some 1u) resp.Value.ActiveSignature "should have suggested the second overload")
+        ]
 
-      issuesTests server ])
+      issuesTests server
+    ])

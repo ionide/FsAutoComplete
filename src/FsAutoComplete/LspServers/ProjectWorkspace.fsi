@@ -20,6 +20,7 @@ module Snapshots =
 
 
   /// <summary>This will create FSharpProjectSnapshots for each ProjectOptions.</summary>
+  /// <param name="useBuiltProjectReferences">Reference F# projects by their output DLL, instead of their in-memory snapshot</param>
   /// <param name="inMemorySourceFiles">List of files opened in memory or by the editor</param>
   /// <param name="sourceTextFactory">Factory for retrieving ISourceText</param>
   /// <param name="loadedProjectsA">Projects that have been loaded by msbuild</param>
@@ -29,6 +30,7 @@ module Snapshots =
   /// </remarks>
   /// <returns>An AMap of Project Options with an Adaptive FSharpProjectSnapshot</returns>
   val createSnapshots:
+    useBuiltProjectReferences: bool ->
     inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>> ->
     sourceTextFactory: aval<ISourceTextFactory> ->
     loadedProjectsA: amap<string<LocalPath>, ProjectOptions> ->

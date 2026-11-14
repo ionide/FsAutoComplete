@@ -61,21 +61,32 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
           |> Result.ofOption (fun _ -> "failed to walk")
         // replace from there to the end of the pattern's range
         let replacementRange =
-          { Start = endOfPrecedingToken
-            End = protocolRange.End }
+          {
+            Start = endOfPrecedingToken
+            End = protocolRange.End
+          }
 
         return
-          [ { Title = titleParameter
+          [
+            {
+              Title = titleParameter
               Edits =
-                [| { Range = replacementRange
-                     NewText = "" } |]
+                [|
+                  {
+                    Range = replacementRange
+                    NewText = ""
+                  }
+                |]
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
-              Kind = FixKind.Refactor } ]
+              Kind = FixKind.Refactor
+            }
+          ]
       | FullBinding bindingRangeWithPats ->
         let protocolRange = fcsRangeToLsp bindingRangeWithPats
         // the pos at the end of the previous keyword
-        let! walkPos = dec lines protocolRange.Start |> Result.ofOption (fun _ -> "failed to walk")
+        let! walkPos =
+          dec lines protocolRange.Start |> Result.ofOption (fun _ -> "failed to walk")
 
         let! endOfPrecedingKeyword =
           Navigation.walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not)
@@ -87,15 +98,25 @@ let fix (getParseResults: GetParseResultsForFile) : CodeFix =
           |> Result.ofOption (fun _ -> "failed to walk")
 
         let replacementRange =
-          { Start = keywordStartColumn
-            End = protocolRange.End }
+          {
+            Start = keywordStartColumn
+            End = protocolRange.End
+          }
 
         return
-          [ { Title = titleBinding
+          [
+            {
+              Title = titleBinding
               Edits =
-                [| { Range = replacementRange
-                     NewText = "" } |]
+                [|
+                  {
+                    Range = replacementRange
+                    NewText = ""
+                  }
+                |]
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
-              Kind = FixKind.Refactor } ]
+              Kind = FixKind.Refactor
+            }
+          ]
     })

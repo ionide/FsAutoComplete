@@ -22,7 +22,8 @@ let private errorsInto (errors: ResizeArray<string>) =
 let tests =
   testList
     "MtpWrapper Test Discovery"
-    [ testCaseAsync "discovers nothing from no applications"
+    [
+      testCaseAsync "discovers nothing from no applications"
       <| async {
         let! actual = MtpWrapper.discoverTestsAsync ignore []
         Expect.isEmpty actual "no application reports no tests"
@@ -89,7 +90,8 @@ let tests =
       <| async {
         let errors = ResizeArray()
 
-        let! discovered = MtpWrapper.discoverTestsAsync (errorsInto errors) [ ResourceLocators.missingApp; sampleApp ]
+        let! discovered =
+          MtpWrapper.discoverTestsAsync (errorsInto errors) [ ResourceLocators.missingApp; sampleApp ]
 
         Expect.contains (namesOf discovered) "Tests.My test" "the built application is still discovered"
         Expect.all discovered (fun (source, _) -> source = sampleApp) "the missing application reports no tests"
@@ -105,7 +107,8 @@ let tests =
         async {
           let errors = ResizeArray()
 
-          let! discovered = MtpWrapper.discoverTestsAsync (errorsInto errors) [ brokenApp; sampleApp ]
+          let! discovered =
+            MtpWrapper.discoverTestsAsync (errorsInto errors) [ brokenApp; sampleApp ]
 
           Expect.contains (namesOf discovered) "Tests.My test" "the working application is still discovered"
           Expect.all discovered (fun (source, _) -> source = sampleApp) "the broken application reports no tests"
@@ -114,4 +117,5 @@ let tests =
             errors
             (fun message -> message.Contains brokenApp)
             $"an error names the broken application; errors: {List.ofSeq errors}"
-        }) ]
+        })
+    ]

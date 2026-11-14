@@ -22,9 +22,13 @@ let fix (getFileLines: GetFileLines) : CodeFix =
       let range = lines |> rangeToDeleteFullLine lineToRemove
 
       return
-        [ { Edits = [| { Range = range; NewText = "" } |]
+        [
+          {
+            Edits = [| { Range = range; NewText = "" } |]
             File = codeActionParams.TextDocument
             Title = title
             SourceDiagnostic = Some d
-            Kind = FixKind.Refactor } ]
+            Kind = FixKind.Refactor
+          }
+        ]
     })

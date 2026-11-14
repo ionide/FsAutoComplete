@@ -39,14 +39,24 @@ let fix (getParseResultsForFile: GetParseResultsForFile) (getLineText: GetLineTe
             Error "unknown start token for remove return or yield codefix"
 
         return
-          [ { Title = title
+          [
+            {
+              Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Edits =
-                [| { Range =
-                       { Start = diagnostic.Range.Start
-                         End = protocolExprRange.End }
-                     NewText = exprText } |]
-              Kind = FixKind.Refactor } ]
+                [|
+                  {
+                    Range =
+                      {
+                        Start = diagnostic.Range.Start
+                        End = protocolExprRange.End
+                      }
+                    NewText = exprText
+                  }
+                |]
+              Kind = FixKind.Refactor
+            }
+          ]
 
     })

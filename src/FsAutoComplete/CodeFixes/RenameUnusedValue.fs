@@ -39,18 +39,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) =
       let underscore range : Ionide.LanguageServerProtocol.Types.TextEdit = { Range = range; NewText = "_" }
 
       let mkFix title range =
-        { SourceDiagnostic = Some diagnostic
+        {
+          SourceDiagnostic = Some diagnostic
           File = codeActionParams.TextDocument
           Title = title
           Edits = [| underscore range |]
-          Kind = FixKind.Refactor }
+          Kind = FixKind.Refactor
+        }
 
       let mkReplaceFix identRange accessRange =
         match accessRange with
         | None -> mkFix titleReplace identRange
         | Some accessRange ->
           { mkFix titleReplace identRange with
-              Edits = [| underscore identRange; { Range = accessRange; NewText = "" } |] }
+              Edits = [| underscore identRange; { Range = accessRange; NewText = "" } |]
+          }
 
       let tryMkPrefixFix range =
         match lines.GetText(protocolRangeToRange (UMX.untag fileName) range) with

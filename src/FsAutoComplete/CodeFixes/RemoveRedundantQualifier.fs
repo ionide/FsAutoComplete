@@ -11,10 +11,18 @@ let title = "Remove redundant qualifier"
 let fix =
   Run.ifDiagnosticByMessage "This qualifier is redundant" (fun diagnostic codeActionParams ->
     AsyncResult.retn
-      [ { Edits =
-            [| { Range = diagnostic.Range
-                 NewText = "" } |]
+      [
+        {
+          Edits =
+            [|
+              {
+                Range = diagnostic.Range
+                NewText = ""
+              }
+            |]
           File = codeActionParams.TextDocument
           Title = title
           SourceDiagnostic = Some diagnostic
-          Kind = FixKind.Refactor } ])
+          Kind = FixKind.Refactor
+        }
+      ])

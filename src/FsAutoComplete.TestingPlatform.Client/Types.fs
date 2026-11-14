@@ -26,7 +26,8 @@ type MtpClientOptions =
   }
 
   static member Default: MtpClientOptions =
-    { ClientName = "FsAutoComplete.TestingPlatform.Client"
+    {
+      ClientName = "FsAutoComplete.TestingPlatform.Client"
       ClientVersion =
         typeof<MtpClientOptions>.Assembly.GetName().Version
         |> Option.ofObj
@@ -40,7 +41,8 @@ type MtpClientOptions =
       ConnectionTimeout = TimeSpan.FromSeconds 90.0
       ServerShutdownTimeout = TimeSpan.FromSeconds 30.0
       EnvironmentVariables = Map.empty
-      Logger = None }
+      Logger = None
+    }
 
 [<RequireQualifiedAccess>]
 type NodeType =
@@ -61,13 +63,17 @@ type ExecutionState =
   | Other of string
 
 type SourceLocation =
-  { File: string
+  {
+    File: string
     LineStart: int option
-    LineEnd: int option }
+    LineEnd: int option
+  }
 
 type NodeError =
-  { Message: string option
-    StackTrace: string option }
+  {
+    Message: string option
+    StackTrace: string option
+  }
 
 /// <summary>The method a test node runs, as the framework identifies it.</summary>
 type MethodIdentifier =
@@ -98,11 +104,14 @@ type TestNodeUpdate =
   }
 
 type TestNodeUpdateBatch =
-  { RunId: Guid
-    Updates: TestNodeUpdate list }
+  {
+    RunId: Guid
+    Updates: TestNodeUpdate list
+  }
 
 type ServerCapabilities =
-  { ServerProcessId: int option
+  {
+    ServerProcessId: int option
     ServerName: string option
     ServerVersion: string option
     ProtocolVersion: string option
@@ -110,24 +119,31 @@ type ServerCapabilities =
     MultiRequestSupport: bool
     VSTestProviderSupport: bool
     SupportsAttachments: bool
-    MultiConnectionProvider: bool }
+    MultiConnectionProvider: bool
+  }
 
 type Attachment =
-  { Uri: string option
+  {
+    Uri: string option
     Producer: string option
     Type: string option
     DisplayName: string option
-    Description: string option }
+    Description: string option
+  }
 
 type RunResult = { Attachments: Attachment list }
 
 type LogMessage =
-  { Level: ClientLogLevel
-    Message: string }
+  {
+    Level: ClientLogLevel
+    Message: string
+  }
 
 type TelemetryEvent =
-  { EventName: string
-    Metrics: IReadOnlyDictionary<string, obj> }
+  {
+    EventName: string
+    Metrics: IReadOnlyDictionary<string, obj>
+  }
 
 /// <summary>Raised for any failure reported by the server-mode client.</summary>
 type MtpClientException(message: string, inner: exn) =

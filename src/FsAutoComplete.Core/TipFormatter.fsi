@@ -28,8 +28,10 @@ module private Format =
     | NonVoidElement of innerText: string * attributes: Map<string, string>
 
   type FormatterInfo =
-    { TagName: string
-      Formatter: TagInfo -> string option }
+    {
+      TagName: string
+      Formatter: TagInfo -> string option
+    }
 
   val extractMemberText: text: string -> string
   type AttrLookup = Map<string, string> -> Option<string>
@@ -133,8 +135,10 @@ val tryFormatTipEnhanced:
   showDocumentationLinks: bool ->
   tryResolveCref: (string -> (string * string * string) option) ->
     TipFormatterResult<
-      {| DocComment: string
-         HasTruncatedExamples: bool |}
+      {|
+        DocComment: string
+        HasTruncatedExamples: bool
+      |}
      >
 
 /// <summary>

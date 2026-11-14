@@ -63,10 +63,12 @@ let private checkUsage server doc sourceWithCursor expected =
 let private scriptTests state =
   let config =
     { defaultConfigDto with
-        UnusedDeclarationsAnalyzer = Some true }
+        UnusedDeclarationsAnalyzer = Some true
+    }
 
   serverTestList "script" state config None (fun server ->
-    [ testCaseAsync "unused variable"
+    [
+      testCaseAsync "unused variable"
       <| checkUsage
         server
         Untitled
@@ -136,7 +138,8 @@ let private scriptTests state =
         let $0f _ = ()
         f ()
         """
-        Used ])
+        Used
+    ])
 
 let private projectTests state =
   let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "UnusedDeclarations")
@@ -144,7 +147,8 @@ let private projectTests state =
 
   let config =
     { defaultConfigDto with
-        UnusedDeclarationsAnalyzer = Some true }
+        UnusedDeclarationsAnalyzer = Some true
+    }
 
   serverTestList "project" state config (Some path) (fun server ->
     [
@@ -319,7 +323,9 @@ module private Internal =
           for (marker, pos) in cursors do
             let expected = if marker = "$P" then Used else Unused
             let title = $"%A{expected} at %d{pos.Line}, %d{pos.Character}"
-            testCaseAsync title <| checkUsageAt server file source pos expected ] ])
+            testCaseAsync title <| checkUsageAt server file source pos expected
+        ]
+    ])
 
 let tests state =
   testList
@@ -328,4 +334,5 @@ let tests state =
       // Note: difference between Script & Project:
       //   Public in Script can be unused, public in Project cannot
       scriptTests state
-      projectTests state ]
+      projectTests state
+    ]

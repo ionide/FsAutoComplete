@@ -59,9 +59,11 @@ type TestIdTarget =
   | Group of key: string
 
 type ParsedTestId =
-  { ProjectFilePath: string
+  {
+    ProjectFilePath: string
     TargetFramework: string
-    Target: TestIdTarget }
+    Target: TestIdTarget
+  }
 
 /// Test ids are issued by the server and opaque to clients. An id names its own project,
 /// target framework and platform so a run can be routed without a lookup, and is derived from
@@ -157,9 +159,11 @@ module TestId =
       match unescape projFilePath |> nonEmpty "project", unescape targetFramework, target with
       | Ok projFilePath, Ok targetFramework, Ok target ->
         Ok
-          { ProjectFilePath = projFilePath
+          {
+            ProjectFilePath = projFilePath
             TargetFramework = targetFramework
-            Target = target }
+            Target = target
+          }
       | Error e, _, _
       | _, Error e, _
       | _, _, Error e -> Error $"Malformed test id '{id}': {e}"
@@ -250,7 +254,8 @@ module TestItem =
     let fullName =
       fullNameWithParameterisedCases (string testCase.ExecutorUri) testCase.FullyQualifiedName testCase.DisplayName
 
-    { Id = TestId.ofVsTestCase projFilePath targetFramework testCase
+    {
+      Id = TestId.ofVsTestCase projFilePath targetFramework testCase
       ParentId = None
       IsLeaf = true
       FullName = fullName
@@ -261,8 +266,11 @@ module TestItem =
       CodeFilePath = Some testCase.CodeFilePath
       CodeLocationRange =
         Some
-          { StartLine = testCase.LineNumber
-            EndLine = testCase.LineNumber } }
+          {
+            StartLine = testCase.LineNumber
+            EndLine = testCase.LineNumber
+          }
+    }
 
   /// Stands in for the VSTest adapter uri on a platform that reports its own tree, where no
   /// adapter-specific name breakdown applies.
@@ -297,8 +305,10 @@ module TestItem =
     let range (location: FsAutoComplete.TestingPlatform.Client.SourceLocation) =
       location.LineStart
       |> Option.map (fun startLine ->
-        { StartLine = startLine
-          EndLine = location.LineEnd |> Option.defaultValue startLine })
+        {
+          StartLine = startLine
+          EndLine = location.LineEnd |> Option.defaultValue startLine
+        })
 
     let isLeaf =
       node.NodeType <> Some FsAutoComplete.TestingPlatform.Client.NodeType.Group
@@ -316,7 +326,8 @@ module TestItem =
           $"{typeName}.{displayName}"
       | None -> displayName
 
-    { Id = TestId.ofMtpNode projFilePath targetFramework node
+    {
+      Id = TestId.ofMtpNode projFilePath targetFramework node
       ParentId =
         match mtpParentUid node with
         | Some parentUid -> Some(parentIdOf parentUid)
@@ -328,7 +339,8 @@ module TestItem =
       ProjectFilePath = projFilePath
       TargetFramework = targetFramework
       CodeFilePath = node.Location |> Option.map _.File
-      CodeLocationRange = node.Location |> Option.bind range }
+      CodeLocationRange = node.Location |> Option.bind range
+    }
 
   /// Maps a node of a Microsoft.Testing.Platform test tree onto the shape the clients consume.
   /// The node hangs off the parent the platform reported, or else the type the platform names for
@@ -351,15 +363,21 @@ module TestHierarchy =
   open System.Text.RegularExpressions
 
   type private Segment =
-    { Text: string
-      SeparatorBefore: string }
+    {
+      Text: string
+      SeparatorBefore: string
+    }
 
   let private segmentRegex = Regex(@"([+\.]?)([^+\.]+)", RegexOptions.Compiled)
 
   let private splitSegments (fullName: string) =
-    [ for m in segmentRegex.Matches(fullName) ->
-        { Text = m.Groups[2].Value
-          SeparatorBefore = m.Groups[1].Value } ]
+    [
+      for m in segmentRegex.Matches(fullName) ->
+        {
+          Text = m.Groups[2].Value
+          SeparatorBefore = m.Groups[1].Value
+        }
+    ]
 
   /// The name and each of its ancestors, outermost first.
   let private namesDownTo (fullName: string) =
@@ -378,7 +396,8 @@ module TestHierarchy =
         FullName = fullName
         DisplayName = (splitSegments fullName |> List.last).Text
         CodeFilePath = None
-        CodeLocationRange = None }
+        CodeLocationRange = None
+    }
 
   /// Returns the given tests plus a grouping node per name segment they share, each node
   /// linked to its parent. Tests and groupings have ids of different kinds, so a test named like
@@ -429,7 +448,8 @@ module TestHierarchy =
             ParentId =
               ancestorNames grouping.FullName
               |> List.tryLast
-              |> Option.map (TestId.group projFilePath targetFramework) })
+              |> Option.map (TestId.group projFilePath targetFramework)
+        })
 
     items @ typeGroupings
 
@@ -513,12 +533,14 @@ module TestOutcome =
     | _ -> TestOutcome.None
 
 type TestResult =
-  { TestItem: TestItem
+  {
+    TestItem: TestItem
     Outcome: TestOutcome
     ErrorMessage: string option
     ErrorStackTrace: string option
     AdditionalOutput: string option
-    Duration: TimeSpan }
+    Duration: TimeSpan
+  }
 
 module TestResult =
   type VSTestResult = Microsoft.VisualStudio.TestPlatform.ObjectModel.TestResult
@@ -526,7 +548,8 @@ module TestResult =
   let ofVsTestResult (projFilePath: string) (targetFramework: string) (vsTestResult: VSTestResult) : TestResult =
     let stringToOption (text: string) = if String.IsNullOrEmpty(text) then None else Some text
 
-    { Outcome = TestOutcome.ofVSTestOutcome vsTestResult.Outcome
+    {
+      Outcome = TestOutcome.ofVSTestOutcome vsTestResult.Outcome
       ErrorMessage = vsTestResult.ErrorMessage |> stringToOption
       ErrorStackTrace = vsTestResult.ErrorStackTrace |> stringToOption
       AdditionalOutput =
@@ -534,7 +557,8 @@ module TestResult =
         | [] -> None
         | messages -> messages |> List.map _.Text |> String.concat Environment.NewLine |> Some
       Duration = vsTestResult.Duration
-      TestItem = TestItem.ofVsTestCase projFilePath targetFramework vsTestResult.TestCase }
+      TestItem = TestItem.ofVsTestCase projFilePath targetFramework vsTestResult.TestCase
+    }
 
   /// Reads the outcome of a run out of a Microsoft.Testing.Platform node. The platform reports a
   /// result as a further update to the node that was discovered, so the test it belongs to is the
@@ -551,9 +575,11 @@ module TestResult =
         | [] -> None
         | streams -> streams |> String.concat Environment.NewLine |> Some
 
-    { Outcome = TestOutcome.ofMtpExecutionState node.ExecutionState
+    {
+      Outcome = TestOutcome.ofMtpExecutionState node.ExecutionState
       ErrorMessage = node.Error |> Option.bind _.Message
       ErrorStackTrace = node.Error |> Option.bind _.StackTrace
       AdditionalOutput = output
       Duration = node.Duration |> Option.defaultValue TimeSpan.Zero
-      TestItem = TestItem.ofMtpNode projFilePath targetFramework node }
+      TestItem = TestItem.ofMtpNode projFilePath targetFramework node
+    }

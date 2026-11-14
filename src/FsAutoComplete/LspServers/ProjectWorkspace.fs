@@ -142,7 +142,9 @@ module Snapshots =
 
       let getSource () =
         task {
-          let! sourceText = SourceTextFactory.readFile sourceFilePath sourceTextFactory CancellationToken.None
+          let! sourceText =
+            SourceTextFactory.readFile sourceFilePath sourceTextFactory CancellationToken.None
+
           return sourceText :> ISourceTextNew
         }
 
@@ -163,8 +165,10 @@ module Snapshots =
       let! lastModified = AdaptiveFile.getLastWriteTimeUtcEnsureDir path
 
       return
-        { LastModified = lastModified
-          Path = path }
+        {
+          LastModified = lastModified
+          Path = path
+        }
     }
 
   let private createReferencedProjectsFSharpReference projectOutputFile (snapshot: aval<FSharpProjectSnapshot>) =
@@ -175,6 +179,7 @@ module Snapshots =
     }
 
   let rec private createReferences
+    (useBuiltProjectReferences: bool)
     (cachedSnapshots)
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)
     (sourceTextFactory: aval<ISourceTextFactory>)
@@ -198,7 +203,7 @@ module Snapshots =
 
       if loadedProjectNotReferenced then
         None
-      else if proj.ProjectFileName.EndsWith ".fsproj" then
+      else if proj.ProjectFileName.EndsWith ".fsproj" && not useBuiltProjectReferences then
 
         let resolvedTargetPath =
           aval {
@@ -211,7 +216,12 @@ module Snapshots =
           cachedSnapshots
           inMemorySourceFiles
           sourceTextFactory
-          (createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA)
+          (createReferences
+            useBuiltProjectReferences
+            cachedSnapshots
+            inMemorySourceFiles
+            sourceTextFactory
+            loadedProjectsA)
         |> createReferencedProjectsFSharpReference resolvedTargetPath
         |> Some
 
@@ -311,6 +321,7 @@ module Snapshots =
 
 
   let createSnapshots
+    (useBuiltProjectReferences: bool)
     (inMemorySourceFiles: amap<string<LocalPath>, aval<VolatileFile>>)
     (sourceTextFactory: aval<ISourceTextFactory>)
     (loadedProjectsA: amap<string<LocalPath>, ProjectOptions>)
@@ -322,7 +333,12 @@ module Snapshots =
       let cachedSnapshots = Dictionary<_, _>()
 
       let mapReferences =
-        createReferences cachedSnapshots inMemorySourceFiles sourceTextFactory loadedProjectsA
+        createReferences
+          useBuiltProjectReferences
+          cachedSnapshots
+          inMemorySourceFiles
+          sourceTextFactory
+          loadedProjectsA
 
       let optionsToSnapshot =
         optionsToSnapshot cachedSnapshots inMemorySourceFiles sourceTextFactory mapReferences

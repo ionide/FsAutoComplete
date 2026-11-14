@@ -16,7 +16,7 @@ val fix:
   getParseResultsForFile: GetParseResultsForFile ->
   getNamespaceSuggestions:
     (ParseAndCheckResults
-      -> FcsPos
-      -> LineText
-      -> Async<CoreResponse<string * list<string * string * InsertionContext * bool> * list<string * string>>>) ->
+        -> FcsPos
+        -> LineText
+        -> Async<CoreResponse<string * list<string * string * InsertionContext * bool> * list<string * string>>>) ->
     (CodeActionParams -> Async<Result<Fix list, string>>)

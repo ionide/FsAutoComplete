@@ -16,8 +16,63 @@ open FSharp.UMX
 module Expecto =
   open System.Threading.Tasks
 
+  /// Expecto reads the stack trace of a test's exception, and the whole run fails when it is null. An exception that
+  /// was only created, never raised, has none.
+  let private raised (e: exn) =
+    try
+      raise e
+    with e ->
+      e
+
+  /// Like Expecto's Test.timeout, which cancels the test when the time is up and then waits until it stops, however
+  /// long that takes. This one waits at most 10 seconds: a test stuck in a synchronous step (a blocking call, a
+  /// deadlock) is reported as a timeout instead of holding up the tests after it. Synchronous test code cannot be
+  /// cancelled and keeps Expecto's behaviour.
+  let cancelOnTimeout (timeout: TimeSpan) (code: TestCode) =
+    match code with
+    | TestCode.Async test ->
+      TestCode.Async(
+        async {
+          let! runToken = Async.CancellationToken
+
+          // Expecto never cancels runToken, an outer cancelOnTimeout does. No async binds from here on: a bind returns
+          // at once when runToken is cancelled, and this must still wait for the test to stop. Not the cancellation
+          // continuation either: Expecto fails the whole run when a test ends as cancelled.
+          return!
+            Async.FromContinuations(fun (completed, failed, _) ->
+              // Not disposed: a test that ignores cancellation may still use the token after the timeout.
+              let cancellation = CancellationTokenSource.CreateLinkedTokenSource runToken
+              let work = Async.StartAsTask(test, cancellationToken = cancellation.Token)
+
+              task {
+                let! finished = Task.WhenAny(work :> Task, Task.Delay(timeout, runToken))
+
+                if obj.ReferenceEquals(finished, work) then
+                  // Pass on the test's own exception, not the AggregateException of the task.
+                  match work.Exception with
+                  | null when work.IsCanceled -> failed (raised (OperationCanceledException cancellation.Token))
+                  | null -> completed ()
+                  | aggregate when aggregate.InnerExceptions.Count = 1 -> failed aggregate.InnerException
+                  | aggregate -> failed (raised aggregate)
+                else
+                  // Cancel also runs the callbacks the test registered on the token, and throws what they throw. The
+                  // test must still be reported.
+                  try
+                    cancellation.Cancel()
+                  with _ ->
+                    ()
+
+                  // Give the test time to reach its next asynchronous step and stop, before the next test starts.
+                  let! _ = Task.WhenAny(work :> Task, Task.Delay(TimeSpan.FromSeconds 10.))
+                  failed (raised (AssertException $"Timeout ({timeout}), the test was cancelled"))
+              }
+              |> ignore)
+        }
+      )
+    | code -> Test.timeout (int timeout.TotalMilliseconds) code
+
   let inline testBuilderWithTimeout (ts: TimeSpan) name testCase focus =
-    TestLabel(name, TestCase(Test.timeout (int ts.TotalMilliseconds) (testCase), focus), focus)
+    TestLabel(name, TestCase(cancelOnTimeout ts testCase, focus), focus)
 
   let inline testCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Normal
   let inline ftestCaseWithTimeout (ts: TimeSpan) name test = testBuilderWithTimeout ts name (Sync test) Focused
@@ -108,7 +163,15 @@ type DisposableDirectory(directory: string, deleteParentDir) =
         else
           x.DirectoryInfo
 
-      let mutable attempts = 25
+      // Inside the test project, every run removes the temporary directories of runs that ended, and the test
+      // executable also removes its own when the run ends (`dotnet test` does not). Deleting earlier breaks servers
+      // starting meanwhile: MSBuild moves the current directory of the process into the projects it builds, and a
+      // server that read it then starts `dotnet` in a directory that no longer exists.
+      let mutable attempts =
+        if dirToDelete.FullName.StartsWith(__SOURCE_DIRECTORY__, StringComparison.Ordinal) then
+          0
+        else
+          25
 
       // Handle odd cases with windows file locking
       while attempts > 0 do
@@ -157,7 +220,8 @@ type Async =
                           let msg =
                             "Cancelling the workflow, because the Observable awaited using AwaitObservable has completed."
 
-                          mailbox.Post(Choice3Of3(OperationCanceledException(msg))) }
+                          mailbox.Post(Choice3Of3(OperationCanceledException(msg)))
+                    }
                   )
 
                 guardFunction () // call the guard function
@@ -225,7 +289,8 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   let recordRequests =
     { new Server.ClientRequestSender with
-        member __.Send name payload = record serverInteractions name payload }
+        member __.Send name payload = record serverInteractions name payload
+    }
 
   let loader = workspaceLoader ()
   let client = new FSharpLspClient(recordNotifications, recordRequests)
@@ -235,8 +300,45 @@ let createAdaptiveServer workspaceLoader sourceTextFactory useTransparentCompile
 
   server :> IFSharpLspServer, serverInteractions :> ClientEvents
 
+/// Stands in for a server and forwards every call to `Target`. Tests cache their server for the whole run, so a
+/// test group that is done can let go of the real server by clearing `Target`.
+type ServerHandle() =
+  inherit System.Reflection.DispatchProxy()
+
+  member val Target: IFSharpLspServer = Unchecked.defaultof<_> with get, set
+
+  override this.Invoke(method, args) =
+    match box this.Target with
+    | null -> raise (ObjectDisposedException("IFSharpLspServer", "The test group of this server is done."))
+    | target ->
+      try
+        method.Invoke(target, args)
+      with :? System.Reflection.TargetInvocationException as ex when not (isNull ex.InnerException) ->
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw ex.InnerException
+        null
+
+/// Wraps `server` in a `ServerHandle`. The returned function disposes the server and empties the handle.
+let handleFor (server: IFSharpLspServer) =
+  let handle =
+    System.Reflection.DispatchProxy.Create<IFSharpLspServer, ServerHandle>()
+
+  (handle :?> ServerHandle).Target <- server
+
+  let shutdown () =
+    server.Dispose()
+    (handle :?> ServerHandle).Target <- Unchecked.defaultof<_>
+
+  handle, shutdown
+
+/// The server behind a `ServerHandle`, for tests that need the concrete server type.
+let realServer (server: IFSharpLspServer) =
+  match box server with
+  | :? ServerHandle as handle -> handle.Target
+  | _ -> server
+
 let defaultConfigDto: FSharpConfigDto =
-  { WorkspaceModePeekDeepLevel = None
+  {
+    WorkspaceModePeekDeepLevel = None
     ExcludeProjectDirectories = None
     KeywordsAutocomplete = None
     ExternalAutocomplete = None
@@ -284,19 +386,26 @@ let defaultConfigDto: FSharpConfigDto =
     AbstractClassStubGenerationObjectIdentifier = None
     CodeLenses =
       Some
-        { Signature = Some {| Enabled = Some true |}
-          References = Some {| Enabled = Some true |} }
+        {
+          Signature = Some {| Enabled = Some true |}
+          References = Some {| Enabled = Some true |}
+        }
     InlayHints =
       Some
-        { typeAnnotations = Some true
+        {
+          typeAnnotations = Some true
           parameterNames = Some true
-          disableLongTooltip = Some true }
+          disableLongTooltip = Some true
+        }
     PipelineHints =
       Some
-        { Enabled = Some true
-          Prefix = Some "//" }
+        {
+          Enabled = Some true
+          Prefix = Some "//"
+        }
     Notifications = None
-    Fsac = None }
+    Fsac = None
+  }
 
 let clientCaps: ClientCapabilities =
 
@@ -308,17 +417,21 @@ let clientCaps: ClientCapabilities =
 
   let workspaceCaps: WorkspaceClientCapabilities =
     let weCaps: WorkspaceEditClientCapabilities =
-      { DocumentChanges = Some true
+      {
+        DocumentChanges = Some true
         ResourceOperations = None
         FailureHandling = None
         NormalizesLineEndings = None
-        ChangeAnnotationSupport = None }
+        ChangeAnnotationSupport = None
+      }
 
     let symbolCaps: WorkspaceSymbolClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SymbolKind = None
         TagSupport = None
-        ResolveSupport = None }
+        ResolveSupport = None
+      }
 
     let semanticTokenCaps: SemanticTokensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
@@ -332,7 +445,8 @@ let clientCaps: ClientCapabilities =
     let codeLensCaps: CodeLensWorkspaceClientCapabilities =
       { RefreshSupport = Some true }
 
-    { ApplyEdit = Some true
+    {
+      ApplyEdit = Some true
       WorkspaceEdit = Some weCaps
       DidChangeConfiguration = Some didChangeConfigCaps
       DidChangeWatchedFiles = None
@@ -345,27 +459,34 @@ let clientCaps: ClientCapabilities =
       WorkspaceFolders = Some false
       Configuration = Some true
       FileOperations = None
-      Diagnostics = Some { RefreshSupport = Some false } }
+      Diagnostics = Some { RefreshSupport = Some false }
+    }
 
   let textCaps: TextDocumentClientCapabilities =
     let syncCaps: TextDocumentSyncClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         WillSave = Some true
         WillSaveWaitUntil = Some true
-        DidSave = Some true }
+        DidSave = Some true
+      }
 
     let publishDiagCaps: PublishDiagnosticsClientCapabilities =
-      { RelatedInformation = Some true
+      {
+        RelatedInformation = Some true
         TagSupport = Some { ValueSet = [||] }
         VersionSupport = Some false
         CodeDescriptionSupport = Some true
-        DataSupport = Some false }
+        DataSupport = Some false
+      }
 
     let compCaps: CompletionClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         CompletionItem =
           Some
-            { SnippetSupport = Some true
+            {
+              SnippetSupport = Some true
               CommitCharactersSupport = Some true
               DocumentationFormat = None
               DeprecatedSupport = Some false
@@ -374,99 +495,133 @@ let clientCaps: ClientCapabilities =
               InsertReplaceSupport = Some false
               ResolveSupport = None
               InsertTextModeSupport = None
-              LabelDetailsSupport = Some true }
+              LabelDetailsSupport = Some true
+            }
         CompletionItemKind = Some { ValueSet = None }
         ContextSupport = Some true
         InsertTextMode = Some InsertTextMode.AsIs
-        CompletionList = Some { ItemDefaults = None } }
+        CompletionList = Some { ItemDefaults = None }
+      }
 
     let hoverCaps: HoverClientCapabilities =
-      { DynamicRegistration = Some true
-        ContentFormat = Some [| MarkupKind.Markdown |] }
+      {
+        DynamicRegistration = Some true
+        ContentFormat = Some [| MarkupKind.Markdown |]
+      }
 
     let sigCaps: SignatureHelpClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SignatureInformation =
           Some
-            { DocumentationFormat = Some [| MarkupKind.Markdown |]
+            {
+              DocumentationFormat = Some [| MarkupKind.Markdown |]
               ParameterInformation = Some { LabelOffsetSupport = Some true }
-              ActiveParameterSupport = Some true }
-        ContextSupport = Some true }
+              ActiveParameterSupport = Some true
+            }
+        ContextSupport = Some true
+      }
 
     let docSymCaps: DocumentSymbolClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         SymbolKind = Some { ValueSet = None }
         HierarchicalDocumentSymbolSupport = Some false
         TagSupport = None
-        LabelSupport = Some true }
+        LabelSupport = Some true
+      }
 
     let foldingRangeCaps: FoldingRangeClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         LineFoldingOnly = Some true
         RangeLimit = Some 100u
         FoldingRange = Some { CollapsedText = Some true }
-        FoldingRangeKind = None }
+        FoldingRangeKind = None
+      }
 
     let semanticTokensCaps: SemanticTokensClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         Requests =
-          { Range = Some(U2.C1 true)
-            Full = Some(U2.C1 true) }
+          {
+            Range = Some(U2.C1 true)
+            Full = Some(U2.C1 true)
+          }
         TokenTypes = [||]
         TokenModifiers = [||]
         Formats = [| TokenFormat.Relative |]
         OverlappingTokenSupport = None
         MultilineTokenSupport = None
         ServerCancelSupport = Some true
-        AugmentsSyntaxTokens = Some true }
+        AugmentsSyntaxTokens = Some true
+      }
 
     let codeActionCaps =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         CodeActionLiteralSupport = None
         IsPreferredSupport = None
         DisabledSupport = None
         DataSupport = None
         ResolveSupport = None
-        HonorsChangeAnnotations = None }
+        HonorsChangeAnnotations = None
+      }
 
     let inlayHintCaps: InlayHintClientCapabilities =
-      { DynamicRegistration = Some true
-        ResolveSupport = None }
+      {
+        DynamicRegistration = Some true
+        ResolveSupport = None
+      }
 
     let _inlineValueCaps: InlineValueClientCapabilities =
       { DynamicRegistration = Some true }
 
     let renameCaps: RenameClientCapabilities =
-      { DynamicRegistration = Some true
+      {
+        DynamicRegistration = Some true
         HonorsChangeAnnotations = Some false
         PrepareSupport = Some false
-        PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier }
+        PrepareSupportDefaultBehavior = Some PrepareSupportDefaultBehavior.Identifier
+      }
 
     let referenceCaps: ReferenceClientCapabilities = { DynamicRegistration = Some true }
 
     let declarationCaps: DeclarationClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let defCaps: DefinitionClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let typeDefCaps: TypeDefinitionClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let implCaps: ImplementationClientCapabilities =
-      { DynamicRegistration = Some true
-        LinkSupport = Some false }
+      {
+        DynamicRegistration = Some true
+        LinkSupport = Some false
+      }
 
     let docLinkCaps: DocumentLinkClientCapabilities =
-      { DynamicRegistration = Some true
-        TooltipSupport = Some true }
+      {
+        DynamicRegistration = Some true
+        TooltipSupport = Some true
+      }
 
     let diagCaps: DiagnosticClientCapabilities =
-      { DynamicRegistration = Some true
-        RelatedDocumentSupport = Some true }
+      {
+        DynamicRegistration = Some true
+        RelatedDocumentSupport = Some true
+      }
 
     let highlightCaps: DocumentHighlightClientCapabilities =
       { DynamicRegistration = Some true }
@@ -496,7 +651,8 @@ let clientCaps: ClientCapabilities =
     let inlineValueCaps: InlineValueClientCapabilities =
       { DynamicRegistration = Some true }
 
-    { Synchronization = Some syncCaps
+    {
+      Synchronization = Some syncCaps
       PublishDiagnostics = Some publishDiagCaps
       Completion = Some compCaps
       Hover = Some hoverCaps
@@ -525,14 +681,17 @@ let clientCaps: ClientCapabilities =
       LinkedEditingRange = Some linkedEditingRangeCaps
       Moniker = Some monikerCaps
       InlineValue = Some inlineValueCaps
-      Diagnostic = Some diagCaps }
+      Diagnostic = Some diagCaps
+    }
 
-  { Workspace = Some workspaceCaps
+  {
+    Workspace = Some workspaceCaps
     TextDocument = Some textCaps
     Experimental = None
     Window = None
     General = None
-    NotebookDocument = None }
+    NotebookDocument = None
+  }
 
 open Expecto.Logging
 open Expecto.Logging.Message
@@ -588,33 +747,89 @@ let dotnetToolRestore dir =
     return expectExitCodeZero r
   }
 
+let private cleanedDirectories = System.Collections.Generic.HashSet<string>()
+let private restoredDirectories = System.Collections.Generic.HashSet<string>()
+let private prepareLock = new SemaphoreSlim(1)
+
+let private isWithin (parent: string) (path: string) =
+  path = parent
+  || path.StartsWith(parent + string Path.DirectorySeparatorChar, StringComparison.Ordinal)
+
+/// Deletes `obj` and `bin` of `path` and restores every F# project below it, once per test run.
+/// Test groups that share a TestCases directory, and the same group for each compiler, reuse that work, and
+/// do not delete `obj` under the servers of earlier groups. After a test builds with `DotnetCli.build`, directories
+/// overlapping the built path are cleaned and restored again, so build output does not leak into later groups.
+/// Loading a project still leaves a few generated files (such as AssemblyInfo.fs) in `obj` for later groups;
+/// they are the same on every load.
+let prepareTestProjects (path: string) =
+  let prepare =
+    async {
+      let path = Path.GetFullPath path
+      do! prepareLock.WaitAsync() |> Async.AwaitTask
+
+      try
+        for built in FsAutoComplete.Tests.Lsp.Helpers.DotnetCli.takeBuiltPaths () do
+          let overlaps directory = isWithin built directory || isWithin directory built
+
+          cleanedDirectories.RemoveWhere overlaps |> ignore
+          restoredDirectories.RemoveWhere overlaps |> ignore
+
+        if cleanedDirectories.Add path then
+          dotnetCleanup path
+          restoredDirectories.Remove path |> ignore
+
+        for file in Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
+          let directory = Path.GetDirectoryName file
+
+          if not (restoredDirectories.Contains directory) then
+            do! dotnetRestore directory
+            restoredDirectories.Add directory |> ignore
+      finally
+        prepareLock.Release() |> ignore
+    }
+
+  // Without a cancellation token: a test cancelled while it waits for the lock must not keep the lock, and must
+  // not stop a restore halfway. The test stops waiting; the work finishes and releases the lock.
+  async {
+    let! cancellation = Async.CancellationToken
+
+    return!
+      Async.StartAsTask(prepare, cancellationToken = CancellationToken.None).WaitAsync(cancellation)
+      |> Async.AwaitTask
+  }
+
 let serverInitialize path (config: FSharpConfigDto) createServer =
   async {
-    dotnetCleanup path
-
-    for file in System.IO.Directory.EnumerateFiles(path, "*.fsproj", SearchOption.AllDirectories) do
-      do! file |> Path.GetDirectoryName |> dotnetRestore
+    do! prepareTestProjects path
 
     let (server: IFSharpLspServer), clientNotifications = createServer ()
     clientNotifications |> Observable.add logEvent
 
     let p: InitializeParams =
-      { ProcessId = Some 1
+      {
+        ProcessId = Some 1
         RootPath = Some path
         RootUri = Some(sprintf "file://%s" path)
         InitializationOptions = Some(Server.serialize config)
         Capabilities = clientCaps
         ClientInfo =
           Some
-            { Name = "FSAC Tests"
-              Version = Some "0.0.0" }
+            {
+              Name = "FSAC Tests"
+              Version = Some "0.0.0"
+            }
         WorkspaceFolders =
           Some
-            [| { Uri = Path.FilePathToUri path
-                 Name = "Test Folder" } |]
+            [|
+              {
+                Uri = Path.FilePathToUri path
+                Name = "Test Folder"
+              }
+            |]
         Trace = None
         Locale = None
-        WorkDoneToken = None }
+        WorkDoneToken = None
+      }
 
     let! result = server.Initialize p
 
@@ -626,19 +841,25 @@ let serverInitialize path (config: FSharpConfigDto) createServer =
   }
 
 let loadDocument path : TextDocumentItem =
-  { Uri = Path.FilePathToUri path
+  {
+    Uri = Path.FilePathToUri path
     LanguageId = "fsharp"
     Version = 0
-    Text = File.ReadAllText path }
+    Text = File.ReadAllText path
+  }
 
 let parseProject projectFilePath (server: IFSharpLspServer) =
   async {
     let projectParams: ProjectParms =
-      { Project = { Uri = Path.FilePathToUri projectFilePath } }
+      {
+        Project =
+          {
+            Uri = Path.FilePathToUri projectFilePath
+          }
+      }
 
     let projectName = Path.GetFileNameWithoutExtension projectFilePath
     let! result = server.FSharpProject projectParams
-    do! Async.Sleep(TimeSpan.FromSeconds 3.)
     logger.Value.Debug("{project} parse result: {result}", projectName, result)
   }
 
@@ -647,7 +868,13 @@ let (|UnwrappedPlainNotification|_|) eventType (notification: PlainNotification)
   |> JsonSerializer.readJson<ResponseMsg<'t>>
   |> fun r -> if r.Kind = eventType then Some r.Data else None
 
-let internal defaultTimeout = TimeSpan.FromSeconds 10.0
+/// How long a test waits for a notification from the server, such as diagnostics or a finished workspace load.
+/// The wait ends as soon as the notification arrives. CI raises FSAC_TEST_DEFAULT_TIMEOUT for its loaded runners,
+/// and these waits follow it; without it they fail fast.
+let internal defaultTimeout =
+  match Environment.GetEnvironmentVariable "FSAC_TEST_DEFAULT_TIMEOUT" with
+  | null -> TimeSpan.FromSeconds 10.0
+  | _ -> Expecto.DEFAULT_TIMEOUT
 
 let waitForWorkspaceFinishedParsing (events: ClientEvents) =
   let chooser (name, payload) =

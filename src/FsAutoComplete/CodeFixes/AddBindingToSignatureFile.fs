@@ -53,8 +53,10 @@ let fix
           | Some(SyntaxNode.SynModule(SynModuleDecl.Let _)),
             SyntaxNode.SynBinding(SynBinding(
               headPat = IdentifierFromHeadPat nameIdent
-              trivia = { LeadingKeyword = lk
-                         EqualsRange = Some mEq })) ->
+              trivia = {
+                         LeadingKeyword = lk
+                         EqualsRange = Some mEq
+                       })) ->
             let mLetTillEquals = Range.unionRanges lk.Range mEq
 
             if Range.rangeContainsPos mLetTillEquals fcsPos then
@@ -76,7 +78,9 @@ let fix
           let sigFileName = Utils.normalizePath sigFilePath
 
           let sigTextDocumentIdentifier: TextDocumentIdentifier =
-            { Uri = $"%s{codeActionParams.TextDocument.Uri}i" }
+            {
+              Uri = $"%s{codeActionParams.TextDocument.Uri}i"
+            }
 
           let! (sigParseAndCheckResults: ParseAndCheckResults, _sigLine: string, sigSourceText: IFSACSourceText) =
             getParseResultsForFile sigFileName (Position.mkPos 1 0)
@@ -111,8 +115,10 @@ let fix
                       | None ->
                         match node with
                         | SyntaxNode.SynModuleSigDecl(SynModuleSigDecl.NestedModule(
-                            trivia = { ModuleKeyword = Some mk
-                                       EqualsRange = Some mEq }
+                            trivia = {
+                                       ModuleKeyword = Some mk
+                                       EqualsRange = Some mEq
+                                     }
                             range = mFull)) ->
                           let mAfterEqualsTillEnd = Range.unionRanges mEq.EndRange mFull.EndRange
                           Some(InsertLocation.ReplaceEmptyNestedModule(mk.StartColumn, mAfterEqualsTillEnd))
@@ -137,13 +143,21 @@ let fix
                     $"\n%s{indent}%s{valText}", mReplace
 
                 return
-                  [ { SourceDiagnostic = None
+                  [
+                    {
+                      SourceDiagnostic = None
                       Title = title
                       File = sigTextDocumentIdentifier
                       Edits =
-                        [| { Range = fcsRangeToLsp m
-                             NewText = newText } |]
-                      Kind = FixKind.Fix } ]
+                        [|
+                          {
+                            Range = fcsRangeToLsp m
+                            NewText = newText
+                          }
+                        |]
+                      Kind = FixKind.Fix
+                    }
+                  ]
             | _ -> return []
         | _ -> return []
     })

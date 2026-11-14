@@ -15,14 +15,16 @@ let makeText (textFactory: FsAutoComplete.ISourceTextFactory) (text: string) =
 let private navigationTests textFactory =
   testList
     (nameof Navigation)
-    [ let extractTwoCursors text =
+    [
+      let extractTwoCursors text =
         let (text, poss) = Cursors.extract text
         let text = makeText textFactory text
         (text, (poss[0], poss[1]))
 
       testList
         (nameof tryEndOfPrevLine)
-        [ testCase "can get end of prev line when not border line"
+        [
+          testCase "can get end of prev line when not border line"
           <| fun _ ->
             let text =
               """let foo = 4
@@ -69,7 +71,8 @@ let z = 4"""
             let text = makeText textFactory "let foo = 4"
             let line = 0u
             let actual = tryEndOfPrevLine text line
-            Expect.isNone actual "No prev line in first line" ]
+            Expect.isNone actual "No prev line in first line"
+        ]
 
       testList
         (nameof tryStartOfNextLine)
@@ -122,11 +125,13 @@ let $0z$0 = 4"""
             let text = makeText textFactory "let foo = 4"
             let line = 0u
             let actual = tryStartOfNextLine text line
-            Expect.isNone actual "No next line in first line" ]
+            Expect.isNone actual "No next line in first line"
+        ]
 
       testList
         (nameof rangeToDeleteFullLine)
-        [ testCase "can get all range for single line"
+        [
+          testCase "can get all range for single line"
           <| fun _ ->
             let text = "$0let foo = 4$0"
             let (text, (start, fin)) = text |> extractTwoCursors
@@ -195,7 +200,9 @@ let z = 4"""
 
             let line = pos.Line
             let actual = text |> rangeToDeleteFullLine line
-            Expect.equal actual expected "Incorrect range" ] ]
+            Expect.equal actual expected "Incorrect range"
+        ]
+    ]
 
 let tests textFactory =
   testList ($"{nameof (FsAutoComplete)}.{nameof (FsAutoComplete.CodeFix)}") [ navigationTests textFactory ]

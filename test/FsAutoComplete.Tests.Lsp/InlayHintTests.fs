@@ -18,7 +18,8 @@ module private FSharpInlayHints =
   open Utils.TextEdit
 
   let private at (text, pos, kind, edits) : InlayHint =
-    { Label =
+    {
+      Label =
         match kind with
         | InlayHintKind.Type -> U2.C1(": " + InlayHints.truncated text)
         | InlayHintKind.Parameter -> U2.C1(InlayHints.truncated text + " =")
@@ -36,7 +37,8 @@ module private FSharpInlayHints =
         match kind with
         | InlayHintKind.Parameter -> Some true
         | _ -> None
-      Data = None }
+      Data = None
+    }
 
   let private from (text, (line, char), kind) = at (text, { Line = line; Character = char }, kind, None)
 
@@ -67,8 +69,10 @@ module private FSharpInlayHints =
     let (text, poss) = text |> Text.trimTripleQuotation |> Cursors.extract
 
     let range =
-      { Start = poss |> List.head
-        End = poss |> List.last }
+      {
+        Start = poss |> List.head
+        End = poss |> List.last
+      }
 
     let poss =
       let count = poss |> List.length
@@ -98,43 +102,69 @@ module private FSharpInlayHints =
 
   let tests state =
     serverTestList "F# Inlay Hints" state defaultConfigDto None (fun server ->
-      [ testList
+      [
+        testList
           "type hint"
-          [ testCaseAsync "can show type hint"
+          [
+            testCaseAsync "can show type hint"
             <| checkRange
               server
               """
             $0let f beta$0 = beta + 1$0
             """
-              [ ty
+              [
+                ty
                   "int"
-                  [ { Range =
-                        { Start = { Line = 0u; Character = 6u }
-                          End = { Line = 0u; Character = 6u } }
-                      NewText = "(" }
-                    { Range =
-                        { Start = { Line = 0u; Character = 10u }
-                          End = { Line = 0u; Character = 10u } }
-                      NewText = ": " }
-                    { Range =
-                        { Start = { Line = 0u; Character = 10u }
-                          End = { Line = 0u; Character = 10u } }
-                      NewText = "int" }
-                    { Range =
-                        { Start = { Line = 0u; Character = 10u }
-                          End = { Line = 0u; Character = 10u } }
-                      NewText = ")" } ] ] ]
+                  [
+                    {
+                      Range =
+                        {
+                          Start = { Line = 0u; Character = 6u }
+                          End = { Line = 0u; Character = 6u }
+                        }
+                      NewText = "("
+                    }
+                    {
+                      Range =
+                        {
+                          Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u }
+                        }
+                      NewText = ": "
+                    }
+                    {
+                      Range =
+                        {
+                          Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u }
+                        }
+                      NewText = "int"
+                    }
+                    {
+                      Range =
+                        {
+                          Start = { Line = 0u; Character = 10u }
+                          End = { Line = 0u; Character = 10u }
+                        }
+                      NewText = ")"
+                    }
+                  ]
+              ]
+          ]
 
         testList
           "parameter hint"
-          [ testCaseAsync "can show param hint"
+          [
+            testCaseAsync "can show param hint"
             <| checkRange
               server
               """
             let f beta = ()
             $0f $042$0
             """
-              [ param "beta" ] ] ])
+              [ param "beta" ]
+          ]
+      ])
 
 module private LspInlayHints =
   open Utils.Server
@@ -181,12 +211,14 @@ module private LspInlayHints =
       // we remove edits and tooltips because they are too hard atm.
       let actualWithoutEdits =
         { actual with
-            TextEdits = mkDummyEdits actual.TextEdits }
+            TextEdits = mkDummyEdits actual.TextEdits
+        }
         |> ignoreData
 
       let expectedWithoutExpected =
         { expectedBase with
-            TextEdits = mkDummyEdits textAfterEdits }
+            TextEdits = mkDummyEdits textAfterEdits
+        }
 
       Expect.equal
         actualWithoutEdits
@@ -253,7 +285,8 @@ module private LspInlayHints =
   let private fromCursor: Position = { Line = 0u; Character = 0u }
 
   let private mkBasicHint (kind: InlayHintKind) (pos: Position) (label: string) : InlayHint =
-    { Kind = Some kind
+    {
+      Kind = Some kind
       Position = pos
       Label = U2.C1 label
       TextEdits = None
@@ -266,7 +299,8 @@ module private LspInlayHints =
         match kind with
         | InlayHintKind.Parameter -> Some true
         | _ -> None
-      Data = None }
+      Data = None
+    }
 
   let paramHint (paramName: string) =
     let label = $"{paramName} ="
@@ -306,7 +340,8 @@ module private LspInlayHints =
             | InlayHintKind.Type -> ": " + truncatedName
             | _ -> failwith "unreachable"
             |> U2.C1
-          Tooltip = U2.C1 name |> Some }
+          Tooltip = U2.C1 name |> Some
+      }
 
     (hint, edits)
 
@@ -314,7 +349,8 @@ open LspInlayHints
 
 let private paramHintTests state =
   serverTestList "param hints" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can show param hint"
+    [
+      testCaseAsync "can show param hint"
       <| checkAllInMarkedRange
         server
         """
@@ -338,8 +374,10 @@ let private paramHintTests state =
         let f averylongnamenotjustlongbutextremelylongandjusttobesureevenlonger = ()
         $|f $042$|
         """
-        [ truncated
-          <| paramHint "averylongnamenotjustlongbutextremelylongandjusttobesureevenlonger" ]
+        [
+          truncated
+          <| paramHint "averylongnamenotjustlongbutextremelylongandjusttobesureevenlonger"
+        ]
 
       testCaseAsync "doesn't show hint for well-known parameter name"
       <| checkAllInMarkedRange
@@ -625,9 +663,11 @@ let private paramHintTests state =
 
       testList
         "special names"
-        [ testList
+        [
+          testList
             "mapping"
-            [ testCaseAsync "hide: for List"
+            [
+              testCaseAsync "hide: for List"
               <| checkAllInMarkedRange
                 server
                 """
@@ -648,10 +688,12 @@ let private paramHintTests state =
             let doStuff mapping = ()
             $|doStuff $042$|
             """
-                [ paramHint "mapping" ] ]
+                [ paramHint "mapping" ]
+            ]
           testList
             "in collections"
-            [ testCaseAsync "hide: predicate"
+            [
+              testCaseAsync "hide: predicate"
               <| checkAllInMarkedRange
                 server
                 """
@@ -736,10 +778,12 @@ let private paramHintTests state =
                 """
             $|Seq.concat []$|
             """
-                [] ]
+                []
+            ]
           testList
             "option"
-            [ testCaseAsync "hide: for Option"
+            [
+              testCaseAsync "hide: for Option"
               <| checkAllInMarkedRange
                 server
                 """
@@ -753,10 +797,12 @@ let private paramHintTests state =
             let doStuff option = ()
             $|doStuff $042$|
             """
-                [ paramHint "option" ] ]
+                [ paramHint "option" ]
+            ]
           testList
             "voption"
-            [ testCaseAsync "hide: for ValueOption"
+            [
+              testCaseAsync "hide: for ValueOption"
               <| checkAllInMarkedRange
                 server
                 """
@@ -770,10 +816,12 @@ let private paramHintTests state =
             let doStuff voption = ()
             $|doStuff $042$|
             """
-                [ paramHint "voption" ] ]
+                [ paramHint "voption" ]
+            ]
           testList
             "format"
-            [ testCaseAsync "hide: in printfn"
+            [
+              testCaseAsync "hide: in printfn"
               <| checkAllInMarkedRange
                 server
                 """
@@ -803,7 +851,9 @@ let private paramHintTests state =
             let doStuff format = ()
             $|doStuff $042$|
             """
-                [ paramHint "format" ] ] ]
+                [ paramHint "format" ]
+            ]
+        ]
 
       testList
         "tuple param"
@@ -905,7 +955,8 @@ let private paramHintTests state =
 
           $|f ($0(fun v$0 -> v + 1), $0fun v$0 -> v + 1)$|
           """
-            [ paramHint "lambdaParens"
+            [
+              paramHint "lambdaParens"
               // justTypeHint "int"
               typeHint
                 "int"
@@ -922,7 +973,8 @@ let private paramHintTests state =
               let f (lambdaParens, lambdaNoParens) = ()
 
               f ((fun v -> v + 1), fun (v: int) -> v + 1)
-              """ ]
+              """
+            ]
 
           // ionide/ionide-vscode-fsharp#1714
           testCaseAsync "ionide/ionide-vscode-fsharp#1714"
@@ -936,7 +988,8 @@ let private paramHintTests state =
 
           testList
             "can assign param name to correct input"
-            [ testCaseAsync "mix"
+            [
+              testCaseAsync "mix"
               <| checkAllInMarkedRange
                 server
                 """
@@ -947,11 +1000,13 @@ let private paramHintTests state =
 
             $|f $01 ($02,$03) (4,5) $0ef$|
             """
-                [ paramHint "alpha"
+                [
+                  paramHint "alpha"
                   paramHint "beta"
                   paramHint "gamma"
                   // no delta: FCS doesn't provide name for tuple param (but instead unnamed for each tuple element)
-                  paramHint "(epsilon,zeta)" ]
+                  paramHint "(epsilon,zeta)"
+                ]
               testCaseAsync "all tuple"
               <| checkAllInMarkedRange
                 server
@@ -975,7 +1030,8 @@ let private paramHintTests state =
               ($0(fun (v: int) -> v + 1), $012.0, $0fun (v: int) -> v + 1)
             $|
             """
-                [ paramHint "alpha"
+                [
+                  paramHint "alpha"
                   paramHint "beta"
                   paramHint "gamma"
                   paramHint "(delta,epsilon)"
@@ -986,7 +1042,8 @@ let private paramHintTests state =
                   paramHint "kappa"
                   paramHint "lambda"
                   paramHint "muValue"
-                  paramHint "nuValue" ]
+                  paramHint "nuValue"
+                ]
               testCaseAsync "alternate tuple & var"
               <| checkAllInMarkedRange
                 server
@@ -999,7 +1056,8 @@ let private paramHintTests state =
             f $0v $0(1,1) ($01,$01) $0v ($01,$01) $0(1,1) ($01, $01) = ()
             $|
             """
-                [ paramHint "(alpha,beta)"
+                [
+                  paramHint "(alpha,beta)"
                   paramHint "gamma"
                   paramHint "delta"
                   paramHint "epsilon"
@@ -1008,11 +1066,15 @@ let private paramHintTests state =
                   paramHint "theta"
                   paramHint "iota"
                   paramHint "kappa"
-                  paramHint "lambda" ] ] ]
+                  paramHint "lambda"
+                ]
+            ]
+        ]
 
       testList
         "unit"
-        [ testCaseAsync "doesn't show param hint for unnamed unit param"
+        [
+          testCaseAsync "doesn't show param hint for unnamed unit param"
           <| checkAllInMarkedRange
             server
             """
@@ -1039,7 +1101,8 @@ let private paramHintTests state =
 
           $|f $0()$|
           """
-            [ paramHint "myValue" ] ]
+            [ paramHint "myValue" ]
+        ]
 
       testCaseAsync "doesn't show param hint for wildcard param"
       <| checkAllInMarkedRange
@@ -1062,9 +1125,11 @@ let private paramHintTests state =
 
       testList
         "operator"
-        [ testList
+        [
+          testList
             "pipe"
-            [ testCaseAsync "doesn't show param for func with args piped in"
+            [
+              testCaseAsync "doesn't show param for func with args piped in"
               <| checkAllInMarkedRange
                 server
                 """
@@ -1102,7 +1167,8 @@ let private paramHintTests state =
             f3 $0(printfn "number %i") <| (f2 $042 <| (f1 <| [1..4]))
             $|
             """
-                [ paramHint "someFunction"; paramHint "someValue" ] ]
+                [ paramHint "someFunction"; paramHint "someValue" ]
+            ]
           testCaseAsync "doesn't show param for unary operator"
           <| checkAllInMarkedRange
             server
@@ -1118,7 +1184,8 @@ let private paramHintTests state =
           let (+) someValue someOtherValue = ()
           $|42 + 13$|
           """
-            [] ]
+            []
+        ]
 
       testCaseAsync "can show param for constructor applied in curried form"
       <| checkAllInMarkedRange
@@ -1208,21 +1275,25 @@ let private paramHintTests state =
         $|f $042$|
         |> ignore
         """
-        [ paramHint "``foo bar``" ] ])
+        [ paramHint "``foo bar``" ]
+    ])
 
 let private typeHintTests state =
   serverTestList "type hints" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can show type hint"
+    [
+      testCaseAsync "can show type hint"
       <| checkAllInMarkedRange
         server
         """
         $|let f beta$0 = beta + 1$|
         """
-        [ typeHint
+        [
+          typeHint
             "int"
             """
             let f (beta: int) = beta + 1
-            """ ]
+            """
+        ]
       testCaseAsync "can show all type hints"
       <| checkAllInMarkedRange
         server
@@ -1231,7 +1302,8 @@ let private typeHintTests state =
         let fromFloat (v: float) = int v
         $|let f alpha$0 beta$0 gamma$0 $|= (fromFloat alpha) + beta + (fromString gamma) + 1
         """
-        [ typeHint
+        [
+          typeHint
             "float"
             """
             let fromString (v: string) = int v
@@ -1251,29 +1323,34 @@ let private typeHintTests state =
             let fromString (v: string) = int v
             let fromFloat (v: float) = int v
             let f alpha beta (gamma: string) = (fromFloat alpha) + beta + (fromString gamma) + 1
-            """ ]
+            """
+        ]
       testCaseAsync "let-bound function parameter type hints"
       <| checkAllInMarkedRange
         server
         """
         $|let tryFindFile p$0 = p + "hi"$|
         """
-        [ typeHint
+        [
+          typeHint
             "string"
             """
             let tryFindFile (p: string) = p + "hi"
-            """ ]
+            """
+        ]
       testCaseAsync "value let binding type hint"
       <| checkAllInMarkedRange
         server
         """
         $|let s$0 = "hi"$|
         """
-        [ typeHint
+        [
+          typeHint
             "string"
             """
             let s: string = "hi"
-            """ ]
+            """
+        ]
       testCaseAsync "no type hint for an explicitly-typed binding"
       <| checkAllInMarkedRange
         server
@@ -1287,12 +1364,14 @@ let private typeHintTests state =
         """
         $|let t$0 = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))$|
         """
-        [ truncated
+        [
+          truncated
           <| typeHint
             "unit option option option option option option option option option option option option option option option"
             """
             let t: unit option option option option option option option option option option option option option option option = Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some (Some ()))))))))))))))
-            """ ]
+            """
+        ]
 
 
       testCaseAsync "can show type for generic actual type"
@@ -1303,13 +1382,15 @@ let private typeHintTests state =
         $|let list$0 = List<int>()$|
         list.Add 2
         """
-        [ typeHint
+        [
+          typeHint
             "List<int>"
             """
             open System.Collections.Generic
             let list: List<int> = List<int>()
             list.Add 2
-            """ ]
+            """
+        ]
       ptestCaseAsync "can show type hint for nested inside generic actual type"
       <|
       // see dotnet/fsharp#13202
@@ -1328,11 +1409,14 @@ let private typeHintTests state =
             open System.Collections.Immutable
             let arr: ImmutableArray<int>.Builder = ImmutableArray.CreateBuilder()
             arr.Add 2
-            """ ] ])
+            """
+        ]
+    ])
 
 let private mixedHintTests state =
   serverTestList "inlay hints" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can show all hints"
+    [
+      testCaseAsync "can show all hints"
       <| checkAllInMarkedRange
         server
         """
@@ -1343,7 +1427,8 @@ let private mixedHintTests state =
           value * 2
         let res$0 = f $042 $0"13" + f $01 $0"2"$|
         """
-        [ typeHint
+        [
+          typeHint
             "int"
             """
             open System
@@ -1396,7 +1481,9 @@ let private mixedHintTests state =
           paramHint "alpha"
           paramHint "beta"
           paramHint "alpha"
-          paramHint "beta" ] ])
+          paramHint "beta"
+        ]
+    ])
 
 let private inlayHintTests state =
   testList "LSP InlayHints" [ paramHintTests state; typeHintTests state; mixedHintTests state ]
@@ -1410,8 +1497,10 @@ module InlayHintAndExplicitType =
   let tryGetInlayHintAt pos doc =
     async {
       let allRange =
-        { Start = { Line = 0u; Character = 0u }
-          End = { Line = 1234u; Character = 1234u } }
+        {
+          Start = { Line = 0u; Character = 0u }
+          End = { Line = 1234u; Character = 1234u }
+        }
 
       let! hints = doc |> Document.inlayHintsAt allRange
       return hints |> Array.tryFind (fun h -> h.Position = pos)
@@ -1482,7 +1571,9 @@ module InlayHintAndExplicitType =
       (textAfterEdits: string)
       =
       async {
-        let! (doc, _) = Server.createUntitledDocument textAfterEdits (doc.Server |> Async.singleton)
+        let! (doc, _) =
+          Server.createUntitledDocument textAfterEdits (doc.Server |> Async.singleton)
+
         use doc = doc
         let pos = cursorBeforeEdits |> Cursor.afterEdits edits
         let! inlayHint = doc |> tryGetInlayHintAt pos
@@ -1598,7 +1689,8 @@ let private inlayTypeHintAndAddExplicitTypeTests state =
   let checkAll server pre post = check server pre (Edit post)
 
   serverTestList "LSP InlayHint (type) & AddExplicitType" state defaultConfigDto None (fun server ->
-    [ testCaseAsync "can add type annotation"
+    [
+      testCaseAsync "can add type annotation"
       <| checkAll
         server
         """
@@ -1617,7 +1709,8 @@ let private inlayTypeHintAndAddExplicitTypeTests state =
 
       testList
         "hide type hint"
-        [ testCaseAsync "CodeFix for func variable, but no type hint"
+        [
+          testCaseAsync "CodeFix for func variable, but no type hint"
           <| check
             server
             """
@@ -1629,14 +1722,17 @@ let private inlayTypeHintAndAddExplicitTypeTests state =
             """)
 
           //ENHANCEMENT: add cases when Inlay Type Hint should not trigger (like `let str = "..."`?)
-          ] ])
+        ]
+    ])
 
 let tests state =
   testList
     (nameof InlayHint)
-    [ FSharpInlayHints.tests state
+    [
+      FSharpInlayHints.tests state
       inlayHintTests state
-      inlayTypeHintAndAddExplicitTypeTests state ]
+      inlayTypeHintAndAddExplicitTypeTests state
+    ]
 
 
 open FSharp.Compiler.CodeAnalysis
@@ -1656,7 +1752,8 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
     async {
       let checker = checker.Value
       // Get compiler options for the 'project' implied by a single script file
-      let! projOptions, diagnostics = checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
+      let! projOptions, diagnostics =
+        checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
       // Expect.isEmpty diagnostics "There should be no diagnostics"
       Expect.hasLength diagnostics 0 "There should be no diagnostics"
 
@@ -1735,9 +1832,11 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | ExplicitType.Debug _ -> expected, cursors
           | ExplicitType.Invalid -> ExplicitType.Invalid, cursors
           | ExplicitType.Exists -> ExplicitType.Exists, cursors
-          | ExplicitType.Missing({ Ident = ident
+          | ExplicitType.Missing({
+                                   Ident = ident
                                    InsertAt = insertAt
-                                   Parens = parens } as data) ->
+                                   Parens = parens
+                                 } as data) ->
             let insertAt, cursors =
               if insertAt = fromCursor then
                 cursors |> extractCursor insertCursor |> toFcsPos
@@ -1786,7 +1885,8 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               { data with
                   Ident = ident
                   InsertAt = insertAt
-                  Parens = parens }
+                  Parens = parens
+              }
 
             let updated = ExplicitType.Missing data
             updated, cursors
@@ -1805,9 +1905,11 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
   testSequenced
   <| testList
     $"detect type and parens"
-    [ testList
+    [
+      testList
         "Expr"
-        [ testList
+        [
+          testList
             "For loop"
             [
               // for loop is special: no pattern, no simple pattern, just ident
@@ -1818,32 +1920,40 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             for $0i = 1 to 5 do
               ()
             """
-                ExplicitType.Invalid ] ]
+                ExplicitType.Invalid
+            ]
+        ]
       testSequenced
       <| testList
         "Bindings"
-        [ testList
+        [
+          testList
             "simple let"
-            [ testCaseAsync "let value = 1"
+            [
+              testCaseAsync "let value = 1"
               <| testExplicitType
                 """
             let $($0value$I$) = 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let (value) = 1"
               <| testExplicitType
                 """
             let ($($0value$I$)) = 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let value: int = 1"
               <| testExplicitType
                 """
@@ -1870,10 +1980,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let [<Attr>] $($0value$I$) = 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               // Attributes are not allowed inside parens: `let ([<Attr>] value) = ...` is invalid!
               testCaseAsync "let [<Attr>] (value) = 1"
               <| testExplicitType
@@ -1883,10 +1995,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let [<Attr>] ($($0value$I$)) = 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let [<Attr>] value: int = 1"
               <| testExplicitType
                 """
@@ -1909,48 +2023,58 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let $(private $0value$I$) = 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let private value: int = 1"
               <| testExplicitType
                 """
             let private $0value: int = 1
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
           testList
             "let with multiple vars"
-            [ testCaseAsync "let value1, value2, value3 = (1,2,3)"
+            [
+              testCaseAsync "let value1, value2, value3 = (1,2,3)"
               <| testExplicitType
                 """
             let value1, $($0value2$I$), value3 = (1,2,3)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let (value1, value2, value3) = (1,2,3)"
               <| testExplicitType
                 """
             let (value1, $($0value2$I$), value3) = (1,2,3)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let (value1, value2: int, value3) = (1,2,3)"
               <| testExplicitType
                 """
             let (value1, $0value: int, value3) = (1,2,3)
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
 
           testList
             "use"
-            [ testCaseAsync "use value = ..."
+            [
+              testCaseAsync "use value = ..."
               <| testExplicitType
                 """
             let d = { new System.IDisposable with
@@ -1961,10 +2085,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "use value: IDisposable = ..."
               <| testExplicitType
                 """
@@ -1976,11 +2102,13 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               use $0value: IDisposable = d
               ()
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
 
           testList
             "let!"
-            [ testCaseAsync "let! value = ..."
+            [
+              testCaseAsync "let! value = ..."
               <| testExplicitType
                 """
             async {
@@ -1989,10 +2117,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             } |> ignore
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let! (value: int) = ..."
               <| testExplicitType
                 """
@@ -2001,11 +2131,13 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               ()
             } |> ignore
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
 
           testList
             "use!"
-            [ testCaseAsync "use! value = ..."
+            [
+              testCaseAsync "use! value = ..."
               <| testExplicitType
                 """
             let d = { new System.IDisposable with
@@ -2017,56 +2149,70 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             } |> ignore
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] }) ]
+                    SpecialRules = []
+                  })
+            ]
 
           testList
             "foreach loop"
-            [ testCaseAsync "for value in [1..5]"
+            [
+              testCaseAsync "for value in [1..5]"
               <| testExplicitType
                 """
             for $($0value$I$) in [1..5] do
               ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "for value: int in [1..5]"
               <| testExplicitType
                 """
             for $0value: int in [1..5] do
               ()
             """
-                (ExplicitType.Exists) ] ]
+                (ExplicitType.Exists)
+            ]
+        ]
       testSequenced
       <| testList
         "Patterns"
-        [ testList
+        [
+          testList
             "tuple"
-            [ testCaseAsync "let (value,_) = (1,2)"
+            [
+              testCaseAsync "let (value,_) = (1,2)"
               <| testExplicitType
                 """
             let ($($0value$I$),_) = (1,2)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let value,_ = (1,2)"
               <| testExplicitType
                 """
             let $($0value$I$),_ = (1,2)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let (value: int,_) = (1,2)"
               <| testExplicitType
                 """
@@ -2086,45 +2232,57 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let ($($0value$I$),_): int*int = (1,2)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let value,_ : int*int = (1,2)"
               <| testExplicitType
                 """
             let $($0value$I$),_ : int*int = (1,2)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] }) ]
+                    SpecialRules = []
+                  })
+            ]
           testList
             "struct"
-            [ testCaseAsync "let struct (value,_) ="
+            [
+              testCaseAsync "let struct (value,_) ="
               <| testExplicitType
                 """
             let struct ($($0value$I$),_) = struct (1,2)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] }) ]
+                    SpecialRules = []
+                  })
+            ]
           testList
             "Union"
-            [ testCaseAsync "let U value = U 42"
+            [
+              testCaseAsync "let U value = U 42"
               <| testExplicitType
                 """
             type U = U of int
             let U $($0value$I$) = U 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let U (value) = U 42"
               <| testExplicitType
                 """
@@ -2132,10 +2290,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let U ($($0value$I$)) = U 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let ActPat v = U 42"
               <| testExplicitType
                 """
@@ -2144,10 +2304,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             """
                 // For ActivePattern parens aren't actually required -- but cannot distinguish from Union Case which requires Parens (because type of union, not type of value)
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| U (Beta=value) ->"
               <| testExplicitType
                 """
@@ -2157,10 +2319,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | U (Beta=$($0value$I$)) -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| U (Beta=value: int) ->"
               <| testExplicitType
                 """
@@ -2169,10 +2333,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             match U (1,2,3) with
             | U (Beta=$0value: int) -> ()
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
           testList
             "record"
-            [ testCaseAsync "let { Value1=value1 } ="
+            [
+              testCaseAsync "let { Value1=value1 } ="
               <| testExplicitType
                 """
             type R = { Value1: int; Value2: int; Value3: int}
@@ -2181,10 +2347,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let { Value1=$($0value1$I$) } = r
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let { Value1=value1: int } ="
               <| testExplicitType
                 """
@@ -2196,7 +2364,7 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 (ExplicitType.Exists)
 
               // No pattern matching for anon records
-              ]
+            ]
 
           testList
             "Optional"
@@ -2210,10 +2378,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff $(?$0value$I$) = value |> Option.map ((+)1)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [ RemoveOptionFromType ] })
+                    SpecialRules = [ RemoveOptionFromType ]
+                  })
               testCaseAsync "static member DoStuff (?value) = ..."
               <| testExplicitType
                 """
@@ -2221,10 +2391,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff ($(?$0value$I$)) = value |> Option.map ((+)1)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [ RemoveOptionFromType ] })
+                    SpecialRules = [ RemoveOptionFromType ]
+                  })
               testCaseAsync "static member DoStuff (?value: int) = ..."
               <| testExplicitType
                 """
@@ -2239,21 +2411,25 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff (a, b, $(?$0value$I$)) = value |> Option.map (fun v -> v + a + b)
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [ RemoveOptionFromType ] })
+                    SpecialRules = [ RemoveOptionFromType ]
+                  })
               testCaseAsync "static member DoStuff (a, b, ?value: int) = ..."
               <| testExplicitType
                 """
             type A =
               static member DoStuff (a, b, $0value: int) = value |> Option.map (fun v -> v + a + b)
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
 
           testList
             "nested"
-            [ testCaseAsync "options & tuples in option"
+            [
+              testCaseAsync "options & tuples in option"
               <| testExplicitType
                 """
             let v = Some (Some (1, (2,Some 3)))
@@ -2262,10 +2438,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | _ -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [ RemoveOptionFromType ] })
+                    SpecialRules = [ RemoveOptionFromType ]
+                  })
               testCaseAsync "options & tuples in tuple"
               <| testExplicitType
                 """
@@ -2275,34 +2453,44 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | _ -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [ RemoveOptionFromType ] }) ] ]
+                    SpecialRules = [ RemoveOptionFromType ]
+                  })
+            ]
+        ]
       testList
         "let function"
-        [ testList
+        [
+          testList
             "params"
-            [ testCaseAsync "let f value = value + 1"
+            [
+              testCaseAsync "let f value = value + 1"
               <| testExplicitType
                 """
             let f $($0value$I$) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let f (value) = value + 1"
               <| testExplicitType
                 """
             let f ($($0value$I$)) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let f (value: int) = value + 1"
               <| testExplicitType
                 """
@@ -2316,16 +2504,19 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let f a $($0value$I$) b = value + b + a + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "let f a (value: int) b = ..."
               <| testExplicitType
                 """
             let f a ($0value: int) b = value + a + b + 1
             """
-                (ExplicitType.Exists) ]
+                (ExplicitType.Exists)
+            ]
           testList
             "function"
             [
@@ -2335,21 +2526,25 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 """
             let $0f value = value + 1
             """
-                None ]
+                None
+            ]
 
           testList
             "member"
-            [ testCaseAsync "static member DoStuff value ="
+            [
+              testCaseAsync "static member DoStuff value ="
               <| testExplicitType
                 """
             type A =
               static member DoStuff $($0value$I$) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "static member DoStuff (value) ="
               <| testExplicitType
                 """
@@ -2357,10 +2552,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff ($($0value$I$)) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Exist fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "static member DoStuff (value: int) ="
               <| testExplicitType
                 """
@@ -2375,10 +2572,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff a $($0value$I$) b = value + a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "static member DoStuff(a, value, b) ="
               <| testExplicitType
                 """
@@ -2386,10 +2585,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member DoStuff(a, $($0value$I$), b) = value + a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
               testCaseAsync "member x.DoStuff(a, value, b) ="
               <| testExplicitType
@@ -2398,10 +2599,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               member x.DoStuff(a, $($0value$I$), b) = value + a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "doesn't handle this"
               <| testExplicitType'
                 """
@@ -2416,10 +2619,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             type A() =
               member x.$0DoStuff(a, value, b) = value + a + b + 1
             """
-                None ]
+                None
+            ]
           testList
             "secondary ctor"
-            [ testCaseAsync "new (a, value) ="
+            [
+              testCaseAsync "new (a, value) ="
               <| testExplicitType
                 """
             type A(a: int) =
@@ -2427,25 +2632,31 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               member _.DoStuff(v) = v + a + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
-              ] ]
+            ]
+        ]
       testList
         "pattern match"
-        [ testCaseAsync "| value ->"
+        [
+          testCaseAsync "| value ->"
           <| testExplicitType
             """
           match 4 with
           | $($0value$I$) -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Required fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "| Some value ->"
           <| testExplicitType
             """
@@ -2454,10 +2665,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | _ -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Required fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "Choice1Of2 value | Choice2Of2 value ->"
           <| testExplicitType
             """
@@ -2465,10 +2678,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | Choice1Of2 value | Choice2Of2 $($0value$I$) -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Required fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testList
             "as"
             [
@@ -2499,10 +2714,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let _ as $($0value$I$) = 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| _ as value ->"
               <| testExplicitType
                 """
@@ -2510,10 +2727,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | _ as $($0value$I$) -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "static member F (_ as value) ="
               <| testExplicitType
                 """
@@ -2521,10 +2740,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member F (_ as $($0value$I$)) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
               testCaseAsync "let value as _ ="
               <| testExplicitType
@@ -2532,10 +2753,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let $($0value$I$) as _ = 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| value as _ ->"
               <| testExplicitType
                 """
@@ -2543,10 +2766,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | $($0value$I$) as _ -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "static member F (value as _) ="
               <| testExplicitType
                 """
@@ -2554,10 +2779,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               static member F ($($0value$I$) as _) = value + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
               testCaseAsync "let (_ as value) ="
               <| testExplicitType
@@ -2565,10 +2792,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let (_ as $($0value$I$)) = 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| (_ as value) ->"
               <| testExplicitType
                 """
@@ -2576,10 +2805,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | (_ as $($0value$I$)) -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
               testCaseAsync "let (value as _) ="
               <| testExplicitType
@@ -2587,10 +2818,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let ($($0value$I$) as _) = 42
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "| (value as _) ->"
               <| testExplicitType
                 """
@@ -2598,10 +2831,13 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             | ($($0value$I$) as _) -> ()
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Optional fromCursors
-                    SpecialRules = [] }) ]
+                    SpecialRules = []
+                  })
+            ]
           testCaseAsync "| (_, value) ->"
           <| testExplicitType
             """
@@ -2609,10 +2845,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | (_, $($0value$I$)) -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Optional fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "| [value] ->"
           <| testExplicitType
             """
@@ -2621,10 +2859,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | _ -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Optional fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "| [_; value; _] ->"
           <| testExplicitType
             """
@@ -2633,14 +2873,17 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           | _ -> ()
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Optional fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
 
           testList
             "match!"
-            [ testCaseAsync "| value ->"
+            [
+              testCaseAsync "| value ->"
               <| testExplicitType
                 """
           async {
@@ -2650,47 +2893,58 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
           |> ignore
           """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
-              ] ]
+            ]
+        ]
       testList
         "lambda"
-        [ testCaseAsync "fun value ->"
+        [
+          testCaseAsync "fun value ->"
           <| testExplicitType
             """
           let f = fun $($0value$I$) -> value + 1
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Required fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "fun a value b ->"
           <| testExplicitType
             """
           let f = fun a $($0value$I$) b -> value + a + b + 1
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Required fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testCaseAsync "fun (a, value, b) ->"
           <| testExplicitType
             """
           let f = fun (a, $($0value$I$), b) -> value + a + b + 1
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Optional fromCursors
-                SpecialRules = [] })
+                SpecialRules = []
+              })
           testList
             "let f a = fun b -> a + b + 1"
-            [ testCaseAsync "f"
+            [
+              testCaseAsync "f"
               <| testExplicitType'
                 """
             let $0f a = fun b -> a + b + 1
@@ -2702,20 +2956,24 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             let f $($0a$I$) = fun b -> a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "b"
               <| testExplicitType
                 """
             let f a = fun $($0b$I$)-> a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
 
               testCaseAsync "f typed"
               <| testExplicitType'
@@ -2734,24 +2992,29 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 """
             let f a = fun ($0b: int) -> a + b + 1
             """
-                (ExplicitType.Exists) ] ]
+                (ExplicitType.Exists)
+            ]
+        ]
       testList
         "SimplePats"
         [
           // primary ctor args & lambda args
           testList
             "primary ctor"
-            [ testCaseAsync "T(a)"
+            [
+              testCaseAsync "T(a)"
               <| testExplicitType
                 """
             type A($0a$I) =
               member _.F(b) = a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Forbidden
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "T(a: int)"
               <| testExplicitType
                 """
@@ -2766,10 +3029,12 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               member _.F(b) = a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Forbidden
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "T(a, b, c: int, d)"
               <| testExplicitType
                 """
@@ -2786,14 +3051,19 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
               member _.F(b) = a + b + 1
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Forbidden
-                    SpecialRules = [] }) ] ]
+                    SpecialRules = []
+                  })
+            ]
+        ]
 
       testList
         "detect existing annotation"
-        [ testCaseAsync "let (value): int ="
+        [
+          testCaseAsync "let (value): int ="
           <| testExplicitType
             """
             let ($0value): int = 3
@@ -2804,22 +3074,27 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             """
             let (($0value)): int = 3
             """
-            (ExplicitType.Exists) ]
+            (ExplicitType.Exists)
+        ]
 
       testList
         "trigger location"
-        [ testList
+        [
+          testList
             "let f p = p + 2"
-            [ testCaseAsync "trigger for p binding"
+            [
+              testCaseAsync "trigger for p binding"
               <| testExplicitType
                 """
             let f $($0p$I$) = p + 2
             """
                 (ExplicitType.Missing
-                  { Ident = fromCursorAndInsert
+                  {
+                    Ident = fromCursorAndInsert
                     InsertAt = fromCursor
                     Parens = Parens.Required fromCursors
-                    SpecialRules = [] })
+                    SpecialRules = []
+                  })
               testCaseAsync "doesn't trigger for f binding"
               <|
               // ENHANCEMENT: handle
@@ -2833,7 +3108,8 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
                 """
             let f p = $0p + 2
             """
-                None ]
+                None
+            ]
           testCaseAsync "nested let"
           <| testExplicitType
             """
@@ -2844,7 +3120,11 @@ let explicitTypeInfoTests (sourceTextFactory: ISourceTextFactory) =
             res + 3
           """
             (ExplicitType.Missing
-              { Ident = fromCursorAndInsert
+              {
+                Ident = fromCursorAndInsert
                 InsertAt = fromCursor
                 Parens = Parens.Optional fromCursors
-                SpecialRules = [] }) ] ]
+                SpecialRules = []
+              })
+        ]
+    ]

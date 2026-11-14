@@ -17,19 +17,29 @@ let fix (getFileLines: GetFileLines) =
 
       let! lines = getFileLines fileName
 
-      let! walkPos = dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "No walk pos")
+      let! walkPos =
+        dec lines diagnostic.Range.Start |> Result.ofOption (fun _ -> "No walk pos")
 
       match walkBackUntilCondition lines walkPos (System.Char.IsWhiteSpace >> not) with
       | Some firstNonWhitespaceChar ->
-        let! insertPos = inc lines firstNonWhitespaceChar |> Result.ofOption (fun _ -> "No insert pos")
+        let! insertPos =
+          inc lines firstNonWhitespaceChar |> Result.ofOption (fun _ -> "No insert pos")
 
         return
-          [ { SourceDiagnostic = Some diagnostic
+          [
+            {
+              SourceDiagnostic = Some diagnostic
               Title = title
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = { Start = insertPos; End = insertPos }
-                     NewText = "= " } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = { Start = insertPos; End = insertPos }
+                    NewText = "= "
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | None -> return []
     })

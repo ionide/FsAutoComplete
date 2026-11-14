@@ -37,8 +37,10 @@ module SymbolUse =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 
@@ -154,7 +156,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -168,7 +170,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -181,7 +183,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -195,7 +197,7 @@ module SymbolUse =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -306,8 +308,10 @@ module SymbolPatterns =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 
@@ -335,8 +339,10 @@ module SymbolPatterns =
         cleanFullName
         |> List.collect (fun cleanFullName ->
           if ent.IsAttributeType then
-            [ cleanFullName
-              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1] ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
+            [
+              cleanFullName
+              cleanFullName.[0 .. cleanFullName.Length - attributeSuffixLength - 1]
+            ] //Get full name, and name without AttributeSuffix (for example `Literal` instead of `LiteralAttribute`)
           else
             [ cleanFullName ])
 
@@ -557,7 +563,7 @@ module SymbolPatterns =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 
@@ -580,7 +586,7 @@ module SymbolPatterns =
       ->
 
       match symbol.FullTypeSafe with
-      | Some fullType when fullType.IsFunctionType -> Some symbol
+      | Some fullType when fullType.IsFunctionType && not fullType.IsAbbreviation -> Some symbol
       | _ -> None
     | _ -> None
 

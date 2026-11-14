@@ -228,7 +228,8 @@ module CodeFix =
       Expect.isNonEmpty cursorRanges "No Range(s) specified"
 
       ServerTests.documentTestList name server (Server.createUntitledDocument beforeWithoutCursor) (fun doc ->
-        [ for (i, range) in cursorRanges |> Seq.indexed do
+        [
+          for (i, range) in cursorRanges |> Seq.indexed do
             let pos =
               if range |> Range.isPosition then
                 range.DebuggerDisplay
@@ -248,7 +249,8 @@ module CodeFix =
                     validateDiagnostics
                     chooseFix
                     expected
-              }) ])
+              })
+        ])
 
     /// One test for each Cursor.
     ///

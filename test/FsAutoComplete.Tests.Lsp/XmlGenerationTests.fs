@@ -18,7 +18,11 @@ let tests state =
   let server =
     async {
       let! (server, serverRequests) = serverInitialize testPath defaultConfigDto state
-      let tdop: DidOpenTextDocumentParams = { TextDocument = loadDocument scriptPath }
+
+      let tdop: DidOpenTextDocumentParams =
+        {
+          TextDocument = loadDocument scriptPath
+        }
 
       do! server.TextDocumentDidOpen tdop
 
@@ -26,9 +30,7 @@ let tests state =
       | Ok() -> return server, scriptPath, serverRequests
       | Error errors ->
         let errorStrings =
-          errors
-          |> Array.map (fun e -> e.DebuggerDisplay)
-          |> String.concat "\n\t* "
+          errors |> Array.map (fun e -> e.DebuggerDisplay) |> String.concat "\n\t* "
 
         return failtestf "Errors while parsing xml doc generation script:\n\t* %s" errorStrings
     }
@@ -36,7 +38,8 @@ let tests state =
 
   testList
     "xml doc comments"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "generate xml docs for function"
         (async {
           let! server, filePath, serverRequests = server
@@ -46,9 +49,11 @@ let tests state =
 
           let! result =
             server.FSharpDocumentationGenerator(
-              { TextDocument = { Uri = fileUri; Version = 1 }
+              {
+                TextDocument = { Uri = fileUri; Version = 1 }
                 // the start of the 'add' symbol name
-                Position = { Line = 0u; Character = 5u } }
+                Position = { Line = 0u; Character = 5u }
+              }
             )
 
           match result with
@@ -61,11 +66,18 @@ let tests state =
             $"""/// <summary></summary>{NewLine}/// <param name="left"></param>{NewLine}/// <param name="right"></param>{NewLine}/// <returns></returns>{NewLine}"""
 
           let expectedEdits: U2<TextEdit, AnnotatedTextEdit>[] =
-            [| { Range =
-                   { Start = { Line = 0u; Character = 0u }
-                     End = { Line = 0u; Character = 0u } }
-                 NewText = expectedXml }
-               |> U2.C1 |]
+            [|
+              {
+                Range =
+                  {
+                    Start = { Line = 0u; Character = 0u }
+                    End = { Line = 0u; Character = 0u }
+                  }
+                NewText = expectedXml
+              }
+              |> U2.C1
+            |]
 
           Expect.equal edits expectedEdits "Should have generated the xml docs at the start position"
-        }) ]
+        })
+    ]

@@ -18,10 +18,12 @@ open FsToolkit.ErrorHandling
 
 [<NoEquality; NoComparison>]
 type RecordExpr =
-  { Expr: SynExpr
+  {
+    Expr: SynExpr
     CopyExprOption: option<SynExpr * BlockSeparator>
     FieldExprList: SynExprRecordField list
-    LastKnownGoodPosForSymbolLookup: Position }
+    LastKnownGoodPosForSymbolLookup: Position
+  }
 
 [<RequireQualifiedAccess>]
 type PositionKind =
@@ -34,9 +36,11 @@ type PositionKind =
 
 [<NoComparison>]
 type RecordStubsInsertionParams =
-  { Kind: PositionKind
+  {
+    Kind: PositionKind
     InsertionPos: Position
-    IndentColumn: int }
+    IndentColumn: int
+  }
 
   static member TryCreateFromRecordExpression(expr: RecordExpr) =
     match expr.FieldExprList with
@@ -46,14 +50,18 @@ type RecordStubsInsertionParams =
         let exprRange = expr.Expr.Range
         let pos = Position.fromZ (exprRange.StartLine - 1) (exprRange.StartColumn + 1)
 
-        { Kind = PositionKind.AfterLeftBrace
+        {
+          Kind = PositionKind.AfterLeftBrace
           IndentColumn = pos.Column + 1
-          InsertionPos = pos }
+          InsertionPos = pos
+        }
         |> Some
       | Some(_toCopy, (withSeparator, _)) ->
-        { Kind = PositionKind.AfterCopyExpression
+        {
+          Kind = PositionKind.AfterCopyExpression
           IndentColumn = withSeparator.End.Column + 1
-          InsertionPos = withSeparator.End }
+          InsertionPos = withSeparator.End
+        }
         |> Some
 
     | _ ->
@@ -94,14 +102,18 @@ type RecordStubsInsertionParams =
               fieldName = (SynLongIdent(id = _ :: _), true); expr = Some expr; blockSeparator = semiColonOpt) ->
             match semiColonOpt with
             | None ->
-              { Kind = PositionKind.AfterLastField
+              {
+                Kind = PositionKind.AfterLastField
                 IndentColumn = indentColumn
-                InsertionPos = expr.Range.End }
+                InsertionPos = expr.Range.End
+              }
               |> Some
             | Some(_range, Some semiColonEndPos) ->
-              { Kind = PositionKind.AfterLastField
+              {
+                Kind = PositionKind.AfterLastField
                 IndentColumn = indentColumn
-                InsertionPos = semiColonEndPos }
+                InsertionPos = semiColonEndPos
+              }
               |> Some
             | _ -> None
           | _ -> None
@@ -144,10 +156,12 @@ let formatRecord
   use writer = new ColumnIndentedTextWriter()
 
   let ctxt =
-    { RecordTypeName = entity.DisplayName
+    {
+      RecordTypeName = entity.DisplayName
       RequireQualifiedAccess = hasAttribute<RequireQualifiedAccessAttribute> entity.Attributes
       Writer = writer
-      FieldDefaultValue = fieldDefaultValue }
+      FieldDefaultValue = fieldDefaultValue
+    }
 
   let fieldsWritten =
     fieldsWritten
@@ -195,14 +209,16 @@ let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos
         match node with
         | SyntaxNode.SynExpr(SynExpr.Record(recordFields = recordFields; copyInfo = copyInfo) as synExpr) ->
           Some
-            { Expr = synExpr
+            {
+              Expr = synExpr
               CopyExprOption = copyInfo
               FieldExprList = recordFields
               LastKnownGoodPosForSymbolLookup =
                 recordFields
                 |> List.tryLast
                 |> Option.map (fun (SynExprRecordField(fieldName = (id, _))) -> id.Range.Start)
-                |> Option.defaultValue synExpr.Range.Start }
+                |> Option.defaultValue synExpr.Range.Start
+            }
         | _ -> None)
 
     return found
@@ -243,10 +259,13 @@ let tryFindStubInsertionParamsAtPos (codeGenService: ICodeGenerationService) (po
   asyncOption {
     let! recordExpression = tryFindRecordExprInBufferAtPos codeGenService pos document
 
-    let! endsWithBrace = checkThatRecordExprEndsWithRBrace codeGenService document recordExpression
+    let! endsWithBrace =
+      checkThatRecordExprEndsWithRBrace codeGenService document recordExpression
 
     if endsWithBrace then
-      let! insertionPos = RecordStubsInsertionParams.TryCreateFromRecordExpression recordExpression
+      let! insertionPos =
+        RecordStubsInsertionParams.TryCreateFromRecordExpression recordExpression
+
       return recordExpression, insertionPos
     else
       return! None
@@ -260,7 +279,8 @@ let shouldGenerateRecordStub (recordExpr: RecordExpr) (entity: FSharpEntity) =
 
 let tryFindRecordDefinitionFromPos (codeGenService: ICodeGenerationService) (pos: Position) (document: Document) =
   asyncOption {
-    let! recordExpression, insertionPos = tryFindStubInsertionParamsAtPos codeGenService pos document
+    let! recordExpression, insertionPos =
+      tryFindStubInsertionParamsAtPos codeGenService pos document
 
     let! symbol, symbolUse =
       codeGenService.GetSymbolAndUseAtPositionOfKind(

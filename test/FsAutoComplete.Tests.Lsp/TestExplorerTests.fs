@@ -36,6 +36,32 @@ module TestRunResult =
     | Ok _ -> failtest $"{message}: the run was accepted"
     | Error err -> Expect.equal err.Code InvalidParams $"{message}: {err.Message}"
 
+  /// Compares the outcome of each test. On a mismatch, the message shows what each test reported, so that a CI log
+  /// says why a test did not pass.
+  let expectOutcomes (expected: (string * FsAutoComplete.TestServer.TestOutcome) list) results =
+    let actual =
+      results
+      |> List.map (fun (tr: FsAutoComplete.TestServer.TestResult) -> tr.TestItem.FullName, tr.Outcome)
+
+    let reported =
+      results
+      |> List.map (fun (tr: FsAutoComplete.TestServer.TestResult) ->
+        let show = Option.defaultValue "-"
+
+        $"{tr.TestItem.FullName}: {tr.Outcome}
+  error: {show tr.ErrorMessage}
+  stack trace: {show tr.ErrorStackTrace}
+  output: {show tr.AdditionalOutput}")
+      |> String.concat
+        "
+"
+
+    Expect.equal
+      (set actual)
+      (set expected)
+      $"What the tests reported:
+{reported}"
+
 module TestDiscoveryResult =
   open Ionide.LanguageServerProtocol.JsonRpc
 
@@ -53,13 +79,15 @@ module TestDiscoveryResult =
 
 module ExpectedTests =
   let VSTestXUnitRunResults =
-    [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+    [
+      "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests.Fails", FsAutoComplete.TestServer.TestOutcome.Failed
       "Tests.Skipped", FsAutoComplete.TestServer.TestOutcome.Skipped
       "Tests.Exception", FsAutoComplete.TestServer.TestOutcome.Failed
       "Tests+Nested.Test 1", FsAutoComplete.TestServer.TestOutcome.Passed
       "Tests+Nested.Test 2", FsAutoComplete.TestServer.TestOutcome.Passed
-      "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed ]
+      "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Failed
+    ]
 
   let VSTestXunitTests =
     [ "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ]
@@ -78,9 +106,9 @@ module Workspace =
       let buildResult = DotnetCli.build project.FullName
 
       Expect.equal
-        0
         buildResult.ExitCode
-        $"Workspace build failed with: {buildResult.StdErr} \nProject: {project.FullName}"
+        0
+        $"Workspace build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}\nProject: {project.FullName}"
 
 /// A workspace whose solution holds a VSTest project and a Microsoft.Testing.Platform project,
 /// reusing the fixtures the single-platform tests run against.
@@ -107,7 +135,8 @@ module MixedWorkspace =
     File.Move(mtpTargetPath, hidden, true)
 
     { new System.IDisposable with
-        member _.Dispose() = File.Move(hidden, mtpTargetPath, true) }
+        member _.Dispose() = File.Move(hidden, mtpTargetPath, true)
+    }
 
   let isFrom (project: string) (projectFilePath: string) =
     System.String.Equals(
@@ -168,9 +197,11 @@ let tests createServer =
   testSequenced
   <| testList
     "TestExplorerTests"
-    [ testList
+    [
+      testList
         "DiscoverTests"
-        [ testCaseAsync "it should error if the workspace hasn't been built"
+        [
+          testCaseAsync "it should error if the workspace hasn't been built"
           <| async {
             let workspaceRoot =
               Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "VSTest.XUnit.RunResults")
@@ -229,10 +260,12 @@ let tests createServer =
 
             Expect.equal parent.FullName "Tests+Nested" "the parent is the enclosing nested type"
             Expect.isFalse parent.IsLeaf "a grouping node is not runnable"
-          } ]
+          }
+        ]
       testList
         "Microsoft.Testing.Platform"
-        [ testCaseAsync "it should discover the tests of a testing platform project"
+        [
+          testCaseAsync "it should discover the tests of a testing platform project"
           <| async {
             let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "MtpSampleProjects")
 
@@ -241,7 +274,8 @@ let tests createServer =
                 workspaceRoot
                 { defaultConfigDto with
                     EnableTestingPlatform = Some true
-                    DotNetRoot = Some(Path.Combine(workspaceRoot, "missing-dotnet")) }
+                    DotNetRoot = Some(Path.Combine(workspaceRoot, "missing-dotnet"))
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -292,7 +326,8 @@ let tests createServer =
                 workspaceRoot
                 { defaultConfigDto with
                     EnableTestingPlatform = Some true
-                    DotNetRoot = Some(Path.Combine(workspaceRoot, "missing-dotnet")) }
+                    DotNetRoot = Some(Path.Combine(workspaceRoot, "missing-dotnet"))
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -301,10 +336,12 @@ let tests createServer =
             Workspace.build workspaceRoot
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
                 TestIds = None
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
 
@@ -326,7 +363,8 @@ let tests createServer =
               serverInitialize
                 workspaceRoot
                 { defaultConfigDto with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -352,10 +390,12 @@ let tests createServer =
               (fun () ->
                 Async.RunSynchronously(
                   server.TestRunTests(
-                    { LimitToProjects = None
+                    {
+                      LimitToProjects = None
                       TestCaseFilter = None
                       TestIds = None
-                      AttachDebugger = true }
+                      AttachDebugger = true
+                    }
                   )
                   |> Async.Ignore,
                   cancellationToken = tokenSource.Token
@@ -373,7 +413,8 @@ let tests createServer =
               serverInitialize
                 workspaceRoot
                 { defaultConfigDto with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -394,10 +435,12 @@ let tests createServer =
                   progress.TestLogs |> Array.iter (fun log -> logs.Add log.Message))
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
                 TestIds = None
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! _ = server.TestRunTests(runRequest)
 
@@ -417,7 +460,8 @@ let tests createServer =
               serverInitialize
                 workspaceRoot
                 { defaultConfigDto with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -425,10 +469,12 @@ let tests createServer =
             Workspace.build workspaceRoot
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
                 TestIds = Some [||]
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
             Expect.isEmpty (TestRunResult.tryUnwrapTestRunResult res) "no tests were selected"
@@ -442,7 +488,8 @@ let tests createServer =
               serverInitialize
                 workspaceRoot
                 { defaultConfigDto with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -457,10 +504,12 @@ let tests createServer =
               |> List.find (fun test -> test.IsLeaf && test.FullName = "Tests.My test")
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
                 TestIds = Some [| selected.Id |]
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
 
@@ -482,7 +531,8 @@ let tests createServer =
               serverInitialize
                 workspaceRoot
                 { defaultConfigDto with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -490,14 +540,17 @@ let tests createServer =
             Workspace.build workspaceRoot
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = Some "FullyQualifiedName~My test"
                 TestIds = None
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
             TestRunResult.expectInvalidParams res "a VSTest expression cannot select testing platform tests"
-          } ]
+          }
+        ]
       testList
         "Mixed VSTest and Microsoft.Testing.Platform workspace"
         (let initializeMixedServerWith (config: FSharpConfigDto) =
@@ -508,7 +561,8 @@ let tests createServer =
               serverInitialize
                 MixedWorkspace.root
                 { config with
-                    EnableTestingPlatform = Some true }
+                    EnableTestingPlatform = Some true
+                }
                 createServer
 
             do! waitForWorkspaceFinishedParsing event
@@ -521,7 +575,8 @@ let tests createServer =
          let initializeMixedServerWithoutVsTest () =
            initializeMixedServerWith
              { defaultConfigDto with
-                 DotNetRoot = Some(Path.Combine(MixedWorkspace.root, "missing-dotnet")) }
+                 DotNetRoot = Some(Path.Combine(MixedWorkspace.root, "missing-dotnet"))
+             }
 
          /// Every test item a run reported, whether as a result or as an active test.
          let collectRunProgress (event: ClientEvents) =
@@ -603,10 +658,12 @@ let tests createServer =
            }
 
          let idRun ids : TestRunRequest =
-           { LimitToProjects = None
+           {
+             LimitToProjects = None
              TestCaseFilter = None
              TestIds = Some ids
-             AttachDebugger = false }
+             AttachDebugger = false
+           }
 
          let outcomesOf (results: FsAutoComplete.TestServer.TestResult list) =
            results
@@ -621,7 +678,8 @@ let tests createServer =
 
            Expect.isEmpty strays message
 
-         [ testCaseAsync "discovery reports both platforms' tests, each under its own project, with distinct ids"
+         [
+           testCaseAsync "discovery reports both platforms' tests, each under its own project, with distinct ids"
            <| async {
              let! server, _ = initializeMixedServer ()
              use server = server
@@ -704,10 +762,12 @@ let tests createServer =
              use mtpLaunches = new ProcessLaunchWatch(MixedWorkspace.mtpProcessName)
 
              let runRequest: TestRunRequest =
-               { LimitToProjects = Some [ MixedWorkspace.vsTestProject ]
+               {
+                 LimitToProjects = Some [ MixedWorkspace.vsTestProject ]
                  TestCaseFilter = None
                  TestIds = None
-                 AttachDebugger = false }
+                 AttachDebugger = false
+               }
 
              let! res = server.TestRunTests(runRequest)
              let results = TestRunResult.tryUnwrapTestRunResult res
@@ -733,10 +793,12 @@ let tests createServer =
              // A filter is VSTest syntax. Running only its VSTest half would pass silently over the
              // platform's tests, so the whole request is rejected.
              let runRequest: TestRunRequest =
-               { LimitToProjects = None
+               {
+                 LimitToProjects = None
                  TestCaseFilter = Some "FullyQualifiedName~My test"
                  TestIds = None
-                 AttachDebugger = false }
+                 AttachDebugger = false
+               }
 
              let! res = server.TestRunTests(runRequest)
              TestRunResult.expectInvalidParams res "a VSTest filter cannot select platform tests"
@@ -762,10 +824,12 @@ let tests createServer =
              use _ = subscription
 
              let runRequest: TestRunRequest =
-               { LimitToProjects = Some [ MixedWorkspace.mtpProject ]
+               {
+                 LimitToProjects = Some [ MixedWorkspace.mtpProject ]
                  TestCaseFilter = None
                  TestIds = Some [| selected.Id |]
-                 AttachDebugger = false }
+                 AttachDebugger = false
+               }
 
              let! res = server.TestRunTests(runRequest)
              let results = TestRunResult.tryUnwrapTestRunResult res
@@ -788,10 +852,12 @@ let tests createServer =
              use mtpLaunches = new ProcessLaunchWatch(MixedWorkspace.mtpProcessName)
 
              let runRequest: TestRunRequest =
-               { LimitToProjects = None
+               {
+                 LimitToProjects = None
                  TestCaseFilter = None
                  TestIds = None
-                 AttachDebugger = false }
+                 AttachDebugger = false
+               }
 
              let! res = server.TestRunTests(runRequest)
              let results = TestRunResult.tryUnwrapTestRunResult res
@@ -837,8 +903,10 @@ let tests createServer =
              Expect.equal
                (outcomesOf results)
                (List.sort
-                 [ vsTest.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
-                   mtp.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ])
+                 [
+                   vsTest.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+                   mtp.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+                 ])
                "each id ran its own test once"
 
              Expect.equal
@@ -859,7 +927,8 @@ let tests createServer =
              let! res =
                server.TestRunTests(
                  { idRun [| vsTest.Id; mtp.Id |] with
-                     AttachDebugger = true }
+                     AttachDebugger = true
+                 }
                )
 
              let results = TestRunResult.tryUnwrapTestRunResult res
@@ -884,7 +953,8 @@ let tests createServer =
              let! res =
                server.TestRunTests(
                  { idRun [| selected.Id |] with
-                     AttachDebugger = true }
+                     AttachDebugger = true
+                 }
                )
 
              Expect.equal
@@ -917,7 +987,9 @@ let tests createServer =
 
              Expect.equal
                (outcomesOf results)
-               [ selected.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ]
+               [
+                 selected.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+               ]
                "only the selected platform test ran"
 
              expectOnlyFrom MixedWorkspace.mtpProject (List.ofSeq reported) "only platform progress"
@@ -937,7 +1009,9 @@ let tests createServer =
 
              Expect.equal
                (outcomesOf results)
-               [ selected.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed ]
+               [
+                 selected.ProjectFilePath, "Tests.My test", FsAutoComplete.TestServer.TestOutcome.Passed
+               ]
                "exactly the selected VSTest test ran"
 
              expectOnlyFrom MixedWorkspace.vsTestProject (List.ofSeq reported) "only VSTest progress"
@@ -954,10 +1028,12 @@ let tests createServer =
 
              // With the platform's project out of scope, the filter selects nothing it cannot read.
              let runRequest: TestRunRequest =
-               { LimitToProjects = Some [ MixedWorkspace.vsTestProject ]
+               {
+                 LimitToProjects = Some [ MixedWorkspace.vsTestProject ]
                  TestCaseFilter = Some "FullyQualifiedName~My test"
                  TestIds = None
-                 AttachDebugger = false }
+                 AttachDebugger = false
+               }
 
              let! res = server.TestRunTests(runRequest)
              let results = TestRunResult.tryUnwrapTestRunResult res
@@ -984,7 +1060,8 @@ let tests createServer =
              let! res =
                server.TestRunTests(
                  { idRun [| selected.Id |] with
-                     TestCaseFilter = Some "FullyQualifiedName~My test" }
+                     TestCaseFilter = Some "FullyQualifiedName~My test"
+                 }
                )
 
              TestRunResult.expectInvalidParams res "ids and a filter are alternatives"
@@ -1025,13 +1102,16 @@ let tests createServer =
              use mtpLaunches = new ProcessLaunchWatch(MixedWorkspace.mtpProcessName)
 
              for (description, request) in
-               [ "a malformed id", idRun [| "not a test id" |]
+               [
+                 "a malformed id", idRun [| "not a test id" |]
                  "a grouping id", idRun [| grouping.Id |]
                  "an id of a project outside the workspace", idRun [| unknownProject |]
                  "an id of a platform its project does not run on", idRun [| vsTestKindForMtpProject |]
                  "an id outside LimitToProjects",
                  { idRun [| vsTest.Id |] with
-                     LimitToProjects = Some [ MixedWorkspace.mtpProject ] } ] do
+                     LimitToProjects = Some [ MixedWorkspace.mtpProject ]
+                 }
+               ] do
                let! res = server.TestRunTests(request)
                TestRunResult.expectInvalidParams res description
 
@@ -1175,10 +1255,12 @@ let tests createServer =
              match res with
              | Ok _ -> failtest "the run succeeded although nothing could run"
              | Error err -> Expect.equal err.Code TestRunResult.InternalError $"the run failed: {err.Message}"
-           } ])
+           }
+         ])
       testList
         "RunTests"
-        [ testCaseAsync "an id runs only its row of a parameterised test"
+        [
+          testCaseAsync "an id runs only its row of a parameterised test"
           <| async {
             let workspaceRoot =
               Path.Combine(__SOURCE_DIRECTORY__, "ParameterisedSampleProjects")
@@ -1199,10 +1281,12 @@ let tests createServer =
 
             let! res =
               server.TestRunTests(
-                { LimitToProjects = None
+                {
+                  LimitToProjects = None
                   TestCaseFilter = None
                   TestIds = Some [| rowTwo.Id |]
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let results = TestRunResult.tryUnwrapTestRunResult res
@@ -1244,10 +1328,12 @@ let tests createServer =
 
             let! res =
               server.TestRunTests(
-                { LimitToProjects = None
+                {
+                  LimitToProjects = None
                   TestCaseFilter = None
                   TestIds = Some [| rowTwo.Id |]
-                  AttachDebugger = true }
+                  AttachDebugger = true
+                }
               )
 
             let results = TestRunResult.tryUnwrapTestRunResult res
@@ -1269,23 +1355,20 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             let runRequest: TestRunRequest =
-              { LimitToProjects = None
+              {
+                LimitToProjects = None
                 TestCaseFilter = None
                 TestIds = None
-                AttachDebugger = false }
+                AttachDebugger = false
+              }
 
             let! res = server.TestRunTests(runRequest)
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult res
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            let expected = ExpectedTests.VSTestXUnitRunResults
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult res
+            |> TestRunResult.expectOutcomes ExpectedTests.VSTestXUnitRunResults
           }
 
           testCaseAsync "it should report a processId when debugging a test project"
@@ -1298,7 +1381,7 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             use tokenSource = new CancellationTokenSource()
             let mutable processIdSpy: int option = None
@@ -1318,10 +1401,12 @@ let tests createServer =
             Expect.throwsT<System.OperationCanceledException>
               (fun () ->
                 let runRequest: TestRunRequest =
-                  { LimitToProjects = None
+                  {
+                    LimitToProjects = None
                     TestCaseFilter = None
                     TestIds = None
-                    AttachDebugger = true }
+                    AttachDebugger = true
+                  }
 
                 Async.RunSynchronously(
                   server.TestRunTests(runRequest) |> Async.Ignore,
@@ -1349,26 +1434,27 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "Set me")
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects = None
+                {
+                  LimitToProjects = None
                   TestCaseFilter = Some "FullyQualifiedName~Tests.Expects environment variable"
                   TestIds = None
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected =
-              [ "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed ]
+              [
+                "Tests.Expects environment variable", FsAutoComplete.TestServer.TestOutcome.Passed
+              ]
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
 
             System.Environment.SetEnvironmentVariable("dd586685-08f6-410c-a9f1-84530af117ab", "")
           }
@@ -1383,24 +1469,26 @@ let tests createServer =
             use server = server
 
             let buildResult = DotnetCli.build workspaceRoot
-            Expect.equal 0 buildResult.ExitCode $"Build failed with: {buildResult.StdErr}"
+            Expect.equal buildResult.ExitCode 0 $"Build failed with:\n{buildResult.StdOut}\n{buildResult.StdErr}"
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects =
-                    Some [ Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj") ]
+                {
+                  LimitToProjects =
+                    Some
+                      [
+                        Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects", "Nope", "Nope.fsproj")
+                      ]
                   TestCaseFilter = None
                   TestIds = None
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected = []
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
           }
 
           testCaseAsync "it should run only test projects in the project filter when specified"
@@ -1415,37 +1503,29 @@ let tests createServer =
 
             let! response =
               server.TestRunTests(
-                { LimitToProjects =
+                {
+                  LimitToProjects =
                     Some
-                      [ Path.Combine(
+                      [
+                        Path.Combine(
                           __SOURCE_DIRECTORY__,
                           "SampleTestProjects",
                           "VSTest.XUnit.RunResults",
                           "VSTest.XUnit.RunResults.fsproj"
-                        ) ]
+                        )
+                      ]
                   TestCaseFilter = None
                   TestIds = None
-                  AttachDebugger = false }
+                  AttachDebugger = false
+                }
               )
 
             let expected = ExpectedTests.VSTestXUnitRunResults
 
-            let actual =
-              TestRunResult.tryUnwrapTestRunResult response
-              |> List.map (fun tr -> tr.TestItem.FullName, tr.Outcome)
-
-            Expect.equal (set actual) (set expected) ""
+            TestRunResult.tryUnwrapTestRunResult response
+            |> TestRunResult.expectOutcomes expected
           }
-          // Skipped on net8: this test requests a debug run and cancels WITHOUT attaching,
-          // leaving the spawned debugger-waiting process parked. On the net8 runtime that
-          // orphan stalls the test host (blame-hang). Real users attach the debugger, so the
-          // process continues normally; net9/net10 exercise this path. (Cancel-without-attach
-          // cleanup on net8 is worth a separate follow-up.)
-#if NET8_0
-          ptestCaseAsync "it should only attach the debugger for projects in the project filter if filter is specified"
-#else
           testCaseAsync "it should only attach the debugger for projects in the project filter if filter is specified"
-#endif
           <| async {
             let workspaceRoot = Path.Combine(__SOURCE_DIRECTORY__, "SampleTestProjects")
 
@@ -1473,17 +1553,21 @@ let tests createServer =
             Expect.throwsT<System.OperationCanceledException>
               (fun () ->
                 let runRequest: TestRunRequest =
-                  { LimitToProjects =
+                  {
+                    LimitToProjects =
                       Some
-                        [ Path.Combine(
+                        [
+                          Path.Combine(
                             __SOURCE_DIRECTORY__,
                             "SampleTestProjects",
                             "VSTest.XUnit.RunResults",
                             "VSTest.XUnit.RunResults.fsproj"
-                          ) ]
+                          )
+                        ]
                     TestCaseFilter = None
                     TestIds = None
-                    AttachDebugger = true }
+                    AttachDebugger = true
+                  }
 
                 Async.RunSynchronously(
                   server.TestRunTests(runRequest) |> Async.Ignore,
@@ -1492,4 +1576,6 @@ let tests createServer =
               ""
 
             Expect.hasLength processIdSpy 1 "Should only launch one process to debug"
-          } ] ]
+          }
+        ]
+    ]

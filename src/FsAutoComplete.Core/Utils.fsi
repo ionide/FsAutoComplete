@@ -54,11 +54,13 @@ type RepoPathSegment
 type NormalizedRepoPathSegment
 
 type Document =
-  { FullName: string<LocalPath>
+  {
+    FullName: string<LocalPath>
     LineCount: int
     GetText: unit -> string
     GetLineText0: int -> string
-    GetLineText1: int -> string }
+    GetLineText1: int -> string
+  }
 
 /// <summary>
 /// Checks if the file ends with `.fsx` `.fsscript` or `.sketchfs`
@@ -81,7 +83,6 @@ val inline isFileWithFSharp: fileName: string -> bool
 val inline normalizePath: file: string -> string<LocalPath>
 val inline combinePaths: path1: string -> path2: string -> string
 val inline (</>): path1: string -> path2: string -> string
-val projectOptionsToParseOptions: checkOptions: FSharpProjectOptions -> FSharpParsingOptions
 
 [<RequireQualifiedAccess>]
 module Option =
@@ -170,6 +171,10 @@ module String =
     | Split of left: string * right: string
 
   val splitAtChar: splitter: char -> s: string -> SplitResult
+
+  /// Whether `text` contains `name` as a token of its own, not as part of a longer identifier: `Expr` is not in
+  /// `Expression`, but `a` is in `'a`. True for an empty name.
+  val containsIdentifier: text: string -> name: string -> bool
 
 [<Class>]
 [<Extension>]

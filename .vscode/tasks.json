@@ -19,7 +19,7 @@
         "build",
         "-c",
         "Debug",
-        "${workspaceFolder}/FsAutoComplete.sln",
+        "${workspaceFolder}/FsAutoComplete.slnx",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ]

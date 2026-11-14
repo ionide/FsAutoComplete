@@ -8,7 +8,8 @@ open FsAutoComplete.CodeFix
 
 let tests state =
   serverTestList (nameof GenerateAnonRecordStub) state defaultConfigDto None (fun server ->
-    [ testCaseAsync "add one missing field to anonymous record"
+    [
+      testCaseAsync "add one missing field to anonymous record"
       <| CodeFix.check
         server
         """let f (x: {| A: int; B: string |}) = x
@@ -36,4 +37,5 @@ let y = f {|$0|}"""
         Diagnostics.acceptAll
         (CodeFix.withTitle GenerateAnonRecordStub.title)
         """let f (x: {| A: int |}) = x
-let y = f {| A = failwith "Not Implemented" |}""" ])
+let y = f {| A = failwith "Not Implemented" |}"""
+    ])

@@ -12,7 +12,12 @@ let private creflinkServer state =
     let path = Path.Combine(__SOURCE_DIRECTORY__, "TestCases", "CrefLinks")
     let scriptPath = Path.Combine(path, "Script.fsx")
     let! (server, events) = serverInitialize path defaultConfigDto state
-    do! server.TextDocumentDidOpen { TextDocument = loadDocument scriptPath }
+
+    do!
+      server.TextDocumentDidOpen
+        {
+          TextDocument = loadDocument scriptPath
+        }
 
     match! waitForParseResultsForFile "Script.fsx" events with
     | Ok() -> ()
@@ -40,9 +45,11 @@ let tests state =
       let! (srv, scriptPath) = server
 
       let pos: HoverParams =
-        { TextDocument = { Uri = sprintf "file://%s" scriptPath }
+        {
+          TextDocument = { Uri = sprintf "file://%s" scriptPath }
           Position = { Line = line; Character = character }
-          WorkDoneToken = None }
+          WorkDoneToken = None
+        }
 
       return! srv.TextDocumentHover pos
     }
@@ -53,8 +60,10 @@ let tests state =
 
       return!
         srv.FSharpDocumentation
-          { TextDocument = { Uri = sprintf "file://%s" scriptPath }
-            Position = { Line = line; Character = character } }
+          {
+            TextDocument = { Uri = sprintf "file://%s" scriptPath }
+            Position = { Line = line; Character = character }
+          }
     }
 
   let documentationForSymbol xmlSig assembly fileName line character =
@@ -63,17 +72,20 @@ let tests state =
 
       return!
         srv.FSharpDocumentationSymbol
-          { XmlSig = xmlSig
+          {
+            XmlSig = xmlSig
             Assembly = assembly
             FileName = fileName
             Line = line
-            Character = character }
+            Character = character
+          }
     }
 
   testSequenced
   <| testList
     "cref link integration tests"
-    [ testCaseAsync
+    [
+      testCaseAsync
         "hover on local symbol renders resolved cref link"
         (async {
           match! hoverAt 5u 0u with
@@ -184,4 +196,5 @@ let tests state =
           | Ok None -> failtest "documentationSymbol returned None; expected documentation for Async"
           | Ok _ -> failtest "Could not deserialize the documentationSymbol response"
           | Error e -> failtestf "documentationSymbol request errored: %A" e
-        }) ]
+        })
+    ]

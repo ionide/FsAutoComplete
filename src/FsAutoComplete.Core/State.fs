@@ -97,6 +97,8 @@ module ProjInfoExtensions =
 type DeclName = string
 
 type CompletionNamespaceInsert =
-  { Namespace: string
+  {
+    Namespace: string
     Position: Position
-    Scope: ScopeKind }
+    Scope: ScopeKind
+  }

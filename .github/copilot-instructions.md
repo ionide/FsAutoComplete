@@ -45,7 +45,7 @@ FsAutoComplete currently provides F# support for:
 
 #### Target Frameworks
 - **netstandard2.0 & netstandard2.1**: For broader compatibility
-- **net8.0 & net9.0**: For latest .NET features and performance
+- **net10.0**: The server, its libraries and the tests. FSharp.Analyzers.SDK targets .NET 10 alone, so FSAC does too. The projects FSAC loads can target any framework
 
 ## Development Workflow
 
@@ -65,10 +65,10 @@ dotnet build
 dotnet test
 
 # Run specific test project
-dotnet test -f net8.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
+dotnet test -f net10.0 ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj
 
 # Format code
-dotnet fantomas src/ test/
+dotnet fantomas .
 ```
 
 #### Development Environment Options
@@ -157,7 +157,7 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 2. Follow existing patterns for test setup and assertions
 3. Use the helpers in `Helpers.fs` for common operations
 4. Include edge cases and error conditions
-5. For code fixes: Run focused tests with `dotnet run -f net8.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj`
+5. For code fixes: Run focused tests with `dotnet run -f net10.0 --project ./test/FsAutoComplete.Tests.Lsp/FsAutoComplete.Tests.Lsp.fsproj`
 6. Remove focused test markers before submitting PRs (they cause CI failures)
 
 ### Test Data
@@ -211,7 +211,7 @@ This project uses **Paket** for dependency management instead of NuGet directly:
 
 ### Before Submitting Changes
 1. Ensure all tests pass: `dotnet test`
-2. Run code formatting: `dotnet fantomas src/ test/`
+2. Run code formatting: `dotnet fantomas .`
 3. Verify the solution builds cleanly
 4. Test your changes with a real F# project if possible
 

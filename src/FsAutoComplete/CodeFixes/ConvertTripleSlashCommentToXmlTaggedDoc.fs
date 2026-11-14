@@ -116,18 +116,26 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         let summaryXmlDoc = wrapInSummary indent origCommentContents
 
         let range =
-          { Start = fcsPosToLsp (d.Range.Start.WithColumn 0)
-            End = fcsPosToLsp (d.Range.End) }
+          {
+            Start = fcsPosToLsp (d.Range.Start.WithColumn 0)
+            End = fcsPosToLsp (d.Range.End)
+          }
 
         let e =
-          { Range = range
-            NewText = summaryXmlDoc }
+          {
+            Range = range
+            NewText = summaryXmlDoc
+          }
 
         return
-          [ { Edits = [| e |]
+          [
+            {
+              Edits = [| e |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = None
-              Kind = FixKind.Refactor } ]
+              Kind = FixKind.Refactor
+            }
+          ]
       | None -> return []
     }

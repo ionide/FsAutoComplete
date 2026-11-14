@@ -152,13 +152,21 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
             let editRange = fcsRangeToLsp docRange
 
             return
-              [ { Edits =
-                    [| { Range = editRange
-                         NewText = formattedXmlDoc } |]
+              [
+                {
+                  Edits =
+                    [|
+                      {
+                        Range = editRange
+                        NewText = formattedXmlDoc
+                      }
+                    |]
                   File = codeActionParams.TextDocument
                   Title = title
                   SourceDiagnostic = None
-                  Kind = FixKind.Refactor } ]
+                  Kind = FixKind.Refactor
+                }
+              ]
         | _ -> return []
       | _ -> return []
     }

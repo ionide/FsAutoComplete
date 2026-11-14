@@ -213,8 +213,10 @@ module Cursor =
               else
                 -(int e.Character) + int s.Character
 
-            { Line = pos.Line + deltaLine
-              Character = uint32 (int pos.Character + deltaChar) }
+            {
+              Line = pos.Line + deltaLine
+              Character = uint32 (int pos.Character + deltaChar)
+            }
 
         // add new text to pos
         let pos =
@@ -243,8 +245,10 @@ module Cursor =
                 // doesn't touch line of pos
                 0
 
-            { Line = uint32 (int pos.Line + deltaLine)
-              Character = uint32 (int pos.Character + deltaChar) }
+            {
+              Line = uint32 (int pos.Line + deltaLine)
+              Character = uint32 (int pos.Character + deltaChar)
+            }
 
         pos)
       pos

@@ -18,7 +18,8 @@ let private vsTestCase (id: Guid) =
   testCase
 
 let private mtpNode nodeType uid : TestNodeUpdate =
-  { Uid = uid
+  {
+    Uid = uid
     DisplayName = None
     NodeType = nodeType
     ExecutionState = None
@@ -29,11 +30,13 @@ let private mtpNode nodeType uid : TestNodeUpdate =
     Error = None
     StandardOutput = None
     StandardError = None
-    Raw = Dictionary<string, obj>() }
+    Raw = Dictionary<string, obj>()
+  }
 
 /// Values that a naive "|"-separated format would split or decode wrongly.
 let private awkwardValues =
-  [ "plain"
+  [
+    "plain"
     "a|b"
     "||"
     "%"
@@ -45,19 +48,23 @@ let private awkwardValues =
     "Tests.Adds(a: 1, b: \"x|y\")"
     "Ünïcødé ✓ 测试"
     "/home/a|b/p.fsproj"
-    @"C:\x\p.fsproj" ]
+    @"C:\x\p.fsproj"
+  ]
 
 let private parsed projectFilePath targetFramework target : Result<ParsedTestId, string> =
   Ok
-    { ProjectFilePath = projectFilePath
+    {
+      ProjectFilePath = projectFilePath
       TargetFramework = targetFramework
-      Target = target }
+      Target = target
+    }
 
 [<Tests>]
 let escapeTests =
   testList
     "TestId.escape"
-    [ testCase "a value without separators or escapes is unchanged"
+    [
+      testCase "a value without separators or escapes is unchanged"
       <| fun _ -> Expect.equal (TestId.escape "Tests.Adds(1)") "Tests.Adds(1)" "the id stays readable"
 
       testCase "the separator and the escape character are percent-encoded"
@@ -71,13 +78,15 @@ let escapeTests =
       testCase "an escape the server never writes is rejected"
       <| fun _ ->
         for value in [ "%41"; "%"; "abc%"; "%7"; "%7c" ] do
-          Expect.isError (TestId.unescape value) $"{value} is not a server escape" ]
+          Expect.isError (TestId.unescape value) $"{value} is not a server escape"
+    ]
 
 [<Tests>]
 let roundTripTests =
   testList
     "TestId round-trip"
-    [ testCase "a VSTest case id parses back to its project, framework and case id"
+    [
+      testCase "a VSTest case id parses back to its project, framework and case id"
       <| fun _ ->
         let caseId = Guid.NewGuid()
 
@@ -127,13 +136,15 @@ let roundTripTests =
         Expect.equal
           (TestId.ofVsTestCase project framework after)
           (TestId.ofVsTestCase project framework before)
-          "the run reproduces the discovery id" ]
+          "the run reproduces the discovery id"
+    ]
 
 [<Tests>]
 let distinctnessTests =
   testList
     "TestId distinctness"
-    [ testCase "the same key in two projects gives different ids"
+    [
+      testCase "the same key in two projects gives different ids"
       <| fun _ ->
         Expect.notEqual
           (TestId.group "/repo/A.fsproj" framework "Tests")
@@ -161,7 +172,8 @@ let distinctnessTests =
         Expect.notEqual
           (TestId.group "/repo/a|net8.0" "b" "Tests")
           (TestId.group "/repo/a" "net8.0|b" "Tests")
-          "each field is escaped" ]
+          "each field is escaped"
+    ]
 
 [<Tests>]
 let parseErrorTests =
@@ -173,7 +185,8 @@ let parseErrorTests =
 
   testList
     "TestId.tryParse errors"
-    [ rejects "" "an empty id"
+    [
+      rejects "" "an empty id"
       rejects $"vs|/repo/p.fsproj|net8.0|{caseId}" "an id without the version prefix"
       rejects $"t2|vs|/repo/p.fsproj|net8.0|{caseId}" "an id of an unknown version"
       rejects $"T1|vs|/repo/p.fsproj|net8.0|{caseId}" "a prefix in the wrong case"
@@ -183,7 +196,8 @@ let parseErrorTests =
       rejects "t1|vs|/repo/p.fsproj|net8.0|Tests.Adds" "a VSTest key that is not a guid"
       rejects "t1|mtp||net8.0|a3f9" "an empty project"
       rejects "t1|mtp|/repo/p.fsproj|net8.0|" "an empty key"
-      rejects "t1|grp|/repo/p%zz.fsproj|net8.0|Tests" "a malformed escape" ]
+      rejects "t1|grp|/repo/p%zz.fsproj|net8.0|Tests" "a malformed escape"
+    ]
 
 [<Tests>]
 let formatTests =
@@ -197,9 +211,11 @@ let formatTests =
 
   testList
     "TestId.format"
-    [ roundTrips "a VSTest id" (TestId.ofVsTestCase project framework (vsTestCase caseId))
+    [
+      roundTrips "a VSTest id" (TestId.ofVsTestCase project framework (vsTestCase caseId))
       roundTrips "a testing platform id" (TestId.ofMtpNode project framework (mtpNode (Some NodeType.Action) "a|%b"))
-      roundTrips "a grouping id" (TestId.group "/repo/a|b.fsproj" framework "Tests+Nested") ]
+      roundTrips "a grouping id" (TestId.group "/repo/a|b.fsproj" framework "Tests+Nested")
+    ]
 
 [<Tests>]
 let selectionTests =
@@ -208,7 +224,8 @@ let selectionTests =
 
   testList
     "TestRunSelection.ofRequest"
-    [ testCase "neither a filter nor ids runs everything"
+    [
+      testCase "neither a filter nor ids runs everything"
       <| fun _ -> Expect.equal (TestRunSelection.ofRequest None None) (Ok TestRunSelection.All) "all tests"
 
       testCase "a filter alone selects by filter"
@@ -224,9 +241,13 @@ let selectionTests =
           (TestRunSelection.ofRequest None (Some [| vsTestId |]))
           (Ok(
             TestRunSelection.Ids
-              [ { ProjectFilePath = project
+              [
+                {
+                  ProjectFilePath = project
                   TargetFramework = framework
-                  Target = TestIdTarget.VsTestCase caseId } ]
+                  Target = TestIdTarget.VsTestCase caseId
+                }
+              ]
           ))
           "an id run"
 
@@ -246,4 +267,5 @@ let selectionTests =
       <| fun _ ->
         Expect.isError
           (TestRunSelection.ofRequest None (Some [| TestId.group project framework "Tests" |]))
-          "a client runs a grouping by its leaves" ]
+          "a client runs a grouping by its leaves"
+    ]

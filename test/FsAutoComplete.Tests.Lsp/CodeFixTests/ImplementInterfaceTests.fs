@@ -19,7 +19,8 @@ let tests state =
   let testBoth server name beforeWithCursor expectedWithTypeAnnotation expectedWithoutTypeAnnotation =
     testList
       name
-      [ testCaseAsync "with type annotation"
+      [
+        testCaseAsync "with type annotation"
         <| CodeFix.check
           server
           beforeWithCursor
@@ -33,23 +34,28 @@ let tests state =
           beforeWithCursor
           validateDiags
           selectCodeFixWithoutTypeAnnotation
-          expectedWithoutTypeAnnotation ]
+          expectedWithoutTypeAnnotation
+      ]
 
   testList
     (nameof ImplementInterface)
-    [ let config =
+    [
+      let config =
         { defaultConfigDto with
             IndentationSize = Some 2
             InterfaceStubGeneration = Some true
             InterfaceStubGenerationObjectIdentifier = Some "_"
-            InterfaceStubGenerationMethodBody = Some "failwith \"-\"" }
+            InterfaceStubGenerationMethodBody = Some "failwith \"-\""
+        }
 
       serverTestList "with 2 indentation" state config None (fun server ->
-        [ let testBoth = testBoth server
+        [
+          let testBoth = testBoth server
 
           testList
             "in type"
-            [ testBoth
+            [
+              testBoth
                 "can implement single interface with single method with existing with"
                 """
           type X() =
@@ -133,7 +139,8 @@ let tests state =
               // Re-enable these tests once the underlying FCS detection is fixed.
               testList
                 "can implement setter when existing getter"
-                [ ptestCaseAsync "with type annotation"
+                [
+                  ptestCaseAsync "with type annotation"
                   <| CodeFix.check
                     server
                     """
@@ -180,7 +187,8 @@ let tests state =
                   member _.Indentation
                     with set v =
                       failwith "-"
-              """ ]
+              """
+                ]
               testBoth
                 "can implement interface member without parameter name"
                 """
@@ -357,11 +365,13 @@ let tests state =
             | C
             interface System.IDisposable with
               member _.Dispose() = failwith "-"
-          """ ]
+          """
+            ]
 
           testList
             "in object expression"
-            [ testBoth
+            [
+              testBoth
                 "can implement single interface with single method with existing with and } in same line"
                 """
           { new System.$0IDisposable with }
@@ -549,11 +559,13 @@ let tests state =
             interface System.ICloneable with
               member _.Clone() = failwith "-"
           }
-          """ ]
+          """
+            ]
           // TECHDEBT(1054): temporarily ignored due to https://github.com/dotnet/fsharp/issues/14698
           ptestList
             "cursor position"
-            [ testList
+            [
+              testList
                 "type"
                 [
                   // diagnostic range is just interface name
@@ -599,7 +611,8 @@ let tests state =
               type T() =
                 interface System.IDisposable with
                   member _.Dispose() = failwith "-"
-              """ ]
+              """
+                ]
               testList
                 "object expression"
                 [
@@ -608,9 +621,11 @@ let tests state =
                   // * sub interface: start of `interface` to end of `}`
                   testList
                     "main"
-                    [ testList
+                    [
+                      testList
                         "all on same line"
-                        [ testCaseAsync "{"
+                        [
+                          testCaseAsync "{"
                           <| CodeFix.check
                             server
                             """
@@ -657,10 +672,12 @@ let tests state =
                             """
                   { new System.IDisposable with
                       member _.Dispose() = failwith "-" }
-                  """ ]
+                  """
+                        ]
                       testList
                         "on different lines"
-                        [ testCaseAsync "{"
+                        [
+                          testCaseAsync "{"
                           <| CodeFix.check
                             server
                             """
@@ -739,10 +756,13 @@ let tests state =
                     new System.IDisposable with
                       member _.Dispose() = failwith "-"
                   }
-                  """ ] ]
+                  """
+                        ]
+                    ]
                   testList
                     "sub"
-                    [ testCaseAsync "interface"
+                    [
+                      testCaseAsync "interface"
                       <| CodeFix.check
                         server
                         """
@@ -829,13 +849,18 @@ let tests state =
                   interface ICloneable with
                     member _.Clone() = failwith "-"
                 }
-                """ ] ] ]
+                """
+                    ]
+                ]
+            ]
 
           ptestList
             "strange existing formatting"
-            [ testList
+            [
+              testList
                 "type"
-                [ testCaseAsync "interface on prev line"
+                [
+                  testCaseAsync "interface on prev line"
                   <| CodeFix.check
                     server
                     """
@@ -947,10 +972,12 @@ let tests state =
                   (*foo bar*)[<Obsolete>]
                 (*baaaaaaaaaaaz*)member _.DoStuff value = ()
                              member _.DoOtherStuff(value) = failwith "-"
-              """ ]
+              """
+                ]
               testList
                 "obj expr"
-                [ testCaseAsync "with on next line"
+                [
+                  testCaseAsync "with on next line"
                   <| CodeFix.check
                     server
                     """
@@ -1035,17 +1062,22 @@ let tests state =
                 with
                   member _.Dispose() = failwith "-"
               }
-              """ ] ] ])
+              """
+                ]
+            ]
+        ])
 
       let config =
         { defaultConfigDto with
             IndentationSize = Some 6
             InterfaceStubGeneration = Some true
             InterfaceStubGenerationObjectIdentifier = Some "this"
-            InterfaceStubGenerationMethodBody = Some "raise (System.NotImplementedException())" }
+            InterfaceStubGenerationMethodBody = Some "raise (System.NotImplementedException())"
+        }
 
       serverTestList "with 6 indentation" state config None (fun server ->
-        [ let testBoth = testBoth server
+        [
+          let testBoth = testBoth server
 
           testBoth
             "uses indentation, object identifier & method body from config"
@@ -1065,4 +1097,6 @@ let tests state =
                       member this.Dispose() = raise (System.NotImplementedException())
           """
 
-          () ]) ]
+          ()
+        ])
+    ]

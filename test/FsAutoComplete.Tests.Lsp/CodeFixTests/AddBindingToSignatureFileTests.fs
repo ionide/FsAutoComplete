@@ -120,4 +120,5 @@ namespace Foo
 
 module Bar =
     val a: b: int -> int
-""" ])
+"""
+    ])

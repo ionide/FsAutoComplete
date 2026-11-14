@@ -59,13 +59,15 @@ type HintKind =
 type HintInsertion = { Pos: Position; Text: string }
 
 type Hint =
-  { IdentRange: Range
+  {
+    IdentRange: Range
     Kind: HintKind
     Pos: Position
     Text: string
     Insertions: HintInsertion[] option
     //ENHANCEMENT: allow xml doc
-    Tooltip: string option }
+    Tooltip: string option
+  }
 
 let private isSignatureFile (f: string<LocalPath>) = System.IO.Path.GetExtension(UMX.untag f) = ".fsi"
 
@@ -94,12 +96,14 @@ let private createParamHint (identRange: Range) (paramName: string) =
     | None -> (paramName, None)
     | Some truncated -> (truncated, Some paramName)
 
-  { IdentRange = identRange
+  {
+    IdentRange = identRange
     Pos = identRange.Start
     Kind = Parameter
     Text = truncated + " ="
     Insertions = None
-    Tooltip = tooltip }
+    Tooltip = tooltip
+  }
 
 module private ShouldCreate =
   let private isNotWellKnownName =
@@ -130,7 +134,8 @@ module private ShouldCreate =
 
   let private commonCollectionParams =
     Set.ofList
-      [ "mapping"
+      [
+        "mapping"
         "projection"
         "chooser"
         "value"
@@ -145,7 +150,8 @@ module private ShouldCreate =
         "source"
         "lists"
         "arrays"
-        "sources" ]
+        "sources"
+      ]
 
   let private isWellKnownParameterOrFunction (func: FSharpMemberOrFunctionOrValue) (param: FSharpParameter) =
     match func.FullName with
@@ -324,10 +330,12 @@ type Parens =
   | Required of Range
 
 type MissingExplicitType =
-  { Ident: Range
+  {
+    Ident: Range
     InsertAt: Position
     Parens: Parens
-    SpecialRules: SpecialRules }
+    SpecialRules: SpecialRules
+  }
 
 type MissingExplicitType with
 
@@ -353,17 +361,21 @@ type MissingExplicitType with
     (typeName, anno)
 
   member x.CreateEdits(typeForAnnotation) =
-    [| match x.Parens with
-       | Parens.Required range -> { Pos = range.Start; Text = "(" }
-       | _ -> ()
+    [|
+      match x.Parens with
+      | Parens.Required range -> { Pos = range.Start; Text = "(" }
+      | _ -> ()
 
-       { Pos = x.InsertAt; Text = ": " }
-       { Pos = x.InsertAt
-         Text = typeForAnnotation }
+      { Pos = x.InsertAt; Text = ": " }
+      {
+        Pos = x.InsertAt
+        Text = typeForAnnotation
+      }
 
-       match x.Parens with
-       | Parens.Required range -> { Pos = range.End; Text = ")" }
-       | _ -> () |]
+      match x.Parens with
+      | Parens.Required range -> { Pos = range.End; Text = ")" }
+      | _ -> ()
+    |]
 
   member x.TypeAndEdits(ty: FSharpType, displayContext: FSharpDisplayContext) =
     let (ty, tyForAnnotation) = x.FormatType(ty, displayContext)
@@ -581,13 +593,10 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
             //TODO: always correct?
             let arg = args |> List.tryFind (fun pat -> rangeContainsPos pat.Range pos)
 
-            if arg |> Option.isSome then
-              let pat = arg.Value
-              traversePat x (SyntaxNode.SynExpr(expr) :: path) pat
-            elif rangeContainsPos body.Range pos then
-              traverseSynExpr body
-            else
-              None
+            match arg with
+            | Some pat -> traversePat x (SyntaxNode.SynExpr(expr) :: path) pat
+            | None when rangeContainsPos body.Range pos -> traverseSynExpr body
+            | None -> None
           | _ -> defaultTraverse expr
 
         member visitor.VisitPat(path, defaultTraverse, pat) =
@@ -624,10 +633,12 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               let parens = getParensForIdentPat text pat path
 
               ExplicitType.Missing
-                { Ident = ident.idRange
+                {
+                  Ident = ident.idRange
                   InsertAt = ident.idRange.End
                   Parens = parens
-                  SpecialRules = [] }
+                  SpecialRules = []
+                }
               |> Some
           | SynPat.OptionalVal(ident = ident) when rangeContainsPos ident.idRange pos ->
             let typed = isDirectlyTyped ident.idRange.Start path
@@ -638,7 +649,8 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               let parens = getParensForIdentPat text pat path
 
               ExplicitType.Missing
-                { Ident = ident.idRange
+                {
+                  Ident = ident.idRange
                   InsertAt = ident.idRange.End
                   Parens = parens
                   SpecialRules = [ RemoveOptionFromType ]
@@ -678,10 +690,12 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               // single ctor arg
               | NamedPat ident ->
                 ExplicitType.Missing
-                  { Ident = ident.idRange
+                  {
+                    Ident = ident.idRange
                     InsertAt = ident.idRange.End
                     Parens = Parens.Forbidden
-                    SpecialRules = [] }
+                    SpecialRules = []
+                  }
                 |> Some
               // multiple ctor args
               // * arg in question already has a type
@@ -689,15 +703,18 @@ let tryGetExplicitTypeInfo (text: IFSACSourceText, ast: ParsedInput) (pos: Posit
               // * arg in question doesn't have a type
               | SynPat.Tuple(elementPats = SpecificPat(NamedPat ident)) ->
                 ExplicitType.Missing
-                  { Ident = ident.idRange
+                  {
+                    Ident = ident.idRange
                     InsertAt = ident.idRange.End
                     Parens = Parens.Forbidden
-                    SpecialRules = [] }
+                    SpecialRules = []
+                  }
                 |> Some
               | _ -> None
 
             | _ -> None
-          | _ -> None }
+          | _ -> None
+    }
   )
 
 ///<returns>
@@ -794,19 +811,23 @@ let private tryCreateTypeHint (explicitType: ExplicitType) (ty: FSharpType) (dis
       | None -> (ty, None)
       | Some truncated -> (truncated, Some ty)
 
-    { IdentRange = data.Ident
+    {
+      IdentRange = data.Ident
       Pos = data.InsertAt
       Kind = Type
       // TODO: or use tyForAnno?: `?value: int`, but type is `int option`
       Text = ": " + truncated
       Insertions = Some <| data.CreateEdits tyForAnno
-      Tooltip = tooltip }
+      Tooltip = tooltip
+    }
     |> Some
   | _ -> None
 
 type HintConfig =
-  { ShowTypeHints: bool
-    ShowParameterHints: bool }
+  {
+    ShowTypeHints: bool
+    ShowParameterHints: bool
+  }
 
 let provideHints
   (text: IFSACSourceText, parseAndCheck: ParseAndCheckResults, range: Range, hintConfig)

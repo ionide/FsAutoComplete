@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- FsAutoComplete targets .NET 10. Its tool package also carries this program as its net8.0
+       build, so that an older SDK installs a command that says what to install, instead of failing
+       with "Settings file 'DotnetToolSettings.xml' was not found in the package". The .NET 10 SDK
+       picks the net10.0 build. C# keeps the placeholder free of FSharp.Core. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>fsautocomplete</AssemblyName>
+    <RootNamespace>FsAutoComplete.ToolStub</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseAppHost>false</UseAppHost>
+    <!-- Also runs where .NET 9 is the only runtime. -->
+    <RollForward>LatestMajor</RollForward>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="DotnetToolSettings.xml" />
+  </ItemGroup>
+</Project>

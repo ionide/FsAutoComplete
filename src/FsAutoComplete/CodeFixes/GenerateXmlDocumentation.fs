@@ -18,21 +18,29 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
       let! docEdit = Commands.GenerateXmlDocumentation(parseAndCheck, fcsPos, lineStr)
 
       match docEdit with
-      | Some({ InsertPosition = insertPosition
-               InsertText = formattedXmlDoc }) ->
+      | Some({
+               InsertPosition = insertPosition
+               InsertText = formattedXmlDoc
+             }) ->
         let protocolPos = fcsPosToLsp insertPosition
 
         let editRange =
-          { Start = protocolPos
-            End = protocolPos }
+          {
+            Start = protocolPos
+            End = protocolPos
+          }
 
         let text = formattedXmlDoc
 
         return
-          [ { Edits = [| { Range = editRange; NewText = text } |]
+          [
+            {
+              Edits = [| { Range = editRange; NewText = text } |]
               File = codeActionParams.TextDocument
               Title = title
               SourceDiagnostic = None
-              Kind = FixKind.Refactor } ]
+              Kind = FixKind.Refactor
+            }
+          ]
       | _ -> return []
     }

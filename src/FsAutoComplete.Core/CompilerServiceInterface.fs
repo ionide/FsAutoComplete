@@ -123,6 +123,11 @@ type FSharpCompilerServiceChecker
   let checkerLogger = LogProvider.getLoggerByName "Checker"
   let optsLogger = LogProvider.getLoggerByName "Opts"
 
+  // The parsing options only depend on the project, so they are computed once per project.
+  // The key is the options or snapshot object, which is replaced when the project changes.
+  let parsingOptionsCache =
+    System.Runtime.CompilerServices.ConditionalWeakTable<obj, FSharpParsingOptions>()
+
   /// the root path to the dotnet sdk installations, eg /usr/local/share/dotnet
   let mutable sdkRoot: DirectoryInfo option = None
   let mutable sdkFsharpCore: FileInfo option = None
@@ -136,8 +141,6 @@ type FSharpCompilerServiceChecker
   /// is changed. This can potentially invalidate existing project options
   /// so we must purge any typecheck results for scripts.
   let scriptTypecheckRequirementsChanged = Event<_>()
-
-  let mutable disableInMemoryProjectReferences = false
 
   let fixupFsharpCoreAndFSIPathsForSnapshot (snapshot: FSharpProjectSnapshot) =
     match sdkFsharpCore, sdkFsiAuxLib with
@@ -178,7 +181,8 @@ type FSharpCompilerServiceChecker
           || opt.EndsWith("FSharp.Compiler.Interactive.Settings.dll", StringComparison.Ordinal))
 
       { p with
-          OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |] }
+          OtherOptions = Array.append otherOpts [| $"-r:%s{fsc.FullName}"; $"-r:%s{fsi.FullName}" |]
+      }
 
 
   let (|StartsWith|_|) (prefix: string) (s: string) =
@@ -215,7 +219,8 @@ type FSharpCompilerServiceChecker
           |> Array.map (fun opt ->
             match opt with
             | Reference r -> $"-r:{Path.GetFullPath r}"
-            | opt -> opt) }
+            | opt -> opt)
+    }
 
 
   /// ensures that any user-configured include/load files are added to the typechecking context
@@ -242,12 +247,9 @@ type FSharpCompilerServiceChecker
     )
 
     { projectOptions with
-        SourceFiles = files }
+        SourceFiles = files
+    }
 
-
-  member __.DisableInMemoryProjectReferences
-    with get () = disableInMemoryProjectReferences
-    and set (value) = disableInMemoryProjectReferences <- value
 
   static member GetDependingProjects (file: string<LocalPath>) (snapshots: seq<string * CompilerProjectOption>) =
     let project =
@@ -257,14 +259,16 @@ type FSharpCompilerServiceChecker
     project
     |> Option.map (fun (_, option) ->
       option,
-      [ yield!
+      [
+        yield!
           snapshots
           |> Seq.map snd
           |> Seq.distinctBy (fun o -> o.ProjectFileName)
           |> Seq.filter (fun o ->
             o.ReferencedProjectsPath
             |> List.map Path.GetFullPath
-            |> List.contains option.ProjectFileName) ])
+            |> List.contains option.ProjectFileName)
+      ])
 
   member private __.GetNetFxScriptSnapshot(file: string<LocalPath>, source) =
     async {
@@ -440,10 +444,55 @@ type FSharpCompilerServiceChecker
     checker.InvalidateAll()
     checker.ClearLanguageServiceRootCachesAndCollectAndFinalizeAllTransients()
 
-  /// <summary>Parses a source code for a file and caches the results. Returns an AST that can be traversed for various features.</summary>
-  /// <param name="filePath"> The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
-  /// <param name="snapshot">Parsing options for the project or script.</param>
-  /// <returns></returns>
+  /// <summary>Gets the parsing options of a project, with its defines and language version.</summary>
+  /// <param name="options">The project or script, for its source files and compiler options.</param>
+  member _.GetParsingOptions(options: CompilerProjectOption) =
+    let key =
+      match options with
+      | CompilerProjectOption.BackgroundCompiler opts -> box opts
+      | CompilerProjectOption.TransparentCompiler snap -> box snap
+
+    parsingOptionsCache.GetValue(
+      key,
+      fun _ ->
+        let sourceFiles = options.SourceFilesTagged |> List.map UMX.untag
+
+        let parsingOptions, diagnostics =
+          checker.GetParsingOptionsFromCommandLineArgs(sourceFiles, options.OtherOptions, isEditing = true)
+
+        if not diagnostics.IsEmpty then
+          checkerLogger.warn (
+            Log.setMessage "Parsing options of {project} have errors: {diagnostics}"
+            >> Log.addContextDestructured "project" options.ProjectFileName
+            >> Log.addContextDestructured "diagnostics" (diagnostics |> List.map (fun d -> d.Message))
+          )
+
+        parsingOptions
+    )
+
+  /// <summary>Parses a source code file with the parsing options of its project. Returns an AST that can be traversed for various features.</summary>
+  /// <remarks>Unlike a parse with a project snapshot, this does not import the references or check the referenced projects.</remarks>
+  /// <param name="filePath">The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="sourceText">The source of the file.</param>
+  /// <param name="options">The project or script of the file.</param>
+  /// <param name="cache">Whether the checker keeps the results in its cache. True by default.</param>
+  member x.ParseFile
+    (filePath: string<LocalPath>, sourceText: ISourceText, options: CompilerProjectOption, ?cache: bool)
+    =
+    async {
+      checkerLogger.info (
+        Log.setMessage "ParseFile - {file}"
+        >> Log.addContextDestructured "file" filePath
+      )
+
+      let parsingOptions = x.GetParsingOptions options
+      return! checker.ParseFile(UMX.untag filePath, sourceText, parsingOptions, ?cache = cache)
+    }
+
+  /// <summary>Parses a source code file with the snapshot of its project. The type check of the file uses the same parse.</summary>
+  /// <remarks>This imports the references and checks the referenced projects, if that was not done before.</remarks>
+  /// <param name="filePath">The path for the file. The file name is used as a module name for implicit top level modules (e.g. in scripts).</param>
+  /// <param name="snapshot">The snapshot of the project or script, with the source of the file.</param>
   member x.ParseFile(filePath: string<LocalPath>, snapshot: FSharpProjectSnapshot) =
     async {
       checkerLogger.info (
@@ -451,22 +500,7 @@ type FSharpCompilerServiceChecker
         >> Log.addContextDestructured "file" filePath
       )
 
-      let path = UMX.untag filePath
-      return! checker.ParseFile(path, snapshot)
-    }
-
-
-  member x.ParseFile(filePath: string<LocalPath>, sourceText: ISourceText, project: FSharpProjectOptions) =
-    async {
-      checkerLogger.info (
-        Log.setMessage "ParseFile - {file}"
-        >> Log.addContextDestructured "file" filePath
-      )
-
-      let parseOpts = Utils.projectOptionsToParseOptions project
-
-      let path = UMX.untag filePath
-      return! checker.ParseFile(path, sourceText, parseOpts)
+      return! checker.ParseFile(UMX.untag filePath, snapshot)
     }
 
   /// <summary>Parse and check a source code file, returning a handle to the results</summary>
@@ -541,7 +575,8 @@ type FSharpCompilerServiceChecker
       let path = UMX.untag filePath
 
       try
-        let! (p, c) = checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
+        let! (p, c) =
+          checker.ParseAndCheckFileInProject(path, version, source, options, userOpName = opName)
 
         let parseErrors = p.Diagnostics |> Array.map (fun p -> p.Message)
 
@@ -691,7 +726,8 @@ type FSharpCompilerServiceChecker
       let file = UMX.untag file
 
       try
-        let! results = checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
+        let! results =
+          checker.FindBackgroundReferencesInFile(file, project, symbol, userOpName = "find references")
 
         checkerLogger.info (
           Log.setMessage "FindReferencesForSymbolInFile - {file} - {projectFile}  - {results}"

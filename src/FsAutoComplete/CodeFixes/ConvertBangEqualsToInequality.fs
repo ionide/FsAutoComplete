@@ -17,10 +17,14 @@ let fix (getRangeText: GetRangeText) : CodeFix =
       do! Result.guard (fun () -> errorText = "!=") "Not an != equality usage"
 
       return
-        [ { Title = title
+        [
+          {
+            Title = title
             File = codeActionParams.TextDocument
             SourceDiagnostic = Some diag
             Kind = FixKind.Fix
-            Edits = [| { Range = diag.Range; NewText = "<>" } |] } ]
+            Edits = [| { Range = diag.Range; NewText = "<>" } |]
+          }
+        ]
 
     })

@@ -37,11 +37,13 @@ module Types =
     | Rewrite
 
   type Fix =
-    { Edits: TextEdit[]
+    {
+      Edits: TextEdit[]
       File: TextDocumentIdentifier
       Title: string
       SourceDiagnostic: Diagnostic option
-      Kind: FixKind }
+      Kind: FixKind
+    }
 
   type CodeFix = CodeActionParams -> Async<Result<Fix list, string>>
 

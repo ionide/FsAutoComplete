@@ -38,24 +38,7 @@ module AdaptiveExtensions =
     member tcs.TrySetFromTaskFinished(real: Task<'a>) =
 
       // note: using ContinueWith instead of task CE for better stack traces
-      real.ContinueWith(fun (task: Task<_>) ->
-#if NET9_0_OR_GREATER
-        tcs.TrySetFromTask(task) |> ignore<bool>
-#else
-        match task.Status with
-        | TaskStatus.RanToCompletion -> tcs.TrySetResult task.Result |> ignore<bool>
-        | TaskStatus.Canceled ->
-          let ct = TaskCanceledException(task).CancellationToken
-
-          if ct.IsCancellationRequested then
-            tcs.TrySetCanceled ct |> ignore<bool>
-          else
-            tcs.TrySetCanceled() |> ignore<bool>
-        | TaskStatus.Faulted -> tcs.TrySetException task.Exception.InnerExceptions |> ignore<bool>
-        | _ -> ()
-
-#endif
-      )
+      real.ContinueWith(fun (task: Task<_>) -> tcs.TrySetFromTask(task) |> ignore<bool>)
       |> ignore<Task>
 
   type ChangeableHashMap<'Key, 'Value> with
@@ -152,7 +135,8 @@ module AVal =
 
           lastDeps <- newDeps
 
-          result }
+          result
+    }
     :> aval<_>
 
   /// <summary>
@@ -564,7 +548,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
 
@@ -586,7 +571,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   let ofAsync (value: Async<'a>) =
@@ -606,7 +592,8 @@ module AsyncAVal =
                 cts.TryDispose()
             }
 
-          AdaptiveCancellableTask(cancel, real) }
+          AdaptiveCancellableTask(cancel, real)
+    }
     :> asyncaval<_>
 
   /// <summary>
@@ -641,7 +628,8 @@ module AsyncAVal =
                   cts.TryDispose()
               }
 
-            AdaptiveCancellableTask(cancel, real) }
+            AdaptiveCancellableTask(cancel, real)
+      }
       :> asyncaval<_>
 
 
@@ -655,7 +643,9 @@ module AsyncAVal =
 
     { new AbstractVal<'b>() with
         member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
+          match cache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
             let ref =
               RefCountingTaskCreator(fun ct ->
                 task {
@@ -675,8 +665,7 @@ module AsyncAVal =
 
             cache <- Some ref
             ref.New()
-          else
-            cache.Value.New() }
+    }
     :> asyncaval<_>
 
 
@@ -704,7 +693,9 @@ module AsyncAVal =
 
     { new AbstractVal<'c>() with
         member x.Compute t =
-          if x.OutOfDate || Option.isNone cache then
+          match cache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
             let ref =
               RefCountingTaskCreator(fun ct ->
                 task {
@@ -729,16 +720,15 @@ module AsyncAVal =
 
             cache <- Some ref
             ref.New()
-          else
-            cache.Value.New() }
+    }
     :> asyncaval<_>
 
   /// Returns a new async adaptive value that adaptively applies the mapping function to the given
   /// input and adaptively depends on the resulting adaptive value.
   /// The resulting adaptive value  will hold the latest value of the asyncaval<_> returned by mapping.
   let bind (mapping: 'a -> CancellationToken -> asyncaval<'b>) (value: asyncaval<'a>) =
-    let mutable cache: option<_> = None
-    let mutable innerCache: option<_> = None
+    let mutable cache: option<RefCountingTaskCreator<asyncaval<'b>>> = None
+    let mutable innerCache: option<RefCountingTaskCreator<'b>> = None
     let mutable outerDataCache: option<_> = None
     let mutable inputChanged = 0
     let inners: ref<HashSet<asyncaval<'b>>> = ref HashSet.empty
@@ -756,28 +746,34 @@ module AsyncAVal =
               inners.Value <- HashSet.empty)
 
         member x.Compute t =
-          if x.OutOfDate then
-            if Interlocked.Exchange(&inputChanged, 0) = 1 || Option.isNone cache then
-              let outerTask =
-                RefCountingTaskCreator(fun ct ->
-                  task {
-                    let v = value.GetValue t
-                    use _s = ct.Register(fun () -> v.Cancel(ct))
+          match innerCache with
+          | Some cached when not x.OutOfDate -> cached.New()
+          | _ ->
+            let changed = Interlocked.Exchange(&inputChanged, 0) = 1
 
-                    let! i = v.Task
+            let outerTask =
+              match cache with
+              | Some outerTask when not changed -> outerTask
+              | _ ->
+                let outerTask =
+                  RefCountingTaskCreator(fun ct ->
+                    task {
+                      let v = value.GetValue t
+                      use _s = ct.Register(fun () -> v.Cancel(ct))
 
-                    match outerDataCache with
-                    | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
-                    | _ ->
-                      let inner = mapping i ct
-                      outerDataCache <- Some(i, inner)
-                      return inner
+                      let! i = v.Task
 
-                  })
+                      match outerDataCache with
+                      | Some(struct (oa, ob)) when Utils.cheapEqual oa i -> return ob
+                      | _ ->
+                        let inner = mapping i ct
+                        outerDataCache <- Some(i, inner)
+                        return inner
 
-              cache <- Some outerTask
+                    })
 
-            let outerTask = cache.Value
+                cache <- Some outerTask
+                outerTask
 
             let ref =
               RefCountingTaskCreator(fun ct ->
@@ -805,8 +801,7 @@ module AsyncAVal =
             innerCache <- Some ref
 
             ref.New()
-          else
-            innerCache.Value.New() }
+    }
     :>
 
     asyncaval<_>
@@ -941,6 +936,19 @@ module AdaptiveFile =
 
 [<AutoOpen>]
 module AsyncAValExtensions =
+  let rec private logger = LogProvider.getLoggerByQuotation <@ logger @>
+
+  /// An exception that escapes Async.StartImmediate is rethrown on the thread pool and ends the process.
+  let private startImmediateLogged (work: Async<unit>) =
+    async {
+      try
+        do! work
+      with
+      | :? OperationCanceledException -> ()
+      | ex -> logger.error (Log.setMessage "asyncaval callback failed" >> Log.addExn ex)
+    }
+    |> Async.StartImmediate
+
   type asyncaval<'T> with
     /// Adds a disposable callback to the aval that will be executed whenever the
     /// avals value changed.
@@ -956,9 +964,7 @@ module AsyncAValExtensions =
             value.AddMarkingCallback
 
         cb (fun () ->
-          let t = Transaction.Running.Value
-
-          t.AddFinalizer(fun () ->
+          let notify () =
             async {
               let! v = AsyncAVal.forceAsync value
 
@@ -968,7 +974,11 @@ module AsyncAValExtensions =
                 last.Value <- ValueSome v
                 do! action v
             }
-            |> Async.StartImmediate))
+            |> startImmediateLogged
+
+          match Transaction.Running with
+          | ValueSome t -> t.AddFinalizer notify
+          | ValueNone -> notify ())
 
       match Transaction.Running with
       | ValueSome t ->
@@ -977,12 +987,12 @@ module AsyncAValExtensions =
             let! v = value |> AsyncAVal.forceAsync
             do! action v
           }
-          |> Async.StartImmediate)
+          |> startImmediateLogged)
       | ValueNone ->
         async {
           let! v = value |> AsyncAVal.forceAsync
           do! action v
         }
-        |> Async.StartImmediate
+        |> startImmediateLogged
 
       sub

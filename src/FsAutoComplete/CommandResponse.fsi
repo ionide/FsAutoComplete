@@ -21,16 +21,20 @@ module CommandResponse =
   type ResponseMsg<'T> = { Kind: string; Data: 'T }
 
   type DocumentationLinkContext =
-    { FileName: string
+    {
+      FileName: string
       Line: int
-      Character: int }
+      Character: int
+    }
 
   val addDocumentationLinkContext: context: DocumentationLinkContext option -> content: string -> string
 
   type ResponseError<'T> =
-    { Code: int
+    {
+      Code: int
       Message: string
-      AdditionalData: 'T }
+      AdditionalData: 'T
+    }
 
   [<RequireQualifiedAccess>]
   type ErrorCodes =
@@ -51,7 +55,8 @@ module CommandResponse =
   and ProjectData = { Project: ProjectFilePath }
 
   type ProjectResponseInfoDotnetSdk =
-    { IsTestProject: bool
+    {
+      IsTestProject: bool
       Configuration: string
       IsPackable: bool
       TargetFramework: string
@@ -60,22 +65,28 @@ module CommandResponse =
       RestoreSuccess: bool
       TargetFrameworks: string list
       RunCmd: RunCmd option
-      IsPublishable: bool option }
+      IsPublishable: bool option
+    }
 
   and [<RequireQualifiedAccess>] RunCmd = { Command: string; Arguments: string }
   type ProjectLoadingResponse = { Project: ProjectFilePath }
 
   type ProjectReference =
-    { RelativePath: string
-      ProjectFileName: string }
+    {
+      RelativePath: string
+      ProjectFileName: string
+    }
 
   type PackageReference =
-    { Name: string
+    {
+      Name: string
       Version: string
-      FullPath: string }
+      FullPath: string
+    }
 
   type ProjectResponse =
-    { Project: ProjectFilePath
+    {
+      Project: ProjectFilePath
       Files: List<SourceFilePath>
       Output: string
       ProjectReferences: List<ProjectReference>
@@ -84,7 +95,8 @@ module CommandResponse =
       OutputType: ProjectOutputType
       Info: ProjectResponseInfoDotnetSdk
       Items: List<ProjectResponseItem>
-      AdditionalInfo: Map<string, string> }
+      AdditionalInfo: Map<string, string>
+    }
 
   and [<Struct>] ProjectOutputType =
     | Library
@@ -92,13 +104,16 @@ module CommandResponse =
     | Custom of string
 
   and ProjectResponseItem =
-    { Name: string
+    {
+      Name: string
       FilePath: string
       VirtualPath: string
-      Metadata: Map<string, string> }
+      Metadata: Map<string, string>
+    }
 
   type DocumentationDescription =
-    { XmlKey: string
+    {
+      XmlKey: string
       Constructors: string array
       Fields: string array
       Functions: string array
@@ -107,31 +122,37 @@ module CommandResponse =
       DeclaredTypes: string array
       Signature: string
       Comment: string
-      FooterLines: string array }
+      FooterLines: string array
+    }
 
     static member CreateFromError: error: string -> DocumentationDescription
 
   type CompilerLocationResponse =
-    { Fsc: string option
+    {
+      Fsc: string option
       Fsi: string option
       MSBuild: string option
-      SdkRoot: string option }
+      SdkRoot: string option
+    }
 
   type FSharpErrorInfo =
-    { FileName: string
+    {
+      FileName: string
       StartLine: int
       EndLine: int
       StartColumn: int
       EndColumn: int
       Severity: FSharpDiagnosticSeverity
       Message: string
-      Subcategory: string }
+      Subcategory: string
+    }
 
     static member IsIgnored: e: FSharpDiagnostic -> bool
     static member OfFSharpError: e: FSharpDiagnostic -> FSharpErrorInfo
 
   type Declaration =
-    { UniqueName: string
+    {
+      UniqueName: string
       Name: string
       Glyph: string
       GlyphChar: string
@@ -140,20 +161,25 @@ module CommandResponse =
       BodyRange: Range
       File: string
       EnclosingEntity: string
-      IsAbstract: bool }
+      IsAbstract: bool
+    }
 
     static member OfDeclarationItem: e: NavigationItem * fn: string -> Declaration
 
   type DeclarationResponse =
-    { Declaration: Declaration
-      Nested: Declaration[] }
+    {
+      Declaration: Declaration
+      Nested: Declaration[]
+    }
 
   type Parameter = { Name: string; Type: string }
 
   type SignatureData =
-    { OutputType: string
+    {
+      OutputType: string
       Parameters: Parameter list list
-      Generics: string list }
+      Generics: string list
+    }
 
   type WorkspacePeekResponse = { Found: WorkspacePeekFound list }
 
@@ -162,34 +188,46 @@ module CommandResponse =
     | Solution of WorkspacePeekFoundSolution
 
   and WorkspacePeekFoundDirectory =
-    { Directory: string
-      Fsprojs: string list }
+    {
+      Directory: string
+      Fsprojs: string list
+    }
 
   and WorkspacePeekFoundSolution =
-    { Path: string
+    {
+      Path: string
       Items: WorkspacePeekFoundSolutionItem list
-      Configurations: WorkspacePeekFoundSolutionConfiguration list }
+      Configurations: WorkspacePeekFoundSolutionConfiguration list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItem =
-    { Guid: Guid
+    {
+      Guid: Guid
       Name: string
-      Kind: WorkspacePeekFoundSolutionItemKind }
+      Kind: WorkspacePeekFoundSolutionItemKind
+    }
 
   and WorkspacePeekFoundSolutionItemKind =
     | MsbuildFormat of WorkspacePeekFoundSolutionItemKindMsbuildFormat
     | Folder of WorkspacePeekFoundSolutionItemKindFolder
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindMsbuildFormat =
-    { Configurations: WorkspacePeekFoundSolutionConfiguration list }
+    {
+      Configurations: WorkspacePeekFoundSolutionConfiguration list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionItemKindFolder =
-    { Items: WorkspacePeekFoundSolutionItem list
-      Files: FilePath list }
+    {
+      Items: WorkspacePeekFoundSolutionItem list
+      Files: FilePath list
+    }
 
   and [<RequireQualifiedAccess>] WorkspacePeekFoundSolutionConfiguration =
-    { Id: string
+    {
+      Id: string
       ConfigurationName: string
-      PlatformName: string }
+      PlatformName: string
+    }
 
   type WorkspaceLoadResponse = { Status: string }
 
@@ -199,25 +237,35 @@ module CommandResponse =
   type FsdnResponse = { Functions: string list }
 
   type DotnetNewListResponse =
-    { Installed: DotnetNewTemplate.Template list }
+    {
+      Installed: DotnetNewTemplate.Template list
+    }
 
   type DotnetNewGetDetailsResponse =
-    { Detailed: DotnetNewTemplate.DetailedTemplate }
+    {
+      Detailed: DotnetNewTemplate.DetailedTemplate
+    }
 
   type DotnetNewCreateCliResponse =
-    { CommandName: string
-      ParameterStr: string }
+    {
+      CommandName: string
+      ParameterStr: string
+    }
 
   type HighlightingRange =
-    { Range: Ionide.LanguageServerProtocol.Types.Range
-      TokenType: string }
+    {
+      Range: Ionide.LanguageServerProtocol.Types.Range
+      TokenType: string
+    }
 
   type HighlightingResponse = { Highlights: HighlightingRange[] }
 
   type PipelineHint =
-    { Line: int
+    {
+      Line: int
       Types: string[]
-      PrecedingNonPipeExprLine: int option }
+      PrecedingNonPipeExprLine: int option
+    }
 
   val project: serialize: Serializer -> projectResult: ProjectResult -> string
   val projectError: serialize: Serializer -> errorDetails: Ionide.ProjInfo.Types.GetProjectOptionsErrors -> string
@@ -239,12 +287,14 @@ module CommandResponse =
     showDocumentationLinks: bool ->
     tryResolveCref: (string -> (string * string * string) option) ->
     param:
-      {| Tip: ToolTipText option
-         XmlSig: (string * string) option
-         Signature: (string * DocumentationFormatter.EntityInfo)
-         Footer: string
-         XmlKey: string
-         LinkContext: DocumentationLinkContext option |} ->
+      {|
+        Tip: ToolTipText option
+        XmlSig: (string * string) option
+        Signature: (string * DocumentationFormatter.EntityInfo)
+        Footer: string
+        XmlKey: string
+        LinkContext: DocumentationLinkContext option
+      |} ->
       string
 
   val formattedDocumentationForSymbol:
@@ -252,13 +302,15 @@ module CommandResponse =
     showDocumentationLinks: bool ->
     tryResolveCref: (string -> (string * string * string) option) ->
     param:
-      {| Xml: string
-         Assembly: string
-         XmlDoc: FSharpXmlDoc
-         Signature: (string * DocumentationFormatter.EntityInfo)
-         Footer: string
-         XmlKey: string
-         LinkContext: DocumentationLinkContext option |} ->
+      {|
+        Xml: string
+        Assembly: string
+        XmlDoc: FSharpXmlDoc
+        Signature: (string * DocumentationFormatter.EntityInfo)
+        Footer: string
+        XmlKey: string
+        LinkContext: DocumentationLinkContext option
+      |} ->
       string
 
   val typeSig: serialize: Serializer -> tip: ToolTipText -> string

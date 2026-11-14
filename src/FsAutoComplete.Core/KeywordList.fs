@@ -19,16 +19,19 @@ module KeywordList =
 
       let tip =
         ToolTipText
-          [ ToolTipElement.Single(
+          [
+            ToolTipElement.Single(
               [| TaggedText.tagText kv.Key |],
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
-            ) ]
+            )
+          ]
 
       kv.Key, tip)
     |> dict
 
   let hashDirectives =
-    [ "r", "References an assembly or a nuget: package"
+    [
+      "r", "References an assembly or a nuget: package"
       "load", "References a source .fsx script or .fs file, by compiling and running it."
       "I", "Specifies an assembly search path in quotation marks."
       "light", "Enables or disables lightweight syntax, for compatibility with other versions of ML"
@@ -39,7 +42,8 @@ module KeywordList =
       "warnon", "Enables a compiler warning or warnings"
       "quit", "exits the interactive session"
       "time", "toggles whether to display performance information"
-      "line", "Indicates the original source code line" ]
+      "line", "Indicates the original source code line"
+    ]
     |> dict
 
   let hashDirectiveTooltips =
@@ -50,10 +54,12 @@ module KeywordList =
 
       let tip =
         ToolTipText
-          [ ToolTipElement.Single(
+          [
+            ToolTipElement.Single(
               [| TaggedText.tagText ("#" + kv.Key) |],
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
-            ) ]
+            )
+          ]
 
       kv.Key, tip)
     |> dict
@@ -70,7 +76,8 @@ module KeywordList =
           FilterText = Some kv.Key
           SortText = Some kv.Key
           Documentation = Some(U2.C1 kv.Value)
-          Label = label })
+          Label = label
+      })
     |> Seq.toArray
 
   let allKeywords: string list =
@@ -85,5 +92,6 @@ module KeywordList =
           InsertText = Some k
           SortText = Some(sprintf "1000000%d" id)
           FilterText = Some k
-          Label = k })
+          Label = k
+      })
     |> List.toArray

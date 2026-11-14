@@ -24,7 +24,7 @@ type SymbolUseWorkspace =
         System.Collections.Generic.IDictionary<FSharp.UMX.string<LocalPath>, FSharp.Compiler.Text.range array>,
         string
        >
-     >
+        >
 
 val fix:
   getParseResultsForFile: GetParseResultsForFile ->

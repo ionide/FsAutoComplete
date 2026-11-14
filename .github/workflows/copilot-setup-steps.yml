@@ -19,10 +19,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         global-json-file: global.json
 
@@ -39,13 +39,13 @@ jobs:
       run: dotnet build -c Release --no-restore
 
     - name: Verify Fantomas formatting
-      run: dotnet fantomas --check build.fsx src
+      run: dotnet fantomas check .
       env:
         DOTNET_ROLL_FORWARD: LatestMajor
         DOTNET_ROLL_FORWARD_TO_PRERELEASE: 1
 
     - name: Run quick tests
-      run: dotnet test -c Release -f net8.0 --no-restore --no-build --logger "console;verbosity=minimal" -- Expecto.fail-on-focused-tests=true
+      run: dotnet test -c Release -f net10.0 --no-restore --no-build --logger "console;verbosity=minimal" -- Expecto.fail-on-focused-tests=true
       working-directory: test/FsAutoComplete.Tests.Lsp
       timeout-minutes: 5
       continue-on-error: true # Don't fail the setup if tests fail

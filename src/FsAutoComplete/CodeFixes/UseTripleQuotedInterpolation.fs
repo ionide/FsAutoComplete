@@ -35,12 +35,20 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         let newText = "$\"\"" + interpolationText.[1..] + "\"\""
 
         return
-          [ { File = codeActionParams.TextDocument
+          [
+            {
+              File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Title = title
               Edits =
-                [| { Range = fcsRangeToLsp range
-                     NewText = newText } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = fcsRangeToLsp range
+                    NewText = newText
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | None -> return []
     })

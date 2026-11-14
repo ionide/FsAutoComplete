@@ -32,7 +32,8 @@ let private tryResolveAsyncCref cref =
 let seeAlsoTests =
   testList
     "seealso rendering"
-    [ testCase "cref attribute renders member name as inline code"
+    [
+      testCase "cref attribute renders member name as inline code"
       <| fun _ ->
         let xml =
           makeXmlDoc [| "<summary>Description</summary>"; """<seealso cref="T:Foo.Bar"/>""" |]
@@ -62,8 +63,10 @@ let seeAlsoTests =
       <| fun _ ->
         let xml =
           makeXmlDoc
-            [| "<summary>Description</summary>"
-               """<seealso href="https://example.com"/>""" |]
+            [|
+              "<summary>Description</summary>"
+              """<seealso href="https://example.com"/>"""
+            |]
 
         let content = getDoc xml
 
@@ -76,8 +79,10 @@ let seeAlsoTests =
       <| fun _ ->
         let xml =
           makeXmlDoc
-            [| "<summary>Description</summary>"
-               """<seealso href="https://example.com">Click here</seealso>""" |]
+            [|
+              "<summary>Description</summary>"
+              """<seealso href="https://example.com">Click here</seealso>"""
+            |]
 
         let content = getDoc xml
 
@@ -109,24 +114,28 @@ let seeAlsoTests =
       <| fun _ ->
         let xml =
           makeXmlDoc
-            [| "<summary>Description</summary>"
-               """<seealso cref="T:Foo.Bar"/>"""
-               """<seealso href="https://example.com"/>"""
-               """<seealso langword="null"/>""" |]
+            [|
+              "<summary>Description</summary>"
+              """<seealso cref="T:Foo.Bar"/>"""
+              """<seealso href="https://example.com"/>"""
+              """<seealso langword="null"/>"""
+            |]
 
         let content = getDoc xml
         Expect.stringContains content "* `Foo.Bar`" "cref entry should be present"
 
         Expect.stringContains content "* [https://example.com](https://example.com)" "href entry should be present"
 
-        Expect.stringContains content "* `null`" "langword entry should be present" ]
+        Expect.stringContains content "* `null`" "langword entry should be present"
+    ]
 
 /// Tests for <inheritdoc cref="..."/> parsing (property extraction only;
 /// full same-assembly cref resolution requires a real XML doc file and is exercised by integration tests).
 let inheritDocTests =
   testList
     "inheritdoc rendering"
-    [ testCase "member with only inheritdoc and no cref does not crash and returns empty-ish content"
+    [
+      testCase "member with only inheritdoc and no cref does not crash and returns empty-ish content"
       <| fun _ ->
         // When inheritdoc has no cref, we can't resolve — should not throw.
         let xml = makeXmlDoc [| """<inheritdoc/>""" |]
@@ -145,15 +154,20 @@ let inheritDocTests =
         match TipFormatter.formatDocumentationFromXmlDoc xml false (fun _ -> None) with
         | TipFormatter.TipFormatterResult.Success _
         | TipFormatter.TipFormatterResult.None -> ()
-        | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on inheritdoc cref, got: {e}" ]
+        | TipFormatter.TipFormatterResult.Error e -> failtest $"Should not error on inheritdoc cref, got: {e}"
+    ]
 
 let seeTests =
   testList
     "see rendering"
-    [ testCase "inline see cref renders documentation command link when resolver succeeds"
+    [
+      testCase "inline see cref renders documentation command link when resolver succeeds"
       <| fun _ ->
         let xml =
-          makeXmlDoc [| """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>""" |]
+          makeXmlDoc
+            [|
+              """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>"""
+            |]
 
         let content = getDocWith true tryResolveAsyncCref xml
 
@@ -174,10 +188,14 @@ let seeTests =
       testCase "inline see cref falls back to code formatting when resolver fails"
       <| fun _ ->
         let xml =
-          makeXmlDoc [| """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>""" |]
+          makeXmlDoc
+            [|
+              """<summary>Testing <see cref="T:Async`1" /> before more text.</summary>"""
+            |]
 
         let content = getDoc xml
-        Expect.stringContains content "``Async`1``" "unresolved inline see cref should stay as inline code" ]
+        Expect.stringContains content "``Async`1``" "unresolved inline see cref should stay as inline code"
+    ]
 
 /// Helper: wrap a single string as a one-element TaggedText array (the type used by the compiler service).
 let private makeTaggedTexts (parts: string list) : FSharp.Compiler.Text.TaggedText[] =
@@ -186,11 +204,14 @@ let private makeTaggedTexts (parts: string list) : FSharp.Compiler.Text.TaggedTe
 let cleanParameterDisplayTests =
   testList
     "cleanParameterDisplay"
-    [ testCase "strips verbose C# interop attributes and shows string default"
+    [
+      testCase "strips verbose C# interop attributes and shows string default"
       <| fun _ ->
         let input =
           makeTaggedTexts
-            [ "[<System.Runtime.InteropServices.Optional; System.Runtime.InteropServices.DefaultParameterValue(\"\")>] args: string" ]
+            [
+              "[<System.Runtime.InteropServices.Optional; System.Runtime.InteropServices.DefaultParameterValue(\"\")>] args: string"
+            ]
 
         let result = TipFormatter.cleanParameterDisplay input
         Expect.equal result "args: string = \"\"" "should strip attribute block and append = \"\""
@@ -236,7 +257,8 @@ let cleanParameterDisplayTests =
           makeTaggedTexts [ "[<Optional; DefaultParameterValue(false)>] flag: bool" ]
 
         let result = TipFormatter.cleanParameterDisplay input
-        Expect.equal result "flag: bool = false" "should strip attribute block and append = false" ]
+        Expect.equal result "flag: bool = false" "should strip attribute block and append = false"
+    ]
 
 let allTests =
   testList "TipFormatter" [ seeTests; seeAlsoTests; inheritDocTests; cleanParameterDisplayTests ]

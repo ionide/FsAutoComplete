@@ -70,13 +70,15 @@ let private withBlockedHost (options: MtpClientOptions) (body: MtpClient -> Proc
 /// ExitAsync gives up at once, so the host is still running when it returns.
 let private noShutdownWait =
   { MtpClientOptions.Default with
-      ServerShutdownTimeout = TimeSpan.Zero }
+      ServerShutdownTimeout = TimeSpan.Zero
+  }
 
 [<Tests>]
 let tests =
   testList
     "MtpClient shutdown"
-    [ testCaseAsync "ShutdownAsync terminates a host still running when ExitAsync timed out"
+    [
+      testCaseAsync "ShutdownAsync terminates a host still running when ExitAsync timed out"
       <| withBlockedHost noShutdownWait (fun client host ->
         task {
           do! client.ExitAsync()
@@ -99,7 +101,8 @@ let tests =
       testCaseAsync "ShutdownAsync terminates a host still running when ExitAsync's wait was cancelled"
       <| withBlockedHost
         { MtpClientOptions.Default with
-            ServerShutdownTimeout = TimeSpan.FromMinutes 5.0 }
+            ServerShutdownTimeout = TimeSpan.FromMinutes 5.0
+        }
         (fun client host ->
           task {
             // Armed only once ExitAsync has returned. The one cancellable step of sending the exit
@@ -120,4 +123,5 @@ let tests =
 
             do! client.ShutdownAsync()
             Expect.isTrue (host.WaitForExit 5000) "ShutdownAsync terminates the host"
-          }) ]
+          })
+    ]

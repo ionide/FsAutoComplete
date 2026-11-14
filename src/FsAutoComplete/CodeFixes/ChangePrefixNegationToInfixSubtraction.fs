@@ -17,19 +17,28 @@ let fix (getFileLines: GetFileLines) : CodeFix =
 
       let! lines = getFileLines fileName
 
-      let! walkPos = inc lines diagnostic.Range.End |> Result.ofOption (fun _ -> "No walk pos")
+      let! walkPos =
+        inc lines diagnostic.Range.End |> Result.ofOption (fun _ -> "No walk pos")
 
       match walkForwardUntilCondition lines walkPos (fun ch -> ch = '-') with
       | Some dash ->
         let! oneBack = dec lines dash |> Result.ofOption (fun _ -> "No one back")
 
         return
-          [ { SourceDiagnostic = Some diagnostic
+          [
+            {
+              SourceDiagnostic = Some diagnostic
               Title = title
               File = codeActionParams.TextDocument
               Edits =
-                [| { Range = { Start = oneBack; End = dash }
-                     NewText = "- " } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = { Start = oneBack; End = dash }
+                    NewText = "- "
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | None -> return []
     })

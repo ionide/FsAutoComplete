@@ -18,12 +18,20 @@ let fix (getRangeText: GetRangeText) : CodeFix =
       match errorText with
       | "==" ->
         return
-          [ { Title = title
+          [
+            {
+              Title = title
               File = codeActionParams.TextDocument
               SourceDiagnostic = Some diagnostic
               Edits =
-                [| { Range = diagnostic.Range
-                     NewText = "=" } |]
-              Kind = FixKind.Fix } ]
+                [|
+                  {
+                    Range = diagnostic.Range
+                    NewText = "="
+                  }
+                |]
+              Kind = FixKind.Fix
+            }
+          ]
       | _ -> return []
     })

@@ -2,6 +2,7 @@
 #r "nuget: Fake.Tools.Git, 6.0.0"
 #r "nuget: Fake.IO.FileSystem, 6.0.0"
 #r "nuget: Fantomas.Core, 6.3.1"
+#r "nuget: Ionide.KeepAChangelog, 0.2.0"
 
 open Fun.Build
 open Fake.Tools
@@ -449,175 +450,22 @@ let coverageAssemblyExcludeFilter =
   @"^(?!FsAutoComplete\.Core$)(?!FsAutoComplete\.Logging$)(?!fsautocomplete$).*"
 
 let testCommand targetFramework =
-  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=normal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true --blame-hang --blame-hang-timeout 1m"""
+  $"""dotnet test -c Release -f %s{targetFramework} --no-restore --no-build --logger "console;verbosity=minimal" --logger GitHubActions /p:AltCover=true /p:AltCoverAssemblyExcludeFilter="%s{coverageAssemblyExcludeFilter}" -- Expecto.fail-on-focused-tests=true Expecto.parallel-workers=4 --blame-hang --blame-hang-timeout 1m"""
 
-let coverageDirectory targetFramework = lspTestsPath </> "coverage" </> targetFramework
-
-let shardCoverageBaseReport targetFramework shard = coverageDirectory targetFramework </> $"shard-%i{shard}.xml"
-
-let shardCoverageReport targetFramework shard =
-  let baseReport = shardCoverageBaseReport targetFramework shard
-  let fileName = System.IO.Path.GetFileNameWithoutExtension baseReport
-
-  System.IO.Path.GetDirectoryName baseReport
-  </> $"%s{fileName}.%s{targetFramework}.xml"
-
-let mergedCoverageReport targetFramework = lspTestsPath </> $"coverage.%s{targetFramework}.xml"
-
-let altCoverToolkitPath () =
-  let versionPattern =
-    System.Text.RegularExpressions.Regex(@"^\s+AltCover \(([^)]+)\)$")
-
-  let version =
-    System.IO.File.ReadLines(__SOURCE_DIRECTORY__ </> "paket.lock")
-    |> Seq.tryPick (fun line ->
-      let matchResult = versionPattern.Match line
-
-      if matchResult.Success then
-        Some matchResult.Groups[1].Value
-      else
-        None)
-    |> Option.defaultWith (fun () -> failwith "paket.lock does not contain an AltCover version")
-
-  let packagesRoot =
-    match System.Environment.GetEnvironmentVariable "NUGET_PACKAGES" with
-    | value when not (System.String.IsNullOrWhiteSpace value) -> value
-    | _ ->
-      System.Environment.GetFolderPath System.Environment.SpecialFolder.UserProfile
-      </> ".nuget"
-      </> "packages"
-
-  packagesRoot
-  </> "altcover"
-  </> version
-  </> "tools"
-  </> "net8.0"
-  </> "AltCover.Toolkit.dll"
-
-let startTestShard targetFramework shard =
-  let startInfo = System.Diagnostics.ProcessStartInfo("dotnet")
-  let coverageOutputRoot = coverageDirectory targetFramework </> $"shard-%i{shard}"
-  let coverageReport = shardCoverageBaseReport targetFramework shard
-
-  System.IO.Directory.CreateDirectory coverageOutputRoot |> ignore
-  System.IO.File.Delete(shardCoverageReport targetFramework shard)
-
-  startInfo.WorkingDirectory <- lspTestsPath
-  startInfo.UseShellExecute <- false
-  startInfo.Environment["FSAC_TEST_SHARD"] <- string shard
-  startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] <- "0"
-  startInfo.Environment["MSBUILDDISABLENODEREUSE"] <- "1"
-  startInfo.Environment["UseSharedCompilation"] <- "false"
-
-  [ "test"
-    "-c"
-    "Release"
-    "-f"
-    targetFramework
-    "--no-restore"
-    "--no-build"
-    "--logger"
-    "console;verbosity=normal"
-    "--logger"
-    "GitHubActions"
-    "/p:AltCover=true"
-    $"/p:AltCoverAssemblyExcludeFilter=%s{coverageAssemblyExcludeFilter}"
-    $"/p:AltCoverOutputRoot=%s{coverageOutputRoot}"
-    $"/p:AltCoverReport=%s{coverageReport}"
-    "/p:AltCoverForce=true"
-    "--"
-    "Expecto.fail-on-focused-tests=true"
-    "--blame-hang"
-    "--blame-hang-timeout"
-    "1m" ]
-  |> List.iter (fun argument -> startInfo.ArgumentList.Add argument)
-
-  task {
-    use childProcess = System.Diagnostics.Process.Start startInfo
-    do! childProcess.WaitForExitAsync()
-    return shard, childProcess.ExitCode
-  }
-
-let mergeCoverageReports targetFramework =
-  let reports = [| for shard in 1..4 -> shardCoverageReport targetFramework shard |]
-  let missingReports = reports |> Array.filter (System.IO.File.Exists >> not)
-
-  if missingReports.Length > 0 then
-    missingReports
-    |> String.concat ", "
-    |> failwithf "CI test shards did not produce coverage reports: %s"
-
-  let finalReport = mergedCoverageReport targetFramework
-  System.IO.File.Delete finalReport
-
-  let toolkitPath = altCoverToolkitPath ()
-
-  if not (System.IO.File.Exists toolkitPath) then
-    failwithf "AltCover toolkit was not restored at %s" toolkitPath
-
-  let toolkit = System.Reflection.Assembly.LoadFrom toolkitPath
-  let openCover = toolkit.GetType("AltCover.OpenCover", true)
-
-  let merge =
-    openCover.GetMethod("Merge", [| typeof<System.Collections.Generic.IEnumerable<System.Xml.Linq.XDocument>> |])
-
-  let documents = reports |> Array.map System.Xml.Linq.XDocument.Load
-  let merged = merge.Invoke(null, [| box documents |]) :?> System.Xml.Linq.XDocument
-  merged.Save finalReport
-
-let runTestShards targetFramework =
-  System.IO.Directory.CreateDirectory(coverageDirectory targetFramework) |> ignore
-  System.IO.File.Delete(mergedCoverageReport targetFramework)
-
-  let tasks = [| for shard in 1..4 -> startTestShard targetFramework shard |]
-  let results = System.Threading.Tasks.Task.WhenAll(tasks).GetAwaiter().GetResult()
-
-  let failures = results |> Array.filter (fun (_, exitCode) -> exitCode <> 0)
-
-  if failures.Length > 0 then
-    failures
-    |> Array.map (fun (shard, exitCode) -> $"shard %i{shard}: exit code %i{exitCode}")
-    |> String.concat ", "
-    |> failwithf "CI test shards failed: %s"
-
-  mergeCoverageReports targetFramework
-
+/// The test project runs its test groups in parallel inside one process, so one `dotnet test` covers the framework.
 let ciTests targetFramework sdkVersion =
   stage $"test-ci:%s{targetFramework}" {
     workingDir lspTestsPath
     run (createGlobalJson sdkVersion)
 
-    run (fun _ ->
-      try
-        runTestShards targetFramework
-      finally
-        System.IO.File.Delete(lspTestsPath </> "global.json"))
-  }
-
-// Every stage restores with the .NET 10 SDK because older SDKs cannot restore Paket 10.
-// It then builds and tests with the SDK that matches the test target framework.
-let net80Tests =
-  stage "test:net8.0" {
-    workingDir lspTestsPath
-    run (createGlobalJson "10.0.100")
-    toolRestore
-    run "dotnet restore"
-    run (createGlobalJson "8.0.100")
-    run "dotnet build -c Release -f net8.0 --no-restore"
-    run (testCommand "net8.0")
-    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
-  }
-
-let net90Tests =
-  stage "test:net9.0" {
-    workingDir lspTestsPath
-    run (createGlobalJson "10.0.100")
-    toolRestore
-    run "dotnet restore"
-    run (createGlobalJson "9.0.100")
-    run "dotnet build -c Release -f net9.0 --no-restore"
-    run (testCommand "net9.0")
-    run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
+    // The pin would otherwise outlive a failed run and select the wrong SDK for the next one.
+    run (fun ctx ->
+      async {
+        try
+          return! ctx.RunCommand(testCommand targetFramework)
+        finally
+          System.IO.File.Delete(lspTestsPath </> "global.json")
+      })
   }
 
 let net100Tests =
@@ -631,21 +479,7 @@ let net100Tests =
     run (fun _ -> System.IO.File.Delete(lspTestsPath </> "global.json"))
   }
 
-let ciNet80Tests = ciTests "net8.0" "8.0.100"
-let ciNet90Tests = ciTests "net9.0" "9.0.100"
 let ciNet100Tests = ciTests "net10.0" "10.0.100"
-
-pipeline "test:net8.0" {
-  description "Run net8.0 tests"
-  net80Tests
-  runIfOnlySpecified true
-}
-
-pipeline "test:net9.0" {
-  description "Run net9.0 tests"
-  net90Tests
-  runIfOnlySpecified true
-}
 
 pipeline "test:net10.0" {
   description "Run net10.0 tests"
@@ -653,20 +487,8 @@ pipeline "test:net10.0" {
   runIfOnlySpecified true
 }
 
-pipeline "test-ci:net8.0" {
-  description "Run net8.0 CI test shards"
-  ciNet80Tests
-  runIfOnlySpecified true
-}
-
-pipeline "test-ci:net9.0" {
-  description "Run net9.0 CI test shards"
-  ciNet90Tests
-  runIfOnlySpecified true
-}
-
 pipeline "test-ci:net10.0" {
-  description "Run net10.0 CI test shards"
+  description "Run net10.0 tests of a Release build, as CI does"
   ciNet100Tests
   runIfOnlySpecified true
 }
@@ -674,9 +496,153 @@ pipeline "test-ci:net10.0" {
 
 pipeline "Tests" {
   description "Run all tests"
-  net80Tests
-  net90Tests
   net100Tests
+  runIfOnlySpecified true
+}
+
+module Release =
+  open System
+  open System.IO
+  open Ionide.KeepAChangelog
+
+  let packageDir = __SOURCE_DIRECTORY__ </> "bin"
+
+  /// Whether this run was asked not to publish anything.
+  let isDryRun = fsi.CommandLineArgs |> Array.contains "--dry-run"
+
+  let packages () =
+    if Directory.Exists packageDir then
+      Directory.EnumerateFiles(packageDir, "*.nupkg") |> Seq.toList
+    else
+      []
+
+  /// Version and GitHub release notes of the newest release in CHANGELOG.md.
+  let latestChangelogRelease () =
+    match Parser.parseChangeLog (FileInfo(__SOURCE_DIRECTORY__ </> "CHANGELOG.md")) with
+    | Error error -> failwithf "Could not parse CHANGELOG.md: %A" error
+    | Ok changelogs ->
+      // The topmost entry, the same one the Release workflow's detect job reads.
+      let version, _, data =
+        match changelogs.Releases with
+        | [] -> failwith "CHANGELOG.md has no release entry."
+        | release :: _ -> release
+
+      let notes =
+        match data with
+        | None -> ""
+        | Some data ->
+          [
+            "Added", data.Added
+            "Changed", data.Changed
+            "Fixed", data.Fixed
+            "Deprecated", data.Deprecated
+            "Removed", data.Removed
+            "Security", data.Security
+            yield! Map.toList data.Custom
+          ]
+          |> List.filter (fun (_, body) -> not (String.IsNullOrWhiteSpace body))
+          |> List.map (fun (header, body) -> $"### %s{header}\n\n%s{body.Trim()}")
+          |> String.concat "\n\n"
+
+      string version, notes
+
+  let release (ctx: Internal.StageContext) =
+    async {
+      let version, notes = latestChangelogRelease ()
+      let tag = $"v%s{version}"
+
+      // The workflow reads the version with sed, guard against it disagreeing with the parser.
+      match Environment.GetEnvironmentVariable "RELEASE_VERSION" with
+      | expected when not (String.IsNullOrWhiteSpace expected) && expected <> version ->
+        failwithf "The workflow detected version %s, but CHANGELOG.md parses as %s." expected version
+      | _ -> ()
+
+      let pkgs = packages ()
+
+      match
+        pkgs
+        |> List.filter (fun pkg -> not (pkg.EndsWith($".%s{version}.nupkg", StringComparison.Ordinal)))
+      with
+      | [] when not pkgs.IsEmpty -> ()
+      | [] -> failwith "No packages found."
+      | unexpected -> failwithf "Packages do not match changelog version %s: %A" version unexpected
+
+      // A package file is named <id>.<version>.nupkg, nuget.org has a page for each id and version.
+      let nugetLinks =
+        pkgs
+        |> List.map (fun pkg ->
+          let fileName = Path.GetFileName pkg
+          let id = fileName.Substring(0, fileName.Length - $".%s{version}.nupkg".Length)
+          $"[%s{id} %s{version} on NuGet](https://www.nuget.org/packages/%s{id}/%s{version})")
+        |> String.concat "\n\n"
+
+      let notes = $"%s{notes}\n\n%s{nugetLinks}".TrimStart()
+
+      let notesFile = Path.GetTempFileName()
+      File.WriteAllText(notesFile, notes)
+
+      let assets = pkgs |> List.map (sprintf "\"%s\"") |> String.concat " "
+
+      let target =
+        match Environment.GetEnvironmentVariable "GITHUB_SHA" with
+        | sha when not (String.IsNullOrWhiteSpace sha) -> $" --target %s{sha}"
+        | _ -> ""
+
+      let ghArgs =
+        $"release create %s{tag} %s{assets} --title %s{tag} --notes-file \"%s{notesFile}\"%s{target}"
+
+      try
+        if isDryRun then
+          printfn $"[dry-run] Release notes for %s{tag}:\n%s{notes}"
+
+          for pkg in pkgs do
+            printfn $"[dry-run] dotnet nuget push %s{pkg} --skip-duplicate"
+
+          printfn $"[dry-run] gh %s{ghArgs}"
+          return 0
+        else
+          let key = Environment.GetEnvironmentVariable "NUGET_KEY"
+
+          if String.IsNullOrWhiteSpace key then
+            failwith "NUGET_KEY is not set."
+
+          let rec push pkgs =
+            async {
+              match pkgs with
+              | [] -> return Ok()
+              | pkg :: rest ->
+                match!
+                  ctx.RunSensitiveCommand
+                    $"dotnet nuget push \"{pkg}\" --api-key {key} --source https://api.nuget.org/v3/index.json --skip-duplicate"
+                with
+                | Error e -> return Error e
+                | Ok() -> return! push rest
+            }
+
+          match! push pkgs with
+          | Error _ -> return 1
+          | Ok() ->
+            match! ctx.RunCommand $"gh %s{ghArgs}" with
+            | Error _ -> return 1
+            | Ok() -> return 0
+      finally
+        File.Delete notesFile
+    }
+
+// Publishes the latest version in CHANGELOG.md to NuGet and as a GitHub release.
+// The Release workflow only runs this when that GitHub release does not exist yet.
+// `dotnet fsi build.fsx -- -p Release --dry-run` only prints what would happen.
+pipeline "Release" {
+  description "Publish the newest CHANGELOG.md version to NuGet and as a GitHub release"
+  workingDir __SOURCE_DIRECTORY__
+
+  stage "Pack" {
+    run (fun _ -> Release.packages () |> List.iter System.IO.File.Delete)
+    toolRestore
+    run $"dotnet pack -c Release -o \"%s{Release.packageDir}\""
+  }
+
+  stage "Release" { run Release.release }
   runIfOnlySpecified true
 }
 

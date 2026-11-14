@@ -23,9 +23,11 @@ module private Cursor =
   let private tryExtractIndexTests =
     testList
       (nameof Cursor.tryExtractIndex)
-      [ testList
+      [
+        testList
           "no cursor"
-          [ let assertNoCursor =
+          [
+            let assertNoCursor =
               Cursor.tryExtractPosition >> Expect.isNone "should have found no cursor"
 
             testCase "empty string"
@@ -75,7 +77,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, no indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
 module Foo
 
 let a = 42
@@ -89,7 +91,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
   module Foo
 
   let a = 42
@@ -98,10 +100,12 @@ printfn "Result=%i" b
   printfn "Result=%i" b
         """
 
-              assertNoCursor text ]
+              assertNoCursor text
+          ]
         testList
           "with cursor"
-          [ let assertAndGetIndex =
+          [
+            let assertAndGetIndex =
               Text.trimTripleQuotation
               >> Cursor.tryExtractIndex
               >> Option.defaultWith (fun _ -> failtest "No cursor found")
@@ -119,7 +123,8 @@ printfn "Result=%i" b
 
             testList
               "in normal string"
-              [ testCase "in empty string"
+              [
+                testCase "in empty string"
                 <| fun _ ->
                   let text = "$0"
                   let expected = 0u
@@ -144,11 +149,13 @@ printfn "Result=%i" b
                 <| fun _ ->
                   let text = "foo $0bar"
                   let expected = "foo bar"
-                  text |> assertTextIs expected ]
+                  text |> assertTextIs expected
+              ]
 
             testList
               "in triple quoted string"
-              [ testCase "in empty string unindented"
+              [
+                testCase "in empty string unindented"
                 <| fun _ ->
                   // technically incorrect: contains `\n`
                   let text =
@@ -209,7 +216,7 @@ printfn "Result=%i" b
           """
                   // expected isn't trimmed in assertXXX -> do manually
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -232,7 +239,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -255,7 +262,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -264,25 +271,32 @@ let $0b =
 printfn "Result=%i" b
           """
 
-                  text |> assertTextIs expected ] ] ]
+                  text |> assertTextIs expected
+              ]
+          ]
+      ]
 
   let private tryExtractPositionMarkedWithAnyOfTests =
     testList
       (nameof Cursor.tryExtractPositionMarkedWithAnyOf)
-      [ testCase "exact first of many cursors"
+      [
+        testCase "exact first of many cursors"
         <| fun _ ->
           let text = "let $Avalue$B = $C42"
           let actual = text |> Cursor.tryExtractPositionMarkedWithAnyOf [| "$B"; "$C"; "$A" |]
           let expected = Some(("$A", pos 0u 4u), "let value$B = $C42")
 
-          actual |> Expect.equal "should be correct marker" expected ]
+          actual |> Expect.equal "should be correct marker" expected
+      ]
 
   let private tryExtractPositionTests =
     testList
       (nameof Cursor.tryExtractPosition)
-      [ testList
+      [
+        testList
           "no cursor"
-          [ let assertNoCursor =
+          [
+            let assertNoCursor =
               Cursor.tryExtractPosition >> Expect.isNone "should have found no cursor"
 
             testCase "empty string"
@@ -332,7 +346,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, no indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
 module Foo
 
 let a = 42
@@ -346,7 +360,7 @@ printfn "Result=%i" b
             testCase "triple quoted string with processing (starting new line, indentation)"
             <| fun _ ->
               let text =
-                !- """
+                !-"""
   module Foo
 
   let a = 42
@@ -355,11 +369,13 @@ printfn "Result=%i" b
   printfn "Result=%i" b
         """
 
-              assertNoCursor text ]
+              assertNoCursor text
+          ]
 
         testList
           "with cursor"
-          [ let assertAndGetCursor =
+          [
+            let assertAndGetCursor =
               Text.trimTripleQuotation
               >> Cursor.tryExtractPosition
               >> Option.defaultWith (fun _ -> failtest "No cursor found")
@@ -377,7 +393,8 @@ printfn "Result=%i" b
 
             testList
               "in normal string"
-              [ testCase "in empty string"
+              [
+                testCase "in empty string"
                 <| fun _ ->
                   let text = "$0"
                   let expected = pos 0u 0u
@@ -402,11 +419,13 @@ printfn "Result=%i" b
                 <| fun _ ->
                   let text = "foo $0bar"
                   let expected = "foo bar"
-                  text |> assertTextIs expected ]
+                  text |> assertTextIs expected
+              ]
 
             testList
               "in triple quoted string"
-              [ testCase "in empty string unindented"
+              [
+                testCase "in empty string unindented"
                 <| fun _ ->
                   // technically incorrect: contains `\n`
                   let text =
@@ -467,7 +486,7 @@ printfn "Result=%i" b
           """
                   // expected isn't trimmed in assertXXX -> do manually
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -490,7 +509,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -513,7 +532,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -522,12 +541,16 @@ let $0b =
 printfn "Result=%i" b
           """
 
-                  text |> assertTextIs expected ] ] ]
+                  text |> assertTextIs expected
+              ]
+          ]
+      ]
 
   let tryExtractRangeTests =
     testList
       (nameof Cursor.tryExtractRange)
-      [ let assertAndGetRange =
+      [
+        let assertAndGetRange =
           Text.trimTripleQuotation
           >> Cursor.tryExtractRange
           >> Option.defaultWith (fun _ -> failtest "No cursor found")
@@ -544,7 +567,7 @@ printfn "Result=%i" b
         testCase "no cursor results in no range"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -613,7 +636,7 @@ printfn "$0Result=%i" b
       """
 
           let expected =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -639,7 +662,7 @@ printfn "$0Result$0=%i$0" b$0
           let expectedRange = { Start = pos 0u 7u; End = pos 2u 8u }
 
           let expectedText =
-            !- """
+            !-"""
 module Foo
 
 let a = 42
@@ -648,12 +671,14 @@ let b =
 printfn "$0Result$0=%i$0" b$0
       """
 
-          text |> assertResultIs (expectedRange, expectedText) ]
+          text |> assertResultIs (expectedRange, expectedText)
+      ]
 
   let beforeIndexTests =
     testList
       (nameof Cursor.beforeIndex)
-      [ let assertBeforeIndex expected textWithCursor =
+      [
+        let assertBeforeIndex expected textWithCursor =
           let textWithCursor = Text.trimTripleQuotation textWithCursor
           let idx = textWithCursor.IndexOf(Cursor.Marker, StringComparison.Ordinal)
           Expect.isGreaterThanOrEqual "Text has no cursor" (idx, 0)
@@ -667,7 +692,8 @@ printfn "$0Result$0=%i$0" b$0
 
         testList
           "single line"
-          [ testCase "empty string"
+          [
+            testCase "empty string"
             <| fun _ ->
               let text = ""
               let idx = 0u
@@ -697,11 +723,13 @@ printfn "$0Result$0=%i$0" b$0
             <| fun _ ->
               let text = "let foo = 42$0"
               let expected = pos 0u 12u
-              assertBeforeIndex expected text ]
+              assertBeforeIndex expected text
+          ]
 
         testList
           "multi line"
-          [ testCase "start of first line"
+          [
+            testCase "start of first line"
             <| fun _ ->
               let text =
                 """
@@ -823,12 +851,15 @@ let b =
 printfn "Result=%i" b$0"""
 
               let expected = pos 5u 21u
-              assertBeforeIndex expected text ] ]
+              assertBeforeIndex expected text
+          ]
+      ]
 
   let tryIndexOfTests =
     testList
       (nameof Cursor.tryIndexOf)
-      [ let assertAndGetTextAndCursor =
+      [
+        let assertAndGetTextAndCursor =
           Text.trimTripleQuotation
           >> Cursor.tryExtractPosition
           >> Option.defaultWith (fun _ -> failtest "should have found cursor")
@@ -866,7 +897,8 @@ printfn "Result=%i" b$0"""
 
         testList
           "empty string"
-          [ testCase "inside"
+          [
+            testCase "inside"
             <| fun _ ->
               let text = "$0"
               let expected = 0u
@@ -880,11 +912,13 @@ printfn "Result=%i" b$0"""
             <| fun _ ->
               let text = ""
               let pos = pos 1u 0u
-              text |> assertNoIndexAt pos ]
+              text |> assertNoIndexAt pos
+          ]
 
         testList
           "single line"
-          [ testCase "out of char range"
+          [
+            testCase "out of char range"
             <| fun _ ->
               let text = "foo bar baz"
               let pos = pos 0u (11u + 1u)
@@ -908,11 +942,13 @@ printfn "Result=%i" b$0"""
             <| fun _ ->
               let text = "foo bar baz$0"
               let expected = 11u
-              text |> assertIndexOf expected ]
+              text |> assertIndexOf expected
+          ]
 
         testList
           "two lines"
-          [ testCase "start of 1st line"
+          [
+            testCase "start of 1st line"
             <| fun _ ->
               // chars: 11 + `\n` + 17
               let text = "$0foo bar baz\nlorem ipsum dolor"
@@ -975,11 +1011,13 @@ printfn "Result=%i" b$0"""
             <| fun _ ->
               let text = "foo bar baz\nlorem ipsum dolor"
               let pos = pos 2u 0u
-              text |> assertNoIndexAt pos ]
+              text |> assertNoIndexAt pos
+          ]
 
         testList
           "F# code"
-          [ testCase "start of text"
+          [
+            testCase "start of text"
             <| fun _ ->
               let text =
                 """
@@ -1069,7 +1107,9 @@ let b = $0
 printfn "Result=%i" b
         """
 
-              text |> assertIndexOf 31u ] ]
+              text |> assertIndexOf 31u
+          ]
+      ]
 
   let identityTests =
     testList
@@ -1113,7 +1153,8 @@ printfn "Result=%i" b
 
         testList
           "idx |> beforeIndex |> tryIndexOf = idx"
-          [ let value (textWithCursor: string) =
+          [
+            let value (textWithCursor: string) =
               let idx = textWithCursor.IndexOf(Cursor.Marker, StringComparison.Ordinal)
 
               if idx < 0 then
@@ -1140,11 +1181,13 @@ let b =
 $0printfn "$0Result=%i" b$0
         """
 
-               text |> testThereAndBackAgainForAllCursors value roundTrip) ]
+               text |> testThereAndBackAgainForAllCursors value roundTrip)
+          ]
 
         testList
           "pos |> tryIndexOf |> beforeIndex = pos"
-          [ let value (textWithCursor: string) =
+          [
+            let value (textWithCursor: string) =
               textWithCursor
               |> Cursor.tryExtractPosition
               |> Option.defaultWith (fun _ -> failtest "No cursor")
@@ -1169,11 +1212,13 @@ let b =
 $0printfn "$0Result=%i" b$0
         """
 
-               text |> testThereAndBackAgainForAllCursors value roundTrip) ]
+               text |> testThereAndBackAgainForAllCursors value roundTrip)
+          ]
 
         testList
           "tryExtractIndex >> beforeIndex = tryExtractPosition"
-          [ let lhs =
+          [
+            let lhs =
               Cursor.tryExtractIndex
               >> Option.defaultWith (fun _ -> failtest "No cursor")
               >> fun (idx, text) -> Cursor.beforeIndex idx text
@@ -1195,11 +1240,13 @@ let b =
 $0printfn "$0Result=%i" b$0
         """
 
-               text |> testEqualityForAllCursors lhs rhs) ]
+               text |> testEqualityForAllCursors lhs rhs)
+          ]
 
         testList
           "tryExtractPosition >> tryIndexOf = tryExtractIndex"
-          [ let lhs =
+          [
+            let lhs =
               Cursor.tryExtractPosition
               >> Option.defaultWith (fun _ -> failtest "No cursor")
               >> fun (pos, text) -> Cursor.tryIndexOf pos text
@@ -1222,18 +1269,25 @@ let b =
 $0printfn "$0Result=%i" b$0
         """
 
-               text |> testEqualityForAllCursors lhs rhs) ] ]
+               text |> testEqualityForAllCursors lhs rhs)
+          ]
+      ]
 
   let afterEditsTests =
     testList
       (nameof Cursor.afterEdits)
-      [ testCase "doesn't move cursor when insert after cursor in different line"
+      [
+        testCase "doesn't move cursor when insert after cursor in different line"
         <| fun _ ->
           let cursor = pos 1u 2u
 
           let edits =
-            [| { Range = posRange (pos 2u 5u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = posRange (pos 2u 5u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1243,8 +1297,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 1u 2u
 
           let edits =
-            [| { Range = range (pos 2u 5u) (pos 3u 4u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 2u 5u) (pos 3u 4u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1254,8 +1312,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 1u 2u
 
           let edits =
-            [| { Range = range (pos 2u 5u) (pos 3u 4u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = range (pos 2u 5u) (pos 3u 4u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1266,8 +1328,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 2u 2u
 
           let edits =
-            [| { Range = posRange (pos 1u 5u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = posRange (pos 1u 5u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1277,8 +1343,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 2u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 1u 7u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 1u 7u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1288,8 +1358,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 2u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 1u 7u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 1u 7u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1300,8 +1374,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 2u 2u
 
           let edits =
-            [| { Range = posRange (pos 1u 5u)
-                 NewText = "foo\nbar" } |]
+            [|
+              {
+                Range = posRange (pos 1u 5u)
+                NewText = "foo\nbar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1311,8 +1389,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 2u 4u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 2u 4u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1323,8 +1405,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 2u 4u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 2u 4u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1334,8 +1420,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 2u 4u)
-                 NewText = "foo\nbar" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 2u 4u)
+                NewText = "foo\nbar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1345,8 +1435,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 2u
 
           let edits =
-            [| { Range = range (pos 1u 5u) (pos 2u 4u)
-                 NewText = "foo\nbar\nbaz" } |]
+            [|
+              {
+                Range = range (pos 1u 5u) (pos 2u 4u)
+                NewText = "foo\nbar\nbaz"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1357,22 +1451,31 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 2u
 
           let edits =
-            [| { Range = posRange (pos 3u 1u)
-                 NewText = "foo" } |]
+            [|
+              {
+                Range = posRange (pos 3u 1u)
+                NewText = "foo"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
           |> Expect.equal
             "Cursor should move back"
             { cursor with
-                Character = cursor.Character + 3u }
+                Character = cursor.Character + 3u
+            }
         testCase "moves cursor forward when deleting inside same line in front of cursor"
         <| fun _ ->
           let cursor = pos 3u 7u
 
           let edits =
-            [| { Range = range (pos 3u 2u) (pos 3u 5u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 3u 2u) (pos 3u 5u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1383,8 +1486,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 7u
 
           let edits =
-            [| { Range = range (pos 2u 2u) (pos 3u 5u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 2u 2u) (pos 3u 5u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1396,8 +1503,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 7u
 
           let edits =
-            [| { Range = range (pos 2u 2u) (pos 3u 10u)
-                 NewText = "" } |]
+            [|
+              {
+                Range = range (pos 2u 2u) (pos 3u 10u)
+                NewText = ""
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1408,8 +1519,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 2u 5u
 
           let edits =
-            [| { Range = posRange (pos 2u 5u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = posRange (pos 2u 5u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1420,8 +1535,12 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 3u 7u
 
           let edits =
-            [| { Range = range (pos 2u 3u) (pos 5u 2u)
-                 NewText = "foo bar" } |]
+            [|
+              {
+                Range = range (pos 2u 3u) (pos 5u 2u)
+                NewText = "foo bar"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
@@ -1429,7 +1548,8 @@ $0printfn "$0Result=%i" b$0
 
         testList
           "multiple edits"
-          [ let data =
+          [
+            let data =
               lazy
                 (let textWithCursors =
                   """
@@ -1452,25 +1572,36 @@ $0printfn "$0Result=%i" b$0
 
                  let edits =
                    [|
-                      // doesn't change cursor
-                      {| Marker = "$1"; NewText = "barbaz" |}
-                      // - 2 lines + 1 line
-                      {| Marker = "$2"
-                         NewText = "baz = 42\nlet " |}
-                      // -1 line + 2 lines
-                      {| Marker = "$3"
-                         NewText = "c\n  b =\n  (a+c-" |}
-                      // -1 line - 3 chars
-                      {| Marker = "$4"; NewText = "" |}
-                      // +3 line -all chars + couple new chars
-                      {| Marker = "$5"
-                         NewText = " static\n\n\n  mutable" |}
-                      // move to front of edit chars
-                      {| Marker = "$6"
-                         NewText = "incrementNumber" |}
-                      // doesn't change cursor
-                      {| Marker = "$7"
-                         NewText = "foo bar\nbaz\nlorem ipsum" |} |]
+                     // doesn't change cursor
+                     {| Marker = "$1"; NewText = "barbaz" |}
+                     // - 2 lines + 1 line
+                     {|
+                       Marker = "$2"
+                       NewText = "baz = 42\nlet "
+                     |}
+                     // -1 line + 2 lines
+                     {|
+                       Marker = "$3"
+                       NewText = "c\n  b =\n  (a+c-"
+                     |}
+                     // -1 line - 3 chars
+                     {| Marker = "$4"; NewText = "" |}
+                     // +3 line -all chars + couple new chars
+                     {|
+                       Marker = "$5"
+                       NewText = " static\n\n\n  mutable"
+                     |}
+                     // move to front of edit chars
+                     {|
+                       Marker = "$6"
+                       NewText = "incrementNumber"
+                     |}
+                     // doesn't change cursor
+                     {|
+                       Marker = "$7"
+                       NewText = "foo bar\nbaz\nlorem ipsum"
+                     |}
+                   |]
 
                  let markers = edits |> Array.map (fun e -> e.Marker) |> Array.append [| "$0" |]
 
@@ -1489,9 +1620,11 @@ $0printfn "$0Result=%i" b$0
                      { Range = range; NewText = e.NewText })
                    |> TextEdits.sortByRange
 
-                 {| Text = text
-                    Cursor = cursor
-                    Edits = edits |})
+                 {|
+                   Text = text
+                   Cursor = cursor
+                   Edits = edits
+                 |})
 
             testCase "cursor moves according to multiple edits"
             <| fun _ ->
@@ -1530,7 +1663,8 @@ $0printfn "$0Result=%i" b$0
               Expecto.Expect.equal
                 together
                 individually
-                "Moving cursor for all edits together should be same as moving cursor for each edit" ]
+                "Moving cursor for all edits together should be same as moving cursor for each edit"
+          ]
 
         testCase "Can add type annotation with parens while cursor stays at end of identifier"
         <| fun _ ->
@@ -1538,31 +1672,43 @@ $0printfn "$0Result=%i" b$0
           let cursor = pos 0u 7u
 
           let edits =
-            [| { Range = posRange (pos 0u 4u)
-                 NewText = "(" }
-               { Range = posRange (pos 0u 7u)
-                 NewText = ": int" }
-               { Range = posRange (pos 0u 7u)
-                 NewText = ")" } |]
+            [|
+              {
+                Range = posRange (pos 0u 4u)
+                NewText = "("
+              }
+              {
+                Range = posRange (pos 0u 7u)
+                NewText = ": int"
+              }
+              {
+                Range = posRange (pos 0u 7u)
+                NewText = ")"
+              }
+            |]
 
           cursor
           |> Cursor.afterEdits edits
           |> Expect.equal
             "Cursor should move to end of identifier"
             { cursor with
-                Character = cursor.Character + 1u } ]
+                Character = cursor.Character + 1u
+            }
+      ]
 
   let tests =
     testList
       (nameof Cursor)
-      [ tryExtractIndexTests
+      [
+        tryExtractIndexTests
         tryExtractPositionMarkedWithAnyOfTests
         tryExtractPositionTests
         tryExtractRangeTests
         beforeIndexTests
         tryIndexOfTests
         identityTests
-        afterEditsTests ]
+        afterEditsTests
+      ]
 
 module private Cursors =
   open Expecto.Flip
@@ -1570,7 +1716,8 @@ module private Cursors =
   let private iterTests =
     testList
       (nameof Cursors.iter)
-      [ testCase "no cursor"
+      [
+        testCase "no cursor"
         <| fun _ ->
           let text = "foo bar baz"
           let expected = []
@@ -1615,7 +1762,7 @@ module private Cursors =
         testCase "cursors in triple quoted string"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
 module $0Foo
 
 let a = 42
@@ -1625,7 +1772,8 @@ printfn "Result=%i$0" b$0
       """
 
           let expected =
-            [ !- """
+            [
+              !-"""
 module $0Foo
 
 let a = 42
@@ -1633,7 +1781,7 @@ let b =
   a + 5
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1641,7 +1789,7 @@ $0let b =
   a + 5
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1649,7 +1797,7 @@ let b =
   a + 5$0
 printfn "Result=%i" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
@@ -1657,26 +1805,29 @@ let b =
   a + 5
 printfn "Result=%i$0" b
         """
-              !- """
+              !-"""
 module Foo
 
 let a = 42
 let b =
   a + 5
 printfn "Result=%i" b$0
-        """ ]
+        """
+            ]
 
           text
           |> Cursors.iter
-          |> Expect.equal "should have returned all strings with single cursor" expected ]
+          |> Expect.equal "should have returned all strings with single cursor" expected
+      ]
 
   let private extractWithTests =
     testList
       (nameof Cursors.extractWith)
-      [ testCase "can extract all cursors"
+      [
+        testCase "can extract all cursors"
         <| fun _ ->
           let text =
-            !- """
+            !-"""
         let $Ff a b = a + b
         let $Vvalue = 42
         let $0res = $Ff $Vvalue 3
@@ -1686,7 +1837,7 @@ printfn "Result=%i" b$0
           let actual = text |> Cursors.extractWith [| "$F"; "$V"; "$0" |]
 
           let expectedText =
-            !- """
+            !-"""
         let f a b = a + b
         let value = 42
         let res = f value 3
@@ -1694,15 +1845,18 @@ printfn "Result=%i" b$0
         """
 
           let expectedPoss =
-            [ ("$F", pos 0u 4u)
+            [
+              ("$F", pos 0u 4u)
               ("$V", pos 1u 4u)
               ("$0", pos 2u 4u)
               ("$F", pos 2u 10u)
-              ("$V", pos 2u 12u) ]
+              ("$V", pos 2u 12u)
+            ]
 
           let expected = (expectedText, expectedPoss)
 
-          actual |> Expect.equal "markers should match" expected ]
+          actual |> Expect.equal "markers should match" expected
+      ]
 
   let tests = testList (nameof Cursors) [ iterTests; extractWithTests ]
 
@@ -1713,9 +1867,11 @@ module private Text =
   let private removeTests =
     testList
       (nameof Text.remove)
-      [ testList
+      [
+        testList
           "start=end should remove nothing"
-          [ let assertNothingChanged textWithCursor =
+          [
+            let assertNothingChanged textWithCursor =
               let (range, text) =
                 textWithCursor
                 |> Text.trimTripleQuotation
@@ -1745,19 +1901,23 @@ module private Text =
 
             testList
               "single line string"
-              [ testCase "start" <| fun _ -> "$0foo bar baz" |> assertNothingChanged
+              [
+                testCase "start" <| fun _ -> "$0foo bar baz" |> assertNothingChanged
                 testCase "middle" <| fun _ -> "foo b$0ar baz" |> assertNothingChanged
                 testCase "end" <| fun _ -> "foo bar baz$0" |> assertNothingChanged
                 testCase "two cursors in middle"
-                <| fun _ -> "foo $0$0bar baz" |> assertNothingChanged ]
+                <| fun _ -> "foo $0$0bar baz" |> assertNothingChanged
+              ]
 
             testList
               "two line string"
-              [ testCase "start" <| fun _ -> "$0foo bar\n baz" |> assertNothingChanged
+              [
+                testCase "start" <| fun _ -> "$0foo bar\n baz" |> assertNothingChanged
                 testCase "end 1st line" <| fun _ -> "foo bar$0\n baz" |> assertNothingChanged
                 testCase "start 2nd line" <| fun _ -> "foo bar\n$0 baz" |> assertNothingChanged
                 testCase "middle 2nd line" <| fun _ -> "foo bar\n ba$0z" |> assertNothingChanged
-                testCase "end" <| fun _ -> "foo bar\n baz$0" |> assertNothingChanged ]
+                testCase "end" <| fun _ -> "foo bar\n baz$0" |> assertNothingChanged
+              ]
 
             testList
               "F# Code"
@@ -1773,7 +1933,8 @@ $0printfn "$0Result=%i" b$0
 
                text
                |> Cursors.iter
-               |> List.mapi (fun i t -> testCase $"Cursor {i}" <| fun _ -> t |> assertNothingChanged)) ]
+               |> List.mapi (fun i t -> testCase $"Cursor {i}" <| fun _ -> t |> assertNothingChanged))
+          ]
 
         let assertRemoveRange range expected text =
           text
@@ -1791,9 +1952,11 @@ $0printfn "$0Result=%i" b$0
 
         testList
           "remove inside single line"
-          [ testList
+          [
+            testList
               "single line string"
-              [ testCase "remove everything"
+              [
+                testCase "remove everything"
                 <| fun _ ->
                   let text = "$0foo bar baz$0"
                   let expected = ""
@@ -1817,10 +1980,12 @@ $0printfn "$0Result=%i" b$0
                 <| fun _ ->
                   let text = "f$0oo bar ba$0z"
                   let expected = "fz"
-                  text |> assertAfterRemovingIs expected ]
+                  text |> assertAfterRemovingIs expected
+              ]
             testList
               "three line string"
-              [ testCase "remove everything"
+              [
+                testCase "remove everything"
                 <| fun _ ->
                   let text = "$0foo bar\nbaz\nlorem ipsum$0"
                   let expected = ""
@@ -1861,10 +2026,12 @@ $0printfn "$0Result=%i" b$0
                 <| fun _ ->
                   let text = "foo bar\nbaz$0\nlorem ipsum$0"
                   let expected = "foo bar\nbaz"
-                  text |> assertAfterRemovingIs expected ]
+                  text |> assertAfterRemovingIs expected
+              ]
             testList
               "F# Code"
-              [ testCase "Remove empty line"
+              [
+                testCase "Remove empty line"
                 <| fun _ ->
                   let text =
                     """
@@ -1877,7 +2044,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 let a = 42
 let b =
@@ -1899,7 +2066,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -1922,7 +2089,7 @@ printfn "$0Result=%i" b$0
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -1945,7 +2112,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 Foo
 
 let a = 42
@@ -1954,13 +2121,17 @@ let b =
 printfn "Result=%i" b
           """
 
-                  text |> assertAfterRemovingIs expected ] ]
+                  text |> assertAfterRemovingIs expected
+              ]
+          ]
 
         testList
           "remove over multiple lines"
-          [ testList
+          [
+            testList
               "F# Code"
-              [ testCase "remove everything"
+              [
+                testCase "remove everything"
                 <| fun _ ->
                   let text =
                     """
@@ -2000,7 +2171,7 @@ $0printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 printfn "Result=%i" b
@@ -2020,7 +2191,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 5
@@ -2041,7 +2212,7 @@ printfn "Result=%i" b
           """
 
                   let expected =
-                    !- """
+                    !-"""
 =
   a + 5
 printfn "Result=%i" b
@@ -2060,20 +2231,25 @@ let b $0=
 printfn "Result=%i" b$0"""
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
 let b """
 
-                  text |> assertAfterRemovingIs expected ] ] ]
+                  text |> assertAfterRemovingIs expected
+              ]
+          ]
+      ]
 
   let private insertTests =
     testList
       (nameof Text.insert)
-      [ testList
+      [
+        testList
           "empty insert should insert nothing"
-          [ let assertNothingChanged textWithCursor =
+          [
+            let assertNothingChanged textWithCursor =
               let (pos, text) =
                 textWithCursor
                 |> Text.trimTripleQuotation
@@ -2090,17 +2266,21 @@ let b """
 
             testList
               "into single line"
-              [ testCase "start" <| fun _ -> "$0foo bar baz" |> assertNothingChanged
+              [
+                testCase "start" <| fun _ -> "$0foo bar baz" |> assertNothingChanged
                 testCase "middle" <| fun _ -> "foo ba$0r baz" |> assertNothingChanged
-                testCase "end" <| fun _ -> "foo bar baz$0" |> assertNothingChanged ]
+                testCase "end" <| fun _ -> "foo bar baz$0" |> assertNothingChanged
+              ]
 
             testList
               "into three lines"
-              [ testCase "start" <| fun _ -> "$0foo\nbar\nbaz" |> assertNothingChanged
+              [
+                testCase "start" <| fun _ -> "$0foo\nbar\nbaz" |> assertNothingChanged
                 testCase "start 2nd line" <| fun _ -> "foo\n$0bar\nbaz" |> assertNothingChanged
                 testCase "middle 2nd line" <| fun _ -> "foo\nba$0r\nbaz" |> assertNothingChanged
                 testCase "end 2nd line" <| fun _ -> "foo\nbar$0\nbaz" |> assertNothingChanged
-                testCase "end" <| fun _ -> "foo\nbar\nbaz$0" |> assertNothingChanged ]
+                testCase "end" <| fun _ -> "foo\nbar\nbaz$0" |> assertNothingChanged
+              ]
 
             testList
               "into F# Code"
@@ -2116,7 +2296,8 @@ $0printfn "$0Result=%i" b$0
 
                text
                |> Cursors.iter
-               |> List.mapi (fun i t -> testCase $"Cursor {i}" <| fun _ -> t |> assertNothingChanged)) ]
+               |> List.mapi (fun i t -> testCase $"Cursor {i}" <| fun _ -> t |> assertNothingChanged))
+          ]
 
         let assertAfterInsertingIs expected (textWithCursor, insert) =
           let (pos, text) =
@@ -2131,7 +2312,8 @@ $0printfn "$0Result=%i" b$0
 
         testList
           "insert without linebreak"
-          [ testCase "into empty string"
+          [
+            testCase "into empty string"
             <| fun _ ->
               let text = "$0"
               let insert = "some text"
@@ -2139,7 +2321,8 @@ $0printfn "$0Result=%i" b$0
               (text, insert) |> assertAfterInsertingIs expected
             testList
               "into single line string"
-              [ testCase "start"
+              [
+                testCase "start"
                 <| fun _ ->
                   let text = "$0foo bar baz"
                   let insert = "some text"
@@ -2156,10 +2339,12 @@ $0printfn "$0Result=%i" b$0
                   let text = "foo bar baz$0"
                   let insert = "some text"
                   let expected = $"foo bar baz{insert}"
-                  (text, insert) |> assertAfterInsertingIs expected ]
+                  (text, insert) |> assertAfterInsertingIs expected
+              ]
             testList
               "into F# Code"
-              [ testCase "start of 4th line"
+              [
+                testCase "start of 4th line"
                 <| fun _ ->
                   let text =
                     """
@@ -2174,7 +2359,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2199,7 +2384,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2224,7 +2409,7 @@ printfn "Result=%i" b
                   let insert = "some text"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2233,11 +2418,14 @@ let b =some text
 printfn "Result=%i" b
           """
 
-                  (text, insert) |> assertAfterInsertingIs expected ] ]
+                  (text, insert) |> assertAfterInsertingIs expected
+              ]
+          ]
 
         testList
           "insert with line break"
-          [ testCase "into empty string"
+          [
+            testCase "into empty string"
             <| fun _ ->
               let text = "$0"
               let insert = "lorem\nipsum"
@@ -2245,7 +2433,8 @@ printfn "Result=%i" b
               (text, insert) |> assertAfterInsertingIs expected
             testList
               "into single line string"
-              [ testCase "start"
+              [
+                testCase "start"
                 <| fun _ ->
                   let text = "$0foo bar baz"
                   let insert = "lorem\nipsum"
@@ -2262,10 +2451,12 @@ printfn "Result=%i" b
                   let text = "foo bar baz$0"
                   let insert = "lorem\nipsum"
                   let expected = "foo bar bazlorem\nipsum"
-                  (text, insert) |> assertAfterInsertingIs expected ]
+                  (text, insert) |> assertAfterInsertingIs expected
+              ]
             testList
               "into F# Code"
-              [ testCase "start"
+              [
+                testCase "start"
                 <| fun _ ->
                   let text =
                     """
@@ -2280,7 +2471,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 lorem
 ipsummodule Foo
 
@@ -2305,7 +2496,7 @@ printfn "Result=%i" b$0"""
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2330,7 +2521,7 @@ printfn "Result=%i" b$0
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2356,7 +2547,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2382,7 +2573,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2408,7 +2599,7 @@ printfn "Result=%i" b
                   let insert = "lorem\nipsum"
 
                   let expected =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2418,14 +2609,19 @@ ipsum
 printfn "Result=%i" b
           """
 
-                  (text, insert) |> assertAfterInsertingIs expected ] ] ]
+                  (text, insert) |> assertAfterInsertingIs expected
+              ]
+          ]
+      ]
 
   let private replaceTests =
     testList
       (nameof Text.replace)
-      [ testList
+      [
+        testList
           "neither change nor insert"
-          [ let assertNothingChanged (textWithCursors, replacement) =
+          [
+            let assertNothingChanged (textWithCursors, replacement) =
               let (range, text) =
                 textWithCursors
                 |> Text.trimTripleQuotation
@@ -2464,7 +2660,8 @@ printfn "Result=%i" b
 
             testList
               "F# Code"
-              [ testCase "insert empty string"
+              [
+                testCase "insert empty string"
                 <| fun _ ->
                   let text =
                     """
@@ -2490,7 +2687,7 @@ let b =
 printfn "Result=%i" b$0"""
 
                   let replacement =
-                    !- """
+                    !-"""
 module Foo
 
 let a = 42
@@ -2512,7 +2709,9 @@ printfn "Result=%i" b
           """
 
                   let replacement = "b =\n  a +"
-                  (text, replacement) |> assertNothingChanged ] ]
+                  (text, replacement) |> assertNothingChanged
+              ]
+          ]
         let assertAfterChangingIs expected (textWithCursors, replacement) =
           let (range, text) =
             textWithCursors
@@ -2528,7 +2727,8 @@ printfn "Result=%i" b
 
         testList
           "replace in F# Code"
-          [ testCase "delete everything"
+          [
+            testCase "delete everything"
             <| fun _ ->
               let text =
                 """
@@ -2554,7 +2754,7 @@ a + 5
 printfn "Result=%i" b$0"""
 
               let replacement =
-                !- """
+                !-"""
 module Blub
 
 42
@@ -2578,13 +2778,13 @@ printfn "Result=%i" b
         """
 
               let replacement =
-                !- """
+                !-"""
 let pi = 3.14
 let pi2 = pi * pi
         """
 
               let expected =
-                !- """
+                !-"""
 module Foo
 
 let pi = 3.14
@@ -2595,7 +2795,9 @@ a + 5
 printfn "Result=%i" b
         """
 
-              (text, replacement) |> assertAfterChangingIs expected ] ]
+              (text, replacement) |> assertAfterChangingIs expected
+          ]
+      ]
 
   let tests = testList (nameof Text) [ removeTests; insertTests; replaceTests ]
 
@@ -2607,10 +2809,12 @@ module private TextEdit =
   let private eolTests =
     testList
       "EOL"
-      [ let testEOLs baseName textWithRange (newTextWithN: string) expected =
+      [
+        let testEOLs baseName textWithRange (newTextWithN: string) expected =
           testList
             baseName
-            [ let expected = !-expected
+            [
+              let expected = !-expected
 
               for eol in [ "\n"; "\r\n"; "\r" ] do
                 let eolStr = System.Text.RegularExpressions.Regex.Escape eol
@@ -2625,7 +2829,8 @@ module private TextEdit =
                     text |> TextEdit.apply edit |> Flip.Expect.wantOk "Apply should not fail"
 
                   Expect.equal actual expected "Apply should produce correct text"
-                  Expect.isFalse (actual.Contains '\r') "Should not contain \\r" ]
+                  Expect.isFalse (actual.Contains '\r') "Should not contain \\r"
+            ]
 
         testEOLs
           "can apply insert edit"
@@ -2662,43 +2867,56 @@ let bar =$0 2
 let foo = 3
 let a = 1
 let baz = 2
-      """ ]
+      """
+      ]
 
   let private applyTests = testList (nameof TextEdit.apply) [ eolTests ]
 
   let private tryFindErrorTests =
     testList
       (nameof TextEdit.tryFindError)
-      [ testCase "valid delete edit should should be ok"
+      [
+        testCase "valid delete edit should should be ok"
         <| fun _ ->
-          { Range = { Start = pos 2u 2u; End = pos 3u 3u }
-            NewText = "" }
+          {
+            Range = { Start = pos 2u 2u; End = pos 3u 3u }
+            NewText = ""
+          }
           |> TextEdit.tryFindError
           |> Flip.Expect.isNone "Valid delete should be ok"
         testCase "valid insert edit should should be ok"
         <| fun _ ->
-          { Range = { Start = pos 2u 3u; End = pos 2u 3u }
-            NewText = "foo" }
+          {
+            Range = { Start = pos 2u 3u; End = pos 2u 3u }
+            NewText = "foo"
+          }
           |> TextEdit.tryFindError
           |> Flip.Expect.isNone "Valid delete should be ok"
         testCase "valid replace edit should should be ok"
         <| fun _ ->
-          { Range = { Start = pos 2u 3u; End = pos 4u 9u }
-            NewText = "foo" }
+          {
+            Range = { Start = pos 2u 3u; End = pos 4u 9u }
+            NewText = "foo"
+          }
           |> TextEdit.tryFindError
           |> Flip.Expect.isNone "Valid delete should be ok"
         testCase "empty edit should fail"
         <| fun _ ->
-          { Range = { Start = pos 2u 4u; End = pos 2u 4u }
-            NewText = "" }
+          {
+            Range = { Start = pos 2u 4u; End = pos 2u 4u }
+            NewText = ""
+          }
           |> TextEdit.tryFindError
           |> Flip.Expect.isSome "Empty edit should fail"
         testCase "edit with End before Start should fail"
         <| fun _ ->
-          { Range = { Start = pos 3u 4u; End = pos 2u 2u }
-            NewText = "" }
+          {
+            Range = { Start = pos 3u 4u; End = pos 2u 2u }
+            NewText = ""
+          }
           |> TextEdit.tryFindError
-          |> Flip.Expect.isSome "End before Start should fail" ]
+          |> Flip.Expect.isSome "End before Start should fail"
+      ]
 
   let tests = testList (nameof TextEdit) [ applyTests; tryFindErrorTests ]
 
@@ -2707,7 +2925,8 @@ module private TextEdits =
   let sortByRangeTests =
     testList
       (nameof TextEdits.sortByRange)
-      [ let test (edits: TextEdit[]) =
+      [
+        let test (edits: TextEdit[]) =
           let sorted = edits |> TextEdits.sortByRange
           Expect.equal (sorted.Length) (edits.Length) "Sorted edits should have same length as input edits"
 
@@ -2741,9 +2960,11 @@ module private TextEdits =
               if iSrc1 < iSrc2 then
                 None
               else
-                {| Edits = (e1, e2)
-                   SourceIndicies = (iSrc1, iSrc2)
-                   SortedIndices = (i1, i2) |}
+                {|
+                  Edits = (e1, e2)
+                  SourceIndicies = (iSrc1, iSrc2)
+                  SortedIndices = (i1, i2)
+                |}
                 |> Some)
           // isEmpty doesn't print list when failure...
           if not (unordered |> Array.isEmpty) then
@@ -2757,11 +2978,15 @@ module private TextEdits =
           |> Array.mapi (fun i (l, c) ->
             // end doesn't really matter (no overlap allowed)
             let start =
-              { Line = uint32 l
-                Character = uint32 c }
+              {
+                Line = uint32 l
+                Character = uint32 c
+              }
 
-            { Range = { Start = start; End = start }
-              NewText = $"{i}=({l},{c})" })
+            {
+              Range = { Start = start; End = start }
+              NewText = $"{i}=({l},{c})"
+            })
           |> test
 
         testCase "can sort all same position ranges"
@@ -2770,60 +2995,86 @@ module private TextEdits =
           |> Array.mapi (fun i (l, c) ->
             // end doesn't really matter (no overlap allowed)
             let start =
-              { Line = uint32 l
-                Character = uint32 c }
+              {
+                Line = uint32 l
+                Character = uint32 c
+              }
 
-            { Range = { Start = start; End = start }
-              NewText = $"{i}=({l},{c})" })
+            {
+              Range = { Start = start; End = start }
+              NewText = $"{i}=({l},{c})"
+            })
           |> test
 
         testCase "can sort mix of same and different positions"
         <| fun _ ->
-          [| (1, 5)
-             (1, 1)
-             (3, 2)
-             (5, 4)
-             (1, 5)
-             (8, 5)
-             (5, 4)
-             (5, 6)
-             (4, 11)
-             (4, 11)
-             (1, 7) |]
+          [|
+            (1, 5)
+            (1, 1)
+            (3, 2)
+            (5, 4)
+            (1, 5)
+            (8, 5)
+            (5, 4)
+            (5, 6)
+            (4, 11)
+            (4, 11)
+            (1, 7)
+          |]
           |> Array.mapi (fun i (l, c) ->
             // end doesn't really matter (no overlap allowed)
             let start =
-              { Line = uint32 l
-                Character = uint32 c }
+              {
+                Line = uint32 l
+                Character = uint32 c
+              }
 
-            { Range = { Start = start; End = start }
-              NewText = $"{i}=({l},{c})" })
-          |> test ]
+            {
+              Range = { Start = start; End = start }
+              NewText = $"{i}=({l},{c})"
+            })
+          |> test
+      ]
 
   let tryFindErrorTests =
     testList
       (nameof TextEdits.tryFindError)
-      [ testCase "valid single edit should succeed"
+      [
+        testCase "valid single edit should succeed"
         <| fun _ ->
-          [| { NewText = "foo"
-               Range = { Start = pos 1u 2u; End = pos 1u 5u } } |]
+          [|
+            {
+              NewText = "foo"
+              Range = { Start = pos 1u 2u; End = pos 1u 5u }
+            }
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isNone "valid single edit should succeed"
         testCase "valid multiple edits should succeed"
         <| fun _ ->
-          [| { NewText = "foo"
-               Range = { Start = pos 1u 2u; End = pos 1u 5u } }
-             { NewText = "bar"
-               Range = { Start = pos 5u 2u; End = pos 5u 2u } }
-             { NewText = "baz"
-               Range = { Start = pos 2u 2u; End = pos 3u 3u } } |]
+          [|
+            {
+              NewText = "foo"
+              Range = { Start = pos 1u 2u; End = pos 1u 5u }
+            }
+            {
+              NewText = "bar"
+              Range = { Start = pos 5u 2u; End = pos 5u 2u }
+            }
+            {
+              NewText = "baz"
+              Range = { Start = pos 2u 2u; End = pos 3u 3u }
+            }
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isNone "valid multiple edits should succeed"
         testCase "no edit should fail"
         <| fun _ -> TextEdits.tryFindError [||] |> Flip.Expect.isSome "No edit should fail"
         let replace (start, fin) text : TextEdit =
-          { NewText = text
-            Range = { Start = start; End = fin } }
+          {
+            NewText = text
+            Range = { Start = start; End = fin }
+          }
 
         let _delete (start, fin) = replace (start, fin) ""
         let insert pos text = replace (pos, pos) text
@@ -2844,31 +3095,39 @@ module private TextEdits =
 
         testCase "empty edit in list with valid edits should fail"
         <| fun _ ->
-          [| filler <| replace (pos 1u 2u, pos 1u 5u) "0"
-             filler <| replace (pos 5u 2u, pos 5u 2u) "1"
-             empty (pos 1u 7u)
-             filler <| replace (pos 2u 2u, pos 3u 3u) "1" |]
+          [|
+            filler <| replace (pos 1u 2u, pos 1u 5u) "0"
+            filler <| replace (pos 5u 2u, pos 5u 2u) "1"
+            empty (pos 1u 7u)
+            filler <| replace (pos 2u 2u, pos 3u 3u) "1"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Empty edit should fail"
 
         testCase "two overlapping edits (Back/Front) on one line should fail"
         <| fun _ ->
-          [| replace (pos 1u 2u, pos 1u 5u) "front overlap"
-             replace (pos 1u 3u, pos 1u 7u) "back overlap" |]
+          [|
+            replace (pos 1u 2u, pos 1u 5u) "front overlap"
+            replace (pos 1u 3u, pos 1u 7u) "back overlap"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Overlapping edits should fail"
 
         testCase "two overlapping edits (Front/Back) on one line should fail"
         <| fun _ ->
-          [| replace (pos 1u 3u, pos 1u 7u) "back overlap"
-             replace (pos 1u 2u, pos 1u 5u) "front overlap" |]
+          [|
+            replace (pos 1u 3u, pos 1u 7u) "back overlap"
+            replace (pos 1u 2u, pos 1u 5u) "front overlap"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Overlapping edits should fail"
 
         testCase "two overlapping edits (Back/Front) over multiple lines should fail"
         <| fun _ ->
-          [| replace (pos 1u 2u, pos 3u 5u) "front overlap"
-             replace (pos 2u 3u, pos 5u 7u) "back overlap" |]
+          [|
+            replace (pos 1u 2u, pos 3u 5u) "front overlap"
+            replace (pos 2u 3u, pos 5u 7u) "back overlap"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Overlapping edits should fail"
 
@@ -2877,40 +3136,50 @@ module private TextEdits =
           // valid because: cursor is between characters
           //  -> replace prior to (3,5); replace after (3,5)
           //  -> do not interfere with each other
-          [| replace (pos 1u 2u, pos 3u 5u) "front"
-             replace (pos 3u 5u, pos 5u 7u) "back" |]
+          [|
+            replace (pos 1u 2u, pos 3u 5u) "front"
+            replace (pos 3u 5u, pos 5u 7u) "back"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isNone "Touching edits should succeed"
 
         testCase "two overlapping edits (Front/Back) over multiple lines should fail"
         <| fun _ ->
-          [| replace (pos 2u 3u, pos 5u 7u) "back overlap"
-             replace (pos 1u 2u, pos 3u 5u) "front overlap" |]
+          [|
+            replace (pos 2u 3u, pos 5u 7u) "back overlap"
+            replace (pos 1u 2u, pos 3u 5u) "front overlap"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Overlapping edits should fail"
 
         testCase "overlapping edits (Back/Front) in list with valid edits should fail"
         <| fun _ ->
-          [| filler <| replace (pos 1u 1u, pos 1u 1u) "0"
-             filler <| replace (pos 17u 8u, pos 19u 8u) "1"
-             replace (pos 1u 2u, pos 3u 5u) "front overlap"
-             filler <| replace (pos 7u 5u, pos 8u 9u) "2"
-             replace (pos 2u 3u, pos 5u 7u) "back overlap"
-             filler <| replace (pos 11u 1u, pos 15u 9u) "3" |]
+          [|
+            filler <| replace (pos 1u 1u, pos 1u 1u) "0"
+            filler <| replace (pos 17u 8u, pos 19u 8u) "1"
+            replace (pos 1u 2u, pos 3u 5u) "front overlap"
+            filler <| replace (pos 7u 5u, pos 8u 9u) "2"
+            replace (pos 2u 3u, pos 5u 7u) "back overlap"
+            filler <| replace (pos 11u 1u, pos 15u 9u) "3"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Overlapping edits should fail"
 
         testCase "replace inside another replace should fail"
         <| fun _ ->
-          [| replace (pos 2u 3u, pos 4u 1u) "inside"
-             replace (pos 1u 2u, pos 5u 7u) "outside" |]
+          [|
+            replace (pos 2u 3u, pos 4u 1u) "inside"
+            replace (pos 1u 2u, pos 5u 7u) "outside"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Inside edits should fail"
 
         testCase "replace with another replace inside should fail"
         <| fun _ ->
-          [| replace (pos 1u 2u, pos 5u 7u) "outside"
-             replace (pos 2u 3u, pos 4u 1u) "inside" |]
+          [|
+            replace (pos 1u 2u, pos 5u 7u) "outside"
+            replace (pos 2u 3u, pos 4u 1u) "inside"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Inside edits should fail"
 
@@ -2922,9 +3191,11 @@ module private TextEdits =
 
         testCase "inserts with same position followed by replace starting at same position should succeed"
         <| fun _ ->
-          [| insert (pos 2u 4u) "insert 1"
-             insert (pos 2u 4u) "insert 2"
-             replace (pos 2u 4u, pos 4u 7u) "replace" |]
+          [|
+            insert (pos 2u 4u) "insert 1"
+            insert (pos 2u 4u) "insert 2"
+            replace (pos 2u 4u, pos 4u 7u) "replace"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isNone "Same position inserts followed by replace should succeed"
 
@@ -2937,67 +3208,80 @@ module private TextEdits =
         testCase
           "inserts with same position followed by replace at same position intermingled with other valid edits should succeed"
         <| fun _ ->
-          [| filler <| replace (pos 6u 7u, pos 7u 9u) "0"
-             insert (pos 2u 4u) "insert 1"
-             filler <| replace (pos 1u 4u, pos 2u 1u) "1"
-             filler <| replace (pos 11u 17u, pos 18u 19u) "2"
-             insert (pos 2u 4u) "insert 2"
-             filler <| replace (pos 6u 1u, pos 6u 2u) "3"
-             replace (pos 2u 4u, pos 4u 7u) "replace"
-             filler <| replace (pos 9u 2u, pos 9u 7u) "4" |]
+          [|
+            filler <| replace (pos 6u 7u, pos 7u 9u) "0"
+            insert (pos 2u 4u) "insert 1"
+            filler <| replace (pos 1u 4u, pos 2u 1u) "1"
+            filler <| replace (pos 11u 17u, pos 18u 19u) "2"
+            insert (pos 2u 4u) "insert 2"
+            filler <| replace (pos 6u 1u, pos 6u 2u) "3"
+            replace (pos 2u 4u, pos 4u 7u) "replace"
+            filler <| replace (pos 9u 2u, pos 9u 7u) "4"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isNone "Same position inserts followed by replace should succeed"
 
         testCase "replace before insert on same position intermingled with other valid edits should fail"
         <| fun _ ->
-          [| filler <| replace (pos 6u 7u, pos 7u 9u) "0"
-             insert (pos 2u 4u) "insert 1"
-             filler <| replace (pos 1u 4u, pos 2u 1u) "1"
-             filler <| replace (pos 11u 17u, pos 18u 19u) "2"
-             replace (pos 2u 4u, pos 4u 7u) "replace"
-             filler <| replace (pos 6u 1u, pos 6u 2u) "3"
-             insert (pos 2u 4u) "insert 2"
-             filler <| replace (pos 9u 2u, pos 9u 7u) "4" |]
+          [|
+            filler <| replace (pos 6u 7u, pos 7u 9u) "0"
+            insert (pos 2u 4u) "insert 1"
+            filler <| replace (pos 1u 4u, pos 2u 1u) "1"
+            filler <| replace (pos 11u 17u, pos 18u 19u) "2"
+            replace (pos 2u 4u, pos 4u 7u) "replace"
+            filler <| replace (pos 6u 1u, pos 6u 2u) "3"
+            insert (pos 2u 4u) "insert 2"
+            filler <| replace (pos 9u 2u, pos 9u 7u) "4"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Replace before insert on same position should fail"
 
         testCase "two replaces in same position should fail"
         <| fun _ ->
-          [| replace (pos 2u 4u, pos 5u 9u) "replace 1"
-             replace (pos 2u 4u, pos 4u 7u) "replace 2" |]
+          [|
+            replace (pos 2u 4u, pos 5u 9u) "replace 1"
+            replace (pos 2u 4u, pos 4u 7u) "replace 2"
+          |]
           |> TextEdits.tryFindError
           |> Flip.Expect.isSome "Two replaces in same position should fail"
 
         testCase "two replaces in same position intermingled with other valid edits should fail should fail"
         <| fun _ ->
-          [| filler <| replace (pos 6u 7u, pos 7u 9u) "0"
-             replace (pos 2u 4u, pos 5u 9u) "replace 1"
-             filler <| replace (pos 1u 4u, pos 2u 1u) "1"
-             replace (pos 2u 4u, pos 4u 7u) "replace 2"
-             filler <| replace (pos 6u 1u, pos 6u 2u) "2" |]
+          [|
+            filler <| replace (pos 6u 7u, pos 7u 9u) "0"
+            replace (pos 2u 4u, pos 5u 9u) "replace 1"
+            filler <| replace (pos 1u 4u, pos 2u 1u) "1"
+            replace (pos 2u 4u, pos 4u 7u) "replace 2"
+            filler <| replace (pos 6u 1u, pos 6u 2u) "2"
+          |]
           |> TextEdits.tryFindError
-          |> Flip.Expect.isSome "Two replaces in same position should fail" ]
+          |> Flip.Expect.isSome "Two replaces in same position should fail"
+      ]
 
   let applyTests =
     testList
       (nameof TextEdits.apply)
-      [ testList
+      [
+        testList
           "single edit"
-          [ testCase "insert"
+          [
+            testCase "insert"
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = 42$0
           let bar = 2
           """
 
               let edit: TextEdit =
-                { NewText = "\nlet baz = 4"
-                  Range = range }
+                {
+                  NewText = "\nlet baz = 4"
+                  Range = range
+                }
 
               let expected =
-                !- """
+                !-"""
           let foo = 42
           let baz = 4
           let bar = 2
@@ -3011,7 +3295,7 @@ module private TextEdits =
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = $042
           let bar = $02
           """
@@ -3019,7 +3303,7 @@ module private TextEdits =
               let edit: TextEdit = { NewText = ""; Range = range }
 
               let expected =
-                !- """
+                !-"""
           let foo = 2
           """
 
@@ -3031,17 +3315,19 @@ module private TextEdits =
             <| fun _ ->
               let (range, text) =
                 Cursor.assertExtractRange
-                  !- """
+                  !-"""
           let foo = $042
           let bar$0 = 2
           """
 
               let edit: TextEdit =
-                { NewText = "1\nlet baz"
-                  Range = range }
+                {
+                  NewText = "1\nlet baz"
+                  Range = range
+                }
 
               let expected =
-                !- """
+                !-"""
           let foo = 1
           let baz = 2
           """
@@ -3049,7 +3335,9 @@ module private TextEdits =
               let actual =
                 text |> TextEdit.apply edit |> Flip.Expect.wantOk "Apply should not fail"
 
-              Expect.equal actual expected "Apply should produce correct text" ] ]
+              Expect.equal actual expected "Apply should produce correct text"
+          ]
+      ]
 
   let tests =
     testList (nameof TextEdits) [ sortByRangeTests; tryFindErrorTests; applyTests ]

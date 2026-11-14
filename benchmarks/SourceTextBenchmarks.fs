@@ -58,7 +58,7 @@ open Helpers
 open BenchmarkDotNet.Jobs
 
 [<MemoryDiagnoser>]
-[<SimpleJob(RuntimeMoniker.Net80)>]
+[<SimpleJob>]
 type SourceText_LineChanges_Benchmarks() =
 
   [<Params(1, 15, 50, 100, 1000)>]
@@ -71,8 +71,10 @@ type SourceText_LineChanges_Benchmarks() =
     file <-
       addToSourceText (
         file,
-        { Start = { Line = 0u; Character = 5u }
-          End = { Line = 0u; Character = 5u } },
+        {
+          Start = { Line = 0u; Character = 5u }
+          End = { Line = 0u; Character = 5u }
+        },
         "World"
       )
 
@@ -80,8 +82,10 @@ type SourceText_LineChanges_Benchmarks() =
       file <-
         addToSourceText (
           file,
-          { Start = { Line = 0u; Character = 10u }
-            End = { Line = 0u; Character = 10u } },
+          {
+            Start = { Line = 0u; Character = 10u }
+            End = { Line = 0u; Character = 10u }
+          },
           "\nLOL"
         )
 

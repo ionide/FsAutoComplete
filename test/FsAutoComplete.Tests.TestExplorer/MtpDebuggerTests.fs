@@ -30,7 +30,8 @@ let private answer (result: IReadOnlyDictionary<string, obj> option) =
 let tests =
   testList
     "MtpWrapper.attachDebuggerHandler"
-    [ testCase "the process the server names is the one debugged"
+    [
+      testCase "the process the server names is the one debugged"
       <| fun _ ->
         let mutable debugged = None
 
@@ -75,4 +76,5 @@ let tests =
             true)
 
         Expect.isFalse attempted "only an attach request attaches a debugger"
-        Expect.isNone actual "this handler answers nothing else" ]
+        Expect.isNone actual "this handler answers nothing else"
+    ]

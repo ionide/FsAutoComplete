@@ -38,7 +38,9 @@ let private getSignatureHelpForFunctionApplication
     let! possibleApplicationSymbolEnd =
       option {
         if tyRes.GetParseResults.IsPosContainedInApplication endOfPreviousIdentPos then
-          let! funcRange = tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
+          let! funcRange =
+            tyRes.GetParseResults.TryRangeOfFunctionOrMethodBeingApplied endOfPreviousIdentPos
+
           return funcRange.End
         else
           return endOfPreviousIdentPos
@@ -138,11 +140,13 @@ let private getSignatureHelpForFunctionApplication
               sprintf "(%s)" names, sprintf "(%s)" types)
 
         return
-          { ActiveParameter = Some(uint argumentIndex)
+          {
+            ActiveParameter = Some(uint argumentIndex)
             Methods = methods.Methods
             ActiveOverload = None
             SigHelpKind = FunctionApplication
-            FunctionApplicationParameters = Some functionAppParams }
+            FunctionApplicationParameters = Some functionAppParams
+          }
     | _ -> return! None
   }
 
@@ -169,13 +173,15 @@ let private getSignatureHelpForMethod
     let isStaticArgTip = lines.TryGetChar paramLocations.OpenParenLocation = Some '<'
 
     let filteredMethods =
-      [| for m in methods do
-           // need to distinguish TP<...>(...)  angle brackets tip from parens tip
-           if
-             (isStaticArgTip && m.StaticParameters.Length > 0)
-             || (not isStaticArgTip && m.HasParameters)
-           then
-             m |]
+      [|
+        for m in methods do
+          // need to distinguish TP<...>(...)  angle brackets tip from parens tip
+          if
+            (isStaticArgTip && m.StaticParameters.Length > 0)
+            || (not isStaticArgTip && m.HasParameters)
+          then
+            m
+      |]
 
     do! Option.guard (filteredMethods.Length > 0)
 
@@ -190,10 +196,12 @@ let private getSignatureHelpForMethod
     let startOfArgs = lines.NextPos paramLocations.OpenParenLocation
 
     let tupleEnds =
-      [| yield! Option.toList startOfArgs
-         for i in 0 .. paramLocations.TupleEndLocations.Length - 2 do
-           yield paramLocations.TupleEndLocations.[i]
-         yield endPos |]
+      [|
+        yield! Option.toList startOfArgs
+        for i in 0 .. paramLocations.TupleEndLocations.Length - 2 do
+          yield paramLocations.TupleEndLocations.[i]
+        yield endPos
+      |]
     // If we are pressing "(" or "<" or ",", then only pop up the info if this is one of the actual, real detected positions in the detected promptable call
     //
     // For example the last "(" in
@@ -226,11 +234,13 @@ let private getSignatureHelpForMethod
 
 
       return
-        { ActiveParameter = Some(uint argumentIndex)
+        {
+          ActiveParameter = Some(uint argumentIndex)
           Methods = filteredMethods
           ActiveOverload = methodCandidate
           SigHelpKind = MethodCall
-          FunctionApplicationParameters = None }
+          FunctionApplicationParameters = None
+        }
   }
 
 let getSignatureHelpFor
