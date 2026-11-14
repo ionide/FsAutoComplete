@@ -42,6 +42,28 @@ let tests =
         Expect.contains names "Tests.My theory(n: 2)" "the second theory case is discovered"
       }
 
+      testCaseAsync "groups the tests of an xunit application by the type the platform names"
+      <| async {
+        let! discovered = MtpWrapper.discoverTestsAsync ignore [ sampleApp ]
+
+        let tree =
+          TestHierarchy.ofMtpNodes "/repo/Mtp.XUnit.fsproj" "net8.0" (List.map snd discovered)
+
+        let groups = tree |> List.filter (_.IsLeaf >> not)
+
+        let separated =
+          tree
+          |> List.find (fun item -> item.FullName = "Tests.Contains.separator+characters")
+
+        Expect.equal (groups |> List.map _.FullName) [ "Tests" ] "the module holding the tests is the only group"
+        Expect.equal separated.ParentId (Some groups.Head.Id) "separators in a test's name do not nest it"
+
+        Expect.all
+          (tree |> List.filter _.IsLeaf)
+          (fun leaf -> leaf.ParentId = Some groups.Head.Id)
+          "every test hangs off its type"
+      }
+
       testCaseAsync "pairs every node with the application it came from"
       <| async {
         let! discovered = MtpWrapper.discoverTestsAsync ignore [ sampleApp ]

@@ -269,7 +269,26 @@ module TestItem =
   [<Literal>]
   let mtpExecutorUri = "microsoft.testing.platform"
 
-  let private ofMtpNodeWithParent
+  /// The type the platform names as holding a test, qualified by its namespace.
+  let private mtpTypeName (node: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate) =
+    node.MethodIdentifier
+    |> Option.map (fun identifier ->
+      match identifier.Namespace with
+      | Some ns when not (String.IsNullOrEmpty ns) -> $"{ns}.{identifier.TypeName}"
+      | _ -> identifier.TypeName)
+
+  let private mtpParentUid (node: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate) =
+    node.ParentUid |> Option.filter (String.IsNullOrEmpty >> not)
+
+  /// The type a node is grouped under: the one the platform names for it, unless the platform
+  /// gave the node a parent of its own.
+  let mtpTypeGrouping (node: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate) =
+    match mtpParentUid node with
+    | Some _ -> None
+    | None -> mtpTypeName node
+
+  /// Maps a node, linking a parent the platform reported through the given lookup.
+  let ofMtpNodeWithParent
     (parentIdOf: string -> string)
     (projFilePath: string)
     (targetFramework: string)
@@ -289,13 +308,8 @@ module TestItem =
     // MSTest displays a test by its method name alone, where xUnit displays the name of its type
     // too, so a display name is qualified by the test's type unless it already is.
     let fullName =
-      match node.MethodIdentifier with
-      | Some identifier ->
-        let typeName =
-          match identifier.Namespace with
-          | Some ns -> $"{ns}.{identifier.TypeName}"
-          | None -> identifier.TypeName
-
+      match mtpTypeName node with
+      | Some typeName ->
         if displayName.StartsWith($"{typeName}.", StringComparison.Ordinal) then
           displayName
         else
@@ -304,9 +318,9 @@ module TestItem =
 
     { Id = TestId.ofMtpNode projFilePath targetFramework node
       ParentId =
-        node.ParentUid
-        |> Option.filter (String.IsNullOrEmpty >> not)
-        |> Option.map parentIdOf
+        match mtpParentUid node with
+        | Some parentUid -> Some(parentIdOf parentUid)
+        | None -> mtpTypeGrouping node |> Option.map (TestId.group projFilePath targetFramework)
       IsLeaf = isLeaf
       FullName = fullName
       DisplayName = displayName
@@ -317,27 +331,11 @@ module TestItem =
       CodeLocationRange = node.Location |> Option.bind range }
 
   /// Maps a node of a Microsoft.Testing.Platform test tree onto the shape the clients consume.
-  /// The platform reports parent links and grouping nodes itself, so the result needs no pass
-  /// through `TestHierarchy.withInferredGroupings`. The parent is not in sight, so it is taken to
-  /// be a grouping; `ofMtpNodes` links a parent that is reported alongside by its own id.
+  /// The node hangs off the parent the platform reported, or else the type the platform names for
+  /// it; its name is never broken down. A reported parent is not in sight, so it is taken to be a
+  /// grouping; `TestHierarchy.ofMtpNodes` links a parent that is reported alongside by its own id.
   let ofMtpNode (projFilePath: string) (targetFramework: string) node =
     ofMtpNodeWithParent (TestId.group projFilePath targetFramework) projFilePath targetFramework node
-
-  /// Maps nodes one application reported. The node type is optional and a test can have
-  /// children, so each parent reported among the nodes is linked by the id it was given.
-  let ofMtpNodes
-    (projFilePath: string)
-    (targetFramework: string)
-    (nodes: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate list)
-    : TestItem list =
-    let byUid = nodes |> List.map (fun node -> node.Uid, node) |> Map.ofList
-
-    let parentIdOf uid =
-      match byUid.TryFind uid with
-      | Some parent -> TestId.ofMtpNode projFilePath targetFramework parent
-      | None -> TestId.group projFilePath targetFramework uid
-
-    nodes |> List.map (ofMtpNodeWithParent parentIdOf projFilePath targetFramework)
 
   let tryTestCaseToDTO
     (projectLookup: string -> Ionide.ProjInfo.Types.ProjectOptions option)
@@ -347,7 +345,8 @@ module TestItem =
     | None -> None // this should never happen. We pass VsTest the list of executables to test, so all the possible sources should be known to us
     | Some project -> ofVsTestCase project.ProjectFileName project.TargetFramework testCase |> Some
 
-/// Builds the test tree for platforms that report runnable tests alone.
+/// Builds the test tree: from test names for VSTest, which reports runnable tests alone, and from
+/// the parents and types Microsoft.Testing.Platform reports.
 module TestHierarchy =
   open System.Text.RegularExpressions
 
@@ -362,11 +361,14 @@ module TestHierarchy =
         { Text = m.Groups[2].Value
           SeparatorBefore = m.Groups[1].Value } ]
 
-  /// The ancestor names of a fully-qualified test name, outermost first.
-  let private ancestorNames (fullName: string) =
+  /// The name and each of its ancestors, outermost first.
+  let private namesDownTo (fullName: string) =
     splitSegments fullName
     |> List.scan (fun path segment -> $"{path}{segment.SeparatorBefore}{segment.Text}") ""
-    |> List.filter (fun name -> name <> "" && name <> fullName)
+    |> List.filter (fun name -> name <> "")
+
+  /// The ancestor names of a fully-qualified test name, outermost first.
+  let private ancestorNames (fullName: string) = namesDownTo fullName |> List.filter (fun name -> name <> fullName)
 
   let private groupingNode (template: TestItem) (fullName: string) =
     { template with
@@ -395,17 +397,41 @@ module TestHierarchy =
     |> List.distinctBy _.Id
     |> List.map (fun node -> { node with ParentId = parentOf node })
 
-  /// Returns the nodes as a linked tree, one project at a time. A project whose platform reports
-  /// its own parent links is taken at its word; a project reported without any is grouped by the
-  /// segments of its test names.
-  let withHierarchy (nodes: TestItem list) : TestItem list =
-    nodes
-    |> List.groupBy (fun node -> node.ProjectFilePath, node.TargetFramework)
-    |> List.collect (fun (_, projectNodes) ->
-      if projectNodes |> List.exists (fun node -> node.ParentId.IsSome) then
-        projectNodes
-      else
-        withInferredGroupings projectNodes)
+  /// The tree one Microsoft.Testing.Platform application reported. A node keeps the parent the
+  /// platform gave it, linked by the id that parent was issued. A test reported without one hangs
+  /// off the type the platform names for it, and a grouping is added per type and enclosing
+  /// namespace. Test names are not broken down, so one holding `.` or `+` stays one test.
+  let ofMtpNodes
+    (projFilePath: string)
+    (targetFramework: string)
+    (nodes: FsAutoComplete.TestingPlatform.Client.TestNodeUpdate list)
+    : TestItem list =
+    let byUid = nodes |> List.map (fun node -> node.Uid, node) |> Map.ofList
+
+    let parentIdOf uid =
+      match byUid.TryFind uid with
+      | Some parent -> TestId.ofMtpNode projFilePath targetFramework parent
+      | None -> TestId.group projFilePath targetFramework uid
+
+    let items =
+      nodes
+      |> List.map (TestItem.ofMtpNodeWithParent parentIdOf projFilePath targetFramework)
+
+    let typeGroupings =
+      List.zip nodes items
+      |> List.collect (fun (node, item) ->
+        match TestItem.mtpTypeGrouping node with
+        | Some typeName -> namesDownTo typeName |> List.map (groupingNode item)
+        | None -> [])
+      |> List.distinctBy _.Id
+      |> List.map (fun grouping ->
+        { grouping with
+            ParentId =
+              ancestorNames grouping.FullName
+              |> List.tryLast
+              |> Option.map (TestId.group projFilePath targetFramework) })
+
+    items @ typeGroupings
 
 [<RequireQualifiedAccess>]
 type TestPlatformKind =

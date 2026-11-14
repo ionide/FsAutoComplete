@@ -2805,9 +2805,8 @@ type AdaptiveState
           |> List.collect (fun (application, nodes) ->
             match projectLookup.TryFind application with
             | Some project ->
-              TestServer.TestItem.ofMtpNodes project.ProjectFileName project.TargetFramework (List.map snd nodes)
+              TestServer.TestHierarchy.ofMtpNodes project.ProjectFileName project.TargetFramework (List.map snd nodes)
             | None -> [])
-          |> TestServer.TestHierarchy.withHierarchy
 
         let onDiscoveryProgress (update: TestServer.VSTestWrapper.TestDiscoveryUpdate) =
           let dto =

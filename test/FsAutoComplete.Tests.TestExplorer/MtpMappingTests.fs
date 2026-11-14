@@ -255,12 +255,12 @@ let mtpNodesTests =
       { node "a3f9" with
           ParentUid = Some parent.Uid }
 
-    match TestItem.ofMtpNodes project framework [ parent; child ] with
+    match TestHierarchy.ofMtpNodes project framework [ parent; child ] with
     | [ parent; child ] -> parent, child
     | items -> failwith $"Expected two items, got {List.length items}"
 
   testList
-    "TestItem.ofMtpNodes"
+    "TestHierarchy.ofMtpNodes"
     [ // The node type is optional on the wire, and nothing stops a test from having children.
       for description, nodeType in
         [ "a grouping", Some NodeType.Group
@@ -275,7 +275,7 @@ let mtpNodesTests =
       testCase "a parent reported elsewhere is taken to be a grouping"
       <| fun _ ->
         let child =
-          TestItem.ofMtpNodes
+          TestHierarchy.ofMtpNodes
             project
             framework
             [ { node "a3f9" with
@@ -361,132 +361,119 @@ let idScopeTests =
 
 [<Tests>]
 let mtpHierarchyTests =
-  let leaf id fullName parentId : TestItem =
-    { Id = id
-      ParentId = parentId
-      IsLeaf = true
-      FullName = fullName
-      DisplayName = fullName
-      ExecutorUri = TestItem.mtpExecutorUri
-      ProjectFilePath = project
-      TargetFramework = framework
-      CodeFilePath = None
-      CodeLocationRange = None }
+  let test uid ns typeName displayName =
+    { node uid with
+        DisplayName = Some displayName
+        MethodIdentifier =
+          Some
+            { Namespace = ns
+              TypeName = typeName
+              MethodName = Some "Test1" } }
+
+  let tree nodes = TestHierarchy.ofMtpNodes project framework nodes
+
+  let parentNameOf (items: TestItem list) (item: TestItem) =
+    items
+    |> List.tryFind (fun p -> Some p.Id = item.ParentId)
+    |> Option.map _.FullName
+
+  let groupNames (items: TestItem list) = items |> List.filter (_.IsLeaf >> not) |> List.map _.FullName |> List.sort
 
   testList
-    "TestHierarchy.withHierarchy"
-    [ testCase "a tree the server linked itself is kept as reported"
-      <| fun _ ->
-        let group =
-          { leaf "b1c2" "Tests" None with
-              IsLeaf = false }
-
-        let child = leaf "a3f9" "Tests.Adds" (Some "b1c2")
-
-        let actual = TestHierarchy.withHierarchy [ group; child ]
-
-        Expect.equal actual [ group; child ] "the server already linked the nodes"
-
-      testCase "a flat tree is grouped by the segments of its names"
-      <| fun _ ->
-        let actual = TestHierarchy.withHierarchy [ leaf "a3f9" "Tests.Adds" None ]
-
-        let names = actual |> List.map _.FullName |> List.sort
-        Expect.equal names [ "Tests"; "Tests.Adds" ] "the name segment becomes a group"
-
-      testCase "a grouped leaf keeps the id that addresses it"
+    "TestHierarchy.ofMtpNodes"
+    [ testCase "a node hangs off the parent the platform reported"
       <| fun _ ->
         let actual =
-          TestHierarchy.withHierarchy [ leaf "a3f9" "Tests.Adds" None ]
-          |> List.find _.IsLeaf
+          tree
+            [ { node "b1c2" with
+                  NodeType = Some NodeType.Group
+                  DisplayName = Some "Any.Name+At all" }
+              { test "a3f9" None "Tests" "Adds" with
+                  ParentUid = Some "b1c2" } ]
 
-        Expect.equal actual.Id "a3f9" "the id the server gave the node survives grouping"
-
-      testCase "a synthesised group addresses no test"
-      <| fun _ ->
-        let actual =
-          TestHierarchy.withHierarchy [ leaf "a3f9" "Tests.Adds" None ]
-          |> List.find (_.IsLeaf >> not)
-
-        Expect.equal
-          (TestId.tryParse actual.Id |> Result.map _.Target)
-          (Ok(TestIdTarget.Group "Tests"))
-          "a group is not a test a client can run"
-
-      testCase "a grouped leaf is linked to its group"
-      <| fun _ ->
-        let actual = TestHierarchy.withHierarchy [ leaf "a3f9" "Tests.Adds" None ]
-        let group = actual |> List.find (_.IsLeaf >> not)
         let child = actual |> List.find _.IsLeaf
 
-        Expect.equal child.ParentId (Some group.Id) "the leaf hangs off the group"
+        Expect.equal (parentNameOf actual child) (Some "Any.Name+At all") "the reported parent is the parent"
+        Expect.equal (List.length actual) 2 "a tree the platform linked itself gains no groupings"
 
-      testCase "each project is linked on its own"
+      testCase "a test without a parent hangs off the type the platform names for it"
       <| fun _ ->
-        let linkedProject =
-          [ { leaf "b1c2" "Linked" None with
-                IsLeaf = false
-                ProjectFilePath = "/repo/Linked.fsproj" }
-            { leaf "a3f9" "Linked.Adds" (Some "b1c2") with
-                ProjectFilePath = "/repo/Linked.fsproj" } ]
-
-        let flatProject =
-          [ { leaf "c7d8" "Flat.Adds" None with
-                ProjectFilePath = "/repo/Flat.fsproj" } ]
-
-        let actual = TestHierarchy.withHierarchy (linkedProject @ flatProject)
-
-        Expect.equal
-          (actual |> List.filter (fun node -> node.ProjectFilePath = "/repo/Linked.fsproj"))
-          linkedProject
-          "the linked project is kept as reported"
-
-        Expect.equal
-          (actual
-           |> List.filter (fun node -> node.ProjectFilePath = "/repo/Flat.fsproj")
-           |> List.map _.FullName
-           |> List.sort)
-          [ "Flat"; "Flat.Adds" ]
-          "the flat project is grouped by its names"
-
-      testCase "short display names are grouped by namespace and type"
-      <| fun _ ->
-        let test uid typeName displayName =
-          { node uid with
-              DisplayName = Some displayName
-              MethodIdentifier =
-                Some
-                  { Namespace = Some "MyNamespace"
-                    TypeName = typeName
-                    MethodName = Some "Test1" } }
-
         let actual =
-          TestItem.ofMtpNodes
-            project
-            framework
-            [ test "a3f9" "ClassA" "Test1"
-              test "b1c2" "ClassA" "Test1 (1,2)"
-              test "c7d8" "ClassB" "Test1" ]
-          |> TestHierarchy.withHierarchy
-
-        let parentNameOf (item: TestItem) =
-          actual
-          |> List.tryFind (fun p -> Some p.Id = item.ParentId)
-          |> Option.map _.FullName
+          tree
+            [ test "a3f9" (Some "MyNamespace") "ClassA" "Test1"
+              test "b1c2" (Some "MyNamespace") "ClassA" "Test1 (1,2)"
+              test "c7d8" (Some "MyNamespace") "ClassB" "Test1" ]
 
         Expect.equal
           (actual
            |> List.filter _.IsLeaf
-           |> List.map (fun t -> t.DisplayName, parentNameOf t))
+           |> List.map (fun t -> t.DisplayName, parentNameOf actual t))
           [ "Test1", Some "MyNamespace.ClassA"
             "Test1 (1,2)", Some "MyNamespace.ClassA"
             "Test1", Some "MyNamespace.ClassB" ]
           "each test hangs off its type"
 
         Expect.equal
-          (actual |> List.filter (_.IsLeaf >> not) |> List.map _.FullName |> List.sort)
+          (groupNames actual)
           [ "MyNamespace"; "MyNamespace.ClassA"; "MyNamespace.ClassB" ]
-          "the namespace and each type become groups" ]
+          "the namespace and each type become groups"
+
+      testCase "a test name is never split into groups"
+      <| fun _ ->
+        let actual =
+          tree
+            [ test "a3f9" None "XUnitTests" "XUnitTests.Contains.separator+characters"
+              test "b1c2" None "XUnitTests" "theory(x: 1.5)" ]
+
+        Expect.equal (groupNames actual) [ "XUnitTests" ] "only the type is a group"
+
+        Expect.equal
+          (actual |> List.filter _.IsLeaf |> List.map (parentNameOf actual))
+          [ Some "XUnitTests"; Some "XUnitTests" ]
+          "the separators in a test's name do not nest it"
+
+      testCase "a nested type is grouped under the type enclosing it"
+      <| fun _ ->
+        let actual = tree [ test "a3f9" None "Tests+Nested+Deeper" "Adds" ]
+        let byName name = actual |> List.find (fun item -> item.FullName = name)
+
+        Expect.equal
+          (groupNames actual)
+          [ "Tests"; "Tests+Nested"; "Tests+Nested+Deeper" ]
+          "each enclosing type is a group"
+
+        Expect.equal
+          (parentNameOf actual (byName "Tests+Nested+Deeper"))
+          (Some "Tests+Nested")
+          "a type hangs off its encloser"
+
+        Expect.equal (byName "Tests").ParentId None "the outermost type sits at the root"
+        Expect.equal (byName "Tests+Nested").DisplayName "Nested" "a group is labelled by its own segment"
+
+      testCase "a type group addresses no test"
+      <| fun _ ->
+        let group = tree [ test "a3f9" None "Tests" "Adds" ] |> List.find (_.IsLeaf >> not)
+
+        Expect.equal
+          (TestId.tryParse group.Id |> Result.map _.Target)
+          (Ok(TestIdTarget.Group "Tests"))
+          "a group is not a test a client can run"
+
+      testCase "a test the platform neither parents nor types sits at the root"
+      <| fun _ ->
+        let actual =
+          tree
+            [ { node "a3f9" with
+                  DisplayName = Some "list.sublist.case" } ]
+
+        Expect.equal (actual |> List.map _.ParentId) [ None ] "nothing is inferred from the name"
+
+      testCase "a test reported while running hangs off the same type as when discovered"
+      <| fun _ ->
+        let reported = test "a3f9" (Some "MyNamespace") "ClassA" "Test1"
+        let discovered = tree [ reported ] |> List.find _.IsLeaf
+
+        Expect.equal (TestItem.ofMtpNode project framework reported) discovered "a run update matches discovery" ]
 
 [<Tests>]
 let mtpOutcomeTests =

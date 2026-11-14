@@ -37,3 +37,6 @@ let ``Waits for cancellation`` () =
 // xunit.v3 hands Console output to the platform only when the assembly asks for it.
 [<assembly: CaptureConsole>]
 do ()
+
+[<Fact>]
+let ``Contains.separator+characters`` () = Assert.True(true)
