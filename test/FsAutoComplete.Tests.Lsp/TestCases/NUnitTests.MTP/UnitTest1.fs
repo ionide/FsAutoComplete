@@ -1,0 +1,18 @@
+module NUnitTests.MTP
+
+open NUnit.Framework
+
+[<SetUp>]
+let Setup () = ()
+
+[<Test>]
+let Test1 () = Assert.Pass()
+
+module Outer =
+  module Inner =
+    [<TestCase(0)>]
+    let Test2 (i: int) = Assert.Pass()
+
+  type InnerClass() =
+    [<Test>]
+    member this.Test1() = Assert.Pass()

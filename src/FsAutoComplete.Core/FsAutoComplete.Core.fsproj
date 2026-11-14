@@ -7,7 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FsAutoComplete.Logging\FsAutoComplete.Logging.fsproj" />
+    <ProjectReference Include="../FsAutoComplete.TestingPlatform.Client/FsAutoComplete.TestingPlatform.Client.fsproj" />
     <TrimmerRootAssembly Include="FsAutoComplete.Core" />
+    <InternalsVisibleTo Include="FsAutoComplete.Tests.TestExplorer" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SemaphoreSlimLocks.fsi" />
@@ -19,6 +21,7 @@
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
     <Compile Include="VSTestWrapper.fs" />
+    <Compile Include="MtpWrapper.fs" />
     <Compile Include="TestServer.fs" />
     <Compile Include="TestAdapter.fs" />
     <Compile Include="DotnetNewTemplate.fs" />
