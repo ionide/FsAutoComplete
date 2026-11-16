@@ -139,14 +139,14 @@ module VSTestWrapper =
         endSession vstest
     }
 
-  /// onAttachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
-  let runTestsAsync
+  /// Runs whatever `run` or `runWithHost` selects, using a custom test host only when debugging.
+  let private runWithAsync
     (vstestPath: string)
     (onTestRunProgress: TestRunUpdate -> unit)
     (onAttachDebugger: ProcessId -> DidDebuggerAttach)
-    (sources: TestProjectDll list)
-    (testCaseFilter: string option)
     (shouldDebug: bool)
+    (run: VsTestConsoleWrapper -> string -> TestRunHandler -> unit)
+    (runWithHost: VsTestConsoleWrapper -> string -> TestRunHandler -> ITestHostLauncher -> unit)
     : Async<TestResult list> =
     async {
       let consoleParams = ConsoleParameters()
@@ -156,21 +156,64 @@ module VSTestWrapper =
         let runHandler = TestRunHandler(onTestRunProgress)
         let runSettings = RunSettings.defaultRunSettings
 
-        let options = new TestPlatformOptions()
-        testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
-
         use! _cancel = Async.OnCancel(fun () -> vstest.CancelTestRun())
 
         if shouldDebug then
           let hostLauncher = TestHostLauncher(shouldDebug, onAttachDebugger)
-          vstest.RunTestsWithCustomTestHost(sources, runSettings, options, runHandler, hostLauncher)
+          runWithHost vstest runSettings runHandler hostLauncher
         else
-          vstest.RunTests(sources, runSettings, options, runHandler)
+          run vstest runSettings runHandler
 
         return runHandler.TestResults |> List.ofSeq
       finally
         endSession vstest
     }
+
+  /// onAttachDebugger assumes that the debugger is attached when the method returns. The test project will continue execution as soon as attachDebugger returns
+  let runTestsAsync
+    (vstestPath: string)
+    (onTestRunProgress: TestRunUpdate -> unit)
+    (onAttachDebugger: ProcessId -> DidDebuggerAttach)
+    (sources: TestProjectDll list)
+    (testCaseFilter: string option)
+    (shouldDebug: bool)
+    : Async<TestResult list> =
+    let options = new TestPlatformOptions()
+    testCaseFilter |> Option.iter (TestPlatformOptions.withTestCaseFilter options)
+
+    runWithAsync
+      vstestPath
+      onTestRunProgress
+      onAttachDebugger
+      shouldDebug
+      (fun vstest runSettings handler -> vstest.RunTests(sources, runSettings, options, handler))
+      (fun vstest runSettings handler hostLauncher ->
+        vstest.RunTestsWithCustomTestHost(sources, runSettings, options, handler, hostLauncher))
+
+  /// Runs exactly the given test cases, which must come from discovery (a TestCase rebuilt from its
+  /// name does not run on every adapter). An empty list returns no results without starting
+  /// vstest.console, since RunTests rejects an empty list.
+  /// onAttachDebugger behaves as in runTestsAsync.
+  let runTestCasesAsync
+    (vstestPath: string)
+    (onTestRunProgress: TestRunUpdate -> unit)
+    (onAttachDebugger: ProcessId -> DidDebuggerAttach)
+    (testCases: TestCase list)
+    (shouldDebug: bool)
+    : Async<TestResult list> =
+    match testCases with
+    | [] -> async.Return []
+    | _ ->
+      let options = new TestPlatformOptions()
+
+      runWithAsync
+        vstestPath
+        onTestRunProgress
+        onAttachDebugger
+        shouldDebug
+        (fun vstest runSettings handler -> vstest.RunTests(testCases, runSettings, options, handler))
+        (fun vstest runSettings handler hostLauncher ->
+          vstest.RunTestsWithCustomTestHost(testCases, runSettings, options, handler, hostLauncher))
 
   open System.IO
 

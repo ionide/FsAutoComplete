@@ -6,6 +6,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ResourceLocators.fs" />
+    <Compile Include="TestIdTests.fs" />
+    <Compile Include="TestHierarchyTests.fs" />
+    <Compile Include="TestPlatformTests.fs" />
+    <Compile Include="MtpMappingTests.fs" />
+    <Compile Include="MtpDiscoveryTests.fs" />
+    <Compile Include="MtpRunTests.fs" />
+    <Compile Include="MtpDebuggerTests.fs" />
+    <Compile Include="MtpTaskBoundaryTests.fs" />
+    <Compile Include="MtpShutdownTests.fs" />
     <Compile Include="TestDiscoveryTests.fs" />
     <Compile Include="TestRunTests.fs" />
     <Compile Include="Main.fs" />
@@ -18,6 +27,9 @@
       dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.Tests/
       dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.RunResults/
       dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.NUnit/
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.XUnit.Theories/
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/VSTest.MSTest.DataRows/
+      dotnet build $(MSBuildProjectDirectory)/SampleTestProjects/Mtp.XUnit/
     </PostBuildEvent>
   </PropertyGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -205,7 +205,13 @@ type TestDetectedNotification =
 type TestRunRequest =
   {
     LimitToProjects: FilePath list option
+    /// A VSTest filter expression. It cannot select Microsoft.Testing.Platform tests, so a run
+    /// with a filter is rejected when a testing platform project is in scope.
     TestCaseFilter: string option
+    /// Names the tests to run by the `Id` discovery issued each of them. Only a leaf's id can be
+    /// run; a client expands a grouping node to its leaves. Cannot be combined with
+    /// `TestCaseFilter`. An empty array runs none.
+    TestIds: string array option
     AttachDebugger: bool
   }
 
@@ -371,6 +377,7 @@ type FSharpConfigDto =
     TooltipMode: string option
     TooltipShowDocumentationLink: bool option
     GenerateBinlog: bool option
+    EnableTestingPlatform: bool option
     AbstractClassStubGeneration: bool option
     AbstractClassStubGenerationObjectIdentifier: string option
     AbstractClassStubGenerationMethodBody: string option
@@ -478,6 +485,7 @@ type FSharpConfig =
     TooltipMode: string
     TooltipShowDocumentationLink: bool
     GenerateBinlog: bool
+    EnableTestingPlatform: bool
     CodeLenses: CodeLensConfig
     InlayHints: InlayHintsConfig
     InlineValues: InlineValuesConfig

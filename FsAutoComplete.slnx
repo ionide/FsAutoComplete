@@ -10,6 +10,8 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/FsAutoComplete.Logging/FsAutoComplete.Logging.fsproj" />
+    <Project Path="src/FsAutoComplete.TestingPlatform.Client.Protocol/FsAutoComplete.TestingPlatform.Client.Protocol.csproj" />
+    <Project Path="src/FsAutoComplete.TestingPlatform.Client/FsAutoComplete.TestingPlatform.Client.fsproj" />
     <Project Path="src/FsAutoComplete.ToolStub/FsAutoComplete.ToolStub.csproj" />
   </Folder>
   <Folder Name="/test/">
