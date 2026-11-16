@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Update FSharp.Analyzers.SDK to `0.41.1`. Analyzers that walk the typed tree with `TASTCollecting.walkTast` share one converted tree per file, so each analyzer no longer converts it again. Checkout the [FSharp.Analyzers.SDK release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.1) for details.
+- Update FSharp.Analyzers.SDK to `0.42.0`. Analyzers that walk the typed tree with `TASTCollecting.walkTast` share one converted tree per file, so each analyzer no longer converts it again. FSAC loads only analyzers built against FSharp.Analyzers.SDK 0.42. Checkout the FSharp.Analyzers.SDK release notes of [0.41.1](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.1) and [0.42.0](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.42.0) for details.
 
 ## [0.86.1] - 2026-10-29
 
