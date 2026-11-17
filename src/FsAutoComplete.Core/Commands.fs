@@ -1459,7 +1459,7 @@ type Commands() =
               member _.VisitRecordDefn(_, fields, _) =
                 let isInLine c =
                   match c with
-                  | SynField(attributes = attributes; xmlDoc = xmlDoc; idOpt = Some ident) when
+                  | SynFieldOrSpread.Field(SynField(attributes = attributes; xmlDoc = xmlDoc; idOpt = Some ident)) when
                     rangeContainsPos ident.idRange pos && xmlDoc.IsEmpty
                     ->
                     Some(false, tryGetFirstAttributeLine attributes)

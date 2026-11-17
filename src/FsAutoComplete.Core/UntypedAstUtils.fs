@@ -306,7 +306,9 @@ module Syntax =
       | SynExpr.Record(_, _, fields, _) ->
 
         fields
-        |> List.iter (fun (SynExprRecordField(fieldName = (_, _); expr = e)) -> e |> Option.iter walkExpr)
+        |> List.iter (function
+          | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = e), _) -> e |> Option.iter walkExpr
+          | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = e), _) -> walkExpr e)
       | SynExpr.ObjExpr(ty, argOpt, _, bindings, _, ifaces, _, _) ->
 
         argOpt |> Option.iter (fun (e, _) -> walkExpr e)
@@ -494,7 +496,11 @@ module Syntax =
       match s with
       | SynTypeDefnSimpleRepr.Enum(cases, _) -> List.iter walkEnumCase cases
       | SynTypeDefnSimpleRepr.Union(_, cases, _) -> List.iter walkUnionCase cases
-      | SynTypeDefnSimpleRepr.Record(_, fields, _) -> List.iter walkField fields
+      | SynTypeDefnSimpleRepr.Record(_, fields, _) ->
+        fields
+        |> List.iter (function
+          | SynFieldOrSpread.Field field -> walkField field
+          | SynFieldOrSpread.Spread(SynTypeSpread(ty = t)) -> walkType t)
       | SynTypeDefnSimpleRepr.TypeAbbrev(_, t, _) -> walkType t
       | SynTypeDefnSimpleRepr.General _ -> ()
       | SynTypeDefnSimpleRepr.LibraryOnlyILAssembly _ -> ()
@@ -636,7 +642,8 @@ module FoldingRange =
 
     override _.WalkInterpolatedStringPart i =
       match i with
-      | SynInterpolatedStringPart.FillExpr(qualifiers = Some ident) -> addIfInside ident.idRange
+      | SynInterpolatedStringPart.FillExpr(formatting = SynInterpolationFormatting.DotNet(format = Some ident)) ->
+        addIfInside ident.idRange
       | SynInterpolatedStringPart.String(_, r) -> addIfInside r
       | _ -> ()
 

@@ -21,7 +21,9 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
         (fcsPos, parseAndCheck.GetParseResults.ParseTree)
         ||> ParsedInput.tryPick (fun _path node ->
           let (|RecordFieldAttributes|) =
-            List.collect (fun (SynField(attributes = attributes)) -> attributes)
+            List.collect (function
+              | SynFieldOrSpread.Field(SynField(attributes = attributes)) -> attributes
+              | SynFieldOrSpread.Spread _ -> [])
 
           let (|UnionFieldAttributes|) =
             List.collect (fun (SynUnionCase(attributes = attributes)) -> attributes)
@@ -42,7 +44,7 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
           | SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(attributes = Suffixed(_ :: _ as attributes))))
           | SyntaxNode.SynTypeDefn(SynTypeDefn(
             typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Record(
-                                                recordFields = RecordFieldAttributes(Suffixed(_ :: _ as attributes))),
+                                                recordFieldsAndSpreads = RecordFieldAttributes(Suffixed(_ :: _ as attributes))),
                                               _)))
           | SyntaxNode.SynTypeDefn(SynTypeDefn(
             typeRepr = SynTypeDefnRepr.Simple(SynTypeDefnSimpleRepr.Union(
