@@ -1,9 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [0.87.0] - 2026-11-16
 
 ### Changed
 
+- *Breaking*: [Update FSharp.Compiler.Service to `43.13.404`, FSharp.Core to `10.1.404`, FSharp.Analyzers.SDK to `0.43.0`, Ionide.Analyzers to `0.22.0`, and Ionide.ProjInfo to `0.76.0`](https://github.com/ionide/FsAutoComplete/pull/PRNUM). FSAC loads only analyzers built against FSharp.Analyzers.SDK 0.43. FCS 43.13 supports only F# 8.0 and later, and adds record type and expression spreads (F# 11, `--langversion:11.0`). The record stub generator does not offer stubs for a record expression with a spread. Checkout the FSharp.Analyzers.SDK [0.43.0 release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.43.0) for details. (thanks @TheAngryByrd!)
 - Update FSharp.Analyzers.SDK to `0.42.0`. Analyzers that walk the typed tree with `TASTCollecting.walkTast` share one converted tree per file, so each analyzer no longer converts it again. FSAC loads only analyzers built against FSharp.Analyzers.SDK 0.42. Checkout the FSharp.Analyzers.SDK release notes of [0.41.1](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.41.1) and [0.42.0](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.42.0) for details.
 
 ## [0.86.1] - 2026-10-29
