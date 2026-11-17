@@ -106,14 +106,22 @@ module SyntaxTreeOps =
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
-        || walkExprs (recordFields |> List.map (fun (_ident, _range, expr) -> expr))
+        || walkExprs (
+          recordFields
+          |> List.map (function
+            | SynExprAnonRecordFieldOrSpread.Field(SynExprAnonRecordField(expr = expr), _)
+            | SynExprAnonRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> expr)
+        )
 
       | SynExpr.Record(copyInfo = copyInfo; recordFields = recordFields) ->
         (match copyInfo with
          | Some(e, _) -> walkExpr e
          | None -> false)
         || let flds =
-             recordFields |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr) in
+             recordFields
+             |> List.choose (function
+               | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = expr), _) -> expr
+               | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> Some expr) in
 
            walkExprs flds
 
@@ -271,7 +279,8 @@ type LanguageVersionShim(versionText: string) =
 
   member x.SupportsFeature(featureId: LanguageFeatureShim) =
     match featureId.Case with
-    | None -> false
+    // FCS removes the case of a feature when every language version that it supports has the feature.
+    | None -> true
     | Some x -> supportsFeature.Value(realLanguageVersion, x)
 
   member x.Real = realLanguageVersion
@@ -308,3 +317,21 @@ module LanguageVersionShim =
   /// <param name="fpo">The FSharpProjectOptions to use</param>
   /// <returns>A LanguageVersionShim from the parsed "--langversion:" or defaultLanguageVersion </returns>
   let fromFSharpProjectSnapshot (fpo: FSharpProjectSnapshot) = fpo.OtherOptions |> fromOtherOptions
+
+module RichTextShim =
+
+  // FCS 43.13 takes RichText in ToolTipElement.Single but keeps its constructor and RichText module internal.
+  let private create =
+    lazy
+      (let ctor =
+        typeof<FSharp.Compiler.Text.RichText>
+          .GetConstructor(
+            BindingFlags.Instance ||| BindingFlags.NonPublic,
+            null,
+            [| typeof<FSharp.Compiler.Text.TaggedText[]> |],
+            null
+          )
+
+       fun (parts: FSharp.Compiler.Text.TaggedText[]) -> ctor.Invoke([| box parts |]) :?> FSharp.Compiler.Text.RichText)
+
+  let ofTaggedTexts (parts: FSharp.Compiler.Text.TaggedText[]) = create.Value parts

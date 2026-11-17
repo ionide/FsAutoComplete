@@ -231,7 +231,9 @@ let getExpectoTests (ast: ParsedInput) : TestAdapterEntry<range> list =
       visitExpr parent letOrUse.Body
     | SynExpr.Record(_, _, fields, _) ->
       fields
-      |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
+      |> List.choose (function
+        | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = expr), _) -> expr
+        | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> Some expr)
       |> List.iter (visitExpr parent)
     | SynExpr.MatchLambda(_, _, clauses, _, _) -> visitMatches parent clauses
     | SynExpr.ObjExpr(bindings = bindings) -> visitBindings parent bindings

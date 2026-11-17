@@ -100,7 +100,10 @@ let fix (getParseResultsForFile: GetParseResultsForFile) : CodeFix =
               ->
               let currentNames =
                 fields
-                |> List.map (fun (synLongIdent, _, _) -> (synLongIdent.LongIdent |> List.last).idText)
+                |> List.choose (function
+                  | SynExprAnonRecordFieldOrSpread.Field(SynExprAnonRecordField(fieldName = synLongIdent), _) ->
+                    Some (synLongIdent.LongIdent |> List.last).idText
+                  | SynExprAnonRecordFieldOrSpread.Spread _ -> None)
                 |> Set.ofList
 
               Some(r, currentNames)

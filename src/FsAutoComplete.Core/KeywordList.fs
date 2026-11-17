@@ -5,6 +5,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
+open FsAutoComplete.FCSPatches
 
 module KeywordList =
 
@@ -21,7 +22,7 @@ module KeywordList =
         ToolTipText
           [
             ToolTipElement.Single(
-              [| TaggedText.tagText kv.Key |],
+              RichTextShim.ofTaggedTexts [| TaggedText.tagText kv.Key |],
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
             )
           ]
@@ -56,7 +57,7 @@ module KeywordList =
         ToolTipText
           [
             ToolTipElement.Single(
-              [| TaggedText.tagText ("#" + kv.Key) |],
+              RichTextShim.ofTaggedTexts [| TaggedText.tagText ("#" + kv.Key) |],
               FSharpXmlDoc.FromXmlText(FSharp.Compiler.Xml.XmlDoc(allLines, Range.Zero))
             )
           ]

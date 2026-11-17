@@ -1498,6 +1498,7 @@ let private formatTaggedText (t: TaggedText) : string =
   | TextTag.StringLiteral
   | TextTag.Text
   | TextTag.Punctuation
+  | TextTag.UnresolvedName
   | TextTag.UnknownType -> t.Text
   | TextTag.UnknownEntity
   | TextTag.Enum
@@ -1511,16 +1512,12 @@ let private formatTaggedText (t: TaggedText) : string =
   | TextTag.Record
   | TextTag.TypeParameter -> $"`{t.Text}`"
 
-let private formatUntaggedText (t: TaggedText) = t.Text
-
-let private formatUntaggedTexts = Array.map formatUntaggedText >> String.concat ""
-
 let private formatTaggedTexts =
   Array.map formatTaggedText >> String.concat "" >> (fun s -> s.Replace("``", ""))
 
-let private formatGenericParameters (typeMappings: TaggedText[] list) =
+let private formatGenericParameters (typeMappings: RichText list) =
   typeMappings
-  |> List.map (fun typeMap -> $"* {formatTaggedTexts typeMap}")
+  |> List.map (fun typeMap -> $"* {formatTaggedTexts typeMap.Parts}")
   |> String.concat nl
 
 /// CompletionItems are formatted with an unmodified signature since the signature portion of the
@@ -1530,7 +1527,7 @@ let formatCompletionItemTip (ToolTipText tips) : (string * string) =
   |> List.pick (function
     | ToolTipElement.Group items ->
       let makeTooltip (tipElement: ToolTipElementData) =
-        let header = formatUntaggedTexts tipElement.MainDescription
+        let header = tipElement.MainDescription.Text
 
         let body =
           match tryGetXmlDocMember tipElement.XmlDoc with
@@ -1552,7 +1549,7 @@ let formatPlainTip (ToolTipText tips) : (string * string) =
   |> List.pick (function
     | ToolTipElement.Group items ->
       let t = items |> Seq.head
-      let signature = formatUntaggedTexts t.MainDescription
+      let signature = t.MainDescription.Text
 
       let description =
         match tryGetXmlDocMember t.XmlDoc with
@@ -1808,8 +1805,8 @@ let formatDocumentationFromXmlDoc
   | TryGetXmlDocMemberResult.Error -> TipFormatterResult.Error ERROR_WHILE_PARSING_DOC_COMMENT
 
 let extractSignature (ToolTipText tips) =
-  let getSignature (t: TaggedText[]) =
-    let str = formatUntaggedTexts t
+  let getSignature (t: RichText) =
+    let str = t.Text
     let nlpos = str.IndexOfAny([| '\r'; '\n' |])
 
     let firstLine = if nlpos > 0 then str.[0 .. nlpos - 1] else str
@@ -1826,7 +1823,7 @@ let extractSignature (ToolTipText tips) =
     | ToolTipElement.Group gs ->
       List.tryPick
         (fun (t: ToolTipElementData) ->
-          if not (Array.isEmpty t.MainDescription) then
+          if not t.MainDescription.IsEmpty then
             Some t.MainDescription
           else
             None)
@@ -1855,4 +1852,4 @@ let extractGenericParameters (ToolTipText tips) =
   tips
   |> Seq.tryPick firstResult
   |> Option.defaultValue []
-  |> List.map formatUntaggedTexts
+  |> List.map (fun (t: RichText) -> t.Text)

@@ -153,7 +153,10 @@ let private tryFindPatternMatchExprInParsedInput (pos: Position) (parsedInput: P
 
       | SynExpr.Record(_inheritOpt, copyOpt, fields, _range) ->
         let fieldExprList =
-          fields |> List.choose (fun (SynExprRecordField(expr = expr)) -> expr)
+          fields
+          |> List.choose (function
+            | SynExprRecordFieldOrSpread.Field(SynExprRecordField(expr = expr), _) -> expr
+            | SynExprRecordFieldOrSpread.Spread(SynExprSpread(expr = expr), _) -> Some expr)
 
         match copyOpt with
         | Some(copyExpr, _blockSeparator) -> List.tryPick walkExpr (copyExpr :: fieldExprList)

@@ -22,6 +22,7 @@ type RecordExpr =
     Expr: SynExpr
     CopyExprOption: option<SynExpr * BlockSeparator>
     FieldExprList: SynExprRecordField list
+    LastFieldBlockSeparator: BlockSeparator option
     LastKnownGoodPosForSymbolLookup: Position
   }
 
@@ -98,14 +99,13 @@ type RecordStubsInsertionParams =
         return!
           match lastFieldInfo with
           | SynExprRecordField(expr = None) -> None
-          | SynExprRecordField(
-              fieldName = (SynLongIdent(id = _ :: _), true); expr = Some expr; blockSeparator = semiColonOpt) ->
-            match semiColonOpt with
+          | SynExprRecordField(fieldName = (SynLongIdent(id = _ :: _), true); expr = Some fieldExpr) ->
+            match expr.LastFieldBlockSeparator with
             | None ->
               {
                 Kind = PositionKind.AfterLastField
                 IndentColumn = indentColumn
-                InsertionPos = expr.Range.End
+                InsertionPos = fieldExpr.Range.End
               }
               |> Some
             | Some(_range, Some semiColonEndPos) ->
@@ -208,17 +208,29 @@ let tryFindRecordExprInBufferAtPos (codeGenService: ICodeGenerationService) (pos
       ||> ParsedInput.tryPick (fun _path node ->
         match node with
         | SyntaxNode.SynExpr(SynExpr.Record(recordFields = recordFields; copyInfo = copyInfo) as synExpr) ->
-          Some
-            {
-              Expr = synExpr
-              CopyExprOption = copyInfo
-              FieldExprList = recordFields
-              LastKnownGoodPosForSymbolLookup =
-                recordFields
-                |> List.tryLast
-                |> Option.map (fun (SynExprRecordField(fieldName = (id, _))) -> id.Range.Start)
-                |> Option.defaultValue synExpr.Range.Start
-            }
+          let fieldsAndSeparators =
+            recordFields
+            |> List.choose (function
+              | SynExprRecordFieldOrSpread.Field(field, blockSeparator) -> Some(field, blockSeparator)
+              | SynExprRecordFieldOrSpread.Spread _ -> None)
+
+          if fieldsAndSeparators.Length <> recordFields.Length then
+            None
+          else
+            let fields = List.map fst fieldsAndSeparators
+
+            Some
+              {
+                Expr = synExpr
+                CopyExprOption = copyInfo
+                FieldExprList = fields
+                LastFieldBlockSeparator = fieldsAndSeparators |> List.tryLast |> Option.bind snd
+                LastKnownGoodPosForSymbolLookup =
+                  fields
+                  |> List.tryLast
+                  |> Option.map (fun (SynExprRecordField(fieldName = (id, _))) -> id.Range.Start)
+                  |> Option.defaultValue synExpr.Range.Start
+              }
         | _ -> None)
 
     return found
@@ -233,19 +245,19 @@ let checkThatRecordExprEndsWithRBrace (codeGenService: ICodeGenerationService) (
       | _ ->
         let lastField = Seq.last expr.FieldExprList
 
-        match lastField with
-        | SynExprRecordField(blockSeparator = Some(semiColonRange, Some _semiColonEndPos)) ->
+        match lastField, expr.LastFieldBlockSeparator with
+        | _, Some(semiColonRange, Some _semiColonEndPos) ->
           // The last field ends with a ';'
           // Look here: { field = expr;<start> ... }<end>
           Some(Range.unionRanges semiColonRange.EndRange expr.Expr.Range.EndRange)
 
 
-        | SynExprRecordField(expr = Some fieldExpr) ->
+        | SynExprRecordField(expr = Some fieldExpr), _ ->
           // The last field doesn't end with a ';'
           // Look here: { field = expr<start> ... }<end>
           Some(Range.unionRanges fieldExpr.Range.EndRange expr.Expr.Range.EndRange)
 
-        | SynExprRecordField(expr = None) ->
+        | SynExprRecordField(expr = None), _ ->
           // We don't allow generation when the last field isn't assigned an expression
           None
 

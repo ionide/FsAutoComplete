@@ -2254,6 +2254,30 @@ let private generateRecordStubTests state =
       """
     ])
 
+let private generateRecordStubWithSpreadTests state =
+  let config =
+    { defaultConfigDto with
+        RecordStubGeneration = Some true
+        RecordStubGenerationBody = Some "failwith \"---\""
+        FSIExtraSharedParameters = Some [| "--langversion:11.0" |]
+    }
+
+  serverTestList $"{nameof GenerateRecordStub} with spread" state config None (fun server ->
+    [
+      testCaseAsync "does not generate record stubs for a record expression with a spread"
+      <| CodeFix.checkNotApplicable
+        server
+        """
+        type Source = { a: string }
+        type R = { a: string; b: int; c: int }
+
+        let source = { a = "" }
+        let r: R = { ...source; b = 1$0 }
+        """
+        (Diagnostics.expectCode "764")
+        (CodeFix.withTitle GenerateRecordStub.title)
+    ])
+
 let private generateUnionCasesTests state =
   let config =
     { defaultConfigDto with
@@ -3791,6 +3815,7 @@ let tests textFactory state =
       addPrivateAccessModifierTests state
       GenerateAbstractClassStubTests.tests state
       generateRecordStubTests state
+      generateRecordStubWithSpreadTests state
       generateUnionCasesTests state
       generateXmlDocumentationTests state
       ImplementInterfaceTests.tests state

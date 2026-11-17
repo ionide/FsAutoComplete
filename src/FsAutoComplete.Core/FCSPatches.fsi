@@ -28,3 +28,7 @@ module LanguageVersionShim =
 
 module SyntaxTreeOps =
   val synExprContainsError: SynExpr -> bool
+
+module RichTextShim =
+  /// Creates a RichText from tagged parts, as FCS has no public way to create one.
+  val ofTaggedTexts: parts: FSharp.Compiler.Text.TaggedText[] -> FSharp.Compiler.Text.RichText
