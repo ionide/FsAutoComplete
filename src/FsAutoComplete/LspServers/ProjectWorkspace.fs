@@ -113,7 +113,8 @@ module Snapshots =
     originalLoadReferences
     =
     let flattenASet (s: aset<aval<'a>>) = s |> ASet.mapA id |> ASet.toAVal |> AVal.map HashSet.toList
-    let flattenAList (s: alist<aval<'a>>) = s |> AList.mapA id |> AList.toAVal |> AVal.map IndexList.toList
+    let flattenASetToArray (s: aset<aval<'a>>) = s |> ASet.mapA id |> ASet.toAVal |> AVal.map HashSet.toArray
+    let flattenAList (s: alist<aval<'a>>) = s |> AList.mapA id |> AList.toAVal |> AVal.map IndexList.toArray
 
     makeAdaptiveFCSSnapshot
       projectFileName
@@ -122,7 +123,7 @@ module Snapshots =
       (flattenAList sourceFiles)
       (flattenASet referencePaths)
       (flattenASet otherOptions)
-      (flattenASet referencedProjects)
+      (flattenASetToArray referencedProjects)
       isIncompleteTypeCheckEnvironment
       useScriptResolutionRules
       loadTime

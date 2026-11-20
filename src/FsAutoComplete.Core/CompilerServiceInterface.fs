@@ -57,7 +57,10 @@ type CompilerProjectOption =
   member x.SourceFilesTagged =
     match x with
     | BackgroundCompiler(options) -> options.SourceFiles |> Array.map Utils.normalizePath |> Array.toList
-    | TransparentCompiler(snapshot) -> snapshot.SourceFiles |> List.map (fun f -> Utils.normalizePath f.FileName)
+    | TransparentCompiler(snapshot) ->
+      snapshot.SourceFiles
+      |> Array.map (fun f -> Utils.normalizePath f.FileName)
+      |> Array.toList
 
   member x.ReferencedProjectsPath =
     match x with
@@ -65,7 +68,10 @@ type CompilerProjectOption =
       options.ReferencedProjects
       |> Array.choose (fun p -> p.ProjectFilePath)
       |> Array.toList
-    | TransparentCompiler(snapshot) -> snapshot.ReferencedProjects |> List.choose (fun p -> p.ProjectFilePath)
+    | TransparentCompiler(snapshot) ->
+      snapshot.ReferencedProjects
+      |> Array.choose (fun p -> p.ProjectFilePath)
+      |> Array.toList
 
   member x.LoadTime =
     match x with
@@ -225,7 +231,7 @@ type FSharpCompilerServiceChecker
 
   /// ensures that any user-configured include/load files are added to the typechecking context
   let addLoadedFilesToSnapshot (snapshot: FSharpProjectSnapshot) =
-    let files = List.append fsiAdditionalFiles snapshot.SourceFiles
+    let files = Array.append (Array.ofList fsiAdditionalFiles) snapshot.SourceFiles
 
     optsLogger.info (
       Log.setMessage "Source file list is {files}"

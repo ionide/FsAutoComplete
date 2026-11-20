@@ -324,7 +324,7 @@ let snapshotTests loaders toolsPath =
                 )
 
               match console.ReferencedProjects with
-              | [ FSharpReferencedProjectSnapshot.PEReference(_, reader) ] ->
+              | [| FSharpReferencedProjectSnapshot.PEReference(_, reader) |] ->
                 Expect.equal
                   (Path.GetFileName reader.OutputFile)
                   "Library1.dll"
